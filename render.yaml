@@ -1,0 +1,56 @@
+# render.yaml — Render Blueprint for Career GPS (Monorepo)
+# This file tells Render how to deploy both services from a single GitHub repo.
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ─── 1. Backend: Node.js / Express API ───────────────────────────────────
+  - type: web
+    name: career-gps-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free          # change to "starter" ($7/mo) to avoid cold starts
+    autoDeploy: true    # redeploy automatically on every git push
+
+    envVars:
+      # These are placeholders — set real values in the Render dashboard
+      - key: PORT
+        value: 10000    # Render routes external traffic to this port internally
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false     # Mark as secret — set manually in Render dashboard
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: FRONTEND_URL
+        sync: false     # Set to Static Site URL after it is first deployed
+
+  # ─── 2. Frontend: React / Vite Static Site ────────────────────────────────
+  - type: web
+    name: career-gps-frontend
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    pullRequestPreviewsEnabled: true
+    autoDeploy: true
+
+    envVars:
+      - key: VITE_API_URL
+        sync: false     # Set to: https://career-gps-backend.onrender.com/api
+
+    routes:
+      # SPA catch-all: send all routes to index.html (React Router)
+      - type: rewrite
+        source: /*
+        destination: /index.html
