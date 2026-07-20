@@ -8,7 +8,7 @@ import { api } from '../../lib/api'
 const OTP_LENGTH = 6
 
 export default function OTPStep() {
-  const { email, setGateStep, setUserId, setPhase } = useAppStore()
+  const { email, setGateStep, setUserId, setPhase, devOtp } = useAppStore()
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))
   const [isError, setIsError] = useState(false)
   const [shaking, setShaking] = useState(false)
@@ -115,6 +115,17 @@ export default function OTPStep() {
         animate={shaking ? { x: [0, -8, 8, -6, 6, 0] } : {}}
         transition={{ duration: 0.4 }}
       >
+        {devOtp && (
+          <div className="mb-6 p-4 rounded-xl text-sm flex flex-col gap-1.5 text-amber-400 bg-amber-400/10 border border-amber-400/20 text-center">
+            <div className="font-semibold text-xs uppercase tracking-wider">⚠️ SMTP Delivery Failed (Server Limit)</div>
+            <div className="text-xs opacity-80">
+              Please use this bypass verification code:
+              <div className="font-bold text-lg tracking-wider mt-1 select-all underline text-white">
+                {devOtp}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Label for OTP inputs */}
         <label className="sr-only">One-Time Password Verification Code</label>
 

@@ -24,8 +24,14 @@ export default function EmailStep() {
 
   const mutation = useMutation({
     mutationFn: api.sendOtp,
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       setEmail(variables.email)
+      const setDevOtp = useAppStore.getState().setDevOtp
+      if (data?.dev_otp) {
+        setDevOtp(data.dev_otp)
+      } else {
+        setDevOtp('')
+      }
       setGateStep(GATE_STEPS.OTP)
     },
     onError: () => {

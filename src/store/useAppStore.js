@@ -41,6 +41,10 @@ const useAppStore = create((set) => ({
   reportData: null,
   setReportData: (reportData) => set({ reportData }),
 
+  // Dev OTP fallback
+  devOtp: '',
+  setDevOtp: (devOtp) => set({ devOtp }),
+
   // Reset
   reset: () =>
     set({
