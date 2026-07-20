@@ -1,8 +1,6 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import generateOTP from '../utils/generateOTP.js'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 // Send OTP
 export const sendOtp = async (req, res) => {
@@ -22,39 +20,45 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true }
     )
 
-    // Send via Resend SDK
-    try {
-      const { error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || 'Career GPS <onboarding@resend.dev>',
-        to: [email.toLowerCase().trim()],
-        subject: 'Your Career GPS Verification Code',
-        html: `
-          <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-            <h2 style="color: #10b981;">Career GPS</h2>
-            <p>Your Career GPS verification code is:</p>
-            <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
-              ${otp}
-            </div>
-            <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
+    // Nodemailer configuration with 10-second timeout parameters
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      connectionTimeout: 10000, // 10 seconds
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+    })
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || '"Career GPS" <noreply@careergps.com>',
+      to: email.toLowerCase().trim(),
+      subject: 'Your Career GPS Verification Code',
+      html: `
+        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+          <h2 style="color: #10b981;">Career GPS</h2>
+          <p>Your Career GPS verification code is:</p>
+          <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
+            ${otp}
           </div>
-        `,
-      })
+          <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
+        </div>
+      `,
+    }
 
-      if (error) {
-        console.error('[OTP] Resend returned error:', error)
-        return res.status(200).json({
-          message: 'Verification code generated successfully.',
-          dev_otp: otp,
-        })
-      }
-
+    try {
+      await transporter.sendMail(mailOptions)
       console.log(`[OTP] Sent verification code ${otp} to ${email}`)
       return res.status(200).json({ message: 'Verification code sent to your email.' })
     } catch (mailError) {
-      console.error('[OTP] Resend send failed:', mailError)
+      console.error('[OTP] SMTP send failed:', mailError)
       return res.status(200).json({
         message: 'Verification code generated successfully.',
-        dev_otp: otp,
+        dev_otp: otp, // Bypass OTP display fallback
       })
     }
   } catch (error) {

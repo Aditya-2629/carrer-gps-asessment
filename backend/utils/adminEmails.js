@@ -1,12 +1,27 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+  })
+}
+
 const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
-const FROM = process.env.RESEND_FROM || 'Career GPS <onboarding@resend.dev>'
 
 // 1. Send Admin Report Email
 export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeBuffer, resumeName) => {
   try {
+    const transporter = getTransporter()
+
     // Convert Answers to HTML table format
     let answersHtml = "<table style='width:100%; border-collapse:collapse; margin-bottom:20px; font-family: sans-serif; font-size: 13px;'>"
     answersHtml += "<tr style='background:#10b981; color:white;'><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Question</th><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Answer</th></tr>"
@@ -51,14 +66,9 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
       </div>
     `
 
-    // Build attachments array
-    const attachments = resumeBuffer
-      ? [{ filename: resumeName || 'Resume.pdf', content: resumeBuffer }]
-      : []
-
-    await resend.emails.send({
-      from: FROM,
-      to: [ADMIN_EMAIL],
+    const mailOptions = {
+      from: process.env.SMTP_FROM || `"Career GPS System" <${process.env.SMTP_USER}>`,
+      to: ADMIN_EMAIL,
       subject: `🚨 NEW ASSESSMENT: ${userEmail} completed Career GPS`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; background: #ffffff; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #f3f4f6; border-radius: 8px;">
@@ -72,9 +82,17 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
           <p style="font-size:12px; color:#9ca3af;">Resume is attached to this email if uploaded by the candidate.</p>
         </div>
       `,
-      attachments,
-    })
+      attachments: resumeBuffer
+        ? [
+            {
+              filename: resumeName || 'Resume.pdf',
+              content: resumeBuffer,
+            },
+          ]
+        : [],
+    }
 
+    await transporter.sendMail(mailOptions)
     console.log(`[Email] Admin notification sent successfully to ${ADMIN_EMAIL} for user ${userEmail}`)
   } catch (error) {
     console.error('[Email] Failed to send admin report email:', error)
@@ -84,9 +102,10 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
 // 2. Send Book Call Request Notification
 export const sendBookCallNotification = async (userEmail) => {
   try {
-    await resend.emails.send({
-      from: FROM,
-      to: [ADMIN_EMAIL],
+    const transporter = getTransporter()
+    const mailOptions = {
+      from: process.env.SMTP_FROM || `"Career GPS System" <${process.env.SMTP_USER}>`,
+      to: ADMIN_EMAIL,
       subject: `📞 BOOK CALL REQUEST: ${userEmail} wants to talk!`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; background: #fffbeb; color: #92400e; border: 1px solid #fef3c7; border-radius: 8px; max-width: 600px; margin: 0 auto;">
@@ -96,8 +115,9 @@ export const sendBookCallNotification = async (userEmail) => {
           <p style="font-size:13px; font-weight: bold; margin-top: 15px; color:#b45309;">Contact them immediately to convert this lead!</p>
         </div>
       `,
-    })
+    }
 
+    await transporter.sendMail(mailOptions)
     console.log(`[Email] Book Call notification sent successfully to ${ADMIN_EMAIL} for ${userEmail}`)
   } catch (error) {
     console.error('[Email] Failed to send book call notification:', error)
