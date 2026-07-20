@@ -19,39 +19,49 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true }
     )
 
-    // Call Brevo HTTP API
+    // Call Mailjet v3.1 API via fetch
     try {
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      const auth = Buffer.from(`${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`).toString('base64')
+      
+      const response = await fetch('https://api.mailjet.com/v3.1/send', {
         method: 'POST',
         headers: {
-          'accept': 'application/json',
-          'api-key': process.env.BREVO_API_KEY,
-          'content-type': 'application/json'
+          'Authorization': `Basic ${auth}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          sender: { 
-            name: 'Career GPS', 
-            email: process.env.BREVO_FROM || 'inspiracustomer@gmail.com' 
-          },
-          to: [{ email: email.toLowerCase().trim() }],
-          subject: 'Your Career GPS Verification Code',
-          htmlContent: `
-            <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-              <h2 style="color: #10b981;">Career GPS</h2>
-              <p>Your Career GPS verification code is:</p>
-              <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
-                ${otp}
-              </div>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
-            </div>
-          `
+          Messages: [
+            {
+              From: {
+                Email: process.env.MAILJET_FROM || 'inspiracustomer@gmail.com',
+                Name: 'Career GPS'
+              },
+              To: [
+                {
+                  Email: email.toLowerCase().trim(),
+                  Name: 'Candidate'
+                }
+              ],
+              Subject: 'Your Career GPS Verification Code',
+              HTMLPart: `
+                <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+                  <h2 style="color: #10b981;">Career GPS</h2>
+                  <p>Your Career GPS verification code is:</p>
+                  <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
+                    ${otp}
+                  </div>
+                  <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
+                </div>
+              `
+            }
+          ]
         })
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        console.error('[OTP] Brevo API error response:', result)
+        console.error('[OTP] Mailjet API error response:', result)
         return res.status(200).json({
           message: 'Verification code generated successfully.',
           dev_otp: otp, // Bypass fallback
@@ -61,7 +71,7 @@ export const sendOtp = async (req, res) => {
       console.log(`[OTP] Sent verification code ${otp} to ${email}`)
       return res.status(200).json({ message: 'Verification code sent to your email.' })
     } catch (apiError) {
-      console.error('[OTP] Brevo API request failed:', apiError)
+      console.error('[OTP] Mailjet API request failed:', apiError)
       return res.status(200).json({
         message: 'Verification code generated successfully.',
         dev_otp: otp,

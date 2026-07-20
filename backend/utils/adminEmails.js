@@ -1,35 +1,45 @@
 const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
 
-// Helper to send email via Brevo HTTP API
-const sendBrevoEmail = async ({ to, subject, htmlContent, attachments = [] }) => {
+// Helper to send email via Mailjet HTTP API v3.1
+const sendMailjetEmail = async ({ to, subject, htmlContent, attachments = [] }) => {
   try {
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    const auth = Buffer.from(`${process.env.MAILJET_API_KEY}:${process.env.MAILJET_SECRET_KEY}`).toString('base64')
+    
+    const response = await fetch('https://api.mailjet.com/v3.1/send', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
-        'content-type': 'application/json'
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        sender: { 
-          name: 'Career GPS System', 
-          email: process.env.BREVO_FROM || 'inspiracustomer@gmail.com' 
-        },
-        to: [{ email: to }],
-        subject,
-        htmlContent,
-        attachments
+        Messages: [
+          {
+            From: {
+              Email: process.env.MAILJET_FROM || 'inspiracustomer@gmail.com',
+              Name: 'Career GPS System'
+            },
+            To: [
+              {
+                Email: to,
+                Name: 'Admin/User'
+              }
+            ],
+            Subject: subject,
+            HTMLPart: htmlContent,
+            Attachments: attachments
+          }
+        ]
       })
     })
 
     const result = await response.json()
     if (!response.ok) {
-      console.error('[Brevo API] Failed to send email:', result)
+      console.error('[Mailjet API] Failed to send email:', result)
     } else {
-      console.log(`[Brevo API] Email sent successfully to ${to}. Message ID:`, result.messageId)
+      console.log(`[Mailjet API] Email sent successfully to ${to}.`)
     }
   } catch (error) {
-    console.error('[Brevo API] Request failed:', error)
+    console.error('[Mailjet API] Request failed:', error)
   }
 }
 
@@ -79,17 +89,18 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
     </div>
   `
 
-  // Format attachments for Brevo (Base64 encoding required)
+  // Format attachments for Mailjet (Base64 encoding required)
   const attachments = []
   if (resumeBuffer) {
     try {
       const base64Content = resumeBuffer.toString('base64')
       attachments.push({
-        name: resumeName || 'Resume.pdf',
-        content: base64Content
+        ContentType: 'application/octet-stream',
+        Filename: resumeName || 'Resume.pdf',
+        Base64Content: base64Content
       })
     } catch (err) {
-      console.error('[Brevo API] Failed to encode resume buffer to base64:', err)
+      console.error('[Mailjet API] Failed to encode resume buffer to base64:', err)
     }
   }
 
@@ -106,7 +117,7 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
     </div>
   `
 
-  await sendBrevoEmail({
+  await sendMailjetEmail({
     to: ADMIN_EMAIL,
     subject: `🚨 NEW ASSESSMENT: ${userEmail} completed Career GPS`,
     htmlContent,
@@ -125,7 +136,7 @@ export const sendBookCallNotification = async (userEmail) => {
     </div>
   `
 
-  await sendBrevoEmail({
+  await sendMailjetEmail({
     to: ADMIN_EMAIL,
     subject: `📞 BOOK CALL REQUEST: ${userEmail} wants to talk!`,
     htmlContent
