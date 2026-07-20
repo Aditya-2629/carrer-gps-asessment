@@ -1,3 +1,4 @@
+import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import generateOTP from '../utils/generateOTP.js'
 
@@ -19,52 +20,45 @@ export const sendOtp = async (req, res) => {
       { upsert: true, new: true }
     )
 
-    // Call Brevo HTTP API
+    // Nodemailer configuration with 10-second timeout parameters
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
+    })
+
+    const mailOptions = {
+      from: process.env.SMTP_FROM || '"Career GPS" <noreply@careergps.com>',
+      to: email.toLowerCase().trim(),
+      subject: 'Your Career GPS Verification Code',
+      html: `
+        <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+          <h2 style="color: #10b981;">Career GPS</h2>
+          <p>Your Career GPS verification code is:</p>
+          <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
+            ${otp}
+          </div>
+          <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
+        </div>
+      `,
+    }
+
     try {
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'api-key': process.env.BREVO_API_KEY,
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({
-          sender: { 
-            name: 'Career GPS', 
-            email: process.env.BREVO_FROM || 'inspiracustomer@gmail.com' 
-          },
-          to: [{ email: email.toLowerCase().trim() }],
-          subject: 'Your Career GPS Verification Code',
-          htmlContent: `
-            <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-              <h2 style="color: #10b981;">Career GPS</h2>
-              <p>Your Career GPS verification code is:</p>
-              <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
-                ${otp}
-              </div>
-              <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
-            </div>
-          `
-        })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        console.error('[OTP] Brevo API error response:', result)
-        return res.status(200).json({
-          message: 'Verification code generated successfully.',
-          dev_otp: otp, // Bypass fallback
-        })
-      }
-
+      await transporter.sendMail(mailOptions)
       console.log(`[OTP] Sent verification code ${otp} to ${email}`)
       return res.status(200).json({ message: 'Verification code sent to your email.' })
-    } catch (apiError) {
-      console.error('[OTP] Brevo API request failed:', apiError)
+    } catch (mailError) {
+      console.error('[OTP] SMTP send failed:', mailError)
       return res.status(200).json({
         message: 'Verification code generated successfully.',
-        dev_otp: otp,
+        dev_otp: otp, // Bypass OTP display fallback
       })
     }
   } catch (error) {
