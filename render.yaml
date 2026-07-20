@@ -24,15 +24,17 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: SMTP_HOST
-        value: smtp.gmail.com
+        value: smtp-relay.brevo.com
       - key: SMTP_PORT
         value: "587"
+      - key: SMTP_SECURE
+        value: "false"
       - key: SMTP_USER
-        sync: false
+        value: b2931d001@smtp-brevo.com
       - key: SMTP_PASS
-        sync: false
+        sync: false     # Set to your Brevo SMTP Key: xsmtpsib-xxxx
       - key: SMTP_FROM
-        sync: false
+        value: inspiracustomer@gmail.com
       - key: FRONTEND_URL
         sync: false # Set to Static Site URL after it is first deployed
 
