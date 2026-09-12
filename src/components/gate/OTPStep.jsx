@@ -100,14 +100,14 @@ export default function OTPStep() {
     <div>
       <div className="mb-6">
         <h2
-          className="text-xl font-bold mb-1"
-          style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.95)' }}
+          className="text-2xl font-bold mb-1 text-[var(--text-primary)]"
+          style={{ fontFamily: 'var(--font-head)' }}
         >
           Check your inbox
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem' }}>
+        <p className="text-[var(--text-secondary)] text-sm" style={{ fontFamily: 'var(--font-body)' }}>
           Enter the 6-digit code sent to{' '}
-          <span style={{ color: '#10b981', fontWeight: 500 }}>{email}</span>
+          <span className="text-[var(--primary)] font-semibold">{email}</span>
         </p>
       </div>
 
@@ -198,8 +198,7 @@ export default function OTPStep() {
       <div className="mt-5 text-center">
         <button
           onClick={() => setGateStep(GATE_STEPS.EMAIL)}
-          className="text-sm inline-flex items-center gap-1.5"
-          style={{ color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer' }}
+          className="text-sm inline-flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-0"
         >
           <ArrowLeft size={14} />
           <span>Use a different email</span>

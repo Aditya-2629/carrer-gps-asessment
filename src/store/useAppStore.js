@@ -41,6 +41,18 @@ const useAppStore = create((set) => ({
   reportData: null,
   setReportData: (reportData) => set({ reportData }),
 
+  // Theme ('light' | 'dark')
+  theme: 'light',
+  toggleTheme: () => set((state) => {
+    const next = state.theme === 'light' ? 'dark' : 'light'
+    if (next === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+    return { theme: next }
+  }),
+
   // Dev OTP fallback
   devOtp: '',
   setDevOtp: (devOtp) => set({ devOtp }),

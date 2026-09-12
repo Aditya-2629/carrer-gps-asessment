@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function RadioGroup({ value, onChange, onAutoAdvance, error, step }) {
@@ -32,12 +32,32 @@ export default function RadioGroup({ value, onChange, onAutoAdvance, error, step
     onChange(e.target.value)
   }
 
+  // Creative Interactivity: Number Key Shortcuts (1, 2, 3...)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+      const num = parseInt(e.key, 10)
+      if (!isNaN(num) && num >= 1 && num <= mainOptions.length) {
+        e.preventDefault()
+        handleSelect(mainOptions[num - 1])
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mainOptions])
+
   const isScrollable = step.options.length > 6
 
+  const isBinary = mainOptions.length === 2
+  const gridClass = isBinary
+    ? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+    : 'flex flex-col gap-2.5'
+
   const gridContent = (
-    <div className="flex flex-col gap-2" role="radiogroup" aria-label={step.label}>
-      {mainOptions.map((option) => {
+    <div className={gridClass} role="radiogroup" aria-label={step.label}>
+      {mainOptions.map((option, idx) => {
         const isSelected = value === option
+        const icon = step.optionIcons?.[option]
         return (
           <button
             key={option}
@@ -46,27 +66,43 @@ export default function RadioGroup({ value, onChange, onAutoAdvance, error, step
             role="radio"
             aria-checked={isSelected}
             onClick={() => handleSelect(option)}
-            className={`radio-option ${isSelected ? 'selected' : ''}`}
+            className={`radio-option group ${isSelected ? 'selected' : ''} ${
+              isBinary ? 'p-5 sm:p-6 flex-row sm:flex-col sm:items-start justify-start text-left' : ''
+            }`}
           >
-            <div className={`radio-dot ${isSelected ? 'border-emerald-500' : ''}`} aria-hidden="true">
-              <AnimatePresence>
-                {isSelected && (
-                  <motion.div
-                    className="radio-dot-inner"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                  />
-                )}
-              </AnimatePresence>
+            <div className="flex items-center gap-3 w-full">
+              <div className="radio-dot" aria-hidden="true">
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      className="radio-dot-inner"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {icon && (
+                <span className="text-xl sm:text-2xl select-none" aria-hidden="true">
+                  {icon}
+                </span>
+              )}
+
+              <span
+                className="text-sm sm:text-base leading-snug text-left font-semibold text-[var(--text-primary)] flex-1"
+              >
+                {option}
+              </span>
+
+              {idx < 9 && (
+                <span className="key-hint" aria-hidden="true">
+                  {idx + 1}
+                </span>
+              )}
             </div>
-            <span
-              className="text-sm leading-snug text-left font-medium"
-              style={{ color: isSelected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)' }}
-            >
-              {option}
-            </span>
           </button>
         )
       })}
@@ -82,25 +118,27 @@ export default function RadioGroup({ value, onChange, onAutoAdvance, error, step
           onClick={() => handleSelect('Other')}
           className={`radio-option ${showOther ? 'selected' : ''}`}
         >
-          <div className={`radio-dot`} aria-hidden="true">
-            <AnimatePresence>
-              {showOther && (
-                <motion.div
-                  className="radio-dot-inner"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                />
-              )}
-            </AnimatePresence>
+          <div className="flex items-center gap-3 w-full">
+            <div className="radio-dot" aria-hidden="true">
+              <AnimatePresence>
+                {showOther && (
+                  <motion.div
+                    className="radio-dot-inner"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+            <span className="text-xl sm:text-2xl select-none" aria-hidden="true">
+              🌐
+            </span>
+            <span className="text-sm sm:text-base font-semibold text-[var(--text-primary)] flex-1">
+              Other
+            </span>
           </div>
-          <span
-            className="text-sm font-medium"
-            style={{ color: showOther ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)' }}
-          >
-            Other
-          </span>
         </button>
       )}
     </div>

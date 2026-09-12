@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, DiceThree, Sparkle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import PhoneInput from '../ui/PhoneInput'
 import RadioGroup from '../ui/RadioGroup'
@@ -9,27 +9,50 @@ import TextInput from '../ui/TextInput'
 import TextareaInput from '../ui/TextareaInput'
 import FileUpload from '../ui/FileUpload'
 import NumberNAInput from '../ui/NumberNAInput'
+import QuantitativeInput from '../ui/QuantitativeInput'
+import { getRandomAnswerForStep } from '../../lib/randomQuizFiller'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
   const { formData, setFormData } = useAppStore()
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
+  const [randomRolling, setRandomRolling] = useState(false)
+  const [activeReaction, setActiveReaction] = useState(null)
 
   const currentValue = formData[step.name]
+
+  useEffect(() => {
+    setActiveReaction(null)
+  }, [step.id])
 
   const triggerError = useCallback((msg) => {
     setError(msg)
     setShaking(true)
-    setTimeout(() => setShaking(false), 500)
+    setTimeout(() => setShaking(false), 400)
   }, [])
 
   const handleValue = useCallback(
     (value) => {
       setFormData(step.name, value)
       setError('')
+      if (step.reaction?.[value]) {
+        setActiveReaction(step.reaction[value])
+      }
     },
-    [step.name, setFormData]
+    [step, setFormData]
   )
+
+  const handleRandomPick = useCallback(() => {
+    setRandomRolling(true)
+    const randomVal = getRandomAnswerForStep(step)
+    handleValue(randomVal)
+    setTimeout(() => {
+      setRandomRolling(false)
+      if (step.type === 'radio' && step.autoAdvance) {
+        onNext()
+      }
+    }, 250)
+  }, [step, handleValue, onNext])
 
   const validate = useCallback(() => {
     if (!step.required) return true
@@ -37,6 +60,18 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     if (val === undefined || val === null || val === '') {
       triggerError('This field is required.')
       return false
+    }
+    if (step.type === 'quantitative') {
+      if (typeof val === 'object') {
+        if (val.is_na) return true
+        if (val.raw === undefined || val.raw === null || String(val.raw).trim() === '') {
+          triggerError('Please enter a number or select N/A.')
+          return false
+        }
+      } else if (String(val).trim() === '') {
+        triggerError('Please enter a number or select N/A.')
+        return false
+      }
     }
     if (Array.isArray(val) && val.length === 0) {
       triggerError('Please select at least one option.')
@@ -66,55 +101,104 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     (value) => {
       setFormData(step.name, value)
       setError('')
-      setTimeout(() => onNext(), 300)
+      const reaction = step.reaction?.[value]
+      if (reaction) {
+        setActiveReaction(reaction)
+        setTimeout(() => onNext(), 380)
+      } else {
+        setTimeout(() => onNext(), 220)
+      }
     },
-    [step.name, setFormData, onNext]
+    [step, setFormData, onNext]
   )
 
   const isAutoAdvanceRadio = step.type === 'radio' && step.autoAdvance
 
   return (
-    <div>
-      {/* Question Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-7"
-      >
-        {/* Step badge */}
-        <div
-          className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full text-xs font-medium"
-          style={{
-            background: 'rgba(16,185,129,0.09)',
-            border: '1px solid rgba(16,185,129,0.18)',
-            color: '#10b981',
-            fontFamily: 'Space Grotesk, sans-serif',
-          }}
-          aria-label={`Question ${step.id} of 31`}
-        >
-          {step.id} of 31
+    <div className="quiz-card p-6 sm:p-8 relative">
+      {/* Chapter & Journey Tracker */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          {step.chapter && (
+            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--primary)]">
+              <span className="text-lg select-none">{step.icon || '🧭'}</span>
+              <span>{step.chapter}</span>
+            </div>
+          )}
+          {step.sceneTitle && (
+            <span className="px-2.5 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[11px] text-[var(--text-secondary)] font-medium border border-[var(--border-default)]">
+              {step.sceneTitle}
+            </span>
+          )}
+          {step.kicker && (
+            <span className="px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[10px] text-[var(--primary)] font-mono border border-[var(--primary)]/20">
+              {step.kicker}
+            </span>
+          )}
         </div>
 
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Step badge */}
+          <div
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)]"
+            aria-label={`Question ${step.id} of 31`}
+          >
+            Question {step.id} / 31
+          </div>
+
+          {/* Quick Random Choice */}
+          <button
+            type="button"
+            onClick={handleRandomPick}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer ${
+              randomRolling ? 'scale-95 bg-[var(--surface-strong)] text-[var(--primary)]' : ''
+            }`}
+            title="Randomly pick an option for this question"
+          >
+            <DiceThree size={14} className={randomRolling ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Random Pick</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Question Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-6"
+      >
         <h2
-          className="text-2xl sm:text-[1.75rem] font-bold leading-tight mb-2.5"
-          style={{
-            fontFamily: 'Space Grotesk, sans-serif',
-            letterSpacing: '-0.025em',
-            color: 'rgba(255,255,255,0.94)',
-          }}
+          className="text-xl sm:text-2xl font-bold leading-snug mb-2 text-[var(--text-primary)]"
+          style={{ letterSpacing: '-0.02em' }}
         >
           {step.label}
         </h2>
 
         {step.sublabel && (
           <p
-            className="text-sm leading-relaxed"
-            style={{ color: 'rgba(255,255,255,0.38)', maxWidth: '52ch' }}
+            className="text-sm leading-relaxed text-[var(--text-muted)]"
+            style={{ maxWidth: '58ch' }}
           >
             {step.sublabel}
           </p>
         )}
+
+        {/* Interactive Micro Reaction */}
+        <AnimatePresence>
+          {(activeReaction || (step.reaction && step.reaction[currentValue])) && (
+            <motion.div
+              initial={{ opacity: 0, y: -4, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -4, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="mt-3 px-3 py-1.5 rounded-full bg-[var(--primary-light)] border border-[var(--primary)]/30 text-xs font-semibold text-[var(--primary)] inline-flex items-center gap-2 shadow-sm"
+            >
+              <Sparkle size={14} weight="fill" className="text-[var(--primary)] shrink-0 animate-pulse" />
+              <span>{activeReaction || step.reaction[currentValue]}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Input */}
@@ -148,6 +232,9 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         )}
         {step.type === 'input-na' && (
           <NumberNAInput value={currentValue} onChange={handleValue} error={error} step={step} onNext={handleNext} />
+        )}
+        {step.type === 'quantitative' && (
+          <QuantitativeInput value={currentValue} onChange={handleValue} error={error} step={step} onNext={handleNext} />
         )}
 
         {/* Error */}

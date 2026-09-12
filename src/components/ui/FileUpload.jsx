@@ -78,7 +78,7 @@ export default function FileUpload({ value, onChange, error, step }) {
                   <CheckCircle size={16} weight="fill" />
                   <span>{value.name}</span>
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                <p className="text-xs mt-1 text-[var(--text-muted)]">
                   {(value.size / 1024 / 1024).toFixed(2)} MB — Click to replace
                 </p>
               </div>
@@ -91,17 +91,17 @@ export default function FileUpload({ value, onChange, error, step }) {
               className="flex flex-col items-center gap-3"
             >
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.35)' }}
+                className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
+                style={{ background: 'var(--surface-strong)', color: 'var(--primary)', border: '1.5px solid var(--border-default)' }}
               >
                 <UploadSimple size={28} />
               </div>
               <div className="text-center">
-                <p className="font-medium text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <p className="font-medium text-sm text-[var(--text-primary)]">
                   Drop your resume here, or{' '}
-                  <span style={{ color: '#10b981' }}>browse</span>
+                  <span className="text-[var(--primary)] font-semibold underline decoration-[var(--primary)]/40">browse</span>
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                <p className="text-xs mt-1 text-[var(--text-muted)]">
                   PDF or Word · Max {step.maxSizeMB}MB
                 </p>
               </div>

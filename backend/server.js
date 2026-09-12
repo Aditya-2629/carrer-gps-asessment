@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import mongoose from 'mongoose'
 import otpRoutes from './routes/otpRoutes.js'
 import assessmentRoutes from './routes/assessmentRoutes.js'
+import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes.js'
 
 // Load environment variables
 dotenv.config()
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 5000
 // CORS — allow the deployed Render frontend + localhost for development
 const allowedOrigins = [
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:4173',
   process.env.FRONTEND_URL,
 ].filter(Boolean)
@@ -30,12 +32,15 @@ app.use(cors({
       (allowed) => allowed.replace(/\/$/, '') === normalizedOrigin
     )
     
+    // Resilient fallback: Allow local development on any localhost or 127.0.0.1 port
+    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)
+
     // Resilient fallback: Allow any Render subdomain of yours containing 'carrer-gps'
     const isRenderFallback =
       normalizedOrigin.includes('carrer-gps') &&
       normalizedOrigin.includes('onrender.com')
 
-    if (isAllowed || isRenderFallback) {
+    if (isAllowed || isLocalhost || isRenderFallback) {
       return callback(null, true)
     }
     
@@ -48,6 +53,7 @@ app.use(express.json())
 // Mount routes
 app.use('/api/otp', otpRoutes)
 app.use('/api/assessment', assessmentRoutes)
+app.use('/api/knowledge-base', knowledgeBaseRoutes)
 
 // Health Check
 app.get('/health', (req, res) => {

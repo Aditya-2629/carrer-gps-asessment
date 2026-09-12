@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    semanticProfile: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     aiReport: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
@@ -31,6 +35,18 @@ const userSchema = new mongoose.Schema(
     },
     resumeName: {
       type: String,
+      default: null,
+    },
+    resumeJson: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    linkedinUrl: {
+      type: String,
+      default: null,
+    },
+    linkedinData: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
   },

@@ -46,12 +46,12 @@ export default function EmailStep() {
     <div>
       <div className="mb-6">
         <h2
-          className="text-xl font-bold mb-1.5"
-          style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.95)' }}
+          className="text-2xl font-bold mb-1.5 text-[var(--text-primary)]"
+          style={{ fontFamily: 'var(--font-head)' }}
         >
           Your Career GPS is ready!
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', lineHeight: '1.5' }}>
+        <p className="text-[var(--text-secondary)] text-sm leading-relaxed" style={{ fontFamily: 'var(--font-body)' }}>
           Enter your email to unlock your personalized AI analysis.
         </p>
       </div>
@@ -65,7 +65,7 @@ export default function EmailStep() {
           <div className="mb-4 flex flex-col gap-2">
             <label
               htmlFor="email-input"
-              className="text-xs font-semibold tracking-wider text-[rgba(255,255,255,0.5)] uppercase"
+              className="text-xs font-semibold tracking-wider text-[var(--text-tertiary)] uppercase"
             >
               Email Address
             </label>

@@ -7,24 +7,36 @@ import {
   MapTrifold,
   Wrench,
   CalendarBlank,
+  Sun,
+  Moon,
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
-import HeroScore from './HeroScore'
-import ScoreCards from './ScoreCards'
-import CriticalIssues from './CriticalIssues'
-import RoadmapTimeline from './RoadmapTimeline'
-import ToolStack from './ToolStack'
 
-// Mock report for when API isn't available
+// Import 8 Slide Components matching the exact Career Intelligence Report layout
+import ReportHeaderCard from './ReportHeaderCard'
+import CareerJourneyPhases from './CareerJourneyPhases'
+import CareerHealthBreakdown from './CareerHealthBreakdown'
+import FunnelLeakDiagram from './FunnelLeakDiagram'
+import RejectionDonutChart from './RejectionDonutChart'
+import RiskHeatMap from './RiskHeatMap'
+import MissionBoard from './MissionBoard'
+import GoalRoadmapPath from './GoalRoadmapPath'
+
+import CriticalIssues from './CriticalIssues'
+import ToolStack from './ToolStack'
+import ResumeAIBreakdown from './ResumeAIBreakdown'
+import brandLogo from '../../assets/images/crafture-logo.jpg'
+
+// Fallback report structure
 const MOCK_REPORT = {
-  career_health_score: 62,
-  score_label: 'Survival Mode',
+  career_health_score: 41,
+  score_label: 'Emerging',
   scores: {
-    resume: { score: 58, diagnosis: 'Lacks quantitative metrics and context keywords.' },
-    linkedin: { score: 71, diagnosis: 'Decent profile completeness but low weekly networking activity.' },
-    outreach: { score: 45, diagnosis: 'Outreach volume is critically low, relying mostly on applications.' },
-    interview: { score: 74, diagnosis: 'Good mock interview performance, needs structure for behavioral stories.' }
+    resume: { score: 34, diagnosis: 'Lacks quantitative metrics and ATS context keywords.' },
+    linkedin: { score: 38, diagnosis: 'Decent profile completeness but low weekly networking activity.' },
+    outreach: { score: 22, diagnosis: 'Outreach volume is critically low, relying mostly on applications.' },
+    interview: { score: 42, diagnosis: 'Good mock interview performance, needs structure for behavioral stories.' }
   },
   market_reality_check: {
     headline: 'U.S. IT Layoff Winter: You Must Be Visible To Survive',
@@ -63,10 +75,10 @@ const MOCK_REPORT = {
     },
   ],
   roadmap: [
-    { week: 1, title: 'Foundation Sprint', tasks: ['ATS-optimize your resume for top 3 target roles', 'Complete LinkedIn profile to 100% (All-Star status)', 'Build a list of 50 target companies', 'Set up job alert automations on LinkedIn & Indeed'] },
-    { week: 2, title: 'Outreach Blitz', tasks: ['Send 20 personalized cold emails to recruiters daily', 'Connect with 10 alumni at target companies', 'Request 2 informational interviews', 'Join 3 niche Slack/Discord job search communities'] },
-    { week: 3, title: 'Interview Mastery', tasks: ['Complete 3 mock interviews (behavioral + technical)', 'Prepare STAR stories for top 10 interview questions', 'Research salary benchmarks with Levels.fyi & Glassdoor', 'Practice live coding on LeetCode (Easy-Medium)'] },
-    { week: 4, title: 'Pipeline Acceleration', tasks: ['Follow up on all pending applications (email template)', 'Apply to 15 stretch roles and 15 target roles', 'Request LinkedIn recommendations from 2 former colleagues', 'Schedule a mock negotiation session'] },
+    { week: 'Week 1', title: 'Foundation Sprint', tasks: ['ATS-optimize your resume for top 3 target roles', 'Complete LinkedIn profile to 100% (All-Star status)', 'Build a list of 50 target companies', 'Set up job alert automations on LinkedIn & Indeed'] },
+    { week: 'Week 2', title: 'Outreach Blitz', tasks: ['Send 20 personalized cold emails to recruiters daily', 'Connect with 10 alumni at target companies', 'Request 2 informational interviews', 'Join 3 niche Slack/Discord job search communities'] },
+    { week: 'Week 3', title: 'Interview Mastery', tasks: ['Complete 3 mock interviews (behavioral + technical)', 'Prepare STAR stories for top 10 interview questions', 'Research salary benchmarks with Levels.fyi & Glassdoor', 'Practice live coding on LeetCode (Easy-Medium)'] },
+    { week: 'Week 4', title: 'Pipeline Acceleration', tasks: ['Follow up on all pending applications (email template)', 'Apply to 15 stretch roles and 15 target roles', 'Request LinkedIn recommendations from 2 former colleagues', 'Schedule a mock negotiation session'] },
   ],
   recommended_tools: [
     { name: 'Jobscan', category: 'ATS Resume Scanner', url: 'https://jobscan.co', icon: '🎯' },
@@ -79,7 +91,7 @@ const MOCK_REPORT = {
   coach_intervention: {
     urgency_statement: 'Self-guided job search duration currently averages 6-9 months in the current climate.',
     value_prop: 'Consulting with a recruiter partner cuts search times in half by matching you to unlisted direct channels.',
-    cta_text: 'Book Free Survival Strategy Call'
+    cta_text: 'Book Free Strategy Call'
   },
   summary: 'Your job search has a strong application volume but a critical conversion gap. Prioritize resume quality over quantity, activate your network, and introduce structured outreach to 3x your interview rate.',
 }
@@ -87,6 +99,8 @@ const MOCK_REPORT = {
 export default function ReportDashboard() {
   const reportData = useAppStore((s) => s.reportData) || MOCK_REPORT
   const email = useAppStore((s) => s.email)
+  const theme = useAppStore((s) => s.theme)
+  const toggleTheme = useAppStore((s) => s.toggleTheme)
   const containerRef = useRef(null)
 
   const handleBookCall = async () => {
@@ -115,142 +129,145 @@ export default function ReportDashboard() {
   }, [])
 
   return (
-    <div ref={containerRef} className="min-h-screen">
-      {/* Header */}
+    <div ref={containerRef} className="min-h-screen pb-16 bg-[var(--surface-base)] text-[var(--text-primary)]">
+      {/* Sticky Header */}
       <header
         role="banner"
-        className="sticky top-0 z-50 px-4 py-4 gsap-reveal"
-        style={{ background: 'rgba(5,5,5,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+        className="sticky top-0 z-50 px-4 py-4 gsap-reveal bg-[var(--surface-base)] border-b border-[var(--border-default)] backdrop-blur-md"
       >
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)' }}
-            >
-              <NavigationArrow size={14} weight="fill" style={{ color: '#10b981' }} />
-            </div>
-            <span style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
-              Career GPS Report
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img
+              src={brandLogo}
+              alt="Career GPS"
+              className="w-8 h-8 rounded-lg shadow-sm object-cover border border-[var(--border-default)]"
+            />
+            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, letterSpacing: '-0.02em' }} className="text-base sm:text-lg text-[var(--text-primary)]">
+              CAREER <span className="text-[var(--primary)]">GPS™</span> <span className="text-[var(--text-muted)] font-semibold text-xs sm:text-sm tracking-wider uppercase ml-1">INTELLIGENCE REPORT</span>
             </span>
           </div>
-          <div
-            className="px-3 py-1 rounded-full text-xs font-medium"
-            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981' }}
-          >
-            AI-Generated
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => useAppStore.getState().setPhase(PHASES.ASSESSMENT)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Return to assessment to re-test or edit inputs"
+            >
+              <span>⚡ Retest / Edit Assessment</span>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer"
+              title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
+              aria-label="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={16} weight="bold" /> : <Moon size={16} weight="bold" />}
+            </button>
+            <div
+              className="hidden sm:block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-[var(--emerald-bg)] border border-[var(--border-default)] text-[var(--emerald)]"
+            >
+              Confidential Report
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-10 space-y-10">
-        {/* Summary */}
-        <section className="gsap-reveal glass p-6 rounded-2xl" aria-label="Executive Summary">
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+        {/* SLIDE 01: Cover Header & Candidate Context Card */}
+        <section className="gsap-reveal">
+          <ReportHeaderCard candidateData={reportData.resume_json} />
+        </section>
+
+        {/* Executive Summary */}
+        <section className="gsap-reveal quiz-card p-6 border border-emerald-500/20 bg-emerald-500/5">
           <div className="flex gap-3">
-            <FileText size={20} className="shrink-0 text-emerald-500 mt-0.5" />
-            <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              <span className="font-semibold text-emerald-500">Executive Summary — </span>
+            <FileText size={22} className="shrink-0 text-[var(--emerald)] mt-0.5" />
+            <p className="text-sm leading-relaxed text-[var(--text-primary)]">
+              <strong className="text-[var(--emerald)] font-bold uppercase tracking-wider font-mono">Executive Summary — </strong>
               {reportData.summary}
             </p>
           </div>
         </section>
 
-        {/* Hero Score + Score Cards */}
-        <section className="gsap-reveal" aria-label="Career Health Score Overview">
-          <HeroScore score={reportData.career_health_score} scoreLabel={reportData.score_label} />
+        {/* SLIDE 02: Where Am I In My Career Journey? (Phases Pipeline) */}
+        <section className="gsap-reveal">
+          <CareerJourneyPhases data={reportData.career_journey} />
         </section>
 
-        <section className="gsap-reveal" aria-label="Detailed Scores">
-          <ScoreCards scores={reportData.scores} />
+        {/* SLIDE 03: Career Health Dashboard (Circular Gauge + 10 Metrics) */}
+        <section className="gsap-reveal">
+          <CareerHealthBreakdown
+            healthScore={reportData.career_health_score}
+            scoreLabel={reportData.score_label}
+            scores={reportData.scores}
+          />
         </section>
 
-        {/* Market Reality Check */}
-        {reportData.market_reality_check && (
-          <section className="gsap-reveal glass p-6 rounded-2xl border-red-500/10" style={{ background: 'rgba(239,68,68,0.02)' }} aria-labelledby="reality-check-title">
-            <div className="flex items-center gap-2.5 mb-4 text-red-500">
-              <Warning size={20} weight="bold" />
-              <h2
-                id="reality-check-title"
-                className="text-lg font-bold tracking-tight"
-                style={{ fontFamily: 'Space Grotesk, sans-serif' }}
-              >
-                {reportData.market_reality_check.headline || 'Market Reality Check'}
-              </h2>
-            </div>
-            <div className="space-y-4">
-              <ul className="space-y-3 list-none pl-0">
-                {(reportData.market_reality_check.brutal_facts || []).map((fact, idx) => (
-                  <li key={idx} className="text-sm text-white/70 flex items-start gap-2.5">
-                    <span className="text-red-500 font-bold shrink-0 mt-0.5">•</span>
-                    <span className="leading-relaxed">{fact}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6 pt-4 border-t border-white/5">
-                <div>
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Application Velocity Requirements</h4>
-                  <p className="text-xs text-white/60 leading-relaxed">{reportData.market_reality_check.application_velocity}</p>
-                </div>
-                <div>
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Resume Blackhole Risk</h4>
-                  <p className="text-xs text-white/60 leading-relaxed">{reportData.market_reality_check.resume_blackhole}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+        {/* AI Resume JSON Breakdown & Text Assistant */}
+        <section className="gsap-reveal">
+          <ResumeAIBreakdown resumeJsonData={reportData.resume_json} />
+        </section>
 
-        {/* Critical Issues */}
-        <section className="gsap-reveal" aria-labelledby="critical-issues-title">
+        {/* SLIDE 04: Where Am I Losing Interviews? (Inverted Funnel Diagram) */}
+        <section className="gsap-reveal">
+          <FunnelLeakDiagram data={reportData.funnel_stages} />
+        </section>
+
+        {/* SLIDE 05: Why Am I Not Getting Hired? (Rejection Factor Donut Chart) */}
+        <section className="gsap-reveal">
+          <RejectionDonutChart factors={reportData.rejection_factors} insight={reportData.rejection_insight} />
+        </section>
+
+        {/* SLIDE 06: Career Risk Heat Map (2x2 Matrix Grid) */}
+        <section className="gsap-reveal">
+          <RiskHeatMap data={reportData.risk_heatmap} />
+        </section>
+
+        {/* SLIDE 07: Top 10 Priorities (Your Mission Board + XP Level) */}
+        <section className="gsap-reveal">
+          <MissionBoard data={reportData.mission_board} />
+        </section>
+
+        {/* SLIDE 08: Your Roadmap To The Goal (4-Phase Pathway) */}
+        <section className="gsap-reveal">
+          <GoalRoadmapPath data={reportData.roadmap} currentPhaseId={reportData.career_journey?.current_phase_id} />
+        </section>
+
+        {/* Critical Issues Identified */}
+        <section className="gsap-reveal">
           <h2
-            id="critical-issues-title"
-            className="text-xl font-bold mb-5 flex items-center gap-2.5"
-            style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.9)' }}
+            className="text-xl font-bold mb-5 flex items-center gap-2.5 text-[var(--text-primary)]"
+            style={{ fontFamily: 'var(--font-head)' }}
           >
-            <Warning size={20} className="text-amber-500" />
-            <span>Critical Issues Identified</span>
+            <Warning size={22} className="text-amber-500" />
+            <span>Critical Bottlenecks Identified</span>
           </h2>
           <CriticalIssues issues={reportData.critical_issues} />
         </section>
 
-        {/* Roadmap */}
-        <section className="gsap-reveal" aria-labelledby="roadmap-title">
+        {/* Recommended Tool Stack */}
+        <section className="gsap-reveal">
           <h2
-            id="roadmap-title"
-            className="text-xl font-bold mb-5 flex items-center gap-2.5"
-            style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.9)' }}
+            className="text-xl font-bold mb-5 flex items-center gap-2.5 text-[var(--text-primary)]"
+            style={{ fontFamily: 'var(--font-head)' }}
           >
-            <MapTrifold size={20} className="text-emerald-500" />
-            <span>Your 4-Week Action Roadmap</span>
-          </h2>
-          <RoadmapTimeline weeks={reportData.roadmap} />
-        </section>
-
-        {/* Tools */}
-        <section className="gsap-reveal" aria-labelledby="tools-title">
-          <h2
-            id="tools-title"
-            className="text-xl font-bold mb-5 flex items-center gap-2.5"
-            style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.9)' }}
-          >
-            <Wrench size={20} className="text-emerald-500" />
+            <Wrench size={22} className="text-[var(--emerald)]" />
             <span>Recommended Tool Stack</span>
           </h2>
           <ToolStack tools={reportData.recommended_tools} />
         </section>
 
-        {/* CTA */}
-        <section className="gsap-reveal glass p-8 rounded-2xl text-center emerald-glow" aria-label="Book a strategy call">
-          <h3 className="text-2xl font-bold mb-3 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Ready to accelerate your job search?
+        {/* Free Strategy Call CTA */}
+        <section className="gsap-reveal quiz-card p-8 text-center">
+          <h3 className="text-2xl font-bold mb-3 text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+            Ready to fix these gaps & land your dream offer?
           </h3>
           {reportData.coach_intervention && (
-            <div className="mb-6 max-w-xl mx-auto space-y-3">
-              <p className="text-sm font-semibold text-emerald-400">
+            <div className="mb-6 max-w-xl mx-auto space-y-2">
+              <p className="text-sm font-semibold text-[var(--primary)]">
                 {reportData.coach_intervention.urgency_statement}
               </p>
-              <p className="text-xs text-white/60 leading-relaxed">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 {reportData.coach_intervention.value_prop}
               </p>
             </div>
@@ -260,16 +277,13 @@ export default function ReportDashboard() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleBookCall}
-            className="btn-primary text-base px-8 py-4 no-underline"
+            className="btn-primary text-base px-8 py-4 no-underline inline-flex items-center gap-2"
           >
-            <CalendarBlank size={18} weight="bold" />
+            <CalendarBlank size={20} weight="bold" />
             <span>{reportData.coach_intervention?.cta_text || 'Book Free Strategy Call'}</span>
           </a>
         </section>
-
-        <div className="pb-8" />
       </main>
     </div>
   )
 }
-

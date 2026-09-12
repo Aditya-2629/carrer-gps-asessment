@@ -40,6 +40,12 @@ export default function NumberNAInput({ value, onChange, error, step, onNext }) 
     }
   }
 
+  const handlePresetClick = (preset) => {
+    setChecked(false)
+    setInputVal(preset)
+    onChange(preset)
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <input
@@ -56,21 +62,42 @@ export default function NumberNAInput({ value, onChange, error, step, onNext }) 
         aria-invalid={!!error}
       />
 
+      {/* Preset shortcuts */}
+      {step.presets && step.presets.length > 0 && !checked && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[var(--text-muted)] mr-1">Quick Select:</span>
+          {step.presets.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => handlePresetClick(p)}
+              className={`text-xs px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
+                inputVal === p
+                  ? 'bg-[var(--primary)] text-white border-[var(--primary)] font-semibold'
+                  : 'bg-[var(--surface-sunken)] border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-secondary)]'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* N/A Toggle Checkbox Button */}
       <button
         type="button"
         id={`na-toggle-${step.id}`}
         onClick={handleNAToggle}
-        className="na-toggle w-fit"
+        className="na-toggle w-fit flex items-center gap-2.5 px-3 py-2 rounded-lg border border-[var(--border-default)] bg-[var(--surface-sunken)] hover:border-[var(--border-strong)] transition-all cursor-pointer"
         aria-pressed={checked}
         aria-label={step.naLabel}
       >
         <div
-          className="w-5 h-5 rounded-md flex items-center justify-center transition-all duration-150 flex-shrink-0"
-          style={{
-            background: checked ? '#10b981' : 'rgba(255,255,255,0.05)',
-            border: checked ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.15)',
-          }}
+          className={`w-4 h-4 rounded flex items-center justify-center transition-all duration-150 flex-shrink-0 ${
+            checked
+              ? 'bg-[var(--primary)] border border-[var(--primary)] text-white'
+              : 'border border-[var(--border-strong)] bg-transparent'
+          }`}
         >
           <AnimatePresence>
             {checked && (
@@ -78,14 +105,13 @@ export default function NumberNAInput({ value, onChange, error, step, onNext }) 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                style={{ color: '#050505' }}
               >
-                <Check size={12} weight="bold" />
+                <Check size={11} weight="bold" />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-        <span className="text-sm" style={{ color: checked ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)' }}>
+        <span className={`text-xs font-medium select-none ${checked ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
           {step.naLabel}
         </span>
       </button>

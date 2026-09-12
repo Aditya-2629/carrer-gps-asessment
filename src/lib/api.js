@@ -1,5 +1,6 @@
 // ─── Live API Layer connected to Node.js Backend ───
 import axios from 'axios'
+import { buildSemanticAssessmentPayload } from './assessmentSteps'
 
 // Reads VITE_API_URL from environment at build time.
 // In development: falls back to localhost:5000
@@ -37,7 +38,10 @@ export const api = {
   // POST /api/assessment/generate-report
   generateReport: async ({ userId, formData }) => {
     try {
-      // 1. Build multipart/form-data to support Multer resume upload
+      // 1. Build Layer-2 AI Semantic Assessment Profile
+      const semanticProfile = buildSemanticAssessmentPayload(formData)
+
+      // 2. Build multipart/form-data to support Multer resume upload
       const allAnswers = { ...formData }
       
       // Safe extraction of the resume File object from react-hook-form value
@@ -58,19 +62,20 @@ export const api = {
       const bodyFormData = new FormData()
       bodyFormData.append('userId', userId)
       bodyFormData.append('answers', JSON.stringify(allAnswers))
+      bodyFormData.append('semanticProfile', JSON.stringify(semanticProfile))
       if (resumeFile) {
         bodyFormData.append('resume', resumeFile)
       }
 
-      // Save answers with multipart/form-data
+      // Save answers & AI-semantic profile with multipart/form-data
       await client.post('/assessment/save-answers', bodyFormData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
 
-      // 2. Generate report from Gemini
-      const res = await client.post('/assessment/generate-report', { userId })
+      // 3. Generate report from Gemini with semantic profile
+      const res = await client.post('/assessment/generate-report', { userId, semanticProfile })
       const data = res.data
 
       // Normalize backend Schema to UI expectations
@@ -137,12 +142,30 @@ export const api = {
           }
         }),
         coach_intervention: data.coach_intervention ?? null,
+        career_journey: data.career_journey ?? null,
+        funnel_stages: data.funnel_stages ?? null,
+        rejection_factors: data.rejection_factors ?? null,
+        rejection_insight: data.rejection_insight ?? null,
+        risk_heatmap: data.risk_heatmap ?? null,
+        mission_board: data.mission_board ?? null,
+        resume_json: data.resume_json ?? null,
+        linkedin_json: data.linkedin_json ?? null,
         summary: 'Your custom AI assessment report has been successfully generated and compiled based on your 31 answers.',
       }
 
       return normalized
     } catch (err) {
       throw new Error(err.response?.data?.message || 'Failed to generate AI report.')
+    }
+  },
+
+  // POST /api/assessment/resume-talk
+  askResumeAI: async ({ userId, question }) => {
+    try {
+      const res = await client.post('/assessment/resume-talk', { userId, question })
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to talk with AI Resume Coach.')
     }
   },
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check } from '@phosphor-icons/react'
 
@@ -42,12 +42,27 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
     }
   }
 
+  // Creative Interactivity: Number Key Shortcuts (1, 2, 3...)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+      const num = parseInt(e.key, 10)
+      if (!isNaN(num) && num >= 1 && num <= mainOptions.length) {
+        e.preventDefault()
+        toggleOption(mainOptions[num - 1])
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mainOptions, selected])
+
   const isScrollable = step.options.length > 6
 
   const content = (
-    <div className="flex flex-col gap-2" role="group" aria-label={step.label}>
-      {mainOptions.map((option) => {
+    <div className="flex flex-col gap-2.5" role="group" aria-label={step.label}>
+      {mainOptions.map((option, idx) => {
         const isSelected = selected.includes(option)
+        const icon = step.optionIcons?.[option]
         return (
           <button
             key={option}
@@ -56,29 +71,40 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
             role="checkbox"
             aria-checked={isSelected}
             onClick={() => toggleOption(option)}
-            className={`checkbox-option ${isSelected ? 'selected' : ''}`}
+            className={`checkbox-option group ${isSelected ? 'selected' : ''}`}
           >
-            <div className="checkbox-box" aria-hidden="true">
-              <AnimatePresence>
-                {isSelected && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    style={{ color: '#050505' }}
-                  >
-                    <Check size={10} weight="bold" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <div className="flex items-center gap-3 w-full">
+              <div className="checkbox-box shrink-0" aria-hidden="true">
+                <AnimatePresence>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                      style={{ color: '#FFFFFF' }}
+                    >
+                      <Check size={12} weight="bold" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              {icon && (
+                <span className="text-xl sm:text-2xl select-none shrink-0" aria-hidden="true">
+                  {icon}
+                </span>
+              )}
+              <span
+                className="text-sm sm:text-base leading-snug text-left font-semibold text-[var(--text-primary)] flex-1"
+              >
+                {option}
+              </span>
+              {idx < 9 && (
+                <span className="key-hint" aria-hidden="true">
+                  {idx + 1}
+                </span>
+              )}
             </div>
-            <span
-              className="text-sm leading-snug text-left font-medium"
-              style={{ color: isSelected ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)' }}
-            >
-              {option}
-            </span>
           </button>
         )
       })}
@@ -94,27 +120,29 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
           onClick={handleOtherToggle}
           className={`checkbox-option ${showOther ? 'selected' : ''}`}
         >
-          <div className="checkbox-box" aria-hidden="true">
-            <AnimatePresence>
-              {showOther && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                  style={{ color: '#050505' }}
-                >
-                  <Check size={10} weight="bold" />
-                </motion.div>
-              )}
-            </AnimatePresence>
+          <div className="flex items-center gap-3 w-full">
+            <div className="checkbox-box shrink-0" aria-hidden="true">
+              <AnimatePresence>
+                {showOther && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                    style={{ color: '#FFFFFF' }}
+                  >
+                    <Check size={12} weight="bold" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <span className="text-xl sm:text-2xl select-none shrink-0" aria-hidden="true">
+              🌐
+            </span>
+            <span className="text-sm sm:text-base font-semibold text-[var(--text-primary)] flex-1">
+              Other
+            </span>
           </div>
-          <span
-            className="text-sm font-medium"
-            style={{ color: showOther ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)' }}
-          >
-            Other
-          </span>
         </button>
       )}
     </div>

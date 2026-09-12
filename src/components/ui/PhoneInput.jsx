@@ -23,12 +23,9 @@ export default function PhoneInput({ value = '', onChange, error, step, onNext }
   return (
     <div className="flex gap-2">
       <div
-        className="flex items-center px-4 rounded-xl shrink-0 text-sm font-medium"
+        className="flex items-center px-4 rounded-xl shrink-0 text-sm font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-secondary)]"
         style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          color: 'rgba(255,255,255,0.6)',
-          fontFamily: 'Space Grotesk, sans-serif',
+          fontFamily: 'var(--font-head)',
           minWidth: '60px',
         }}
       >

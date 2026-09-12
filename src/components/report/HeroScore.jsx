@@ -76,7 +76,7 @@ export default function HeroScore({ score, scoreLabel }) {
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
             className="text-4xl font-bold tabular-nums"
-            style={{ fontFamily: 'Space Grotesk, sans-serif', color }}
+            style={{ fontFamily: 'var(--font-head)', color }}
           >
             {displayed}
           </span>
@@ -94,7 +94,7 @@ export default function HeroScore({ score, scoreLabel }) {
         </div>
         <h2
           className="text-2xl font-bold mb-2"
-          style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.95)' }}
+          style={{ fontFamily: 'var(--font-head)', color: '#FFFFFF' }}
         >
           Career Health Score
         </h2>

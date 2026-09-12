@@ -45,8 +45,8 @@ export default function CriticalIssues({ issues }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                   <h3
-                    className="font-semibold text-sm"
-                    style={{ fontFamily: 'Space Grotesk, sans-serif', color: 'rgba(255,255,255,0.95)' }}
+                    className="font-semibold text-sm text-[var(--text-primary)]"
+                    style={{ fontFamily: 'var(--font-head)' }}
                   >
                     {issue.title}
                   </h3>
@@ -61,16 +61,16 @@ export default function CriticalIssues({ issues }) {
                     {sev.badge}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <p className="text-sm leading-relaxed text-[var(--text-muted)]">
                   {issue.description}
                 </p>
                 {issue.action_steps && issue.action_steps.length > 0 && (
-                  <div className="mt-3.5 pt-3 border-t border-white/5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-500 mb-2">Immediate Fixes:</p>
+                  <div className="mt-3.5 pt-3 border-t border-[var(--border-default)]">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--emerald)] mb-2">Immediate Fixes:</p>
                     <ul className="space-y-2 list-none pl-0">
                       {issue.action_steps.map((step, sIdx) => (
-                        <li key={sIdx} className="text-xs text-white/60 flex items-start gap-2">
-                          <span className="text-emerald-500 font-bold shrink-0 mt-0.5">•</span>
+                        <li key={sIdx} className="text-xs text-[var(--text-primary)] flex items-start gap-2">
+                          <span className="text-[var(--emerald)] font-bold shrink-0 mt-0.5">•</span>
                           <span className="leading-relaxed">{step}</span>
                         </li>
                       ))}
