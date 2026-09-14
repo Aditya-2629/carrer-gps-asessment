@@ -6,6 +6,7 @@ import PhoneInput from '../ui/PhoneInput'
 import RadioGroup from '../ui/RadioGroup'
 import CheckboxGroup from '../ui/CheckboxGroup'
 import TextInput from '../ui/TextInput'
+import LocationSearchInput from '../ui/LocationSearchInput'
 import TextareaInput from '../ui/TextareaInput'
 import FileUpload from '../ui/FileUpload'
 import NumberNAInput from '../ui/NumberNAInput'
@@ -48,11 +49,8 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     handleValue(randomVal)
     setTimeout(() => {
       setRandomRolling(false)
-      if (step.type === 'radio' && step.autoAdvance) {
-        onNext()
-      }
     }, 250)
-  }, [step, handleValue, onNext])
+  }, [step, handleValue])
 
   const validate = useCallback(() => {
     if (!step.required) return true
@@ -96,23 +94,6 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
   const handleNext = useCallback(() => {
     if (validate()) onNext()
   }, [validate, onNext])
-
-  const handleAutoAdvance = useCallback(
-    (value) => {
-      setFormData(step.name, value)
-      setError('')
-      const reaction = step.reaction?.[value]
-      if (reaction) {
-        setActiveReaction(reaction)
-        setTimeout(() => onNext(), 380)
-      } else {
-        setTimeout(() => onNext(), 220)
-      }
-    },
-    [step, setFormData, onNext]
-  )
-
-  const isAutoAdvanceRadio = step.type === 'radio' && step.autoAdvance
 
   return (
     <div className="quiz-card p-6 sm:p-8 relative">
@@ -215,13 +196,21 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
             onChange={handleValue}
             error={error}
             step={step}
-            onAutoAdvance={step.autoAdvance ? handleAutoAdvance : null}
           />
         )}
         {step.type === 'checkbox' && (
           <CheckboxGroup value={currentValue} onChange={handleValue} error={error} step={step} />
         )}
-        {step.type === 'input' && (
+        {(step.type === 'location' || step.name === 'location') && (
+          <LocationSearchInput
+            value={currentValue}
+            onChange={handleValue}
+            error={error}
+            step={step}
+            onNext={handleNext}
+          />
+        )}
+        {step.type === 'input' && step.name !== 'location' && (
           <TextInput value={currentValue} onChange={handleValue} error={error} step={step} onNext={handleNext} />
         )}
         {step.type === 'textarea' && (
@@ -267,6 +256,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
       >
         {!isFirst && (
           <button
+            type="button"
             onClick={onBack}
             className="btn-ghost"
             id={`back-btn-${step.id}`}
@@ -277,26 +267,24 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
           </button>
         )}
 
-        {/* Only show Next for non-autoAdvance steps */}
-        {!isAutoAdvanceRadio && (
-          <button
-            onClick={handleNext}
-            className="btn-primary flex-1"
-            id={`next-btn-${step.id}`}
-          >
-            {isLast ? (
-              <>
-                <span>Continue</span>
-                <ArrowRight size={15} weight="bold" />
-              </>
-            ) : (
-              <>
-                <span>Continue</span>
-                <ArrowRight size={15} weight="bold" />
-              </>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleNext}
+          className="btn-primary flex-1"
+          id={isLast ? `submit-btn-${step.id}` : `next-btn-${step.id}`}
+        >
+          {isLast ? (
+            <>
+              <span>Submit Assessment</span>
+              <RocketLaunch size={16} weight="bold" />
+            </>
+          ) : (
+            <>
+              <span>Next</span>
+              <ArrowRight size={15} weight="bold" />
+            </>
+          )}
+        </button>
       </motion.div>
     </div>
   )

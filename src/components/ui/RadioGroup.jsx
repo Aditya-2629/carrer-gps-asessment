@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-export default function RadioGroup({ value, onChange, onAutoAdvance, error, step }) {
+export default function RadioGroup({ value, onChange, error, step }) {
   const [showOther, setShowOther] = useState(
     value && !step.options.slice(0, -1).includes(value) && step.hasOther
   )
@@ -20,11 +20,7 @@ export default function RadioGroup({ value, onChange, onAutoAdvance, error, step
       return
     }
     setShowOther(false)
-    if (onAutoAdvance) {
-      onAutoAdvance(option)
-    } else {
-      onChange(option)
-    }
+    onChange(option)
   }
 
   const handleOtherChange = (e) => {
