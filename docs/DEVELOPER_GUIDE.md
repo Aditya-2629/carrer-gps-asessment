@@ -17,14 +17,17 @@ Welcome to the **Crafture Career GPS** codebase. This guide outlines conventions
    - Never alter a question's user-facing wording in `assessmentSteps.js` without ensuring its machine-readable `SEMANTIC_REGISTRY` entry remains accurate and unambiguous.
    - The AI must never be forced to deduce meaning from creative or metaphorical language.
 4. **Theme & CSS Tokens**:
-   - All styling must use CSS custom properties defined in `src/index.css`:
-     - Background: `var(--surface-base)` (`#08090D`)
-     - Glass Surface: `var(--surface-glass)` (`rgba(15, 17, 26, 0.75)`)
-     - Accent: `var(--accent-indigo)` (`#6366F1`)
-     - Secondary: `var(--accent-violet)` (`#8B5CF6`)
-     - Emerald Growth: `var(--neon-emerald)` (`#10B981`)
-     - Cost / Blocker Rose: `var(--crimson-rose)` (`#F43F5E`)
-   - Avoid hardcoded ad-hoc hexadecimal colors in JSX elements.
+    - All styling must use CSS custom properties defined in `src/index.css`:
+      - Background: `var(--surface-base)` (`#08090D`)
+      - Glass Surface: `var(--surface-glass)` (`rgba(15, 17, 26, 0.75)`)
+      - Text Primary: `var(--text-primary)` (`#0F172A` light / `#F8FAFC` dark)
+      - Text Secondary: `var(--text-secondary)` (`#334155` slate light / `#CBD5E1` slate dark)
+      - Text Muted: `var(--text-muted)` (`#475569` slate light / `#94A3B8` slate dark)
+      - Accent: `var(--accent-indigo)` (`#6366F1`)
+      - Secondary: `var(--accent-violet)` (`#8B5CF6`)
+      - Emerald Growth: `var(--neon-emerald)` (`#10B981`)
+      - Cost / Blocker Rose: `var(--crimson-rose)` (`#F43F5E`)
+    - Avoid hardcoded ad-hoc hexadecimal colors in JSX elements. Maintain high WCAG contrast ratios across all reports and assessment steps.
 
 ---
 

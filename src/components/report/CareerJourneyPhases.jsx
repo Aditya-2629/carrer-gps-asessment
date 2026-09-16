@@ -33,13 +33,18 @@ export default function CareerJourneyPhases({ data }) {
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Slide Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <span className="text-xs font-mono font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">
-            02 WHERE AM I IN MY CAREER JOURNEY?
-          </span>
-          <h2 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-            Every journey has phases. <span className="text-[var(--primary)]">You are here.</span>
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+            <span>Slide 02</span>
+            <span className="text-[var(--text-muted)]">•</span>
+            <span>Journey Tracker</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+            Where Am I In My Career Journey?
           </h2>
+          <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
+            Every job search has distinct phases. <span className="text-[var(--primary)] font-bold">You are currently in Positioning.</span>
+          </p>
         </div>
       </div>
 
@@ -79,18 +84,18 @@ export default function CareerJourneyPhases({ data }) {
                 </motion.div>
 
                 {/* Milestone Name */}
-                <span className="mt-3 text-xs md:text-sm font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                <span className="mt-3 text-sm md:text-base font-bold text-[var(--text-primary)] tracking-tight text-center" style={{ fontFamily: 'var(--font-head)' }}>
                   {phase.name}
                 </span>
 
                 {/* Status Label */}
                 <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full mt-1 ${
+                  className={`text-xs font-semibold px-2.5 py-0.5 rounded-full mt-1.5 shadow-2xs ${
                     isCurrent
                       ? 'bg-amber-500 text-white font-bold'
                       : isCompleted
-                      ? 'text-[var(--emerald)] bg-[var(--emerald-bg)]'
-                      : 'text-[var(--text-subtle)] bg-[var(--surface-sunken)]'
+                      ? 'text-[var(--emerald)] bg-[var(--emerald-bg)] border border-[var(--emerald)]/20'
+                      : 'text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)]'
                   }`}
                 >
                   {phase.label}
@@ -102,11 +107,11 @@ export default function CareerJourneyPhases({ data }) {
       </div>
 
       {/* Guide Speech Callout Bubble */}
-      <div className="quiz-card p-4 border border-amber-500/30 bg-amber-500/5 flex items-center gap-3.5 max-w-2xl mx-auto">
-        <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-500">
-          <ChatCircleDots size={24} weight="fill" />
+      <div className="quiz-card p-5 border border-amber-500/30 bg-amber-500/5 flex items-center gap-4 max-w-2xl mx-auto shadow-xs">
+        <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 text-amber-500">
+          <ChatCircleDots size={28} weight="fill" />
         </div>
-        <p className="text-xs md:text-sm text-[var(--text-primary)] leading-relaxed font-medium">
+        <p className="text-sm md:text-base text-[var(--text-primary)] leading-relaxed font-medium">
           {guideMessage}
         </p>
       </div>

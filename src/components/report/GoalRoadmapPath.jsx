@@ -44,13 +44,18 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Slide Header */}
-      <div>
-        <span className="text-xs font-mono font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">
-          08 YOUR ROADMAP TO THE GOAL
-        </span>
-        <h2 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-          Follow the path. <span className="text-[var(--primary)]">We'll walk with you all the way.</span>
+      <div className="space-y-1.5">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+          <span>Slide 08</span>
+          <span className="text-[var(--text-muted)]">•</span>
+          <span>Milestone Roadmap</span>
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+          What Is My Step-By-Step Roadmap To The Offer?
         </h2>
+        <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
+          Follow this calibrated execution path to reach your target role and verified offer.
+        </p>
       </div>
 
       {/* 4 Step Horizontal Pathway */}
@@ -68,41 +73,41 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
             }`}
           >
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3.5">
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                     s.isGoal
-                      ? 'bg-amber-400 text-black'
+                      ? 'bg-amber-400 text-black font-bold shadow-2xs'
                       : s.active
-                      ? 'bg-[var(--emerald)] text-white'
-                      : 'bg-[var(--surface-card)] text-[var(--text-subtle)] border border-[var(--border-default)]'
+                      ? 'bg-[var(--emerald)] text-white shadow-2xs'
+                      : 'bg-[var(--surface-card)] text-[var(--text-muted)] border border-[var(--border-default)]'
                   }`}
                 >
                   {s.badge}
                 </span>
 
                 {s.isGoal ? (
-                  <Trophy size={22} weight="fill" className="text-amber-500" />
+                  <Trophy size={24} weight="fill" className="text-amber-500" />
                 ) : (
-                  <span className="text-xs font-mono font-bold text-[var(--text-subtle)]">0{idx + 1}</span>
+                  <span className="text-xs font-mono font-bold text-[var(--text-muted)]">0{idx + 1}</span>
                 )}
               </div>
 
-              <h4 className="text-base font-bold text-[var(--text-primary)] mb-3" style={{ fontFamily: 'var(--font-head)' }}>
+              <h4 className="text-lg font-bold text-[var(--text-primary)] mb-3.5 tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
                 {s.step}
               </h4>
 
-              <ul className="space-y-2 text-xs text-[var(--text-primary)] list-none pl-0">
+              <ul className="space-y-2.5 text-sm text-[var(--text-primary)] list-none pl-0 font-medium">
                 {(s.items || []).slice(0, 4).map((item, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <Check size={14} className={`${s.active || s.isGoal ? 'text-[var(--emerald)]' : 'text-[var(--text-subtle)]'} shrink-0 mt-0.5`} weight="bold" />
+                  <li key={i} className="flex items-start gap-2.5 leading-relaxed">
+                    <Check size={16} className={`${s.active || s.isGoal ? 'text-[var(--emerald)]' : 'text-[var(--text-muted)]'} shrink-0 mt-1`} weight="bold" />
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-[var(--border-default)] text-[11px] font-medium text-[var(--text-subtle)] text-center">
+            <div className="mt-5 pt-3 border-t border-[var(--border-default)] text-xs font-semibold text-[var(--text-muted)] text-center uppercase tracking-wider">
               {s.isGoal ? '🏆 Target Destination' : s.active ? '📍 Active Phase' : 'Next Milestone'}
             </div>
           </motion.div>
@@ -110,10 +115,10 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
       </div>
 
       {/* Bottom Encouragement Star Banner */}
-      <div className="quiz-card p-4 border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3">
-        <Star size={24} weight="fill" className="text-amber-500 shrink-0" />
-        <p className="text-xs md:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
-          "You're <strong className="text-[var(--emerald)]">{pct}% ready today</strong>. Complete the missions, follow the roadmap, and let's get you to your offer!"
+      <div className="quiz-card p-5 border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3.5 shadow-xs">
+        <Star size={26} weight="fill" className="text-amber-500 shrink-0" />
+        <p className="text-sm md:text-base text-[var(--text-primary)] font-medium leading-relaxed">
+          "You're <strong className="text-[var(--emerald)] font-bold">{pct}% ready today</strong>. Complete the missions, follow the roadmap, and let's get you to your offer!"
         </p>
       </div>
     </div>

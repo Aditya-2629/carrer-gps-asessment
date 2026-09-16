@@ -1,4 +1,4 @@
-# API Reference — Crafture Career GPS™
+# API Reference — Crafture Career GPS
 
 The Crafture Career GPS backend exposes a RESTful API over HTTP with JSON payloads and `multipart/form-data` support for file uploads.
 
@@ -9,6 +9,7 @@ The Crafture Career GPS backend exposes a RESTful API over HTTP with JSON payloa
 ## 1. Authentication & OTP Routes (`/api/otp`)
 
 ### `POST /api/otp/send-otp`
+
 Generates a cryptographically secure 6-digit one-time code and emails it to the candidate via Resend or Nodemailer.
 
 - **Request Body**:
@@ -29,6 +30,7 @@ Generates a cryptographically secure 6-digit one-time code and emails it to the 
 ---
 
 ### `POST /api/otp/verify-otp`
+
 Validates the 6-digit OTP against the user record. If valid, marks `isVerified = true` in MongoDB and returns the `userId`.
 
 - **Request Body**:
@@ -54,6 +56,7 @@ Validates the 6-digit OTP against the user record. If valid, marks `isVerified =
 ## 2. Assessment Routes (`/api/assessment`)
 
 ### `POST /api/assessment/save-answers`
+
 Saves candidate answers, stores the Layer-2 AI Semantic Profile, and parses the uploaded resume. Accepts `multipart/form-data`.
 
 - **Content-Type**: `multipart/form-data`
@@ -66,7 +69,7 @@ Saves candidate answers, stores the Layer-2 AI Semantic Profile, and parses the 
   1. Validates that `userId` exists and `isVerified === true`.
   2. Saves `answers` and `semanticProfile` to the User document.
   3. Scrapes candidate LinkedIn profile via Apify if a valid URL is present.
-  4. Parses the resume into structured JSON via `gemini-3.6-flash`.
+  4. Parses the resume into structured JSON via `gemini-3.8-flash` (with automated fallback chain).
 - **Responses**:
   - `200 OK`:
     ```json
@@ -80,7 +83,8 @@ Saves candidate answers, stores the Layer-2 AI Semantic Profile, and parses the 
 ---
 
 ### `POST /api/assessment/generate-report`
-Triggers full AI executive analysis under the "Atlas" persona using `gemini-3.6-flash`. Injects ground-truth context from the RAG engine.
+
+Triggers full AI executive analysis under the "Atlas" persona using `gemini-3.8-flash` (with multi-key and multi-model fallback). Injects ground-truth context from the RAG engine.
 
 - **Request Body**:
   ```json
@@ -117,6 +121,7 @@ Triggers full AI executive analysis under the "Atlas" persona using `gemini-3.6-
 ---
 
 ### `GET /api/assessment/report/:userId`
+
 Fetches a previously generated report from MongoDB.
 
 - **URL Parameter**: `userId` (MongoDB ObjectId)
@@ -127,6 +132,7 @@ Fetches a previously generated report from MongoDB.
 ---
 
 ### `POST /api/assessment/book-call`
+
 Triggers an immediate high-priority alert email to the executive coaching admin team when a candidate requests a consultation.
 
 - **Request Body**:
@@ -149,18 +155,19 @@ Triggers an immediate high-priority alert email to the executive coaching admin 
 
 Endpoints supporting administrative document management for the dynamic RAG engine.
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/knowledge-base/documents` | List all active RAG knowledge base documents. |
-| `POST` | `/api/knowledge-base/upload` | Upload new PDF/TXT/MD file into the knowledge base. |
-| `DELETE`| `/api/knowledge-base/document/:id` | Remove a document from the active RAG index. |
-| `GET` | `/api/knowledge-base/search?q=query`| Test semantic retrieval across indexed documents. |
+| Method   | Endpoint                             | Description                                         |
+| :------- | :----------------------------------- | :-------------------------------------------------- |
+| `GET`    | `/api/knowledge-base/documents`      | List all active RAG knowledge base documents.       |
+| `POST`   | `/api/knowledge-base/upload`         | Upload new PDF/TXT/MD file into the knowledge base. |
+| `DELETE` | `/api/knowledge-base/document/:id`   | Remove a document from the active RAG index.        |
+| `GET`    | `/api/knowledge-base/search?q=query` | Test semantic retrieval across indexed documents.   |
 
 ---
 
 ## 4. System Health Check
 
 ### `GET /health`
+
 Liveness probe used by Render and load balancers to confirm backend health.
 
 - **Response**:

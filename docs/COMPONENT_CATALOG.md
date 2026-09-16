@@ -1,4 +1,4 @@
-# Component Catalog — Crafture Career GPS™
+# Component Catalog — Crafture Career GPS
 
 This catalog documents the layout, props, and interaction models for all React components in `src/components/`.
 
@@ -31,8 +31,7 @@ src/components/
 │   ├── ReportDashboard.jsx          # Executive report layout & GSAP orchestrator
 │   ├── ReportHeaderCard.jsx         # Candidate summary card with PDF export trigger
 │   ├── ResumeAIBreakdown.jsx        # Deep ATS inspection, keyword gaps, and critique
-│   ├── RiskHeatMap.jsx              # Matrix of immigration, market, and skill risks
-│   └── ToolStack.jsx                # Curated software recommendations (e.g. Jobscan)
+│   └── RiskHeatMap.jsx              # Matrix of immigration, market, and skill risks
 └── ui/
     ├── CheckboxGroup.jsx            # Multi-select card list with icons & animations
     ├── FileUpload.jsx               # Drag-and-drop resume uploader with PDF parsing
@@ -49,6 +48,7 @@ src/components/
 ## 2. Assessment Wizard Components
 
 ### `AssessmentShell.jsx`
+
 - **Location**: `src/components/assessment/AssessmentShell.jsx`
 - **Props**: None (reads from `useAppStore.js`).
 - **Features**:
@@ -58,6 +58,7 @@ src/components/
   - Responsive layout constrained to `max-w-2xl` with micro-animations on question transitions.
 
 ### `StepRenderer.jsx`
+
 - **Location**: `src/components/assessment/StepRenderer.jsx`
 - **Props**: `{ step, register, control, errors, setValue, watch, onNext }`
 - **Responsibilities**:
@@ -73,10 +74,11 @@ src/components/
 ## 3. UI Input Components
 
 ### `QuantitativeInput.jsx`
+
 - **Location**: `src/components/ui/QuantitativeInput.jsx`
 - **Features**:
   - Dual pill switcher: `[ 📅 Per Week ]` vs `[ 🗓️ Per Month ]`.
-  - Real-time conversion badge (e.g. *"≈ 23 per week"*).
+  - Real-time conversion badge (e.g. _"≈ 23 per week"_).
   - Contextual one-click presets that automatically scale depending on the active timeframe.
   - "None / Not doing this" toggle button for candidates not currently active in that channel.
 - **Output Format**:
@@ -92,6 +94,7 @@ src/components/
   ```
 
 ### `RadioGroup.jsx` & `CheckboxGroup.jsx`
+
 - Interactive card selection containers styled with glass surfaces, glowing borders on focus, and high-contrast typography.
 - Displays custom emojis or Phosphor SVG icons for every option.
 - Handles keyboard navigation and auto-advance on single-selection radios where configured.
@@ -101,13 +104,23 @@ src/components/
 ## 4. Executive Report Dashboard Components
 
 ### `ReportDashboard.jsx`
+
 - Master dashboard view orchestrating sections with GSAP staggered entrance animations (`gsap.from('.gsap-reveal')`).
 - Sticky top navigation bar featuring candidate score badge and one-click consultation call-to-action.
 - Dark obsidian cosmic theme with zero eye-strain and high-contrast metrics.
 
-### Key Visual Diagnostic Cards
-- **`HeroScore.jsx`**: Radial or metric card displaying score (0-100) and tier badge (*Survival Mode*, *Emerging Contender*, *Market Leader*).
-- **`CareerHealthBreakdown.jsx`**: 4-pillar breakdown (Resume, LinkedIn, Outreach, Interviews) with diagnostic bullet points.
-- **`FunnelLeakDiagram.jsx`**: Step-by-step conversion funnel highlighting the primary leak where candidate drops out.
-- **`ResumeAIBreakdown.jsx`**: ATS score comparison, missing keyword pills, and raw executive recruiter critique from Atlas.
-- **`GoalRoadmapPath.jsx`**: Week 1 through Week 4 progressive milestone sprint with hyper-specific tool assignments.
+### Key Visual Diagnostic Cards & Question-First Standard
+
+All report diagnostic sections follow a **Question-First Visual Focus** pattern where the primary question is prominent, high-contrast (`text-2xl sm:text-3xl font-extrabold`), and paired with a clear category badge:
+
+- **`HeroScore.jsx`**: Radial or metric card displaying score (0-100) and tier badge (_Survival Mode_, _Emerging Contender_, _Market Leader_).
+- **`CareerHealthBreakdown.jsx`**: Question focus _"How Healthy Is My Job Search Pipeline?"_ with radar chart and 10 detailed pillar diagnostic metrics.
+- **`CareerJourneyPhases.jsx`**: Question focus _"Where Am I In My Career Journey?"_ with 5-phase interactive progression timeline and milestones.
+- **`FunnelLeakDiagram.jsx`**: Question focus _"Where Am I Losing Interviews?"_ with proportional conversion funnel and pinpointed leak alert.
+- **`RejectionDonutChart.jsx`**: Question focus _"Why Am I Not Getting Hired?"_ with rejection root cause breakdown and interactive donut slice legend.
+- **`RiskHeatMap.jsx`**: Question focus _"What Are My Biggest Job Search Risks?"_ with 3x3 risk matrix and mitigation playbooks.
+- **`MissionBoard.jsx`**: Question focus _"What Are My Top Strategic Priorities?"_ with gamified XP impact missions.
+- **`GoalRoadmapPath.jsx`**: Question focus _"What Is My Step-By-Step Roadmap To The Offer?"_ with 4-week milestone sprint path.
+- **`ResumeAIBreakdown.jsx`**: Question focus _"How Does My Resume Score In The Real World?"_ with ATS score comparison, missing keyword pills, and raw executive recruiter critique from Atlas.
+- **`CriticalIssues.jsx`**: Question focus _"What Is Actively Holding Me Back?"_ with prioritized bottleneck severity cards and step-by-step remediation plans.
+

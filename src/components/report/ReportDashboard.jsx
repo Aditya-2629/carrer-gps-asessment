@@ -5,7 +5,6 @@ import {
   FileText,
   Warning,
   MapTrifold,
-  Wrench,
   CalendarBlank,
   Sun,
   Moon,
@@ -24,7 +23,6 @@ import MissionBoard from './MissionBoard'
 import GoalRoadmapPath from './GoalRoadmapPath'
 
 import CriticalIssues from './CriticalIssues'
-import ToolStack from './ToolStack'
 import ResumeAIBreakdown from './ResumeAIBreakdown'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
@@ -143,7 +141,7 @@ export default function ReportDashboard() {
               className="w-8 h-8 rounded-lg shadow-sm object-cover border border-[var(--border-default)]"
             />
             <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, letterSpacing: '-0.02em' }} className="text-base sm:text-lg text-[var(--text-primary)]">
-              CAREER <span className="text-[var(--primary)]">GPS™</span> <span className="text-[var(--text-muted)] font-semibold text-xs sm:text-sm tracking-wider uppercase ml-1">INTELLIGENCE REPORT</span>
+              CAREER <span className="text-[var(--primary)]">GPS</span> <span className="text-[var(--text-muted)] font-semibold text-xs sm:text-sm tracking-wider uppercase ml-1">INTELLIGENCE REPORT</span>
             </span>
           </div>
 
@@ -179,13 +177,19 @@ export default function ReportDashboard() {
         </section>
 
         {/* Executive Summary */}
-        <section className="gsap-reveal quiz-card p-6 border border-emerald-500/20 bg-emerald-500/5">
-          <div className="flex gap-3">
-            <FileText size={22} className="shrink-0 text-[var(--emerald)] mt-0.5" />
-            <p className="text-sm leading-relaxed text-[var(--text-primary)]">
-              <strong className="text-[var(--emerald)] font-bold uppercase tracking-wider font-mono">Executive Summary — </strong>
-              {reportData.summary}
-            </p>
+        <section className="gsap-reveal quiz-card p-6 sm:p-8 border border-emerald-500/25 bg-emerald-500/5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-[var(--emerald)] shrink-0 mt-0.5">
+              <FileText size={24} weight="bold" />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <span className="text-xs font-bold uppercase tracking-wider font-mono text-[var(--emerald)] block">
+                Executive Strategic Summary
+              </span>
+              <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
+                {reportData.summary}
+              </p>
+            </div>
           </div>
         </section>
 
@@ -236,52 +240,44 @@ export default function ReportDashboard() {
         {/* Critical Issues Identified */}
         <section className="gsap-reveal">
           <h2
-            className="text-xl font-bold mb-5 flex items-center gap-2.5 text-[var(--text-primary)]"
+            className="text-2xl font-bold mb-5 flex items-center gap-3 text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
-            <Warning size={22} className="text-amber-500" />
+            <Warning size={26} className="text-amber-500 shrink-0" weight="fill" />
             <span>Critical Bottlenecks Identified</span>
           </h2>
           <CriticalIssues issues={reportData.critical_issues} />
         </section>
 
-        {/* Recommended Tool Stack */}
-        <section className="gsap-reveal">
-          <h2
-            className="text-xl font-bold mb-5 flex items-center gap-2.5 text-[var(--text-primary)]"
-            style={{ fontFamily: 'var(--font-head)' }}
-          >
-            <Wrench size={22} className="text-[var(--emerald)]" />
-            <span>Recommended Tool Stack</span>
-          </h2>
-          <ToolStack tools={reportData.recommended_tools} />
-        </section>
-
         {/* Free Strategy Call CTA */}
-        <section className="gsap-reveal quiz-card p-8 text-center">
-          <h3 className="text-2xl font-bold mb-3 text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-            Ready to fix these gaps & land your dream offer?
-          </h3>
-          {reportData.coach_intervention && (
-            <div className="mb-6 max-w-xl mx-auto space-y-2">
-              <p className="text-sm font-semibold text-[var(--primary)]">
-                {reportData.coach_intervention.urgency_statement}
-              </p>
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                {reportData.coach_intervention.value_prop}
-              </p>
+        <section className="gsap-reveal quiz-card p-8 sm:p-10 text-center relative overflow-hidden border border-[var(--primary)]/20 shadow-lg">
+          <div className="max-w-2xl mx-auto space-y-4">
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+              Ready to fix these gaps & land your dream offer?
+            </h3>
+            {reportData.coach_intervention && (
+              <div className="space-y-2">
+                <p className="text-base sm:text-lg font-bold text-[var(--primary)]">
+                  {reportData.coach_intervention.urgency_statement}
+                </p>
+                <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
+                  {reportData.coach_intervention.value_prop}
+                </p>
+              </div>
+            )}
+            <div className="pt-2">
+              <a
+                href="https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleBookCall}
+                className="btn-primary text-base px-8 py-4 no-underline inline-flex items-center gap-2.5 shadow-md hover:scale-105 transition-all"
+              >
+                <CalendarBlank size={22} weight="bold" />
+                <span>{reportData.coach_intervention?.cta_text || 'Book Free Strategy Call'}</span>
+              </a>
             </div>
-          )}
-          <a
-            href="https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={handleBookCall}
-            className="btn-primary text-base px-8 py-4 no-underline inline-flex items-center gap-2"
-          >
-            <CalendarBlank size={20} weight="bold" />
-            <span>{reportData.coach_intervention?.cta_text || 'Book Free Strategy Call'}</span>
-          </a>
+          </div>
         </section>
       </main>
     </div>

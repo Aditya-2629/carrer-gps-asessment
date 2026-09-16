@@ -43,35 +43,35 @@ export default function CriticalIssues({ issues }) {
                 <IconComponent size={20} weight="bold" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                <div className="flex items-center gap-2.5 mb-2 flex-wrap">
                   <h3
-                    className="font-semibold text-sm text-[var(--text-primary)]"
+                    className="font-bold text-base sm:text-lg text-[var(--text-primary)] tracking-tight"
                     style={{ fontFamily: 'var(--font-head)' }}
                   >
                     {issue.title}
                   </h3>
                   <span
-                    className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded"
+                    className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-md"
                     style={{
                       background: `${sev.color}15`,
                       color: sev.color,
-                      border: `1px solid ${sev.color}25`,
+                      border: `1px solid ${sev.color}30`,
                     }}
                   >
                     {sev.badge}
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-[var(--text-muted)]">
+                <p className="text-sm sm:text-base leading-relaxed text-[var(--text-secondary)] font-medium">
                   {issue.description}
                 </p>
                 {issue.action_steps && issue.action_steps.length > 0 && (
-                  <div className="mt-3.5 pt-3 border-t border-[var(--border-default)]">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--emerald)] mb-2">Immediate Fixes:</p>
-                    <ul className="space-y-2 list-none pl-0">
+                  <div className="mt-4 pt-3.5 border-t border-[var(--border-default)]">
+                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--emerald)] mb-2.5">Immediate Action Steps:</p>
+                    <ul className="space-y-2.5 list-none pl-0">
                       {issue.action_steps.map((step, sIdx) => (
-                        <li key={sIdx} className="text-xs text-[var(--text-primary)] flex items-start gap-2">
-                          <span className="text-[var(--emerald)] font-bold shrink-0 mt-0.5">•</span>
-                          <span className="leading-relaxed">{step}</span>
+                        <li key={sIdx} className="text-sm text-[var(--text-primary)] font-medium flex items-start gap-2.5 leading-relaxed">
+                          <span className="text-[var(--emerald)] font-bold shrink-0 mt-0.5 text-base">•</span>
+                          <span>{step}</span>
                         </li>
                       ))}
                     </ul>

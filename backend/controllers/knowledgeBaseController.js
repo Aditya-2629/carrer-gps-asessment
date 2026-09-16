@@ -6,7 +6,7 @@ import {
   batchGenerateEmbeddings,
   queryRAGSystem,
 } from '../utils/ragEngine.js'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateContentWithFallback } from '../utils/geminiClient.js'
 
 // Import text parsers dynamically with fallbacks
 let pdfParse = null
@@ -63,21 +63,18 @@ const extractTextFromBuffer = async (buffer, mimeType, originalName) => {
 
   // 4. Gemini AI Fallback for PDF/DOCX if libraries fail or missing
   try {
-    const apiKey = process.env.GEMINI_API_KEY
-    if (apiKey) {
-      const genAI = new GoogleGenerativeAI(apiKey)
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' })
-      const filePart = {
-        inlineData: {
-          data: buffer.toString('base64'),
-          mimeType: mimeType || 'application/pdf',
-        },
-      }
-      const prompt = 'Extract all readable text from this document verbatim. Return raw text only with line breaks, no markdown formatting or comments.'
-      const res = await model.generateContent([prompt, filePart])
-      const text = res.response.text().trim()
-      if (text) return text
+    const filePart = {
+      inlineData: {
+        data: buffer.toString('base64'),
+        mimeType: mimeType || 'application/pdf',
+      },
     }
+    const prompt = 'Extract all readable text from this document verbatim. Return raw text only with line breaks, no markdown formatting or comments.'
+    const { text } = await generateContentWithFallback({
+      contents: [prompt, filePart],
+      modelName: 'gemini-3.8-flash',
+    })
+    if (text && text.trim()) return text.trim()
   } catch (err) {
     console.error('Gemini fallback text extraction error:', err.message)
   }

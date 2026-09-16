@@ -35,8 +35,14 @@ FRONTEND_URL=http://localhost:5173
 # Atlas: mongodb+srv://<user>:<password>@cluster0.mongodb.net/career-gps?retryWrites=true&w=majority
 MONGO_URI=mongodb://localhost:27017/career-gps
 
-# Google Gemini API Key (Required for gemini-3.6-flash report generation & resume parsing)
+# Google Gemini API Key (Required for AI report generation, chat, and resume parsing)
 GEMINI_API_KEY=AIzaSy...
+# Additional fallback keys (auto-rotated on 429 quota or 503 limit)
+GEMINI_API_KEY_FALLBACK_1=AIzaSy...
+GEMINI_API_KEY_FALLBACK_2=AIzaSy...
+# Or provide comma-separated keys:
+# GEMINI_API_KEYS=key1,key2,key3
+GEMINI_MODEL=gemini-3.8-flash
 
 # Apify API Token (Required for LinkedIn scraper actor)
 APIFY_TOKEN=apify_api_...

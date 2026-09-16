@@ -106,7 +106,7 @@ export default function AssessmentShell() {
               className="w-8 h-8 rounded-lg object-cover border border-[var(--border-default)]"
             />
             <span className="font-['Poppins'] font-bold text-base tracking-tight hidden sm:inline text-[var(--text-primary)]">
-              Career <span className="text-[var(--primary)]">GPS™</span>
+              Career <span className="text-[var(--primary)]">GPS</span>
             </span>
           </div>
 

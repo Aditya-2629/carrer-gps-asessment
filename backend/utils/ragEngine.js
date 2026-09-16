@@ -1,46 +1,16 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import KBDocument from '../models/KBDocument.js'
 import KnowledgeBase from '../models/KnowledgeBase.js'
 import defaultKnowledgeBase from './knowledgeBase.js'
+import { embedContentWithFallback } from './geminiClient.js'
 
 // ─────────────────────────────────────────────────
 // VECTOR EMBEDDING ENGINE
 // ─────────────────────────────────────────────────
 
-// Singleton GenAI instance (avoid re-creating for every embed call)
-let _genAI = null
-const getGenAI = () => {
-  if (!_genAI) {
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) return null
-    _genAI = new GoogleGenerativeAI(apiKey)
-  }
-  return _genAI
-}
-
-// Generate real embedding via Gemini text-embedding-004
+// Generate real embedding via Gemini text-embedding-004 with multi-key fallback
 export const generateEmbedding = async (text) => {
   if (!text || !text.trim()) return null
-
-  const genAI = getGenAI()
-  if (!genAI) {
-    console.warn('[RAG] No GEMINI_API_KEY set, embeddings unavailable.')
-    return null
-  }
-
-  try {
-    const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' })
-    const result = await embeddingModel.embedContent(text.slice(0, 2000)) // API limit safety
-
-    if (result?.embedding?.values && result.embedding.values.length > 0) {
-      return result.embedding.values
-    }
-    console.warn('[RAG] Embedding returned empty values for text chunk.')
-    return null
-  } catch (err) {
-    console.error('[RAG] Gemini embedding API error:', err.message)
-    return null
-  }
+  return await embedContentWithFallback(text)
 }
 
 // Batch embed multiple texts efficiently with rate limiting

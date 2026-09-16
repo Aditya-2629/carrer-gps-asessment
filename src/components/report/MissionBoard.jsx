@@ -34,13 +34,18 @@ export default function MissionBoard({ data }) {
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Slide Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <span className="text-xs font-mono font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">
-            07 TOP PRIORITIES (YOUR MISSION BOARD)
-          </span>
-          <h2 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-            Complete these missions to unlock the <span className="text-[var(--emerald)]">next phase.</span>
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+            <span>Slide 07</span>
+            <span className="text-[var(--text-muted)]">•</span>
+            <span>Priority Action Board</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+            What Are My Top Strategic Priorities?
           </h2>
+          <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
+            Complete these high-ROI missions to unlock the <span className="text-[var(--emerald)] font-bold">next career phase</span>.
+          </p>
         </div>
       </div>
 
@@ -59,13 +64,13 @@ export default function MissionBoard({ data }) {
                 <Icon size={26} weight="fill" />
               </div>
 
-              <h4 className="text-xs font-bold text-[var(--text-primary)] leading-snug" style={{ fontFamily: 'var(--font-head)' }}>
+              <h4 className="text-sm font-bold text-[var(--text-primary)] leading-snug tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
                 {m.title}
               </h4>
 
-              <div className="space-y-1 w-full pt-1 border-t border-[var(--border-default)] mt-auto">
-                <span className="text-xs font-extrabold font-mono text-[var(--emerald)] block">{m.xp}</span>
-                <span className="text-[10px] text-[var(--text-subtle)] block font-medium uppercase tracking-wider">{m.impact}</span>
+              <div className="space-y-1 w-full pt-1.5 border-t border-[var(--border-default)] mt-auto">
+                <span className="text-sm font-extrabold font-mono text-[var(--emerald)] block">{m.xp}</span>
+                <span className="text-xs text-[var(--text-muted)] block font-semibold uppercase tracking-wider">{m.impact}</span>
               </div>
             </motion.div>
           )
@@ -73,26 +78,26 @@ export default function MissionBoard({ data }) {
       </div>
 
       {/* Gamified Level Progress Bar at Bottom */}
-      <div className="quiz-card p-5 border border-[var(--border-default)] bg-[var(--surface-sunken)] flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--primary-light)] border border-[var(--primary)]/30 flex items-center justify-center text-[var(--primary)] shrink-0">
-            <Lightning size={24} weight="fill" />
+      <div className="quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] flex flex-col md:flex-row items-center justify-between gap-5 shadow-xs">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-[var(--primary-light)] border border-[var(--primary)]/30 flex items-center justify-center text-[var(--primary)] shrink-0">
+            <Lightning size={26} weight="fill" />
           </div>
           <div>
-            <span className="text-[10px] font-mono text-[var(--text-subtle)] uppercase block">YOUR CAREER LEVEL</span>
-            <span className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+            <span className="text-xs font-mono font-bold text-[var(--text-muted)] uppercase block">YOUR CAREER LEVEL</span>
+            <span className="text-lg font-bold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
               {xpLevel}
             </span>
           </div>
         </div>
 
         {/* XP Bar */}
-        <div className="flex-1 max-w-md w-full space-y-1.5">
-          <div className="flex justify-between text-xs font-mono">
+        <div className="flex-1 max-w-md w-full space-y-2">
+          <div className="flex justify-between text-xs font-mono font-semibold">
             <span className="text-[var(--text-muted)]">XP Progress</span>
             <span className="text-[var(--emerald)] font-bold">{xpCurrent} / {xpGoal} XP</span>
           </div>
-          <div className="h-3 bg-[var(--surface-card)] rounded-full overflow-hidden border border-[var(--border-default)]">
+          <div className="h-3.5 bg-[var(--surface-card)] rounded-full overflow-hidden border border-[var(--border-default)]">
             <div 
               className="h-full bg-[var(--emerald)] rounded-full transition-all duration-1000" 
               style={{ width: `${xpPct}%` }} 
@@ -101,8 +106,8 @@ export default function MissionBoard({ data }) {
         </div>
 
         <div className="text-right text-xs">
-          <span className="text-[10px] text-[var(--text-subtle)] block uppercase font-mono">NEXT LEVEL</span>
-          <span className="font-semibold text-[var(--text-primary)]">{(xpGoal - xpCurrent > 0) ? `${xpGoal - xpCurrent} XP to go` : 'Max Level'}</span>
+          <span className="text-xs text-[var(--text-muted)] block uppercase font-mono font-bold">NEXT LEVEL</span>
+          <span className="font-bold text-sm text-[var(--text-primary)]">{(xpGoal - xpCurrent > 0) ? `${xpGoal - xpCurrent} XP to go` : 'Max Level'}</span>
         </div>
       </div>
     </div>

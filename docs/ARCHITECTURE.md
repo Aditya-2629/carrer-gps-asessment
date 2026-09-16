@@ -1,4 +1,4 @@
-# Architecture Guide — Crafture Career GPS™
+# Architecture Guide — Crafture Career GPS
 
 This document outlines the system architecture, component boundaries, state flow, and data lifecycles of the **Crafture Career GPS** application.
 
@@ -13,7 +13,7 @@ graph TD
     Client["Frontend Client<br/>(React 19 + Vite + Tailwind v4)"]
     API["Backend API Gateway<br/>(Express 4 / Node.js >=20)"]
     DB[("MongoDB<br/>(Mongoose 8)")]
-    Gemini["Google Generative AI<br/>(gemini-3.6-flash)"]
+    Gemini["Google Generative AI<br/>(gemini-3.8-flash with multi-key fallback)"]
     Apify["Apify LinkedIn Scraper<br/>(harvestapi/linkedin-profile-scraper)"]
     RAG["RAG Knowledge Base Engine<br/>(Local Vector/Text Similarity)"]
     Email["Admin & User Email Service<br/>(Nodemailer / Resend)"]
@@ -67,14 +67,15 @@ stateDiagram-v2
 
 ### Application Phases Definition (`PHASES` enum)
 
-| Phase Constant | UI Component | Responsibility |
-| :--- | :--- | :--- |
-| `PHASES.GATE` (`'gate'`) | `GatePhase.jsx` | Dual-step email entry (`EmailStep`) followed by 6-digit one-time password confirmation (`OTPStep`). Populates `userId` and `userEmail` in store. |
-| `PHASES.ASSESSMENT` (`'assessment'`) | `AssessmentShell.jsx` | 31-step wizard renderer. Manages current step index, progress bar, chapter headers, form values, and quick-fill demo buttons. |
-| `PHASES.LOADING` (`'loading'`) | `AnalysisLoader.jsx` | Full-screen animated radar sequence. Dispatches `api.generateReport`, polls progress messages, and catches backend errors. |
-| `PHASES.REPORT` (`'report'`) | `ReportDashboard.jsx` | Complete executive dashboard with GSAP reveal animations, radar charts, risk heatmap, action items, and booking CTA. |
+| Phase Constant                       | UI Component          | Responsibility                                                                                                                                   |
+| :----------------------------------- | :-------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PHASES.GATE` (`'gate'`)             | `GatePhase.jsx`       | Dual-step email entry (`EmailStep`) followed by 6-digit one-time password confirmation (`OTPStep`). Populates `userId` and `userEmail` in store. |
+| `PHASES.ASSESSMENT` (`'assessment'`) | `AssessmentShell.jsx` | 31-step wizard renderer. Manages current step index, progress bar, chapter headers, form values, and quick-fill demo buttons.                    |
+| `PHASES.LOADING` (`'loading'`)       | `AnalysisLoader.jsx`  | Full-screen animated radar sequence. Dispatches `api.generateReport`, polls progress messages, and catches backend errors.                       |
+| `PHASES.REPORT` (`'report'`)         | `ReportDashboard.jsx` | Complete executive dashboard with GSAP reveal animations, radar charts, risk heatmap, action items, and booking CTA.                             |
 
 ### Administrative Route
+
 - Navigating to `/admin/knowledge-base`, `/knowledge-base`, `/admin/kb`, or `/kb` directly displays the **KnowledgeBaseManager** component (`src/components/admin/KnowledgeBaseManager.jsx`), allowing administrators to upload, view, search, and delete knowledge base files utilized by the RAG engine.
 
 ---
@@ -90,7 +91,7 @@ sequenceDiagram
     participant UI as Layer 1 (UX Component)
     participant Payload as Payload Builder
     participant Backend as Layer 2 (Backend API)
-    participant Atlas as Gemini 3.6 Flash ("Atlas")
+    participant Atlas as Gemini 3.8 Flash ("Atlas")
 
     User->>UI: Views creative question: "How often are you knocking on doors...?"
     User->>UI: Selects "Per Month" and enters 100 outreach messages
@@ -102,11 +103,13 @@ sequenceDiagram
 ```
 
 ### Layer 1: Conversational Visual Experience
+
 - Uses curiosity-driven, friendly phrasing instead of dry corporate questionnaires.
-- Every step features contextual helper text, custom iconography, and thematic scene titles (e.g. *U.S. Work Authorization Checkpoint*, *Proactive Direct Outreach*).
+- Every step features contextual helper text, custom iconography, and thematic scene titles (e.g. _U.S. Work Authorization Checkpoint_, _Proactive Direct Outreach_).
 - Quantitative inputs provide a dynamic `[ 📅 Per Week ]` / `[ 🗓️ Per Month ]` switcher with live conversion feedback and one-click presets.
 
 ### Layer 2: Machine-Readable AI Semantic Registry
+
 - Grounded in `SEMANTIC_REGISTRY` in [`src/lib/assessmentSteps.js`](../src/lib/assessmentSteps.js).
 - For every question, the AI receives:
   - `field`: The canonical database identifier (`coldEmails`, `appsWeek`, `visa`, etc.).
@@ -127,7 +130,7 @@ When the assessment is completed, the backend processes the data through a 5-sta
    - Accepts multipart/form-data with resume file and JSON stringified `answers` & `semanticProfile`.
    - Validates user identity and email verification status.
 2. **Resume Multi-Modal Parsing** (`parseResumeToJSON`):
-   - Streams PDF or Word file buffer directly to `gemini-3.6-flash`.
+   - Streams PDF or Word file buffer to `gemini-3.8-flash` via `geminiClient.js` with multi-key failover.
    - Returns structured JSON containing candidate name, skills, ATS keyword gaps, quantitative evidence, and executive critique.
 3. **LinkedIn Intelligence Extraction** (`scrapeLinkedInProfile` in `apifyLinkedInScraper.js`):
    - Uses Apify Actor `harvestapi/linkedin-profile-scraper` without storing sensitive cookies.
@@ -136,6 +139,6 @@ When the assessment is completed, the backend processes the data through a 5-sta
    - Constructs a synthesized semantic query based on candidate target role, visa type, and resume keywords.
    - Retrieves ground-truth career statistics from baseline knowledge and active uploaded documents.
 5. **Executive Report Generation** (`getGeminiPrompt` in `geminiPrompt.js`):
-   - Invokes `gemini-3.6-flash` under the authoritative "Atlas" persona.
+   - Invokes `gemini-3.8-flash` (with automated fallback chain) under the authoritative "Atlas" persona.
    - Enforces a strict JSON contract for the 10+ report sections.
    - Automatically stores the generated report in MongoDB on the `User` model and fires an administrative notification email.

@@ -26,13 +26,18 @@ export default function CareerHealthBreakdown({ healthScore = 41, scoreLabel = '
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Slide Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <span className="text-xs font-mono font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">
-            03 CAREER HEALTH DASHBOARD
-          </span>
-          <h2 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-            Bar = your current score | <span className="text-[var(--text-muted)]">Tick line = competitive target</span>
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+            <span>Slide 03</span>
+            <span className="text-[var(--text-muted)]">•</span>
+            <span>Career Intelligence</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+            How Healthy Is My Job Search Pipeline?
           </h2>
+          <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
+            Bar = your current calibrated score | <span className="text-[var(--text-primary)] font-semibold">Tick line = competitive hiring target</span>
+          </p>
         </div>
       </div>
 
@@ -57,30 +62,30 @@ export default function CareerHealthBreakdown({ healthScore = 41, scoreLabel = '
               />
             </svg>
             <div className="absolute flex flex-col items-center">
-              <span className="text-4xl font-extrabold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+              <span className="text-5xl font-extrabold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
                 {healthScore}
               </span>
-              <span className="text-xs text-[var(--text-subtle)] font-mono">/100</span>
+              <span className="text-xs text-[var(--text-muted)] font-mono font-semibold">/100</span>
             </div>
           </div>
 
-          <span className="mt-4 text-xs font-mono uppercase tracking-wider text-[var(--text-subtle)]">CAREER HEALTH</span>
-          <span className="mt-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 border border-amber-500/30 text-amber-500">
+          <span className="mt-4 text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)]">CAREER HEALTH INDEX</span>
+          <span className="mt-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400">
             {scoreLabel}
           </span>
         </div>
 
         {/* Right: 10 Parameter Bars */}
-        <div className="lg:col-span-8 space-y-2.5">
+        <div className="lg:col-span-8 space-y-3">
           {metrics.map((item) => (
-            <div key={item.name} className="flex items-center gap-3 text-xs">
-              <span className="w-36 text-[var(--text-primary)] truncate font-medium">{item.name}</span>
+            <div key={item.name} className="flex items-center gap-3.5 text-sm">
+              <span className="w-40 text-[var(--text-primary)] truncate font-semibold">{item.name}</span>
 
               {/* Progress Bar Container */}
-              <div className="flex-1 h-3.5 bg-[var(--surface-sunken)] rounded-full overflow-hidden relative border border-[var(--border-default)]">
+              <div className="flex-1 h-4 bg-[var(--surface-sunken)] rounded-full overflow-hidden relative border border-[var(--border-default)]">
                 {/* Target Marker Tick Line */}
                 <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-[var(--text-muted)] z-10"
+                  className="absolute top-0 bottom-0 w-1 bg-[var(--text-muted)] z-10 opacity-70"
                   style={{ left: `${item.target}%` }}
                   title={`Target: ${item.target}`}
                 />
@@ -100,17 +105,17 @@ export default function CareerHealthBreakdown({ healthScore = 41, scoreLabel = '
                 />
               </div>
 
-              <span className="w-8 text-right font-mono font-bold text-[var(--text-primary)]">{item.score}</span>
+              <span className="w-10 text-right font-mono font-extrabold text-sm text-[var(--text-primary)]">{item.score}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Bottom Insight Box */}
-      <div className="quiz-card p-4 border border-emerald-500/30 bg-emerald-500/5 flex items-start gap-3">
-        <Star size={20} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-xs md:text-sm text-[var(--text-primary)] leading-relaxed font-medium">
-          <strong className="text-[var(--emerald)]">Technical Skills ({metrics.find((m) => m.highlight)?.score || 68})</strong> is your greatest strength. But Networking, ATS Compatibility, and Portfolio details are currently pulling your overall score down.
+      <div className="quiz-card p-5 border border-emerald-500/30 bg-emerald-500/5 flex items-start gap-3.5 shadow-2xs">
+        <Star size={24} weight="fill" className="text-amber-500 shrink-0 mt-0.5" />
+        <p className="text-sm md:text-base text-[var(--text-primary)] leading-relaxed font-medium">
+          <strong className="text-[var(--emerald)] font-bold">Technical Skills ({metrics.find((m) => m.highlight)?.score || 68})</strong> is your greatest strength. But Networking, ATS Compatibility, and Portfolio details are currently pulling your overall score down.
         </p>
       </div>
     </div>

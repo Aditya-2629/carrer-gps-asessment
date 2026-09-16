@@ -17,7 +17,7 @@ export default function ReportHeaderCard({ candidateData }) {
         <div>
           <div className="flex items-center gap-2 text-[var(--primary)] font-bold text-xs uppercase tracking-widest mb-1">
             <Compass size={16} weight="fill" />
-            <span>CAREER GPS™ CAREER INTELLIGENCE REPORT</span>
+            <span>CAREER GPS CAREER INTELLIGENCE REPORT</span>
           </div>
           <h1
             className="text-2xl md:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight"
@@ -40,59 +40,59 @@ export default function ReportHeaderCard({ candidateData }) {
       {/* Main Grid: Guide Speech Callout + Candidate Profile Card */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mt-6 items-stretch">
         {/* Left Guide Intro */}
-        <div className="md:col-span-5 quiz-card p-5 flex items-start gap-4 bg-[var(--primary-light)] border border-[var(--border-default)]">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--primary)]/10 border border-[var(--primary)]/25 flex items-center justify-center shrink-0 text-[var(--primary)] shadow-sm">
-            <Robot size={28} weight="fill" />
+        <div className="md:col-span-5 quiz-card p-6 flex items-start gap-4 bg-[var(--primary-light)] border border-[var(--border-default)]">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--primary)]/10 border border-[var(--primary)]/25 flex items-center justify-center shrink-0 text-[var(--primary)] shadow-sm">
+            <Robot size={32} weight="fill" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-[var(--primary)] mb-1" style={{ fontFamily: 'var(--font-head)' }}>
+            <h4 className="text-base font-bold text-[var(--primary)] mb-1.5" style={{ fontFamily: 'var(--font-head)' }}>
               Hi {name.split(' ')[0]},
             </h4>
-            <p className="text-xs text-[var(--text-primary)] leading-relaxed">
-              I'm your <strong className="text-[var(--text-primary)] font-bold">Career GPS Guide</strong>. I'll walk with you through your entire job search journey and help you reach your goal!
+            <p className="text-sm text-[var(--text-primary)] leading-relaxed">
+              I'm your <strong className="text-[var(--text-primary)] font-bold">Career GPS Guide</strong>. I'll walk with you through your entire job search journey and help you reach your target offer!
             </p>
           </div>
         </div>
 
         {/* Right Profile Details Card */}
-        <div className="md:col-span-7 quiz-card p-5 border border-[var(--border-default)] bg-[var(--surface-sunken)] space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-              <User size={18} className="text-[var(--emerald)] shrink-0" />
-              <div>
-                <span className="text-[10px] text-[var(--text-subtle)] block uppercase font-medium">Candidate</span>
-                <span className="font-semibold text-[var(--text-primary)]">{name}</span>
+        <div className="md:col-span-7 quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs">
+              <User size={22} className="text-[var(--emerald)] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs text-[var(--text-muted)] block uppercase font-semibold tracking-wider">Candidate</span>
+                <span className="font-bold text-sm sm:text-base text-[var(--text-primary)] truncate block">{name}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-              <Briefcase size={18} className="text-[var(--emerald)] shrink-0" />
-              <div>
-                <span className="text-[10px] text-[var(--text-subtle)] block uppercase font-medium">Target Role</span>
-                <span className="font-semibold text-[var(--text-primary)]">{targetRole}</span>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs">
+              <Briefcase size={22} className="text-[var(--emerald)] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs text-[var(--text-muted)] block uppercase font-semibold tracking-wider">Target Role</span>
+                <span className="font-bold text-sm sm:text-base text-[var(--text-primary)] truncate block">{targetRole}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-              <IdentificationCard size={18} className="text-[var(--emerald)] shrink-0" />
-              <div>
-                <span className="text-[10px] text-[var(--text-subtle)] block uppercase font-medium">Visa Status</span>
-                <span className="font-semibold text-amber-500">{visaStatus}</span>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs">
+              <IdentificationCard size={22} className="text-amber-500 shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs text-[var(--text-muted)] block uppercase font-semibold tracking-wider">Visa Status</span>
+                <span className="font-bold text-sm sm:text-base text-amber-600 dark:text-amber-400 truncate block">{visaStatus}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-              <Calendar size={18} className="text-[var(--emerald)] shrink-0" />
-              <div>
-                <span className="text-[10px] text-[var(--text-subtle)] block uppercase font-medium">Report Date</span>
-                <span className="font-semibold text-[var(--text-primary)]">{reportDate}</span>
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs">
+              <Calendar size={22} className="text-[var(--emerald)] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-xs text-[var(--text-muted)] block uppercase font-semibold tracking-wider">Report Date</span>
+                <span className="font-bold text-sm sm:text-base text-[var(--text-primary)] truncate block">{reportDate}</span>
               </div>
             </div>
           </div>
 
-          <div className="pt-2 flex items-center justify-between text-[11px] text-[var(--text-subtle)] border-t border-[var(--border-default)]">
-            <span>Prepared By: <strong className="text-[var(--emerald)]">Crafture Career GPS™ AI</strong></span>
-            <span className="font-mono">ID: {Math.random().toString(36).substring(2, 9).toUpperCase()}</span>
+          <div className="pt-2 flex items-center justify-between text-xs text-[var(--text-muted)] border-t border-[var(--border-default)]">
+            <span>Prepared By: <strong className="text-[var(--emerald)] font-semibold">Crafture Career GPS AI</strong></span>
+            <span className="font-mono font-medium">ID: {Math.random().toString(36).substring(2, 9).toUpperCase()}</span>
           </div>
         </div>
       </div>

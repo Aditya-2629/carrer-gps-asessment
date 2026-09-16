@@ -1,18 +1,16 @@
 import mongoose from 'mongoose'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import User from '../models/User.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
+import { generateContentWithFallback } from '../utils/geminiClient.js'
 
-// Helper function to parse uploaded resume to JSON using Gemini API
+// Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error('Resume file is empty or corrupted. Please upload a valid document.')
   }
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
   const prompt = `
     You are an expert Resume Parser and ATS Specialist.
@@ -48,9 +46,11 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     },
   }
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' })
-  const result = await model.generateContent([prompt, filePart])
-  const responseText = result.response.text()
+  const { text: responseText } = await generateContentWithFallback({
+    contents: [prompt, filePart],
+    modelName: 'gemini-3.8-flash',
+  })
+
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
   return JSON.parse(cleanJson)
 }
@@ -203,13 +203,14 @@ export const generateReport = async (req, res) => {
 
     const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
-    // Call Gemini API strictly using gemini-3.6-flash with AI-Semantic Profile
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
+    // Call Gemini API with gemini-3.8-flash and multi-key / multi-model fallback
     const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' })
-    const result = await model.generateContent(promptText)
-    const responseText = result.response.text()
+    const { text: responseText } = await generateContentWithFallback({
+      contents: promptText,
+      modelName: 'gemini-3.8-flash',
+    })
+
     const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
     const aiReport = JSON.parse(cleanJsonString)
 
@@ -254,8 +255,6 @@ export const chatResume = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found.' })
     }
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
     const resumeContext = user.resumeJson ? JSON.stringify(user.resumeJson) : 'No structured resume JSON available.'
     const linkedinContext = user.linkedinData ? JSON.stringify(user.linkedinData) : 'No LinkedIn profile scraped.'
@@ -304,11 +303,12 @@ export const chatResume = async (req, res) => {
       ${reportContext}
     `
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' })
-    const result = await model.generateContent(prompt)
-    const replyText = result.response.text().trim()
+    const { text: replyText } = await generateContentWithFallback({
+      contents: prompt,
+      modelName: 'gemini-3.8-flash',
+    })
 
-    return res.status(200).json({ answer: replyText })
+    return res.status(200).json({ answer: replyText.trim() })
   } catch (error) {
     console.error('Error in chatResume controller:', error)
     return res.status(500).json({ message: 'Failed to process query.' })

@@ -16,9 +16,9 @@ All report evaluations are generated under the **"Atlas"** persona:
 
 ---
 
-## 2. Gemini 3.6 Flash Integration (`geminiPrompt.js`)
+## 2. Gemini 3.8 Flash Integration & Multi-Key Fallback (`geminiClient.js`)
 
-Reports are powered by Google's **`gemini-3.6-flash`** model through the `@google/generative-ai` SDK:
+Reports and resume extractions are powered by Google's **`gemini-3.8-flash`** model with automatic multi-API-key pool rotation and multi-model fallback (`gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-2.0-flash` → `gemini-1.5-flash`):
 
 ```mermaid
 graph LR
@@ -30,7 +30,8 @@ graph LR
     end
 
     ContextIngestion --> Prompt["Atlas System Prompt (Strict Schema)"]
-    Prompt --> Gemini["Gemini 3.6 Flash"]
+    Prompt --> FallbackClient["Multi-Key Gemini Client (geminiClient.js)"]
+    FallbackClient --> Gemini["Gemini 3.8 Flash (Fallback Chain)"]
     Gemini --> Sanitizer["JSON Codeblock Stripper & Validator"]
     Sanitizer --> DB[("MongoDB User aiReport")]
     Sanitizer --> Client["Interactive Dashboard"]

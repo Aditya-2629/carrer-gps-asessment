@@ -1,8 +1,8 @@
-# Crafture Career GPS™ — AI-Powered Career Health & ATS Assessment
+# Crafture Career GPS — AI-Powered Career Health & ATS Assessment
 
 **Crafture Career GPS** is an enterprise-grade, curiosity-driven career assessment platform that evaluates job seekers across **31 multidimensional criteria** (ATS optimization, LinkedIn visibility, application velocity, outreach strategy, interview readiness, and market positioning).
 
-Built with **JavaScript + JSX**, the platform utilizes a **Dual-Layer Assessment Architecture** that combines conversational visual storytelling for candidates with explicit, machine-readable semantic definitions for downstream analysis by **Atlas** — an AI Executive Strategist powered by **Gemini 3.6 Flash**.
+Built with **JavaScript + JSX**, the platform utilizes a **Dual-Layer Assessment Architecture** that combines conversational visual storytelling for candidates with explicit, machine-readable semantic definitions for downstream analysis by **Atlas** — an AI Executive Strategist powered by **Gemini 3.8 Flash** (with multi-key failover and model fallback).
 
 ---
 
@@ -70,15 +70,15 @@ Built with **JavaScript + JSX**, the platform utilizes a **Dual-Layer Assessment
 
 For complete technical documentation, refer to the [`docs/`](file:///c:/Users/hp/Desktop/ADITYA/sass/Asessment/docs) folder:
 
-| Document | Description |
-| :--- | :--- |
-| 🏗️ [**Architecture Guide**](docs/ARCHITECTURE.md) | In-depth breakdown of system design, Zustand state machine, and dual-layer principles. |
-| 📋 [**Assessment Schema**](docs/ASSESSMENT_SCHEMA.md) | Complete inventory of all 31 assessment questions, types, units, and `SEMANTIC_REGISTRY`. |
-| 🔌 [**API Reference**](docs/API_REFERENCE.md) | Full endpoint contracts, request schemas, status codes, and sample payloads. |
-| 🧠 [**AI Pipeline**](docs/AI_PIPELINE.md) | Prompt engineering for "Atlas", RAG knowledge retrieval, and resume/LinkedIn scraping. |
-| 🧩 [**Component Catalog**](docs/COMPONENT_CATALOG.md) | Comprehensive UI inventory of forms, interactive charts, and dashboard cards. |
-| 🚀 [**Developer Guide**](docs/DEVELOPER_GUIDE.md) | Rules of engagement (Strict JS/JSX), conventions, and step-by-step feature guides. |
-| ⚙️ [**Deployment & Environment**](docs/DEPLOYMENT_AND_ENV.md) | Environment configuration (.env), build commands, and Render hosting setup. |
+| Document                                                      | Description                                                                               |
+| :------------------------------------------------------------ | :---------------------------------------------------------------------------------------- |
+| 🏗️ [**Architecture Guide**](docs/ARCHITECTURE.md)             | In-depth breakdown of system design, Zustand state machine, and dual-layer principles.    |
+| 📋 [**Assessment Schema**](docs/ASSESSMENT_SCHEMA.md)         | Complete inventory of all 31 assessment questions, types, units, and `SEMANTIC_REGISTRY`. |
+| 🔌 [**API Reference**](docs/API_REFERENCE.md)                 | Full endpoint contracts, request schemas, status codes, and sample payloads.              |
+| 🧠 [**AI Pipeline**](docs/AI_PIPELINE.md)                     | Prompt engineering for "Atlas", RAG knowledge retrieval, and resume/LinkedIn scraping.    |
+| 🧩 [**Component Catalog**](docs/COMPONENT_CATALOG.md)         | Comprehensive UI inventory of forms, interactive charts, and dashboard cards.             |
+| 🚀 [**Developer Guide**](docs/DEVELOPER_GUIDE.md)             | Rules of engagement (Strict JS/JSX), conventions, and step-by-step feature guides.        |
+| ⚙️ [**Deployment & Environment**](docs/DEPLOYMENT_AND_ENV.md) | Environment configuration (.env), build commands, and Render hosting setup.               |
 
 ---
 
@@ -98,7 +98,7 @@ For complete technical documentation, refer to the [`docs/`](file:///c:/Users/hp
   - Node.js (ES Modules, `>=20.x`)
   - Express 4
   - MongoDB & Mongoose 8
-  - Google Generative AI (`@google/generative-ai` — `gemini-3.6-flash`)
+  - Google Generative AI (`@google/generative-ai` — `gemini-3.8-flash` with multi-key fallback)
   - Apify Client (`apify-client`)
   - Resend & Nodemailer
   - Multer, pdf-parse, mammoth
@@ -111,11 +111,13 @@ For complete technical documentation, refer to the [`docs/`](file:///c:/Users/hp
 ## 🚀 Getting Started Locally
 
 ### 1. Prerequisites
+
 - **Node.js** `>=20.x` or **Bun** `>=1.1.x`
 - **MongoDB** running locally (`mongodb://localhost:27017`) or a MongoDB Atlas URI
 - Google Gemini API Key
 
 ### 2. Backend Setup
+
 ```bash
 cd backend
 npm install
@@ -125,6 +127,7 @@ npm run dev
 ```
 
 ### 3. Frontend Setup
+
 ```bash
 # In the repository root
 npm install
@@ -135,4 +138,5 @@ npm run dev
 ---
 
 ## ⚖️ License
-Proprietary & Confidential — Crafture Career GPS™. All Rights Reserved.
+
+Proprietary & Confidential — Crafture Career GPS. All Rights Reserved.

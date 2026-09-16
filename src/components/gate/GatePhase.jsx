@@ -23,7 +23,7 @@ export default function GatePhase() {
             className="w-10 h-10 rounded-xl object-cover border border-[var(--border-default)] shadow-sm"
           />
           <span className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-['Poppins']">
-            Career <span className="text-[var(--primary)]">GPS™</span>
+            Career <span className="text-[var(--primary)]">GPS</span>
           </span>
         </div>
       </motion.div>

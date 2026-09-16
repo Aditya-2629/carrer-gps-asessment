@@ -33,45 +33,48 @@ export default function FunnelLeakDiagram({ data }) {
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Slide Header */}
-      <div>
-        <span className="text-xs font-mono font-bold text-[var(--primary)] uppercase tracking-wider block mb-1">
-          04 WHERE AM I LOSING INTERVIEWS?
-        </span>
-        <h2 className="text-xl md:text-2xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-          <span className="text-red-500">{dropOffPct}% drop-off</span> at {leakStage}.
+      <div className="space-y-1.5">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+          <span>Slide 04</span>
+          <span className="text-[var(--text-muted)]">•</span>
+          <span>Funnel Analysis</span>
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+          Where Am I Losing Interviews?
         </h2>
-        <p className="text-xs md:text-sm text-[var(--text-muted)] mt-1">
-          That's a systemic problem, not a volume problem. Let's fix the leak.
+        <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
+          <span className="text-red-500 font-bold">{dropOffPct}% drop-off</span> detected at {leakStage}. This is a conversion bottleneck, not a volume problem.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-2">
         {/* Left: Inverted Funnel Graphic */}
-        <div className="lg:col-span-7 space-y-3 flex flex-col items-center">
+        <div className="lg:col-span-7 space-y-3.5 flex flex-col items-center w-full">
           {FUNNEL_STAGES.map((item, idx) => (
             <motion.div
               key={item.stage}
               initial={{ scaleX: 0.8, opacity: 0 }}
               animate={{ scaleX: 1, opacity: 1 }}
               transition={{ delay: idx * 0.1, duration: 0.5 }}
-              className={`${item.width} transition-all duration-300`}
+              style={{ width: idx === 0 ? '100%' : calcWidth(item.count) }}
+              className="min-w-[45%] transition-all duration-300"
             >
               <div
-                className={`py-3 px-5 rounded-xl ${item.color} flex items-center justify-between text-white shadow-lg relative ${
-                  item.isLeak ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-[var(--surface-base)]' : ''
+                className={`py-3.5 px-5 rounded-xl ${item.color} flex items-center justify-between text-white shadow-md relative ${
+                  item.isLeak ? 'ring-3 ring-red-400 ring-offset-2 ring-offset-[var(--surface-base)] shadow-red-500/20 shadow-lg' : ''
                 }`}
               >
-                <span className="font-bold text-xs md:text-sm" style={{ fontFamily: 'var(--font-head)' }}>
+                <span className="font-bold text-sm md:text-base tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
                   {item.stage}
                 </span>
 
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-sm md:text-base font-mono">{item.count}</span>
-                  <span className="text-[10px] text-white/80 font-mono">({item.pct})</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="font-extrabold text-base md:text-lg font-mono">{item.count}</span>
+                  <span className="text-xs font-mono font-medium text-white/90">({item.pct})</span>
 
                   {item.isLeak && (
-                    <span className="hidden sm:inline-flex items-center gap-1 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ml-2 animate-pulse">
-                      <ArrowLeft size={12} weight="bold" /> BIGGEST LEAK
+                    <span className="hidden sm:inline-flex items-center gap-1 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ml-2 animate-pulse shadow-sm">
+                      <ArrowLeft size={14} weight="bold" /> BIGGEST LEAK
                     </span>
                   )}
                 </div>
@@ -81,15 +84,15 @@ export default function FunnelLeakDiagram({ data }) {
         </div>
 
         {/* Right: Guide Advice Callout Bubble */}
-        <div className="lg:col-span-5 quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] space-y-4">
+        <div className="lg:col-span-5 quiz-card p-6 md:p-7 border border-[var(--border-default)] bg-[var(--surface-sunken)] space-y-3.5 shadow-xs">
           <div className="flex items-center gap-3 text-[var(--primary)]">
-            <ChatCircleText size={24} weight="fill" />
-            <h4 className="font-bold text-sm text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+            <ChatCircleText size={26} weight="fill" />
+            <h4 className="font-bold text-base text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
               Atlas Recruiter Diagnosis
             </h4>
           </div>
 
-          <p className="text-xs md:text-sm text-[var(--text-primary)] leading-relaxed font-medium">
+          <p className="text-sm md:text-base text-[var(--text-primary)] leading-relaxed font-medium">
             {diagnosis}
           </p>
         </div>

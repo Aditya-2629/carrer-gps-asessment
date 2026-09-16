@@ -35,9 +35,9 @@
 
   /* Typography */
   --text-primary: #0F172A;
-  --text-secondary: #6366F1;
-  --text-muted: #64748B;
-  --text-subtle: #94A3B8;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --text-subtle: #64748B;
 
   /* Borders */
   --border-default: #E2E8F0;
@@ -113,7 +113,7 @@
 
   /* Typography */
   --text-primary: #F8FAFC;
-  --text-secondary: #818CF8;
+  --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
   --text-subtle: #64748B;
 
