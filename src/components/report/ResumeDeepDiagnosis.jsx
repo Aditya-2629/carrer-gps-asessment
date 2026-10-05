@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sparkle, ListChecks, WarningCircle } from '@phosphor-icons/react'
+import { Sparkle, ListChecks, WarningCircle, ArrowRight } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
 import useAppStore from '../../store/useAppStore'
@@ -39,7 +39,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
   const variant = theme === 'dark' ? 'dark' : 'light'
 
   return (
-    <section id="resume-deep-diagnosis" className="space-y-8 scroll-mt-24">
+    <section id="resume-ai" className="space-y-8 scroll-mt-28">
       <SectionHeader
         icon={<Sparkle size={20} weight="fill" className="text-indigo-400" />}
         title="AI Resume Deep Diagnosis"
@@ -91,13 +91,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
                 </div>
                 {iss.diagnosis && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{iss.diagnosis}</p>}
                 {iss.recommendation && (
-                  <p className="text-xs text-indigo-200 leading-relaxed bg-indigo-950/30 border border-indigo-900/50 rounded-xl p-3">
-                    → {iss.recommendation}
+                  <p className="text-xs text-[var(--text-primary)] leading-relaxed bg-[var(--primary-light)] border border-[var(--border-default)] rounded-xl p-3.5">
+                    <ArrowRight size={12} className="inline mr-1.5 -mt-0.5 text-[var(--primary)]" />
+                    {iss.recommendation}
                   </p>
                 )}
                 {qs.length > 0 && (
-                  <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl p-3">
-                    <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
+                  <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl p-3.5">
+                    <div className="text-[10px] font-bold text-amber-500 uppercase tracking-wider mb-1.5">
                       Go find your real numbers:
                     </div>
                     <ul className="space-y-1">
@@ -117,14 +118,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
 
       {/* Priority actions */}
       {priorityActions.length > 0 && (
-        <div className="bg-[var(--surface-card)] border border-indigo-900/50 rounded-2xl p-6">
-          <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2 mb-4">
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6">
+          <h3 className="text-xs font-bold text-[var(--primary)] uppercase tracking-wider flex items-center gap-2 mb-4">
             <ListChecks size={15} /> Do These First
           </h3>
           <div className="space-y-3">
             {priorityActions.map((pa, i) => (
               <div key={i} className="flex items-start gap-3">
-                <span className="w-6 h-6 rounded-lg bg-indigo-950 border border-indigo-800 text-indigo-300 flex items-center justify-center text-xs font-bold shrink-0">
+                <span className="w-6 h-6 rounded-lg bg-[var(--primary-light)] border border-[var(--border-default)] text-[var(--primary)] flex items-center justify-center text-xs font-bold shrink-0">
                   {pa.priority || i + 1}
                 </span>
                 <div>

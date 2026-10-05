@@ -769,7 +769,11 @@ function ReportDashboardContent() {
       </header>
 
       {/* ─── Sticky Story Navigation Bar ─── */}
-      <StickyReportNav candidateName={candidateName} targetRole={targetRole} />
+      <StickyReportNav
+        candidateName={candidateName}
+        targetRole={targetRole}
+        showResumeAi={Boolean(reportData.resume_agent)}
+      />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-12">
@@ -791,14 +795,14 @@ function ReportDashboardContent() {
         {/* SECTION D: WHAT IS WORKING (COMPACT STRENGTHS) */}
         <WhatIsWorking resumeJsonData={reportData.resume_json} />
 
+        {/* SECTION D2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
+        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
+
         {/* SECTION E: WHERE YOU ARE LOSING OPPORTUNITIES (PRIORITIZED + RESUME EVIDENCE) */}
         <OpportunitiesList
           issues={reportData.critical_issues}
           resumeJsonData={reportData.resume_json}
         />
-
-        {/* SECTION E2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
-        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
 
         {/* FUNNEL JOURNEY + WHY AREN'T INTERVIEWS CONVERTING + RISK RADAR */}
         <FunnelAndConversionSection

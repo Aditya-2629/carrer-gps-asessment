@@ -9,6 +9,7 @@ import {
   Path,
   Article,
   ChartBar,
+  FileText,
 } from '@phosphor-icons/react'
 
 const NAV_ITEMS = [
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: 'snapshot', label: 'Snapshot', icon: Gauge },
   { id: 'bottleneck', label: 'Bottleneck', icon: Warning, highlight: true },
   { id: 'strengths', label: 'Strengths', icon: Sparkle },
+  { id: 'resume-ai', label: 'Resume AI', icon: FileText },
   { id: 'opportunities', label: 'Opportunities', icon: TrendDown },
   { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
   { id: 'priorities', label: 'Priorities', icon: ListChecks },
@@ -23,17 +25,20 @@ const NAV_ITEMS = [
   { id: 'diagnosis', label: 'Deep Dive', icon: Article },
 ]
 
-export default function StickyReportNav({ candidateName, targetRole }) {
+export default function StickyReportNav({ candidateName, targetRole, showResumeAi = false }) {
   const safeName = typeof candidateName === 'string' ? candidateName : (typeof candidateName === 'object' ? (candidateName?.name || 'Candidate') : 'Candidate')
   const safeRole = typeof targetRole === 'string' ? targetRole : 'Target Role'
   const [activeSection, setActiveSection] = useState('overview')
+
+  // The Resume AI section only exists when the agent analysis is attached
+  const navItems = showResumeAi ? NAV_ITEMS : NAV_ITEMS.filter((n) => n.id !== 'resume-ai')
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollPosition = window.scrollY + 180
 
-      for (let i = NAV_ITEMS.length - 1; i >= 0; i--) {
-        const item = NAV_ITEMS[i]
+      for (let i = navItems.length - 1; i >= 0; i--) {
+        const item = navItems[i]
         const element = document.getElementById(item.id)
         if (element) {
           const top = element.offsetTop
@@ -47,7 +52,7 @@ export default function StickyReportNav({ candidateName, targetRole }) {
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [navItems])
 
   const scrollToSection = (id) => {
     setActiveSection(id)
@@ -79,7 +84,7 @@ export default function StickyReportNav({ candidateName, targetRole }) {
           aria-label="Report section navigation"
           className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full lg:w-auto"
         >
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activeSection === item.id
 
