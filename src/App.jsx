@@ -8,11 +8,19 @@ import ReportDashboard from './components/report/ReportDashboard'
 import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
 import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
 import ResumeReportPage from './pages/ResumeReportPage'
+import AdminPanel from './pages/admin/AdminPanel.jsx'
+import AdminLogin from './pages/admin/AdminLogin.jsx'
 
 const phaseVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.4 } },
   exit: { opacity: 0, transition: { duration: 0.3 } },
+}
+
+function AdminRoute() {
+  const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem('craftureAdminToken')))
+  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />
+  return <AdminPanel onLogout={() => setAuthed(false)} />
 }
 
 export default function App() {
@@ -27,6 +35,12 @@ export default function App() {
     window.addEventListener('popstate', handleLocationChange)
     return () => window.removeEventListener('popstate', handleLocationChange)
   }, [])
+
+  // Admin console route: token-gated login panel
+  const isAdminRoute = ['/admin', '/admin-panel'].includes(pathname.toLowerCase())
+  if (isAdminRoute) {
+    return <AdminRoute />
+  }
 
   // Check if current route is the special unlinked knowledge base route
   const isKnowledgeBaseRoute = [

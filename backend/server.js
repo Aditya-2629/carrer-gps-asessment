@@ -7,6 +7,7 @@ import otpRoutes from './routes/otpRoutes.js'
 import assessmentRoutes from './routes/assessmentRoutes.js'
 import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes.js'
 import resumeAgentRoutes from './routes/resumeAgentRoutes.js'
+import adminRoutes from './routes/adminRoutes.js'
 import resumeAgentTestRoutes from './routes/resumeAgentTestRoutes.js'
 
 // Load environment variables
@@ -59,6 +60,7 @@ app.use('/api/assessment', assessmentRoutes)
 app.use('/api/knowledge-base', knowledgeBaseRoutes)
 app.use('/api/resume-agent', resumeAgentRoutes)
 app.use('/api/resume-agent/test', resumeAgentTestRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Health Check
 app.get('/health', (req, res) => {
