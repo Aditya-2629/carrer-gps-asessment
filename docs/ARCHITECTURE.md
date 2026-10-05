@@ -13,7 +13,7 @@ graph TD
     Client["Frontend Client<br/>(React 19 + Vite + Tailwind v4)"]
     API["Backend API Gateway<br/>(Express 4 / Node.js >=20)"]
     DB[("MongoDB<br/>(Mongoose 8)")]
-    Gemini["Google Generative AI<br/>(gemini-3.8-flash with multi-key fallback)"]
+    Gemini["Google Generative AI<br/>(gemini-3.6-flash with multi-key fallback)"]
     Apify["Apify LinkedIn Scraper<br/>(harvestapi/linkedin-profile-scraper)"]
     RAG["RAG Knowledge Base Engine<br/>(Local Vector/Text Similarity)"]
     Email["Admin & User Email Service<br/>(Nodemailer / Resend)"]
@@ -130,7 +130,7 @@ When the assessment is completed, the backend processes the data through a 5-sta
    - Accepts multipart/form-data with resume file and JSON stringified `answers` & `semanticProfile`.
    - Validates user identity and email verification status.
 2. **Resume Multi-Modal Parsing** (`parseResumeToJSON`):
-   - Streams PDF or Word file buffer to `gemini-3.8-flash` via `geminiClient.js` with multi-key failover.
+   - Streams PDF or Word file buffer to `gemini-3.6-flash` via `geminiClient.js` with multi-key failover.
    - Returns structured JSON containing candidate name, skills, ATS keyword gaps, quantitative evidence, and executive critique.
 3. **LinkedIn Intelligence Extraction** (`scrapeLinkedInProfile` in `apifyLinkedInScraper.js`):
    - Uses Apify Actor `harvestapi/linkedin-profile-scraper` without storing sensitive cookies.
@@ -139,6 +139,6 @@ When the assessment is completed, the backend processes the data through a 5-sta
    - Constructs a synthesized semantic query based on candidate target role, visa type, and resume keywords.
    - Retrieves ground-truth career statistics from baseline knowledge and active uploaded documents.
 5. **Executive Report Generation** (`getGeminiPrompt` in `geminiPrompt.js`):
-   - Invokes `gemini-3.8-flash` (with automated fallback chain) under the authoritative "Atlas" persona.
+   - Invokes `gemini-3.6-flash` (with automated fallback chain) under the authoritative "Atlas" persona.
    - Enforces a strict JSON contract for the 10+ report sections.
    - Automatically stores the generated report in MongoDB on the `User` model and fires an administrative notification email.

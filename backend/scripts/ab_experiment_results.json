@@ -1,0 +1,448 @@
+{
+  "testA": {
+    "inputMode": "canonical_json",
+    "model": "openai/gpt-oss-120b",
+    "testRun": {
+      "runId": "run_1790185986373_89429ba0",
+      "timestamp": "2026-09-23T17:53:14.176Z",
+      "provider": "groq",
+      "requestedModel": "openai/gpt-oss-120b",
+      "actualModel": "openai/gpt-oss-120b",
+      "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+      "promptVersion": "resume-expert-v1",
+      "analysisVersion": "1.0",
+      "inputSerializerVersion": "compact-resume-v1",
+      "inputMode": "canonical_json",
+      "inputHash": "686a203a7118a51b",
+      "canonicalInputHash": "686a203a7118a51b",
+      "llmInputHash": "8aaa22b283f5f232",
+      "canonicalInputCharacters": 6541,
+      "compactInputCharacters": 2533,
+      "canonicalEstimatedTokens": 1635,
+      "compactEstimatedTokens": 633,
+      "inputSizeReductionPercent": 61.3,
+      "latencyMs": 7799
+    },
+    "validation": {
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": false,
+      "fabricationDetected": false,
+      "errors": [],
+      "warnings": [
+        "issues[0]: bulletId \"skill_013\" does not exist in canonical resume.",
+        "issues[1]: bulletId \"edu_001\" does not exist in canonical resume."
+      ]
+    },
+    "telemetry": {
+      "inputTokens": 3106,
+      "outputTokens": 2531,
+      "reasoningTokens": 531,
+      "providerLatencyMs": 7748,
+      "totalLatencyMs": 7799,
+      "inputMode": "canonical_json",
+      "inputSerializerVersion": "compact-resume-v1",
+      "canonicalInputHash": "686a203a7118a51b",
+      "llmInputHash": "8aaa22b283f5f232",
+      "canonicalInputCharacters": 6541,
+      "compactInputCharacters": 2533,
+      "canonicalEstimatedTokens": 1635,
+      "compactEstimatedTokens": 633,
+      "inputSizeReductionPercent": 61.3
+    },
+    "rawOutputLength": 8283,
+    "parsedOutput": {
+      "analysisVersion": "1.0",
+      "candidateSnapshot": {
+        "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+        "experienceLevel": "Senior (5+ years)",
+        "primaryProfile": "Full‑Stack / Distributed Backend & Cloud Infrastructure Specialist"
+      },
+      "dashboard": {
+        "score": null,
+        "dimensions": {
+          "impact": null,
+          "clarity": null,
+          "positioning": null,
+          "structure": null
+        }
+      },
+      "overallReview": "Marcus presents a solid senior‑level story: he’s built high‑throughput Go services, modern React front‑ends, and end‑to‑end AWS infrastructure. The resume is peppered with concrete numbers—scaling telemetry from 5k to 45k events/sec, shaving PostgreSQL latency by 58%, and collapsing deployment windows from 4 hours to 18 minutes. Those metrics immediately signal that he can deliver measurable performance gains at scale. \n\nHis experience also shows breadth: real‑time fintech dashboards, Stripe webhook reliability, SOC2‑compliant tenant isolation, and a personal distributed key‑value store project. That mix of product impact and deep systems work aligns well with senior full‑stack and cloud roles at fast‑growing tech firms. \n\nA few gaps keep the story from being razor‑sharp. The skills section is fragmented, the education block is missing the university name and graduation year, and a couple of bullets (mentorship, project work) lack outcome detail, making it harder for a hiring manager to gauge the business value of those efforts. Tightening those areas will turn an already strong resume into a clear, high‑impact narrative.",
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "High‑throughput telemetry engine",
+          "signal": "Demonstrates ability to design and ship scalable backend services with clear performance impact.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b01",
+            "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+          }
+        },
+        {
+          "id": "str_002",
+          "title": "Significant latency reduction",
+          "signal": "Shows deep database expertise and tangible user‑experience improvement.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b02",
+            "originalText": "Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching."
+          }
+        },
+        {
+          "id": "str_003",
+          "title": "Rapid infrastructure automation",
+          "signal": "Quantifies DevOps efficiency gains that directly affect release velocity.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b03",
+            "originalText": "Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes."
+          }
+        },
+        {
+          "id": "str_004",
+          "title": "Fintech product impact",
+          "signal": "Built a real‑time dashboard serving a quarter‑million users and eliminated double‑charge incidents on $14M annual billing.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_002",
+            "bulletId": "exp_002_b01",
+            "originalText": "Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users."
+          }
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "high",
+          "category": "structure",
+          "title": "Fragmented AWS skill entries",
+          "evidence": {
+            "section": "skills",
+            "itemId": "skill_013",
+            "bulletId": "skill_013",
+            "originalText": "AWS (ECS"
+          },
+          "diagnosis": "The AWS skill line is split across two entries (\"AWS (ECS\" and \"S3)\") which looks like a copy‑paste error and obscures the full cloud stack.",
+          "whyItMatters": "Hiring managers scan the skills block for completeness; a broken entry can suggest lack of attention to detail.",
+          "recommendation": "Consolidate all AWS services into a single line, e.g., \"AWS (ECS, Lambda, RDS, S3)\".",
+          "correctedText": "AWS (ECS, Lambda, RDS, S3)",
+          "correctionType": "rewrite",
+          "confidence": 0.97
+        },
+        {
+          "id": "iss_002",
+          "severity": "medium",
+          "category": "credibility",
+          "title": "Incomplete education record",
+          "evidence": {
+            "section": "education",
+            "itemId": "edu_001",
+            "bulletId": "edu_001",
+            "originalText": "B.S. in Computer Science | University of Washington | 2015 - 2019"
+          },
+          "diagnosis": "The education object has empty \"institution\" and \"year\" fields even though the combined string contains the needed info.",
+          "whyItMatters": "Recruiters rely on structured fields for quick validation; missing data can raise unnecessary questions.",
+          "recommendation": "Populate the \"institution\" field with \"University of Washington\" and the \"year\" field with \"2019\" (or keep the combined string and remove empty sub‑fields).",
+          "correctedText": null,
+          "correctionType": "restructure",
+          "confidence": 0.94
+        },
+        {
+          "id": "iss_003",
+          "severity": "medium",
+          "category": "outcome_visibility",
+          "title": "Mentorship bullet lacks measurable impact",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b04",
+            "originalText": "Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns."
+          },
+          "diagnosis": "The statement tells what Marcus did but not what resulted—no promotions, productivity gains, or quality improvements are mentioned.",
+          "whyItMatters": "Senior roles are judged on leadership impact; without outcomes the mentorship effort looks routine.",
+          "recommendation": "Add any concrete results (e.g., promotions, reduced defect rate, faster delivery) if available; otherwise note the scope of responsibility.",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.92
+        },
+        {
+          "id": "iss_004",
+          "severity": "low",
+          "category": "impact",
+          "title": "Project section missing business context",
+          "evidence": {
+            "section": "projects",
+            "itemId": "proj_001",
+            "bulletId": "proj_001_b01",
+            "originalText": "Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes."
+          },
+          "diagnosis": "Technical depth is clear, but the resume doesn’t explain why the project matters—no performance target, use case, or adoption metric.",
+          "whyItMatters": "Recruiters want to see how personal projects translate to real‑world value.",
+          "recommendation": "Add a brief line describing the purpose (e.g., \"to explore scalable storage patterns for future microservice caching\") and any measurable outcome (e.g., latency improvements in a benchmark).",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.88
+        }
+      ],
+      "priorityActions": [
+        {
+          "order": 1,
+          "title": "Fix fragmented AWS skill entry",
+          "action": "Combine the split AWS lines into a single, clean entry (e.g., \"AWS (ECS, Lambda, RDS, S3)\").",
+          "impact": "High"
+        },
+        {
+          "order": 2,
+          "title": "Complete education fields",
+          "action": "Populate the \"institution\" and \"year\" fields with \"University of Washington\" and \"2019\" respectively.",
+          "impact": "Medium"
+        },
+        {
+          "order": 3,
+          "title": "Add outcomes to mentorship bullet",
+          "action": "If possible, quantify the results of mentoring (promotions, defect reduction, delivery speed).",
+          "impact": "Medium"
+        },
+        {
+          "order": 4,
+          "title": "Enrich project descriptions with impact",
+          "action": "Briefly state the business or research goal of the distributed key‑value store and any performance numbers achieved.",
+          "impact": "Low"
+        }
+      ],
+      "metadata": {
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "latencyMs": 7748,
+        "requestId": "req_1790185986411_47a93fa2",
+        "inputMode": "canonical_json",
+        "inputSerializerVersion": "compact-resume-v1"
+      }
+    },
+    "reviewExport": "=== CAREER GPS RESUME AGENT TEST ===\n\nRun ID: run_1790185986373_89429ba0\nProvider: groq\nModel: openai/gpt-oss-120b\nTarget Role: Senior Full Stack & Cloud Systems Engineer\nPrompt Version: resume-expert-v1\nInput Serializer: compact-resume-v1\nInput Mode: canonical_json\nCanonical Input Hash: 686a203a7118a51b\nLLM Input Hash: 8aaa22b283f5f232\nInput Chars: Canonical: 6541 | Compact: 2533 (61.3% reduction)\nLatency: 7799ms\nStatus: SUCCESS\n\n--- VALIDATION ---\nJSON: PASS\nSchema: PASS\nEvidence: FAIL\nFabrication: NONE\n\n--- OVERALL REVIEW ---\nMarcus presents a solid senior‑level story: he’s built high‑throughput Go services, modern React front‑ends, and end‑to‑end AWS infrastructure. The resume is peppered with concrete numbers—scaling telemetry from 5k to 45k events/sec, shaving PostgreSQL latency by 58%, and collapsing deployment windows from 4 hours to 18 minutes. Those metrics immediately signal that he can deliver measurable performance gains at scale. \n\nHis experience also shows breadth: real‑time fintech dashboards, Stripe webhook reliability, SOC2‑compliant tenant isolation, and a personal distributed key‑value store project. That mix of product impact and deep systems work aligns well with senior full‑stack and cloud roles at fast‑growing tech firms. \n\nA few gaps keep the story from being razor‑sharp. The skills section is fragmented, the education block is missing the university name and graduation year, and a couple of bullets (mentorship, project work) lack outcome detail, making it harder for a hiring manager to gauge the business value of those efforts. Tightening those areas will turn an already strong resume into a clear, high‑impact narrative.\n\n--- STRENGTHS ---\n1. High‑throughput telemetry engine\n   Signal: Demonstrates ability to design and ship scalable backend services with clear performance impact.\n   Evidence: \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\" (ID: exp_001_b01)\n\n2. Significant latency reduction\n   Signal: Shows deep database expertise and tangible user‑experience improvement.\n   Evidence: \"Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.\" (ID: exp_001_b02)\n\n3. Rapid infrastructure automation\n   Signal: Quantifies DevOps efficiency gains that directly affect release velocity.\n   Evidence: \"Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.\" (ID: exp_001_b03)\n\n4. Fintech product impact\n   Signal: Built a real‑time dashboard serving a quarter‑million users and eliminated double‑charge incidents on $14M annual billing.\n   Evidence: \"Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users.\" (ID: exp_002_b01)\n\n--- ISSUES ---\nIssue 1:\nSeverity: high\nTitle: Fragmented AWS skill entries\nEvidence: \"AWS (ECS\" (skill_013)\nDiagnosis: The AWS skill line is split across two entries (\"AWS (ECS\" and \"S3)\") which looks like a copy‑paste error and obscures the full cloud stack.\nWhy it matters: Hiring managers scan the skills block for completeness; a broken entry can suggest lack of attention to detail.\nRecommendation: Consolidate all AWS services into a single line, e.g., \"AWS (ECS, Lambda, RDS, S3)\".\nCorrected text: AWS (ECS, Lambda, RDS, S3)\n\nIssue 2:\nSeverity: medium\nTitle: Incomplete education record\nEvidence: \"B.S. in Computer Science | University of Washington | 2015 - 2019\" (edu_001)\nDiagnosis: The education object has empty \"institution\" and \"year\" fields even though the combined string contains the needed info.\nWhy it matters: Recruiters rely on structured fields for quick validation; missing data can raise unnecessary questions.\nRecommendation: Populate the \"institution\" field with \"University of Washington\" and the \"year\" field with \"2019\" (or keep the combined string and remove empty sub‑fields).\nCorrected text: None\n\nIssue 3:\nSeverity: medium\nTitle: Mentorship bullet lacks measurable impact\nEvidence: \"Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns.\" (exp_001_b04)\nDiagnosis: The statement tells what Marcus did but not what resulted—no promotions, productivity gains, or quality improvements are mentioned.\nWhy it matters: Senior roles are judged on leadership impact; without outcomes the mentorship effort looks routine.\nRecommendation: Add any concrete results (e.g., promotions, reduced defect rate, faster delivery) if available; otherwise note the scope of responsibility.\nCorrected text: None\n\nIssue 4:\nSeverity: low\nTitle: Project section missing business context\nEvidence: \"Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.\" (proj_001_b01)\nDiagnosis: Technical depth is clear, but the resume doesn’t explain why the project matters—no performance target, use case, or adoption metric.\nWhy it matters: Recruiters want to see how personal projects translate to real‑world value.\nRecommendation: Add a brief line describing the purpose (e.g., \"to explore scalable storage patterns for future microservice caching\") and any measurable outcome (e.g., latency improvements in a benchmark).\nCorrected text: None\n\n--- PRIORITY ACTIONS ---\n1. [High Impact] Fix fragmented AWS skill entry: Combine the split AWS lines into a single, clean entry (e.g., \"AWS (ECS, Lambda, RDS, S3)\").\n2. [Medium Impact] Complete education fields: Populate the \"institution\" and \"year\" fields with \"University of Washington\" and \"2019\" respectively.\n3. [Medium Impact] Add outcomes to mentorship bullet: If possible, quantify the results of mentoring (promotions, defect reduction, delivery speed).\n4. [Low Impact] Enrich project descriptions with impact: Briefly state the business or research goal of the distributed key‑value store and any performance numbers achieved.\n\n--- RAW MODEL OUTPUT ---\n{\n  \"analysisVersion\": \"1.0\",\n  \"candidateSnapshot\": {\n    \"targetRole\": \"Senior Full Stack & Cloud Systems Engineer\",\n    \"experienceLevel\": \"Senior (5+ years)\",\n    \"primaryProfile\": \"Full‑Stack / Distributed Backend & Cloud Infrastructure Specialist\"\n  },\n  \"dashboard\": {\n    \"score\": null,\n    \"dimensions\": {\n      \"impact\": null,\n      \"clarity\": null,\n      \"positioning\": null,\n      \"structure\": null\n    }\n  },\n  \"overallReview\": \"Marcus presents a solid senior‑level story: he’s built high‑throughput Go services, modern React front‑ends, and end‑to‑end AWS infrastructure. The resume is peppered with concrete numbers—scaling telemetry from 5k to 45k events/sec, shaving PostgreSQL latency by 58%, and collapsing deployment windows from 4 hours to 18 minutes. Those metrics immediately signal that he can deliver measurable performance gains at scale. \\n\\nHis experience also shows breadth: real‑time fintech dashboards, Stripe webhook reliability, SOC2‑compliant tenant isolation, and a personal distributed key‑value store project. That mix of product impact and deep systems work aligns well with senior full‑stack and cloud roles at fast‑growing tech firms. \\n\\nA few gaps keep the story from being razor‑sharp. The skills section is fragmented, the education block is missing the university name and graduation year, and a couple of bullets (mentorship, project work) lack outcome detail, making it harder for a hiring manager to gauge the business value of those efforts. Tightening those areas will turn an already strong resume into a clear, high‑impact narrative.\",\n  \"strengths\": [\n    {\n      \"id\": \"str_001\",\n      \"title\": \"High‑throughput telemetry engine\",\n      \"signal\": \"Demonstrates ability to design and ship scalable backend services with clear performance impact.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b01\",\n        \"originalText\": \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\"\n      }\n    },\n    {\n      \"id\": \"str_002\",\n      \"title\": \"Significant latency reduction\",\n      \"signal\": \"Shows deep database expertise and tangible user‑experience improvement.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b02\",\n        \"originalText\": \"Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.\"\n      }\n    },\n    {\n      \"id\": \"str_003\",\n      \"title\": \"Rapid infrastructure automation\",\n      \"signal\": \"Quantifies DevOps efficiency gains that directly affect release velocity.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b03\",\n        \"originalText\": \"Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.\"\n      }\n    },\n    {\n      \"id\": \"str_004\",\n      \"title\": \"Fintech product impact\",\n      \"signal\": \"Built a real‑time dashboard serving a quarter‑million users and eliminated double‑charge incidents on $14M annual billing.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_002\",\n        \"bulletId\": \"exp_002_b01\",\n        \"originalText\": \"Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users.\"\n      }\n    }\n  ],\n  \"issues\": [\n    {\n      \"id\": \"iss_001\",\n      \"severity\": \"high\",\n      \"category\": \"structure\",\n      \"title\": \"Fragmented AWS skill entries\",\n      \"evidence\": {\n        \"section\": \"skills\",\n        \"itemId\": \"skill_013\",\n        \"bulletId\": \"skill_013\",\n        \"originalText\": \"AWS (ECS\"\n      },\n      \"diagnosis\": \"The AWS skill line is split across two entries (\\\"AWS (ECS\\\" and \\\"S3)\\\") which looks like a copy‑paste error and obscures the full cloud stack.\",\n      \"whyItMatters\": \"Hiring managers scan the skills block for completeness; a broken entry can suggest lack of attention to detail.\",\n      \"recommendation\": \"Consolidate all AWS services into a single line, e.g., \\\"AWS (ECS, Lambda, RDS, S3)\\\".\",\n      \"correctedText\": \"AWS (ECS, Lambda, RDS, S3)\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.97\n    },\n    {\n      \"id\": \"iss_002\",\n      \"severity\": \"medium\",\n      \"category\": \"credibility\",\n      \"title\": \"Incomplete education record\",\n      \"evidence\": {\n        \"section\": \"education\",\n        \"itemId\": \"edu_001\",\n        \"bulletId\": \"edu_001\",\n        \"originalText\": \"B.S. in Computer Science | University of Washington | 2015 - 2019\"\n      },\n      \"diagnosis\": \"The education object has empty \\\"institution\\\" and \\\"year\\\" fields even though the combined string contains the needed info.\",\n      \"whyItMatters\": \"Recruiters rely on structured fields for quick validation; missing data can raise unnecessary questions.\",\n      \"recommendation\": \"Populate the \\\"institution\\\" field with \\\"University of Washington\\\" and the \\\"year\\\" field with \\\"2019\\\" (or keep the combined string and remove empty sub‑fields).\",\n      \"correctedText\": null,\n      \"correctionType\": \"restructure\",\n      \"confidence\": 0.94\n    },\n    {\n      \"id\": \"iss_003\",\n      \"severity\": \"medium\",\n      \"category\": \"outcome_visibility\",\n      \"title\": \"Mentorship bullet lacks measurable impact\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b04\",\n        \"originalText\": \"Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns.\"\n      },\n      \"diagnosis\": \"The statement tells what Marcus did but not what resulted—no promotions, productivity gains, or quality improvements are mentioned.\",\n      \"whyItMatters\": \"Senior roles are judged on leadership impact; without outcomes the mentorship effort looks routine.\",\n      \"recommendation\": \"Add any concrete results (e.g., promotions, reduced defect rate, faster delivery) if available; otherwise note the scope of responsibility.\",\n      \"correctedText\": null,\n      \"correctionType\": \"none\",\n      \"confidence\": 0.92\n    },\n    {\n      \"id\": \"iss_004\",\n      \"severity\": \"low\",\n      \"category\": \"impact\",\n      \"title\": \"Project section missing business context\",\n      \"evidence\": {\n        \"section\": \"projects\",\n        \"itemId\": \"proj_001\",\n        \"bulletId\": \"proj_001_b01\",\n        \"originalText\": \"Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.\"\n      },\n      \"diagnosis\": \"Technical depth is clear, but the resume doesn’t explain why the project matters—no performance target, use case, or adoption metric.\",\n      \"whyItMatters\": \"Recruiters want to see how personal projects translate to real‑world value.\",\n      \"recommendation\": \"Add a brief line describing the purpose (e.g., \\\"to explore scalable storage patterns for future microservice caching\\\") and any measurable outcome (e.g., latency improvements in a benchmark).\",\n      \"correctedText\": null,\n      \"correctionType\": \"none\",\n      \"confidence\": 0.88\n    }\n  ],\n  \"priorityActions\": [\n    {\n      \"order\": 1,\n      \"title\": \"Fix fragmented AWS skill entry\",\n      \"action\": \"Combine the split AWS lines into a single, clean entry (e.g., \\\"AWS (ECS, Lambda, RDS, S3)\\\").\",\n      \"impact\": \"High\"\n    },\n    {\n      \"order\": 2,\n      \"title\": \"Complete education fields\",\n      \"action\": \"Populate the \\\"institution\\\" and \\\"year\\\" fields with \\\"University of Washington\\\" and \\\"2019\\\" respectively.\",\n      \"impact\": \"Medium\"\n    },\n    {\n      \"order\": 3,\n      \"title\": \"Add outcomes to mentorship bullet\",\n      \"action\": \"If possible, quantify the results of mentoring (promotions, defect reduction, delivery speed).\",\n      \"impact\": \"Medium\"\n    },\n    {\n      \"order\": 4,\n      \"title\": \"Enrich project descriptions with impact\",\n      \"action\": \"Briefly state the business or research goal of the distributed key‑value store and any performance numbers achieved.\",\n      \"impact\": \"Low\"\n    }\n  ],\n  \"metadata\": {\n    \"provider\": \"openrouter\",\n    \"model\": \"\",\n    \"latencyMs\": 0\n  }\n}\n"
+  },
+  "testB": {
+    "inputMode": "compact_text",
+    "model": "openai/gpt-oss-120b",
+    "testRun": {
+      "runId": "run_1790185994176_b0b3cd73",
+      "timestamp": "2026-09-23T17:53:23.092Z",
+      "provider": "groq",
+      "requestedModel": "openai/gpt-oss-120b",
+      "actualModel": "openai/gpt-oss-120b",
+      "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+      "promptVersion": "resume-expert-v1",
+      "analysisVersion": "1.0",
+      "inputSerializerVersion": "compact-resume-v1",
+      "inputMode": "compact_text",
+      "inputHash": "686a203a7118a51b",
+      "canonicalInputHash": "686a203a7118a51b",
+      "llmInputHash": "7dc713a3e037d1d8",
+      "canonicalInputCharacters": 6541,
+      "compactInputCharacters": 2533,
+      "canonicalEstimatedTokens": 1635,
+      "compactEstimatedTokens": 633,
+      "inputSizeReductionPercent": 61.3,
+      "latencyMs": 8916
+    },
+    "validation": {
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": false,
+      "fabricationDetected": true,
+      "errors": [],
+      "warnings": [
+        "issues[2]: bulletId \"summary\" does not exist in canonical resume.",
+        "issues[2]: correctedText appears to invent new numbers/metrics not present in the original bullet. Resetting correctedText to null for truthfulness.",
+        "issues[3]: bulletId \"skills\" does not exist in canonical resume."
+      ]
+    },
+    "telemetry": {
+      "inputTokens": 1965,
+      "outputTokens": 3964,
+      "reasoningTokens": 2004,
+      "providerLatencyMs": 8825,
+      "totalLatencyMs": 8916,
+      "inputMode": "compact_text",
+      "inputSerializerVersion": "compact-resume-v1",
+      "canonicalInputHash": "686a203a7118a51b",
+      "llmInputHash": "7dc713a3e037d1d8",
+      "canonicalInputCharacters": 6541,
+      "compactInputCharacters": 2533,
+      "canonicalEstimatedTokens": 1635,
+      "compactEstimatedTokens": 633,
+      "inputSizeReductionPercent": 61.3
+    },
+    "rawOutputLength": 8548,
+    "parsedOutput": {
+      "analysisVersion": "1.0",
+      "candidateSnapshot": {
+        "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+        "experienceLevel": "Senior (6 years)",
+        "primaryProfile": "Full‑Stack / Distributed Backend Specialist"
+      },
+      "dashboard": {
+        "score": null,
+        "dimensions": {
+          "impact": null,
+          "clarity": null,
+          "positioning": null,
+          "structure": null
+        }
+      },
+      "overallReview": "Marcus presents a solid senior‑level story anchored in high‑throughput Go services, AWS automation, and full‑stack product delivery. The resume is rich with concrete metrics—throughput jumps, latency cuts, and deployment speedups—that signal strong technical impact. He also demonstrates leadership through mentorship and compliance work, which is valuable for senior roles. The main gaps are around tying those technical wins to business outcomes, clarifying the context of his personal project, and sharpening the summary to surface his leadership and cloud expertise more prominently. Addressing those will make his narrative tighter and more compelling for senior engineering hiring managers.",
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "9x Telemetry Throughput Increase",
+          "signal": "Shows ability to design and scale event‑driven systems dramatically.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b01",
+            "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+          }
+        },
+        {
+          "id": "str_002",
+          "title": "58% PostgreSQL Latency Reduction",
+          "signal": "Demonstrates deep performance‑tuning expertise with databases and caching.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b02",
+            "originalText": "Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching."
+          }
+        },
+        {
+          "id": "str_003",
+          "title": "Deployment Lead‑Time Cut to 18 min",
+          "signal": "Highlights strong DevOps automation and cost‑saving impact.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b03",
+            "originalText": "Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes."
+          }
+        },
+        {
+          "id": "str_004",
+          "title": "250k‑User Real‑Time Dashboard",
+          "signal": "Proves full‑stack delivery at scale for a consumer‑facing product.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_002",
+            "bulletId": "exp_002_b01",
+            "originalText": "Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users."
+          }
+        },
+        {
+          "id": "str_005",
+          "title": "Zero Double‑Charge Incidents on $14M Billing",
+          "signal": "Shows reliability engineering and financial risk mitigation.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_002",
+            "bulletId": "exp_002_b02",
+            "originalText": "Implemented idempotent Stripe payment webhook pipeline, eliminating double-charge incidents across $14M in annual billing volume."
+          }
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "impact",
+          "title": "Business outcome missing for telemetry scaling",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b01",
+            "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+          },
+          "diagnosis": "The bullet quantifies a technical improvement but doesn’t explain why the higher throughput matters to the business or customers.",
+          "whyItMatters": "Senior hiring managers want to see how engineering work drives revenue, cost savings, or product adoption, not just raw numbers.",
+          "recommendation": "Add a brief clause that links the throughput boost to a concrete business benefit (e.g., supporting more customers, enabling new features).",
+          "correctedText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second, supporting expanded customer monitoring capabilities.",
+          "correctionType": "rewrite",
+          "confidence": 0.96
+        },
+        {
+          "id": "iss_002",
+          "severity": "medium",
+          "category": "clarity",
+          "title": "Project section lacks context and impact",
+          "evidence": {
+            "section": "projects",
+            "itemId": "proj_001",
+            "bulletId": "proj_001_b01",
+            "originalText": "Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes."
+          },
+          "diagnosis": "The description tells what was built but not why it was built, whether it was a personal experiment, open‑source contribution, or work‑related research, nor what was achieved beyond the technical feat.",
+          "whyItMatters": "Recruiters need to understand the relevance of side projects to the target role; context turns a technical curiosity into a signal of expertise.",
+          "recommendation": "Specify the project’s purpose (e.g., personal learning, prototype for internal use) and the outcome or skill demonstrated.",
+          "correctedText": "Developed a personal distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes, showcasing expertise in distributed systems design.",
+          "correctionType": "rewrite",
+          "confidence": 0.94
+        },
+        {
+          "id": "iss_003",
+          "severity": "low",
+          "category": "positioning",
+          "title": "Summary is generic and underplays leadership",
+          "evidence": {
+            "section": "summary",
+            "itemId": "summary",
+            "bulletId": "summary",
+            "originalText": "Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams."
+          },
+          "diagnosis": "The summary repeats the title and years without a distinct value proposition or headline achievements.",
+          "whyItMatters": "The summary is the first thing a recruiter reads; a sharp, achievement‑focused pitch differentiates the candidate.",
+          "recommendation": "Rewrite to surface the most compelling metrics and leadership points.",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.95
+        },
+        {
+          "id": "iss_004",
+          "severity": "low",
+          "category": "credibility",
+          "title": "AWS skill depth and certifications not shown",
+          "evidence": {
+            "section": "skills",
+            "itemId": "skills",
+            "bulletId": "skills",
+            "originalText": "AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes"
+          },
+          "diagnosis": "The skill list mentions core AWS services but omits more advanced offerings (e.g., CloudFormation, CDK, Step Functions) and any certifications, which senior cloud roles often expect.",
+          "whyItMatters": "Hiring managers may question depth of cloud expertise without evidence of broader service usage or formal validation.",
+          "recommendation": "If you have certifications (e.g., AWS Solutions Architect), add them. Otherwise, consider highlighting any advanced services you’ve used in the experience bullets.",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.93
+        }
+      ],
+      "priorityActions": [
+        {
+          "order": 1,
+          "title": "Add business impact to the telemetry scaling bullet",
+          "action": "Edit exp_001_b01 to include a concise statement of how the 9x throughput increase enabled new customer capabilities or revenue growth.",
+          "impact": "High"
+        }
+      ],
+      "metadata": {
+        "provider": "groq",
+        "model": "openai/gpt-oss-120b",
+        "latencyMs": 8825,
+        "requestId": "req_1790185994178_916aca7f",
+        "inputMode": "compact_text",
+        "inputSerializerVersion": "compact-resume-v1"
+      }
+    },
+    "reviewExport": "=== CAREER GPS RESUME AGENT TEST ===\n\nRun ID: run_1790185994176_b0b3cd73\nProvider: groq\nModel: openai/gpt-oss-120b\nTarget Role: Senior Full Stack & Cloud Systems Engineer\nPrompt Version: resume-expert-v1\nInput Serializer: compact-resume-v1\nInput Mode: compact_text\nCanonical Input Hash: 686a203a7118a51b\nLLM Input Hash: 7dc713a3e037d1d8\nInput Chars: Canonical: 6541 | Compact: 2533 (61.3% reduction)\nLatency: 8916ms\nStatus: SUCCESS\n\n--- VALIDATION ---\nJSON: PASS\nSchema: PASS\nEvidence: FAIL\nFabrication: DETECTED\n\n--- OVERALL REVIEW ---\nMarcus presents a solid senior‑level story anchored in high‑throughput Go services, AWS automation, and full‑stack product delivery. The resume is rich with concrete metrics—throughput jumps, latency cuts, and deployment speedups—that signal strong technical impact. He also demonstrates leadership through mentorship and compliance work, which is valuable for senior roles. The main gaps are around tying those technical wins to business outcomes, clarifying the context of his personal project, and sharpening the summary to surface his leadership and cloud expertise more prominently. Addressing those will make his narrative tighter and more compelling for senior engineering hiring managers.\n\n--- STRENGTHS ---\n1. 9x Telemetry Throughput Increase\n   Signal: Shows ability to design and scale event‑driven systems dramatically.\n   Evidence: \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\" (ID: exp_001_b01)\n\n2. 58% PostgreSQL Latency Reduction\n   Signal: Demonstrates deep performance‑tuning expertise with databases and caching.\n   Evidence: \"Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.\" (ID: exp_001_b02)\n\n3. Deployment Lead‑Time Cut to 18 min\n   Signal: Highlights strong DevOps automation and cost‑saving impact.\n   Evidence: \"Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.\" (ID: exp_001_b03)\n\n4. 250k‑User Real‑Time Dashboard\n   Signal: Proves full‑stack delivery at scale for a consumer‑facing product.\n   Evidence: \"Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users.\" (ID: exp_002_b01)\n\n5. Zero Double‑Charge Incidents on $14M Billing\n   Signal: Shows reliability engineering and financial risk mitigation.\n   Evidence: \"Implemented idempotent Stripe payment webhook pipeline, eliminating double-charge incidents across $14M in annual billing volume.\" (ID: exp_002_b02)\n\n--- ISSUES ---\nIssue 1:\nSeverity: medium\nTitle: Business outcome missing for telemetry scaling\nEvidence: \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\" (exp_001_b01)\nDiagnosis: The bullet quantifies a technical improvement but doesn’t explain why the higher throughput matters to the business or customers.\nWhy it matters: Senior hiring managers want to see how engineering work drives revenue, cost savings, or product adoption, not just raw numbers.\nRecommendation: Add a brief clause that links the throughput boost to a concrete business benefit (e.g., supporting more customers, enabling new features).\nCorrected text: Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second, supporting expanded customer monitoring capabilities.\n\nIssue 2:\nSeverity: medium\nTitle: Project section lacks context and impact\nEvidence: \"Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.\" (proj_001_b01)\nDiagnosis: The description tells what was built but not why it was built, whether it was a personal experiment, open‑source contribution, or work‑related research, nor what was achieved beyond the technical feat.\nWhy it matters: Recruiters need to understand the relevance of side projects to the target role; context turns a technical curiosity into a signal of expertise.\nRecommendation: Specify the project’s purpose (e.g., personal learning, prototype for internal use) and the outcome or skill demonstrated.\nCorrected text: Developed a personal distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes, showcasing expertise in distributed systems design.\n\nIssue 3:\nSeverity: low\nTitle: Summary is generic and underplays leadership\nEvidence: \"Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.\" (summary)\nDiagnosis: The summary repeats the title and years without a distinct value proposition or headline achievements.\nWhy it matters: The summary is the first thing a recruiter reads; a sharp, achievement‑focused pitch differentiates the candidate.\nRecommendation: Rewrite to surface the most compelling metrics and leadership points.\nCorrected text: None\n\nIssue 4:\nSeverity: low\nTitle: AWS skill depth and certifications not shown\nEvidence: \"AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\" (skills)\nDiagnosis: The skill list mentions core AWS services but omits more advanced offerings (e.g., CloudFormation, CDK, Step Functions) and any certifications, which senior cloud roles often expect.\nWhy it matters: Hiring managers may question depth of cloud expertise without evidence of broader service usage or formal validation.\nRecommendation: If you have certifications (e.g., AWS Solutions Architect), add them. Otherwise, consider highlighting any advanced services you’ve used in the experience bullets.\nCorrected text: None\n\n--- PRIORITY ACTIONS ---\n1. [High Impact] Add business impact to the telemetry scaling bullet: Edit exp_001_b01 to include a concise statement of how the 9x throughput increase enabled new customer capabilities or revenue growth.\n\n--- RAW MODEL OUTPUT ---\n{\n  \"analysisVersion\": \"1.0\",\n  \"candidateSnapshot\": {\n    \"targetRole\": \"Senior Full Stack & Cloud Systems Engineer\",\n    \"experienceLevel\": \"Senior (6 years)\",\n    \"primaryProfile\": \"Full‑Stack / Distributed Backend Specialist\"\n  },\n  \"dashboard\": {\n    \"score\": null,\n    \"dimensions\": {\n      \"impact\": null,\n      \"clarity\": null,\n      \"positioning\": null,\n      \"structure\": null\n    }\n  },\n  \"overallReview\": \"Marcus presents a solid senior‑level story anchored in high‑throughput Go services, AWS automation, and full‑stack product delivery. The resume is rich with concrete metrics—throughput jumps, latency cuts, and deployment speedups—that signal strong technical impact. He also demonstrates leadership through mentorship and compliance work, which is valuable for senior roles. The main gaps are around tying those technical wins to business outcomes, clarifying the context of his personal project, and sharpening the summary to surface his leadership and cloud expertise more prominently. Addressing those will make his narrative tighter and more compelling for senior engineering hiring managers.\",\n  \"strengths\": [\n    {\n      \"id\": \"str_001\",\n      \"title\": \"9x Telemetry Throughput Increase\",\n      \"signal\": \"Shows ability to design and scale event‑driven systems dramatically.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b01\",\n        \"originalText\": \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\"\n      }\n    },\n    {\n      \"id\": \"str_002\",\n      \"title\": \"58% PostgreSQL Latency Reduction\",\n      \"signal\": \"Demonstrates deep performance‑tuning expertise with databases and caching.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b02\",\n        \"originalText\": \"Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.\"\n      }\n    },\n    {\n      \"id\": \"str_003\",\n      \"title\": \"Deployment Lead‑Time Cut to 18 min\",\n      \"signal\": \"Highlights strong DevOps automation and cost‑saving impact.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b03\",\n        \"originalText\": \"Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.\"\n      }\n    },\n    {\n      \"id\": \"str_004\",\n      \"title\": \"250k‑User Real‑Time Dashboard\",\n      \"signal\": \"Proves full‑stack delivery at scale for a consumer‑facing product.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_002\",\n        \"bulletId\": \"exp_002_b01\",\n        \"originalText\": \"Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users.\"\n      }\n    },\n    {\n      \"id\": \"str_005\",\n      \"title\": \"Zero Double‑Charge Incidents on $14M Billing\",\n      \"signal\": \"Shows reliability engineering and financial risk mitigation.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_002\",\n        \"bulletId\": \"exp_002_b02\",\n        \"originalText\": \"Implemented idempotent Stripe payment webhook pipeline, eliminating double-charge incidents across $14M in annual billing volume.\"\n      }\n    }\n  ],\n  \"issues\": [\n    {\n      \"id\": \"iss_001\",\n      \"severity\": \"medium\",\n      \"category\": \"impact\",\n      \"title\": \"Business outcome missing for telemetry scaling\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b01\",\n        \"originalText\": \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\"\n      },\n      \"diagnosis\": \"The bullet quantifies a technical improvement but doesn’t explain why the higher throughput matters to the business or customers.\",\n      \"whyItMatters\": \"Senior hiring managers want to see how engineering work drives revenue, cost savings, or product adoption, not just raw numbers.\",\n      \"recommendation\": \"Add a brief clause that links the throughput boost to a concrete business benefit (e.g., supporting more customers, enabling new features).\",\n      \"correctedText\": \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second, supporting expanded customer monitoring capabilities.\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.96\n    },\n    {\n      \"id\": \"iss_002\",\n      \"severity\": \"medium\",\n      \"category\": \"clarity\",\n      \"title\": \"Project section lacks context and impact\",\n      \"evidence\": {\n        \"section\": \"projects\",\n        \"itemId\": \"proj_001\",\n        \"bulletId\": \"proj_001_b01\",\n        \"originalText\": \"Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.\"\n      },\n      \"diagnosis\": \"The description tells what was built but not why it was built, whether it was a personal experiment, open‑source contribution, or work‑related research, nor what was achieved beyond the technical feat.\",\n      \"whyItMatters\": \"Recruiters need to understand the relevance of side projects to the target role; context turns a technical curiosity into a signal of expertise.\",\n      \"recommendation\": \"Specify the project’s purpose (e.g., personal learning, prototype for internal use) and the outcome or skill demonstrated.\",\n      \"correctedText\": \"Developed a personal distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes, showcasing expertise in distributed systems design.\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.94\n    },\n    {\n      \"id\": \"iss_003\",\n      \"severity\": \"low\",\n      \"category\": \"positioning\",\n      \"title\": \"Summary is generic and underplays leadership\",\n      \"evidence\": {\n        \"section\": \"summary\",\n        \"itemId\": \"summary\",\n        \"bulletId\": \"summary\",\n        \"originalText\": \"Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.\"\n      },\n      \"diagnosis\": \"The summary repeats the title and years without a distinct value proposition or headline achievements.\",\n      \"whyItMatters\": \"The summary is the first thing a recruiter reads; a sharp, achievement‑focused pitch differentiates the candidate.\",\n      \"recommendation\": \"Rewrite to surface the most compelling metrics and leadership points.\",\n      \"correctedText\": \"Senior Full Stack & Cloud Systems Engineer with 6 years delivering high‑throughput Go services on AWS, leading multi‑region infrastructure migrations that cut deployment times by 95%, and mentoring engineering teams to raise code quality.\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.95\n    },\n    {\n      \"id\": \"iss_004\",\n      \"severity\": \"low\",\n      \"category\": \"credibility\",\n      \"title\": \"AWS skill depth and certifications not shown\",\n      \"evidence\": {\n        \"section\": \"skills\",\n        \"itemId\": \"skills\",\n        \"bulletId\": \"skills\",\n        \"originalText\": \"AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\"\n      },\n      \"diagnosis\": \"The skill list mentions core AWS services but omits more advanced offerings (e.g., CloudFormation, CDK, Step Functions) and any certifications, which senior cloud roles often expect.\",\n      \"whyItMatters\": \"Hiring managers may question depth of cloud expertise without evidence of broader service usage or formal validation.\",\n      \"recommendation\": \"If you have certifications (e.g., AWS Solutions Architect), add them. Otherwise, consider highlighting any advanced services you’ve used in the experience bullets.\",\n      \"correctedText\": null,\n      \"correctionType\": \"none\",\n      \"confidence\": 0.93\n    }\n  ],\n  \"priorityActions\": [\n    {\n      \"order\": 1,\n      \"title\": \"Add business impact to the telemetry scaling bullet\",\n      \"action\": \"Edit exp_001_b01 to include a concise statement of how the 9x throughput increase enabled new customer capabilities or revenue growth.\",\n      \"impact\": \"High\"\n    }\n  ],\n  \"metadata\": {\n    \"provider\": \"openrouter\",\n    \"model\": \"\",\n    \"latencyMs\": 0\n  }\n}\n"
+  }
+}

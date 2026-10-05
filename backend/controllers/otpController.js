@@ -90,6 +90,8 @@ export const verifyOtp = async (req, res) => {
     return res.status(200).json({
       message: 'Email verified successfully.',
       userId: user._id,
+      report: user.aiReport || null,
+      hasAnswers: Boolean(user.answers && Object.keys(user.answers).length > 0),
     })
   } catch (error) {
     console.error('Error in verifyOtp controller:', error)

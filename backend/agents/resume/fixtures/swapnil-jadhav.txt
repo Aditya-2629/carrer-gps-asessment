@@ -1,0 +1,36 @@
+Swapnil Jadhav
+swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev
+
+PROFESSIONAL SUMMARY
+Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks.
+
+TECHNICAL SKILLS
+Languages: Python, TypeScript, JavaScript, Go, SQL
+AI & Systems: FastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)
+Backend & Cloud: Node.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD, Jenkins, Trivy, AWS Inspector, Grafana
+Frontend: React, Next.js, Redux, Tailwind CSS
+
+PROFESSIONAL EXPERIENCE
+Senior AI & Full Stack Engineer | Apex Intelligence Labs | San Jose, CA
+March 2023 – Present
+• Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries.
+• Conducted 170-query evaluation benchmark across multi-modal retrieval models, elevating answer accuracy from 72% to 94%.
+• Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members.
+• Automated continuous deployment pipeline delivering 20+ production releases with zero-downtime over 12 months.
+
+Full Stack Software Engineer | CoreLogic Systems | Austin, TX
+June 2021 – February 2023
+• Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations.
+• Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms.
+• Designed role-based tenant isolation and audit logging middleware meeting SOC2 compliance requirements.
+
+TECHNICAL PROJECTS
+FastMCP Multi-Tool Agent Platform | Python, FastMCP, Docker
+• Implemented modular MCP server exposing 9 tools with streaming JSON-RPC responses for local LLM orchestration.
+• Benchmarked tool execution latency achieving sub-50ms roundtrip dispatch across 100 simulated concurrent sessions.
+
+DevSecOps CI/CD & Observability Pipeline | AWS, Jenkins, Grafana
+• Jenkins DevSecOps, Trivy, AWS Inspector, Grafana
+
+EDUCATION
+B.S. in Computer Science | San Jose State University | 2017 – 2021

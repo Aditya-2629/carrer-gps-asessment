@@ -13,6 +13,79 @@ export const GATE_STEPS = {
   OTP: 'OTP',
 }
 
+export const STORAGE_KEYS = {
+  REPORT_DATA: 'career_gps_report_data',
+  USER_ID: 'career_gps_user_id',
+  EMAIL: 'career_gps_email',
+  FORM_DATA: 'career_gps_form_data',
+  IS_VERIFIED: 'career_gps_is_verified',
+}
+
+function loadInitialState() {
+  if (typeof window === 'undefined') {
+    return {
+      reportData: null,
+      userId: null,
+      email: '',
+      formData: {},
+      isVerified: false,
+    }
+  }
+
+  let reportData = null
+  let userId = null
+  let email = ''
+  let formData = {}
+  let isVerified = false
+
+  try {
+    const rawReport = localStorage.getItem(STORAGE_KEYS.REPORT_DATA)
+    if (rawReport) {
+      reportData = JSON.parse(rawReport)
+    }
+  } catch (e) {
+    console.warn('[Store] Failed to parse stored reportData:', e)
+  }
+
+  try {
+    userId = localStorage.getItem(STORAGE_KEYS.USER_ID) || null
+    email = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
+    isVerified = localStorage.getItem(STORAGE_KEYS.IS_VERIFIED) === 'true'
+    const rawForm = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
+    if (rawForm) {
+      formData = JSON.parse(rawForm)
+    }
+  } catch (e) {
+    console.warn('[Store] Failed to parse stored auth/formData:', e)
+  }
+
+  return { reportData, userId, email, formData, isVerified }
+}
+
+function persistFormData(data) {
+  if (typeof window === 'undefined') return
+  try {
+    const clean = { ...data }
+    // Sanitize resume if it's a File/FileList to avoid serialization exceptions
+    if (clean.resume) {
+      if (clean.resume instanceof File) {
+        clean.resume = { name: clean.resume.name, size: clean.resume.size, type: clean.resume.type }
+      } else if (clean.resume instanceof FileList && clean.resume.length > 0) {
+        clean.resume = { name: clean.resume[0].name, size: clean.resume[0].size, type: clean.resume[0].type }
+      } else if (Array.isArray(clean.resume) && clean.resume.length > 0 && clean.resume[0] instanceof File) {
+        clean.resume = { name: clean.resume[0].name, size: clean.resume[0].size, type: clean.resume[0].type }
+      } else if (typeof clean.resume !== 'object' || clean.resume === null) {
+        delete clean.resume
+      }
+    }
+    localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(clean))
+  } catch (e) {
+    console.warn('[Store] Failed to persist formData:', e)
+  }
+}
+
+const initial = loadInitialState()
+
 const useAppStore = create((set) => ({
   // Phase control
   phase: PHASES.ASSESSMENT,
@@ -21,25 +94,67 @@ const useAppStore = create((set) => ({
   setGateStep: (gateStep) => set({ gateStep }),
 
   // Auth
-  email: '',
-  userId: null,
-  isVerified: false,
-  setEmail: (email) => set({ email }),
-  setUserId: (userId) => set({ userId, isVerified: true }),
+  email: initial.email,
+  userId: initial.userId,
+  isVerified: initial.isVerified,
+  setEmail: (email) => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (email) localStorage.setItem(STORAGE_KEYS.EMAIL, email)
+        else localStorage.removeItem(STORAGE_KEYS.EMAIL)
+      }
+    } catch (e) {}
+    set({ email })
+  },
+  setUserId: (userId) => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (userId) {
+          localStorage.setItem(STORAGE_KEYS.USER_ID, userId)
+          localStorage.setItem(STORAGE_KEYS.IS_VERIFIED, 'true')
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.USER_ID)
+          localStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
+        }
+      }
+    } catch (e) {}
+    set({ userId, isVerified: Boolean(userId) })
+  },
 
   // Assessment
   currentStep: 0,
   direction: 1, // 1 = forward, -1 = backward
-  formData: {},
+  formData: initial.formData,
   setCurrentStep: (currentStep, direction = 1) => set({ currentStep, direction }),
   setFormData: (key, value) =>
-    set((state) => ({ formData: { ...state.formData, [key]: value } })),
+    set((state) => {
+      const nextFormData = { ...state.formData, [key]: value }
+      persistFormData(nextFormData)
+      return { formData: nextFormData }
+    }),
   setBulkFormData: (data) =>
-    set((state) => ({ formData: { ...state.formData, ...data } })),
+    set((state) => {
+      const nextFormData = { ...state.formData, ...data }
+      persistFormData(nextFormData)
+      return { formData: nextFormData }
+    }),
 
   // Report
-  reportData: null,
-  setReportData: (reportData) => set({ reportData }),
+  reportData: initial.reportData,
+  setReportData: (reportData) => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (reportData) {
+          localStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(reportData))
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.REPORT_DATA)
+        }
+      }
+    } catch (e) {
+      console.warn('[Store] Failed to persist reportData:', e)
+    }
+    set({ reportData })
+  },
 
   // Theme ('light' | 'dark')
   theme: 'light',
@@ -58,7 +173,16 @@ const useAppStore = create((set) => ({
   setDevOtp: (devOtp) => set({ devOtp }),
 
   // Reset
-  reset: () =>
+  reset: () => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.REPORT_DATA)
+        localStorage.removeItem(STORAGE_KEYS.USER_ID)
+        localStorage.removeItem(STORAGE_KEYS.EMAIL)
+        localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
+        localStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
+      }
+    } catch (e) {}
     set({
       phase: PHASES.ASSESSMENT,
       gateStep: GATE_STEPS.EMAIL,
@@ -69,7 +193,13 @@ const useAppStore = create((set) => ({
       direction: 1,
       formData: {},
       reportData: null,
-    }),
+    })
+  },
 }))
 
+if (typeof window !== 'undefined') {
+  window.__useAppStore = useAppStore
+}
+
 export default useAppStore
+

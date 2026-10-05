@@ -69,7 +69,7 @@ Saves candidate answers, stores the Layer-2 AI Semantic Profile, and parses the 
   1. Validates that `userId` exists and `isVerified === true`.
   2. Saves `answers` and `semanticProfile` to the User document.
   3. Scrapes candidate LinkedIn profile via Apify if a valid URL is present.
-  4. Parses the resume into structured JSON via `gemini-3.8-flash` (with automated fallback chain).
+  4. Parses the resume into structured JSON via `gemini-3.6-flash` (with automated fallback chain).
 - **Responses**:
   - `200 OK`:
     ```json
@@ -84,7 +84,7 @@ Saves candidate answers, stores the Layer-2 AI Semantic Profile, and parses the 
 
 ### `POST /api/assessment/generate-report`
 
-Triggers full AI executive analysis under the "Atlas" persona using `gemini-3.8-flash` (with multi-key and multi-model fallback). Injects ground-truth context from the RAG engine.
+Triggers full AI executive analysis under the "Atlas" persona using `gemini-3.6-flash` (with multi-key and multi-model fallback). Injects ground-truth context from the RAG engine.
 
 - **Request Body**:
   ```json

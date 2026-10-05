@@ -98,7 +98,7 @@ For complete technical documentation, refer to the [`docs/`](file:///c:/Users/hp
   - Node.js (ES Modules, `>=20.x`)
   - Express 4
   - MongoDB & Mongoose 8
-  - Google Generative AI (`@google/generative-ai` — `gemini-3.8-flash` with multi-key fallback)
+  - Google Generative AI (`@google/generative-ai` — `gemini-3.6-flash` with multi-key fallback)
   - Apify Client (`apify-client`)
   - Resend & Nodemailer
   - Multer, pdf-parse, mammoth

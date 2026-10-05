@@ -72,7 +72,7 @@ const extractTextFromBuffer = async (buffer, mimeType, originalName) => {
     const prompt = 'Extract all readable text from this document verbatim. Return raw text only with line breaks, no markdown formatting or comments.'
     const { text } = await generateContentWithFallback({
       contents: [prompt, filePart],
-      modelName: 'gemini-3.8-flash',
+      modelName: 'gemini-3.6-flash',
     })
     if (text && text.trim()) return text.trim()
   } catch (err) {

@@ -1,0 +1,115 @@
+{
+  "benchmark": "Resume Agent V2.5 Phase 1 Golden Run",
+  "timestamp": "2026-09-26T21:47:00.455Z",
+  "model": "gemini-3.6-flash",
+  "runs": [
+    {
+      "iteration": 1,
+      "success": true,
+      "latencyMs": 20173,
+      "issueCount": 3,
+      "strengthCount": 3,
+      "isProj002Flagged": true,
+      "summaryIssueCategory": "ats_readability",
+      "layoutSafePhrasing": true,
+      "proj002IssueDetails": {
+        "category": "technology_dumping",
+        "title": "Project bullet is a list of tools without active contribution language",
+        "diagnosis": "The entry lists several security and monitoring tools, but completely omits an action verb or explanation of what you configured, built, or delivered."
+      },
+      "summaryIssueDetails": {
+        "category": "ats_readability",
+        "title": "Extracted text combines contact details into the summary section block",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety."
+      }
+    },
+    {
+      "iteration": 2,
+      "success": true,
+      "latencyMs": 18974,
+      "issueCount": 3,
+      "strengthCount": 3,
+      "isProj002Flagged": true,
+      "summaryIssueCategory": "ats_readability",
+      "layoutSafePhrasing": true,
+      "proj002IssueDetails": {
+        "category": "technology_dumping",
+        "title": "Incomplete Bullet Missing Action and Context",
+        "diagnosis": "The bullet consists only of a technology list without an action verb or explanation of what was built."
+      },
+      "summaryIssueDetails": {
+        "category": "ats_readability",
+        "title": "Header and Summary Text Merged in Extracted View",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety."
+      }
+    },
+    {
+      "iteration": 3,
+      "success": true,
+      "latencyMs": 22836,
+      "issueCount": 3,
+      "strengthCount": 3,
+      "isProj002Flagged": true,
+      "summaryIssueCategory": "ats_readability",
+      "layoutSafePhrasing": true,
+      "proj002IssueDetails": {
+        "category": "technology_dump",
+        "title": "Project bullet consists of a technology list without engineering context",
+        "diagnosis": "The bullet lists four DevSecOps technologies without an action verb or explanation of what was built or configured."
+      },
+      "summaryIssueDetails": {
+        "category": "ats_readability",
+        "title": "Contact details and summary parsed together in extracted text",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety."
+      }
+    },
+    {
+      "iteration": 4,
+      "success": true,
+      "latencyMs": 23982,
+      "issueCount": 3,
+      "strengthCount": 3,
+      "isProj002Flagged": true,
+      "summaryIssueCategory": "ats_readability",
+      "layoutSafePhrasing": true,
+      "proj002IssueDetails": {
+        "category": "technology_dumping",
+        "title": "Incomplete Project Bullet Lacks Action and Scope",
+        "diagnosis": "This bullet consists entirely of a list of tools without an active verb, context, or explanation of what was built."
+      },
+      "summaryIssueDetails": {
+        "category": "ats_readability",
+        "title": "Contact Details Merged Alongside Summary Block",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety."
+      }
+    },
+    {
+      "iteration": 5,
+      "success": true,
+      "latencyMs": 28740,
+      "issueCount": 4,
+      "strengthCount": 3,
+      "isProj002Flagged": true,
+      "summaryIssueCategory": "ats_readability",
+      "layoutSafePhrasing": true,
+      "proj002IssueDetails": {
+        "category": "technology_dumping",
+        "title": "Tool List Presented Without Action or Engineering Context",
+        "diagnosis": "The project entry is formatted strictly as a list of tool keywords without an action verb or statement of outcome."
+      },
+      "summaryIssueDetails": {
+        "category": "ats_readability",
+        "title": "Contact Details Merged into Summary Section Header",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety."
+      }
+    }
+  ],
+  "summary": {
+    "totalRuns": 5,
+    "proj002FlaggedCount": 5,
+    "proj002FlaggedTarget": ">= 4",
+    "passed": true,
+    "atsReadabilityUsedCount": 5,
+    "layoutSafePhrasingCount": 5
+  }
+}

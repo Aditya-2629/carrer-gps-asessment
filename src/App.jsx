@@ -6,6 +6,7 @@ import AssessmentShell from './components/assessment/AssessmentShell'
 import AnalysisLoader from './components/loading/AnalysisLoader'
 import ReportDashboard from './components/report/ReportDashboard'
 import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
+import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
 
 const phaseVariants = {
   initial: { opacity: 0 },
@@ -36,6 +37,33 @@ export default function App() {
 
   if (isKnowledgeBaseRoute) {
     return <KnowledgeBaseManager />
+  }
+
+  // Check if current route is the development-only resume test lab
+  const isTestLabRoute = [
+    '/test-lab',
+    '/admin/test-lab',
+    '/resume-test',
+    '/resume-lab',
+  ].includes(pathname.toLowerCase())
+
+  if (isTestLabRoute) {
+    return <ResumeAgentTestLab />
+  }
+
+  // Check if direct report preview route is requested
+  const isReportRoute = [
+    '/report',
+    '/report-preview',
+    '/career-gps-report',
+  ].includes(pathname.toLowerCase()) || window.location.search.includes('phase=report')
+
+  if (isReportRoute) {
+    return (
+      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+        <ReportDashboard />
+      </div>
+    )
   }
 
   return (

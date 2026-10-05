@@ -1,0 +1,35 @@
+Marcus Vance
+marcus.vance@example.com | (555) 234-8901 | Seattle, WA | linkedin.com/in/marcusvance-demo
+
+PROFESSIONAL SUMMARY
+Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.
+
+TECHNICAL SKILLS
+Languages: Go, TypeScript, JavaScript, Python, SQL
+Backend & Systems: Node.js, Express, gRPC, REST APIs, GraphQL, Kafka, Redis
+Cloud & DevOps: AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes
+Databases: PostgreSQL, DynamoDB, Redis
+
+PROFESSIONAL EXPERIENCE
+Senior Backend Engineer | CloudScale Networks | Seattle, WA
+April 2022 – Present
+• Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.
+• Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.
+• Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.
+• Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns.
+
+Full Stack Software Engineer | Horizon Fintech | Austin, TX
+July 2019 – March 2022
+• Built real-time transaction reconciliation dashboard in React, TypeScript, and Node.js serving 250,000 monthly active retail users.
+• Implemented idempotent Stripe payment webhook pipeline, eliminating double-charge incidents across $14M in annual billing volume.
+• Architected tenant isolation protocols with PostgreSQL row-level security (RLS), achieving SOC2 Type II compliance approval.
+• Authored comprehensive Jest and Cypress test suites, elevating code coverage from 61% to 89%.
+
+TECHNICAL PROJECTS
+Distributed Key-Value Store | Go, Raft Consensus, Docker
+• Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.
+• Benchmarked cluster throughput achieving 12,000 writes/sec under randomized network partition simulations.
+• Implemented dynamic membership reconfiguration handling split-brain scenarios and network partitions without data loss.
+
+EDUCATION
+B.S. in Computer Science | University of Washington | 2015 – 2019

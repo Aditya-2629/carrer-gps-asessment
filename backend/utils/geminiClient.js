@@ -47,10 +47,14 @@ export const getAllGeminiKeys = () => {
 }
 
 /**
- * Model priority chain with gemini-3.8-flash as primary
+ * Model priority chain — stable Gemini 3.x models (newest → oldest).
+ * gemini-3.8-flash: latest stable (Oct 2026), best quality
+ * gemini-3.7-flash: previous stable, reliable fallback
+ * gemini-3.6-flash: older stable, final fallback
  */
 export const DEFAULT_MODELS = [
   'gemini-3.8-flash',
+  'gemini-3.7-flash',
   'gemini-3.6-flash',
 ]
 /**
@@ -58,14 +62,14 @@ export const DEFAULT_MODELS = [
  *
  * @param {Object} options
  * @param {string|Array} options.contents - Prompt string or contents array
- * @param {string} [options.modelName='gemini-3.8-flash'] - Primary model to use
+ * @param {string} [options.modelName='gemini-3.6-flash'] - Primary model to use
  * @param {Array<string>} [options.fallbackModels] - List of fallback models
  * @param {Object} [options.generationConfig] - Optional generation configuration
  * @returns {Promise<{ text: string, modelUsed: string, keyIndex: number, rawResponse: any }>}
  */
 export const generateContentWithFallback = async ({
   contents,
-  modelName = process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+  modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash',
   fallbackModels = DEFAULT_MODELS,
   generationConfig = {},
 }) => {

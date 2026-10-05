@@ -1,0 +1,33 @@
+Elena Rostova
+elena.rostova@example.com | (555) 456-7890 | Boston, MA | github.com/erostova
+
+PROFESSIONAL SUMMARY
+Full Stack Engineer transitioning from data analytics into modern web platform development. 3 years of combined experience building analytical dashboards, Python ETL pipelines, and full-stack React/Node.js web applications.
+
+TECHNICAL SKILLS
+Languages: Python, TypeScript, JavaScript, SQL
+Frontend: React, Redux, Tailwind CSS, HTML5/CSS3
+Backend & Data: Node.js, Express, FastAPI, PostgreSQL, Pandas, Docker
+Cloud & Tools: AWS (S3, EC2), Git, Postman, Jest
+
+WORK EXPERIENCE
+Software Engineer | DataVista Analytics | Boston, MA
+January 2023 – Present
+• Engineered customer analytics portal in React and FastAPI, reducing report generation turnaround time from 20 minutes to 35 seconds.
+• Migrated manual CSV ingestion workflows into automated PostgreSQL pipeline processing 80,000 customer records daily.
+• Responsible for maintaining Jira tickets and attending sprint planning ceremonies.
+• Built REST API endpoints for user authentication and authorization using JWT tokens.
+
+Data Analyst | Beacon Financial Group | Boston, MA
+June 2021 – December 2022
+• Created executive Tableau dashboards and SQL queries tracking portfolio churn across 15,000 customer accounts.
+• Automated weekly reconciliation spreadsheets using Python and Pandas, saving 6 hours of manual spreadsheet auditing each week.
+• Collaborated with business stakeholders to gather data requirements and clarify metric definitions.
+
+PROJECTS
+OpenSource Workflow Monitor | React, Node.js, Redis
+• Developed lightweight dashboard monitoring active Redis queues with visual queue health gauges and job retries.
+• Published open-source package with 120+ GitHub stars and active developer adoption.
+
+EDUCATION
+B.S. in Applied Mathematics & Statistics | Boston University | 2017 – 2021

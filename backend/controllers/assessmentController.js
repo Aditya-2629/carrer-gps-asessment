@@ -48,7 +48,7 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
 
   const { text: responseText } = await generateContentWithFallback({
     contents: [prompt, filePart],
-    modelName: 'gemini-3.8-flash',
+    modelName: 'gemini-3.6-flash',
   })
 
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
@@ -203,12 +203,12 @@ export const generateReport = async (req, res) => {
 
     const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
-    // Call Gemini API with gemini-3.8-flash and multi-key / multi-model fallback
+    // Call Gemini API with gemini-3.6-flash and multi-key / multi-model fallback
     const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
 
     const { text: responseText } = await generateContentWithFallback({
       contents: promptText,
-      modelName: 'gemini-3.8-flash',
+      modelName: 'gemini-3.6-flash',
     })
 
     const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
@@ -305,7 +305,7 @@ export const chatResume = async (req, res) => {
 
     const { text: replyText } = await generateContentWithFallback({
       contents: prompt,
-      modelName: 'gemini-3.8-flash',
+      modelName: 'gemini-3.6-flash',
     })
 
     return res.status(200).json({ answer: replyText.trim() })
@@ -330,5 +330,42 @@ export const bookCall = async (req, res) => {
   } catch (error) {
     console.error('Error in bookCall controller:', error)
     return res.status(500).json({ message: 'Failed to process request.' })
+  }
+}
+
+// Retrieve existing persisted report for a user
+export const getReport = async (req, res) => {
+  const userId = req.params?.userId || req.query?.userId
+  const email = req.query?.email
+
+  if (!userId && !email) {
+    return res.status(400).json({ message: 'User ID or Email is required.' })
+  }
+
+  try {
+    let user = null
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId)
+    }
+    if (!user && email) {
+      user = await User.findOne({ email: email.toLowerCase().trim() })
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' })
+    }
+
+    if (!user.aiReport) {
+      return res.status(404).json({
+        message: 'No report found for this user.',
+        isVerified: user.isVerified,
+        hasAnswers: Boolean(user.answers && Object.keys(user.answers).length > 0),
+      })
+    }
+
+    return res.status(200).json(user.aiReport)
+  } catch (error) {
+    console.error('Error in getReport controller:', error)
+    return res.status(500).json({ message: 'Failed to retrieve report.' })
   }
 }

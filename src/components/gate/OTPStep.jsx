@@ -4,11 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { SpinnerGap, ArrowLeft, ArrowRight, WarningCircle } from '@phosphor-icons/react'
 import useAppStore, { GATE_STEPS, PHASES } from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { navigateTo } from '../../lib/navigation'
 
 const OTP_LENGTH = 6
 
 export default function OTPStep() {
-  const { email, setGateStep, setUserId, setPhase, devOtp } = useAppStore()
+  const { email, setGateStep, setUserId, setPhase, setReportData, devOtp } = useAppStore()
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))
   const [isError, setIsError] = useState(false)
   const [shaking, setShaking] = useState(false)
@@ -18,7 +19,11 @@ export default function OTPStep() {
     mutationFn: api.verifyOtp,
     onSuccess: (data) => {
       setUserId(data.userId)
-      setPhase(PHASES.LOADING)
+      if (data.report) {
+        setReportData(data.report)
+      }
+      setPhase(PHASES.REPORT)
+      navigateTo('/report')
     },
     onError: () => {
       setIsError(true)

@@ -1,0 +1,374 @@
+{
+  "promptVersion": "resume-expert-v2.2",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "latencyMs": 7948,
+  "rawModelOutput": "{\n  \"analysisVersion\": \"2.1\",\n  \"candidateSnapshot\": {\n    \"name\": \"Marcus Vance\",\n    \"targetRole\": \"Senior Full Stack & Cloud Systems Engineer\",\n    \"experienceLevel\": \"6 years\",\n    \"primaryProfile\": \"Senior Full Stack & Cloud Systems Engineer\"\n  },\n  \"dashboard\": {\n    \"score\": null,\n    \"dimensions\": {\n      \"impact\": null,\n      \"clarity\": null,\n      \"positioning\": null,\n      \"structure\": null\n    }\n  },\n  \"overallReview\": \"Marcus, the first thing that jumps out is the concrete impact you’ve baked into every bullet – scaling a telemetry pipeline 9x, slashing DB latency by more than half, and cutting deployment lead time from hours to minutes. Those numbers make a recruiter sit up and want to hear the story behind them. Your strongest narrative thread is the end‑to‑end ownership of high‑throughput, cloud‑native systems: you design the architecture, automate the rollout, and even mentor the next wave of engineers. The main gaps are around framing: the summary could surface a headline achievement earlier, the mentorship bullet doesn’t show the result of your coaching, and the projects section could clarify why the key‑value store mattered. A quick tweak to the summary wording, adding any measurable outcome to the mentorship line, and tightening the project description will make the resume scan‑friendly and let your impact shine even brighter.\",\n  \"strengths\": [\n    {\n      \"id\": \"str_001\",\n      \"title\": \"High‑scale throughput improvement\",\n      \"signal\": \"Designed and shipped an event‑driven telemetry ingestion engine that scaled throughput from 5,000 to 45,000 events/second.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b01\",\n        \"originalText\": \"Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.\"\n      }\n    },\n    {\n      \"id\": \"str_002\",\n      \"title\": \"Significant database latency reduction\",\n      \"signal\": \"Reduced PostgreSQL p99 query latency by 58% through index restructuring and Redis caching.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b02\",\n        \"originalText\": \"Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching.\"\n      }\n    },\n    {\n      \"id\": \"str_003\",\n      \"title\": \"End‑to‑end infrastructure automation\",\n      \"signal\": \"Automated multi‑region AWS infrastructure, cutting production deployment lead time from 4 hours to 18 minutes.\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b03\",\n        \"originalText\": \"Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.\"\n      }\n    }\n  ],\n  \"issues\": [\n    {\n      \"id\": \"iss_001\",\n      \"severity\": \"medium\",\n      \"category\": \"positioning\",\n      \"title\": \"Summary could surface a headline achievement earlier\",\n      \"evidence\": {\n        \"section\": \"summary\",\n        \"itemId\": \"summary_001\",\n        \"bulletId\": \"summary_001\",\n        \"originalText\": \"Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.\"\n      },\n      \"diagnosis\": \"The summary lists your experience and strengths but doesn’t lead with a concrete, attention‑grabbing result.\",\n      \"whyItMatters\": \"A recruiter glancing at dozens of resumes may skim past a generic intro; a punchy achievement at the top makes you stand out instantly.\",\n      \"recommendation\": \"Reorder the sentences to put a concise impact statement first, keeping the same facts.\",\n      \"correctedText\": \"Senior Full Stack & Cloud Systems Engineer with 6 years designing high‑throughput distributed systems in Go, TypeScript, and AWS. Experienced in leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.92\n    },\n    {\n      \"id\": \"iss_002\",\n      \"severity\": \"low\",\n      \"category\": \"outcome_visibility\",\n      \"title\": \"Mentorship bullet lacks measurable outcome\",\n      \"evidence\": {\n        \"section\": \"experience\",\n        \"itemId\": \"exp_001\",\n        \"bulletId\": \"exp_001_b04\",\n        \"originalText\": \"Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns.\"\n      },\n      \"diagnosis\": \"The bullet shows ownership (mentoring) but doesn’t indicate the result of that effort.\",\n      \"whyItMatters\": \"Hiring managers love to see how coaching translates into faster delivery, higher quality, or stronger team capability.\",\n      \"recommendation\": \"If you tracked any impact (e.g., reduced onboarding time, improved code quality), add it here.\",\n      \"correctedText\": null,\n      \"correctionType\": \"none\",\n      \"confidence\": 0.88\n    },\n    {\n      \"id\": \"iss_003\",\n      \"severity\": \"medium\",\n      \"category\": \"clarity\",\n      \"title\": \"Project descriptions could clarify purpose\",\n      \"evidence\": {\n        \"section\": \"projects\",\n        \"itemId\": \"proj_001\",\n        \"bulletId\": \"proj_001_b01\",\n        \"originalText\": \"Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes.\"\n      },\n      \"diagnosis\": \"The bullet explains what you built but not why it mattered for the key‑value store project.\",\n      \"whyItMatters\": \"Recruiters want to know the problem you solved, not just the technical feat.\",\n      \"recommendation\": \"Add a brief purpose clause while keeping the same facts.\",\n      \"correctedText\": \"Built a distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes for a key‑value store prototype.\",\n      \"correctionType\": \"rewrite\",\n      \"confidence\": 0.9\n    },\n    {\n      \"id\": \"iss_004\",\n      \"severity\": \"low\",\n      \"category\": \"structure\",\n      \"title\": \"Skills list is broad; could be trimmed to most relevant\",\n      \"evidence\": {\n        \"section\": \"skills\",\n        \"itemId\": \"skills\",\n        \"bulletId\": \"skills_001\",\n        \"originalText\": \"Languages: Go, TypeScript, JavaScript, Python, SQL\\nBackend & Systems: Node.js, Express, gRPC, REST APIs, GraphQL, Kafka, Redis\\nCloud & DevOps: AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\\nDatabases: PostgreSQL, DynamoDB, Redis\"\n      },\n      \"diagnosis\": \"The list includes many items, some of which overlap (e.g., Redis appears twice) and may dilute focus.\",\n      \"whyItMatters\": \"A tighter skills section helps ATS parsing and lets recruiters spot the exact stack you excel at.\",\n      \"recommendation\": \"Group related technologies and remove duplicates; keep the top 8‑10 that align with senior full‑stack & cloud roles.\",\n      \"correctedText\": null,\n      \"correctionType\": \"none\",\n      \"confidence\": 0.85\n    }\n  ],\n  \"priorityActions\": [\n    {\n      \"order\": 1,\n      \"title\": \"Rewrite summary for immediate impact\",\n      \"action\": \"Reorder the summary to lead with a concise impact statement using the existing facts.\",\n      \"impact\": \"High\"\n    },\n    {\n      \"order\": 2,\n      \"title\": \"Add outcome to mentorship bullet\",\n      \"action\": \"If you have any measurable result from mentoring (e.g., faster onboarding, higher code quality), include it.\",\n      \"impact\": \"Medium\"\n    },\n    {\n      \"order\": 3,\n      \"title\": \"Clarify project purpose\",\n      \"action\": \"Add a brief purpose clause to the project bullets while staying within the original facts.\",\n      \"impact\": \"Medium\"\n    },\n    {\n      \"order\": 4,\n      \"title\": \"Trim and de‑duplicate skills\",\n      \"action\": \"Consolidate overlapping items and keep the most relevant technologies for senior full‑stack & cloud roles.\",\n      \"impact\": \"Low\"\n    }\n  ],\n  \"metadata\": {\n    \"provider\": \"\",\n    \"model\": \"\",\n    \"latencyMs\": 0\n  }\n}",
+  "parsedOutput": {
+    "analysisVersion": "2.1",
+    "candidateSnapshot": {
+      "name": "Marcus Vance",
+      "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+      "experienceLevel": "6 years",
+      "primaryProfile": "Senior Full Stack & Cloud Systems Engineer"
+    },
+    "dashboard": {
+      "score": null,
+      "dimensions": {
+        "impact": null,
+        "clarity": null,
+        "positioning": null,
+        "structure": null
+      }
+    },
+    "overallReview": "Marcus, the first thing that jumps out is the concrete impact you’ve baked into every bullet – scaling a telemetry pipeline 9x, slashing DB latency by more than half, and cutting deployment lead time from hours to minutes. Those numbers make a recruiter sit up and want to hear the story behind them. Your strongest narrative thread is the end‑to‑end ownership of high‑throughput, cloud‑native systems: you design the architecture, automate the rollout, and even mentor the next wave of engineers. The main gaps are around framing: the summary could surface a headline achievement earlier, the mentorship bullet doesn’t show the result of your coaching, and the projects section could clarify why the key‑value store mattered. A quick tweak to the summary wording, adding any measurable outcome to the mentorship line, and tightening the project description will make the resume scan‑friendly and let your impact shine even brighter.",
+    "strengths": [
+      {
+        "id": "str_001",
+        "title": "High‑scale throughput improvement",
+        "signal": "Designed and shipped an event‑driven telemetry ingestion engine that scaled throughput from 5,000 to 45,000 events/second.",
+        "evidence": {
+          "section": "experience",
+          "itemId": "exp_001",
+          "bulletId": "exp_001_b01",
+          "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+        }
+      },
+      {
+        "id": "str_002",
+        "title": "Significant database latency reduction",
+        "signal": "Reduced PostgreSQL p99 query latency by 58% through index restructuring and Redis caching.",
+        "evidence": {
+          "section": "experience",
+          "itemId": "exp_001",
+          "bulletId": "exp_001_b02",
+          "originalText": "Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching."
+        }
+      },
+      {
+        "id": "str_003",
+        "title": "End‑to‑end infrastructure automation",
+        "signal": "Automated multi‑region AWS infrastructure, cutting production deployment lead time from 4 hours to 18 minutes.",
+        "evidence": {
+          "section": "experience",
+          "itemId": "exp_001",
+          "bulletId": "exp_001_b03",
+          "originalText": "Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes."
+        }
+      }
+    ],
+    "issues": [
+      {
+        "id": "iss_001",
+        "severity": "medium",
+        "category": "positioning",
+        "title": "Summary could surface a headline achievement earlier",
+        "evidence": {
+          "section": "summary",
+          "itemId": "summary_001",
+          "bulletId": "summary_001",
+          "originalText": "Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams."
+        },
+        "diagnosis": "The summary lists your experience and strengths but doesn’t lead with a concrete, attention‑grabbing result.",
+        "whyItMatters": "A recruiter glancing at dozens of resumes may skim past a generic intro; a punchy achievement at the top makes you stand out instantly.",
+        "recommendation": "Reorder the sentences to put a concise impact statement first, keeping the same facts.",
+        "correctedText": "Senior Full Stack & Cloud Systems Engineer with 6 years designing high‑throughput distributed systems in Go, TypeScript, and AWS. Experienced in leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.",
+        "correctionType": "rewrite",
+        "confidence": 0.92
+      },
+      {
+        "id": "iss_002",
+        "severity": "low",
+        "category": "outcome_visibility",
+        "title": "Mentorship bullet lacks measurable outcome",
+        "evidence": {
+          "section": "experience",
+          "itemId": "exp_001",
+          "bulletId": "exp_001_b04",
+          "originalText": "Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns."
+        },
+        "diagnosis": "The bullet shows ownership (mentoring) but doesn’t indicate the result of that effort.",
+        "whyItMatters": "Hiring managers love to see how coaching translates into faster delivery, higher quality, or stronger team capability.",
+        "recommendation": "If you tracked any impact (e.g., reduced onboarding time, improved code quality), add it here.",
+        "correctedText": null,
+        "correctionType": "none",
+        "confidence": 0.88
+      },
+      {
+        "id": "iss_003",
+        "severity": "medium",
+        "category": "clarity",
+        "title": "Project descriptions could clarify purpose",
+        "evidence": {
+          "section": "projects",
+          "itemId": "proj_001",
+          "bulletId": "proj_001_b01",
+          "originalText": "Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes."
+        },
+        "diagnosis": "The bullet explains what you built but not why it mattered for the key‑value store project.",
+        "whyItMatters": "Recruiters want to know the problem you solved, not just the technical feat.",
+        "recommendation": "Add a brief purpose clause while keeping the same facts.",
+        "correctedText": "Built a distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes for a key‑value store prototype.",
+        "correctionType": "rewrite",
+        "confidence": 0.9
+      },
+      {
+        "id": "iss_004",
+        "severity": "low",
+        "category": "structure",
+        "title": "Skills list is broad; could be trimmed to most relevant",
+        "evidence": {
+          "section": "skills",
+          "itemId": "skills",
+          "bulletId": "skills_001",
+          "originalText": "Languages: Go, TypeScript, JavaScript, Python, SQL\nBackend & Systems: Node.js, Express, gRPC, REST APIs, GraphQL, Kafka, Redis\nCloud & DevOps: AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\nDatabases: PostgreSQL, DynamoDB, Redis"
+        },
+        "diagnosis": "The list includes many items, some of which overlap (e.g., Redis appears twice) and may dilute focus.",
+        "whyItMatters": "A tighter skills section helps ATS parsing and lets recruiters spot the exact stack you excel at.",
+        "recommendation": "Group related technologies and remove duplicates; keep the top 8‑10 that align with senior full‑stack & cloud roles.",
+        "correctedText": null,
+        "correctionType": "none",
+        "confidence": 0.85
+      }
+    ],
+    "priorityActions": [
+      {
+        "order": 1,
+        "title": "Rewrite summary for immediate impact",
+        "action": "Reorder the summary to lead with a concise impact statement using the existing facts.",
+        "impact": "High"
+      },
+      {
+        "order": 2,
+        "title": "Add outcome to mentorship bullet",
+        "action": "If you have any measurable result from mentoring (e.g., faster onboarding, higher code quality), include it.",
+        "impact": "Medium"
+      },
+      {
+        "order": 3,
+        "title": "Clarify project purpose",
+        "action": "Add a brief purpose clause to the project bullets while staying within the original facts.",
+        "impact": "Medium"
+      },
+      {
+        "order": 4,
+        "title": "Trim and de‑duplicate skills",
+        "action": "Consolidate overlapping items and keep the most relevant technologies for senior full‑stack & cloud roles.",
+        "impact": "Low"
+      }
+    ],
+    "metadata": {
+      "provider": "",
+      "model": "",
+      "latencyMs": 0
+    }
+  },
+  "validation": {
+    "isValid": true,
+    "errors": [],
+    "warnings": [
+      "issues[3]: bulletId \"skills_001\" does not exist in canonical resume.",
+      "issues[3].recommendation: [fabricated_number_in_recommendation] Invented numeric token \"8\" (issue: iss_004) not found in evidence.originalText.",
+      "issues[3].recommendation: [fabricated_number_in_recommendation] Invented numeric token \"10\" (issue: iss_004) not found in evidence.originalText.",
+      "issues[1].recommendation: [placeholder_metric_category_not_in_evidence] \"(e.g., reduced onboarding time, improved code quality)\" not found in evidence.originalText."
+    ],
+    "unsupportedClaims": [],
+    "traceabilityWarnings": [],
+    "placeholderWarnings": [
+      {
+        "code": "fabricated_number_in_recommendation",
+        "field": "issues[3].recommendation",
+        "issueId": "iss_004",
+        "token": "8",
+        "claim": "8",
+        "evidenceIds": [
+          "skills_001"
+        ],
+        "reusedFromOtherBullet": false,
+        "message": "issues[3].recommendation: [fabricated_number_in_recommendation] Invented numeric token \"8\" (issue: iss_004) not found in evidence.originalText."
+      },
+      {
+        "code": "fabricated_number_in_recommendation",
+        "field": "issues[3].recommendation",
+        "issueId": "iss_004",
+        "token": "10",
+        "claim": "10",
+        "evidenceIds": [
+          "skills_001"
+        ],
+        "reusedFromOtherBullet": false,
+        "message": "issues[3].recommendation: [fabricated_number_in_recommendation] Invented numeric token \"10\" (issue: iss_004) not found in evidence.originalText."
+      },
+      {
+        "code": "placeholder_metric_category_not_in_evidence",
+        "field": "issues[1].recommendation",
+        "issueId": "iss_002",
+        "claim": "(e.g., reduced onboarding time, improved code quality)",
+        "evidenceIds": [
+          "exp_001_b04"
+        ],
+        "message": "issues[1].recommendation: [placeholder_metric_category_not_in_evidence] \"(e.g., reduced onboarding time, improved code quality)\" not found in evidence.originalText."
+      }
+    ],
+    "sanitizedAnalysis": {
+      "analysisVersion": "2.1",
+      "candidateSnapshot": {
+        "name": "Marcus Vance",
+        "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+        "experienceLevel": "6 years",
+        "primaryProfile": "Senior Full Stack & Cloud Systems Engineer"
+      },
+      "dashboard": {
+        "score": null,
+        "dimensions": {
+          "impact": null,
+          "clarity": null,
+          "positioning": null,
+          "structure": null
+        }
+      },
+      "overallReview": "Marcus, the first thing that jumps out is the concrete impact you’ve baked into every bullet – scaling a telemetry pipeline 9x, slashing DB latency by more than half, and cutting deployment lead time from hours to minutes. Those numbers make a recruiter sit up and want to hear the story behind them. Your strongest narrative thread is the end‑to‑end ownership of high‑throughput, cloud‑native systems: you design the architecture, automate the rollout, and even mentor the next wave of engineers. The main gaps are around framing: the summary could surface a headline achievement earlier, the mentorship bullet doesn’t show the result of your coaching, and the projects section could clarify why the key‑value store mattered. A quick tweak to the summary wording, adding any measurable outcome to the mentorship line, and tightening the project description will make the resume scan‑friendly and let your impact shine even brighter.",
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "High‑scale throughput improvement",
+          "signal": "Designed and shipped an event‑driven telemetry ingestion engine that scaled throughput from 5,000 to 45,000 events/second.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b01",
+            "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+          }
+        },
+        {
+          "id": "str_002",
+          "title": "Significant database latency reduction",
+          "signal": "Reduced PostgreSQL p99 query latency by 58% through index restructuring and Redis caching.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b02",
+            "originalText": "Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching."
+          }
+        },
+        {
+          "id": "str_003",
+          "title": "End‑to‑end infrastructure automation",
+          "signal": "Automated multi‑region AWS infrastructure, cutting production deployment lead time from 4 hours to 18 minutes.",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b03",
+            "originalText": "Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes."
+          }
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "positioning",
+          "title": "Summary could surface a headline achievement earlier",
+          "evidence": {
+            "section": "summary",
+            "itemId": "summary_001",
+            "bulletId": "summary_001",
+            "originalText": "Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams."
+          },
+          "diagnosis": "The summary lists your experience and strengths but doesn’t lead with a concrete, attention‑grabbing result.",
+          "whyItMatters": "A recruiter glancing at dozens of resumes may skim past a generic intro; a punchy achievement at the top makes you stand out instantly.",
+          "recommendation": "Reorder the sentences to put a concise impact statement first, keeping the same facts.",
+          "correctedText": "Senior Full Stack & Cloud Systems Engineer with 6 years designing high‑throughput distributed systems in Go, TypeScript, and AWS. Experienced in leading infrastructure migrations, optimizing database latency, and mentoring engineering teams.",
+          "correctionType": "rewrite",
+          "confidence": 0.92
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "outcome_visibility",
+          "title": "Mentorship bullet lacks measurable outcome",
+          "evidence": {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b04",
+            "originalText": "Mentored 4 mid-level software engineers through structured weekly design reviews and system architecture teardowns."
+          },
+          "diagnosis": "The bullet shows ownership (mentoring) but doesn’t indicate the result of that effort.",
+          "whyItMatters": "Hiring managers love to see how coaching translates into faster delivery, higher quality, or stronger team capability.",
+          "recommendation": "If you tracked any impact (e.g., reduced onboarding time, improved code quality), add it here.",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.88
+        },
+        {
+          "id": "iss_003",
+          "severity": "medium",
+          "category": "clarity",
+          "title": "Project descriptions could clarify purpose",
+          "evidence": {
+            "section": "projects",
+            "itemId": "proj_001",
+            "bulletId": "proj_001_b01",
+            "originalText": "Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes."
+          },
+          "diagnosis": "The bullet explains what you built but not why it mattered for the key‑value store project.",
+          "whyItMatters": "Recruiters want to know the problem you solved, not just the technical feat.",
+          "recommendation": "Add a brief purpose clause while keeping the same facts.",
+          "correctedText": "Built a distributed, fault‑tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes for a key‑value store prototype.",
+          "correctionType": "rewrite",
+          "confidence": 0.9
+        },
+        {
+          "id": "iss_004",
+          "severity": "low",
+          "category": "structure",
+          "title": "Skills list is broad; could be trimmed to most relevant",
+          "evidence": {
+            "section": "skills",
+            "itemId": "skills",
+            "bulletId": "skills_001",
+            "originalText": "Languages: Go, TypeScript, JavaScript, Python, SQL\nBackend & Systems: Node.js, Express, gRPC, REST APIs, GraphQL, Kafka, Redis\nCloud & DevOps: AWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\nDatabases: PostgreSQL, DynamoDB, Redis"
+          },
+          "diagnosis": "The list includes many items, some of which overlap (e.g., Redis appears twice) and may dilute focus.",
+          "whyItMatters": "A tighter skills section helps ATS parsing and lets recruiters spot the exact stack you excel at.",
+          "recommendation": "Group related technologies and remove duplicates; keep the top 8‑10 that align with senior full‑stack & cloud roles.",
+          "correctedText": null,
+          "correctionType": "none",
+          "confidence": 0.85
+        }
+      ],
+      "priorityActions": [
+        {
+          "order": 1,
+          "title": "Rewrite summary for immediate impact",
+          "action": "Reorder the summary to lead with a concise impact statement using the existing facts.",
+          "impact": "High"
+        },
+        {
+          "order": 2,
+          "title": "Add outcome to mentorship bullet",
+          "action": "If you have any measurable result from mentoring (e.g., faster onboarding, higher code quality), include it.",
+          "impact": "Medium"
+        },
+        {
+          "order": 3,
+          "title": "Clarify project purpose",
+          "action": "Add a brief purpose clause to the project bullets while staying within the original facts.",
+          "impact": "Medium"
+        },
+        {
+          "order": 4,
+          "title": "Trim and de‑duplicate skills",
+          "action": "Consolidate overlapping items and keep the most relevant technologies for senior full‑stack & cloud roles.",
+          "impact": "Low"
+        }
+      ],
+      "metadata": {
+        "provider": "",
+        "model": "",
+        "latencyMs": 0
+      }
+    }
+  },
+  "timestamp": "2026-09-23T20:17:44.199Z"
+}

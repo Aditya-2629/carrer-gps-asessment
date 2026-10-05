@@ -1,0 +1,726 @@
+{
+  "timestamp": "2026-09-26T20:24:28.985Z",
+  "summary": [
+    {
+      "fixture": "GOLDEN (Swapnil Jadhav — Strong AI/Backend)",
+      "type": "strong_technical",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "latencyMs": 7680,
+      "inputTokens": 4653,
+      "outputTokens": 3190,
+      "canonicalInputHash": "ae09dabd2c5cd7d7",
+      "llmInputHash": "111ad494addd8474",
+      "success": true,
+      "classification": "SUCCESS",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 2,
+      "strengthCount": 4,
+      "unsupportedAssumptionCount": 0,
+      "rewriteViolationCount": 0,
+      "rawOutputLength": 6499,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
+    },
+    {
+      "fixture": "WEAK (Jordan Miller — Junior Fullstack)",
+      "type": "weak",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "latencyMs": 40788,
+      "inputTokens": 4106,
+      "outputTokens": 3523,
+      "canonicalInputHash": "985b2f01077c9a2b",
+      "llmInputHash": "b4f68e3cf4bffe22",
+      "success": true,
+      "classification": "SUCCESS",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 4,
+      "strengthCount": 4,
+      "unsupportedAssumptionCount": 0,
+      "rewriteViolationCount": 0,
+      "rawOutputLength": 8700,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
+    },
+    {
+      "fixture": "MIXED (Mixed Experience)",
+      "type": "mixed",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "latencyMs": 36823,
+      "inputTokens": 4411,
+      "outputTokens": 2642,
+      "canonicalInputHash": "1593f607ebd84cd3",
+      "llmInputHash": "b2ad889789b8bac2",
+      "success": true,
+      "classification": "UNSUPPORTED_CLAIM_WARNING",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 3,
+      "strengthCount": 4,
+      "unsupportedAssumptionCount": 1,
+      "rewriteViolationCount": 0,
+      "rawOutputLength": 7141,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
+    },
+    {
+      "fixture": "STRONG FULLSTACK (Marcus Vance)",
+      "type": "strong_fullstack",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v2",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "latencyMs": 30466,
+      "inputTokens": null,
+      "outputTokens": null,
+      "canonicalInputHash": null,
+      "llmInputHash": null,
+      "success": false,
+      "classification": "PROVIDER_ERROR",
+      "jsonValid": false,
+      "schemaValid": false,
+      "evidenceValid": false,
+      "issueCount": 0,
+      "strengthCount": 0,
+      "unsupportedAssumptionCount": 0,
+      "rewriteViolationCount": 0,
+      "rawOutputLength": 0,
+      "analysisVersion": null,
+      "dashboardIsNull": false
+    }
+  ],
+  "goldenRecords": [
+    {
+      "timestamp": "2026-09-26T20:21:40.871Z",
+      "fixture": "GOLDEN (Swapnil Jadhav — Strong AI/Backend)",
+      "type": "strong_technical",
+      "inputHash": "ae09dabd2c5cd7d7",
+      "llmInputHash": "111ad494addd8474",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "signals": {
+        "skillGaps": 16,
+        "totalMetrics": 22,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Swapnil Jadhav",
+          "targetRole": "Senior AI & Full Stack Engineer",
+          "experienceLevel": "5+ years",
+          "primaryProfile": "Senior Full Stack & AI Systems Engineer"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Swapnil, your resume showcases strong, quantifiable impact—speeding up retrieval by 35%, cutting latency from 850 ms to 120 ms, and scaling chat capacity three‑fold. Those numbers will catch a recruiter’s eye. The main things holding it back are the long skill list that isn’t tied to concrete work and a merged header/summary block that makes quick scanning harder. Focus first on tightening the skills section (show where you used each technology) and separating your contact info from the summary. After that, the resume will read much cleaner and convey confidence in every tool you claim.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "High‑impact retrieval pipeline",
+            "description": "Architected a RAG agent pipeline with 9 tools, delivering 35% faster retrieval and 38% fewer manual support queries.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries."
+              }
+            ]
+          },
+          {
+            "id": "str_002",
+            "title": "Scalable real‑time chat system",
+            "description": "Scaled chat infrastructure to 3× concurrent capacity with sub‑second page loads for thousands of users.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members."
+              }
+            ]
+          },
+          {
+            "id": "str_003",
+            "title": "Zero‑downtime CI/CD automation",
+            "description": "Automated a continuous deployment pipeline that delivered 20+ production releases with zero downtime over a year.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b04",
+                "originalText": "Automated continuous deployment pipeline delivering 20+ production releases with zero-downtime over 12 months."
+              }
+            ]
+          },
+          {
+            "id": "str_004",
+            "title": "Database latency reduction",
+            "description": "Re‑indexed tables and added Redis caching, cutting p95 API latency from 850 ms to 120 ms.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b02",
+                "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "issue_001",
+            "severity": "medium",
+            "category": "skill_evidence_gap",
+            "title": "Many listed skills lack supporting evidence",
+            "diagnosis": "The skills section lists several technologies (e.g., TypeScript, JavaScript, Go, SQL, LangChain, OpenAI API, Pinecone, ChromaDB) that are not referenced in any experience or project bullet.",
+            "whyItMatters": "Recruiters may question your proficiency with those tools, reducing confidence in your fit for roles that require them.",
+            "recommendation": "Add bullet points that demonstrate how you used these technologies, or remove them if they are not central to your recent work.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "skills",
+                "itemId": "skills_001",
+                "bulletId": "skills_001",
+                "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "issue_002",
+            "severity": "low",
+            "category": "formatting",
+            "title": "Header and summary appear merged",
+            "diagnosis": "The summary block contains contact information and the professional summary in the same paragraph.",
+            "whyItMatters": "A merged header can make the resume harder to scan quickly, especially for ATS or recruiters who look for a clean header.",
+            "recommendation": "Place name, contact details, and LinkedIn on a separate top line or block, then start the summary on the next line.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+              }
+            ],
+            "correctionType": "none"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Validate skill list with concrete examples",
+            "action": "Review the skills section and add bullet points that show where you used each listed technology, or remove skills you haven’t applied recently.",
+            "reason": "Provides recruiters clear evidence of proficiency and avoids a breadth‑to‑depth mismatch."
+          },
+          {
+            "priority": 2,
+            "title": "Separate header/contact from summary",
+            "action": "Place name, email, phone, location, and LinkedIn on a distinct header line, then start the professional summary on the next line.",
+            "reason": "Improves scanability and makes the document look polished to both humans and ATS."
+          },
+          {
+            "priority": 3,
+            "title": "Highlight top achievements early",
+            "action": "Consider ordering the most impactful bullets (e.g., performance gains, automation) at the top of each experience section.",
+            "reason": "Ensures recruiters see your biggest wins within the first few seconds of reading."
+          }
+        ],
+        "metadata": {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "latencyMs": 7594,
+          "requestId": "req_1790454093242_0793e34d",
+          "inputTokens": 4653,
+          "outputTokens": 3190,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.0",
+          "pipelineVersion": "v3"
+        }
+      },
+      "validationResult": {
+        "schemaValid": true,
+        "evidenceValid": true,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      },
+      "latencyMs": 7680,
+      "tokenUsage": {
+        "input": 4653,
+        "output": 3190
+      },
+      "classification": "SUCCESS"
+    },
+    {
+      "timestamp": "2026-09-26T20:22:41.665Z",
+      "fixture": "WEAK (Jordan Miller — Junior Fullstack)",
+      "type": "weak",
+      "inputHash": "985b2f01077c9a2b",
+      "llmInputHash": "b4f68e3cf4bffe22",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "signals": {
+        "skillGaps": 7,
+        "totalMetrics": 0,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Jordan Miller",
+          "targetRole": "Junior Full Stack Developer",
+          "experienceLevel": "Mid-Level (2-5 years)",
+          "primaryProfile": "Full Stack Developer"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Jordan shows solid hands‑on experience with JavaScript, React, and REST API development, and has a clear foundation in front‑end work from creating landing pages. The resume, however, leans heavily on responsibility‑type statements, uses generic language in the summary, and lists many skills that aren’t backed up by concrete examples. Tightening the wording, adding outcome‑focused details, and aligning the skills list with demonstrated work will make the profile much more compelling to recruiters.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "Front‑end development with modern JavaScript frameworks",
+            "description": "Built web applications using JavaScript and React, showing relevant full‑stack front‑end experience.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Responsible for writing code for web applications using JavaScript and React."
+              }
+            ]
+          },
+          {
+            "id": "str_002",
+            "title": "REST API creation and documentation",
+            "description": "Designed and documented backend services, indicating capability across the stack.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b05",
+                "originalText": "Built REST APIs and wrote documentation for team members."
+              }
+            ]
+          },
+          {
+            "id": "str_003",
+            "title": "Landing‑page development using core web technologies",
+            "description": "Delivered client‑facing landing pages with HTML, CSS, and JavaScript, demonstrating solid front‑end fundamentals.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b01",
+                "originalText": "Created landing pages for clients using HTML, CSS, and basic JavaScript."
+              }
+            ]
+          },
+          {
+            "id": "str_004",
+            "title": "Formal education in information systems",
+            "description": "Bachelor’s degree provides a strong theoretical foundation for software development.",
+            "evidence": [
+              {
+                "section": "education",
+                "itemId": "edu_001",
+                "bulletId": "edu_001",
+                "originalText": "B.A. in Information Systems | DePaul University | 2017 - 2021"
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "issue_001",
+            "severity": "medium",
+            "category": "positioning",
+            "title": "Summary uses generic language and lacks specific positioning",
+            "diagnosis": "The summary contains broad clichés such as \"Hardworking software engineer\" and \"Responsible, detail‑oriented team player\" without concrete examples of what differentiates the candidate.",
+            "whyItMatters": "Recruiters may have difficulty quickly seeing Jordan’s unique value and technical focus, which can cause the resume to blend in with many similar profiles.",
+            "recommendation": "Rewrite the summary to spotlight specific technologies, notable projects, and measurable contributions that align with the junior full‑stack role.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Jordan Miller jordan.miller@example.com | (555) 789-0123 | Chicago, IL Hardworking software engineer looking to leverage my programming skills in a dynamic full stack development position. Responsible, detail-oriented team player with experience in multiple languages."
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "issue_002",
+            "severity": "low",
+            "category": "language",
+            "title": "Weak action verbs reduce perceived ownership",
+            "diagnosis": "Several bullets begin with weak verbs such as \"Responsible for\", \"Assisted\", \"Worked\", and \"Handled\", which do not clearly convey personal contribution.",
+            "whyItMatters": "Strong, active verbs help recruiters instantly recognize the candidate’s direct impact and responsibility level.",
+            "recommendation": "Replace weak verbs with stronger alternatives (e.g., \"Developed\", \"Implemented\", \"Resolved\", \"Optimized\") and lead each bullet with a clear action.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Responsible for writing code for web applications using JavaScript and React."
+              },
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b02",
+                "originalText": "Assisted senior developers with backend bug fixing and routine database maintenance tasks."
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "issue_003",
+            "severity": "medium",
+            "category": "skill_evidence_gap",
+            "title": "Skills listed without supporting experience evidence",
+            "diagnosis": "The skills section lists Java, C++, Python, MySQL, Git, Windows, and Linux, yet none of the experience bullets reference these technologies.",
+            "whyItMatters": "Recruiters may question proficiency in those areas when they cannot see concrete usage examples.",
+            "recommendation": "Add bullet points that demonstrate how those technologies were used, or remove them from the list to keep the skills section tightly aligned with proven experience.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "skills",
+                "itemId": "skills_001",
+                "bulletId": "skills_001",
+                "originalText": "Technical Skills:\nJava, C++, Python, HTML, CSS, JavaScript, React, MySQL, Git, Windows, Linux"
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "issue_004",
+            "severity": "medium",
+            "category": "impact",
+            "title": "Bullets focus on responsibilities rather than outcomes",
+            "diagnosis": "All nine bullets describe tasks performed (e.g., \"Created landing pages\", \"Handled customer support tickets\") without mentioning results, improvements, or measurable impact.",
+            "whyItMatters": "Outcome‑oriented statements demonstrate value and help the candidate stand out among other applicants with similar duties.",
+            "recommendation": "Reframe each bullet to include the effect of the work—such as performance gains, bug reductions, user satisfaction improvements, or time saved.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Responsible for writing code for web applications using JavaScript and React."
+              },
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b01",
+                "originalText": "Created landing pages for clients using HTML, CSS, and basic JavaScript."
+              }
+            ],
+            "correctionType": "none"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Rewrite the summary for specificity",
+            "action": "Replace generic phrases with concrete examples of technologies used, projects completed, and any measurable contributions.",
+            "reason": "A focused summary quickly tells recruiters why you’re a fit for a junior full‑stack role."
+          },
+          {
+            "priority": 2,
+            "title": "Strengthen action verbs and add outcomes",
+            "action": "Begin each bullet with a strong verb and include the result of the work (e.g., \"Developed a React component that reduced page load time\").",
+            "reason": "Active language and outcome focus make achievements clear and compelling."
+          },
+          {
+            "priority": 3,
+            "title": "Align skills with demonstrated experience",
+            "action": "Either add experience bullets that show use of Java, C++, Python, MySQL, Git, Windows, and Linux, or remove those items from the skills list.",
+            "reason": "Consistent skill evidence builds credibility with recruiters."
+          },
+          {
+            "priority": 4,
+            "title": "Add outcome‑oriented details to existing bullets",
+            "action": "For each responsibility, think about the impact (e.g., bugs fixed, performance improvements, user satisfaction) and incorporate that into the bullet.",
+            "reason": "Outcome statements differentiate you from candidates who list duties only."
+          }
+        ],
+        "metadata": {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "latencyMs": 9995,
+          "requestId": "req_1790454151660_c4f00953",
+          "inputTokens": 4106,
+          "outputTokens": 3523,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.0",
+          "pipelineVersion": "v3"
+        }
+      },
+      "validationResult": {
+        "schemaValid": true,
+        "evidenceValid": true,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      },
+      "latencyMs": 40788,
+      "tokenUsage": {
+        "input": 4106,
+        "output": 3523
+      },
+      "classification": "SUCCESS"
+    },
+    {
+      "timestamp": "2026-09-26T20:23:38.503Z",
+      "fixture": "MIXED (Mixed Experience)",
+      "type": "mixed",
+      "inputHash": "1593f607ebd84cd3",
+      "llmInputHash": "b2ad889789b8bac2",
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v3",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "signals": {
+        "skillGaps": 11,
+        "totalMetrics": 8,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Elena Rostova",
+          "targetRole": "Full Stack Software Engineer",
+          "experienceLevel": "3 years",
+          "primaryProfile": "Full Stack Engineer"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Elena shows solid, measurable impact on performance and automation, and even an open‑source contribution that got real community traction. The resume is a bit heavy on responsibility statements and lists many technologies without clear proof of use, which can dilute the impression of depth. Tightening the language, pairing every skill with a concrete example, and shifting more bullets toward outcomes will make the story clearer and stronger.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "Clear performance improvement",
+            "description": "Reduced report generation time dramatically, showing strong engineering impact.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Engineered customer analytics portal in React and FastAPI, reducing report generation turnaround time from 20 minutes to 35 seconds."
+              }
+            ]
+          },
+          {
+            "id": "str_002",
+            "title": "High‑volume data automation",
+            "description": "Built a pipeline that processes 80,000 records daily, demonstrating scalability and reliability.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b02",
+                "originalText": "Migrated manual CSV ingestion workflows into automated PostgreSQL pipeline processing 80,000 customer records daily."
+              }
+            ]
+          },
+          {
+            "id": "str_003",
+            "title": "Time‑saving scripting",
+            "description": "Automated weekly reconciliation, saving six hours of manual effort each week.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b02",
+                "originalText": "Automated weekly reconciliation spreadsheets using Python and Pandas, saving 6 hours of manual spreadsheet auditing each week."
+              }
+            ]
+          },
+          {
+            "id": "str_004",
+            "title": "Open‑source community impact",
+            "description": "Published a package that earned 120+ GitHub stars and active adoption.",
+            "evidence": [
+              {
+                "section": "projects",
+                "itemId": "proj_001",
+                "bulletId": "proj_001_b02",
+                "originalText": "Published open-source package with 120+ GitHub stars and active developer adoption."
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "issue_001",
+            "severity": "low",
+            "category": "weak_language",
+            "title": "Weak action verb in responsibility bullet",
+            "diagnosis": "Bullet starts with \"Responsible for\", which is a weak verb and does not convey ownership.",
+            "whyItMatters": "Recruiters scan for strong ownership language; vague verbs can make the candidate appear less proactive.",
+            "recommendation": "Replace the weak verb with a direct action verb that shows what you did.",
+            "correctedText": "Managed Jira tickets and attended sprint planning ceremonies.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Responsible for maintaining Jira tickets and attending sprint planning ceremonies."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "issue_002",
+            "severity": "medium",
+            "category": "skill_evidence_gap",
+            "title": "Many listed skills lack supporting evidence",
+            "diagnosis": "The skills section lists 19 technologies, but 11 of them (e.g., TypeScript, Redux, Tailwind CSS, Express, Docker, AWS) are not referenced in any experience or project bullet.",
+            "whyItMatters": "Recruiters may question depth of expertise when a skill appears only on a list without concrete proof of use.",
+            "recommendation": "Add brief bullet points or project details that demonstrate how you applied the missing technologies, or remove them if you have limited experience.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "skills",
+                "itemId": "skills_001",
+                "bulletId": "skills_001",
+                "originalText": "Languages:\nPython, TypeScript, JavaScript, SQL\n\nFrontend:\nReact, Redux, Tailwind CSS, HTML5/CSS3\n\nBackend & Data:\nNode.js, Express, FastAPI, PostgreSQL, Pandas, Docker\n\nCloud & Tools:\nAWS (S3, EC2), Git, Postman, Jest"
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "issue_003",
+            "severity": "medium",
+            "category": "impact",
+            "title": "High proportion of responsibility‑focused bullets",
+            "diagnosis": "7 of the 9 bullets describe duties (e.g., maintaining tickets, attending ceremonies, collaborating) rather than concrete outcomes.",
+            "whyItMatters": "Outcome‑oriented statements give recruiters a clearer picture of the value you delivered; too many responsibilities can make the resume feel flat.",
+            "recommendation": "Reframe responsibility bullets to highlight results, such as \"Reduced sprint planning time by X%\" or \"Improved ticket resolution speed by Y%\" where data is available.",
+            "correctedText": null,
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Responsible for maintaining Jira tickets and attending sprint planning ceremonies."
+              },
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b04",
+                "originalText": "Built REST API endpoints for user authentication and authorization using JWT tokens."
+              },
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b03",
+                "originalText": "Collaborated with business stakeholders to gather data requirements and clarify metric definitions."
+              }
+            ],
+            "correctionType": "none"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Strengthen language in responsibility bullets",
+            "action": "Replace weak verbs like \"Responsible for\" with direct action verbs and, where possible, attach a measurable outcome.",
+            "reason": "Clear ownership and results are key signals for recruiters."
+          },
+          {
+            "priority": 2,
+            "title": "Align skills with demonstrated experience",
+            "action": "Add concise bullet points or project notes that show how you used the listed technologies that currently lack evidence.",
+            "reason": "Evidence of skill usage builds credibility for the breadth of your stack."
+          },
+          {
+            "priority": 3,
+            "title": "Shift more bullets toward outcomes",
+            "action": "Re‑write duty‑focused statements to emphasize the impact you achieved (e.g., time saved, performance gains, quality improvements).",
+            "reason": "Outcome‑focused content makes your contributions tangible and memorable."
+          }
+        ],
+        "metadata": {
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b",
+          "latencyMs": 6425,
+          "requestId": "req_1790454212065_136921ea",
+          "inputTokens": 4411,
+          "outputTokens": 2642,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.0",
+          "pipelineVersion": "v3"
+        }
+      },
+      "validationResult": {
+        "schemaValid": true,
+        "evidenceValid": true,
+        "unsupportedAssumptions": 1,
+        "rewriteViolations": 0
+      },
+      "latencyMs": 36823,
+      "tokenUsage": {
+        "input": 4411,
+        "output": 2642
+      },
+      "classification": "UNSUPPORTED_CLAIM_WARNING"
+    },
+    {
+      "timestamp": "2026-09-26T20:24:28.985Z",
+      "fixture": "STRONG FULLSTACK (Marcus Vance)",
+      "type": "strong_fullstack",
+      "inputHash": null,
+      "llmInputHash": null,
+      "promptVersion": "resume-synthesis-v3.0",
+      "pipelineVersion": "v2",
+      "model": "openai/gpt-oss-120b",
+      "provider": "groq",
+      "signals": null,
+      "parsedOutput": null,
+      "validationResult": {
+        "schemaValid": false,
+        "evidenceValid": false,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      },
+      "latencyMs": 30466,
+      "tokenUsage": {
+        "input": null,
+        "output": null
+      },
+      "classification": "PROVIDER_ERROR"
+    }
+  ]
+}

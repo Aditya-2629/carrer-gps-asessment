@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Compass, WarningCircle, ArrowLeft } from '@phosphor-icons/react'
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { navigateTo } from '../../lib/navigation'
 
 const MESSAGES = [
   'Analyzing Job Search Velocity...',
@@ -19,11 +20,13 @@ export default function AnalysisLoader() {
   const { userId, formData, setReportData, setPhase } = useAppStore()
   const [msgIndex, setMsgIndex] = useState(0)
   const [errorMessage, setErrorMessage] = useState(null)
+  const hasTriggeredRef = useRef(false)
 
   const mutation = useMutation({
     mutationFn: api.generateReport,
     onSuccess: (data) => {
       setReportData(data)
+      navigateTo('/report')
       setTimeout(() => setPhase(PHASES.REPORT), 500)
     },
     onError: (err) => {
@@ -33,8 +36,11 @@ export default function AnalysisLoader() {
   })
 
   useEffect(() => {
+    if (hasTriggeredRef.current) return
+    if (!userId) return
+    hasTriggeredRef.current = true
     mutation.mutate({ userId, formData })
-  }, []) // eslint-disable-line
+  }, [userId, formData])
 
   useEffect(() => {
     if (errorMessage) return

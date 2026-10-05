@@ -1,0 +1,714 @@
+{
+  "benchmarkVersion": "2.5.1",
+  "timestamp": "2026-09-26T21:18:39.852Z",
+  "configuration": {
+    "model": "gemini-3.6-flash",
+    "provider": "gemini",
+    "temperature": 0.2,
+    "topP": 0.9,
+    "inputMode": "compact_text",
+    "targetRole": "Senior AI & Full Stack Engineer"
+  },
+  "summary": {
+    "totalRuns": 5,
+    "successfulRuns": 5,
+    "avgIssueJaccard": 53.7,
+    "avgStrengthJaccard": 52,
+    "issueCountMean": 2.6,
+    "strengthCountMean": 3.2,
+    "reviewWordMean": 104
+  },
+  "issueFrequency": {
+    "skill_evidence_gap:skills_001": 5,
+    "readability:exp_002_b01": 1,
+    "formatting:summary_001": 4,
+    "redundancy:exp_002_b01": 2,
+    "readability:summary_001": 1
+  },
+  "strengthFrequency": {
+    "exp_001_b01": 4,
+    "exp_002_b02": 5,
+    "exp_001_b03": 3,
+    "exp_002_b01": 2,
+    "exp_001_b02": 2
+  },
+  "runs": [
+    {
+      "iteration": 1,
+      "success": true,
+      "latencyMs": 26789,
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "Clear Metrics for AI & Retrieval Optimization",
+          "description": "Demonstrates clear technical impact with specific performance and query efficiency metrics in RAG architecture.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b01",
+              "originalText": "Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries."
+            }
+          ]
+        },
+        {
+          "id": "str_002",
+          "title": "Quantified System Latency Reduction",
+          "description": "Shows strong backend ownership by measuring exact database performance gains from indexing and caching.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b02",
+              "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+            }
+          ]
+        },
+        {
+          "id": "str_003",
+          "title": "Proven Scalability & Capacity Gains",
+          "description": "Highlights practical infrastructure improvements backed by explicit user volume and throughput metrics.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b03",
+              "originalText": "Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members."
+            }
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "skill_evidence_gap",
+          "title": "Skills List Contains Technologies Lacking Bullet Context",
+          "diagnosis": "The skills section lists tools and technologies—such as Go, TypeScript, JavaScript, LangChain, OpenAI API, Pinecone, React, and Next.js—that do not appear elsewhere in your experience or project descriptions.",
+          "whyItMatters": "When engineering reviewers see technologies listed without visible evidence in bullet points, it gives limited evidence of where and how heavily those skills were applied.",
+          "recommendation": "Review listed skills and ensure primary tools are reflected within experience descriptions or project summaries, while keeping your core technologies clearly highlighted.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "skills",
+              "itemId": "skills_001",
+              "bulletId": "skills_001",
+              "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+            }
+          ],
+          "correctionType": "none"
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "readability",
+          "title": "Redundant Phrasing in Automation Bullet",
+          "diagnosis": "The description uses duplicate verbs (\"cutting 25+ hours... reduced\"), which creates redundant wording.",
+          "whyItMatters": "Slight phrasing repetition interrupts quick scanning for recruiters reviewing bullet points.",
+          "recommendation": "Simplify the bullet to state the operational hours saved directly and cleanly.",
+          "correctedText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours of weekly manual work across finance operations.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b01",
+              "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+            }
+          ],
+          "correctionType": "rewrite"
+        },
+        {
+          "id": "iss_003",
+          "severity": "low",
+          "category": "formatting",
+          "title": "Summary Text Block Combines Contact Header Details",
+          "diagnosis": "Contact information and location are placed inside the summary block text.",
+          "whyItMatters": "If this reflects document layout, mixing header details into summary text makes key contact information less scanable at a glance.",
+          "recommendation": "Ensure contact details are placed in a distinct top-level header block separated from the professional summary statement.",
+          "correctedText": "Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks.",
+          "evidence": [
+            {
+              "section": "summary",
+              "itemId": "summary_001",
+              "bulletId": "summary_001",
+              "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+            }
+          ],
+          "correctionType": "rewrite"
+        }
+      ],
+      "priorityActions": [
+        {
+          "priority": 1,
+          "title": "Align Skills Section with Demonstrated Bullet Points",
+          "action": "Ensure key listed skills (such as TypeScript, React, or LangChain) have supporting evidence in experience or project descriptions.",
+          "reason": "Provides direct evidence of hands-on expertise for all primary skills listed."
+        },
+        {
+          "priority": 2,
+          "title": "Refine Experience Bullet Phrasing",
+          "action": "Clean up redundant wording in role bullet exp_002_b01 to improve reading flow.",
+          "reason": "Enhances readability during rapid recruiter screens."
+        },
+        {
+          "priority": 3,
+          "title": "Separate Header Layout from Summary",
+          "action": "Format contact details into a clean header section distinct from your summary narrative.",
+          "reason": "Improves overall visual structure and document scanability."
+        }
+      ],
+      "strengthKeys": [
+        "exp_001_b01",
+        "exp_002_b02",
+        "exp_001_b03"
+      ],
+      "issueKeys": [
+        "skill_evidence_gap:skills_001",
+        "readability:exp_002_b01",
+        "formatting:summary_001"
+      ],
+      "reviewWordCount": 86,
+      "reviewText": "Swapnil, your resume presents a strong profile for a Senior AI & Full Stack Engineer. Your experience descriptions excel at showing concrete engineering achievements—ranging from scaling infrastructure and optimizing RAG retrieval speed to significantly reducing API latency and manual operational effort.\n\nTo make your profile even sharper, focus on aligning your skills section with your bullet points and polishing phrasing flow. Several listed skills do not appear in your accomplishment descriptions, and minor redundant text in your bullet points can be streamlined to maximize recruiter impact.",
+      "validationDetails": {
+        "recommendationWarnings": 0,
+        "consistencyResolutions": 0,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      }
+    },
+    {
+      "iteration": 2,
+      "success": true,
+      "latencyMs": 33784,
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "Quantified AI and RAG Pipeline Optimization",
+          "description": "Demonstrates clear technical ownership and measurable performance improvement when engineering RAG agent architectures and retrieval benchmarks.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b01",
+              "originalText": "Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries."
+            }
+          ]
+        },
+        {
+          "id": "str_002",
+          "title": "Significant Latency Reduction in Database Systems",
+          "description": "Provides precise before-and-after p95 latency figures demonstrating backend engineering and caching impact.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b02",
+              "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+            }
+          ]
+        },
+        {
+          "id": "str_003",
+          "title": "Concrete Infrastructure Scaling Evidence",
+          "description": "Quantifies scale and capacity clearly using real performance metrics and user volume.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b03",
+              "originalText": "Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members."
+            }
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "skill_evidence_gap",
+          "title": "Skills section lists multiple tools lacking supporting bullet evidence",
+          "diagnosis": "The skills section lists tools such as Go, TypeScript, LangChain, OpenAI API, AWS, and Kubernetes, but the resume provides limited supporting evidence in experience or project bullets showing where they were applied.",
+          "whyItMatters": "Listing a broad technical inventory without corresponding project or experience evidence can make it harder for recruiters to gauge your primary core stack.",
+          "recommendation": "Reduce prominence for tools that are not supported by existing experience or project evidence, while keeping your strongest demonstrated technologies like Python, FastMCP, PostgreSQL, and Redis prominent.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "skills",
+              "itemId": "skills_001",
+              "bulletId": "skills_001",
+              "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+            }
+          ],
+          "correctionType": "none"
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "redundancy",
+          "title": "Repetitive phrasing in automation bullet point",
+          "diagnosis": "The bullet point contains duplicate wording around time savings ('reconciliation/month and cutting 25+ hours manual work/week reduced').",
+          "whyItMatters": "Slight grammatical repetition can interrupt the flow when a reviewer is skimming through your achievements quickly.",
+          "recommendation": "Streamline the wording to combine the monthly and weekly time-saving outcomes smoothly without repeating words.",
+          "correctedText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours of monthly reconciliation and 25+ hours of manual weekly work across finance operations.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b01",
+              "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+            }
+          ],
+          "correctionType": "rewrite"
+        },
+        {
+          "id": "iss_003",
+          "severity": "low",
+          "category": "formatting",
+          "title": "Header and contact information merged in parsed summary block",
+          "diagnosis": "The parsed summary text block contains both contact information and summary details together.",
+          "whyItMatters": "If the physical document layout combines contact details into the same paragraph block as your summary, automated ATS parsers may misinterpret candidate contact fields.",
+          "recommendation": "If your layout places contact info in the same block as the summary, separate the header into its own distinct section above the summary.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "summary",
+              "itemId": "summary_001",
+              "bulletId": "summary_001",
+              "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+            }
+          ],
+          "correctionType": "none"
+        }
+      ],
+      "priorityActions": [
+        {
+          "priority": 1,
+          "title": "Align skills section with demonstrable experience",
+          "action": "Review the listed technologies in your skills section and prune tools that are not explicitly supported by your work history or project bullets.",
+          "reason": "Ensures your resume communicates deep, focused expertise in your primary stack without overwhelming recruiters with unsupported tools."
+        },
+        {
+          "priority": 2,
+          "title": "Clean up wording on operational automation achievement",
+          "action": "Refine bullet exp_002_b01 to eliminate duplicate words like 'reconciliation' and 'reduced'.",
+          "reason": "Polishes reading readability and keeps your strong metrics sharp during rapid review."
+        },
+        {
+          "priority": 3,
+          "title": "Verify document contact header formatting",
+          "action": "Check the document layout to ensure contact details sit cleanly in a dedicated header block separate from the summary text.",
+          "reason": "Prevents parsing anomalies across automated recruiting tools."
+        }
+      ],
+      "strengthKeys": [
+        "exp_001_b01",
+        "exp_002_b02",
+        "exp_001_b03"
+      ],
+      "issueKeys": [
+        "skill_evidence_gap:skills_001",
+        "redundancy:exp_002_b01",
+        "formatting:summary_001"
+      ],
+      "reviewWordCount": 108,
+      "reviewText": "Swapnil, your background in AI systems and backend engineering comes across strongly. Your experience bullets feature clear, high-impact metrics—such as improving retrieval speed by 35%, elevating answer accuracy from 72% to 94%, and reducing p95 API query latency from 850ms to 120ms. You clearly articulate technical ownership across RAG pipelines and high-concurrency infrastructure.\n\nTo make your resume even sharper, clean up the skills section so it directly mirrors where your primary hands-on evidence lies, as listing technologies like Go, LangChain, or Kubernetes without supporting context can dilute your technical focus. Additionally, streamlining minor phrasing redundancies in your automation bullets will ensure a seamless read during a recruiter skim.",
+      "validationDetails": {
+        "recommendationWarnings": 0,
+        "consistencyResolutions": 0,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      }
+    },
+    {
+      "iteration": 3,
+      "success": true,
+      "latencyMs": 22039,
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "Quantified AI Agent & Pipeline Performance",
+          "description": "Clear demonstration of end-to-end AI engineering impact backed by concrete retrieval and query reduction metrics.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b01",
+              "originalText": "Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries."
+            }
+          ]
+        },
+        {
+          "id": "str_002",
+          "title": "Proven Database & Latency Optimization",
+          "description": "Demonstrates specific technical mechanics and clear latency reduction metrics (p95 API query latency reduced from 850ms to 120ms).",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b02",
+              "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+            }
+          ]
+        },
+        {
+          "id": "str_003",
+          "title": "Measurable Operational & Workflow Automation",
+          "description": "Quantifies operational efficiency gains directly resulting from backend automation work.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b01",
+              "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+            }
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "skill_evidence_gap",
+          "title": "Multiple listed skills lack supporting evidence in experience entries",
+          "diagnosis": "The skills section lists tools such as Go, LangChain, OpenAI API, Vector DBs, Kubernetes, AWS, and Next.js, but these technologies are not mentioned in any experience or project bullet points.",
+          "whyItMatters": "When recruiters see prominent tools in the skills list without contextual project or work experience, it can make it harder to evaluate actual hands-on depth versus passive familiarity.",
+          "recommendation": "Reduce prominence for tools that are not supported by existing experience or project evidence, or briefly detail where key technologies like Go or AWS were applied.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "skills",
+              "itemId": "skills_001",
+              "bulletId": "skills_001",
+              "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+            }
+          ],
+          "correctionType": "none"
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "formatting",
+          "title": "Header contact details appear combined with the summary section",
+          "diagnosis": "The parsed document text places contact information (email, phone, location, LinkedIn) inside the same block as the professional summary.",
+          "whyItMatters": "If this layout flows together in the final visual document, it can reduce immediate readability for recruiters who look for contact details in a distinct top header.",
+          "recommendation": "If your layout currently merges header contact information into the summary block, separate your contact details into a distinct header block at the top of the resume.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "summary",
+              "itemId": "summary_001",
+              "bulletId": "summary_001",
+              "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+            }
+          ],
+          "correctionType": "none"
+        }
+      ],
+      "priorityActions": [
+        {
+          "priority": 1,
+          "title": "Align Skills Section with Demonstrated Work",
+          "action": "Review the skills list and ensure core tools (such as Go, LangChain, AWS, and Kubernetes) are either supported by context in your experience entries or prioritized appropriately.",
+          "reason": "Eliminating evidence gaps prevents recruiters from guessing the depth of your experience with listed technologies."
+        },
+        {
+          "priority": 2,
+          "title": "Separate Contact Header from Summary Block",
+          "action": "Ensure contact information is clearly structured in a dedicated page header separate from the main summary paragraph.",
+          "reason": "Distinct document structure improves scannability within the first few seconds of a recruiter review."
+        }
+      ],
+      "strengthKeys": [
+        "exp_001_b01",
+        "exp_002_b02",
+        "exp_002_b01"
+      ],
+      "issueKeys": [
+        "skill_evidence_gap:skills_001",
+        "formatting:summary_001"
+      ],
+      "reviewWordCount": 128,
+      "reviewText": "Swapnil, your experience demonstrates standout engineering impact. You do an excellent job backing up your accomplishments with clear technical metrics—whether that is elevating multi-modal retrieval accuracy to 94%, cutting p95 query latency down to 120ms, or saving 50+ hours per month through backend automation. Your work on RAG agent pipelines and infrastructure scaling directly highlights your engineering depth.\n\nTo sharpen your recruiter signal even further, I recommend aligning your skills section with your explicit experience context. You list several high-demand technologies—such as Go, LangChain, AWS, and Kubernetes—that do not appear in your project or bullet descriptions. Connecting these tools to concrete work or streamlining the list will make your expertise feel instantly verified. Additionally, ensure your contact header is visually separated from your summary paragraph for effortless scanning.",
+      "validationDetails": {
+        "recommendationWarnings": 0,
+        "consistencyResolutions": 0,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      }
+    },
+    {
+      "iteration": 4,
+      "success": true,
+      "latencyMs": 59974,
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "Clear Measurable Impact in AI Agent Architecture",
+          "description": "Quantifies both system performance gains and operational outcomes when building AI pipelines.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b01",
+              "originalText": "Architected RAG agent pipeline integrating 9 tools using FastMCP protocol, resulting in 35% faster retrieval and 38% reduction in manual support queries."
+            }
+          ]
+        },
+        {
+          "id": "str_002",
+          "title": "Rigorous Rigor in AI Model Benchmarking",
+          "description": "Demonstrates clear quantitative evaluation methods to improve model accuracy.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b02",
+              "originalText": "Conducted 170-query evaluation benchmark across multi-modal retrieval models, elevating answer accuracy from 72% to 94%."
+            }
+          ]
+        },
+        {
+          "id": "str_003",
+          "title": "Concrete Technical Results in Latency Reduction",
+          "description": "Demonstrates specific database and caching strategies with explicit latency improvements.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b02",
+              "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+            }
+          ]
+        },
+        {
+          "id": "str_004",
+          "title": "High-Concurrency Scalability Outcomes",
+          "description": "Highlights practical scale capacity, page load speeds, and user volume.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b03",
+              "originalText": "Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members."
+            }
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "skill_evidence_gap",
+          "title": "Skills section lists technologies with limited supporting context in bullet points",
+          "diagnosis": "The skills section includes multiple technologies (such as TypeScript, Go, LangChain, React, Next.js, and Kubernetes) that are not explicitly detailed or referenced in your experience or project achievements.",
+          "whyItMatters": "When a technical list contains technologies without visible context in your actual work experience, it can make it harder for recruiters to judge your hands-on depth with those specific tools.",
+          "recommendation": "Reduce prominence for tools that are not supported by existing experience or project evidence, while keeping the strongest demonstrated technologies prominent.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "skills",
+              "itemId": "skills_001",
+              "bulletId": "skills_001",
+              "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+            }
+          ],
+          "correctionType": "none"
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "redundancy",
+          "title": "Phrasing redundancy in experience achievement bullet",
+          "diagnosis": "The bullet combines 'cutting' and 'reduced' at the end ('cutting 25+ hours manual work/week reduced across finance operations'), which creates duplicate wording.",
+          "whyItMatters": "Minor phrasing redundancies can disrupt a recruiter's scanning momentum and make strong technical impact look slightly unpolished.",
+          "recommendation": "Streamline the phrasing to remove redundant verbs and enhance sentence flow.",
+          "correctedText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours of reconciliation per month and cutting 25+ hours of manual work per week across finance operations.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b01",
+              "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+            }
+          ],
+          "correctionType": "rewrite"
+        },
+        {
+          "id": "iss_003",
+          "severity": "low",
+          "category": "readability",
+          "title": "Summary block contains combined contact header content",
+          "diagnosis": "The parsed document block combines personal contact details (email, phone, LinkedIn) directly into the summary text.",
+          "whyItMatters": "If this reflects the actual document layout, combining contact info directly into the executive summary text block can reduce layout hierarchy and slow down fast initial skimming.",
+          "recommendation": "If your actual document layout combines these, separate the top header block (contact info) cleanly from the summary narrative paragraph.",
+          "correctedText": "Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks.",
+          "evidence": [
+            {
+              "section": "summary",
+              "itemId": "summary_001",
+              "bulletId": "summary_001",
+              "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+            }
+          ],
+          "correctionType": "rewrite"
+        }
+      ],
+      "priorityActions": [
+        {
+          "priority": 1,
+          "title": "Align Skills List with Experience Evidence",
+          "action": "Review the skills section and align listed tools with demonstrable project and experience evidence.",
+          "reason": "Ensures every primary skill listed is supported by clear evidence of practical usage."
+        },
+        {
+          "priority": 2,
+          "title": "Clean Up Minor Phrasing Redundancies",
+          "action": "Edit experience bullet points to eliminate repeated wording like 'cutting ... reduced'.",
+          "reason": "Polishes sentence structure for quick, professional reader scanning."
+        },
+        {
+          "priority": 3,
+          "title": "Ensure Clear Header Separation",
+          "action": "Ensure header contact information is visually distinct from the summary text block.",
+          "reason": "Maintains clear visual hierarchy and visual appeal for technical reviewers."
+        }
+      ],
+      "strengthKeys": [
+        "exp_001_b01",
+        "exp_001_b02",
+        "exp_002_b02",
+        "exp_001_b03"
+      ],
+      "issueKeys": [
+        "skill_evidence_gap:skills_001",
+        "redundancy:exp_002_b01",
+        "readability:summary_001"
+      ],
+      "reviewWordCount": 87,
+      "reviewText": "Swapnil has a very strong technical background that immediately stands out for Senior AI and Full Stack Engineer roles. His experience at Apex Intelligence Labs demonstrates clear technical ownership, featuring impressive metrics around RAG agent pipelines, model evaluation benchmarks, and system scalability.\n\nTo make this resume even stronger, Swapnil should align his listed technical skills with his written experience points, as several listed tools lack explicit backing in his bullet points. Cleaning up minor phrasing redundancies in older roles will further refine readability and maximize recruiter confidence.",
+      "validationDetails": {
+        "recommendationWarnings": 0,
+        "consistencyResolutions": 0,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      }
+    },
+    {
+      "iteration": 5,
+      "success": true,
+      "latencyMs": 25600,
+      "strengths": [
+        {
+          "id": "str_001",
+          "title": "Strong Quantified Outcomes in AI Infrastructure",
+          "description": "Demonstrates clear technical ownership and measurable impact when evaluating and optimizing LLM/RAG pipelines.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_001",
+              "bulletId": "exp_001_b02",
+              "originalText": "Conducted 170-query evaluation benchmark across multi-modal retrieval models, elevating answer accuracy from 72% to 94%."
+            }
+          ]
+        },
+        {
+          "id": "str_002",
+          "title": "Clear Database Performance Latency Wins",
+          "description": "Combines indexing strategies and read-aside caching to achieve drastic p95 latency improvements.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b02",
+              "originalText": "Re-indexed relational database tables and introduced Redis read-aside caching, cutting p95 API query latency from 850ms to 120ms."
+            }
+          ]
+        },
+        {
+          "id": "str_003",
+          "title": "High Operational Impact via Automation",
+          "description": "Shows clear financial and operational efficiency gains by building automated reconciliation tools.",
+          "evidence": [
+            {
+              "section": "experience",
+              "itemId": "exp_002",
+              "bulletId": "exp_002_b01",
+              "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+            }
+          ]
+        }
+      ],
+      "issues": [
+        {
+          "id": "iss_001",
+          "severity": "medium",
+          "category": "skill_evidence_gap",
+          "title": "Listed skills lack explicit narrative evidence in bullet points",
+          "diagnosis": "The skills section lists several technologies—such as Go, TypeScript, JavaScript, LangChain, Pinecone, and ChromaDB—that are not explicitly mentioned in the bullet points for your experience or projects.",
+          "whyItMatters": "When engineering reviewers cross-reference a candidate's skill matrix against their work history, unmentioned skills can raise questions about depth of exposure or recency of hands-on use.",
+          "recommendation": "Reduce prominence for tools that are not supported by existing experience or project evidence, or weave primary tools like LangChain and TypeScript into your existing project or role descriptions where they were used.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "skills",
+              "itemId": "skills_001",
+              "bulletId": "skills_001",
+              "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+            }
+          ],
+          "correctionType": "none"
+        },
+        {
+          "id": "iss_002",
+          "severity": "low",
+          "category": "formatting",
+          "title": "Header and contact details appear merged with the summary text block",
+          "diagnosis": "The parsed layout places your contact information (email, phone, location, LinkedIn) inside the same text block as your professional summary.",
+          "whyItMatters": "If this reflects the visual design in your PDF, merging contact info with the summary paragraph can reduce header scannability for human reviewers and automated parsing tools.",
+          "recommendation": "Separate contact details into a standalone top header section, allowing the professional summary to stand alone as its own dedicated paragraph.",
+          "correctedText": null,
+          "evidence": [
+            {
+              "section": "summary",
+              "itemId": "summary_001",
+              "bulletId": "summary_001",
+              "originalText": "Swapnil Jadhav swapnil.jadhav@example.com | (555) 345-6789 | San Jose, CA | linkedin.com/in/swapnil-jadhav-dev Senior Full Stack & AI Systems Engineer with 5+ years of experience architecting scalable distributed backends, LLM-powered applications, and high-concurrency cloud systems. Proven track record leading enterprise AI platform initiatives, optimizing data pipelines, and eliminating manual operational bottlenecks."
+            }
+          ],
+          "correctionType": "none"
+        }
+      ],
+      "priorityActions": [
+        {
+          "priority": 1,
+          "title": "Align listed skills with demonstrable work history",
+          "action": "Review the skills section and ensure prominent technologies like TypeScript, Go, or vector databases are integrated into relevant experience bullet points.",
+          "reason": "Ensures technical reviewers see immediate proof of your primary languages and tools within real-world engineering contexts."
+        },
+        {
+          "priority": 2,
+          "title": "Separate top contact header from summary section",
+          "action": "Adjust header styling in your source document so that contact information sits in a clean, isolated header element above your professional summary block.",
+          "reason": "Improves overall visual scanability and ensures accurate parsing across ATS platforms."
+        }
+      ],
+      "strengthKeys": [
+        "exp_001_b02",
+        "exp_002_b02",
+        "exp_002_b01"
+      ],
+      "issueKeys": [
+        "skill_evidence_gap:skills_001",
+        "formatting:summary_001"
+      ],
+      "reviewWordCount": 112,
+      "reviewText": "Swapnil, your technical achievements are exceptionally well-quantified and demonstrate real engineering rigor across both AI/LLM infrastructure and core backend systems. Highlights like driving RAG answer accuracy from 72% to 94%, dropping p95 database latency from 850ms to 120ms, and saving dozens of operational hours through Python and PostgreSQL automation give recruiters immediate confidence in your execution capability.\n\nTo make your application signal even stronger, focus on bringing direct alignment between your listed technical skills and your experience bullets. A few technologies listed in your skills section—like Go, TypeScript, and specific vector databases—don't explicitly appear in your bullet narratives. Weaving those tools into your achievement bullets will round out your technical story cleanly.",
+      "validationDetails": {
+        "recommendationWarnings": 0,
+        "consistencyResolutions": 0,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      }
+    }
+  ]
+}

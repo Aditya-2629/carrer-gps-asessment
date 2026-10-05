@@ -76,86 +76,26 @@ export const api = {
 
       // 3. Generate report from Gemini with semantic profile
       const res = await client.post('/assessment/generate-report', { userId, semanticProfile })
-      const data = res.data
-
-      // Normalize backend Schema to UI expectations
-      const normalized = {
-        career_health_score: data.career_health_score ?? 60,
-        score_label: data.score_label ?? 'Survival Mode',
-        scores: {
-          resume: {
-            score: data.score_breakdown?.resume?.score ?? data.score_breakdown?.resume ?? 50,
-            diagnosis: data.score_breakdown?.resume?.diagnosis ?? 'Lacks customized keyword matching.'
-          },
-          linkedin: {
-            score: data.score_breakdown?.linkedin?.score ?? data.score_breakdown?.linkedin ?? 50,
-            diagnosis: data.score_breakdown?.linkedin?.diagnosis ?? 'Profile activity is low.'
-          },
-          outreach: {
-            score: data.score_breakdown?.outreach?.score ?? data.score_breakdown?.outreach ?? 50,
-            diagnosis: data.score_breakdown?.outreach?.diagnosis ?? 'Needs multi-channel networking.'
-          },
-          interview: {
-            score: data.score_breakdown?.interviews?.score ?? data.score_breakdown?.interview?.score ?? 50,
-            diagnosis: data.score_breakdown?.interviews?.diagnosis ?? data.score_breakdown?.interview?.diagnosis ?? 'Needs more structured practice.'
-          },
-        },
-        market_reality_check: data.market_reality_check ?? null,
-        critical_issues: (data.critical_issues || []).map((issue, idx) => ({
-          id: `ci-${idx}`,
-          title: issue.title,
-          description: issue.diagnosis || issue.fix,
-          severity: issue.severity || 'High',
-          icon: issue.icon_suggestion || (idx === 0 ? 'alert-triangle' : idx === 1 ? 'zap-off' : 'shield-off'),
-          action_steps: issue.action_steps || []
-        })),
-        roadmap: (data.roadmap || []).map((w, idx) => ({
-          week: idx + 1,
-          title: w.theme || w.goal || 'Action Sprint',
-          goal: w.goal || 'Urgent Sprint Objective',
-          tasks: w.tasks || [],
-        })),
-        recommended_tools: (data.recommended_tools || []).map((tool, idx) => {
-          const defaultUrls = {
-            'jobscan': 'https://jobscan.co',
-            'teal': 'https://tealhq.com',
-            'otta': 'https://otta.com',
-            'lemlist': 'https://lemlist.com',
-            'pramp': 'https://pramp.com',
-            'levels': 'https://levels.fyi',
-          }
-          const lowerName = tool.tool_name?.toLowerCase() || ''
-          let matchedUrl = 'https://google.com'
-          for (const [key, url] of Object.entries(defaultUrls)) {
-            if (lowerName.includes(key)) {
-              matchedUrl = url
-              break
-            }
-          }
-          const icons = ['🎯', '📊', '💼', '📧', '🎤', '💰']
-          return {
-            name: tool.tool_name,
-            category: tool.category || 'Job Search Tool',
-            reason: tool.reason || 'To track applications and optimize outreach.',
-            url: matchedUrl,
-            icon: icons[idx % icons.length],
-          }
-        }),
-        coach_intervention: data.coach_intervention ?? null,
-        career_journey: data.career_journey ?? null,
-        funnel_stages: data.funnel_stages ?? null,
-        rejection_factors: data.rejection_factors ?? null,
-        rejection_insight: data.rejection_insight ?? null,
-        risk_heatmap: data.risk_heatmap ?? null,
-        mission_board: data.mission_board ?? null,
-        resume_json: data.resume_json ?? null,
-        linkedin_json: data.linkedin_json ?? null,
-        summary: 'Your custom AI assessment report has been successfully generated and compiled based on your 31 answers.',
-      }
-
-      return normalized
+      return normalizeReportData(res.data)
     } catch (err) {
       throw new Error(err.response?.data?.message || 'Failed to generate AI report.')
+    }
+  },
+
+  // GET /api/assessment/report?userId=... or email=...
+  getReport: async ({ userId, email }) => {
+    try {
+      const params = {}
+      if (userId) params.userId = userId
+      if (email) params.email = email
+      const res = await client.get('/assessment/report', { params })
+      if (!res.data) return null
+      return normalizeReportData(res.data)
+    } catch (err) {
+      if (err.response?.status === 404) {
+        return null
+      }
+      throw new Error(err.response?.data?.message || 'Failed to retrieve AI report.')
     }
   },
 
@@ -179,4 +119,90 @@ export const api = {
     }
   },
 }
+
+export function normalizeReportData(data) {
+  if (!data) return null
+
+  const scoresResume = data.scores?.resume?.score ?? data.score_breakdown?.resume?.score ?? data.score_breakdown?.resume ?? 50
+  const scoresResumeDiag = data.scores?.resume?.diagnosis ?? data.score_breakdown?.resume?.diagnosis ?? 'Lacks customized keyword matching.'
+  const scoresLinkedin = data.scores?.linkedin?.score ?? data.score_breakdown?.linkedin?.score ?? data.score_breakdown?.linkedin ?? 50
+  const scoresLinkedinDiag = data.scores?.linkedin?.diagnosis ?? data.score_breakdown?.linkedin?.diagnosis ?? 'Profile activity is low.'
+  const scoresOutreach = data.scores?.outreach?.score ?? data.score_breakdown?.outreach?.score ?? data.score_breakdown?.outreach ?? 50
+  const scoresOutreachDiag = data.scores?.outreach?.diagnosis ?? data.score_breakdown?.outreach?.diagnosis ?? 'Needs multi-channel networking.'
+  const scoresInterview = data.scores?.interview?.score ?? data.score_breakdown?.interviews?.score ?? data.score_breakdown?.interview?.score ?? 50
+  const scoresInterviewDiag = data.scores?.interview?.diagnosis ?? data.score_breakdown?.interviews?.diagnosis ?? data.score_breakdown?.interview?.diagnosis ?? 'Needs more structured practice.'
+
+  const critical_issues = (data.critical_issues || []).map((issue, idx) => ({
+    id: issue.id || `ci-${idx}`,
+    title: issue.title,
+    description: issue.description || issue.diagnosis || issue.fix || '',
+    severity: issue.severity || 'High',
+    icon: issue.icon || issue.icon_suggestion || (idx === 0 ? 'alert-triangle' : idx === 1 ? 'zap-off' : 'shield-off'),
+    action_steps: issue.action_steps || []
+  }))
+
+  const roadmap = (data.roadmap || []).map((w, idx) => ({
+    week: w.week || (idx + 1),
+    title: w.title || w.theme || w.goal || 'Action Sprint',
+    goal: w.goal || 'Urgent Sprint Objective',
+    tasks: w.tasks || [],
+  }))
+
+  const defaultUrls = {
+    'jobscan': 'https://jobscan.co',
+    'teal': 'https://tealhq.com',
+    'otta': 'https://otta.com',
+    'lemlist': 'https://lemlist.com',
+    'pramp': 'https://pramp.com',
+    'levels': 'https://levels.fyi',
+  }
+
+  const recommended_tools = (data.recommended_tools || []).map((tool, idx) => {
+    const name = tool.name || tool.tool_name || ''
+    const lowerName = name.toLowerCase()
+    let matchedUrl = tool.url || 'https://google.com'
+    if (!tool.url) {
+      for (const [key, url] of Object.entries(defaultUrls)) {
+        if (lowerName.includes(key)) {
+          matchedUrl = url
+          break
+        }
+      }
+    }
+    const icons = ['🎯', '📊', '💼', '📧', '🎤', '💰']
+    return {
+      name,
+      category: tool.category || 'Job Search Tool',
+      reason: tool.reason || 'To track applications and optimize outreach.',
+      url: matchedUrl,
+      icon: tool.icon || icons[idx % icons.length],
+    }
+  })
+
+  return {
+    career_health_score: data.career_health_score ?? 60,
+    score_label: data.score_label ?? 'Survival Mode',
+    scores: {
+      resume: { score: scoresResume, diagnosis: scoresResumeDiag },
+      linkedin: { score: scoresLinkedin, diagnosis: scoresLinkedinDiag },
+      outreach: { score: scoresOutreach, diagnosis: scoresOutreachDiag },
+      interview: { score: scoresInterview, diagnosis: scoresInterviewDiag },
+    },
+    market_reality_check: data.market_reality_check ?? null,
+    critical_issues,
+    roadmap,
+    recommended_tools,
+    coach_intervention: data.coach_intervention ?? null,
+    career_journey: data.career_journey ?? null,
+    funnel_stages: data.funnel_stages ?? null,
+    rejection_factors: data.rejection_factors ?? null,
+    rejection_insight: data.rejection_insight ?? null,
+    risk_heatmap: data.risk_heatmap ?? null,
+    mission_board: data.mission_board ?? null,
+    resume_json: data.resume_json ?? null,
+    linkedin_json: data.linkedin_json ?? null,
+    summary: data.summary || 'Your custom AI assessment report has been successfully generated and compiled based on your 31 answers.',
+  }
+}
+
 
