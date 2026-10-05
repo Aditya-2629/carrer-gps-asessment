@@ -14,6 +14,8 @@
  * - New production claims
  */
 
+import { stripFillInSlots, findMalformedFillInSlots } from './fillInSlots.js'
+
 // Patterns that indicate a potential new unsupported fact in correctedText
 const NEW_METRIC_PATTERNS = [
   /\b\d+(?:\.\d+)?%\b/g,
@@ -125,9 +127,17 @@ export function validateRewrite(correctedText, originalText, bulletId) {
     }
   }
 
+  // V3.1: fill-in metric slots ([ADD: ...]) are allowed in correctedText, but
+  // must be well-formed (no digits inside). Slot content is stripped before
+  // numeric/tech/claim checks so a valid slot never trips fabrication detection.
+  violations.push(
+    ...findMalformedFillInSlots(correctedText).map((p) => `[${bulletId}] Malformed fill-in slot in correctedText: ${p}`)
+  )
+  const correctedForChecks = stripFillInSlots(correctedText)
+
   // 1. Check for new numeric tokens not in source
   const sourceNums = extractNumericTokens(originalText)
-  const correctedNums = extractNumericTokens(correctedText)
+  const correctedNums = extractNumericTokens(correctedForChecks)
   for (const num of correctedNums) {
     if (!sourceNums.has(num)) {
       violations.push(`[${bulletId}] New numeric token in correctedText not in source: "${num}"`)
@@ -136,7 +146,7 @@ export function validateRewrite(correctedText, originalText, bulletId) {
 
   // 2. Check for new tech tokens not in source
   const sourceTech = extractTechTokens(originalText)
-  const correctedTech = extractTechTokens(correctedText)
+  const correctedTech = extractTechTokens(correctedForChecks)
   for (const tech of correctedTech) {
     if (!sourceTech.has(tech)) {
       violations.push(`[${bulletId}] New technology in correctedText not in source: "${tech}"`)

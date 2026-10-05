@@ -1,41 +1,41 @@
 {
-  "timestamp": "2026-09-26T20:24:28.985Z",
+  "timestamp": "2026-10-05T09:21:03.644Z",
   "summary": [
     {
       "fixture": "GOLDEN (Swapnil Jadhav — Strong AI/Backend)",
       "type": "strong_technical",
-      "promptVersion": "resume-synthesis-v3.0",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
-      "latencyMs": 7680,
-      "inputTokens": 4653,
-      "outputTokens": 3190,
-      "canonicalInputHash": "ae09dabd2c5cd7d7",
-      "llmInputHash": "111ad494addd8474",
+      "model": "gemini-3.8-flash",
+      "provider": "gemini",
+      "latencyMs": 24396,
+      "inputTokens": 10811,
+      "outputTokens": 2442,
+      "canonicalInputHash": "fb48afd2581c1b6d",
+      "llmInputHash": "379ba8441f4456d7",
       "success": true,
       "classification": "SUCCESS",
       "jsonValid": true,
       "schemaValid": true,
       "evidenceValid": true,
-      "issueCount": 2,
-      "strengthCount": 4,
+      "issueCount": 4,
+      "strengthCount": 3,
       "unsupportedAssumptionCount": 0,
       "rewriteViolationCount": 0,
-      "rawOutputLength": 6499,
+      "rawOutputLength": 10098,
       "analysisVersion": "2.2",
       "dashboardIsNull": true
     },
     {
       "fixture": "WEAK (Jordan Miller — Junior Fullstack)",
       "type": "weak",
-      "promptVersion": "resume-synthesis-v3.0",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
-      "latencyMs": 40788,
-      "inputTokens": 4106,
-      "outputTokens": 3523,
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "latencyMs": 40616,
+      "inputTokens": 9937,
+      "outputTokens": 2535,
       "canonicalInputHash": "985b2f01077c9a2b",
       "llmInputHash": "b4f68e3cf4bffe22",
       "success": true,
@@ -43,26 +43,51 @@
       "jsonValid": true,
       "schemaValid": true,
       "evidenceValid": true,
-      "issueCount": 4,
-      "strengthCount": 4,
+      "issueCount": 6,
+      "strengthCount": 2,
       "unsupportedAssumptionCount": 0,
-      "rewriteViolationCount": 0,
-      "rawOutputLength": 8700,
+      "rewriteViolationCount": 1,
+      "rawOutputLength": 11039,
       "analysisVersion": "2.2",
       "dashboardIsNull": true
     },
     {
       "fixture": "MIXED (Mixed Experience)",
       "type": "mixed",
-      "promptVersion": "resume-synthesis-v3.0",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
-      "latencyMs": 36823,
-      "inputTokens": 4411,
-      "outputTokens": 2642,
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "latencyMs": 36524,
+      "inputTokens": 10234,
+      "outputTokens": 2199,
       "canonicalInputHash": "1593f607ebd84cd3",
       "llmInputHash": "b2ad889789b8bac2",
+      "success": true,
+      "classification": "UNSUPPORTED_CLAIM_WARNING",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 4,
+      "strengthCount": 3,
+      "unsupportedAssumptionCount": 1,
+      "rewriteViolationCount": 2,
+      "rawOutputLength": 9580,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
+    },
+    {
+      "fixture": "STRONG FULLSTACK (Marcus Vance)",
+      "type": "strong_fullstack",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "latencyMs": 51410,
+      "inputTokens": 10614,
+      "outputTokens": 2038,
+      "canonicalInputHash": "514e43d86b03f168",
+      "llmInputHash": "9541e9aa3db6ec14",
       "success": true,
       "classification": "UNSUPPORTED_CLAIM_WARNING",
       "jsonValid": true,
@@ -71,50 +96,75 @@
       "issueCount": 3,
       "strengthCount": 4,
       "unsupportedAssumptionCount": 1,
-      "rewriteViolationCount": 0,
-      "rawOutputLength": 7141,
+      "rewriteViolationCount": 1,
+      "rawOutputLength": 8449,
       "analysisVersion": "2.2",
       "dashboardIsNull": true
     },
     {
-      "fixture": "STRONG FULLSTACK (Marcus Vance)",
-      "type": "strong_fullstack",
-      "promptVersion": "resume-synthesis-v3.0",
-      "pipelineVersion": "v2",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
-      "latencyMs": 30466,
-      "inputTokens": null,
-      "outputTokens": null,
-      "canonicalInputHash": null,
-      "llmInputHash": null,
-      "success": false,
-      "classification": "PROVIDER_ERROR",
-      "jsonValid": false,
-      "schemaValid": false,
-      "evidenceValid": false,
-      "issueCount": 0,
-      "strengthCount": 0,
+      "fixture": "NON-IT US (Marcus Reed — Sales)",
+      "type": "non_it_sales",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "latencyMs": 50185,
+      "inputTokens": 10020,
+      "outputTokens": 1947,
+      "canonicalInputHash": "f18cedcc7a11be79",
+      "llmInputHash": "6c3183aa5be8bd3a",
+      "success": true,
+      "classification": "SUCCESS",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 3,
+      "strengthCount": 1,
       "unsupportedAssumptionCount": 0,
       "rewriteViolationCount": 0,
-      "rawOutputLength": 0,
-      "analysisVersion": null,
-      "dashboardIsNull": false
+      "rawOutputLength": 8476,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
+    },
+    {
+      "fixture": "NON-IT NON-US (Priya Sharma — Nurse)",
+      "type": "non_it_healthcare_nonus",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.8-flash",
+      "provider": "gemini",
+      "latencyMs": 41916,
+      "inputTokens": 10934,
+      "outputTokens": 2669,
+      "canonicalInputHash": "7d79cd11cd041afc",
+      "llmInputHash": "32325102a6d0f91e",
+      "success": true,
+      "classification": "UNSUPPORTED_CLAIM_WARNING",
+      "jsonValid": true,
+      "schemaValid": true,
+      "evidenceValid": true,
+      "issueCount": 5,
+      "strengthCount": 3,
+      "unsupportedAssumptionCount": 0,
+      "rewriteViolationCount": 0,
+      "rawOutputLength": 11344,
+      "analysisVersion": "2.2",
+      "dashboardIsNull": true
     }
   ],
   "goldenRecords": [
     {
-      "timestamp": "2026-09-26T20:21:40.871Z",
+      "timestamp": "2026-10-05T09:15:42.932Z",
       "fixture": "GOLDEN (Swapnil Jadhav — Strong AI/Backend)",
       "type": "strong_technical",
-      "inputHash": "ae09dabd2c5cd7d7",
-      "llmInputHash": "111ad494addd8474",
-      "promptVersion": "resume-synthesis-v3.0",
+      "inputHash": "fb48afd2581c1b6d",
+      "llmInputHash": "379ba8441f4456d7",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
+      "model": "gemini-3.8-flash",
+      "provider": "gemini",
       "signals": {
-        "skillGaps": 16,
+        "skillGaps": 15,
         "totalMetrics": 22,
         "parserWarnings": 1
       },
@@ -124,18 +174,18 @@
           "name": "Swapnil Jadhav",
           "targetRole": "Senior AI & Full Stack Engineer",
           "experienceLevel": "5+ years",
-          "primaryProfile": "Senior Full Stack & AI Systems Engineer"
+          "primaryProfile": "AI Systems & Full Stack Engineering"
         },
         "dashboard": null,
         "overallReview": {
-          "summary": "Swapnil, your resume showcases strong, quantifiable impact—speeding up retrieval by 35%, cutting latency from 850 ms to 120 ms, and scaling chat capacity three‑fold. Those numbers will catch a recruiter’s eye. The main things holding it back are the long skill list that isn’t tied to concrete work and a merged header/summary block that makes quick scanning harder. Focus first on tightening the skills section (show where you used each technology) and separating your contact info from the summary. After that, the resume will read much cleaner and convey confidence in every tool you claim.",
+          "summary": "Swapnil, your resume shows strong technical depth and clear ownership, with 7 of your 10 bullets already backed by hard performance metrics. Your work on the RAG agent pipeline and cutting database query latency from 850ms to 120ms gives recruiters immediate proof of your backend and AI engineering capabilities.\n\nTo make your profile even sharper, address the few spots where details fall short. Your DevSecOps project bullet currently reads as a plain tool list rather than an engineering accomplishment, several prominent skills lack supporting project context, and your extracted text shows contact details merged directly into your summary.",
           "tone": "conversational"
         },
         "strengths": [
           {
             "id": "str_001",
-            "title": "High‑impact retrieval pipeline",
-            "description": "Architected a RAG agent pipeline with 9 tools, delivering 35% faster retrieval and 38% fewer manual support queries.",
+            "title": "Clear Quantification of AI System Performance",
+            "description": "Your RAG pipeline bullet couples specific architectural tooling (FastMCP) with dual outcomes: a 35% improvement in retrieval speed and a 38% decrease in support queries. This immediately demonstrates both technical execution and user-level impact.",
             "evidence": [
               {
                 "section": "experience",
@@ -147,34 +197,21 @@
           },
           {
             "id": "str_002",
-            "title": "Scalable real‑time chat system",
-            "description": "Scaled chat infrastructure to 3× concurrent capacity with sub‑second page loads for thousands of users.",
+            "title": "Rigorous Evaluation and Quality Benchmarking",
+            "description": "Highlighting a 170-query multi-modal benchmark with an accuracy increase from 72% to 94% signals thorough evaluation rigor, which is critical for senior AI engineering roles.",
             "evidence": [
               {
                 "section": "experience",
                 "itemId": "exp_001",
-                "bulletId": "exp_001_b03",
-                "originalText": "Scaled real-time chat infrastructure to handle 3x concurrent capacity with page load <1 second for 5,000+ users and 200+ faculty members."
+                "bulletId": "exp_001_b02",
+                "originalText": "Conducted 170-query evaluation benchmark across multi-modal retrieval models, elevating answer accuracy from 72% to 94%."
               }
             ]
           },
           {
             "id": "str_003",
-            "title": "Zero‑downtime CI/CD automation",
-            "description": "Automated a continuous deployment pipeline that delivered 20+ production releases with zero downtime over a year.",
-            "evidence": [
-              {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b04",
-                "originalText": "Automated continuous deployment pipeline delivering 20+ production releases with zero-downtime over 12 months."
-              }
-            ]
-          },
-          {
-            "id": "str_004",
-            "title": "Database latency reduction",
-            "description": "Re‑indexed tables and added Redis caching, cutting p95 API latency from 850 ms to 120 ms.",
+            "title": "Demonstrated Backend Latency Optimization",
+            "description": "You clearly connect specific database and caching techniques (re-indexing and Redis read-aside caching) to an explicit p95 latency reduction from 850ms to 120ms.",
             "evidence": [
               {
                 "section": "experience",
@@ -187,33 +224,59 @@
         ],
         "issues": [
           {
-            "id": "issue_001",
+            "id": "iss_001",
+            "severity": "high",
+            "category": "clarity",
+            "title": "Project bullet is a list of tools without an action or outcome",
+            "diagnosis": "The bullet under your DevSecOps pipeline project consists solely of tool names ('Jenkins DevSecOps, Trivy, AWS Inspector, Grafana') without an active verb, architecture description, or measurable outcome.",
+            "whyItMatters": "Recruiters and hiring managers scanning your projects cannot tell what you personally engineered, automated, or monitored with these tools.",
+            "recommendation": "Rewrite the bullet using an active power verb to describe what you built, how Trivy and AWS Inspector were integrated into Jenkins, and what Grafana monitored.",
+            "correctedText": "Automated security scanning and infrastructure monitoring by integrating Jenkins, Trivy, AWS Inspector, and Grafana into a DevSecOps pipeline [ADD: pipeline scan duration or deployment cadence].",
+            "metricDiscoveryQuestions": [
+              "How much time did this automated pipeline save compared to manual security checks?",
+              "How frequently did the Jenkins pipeline run automated builds or vulnerability scans?",
+              "Did Trivy or AWS Inspector identify and prevent critical vulnerabilities prior to release?"
+            ],
+            "evidence": [
+              {
+                "section": "projects",
+                "itemId": "proj_002",
+                "bulletId": "proj_002_b01",
+                "originalText": "Jenkins DevSecOps, Trivy, AWS Inspector, Grafana"
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_002",
             "severity": "medium",
             "category": "skill_evidence_gap",
-            "title": "Many listed skills lack supporting evidence",
-            "diagnosis": "The skills section lists several technologies (e.g., TypeScript, JavaScript, Go, SQL, LangChain, OpenAI API, Pinecone, ChromaDB) that are not referenced in any experience or project bullet.",
-            "whyItMatters": "Recruiters may question your proficiency with those tools, reducing confidence in your fit for roles that require them.",
-            "recommendation": "Add bullet points that demonstrate how you used these technologies, or remove them if they are not central to your recent work.",
+            "title": "Skills section lists multiple technologies lacking supporting evidence",
+            "diagnosis": "The skills section lists TypeScript, JavaScript, Go, LangChain, React, Next.js, and Redux, but the resume provides limited supporting evidence of where they were used across your experience or projects.",
+            "whyItMatters": "When high-demand skills like Go or React appear only in a standalone list without context in your work history, recruiters may view them as secondary or unverified familiarity rather than primary strengths.",
+            "recommendation": "Integrate key demonstrated tools into your existing bullet descriptions (such as mentioning the frontend stack used for your real-time chat infrastructure), or group lesser-used skills separately to keep your strongest technologies prominent.",
             "correctedText": null,
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "skills",
                 "itemId": "skills_001",
                 "bulletId": "skills_001",
-                "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
+                "originalText": "Languages:\nPython, TypeScript, JavaScript, Go, SQL\n\nAI & Systems:\nFastMCP, RAG Architecture, LangChain, OpenAI API, Vector DBs (Pinecone, ChromaDB)\n\nBackend & Cloud:\nNode.js, FastAPI, PostgreSQL, Redis, Docker, Kubernetes, AWS, CI/CD, Jenkins, Trivy, AWS Inspector, Grafana\n\nFrontend:\nReact, Next.js, Redux, Tailwind CSS"
               }
             ],
             "correctionType": "none"
           },
           {
-            "id": "issue_002",
+            "id": "iss_003",
             "severity": "low",
-            "category": "formatting",
-            "title": "Header and summary appear merged",
-            "diagnosis": "The summary block contains contact information and the professional summary in the same paragraph.",
-            "whyItMatters": "A merged header can make the resume harder to scan quickly, especially for ATS or recruiters who look for a clean header.",
-            "recommendation": "Place name, contact details, and LinkedIn on a separate top line or block, then start the summary on the next line.",
+            "category": "ats_readability",
+            "title": "Contact details and professional summary merged in extracted text",
+            "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety.",
+            "whyItMatters": "Applicant tracking systems might misparse phone numbers, email addresses, or location data as part of the summary paragraph rather than structured candidate metadata.",
+            "recommendation": "Check your original document layout to ensure contact elements sit in standard, distinct header lines separated cleanly from the summary block.",
             "correctedText": null,
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "summary",
@@ -223,39 +286,65 @@
               }
             ],
             "correctionType": "none"
+          },
+          {
+            "id": "iss_004",
+            "severity": "low",
+            "category": "clarity",
+            "title": "Redundant metric phrasing softens readability",
+            "diagnosis": "The phrasing 'eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations' combines overlapping timeframes and repeats reduction phrasing ('cutting... reduced').",
+            "whyItMatters": "Cluttered or repetitive metric phrasing forces the reader to pause and re-read, distracting from an otherwise strong operational result.",
+            "recommendation": "Streamline the sentence structure to state both time savings clearly without redundant modifiers.",
+            "correctedText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours of monthly reconciliation and 25+ hours of weekly manual operational work.",
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b01",
+                "originalText": "Developed automated data reconciliation service in Python and PostgreSQL, eliminating 50+ hours reconciliation/month and cutting 25+ hours manual work/week reduced across finance operations."
+              }
+            ],
+            "correctionType": "rewrite"
           }
         ],
         "priorityActions": [
           {
             "priority": 1,
-            "title": "Validate skill list with concrete examples",
-            "action": "Review the skills section and add bullet points that show where you used each listed technology, or remove skills you haven’t applied recently.",
-            "reason": "Provides recruiters clear evidence of proficiency and avoids a breadth‑to‑depth mismatch."
+            "title": "Expand DevSecOps tool list into an accomplishment",
+            "action": "Rewrite proj_002_b01 to describe how you integrated Jenkins, Trivy, AWS Inspector, and Grafana to secure and monitor pipelines.",
+            "reason": "Recruiters cannot evaluate a bullet that contains only a list of tool names without verbs or demonstrable impact."
           },
           {
             "priority": 2,
-            "title": "Separate header/contact from summary",
-            "action": "Place name, email, phone, location, and LinkedIn on a distinct header line, then start the professional summary on the next line.",
-            "reason": "Improves scanability and makes the document look polished to both humans and ATS."
+            "title": "Support key listed skills in work bullets",
+            "action": "Mention where core skills like TypeScript, React, and Next.js were utilized in your frontend or full-stack work, or streamline unsupported skills.",
+            "reason": "Unsubstantiated skills weaken recruiter confidence when reviewing senior full-stack qualifications."
           },
           {
             "priority": 3,
-            "title": "Highlight top achievements early",
-            "action": "Consider ordering the most impactful bullets (e.g., performance gains, automation) at the top of each experience section.",
-            "reason": "Ensures recruiters see your biggest wins within the first few seconds of reading."
+            "title": "Verify header and summary layout separation",
+            "action": "Ensure contact details are distinctly separated from the opening summary paragraph in the source document.",
+            "reason": "Clean separation guarantees reliable ATS parsing of phone, email, and location information."
+          },
+          {
+            "priority": 4,
+            "title": "Polish metric phrasing in data reconciliation bullet",
+            "action": "Tighten the wording in exp_002_b01 to eliminate the awkward repetition of 'cutting' and 'reduced'.",
+            "reason": "Clear, concise impact language makes your operational time savings immediately readable during a quick recruiter scan."
           }
         ],
         "metadata": {
-          "provider": "groq",
-          "model": "openai/gpt-oss-120b",
-          "latencyMs": 7594,
-          "requestId": "req_1790454093242_0793e34d",
-          "inputTokens": 4653,
-          "outputTokens": 3190,
+          "provider": "gemini",
+          "model": "gemini-3.8-flash",
+          "latencyMs": 21225,
+          "requestId": "req_1791191721683_a7055837",
+          "inputTokens": 10811,
+          "outputTokens": 2442,
           "finishReason": "stop",
           "inputMode": "compact_text",
           "inputSerializerVersion": "compact-resume-v1",
-          "promptVersion": "resume-synthesis-v3.0",
+          "promptVersion": "resume-synthesis-v3.1",
           "pipelineVersion": "v3"
         }
       },
@@ -265,23 +354,23 @@
         "unsupportedAssumptions": 0,
         "rewriteViolations": 0
       },
-      "latencyMs": 7680,
+      "latencyMs": 24396,
       "tokenUsage": {
-        "input": 4653,
-        "output": 3190
+        "input": 10811,
+        "output": 2442
       },
       "classification": "SUCCESS"
     },
     {
-      "timestamp": "2026-09-26T20:22:41.665Z",
+      "timestamp": "2026-10-05T09:16:43.552Z",
       "fixture": "WEAK (Jordan Miller — Junior Fullstack)",
       "type": "weak",
       "inputHash": "985b2f01077c9a2b",
       "llmInputHash": "b4f68e3cf4bffe22",
-      "promptVersion": "resume-synthesis-v3.0",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
       "signals": {
         "skillGaps": 7,
         "totalMetrics": 0,
@@ -297,27 +386,14 @@
         },
         "dashboard": null,
         "overallReview": {
-          "summary": "Jordan shows solid hands‑on experience with JavaScript, React, and REST API development, and has a clear foundation in front‑end work from creating landing pages. The resume, however, leans heavily on responsibility‑type statements, uses generic language in the summary, and lists many skills that aren’t backed up by concrete examples. Tightening the wording, adding outcome‑focused details, and aligning the skills list with demonstrated work will make the profile much more compelling to recruiters.",
+          "summary": "Jordan, you have a solid foundation in web and API development, with hands-on exposure across both backend REST services and frontend landing pages. Your technical background from DePaul University combined with practical exposure to JavaScript and React gives you a clear baseline for full stack roles.\n\nTo stand out to recruiters, we need to convert your bullet points from passive job duties into concrete active contributions. Replacing routine attendance items with specific features you delivered, adding scale to your ticket resolution work, and ensuring every skill listed in your skills section is backed up by work history will make a major difference in your response rate.",
           "tone": "conversational"
         },
         "strengths": [
           {
             "id": "str_001",
-            "title": "Front‑end development with modern JavaScript frameworks",
-            "description": "Built web applications using JavaScript and React, showing relevant full‑stack front‑end experience.",
-            "evidence": [
-              {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b01",
-                "originalText": "Responsible for writing code for web applications using JavaScript and React."
-              }
-            ]
-          },
-          {
-            "id": "str_002",
-            "title": "REST API creation and documentation",
-            "description": "Designed and documented backend services, indicating capability across the stack.",
+            "title": "Demonstrated Backend API Development",
+            "description": "Building REST APIs and authoring developer documentation shows practical full-stack capabilities that recruiters immediately look for in junior engineering roles.",
             "evidence": [
               {
                 "section": "experience",
@@ -328,9 +404,9 @@
             ]
           },
           {
-            "id": "str_003",
-            "title": "Landing‑page development using core web technologies",
-            "description": "Delivered client‑facing landing pages with HTML, CSS, and JavaScript, demonstrating solid front‑end fundamentals.",
+            "id": "str_002",
+            "title": "Direct Client Web Development Experience",
+            "description": "Creating client-facing landing pages using HTML, CSS, and JavaScript demonstrates core web design and frontend fundamental skills.",
             "evidence": [
               {
                 "section": "experience",
@@ -339,31 +415,19 @@
                 "originalText": "Created landing pages for clients using HTML, CSS, and basic JavaScript."
               }
             ]
-          },
-          {
-            "id": "str_004",
-            "title": "Formal education in information systems",
-            "description": "Bachelor’s degree provides a strong theoretical foundation for software development.",
-            "evidence": [
-              {
-                "section": "education",
-                "itemId": "edu_001",
-                "bulletId": "edu_001",
-                "originalText": "B.A. in Information Systems | DePaul University | 2017 - 2021"
-              }
-            ]
           }
         ],
         "issues": [
           {
-            "id": "issue_001",
+            "id": "iss_001",
             "severity": "medium",
-            "category": "positioning",
-            "title": "Summary uses generic language and lacks specific positioning",
-            "diagnosis": "The summary contains broad clichés such as \"Hardworking software engineer\" and \"Responsible, detail‑oriented team player\" without concrete examples of what differentiates the candidate.",
-            "whyItMatters": "Recruiters may have difficulty quickly seeing Jordan’s unique value and technical focus, which can cause the resume to blend in with many similar profiles.",
-            "recommendation": "Rewrite the summary to spotlight specific technologies, notable projects, and measurable contributions that align with the junior full‑stack role.",
-            "correctedText": null,
+            "category": "clarity",
+            "title": "Summary relies on self-descriptive claims rather than core tech strengths",
+            "diagnosis": "The summary uses introductory phrasing like 'hardworking' and 'looking to leverage my programming skills' rather than leading with your specific core tech stack or primary technical interests.",
+            "whyItMatters": "Recruiters scan professional summaries in 5-10 seconds. Generic descriptions hide your technical focus, whereas leading with your stack (React, JavaScript, REST APIs) instantly positions you for full stack roles.",
+            "recommendation": "Reframe the summary to focus on your technical stack and application focus. Lead with 'Full Stack Developer with experience building React web applications and REST APIs.'",
+            "correctedText": "Full Stack Developer with experience building React web applications, REST APIs, and client-facing web interfaces. Skilled in JavaScript, database maintenance, and technical documentation.",
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "summary",
@@ -372,42 +436,87 @@
                 "originalText": "Jordan Miller jordan.miller@example.com | (555) 789-0123 | Chicago, IL Hardworking software engineer looking to leverage my programming skills in a dynamic full stack development position. Responsible, detail-oriented team player with experience in multiple languages."
               }
             ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_002",
+            "severity": "high",
+            "category": "clarity",
+            "title": "Routine meeting attendance listed as achievement bullets",
+            "diagnosis": "Listing attendance at daily standups and weekly status meetings describes standard workplace presence rather than technical engineering output.",
+            "whyItMatters": "Resume real estate is precious. Including meeting attendance can suggest a lack of distinct technical achievements to highlight, taking space away from features or fixes you delivered.",
+            "recommendation": "Remove bullets that focus purely on meeting attendance and replace them with specific technical contributions, such as feature implementations, database optimizations, or bug fixes.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Worked with team members in daily agile standup meetings."
+              },
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b02",
+                "originalText": "Attended weekly project status meetings with project managers."
+              }
+            ],
             "correctionType": "none"
           },
           {
-            "id": "issue_002",
-            "severity": "low",
-            "category": "language",
-            "title": "Weak action verbs reduce perceived ownership",
-            "diagnosis": "Several bullets begin with weak verbs such as \"Responsible for\", \"Assisted\", \"Worked\", and \"Handled\", which do not clearly convey personal contribution.",
-            "whyItMatters": "Strong, active verbs help recruiters instantly recognize the candidate’s direct impact and responsibility level.",
-            "recommendation": "Replace weak verbs with stronger alternatives (e.g., \"Developed\", \"Implemented\", \"Resolved\", \"Optimized\") and lead each bullet with a clear action.",
-            "correctedText": null,
+            "id": "iss_003",
+            "severity": "medium",
+            "category": "clarity",
+            "title": "Duty phrasing hides personal engineering ownership",
+            "diagnosis": "Phrasing like 'Responsible for writing code' frames your work as a job description duty rather than an active accomplishment.",
+            "whyItMatters": "Passive framing makes it harder for a hiring manager to gauge your direct individual ownership and coding contributions.",
+            "recommendation": "Start with strong action verbs like 'Engineered', 'Developed', or 'Implemented' to highlight what you personally built.",
+            "correctedText": "Developed web application components and user interfaces using JavaScript and React.",
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "experience",
                 "itemId": "exp_001",
                 "bulletId": "exp_001_b01",
                 "originalText": "Responsible for writing code for web applications using JavaScript and React."
-              },
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_004",
+            "severity": "high",
+            "category": "outcome_visibility",
+            "title": "Production support work lacks context on ticket scope or resolution volume",
+            "diagnosis": "The bullet mentions investigating client issues and support tickets, but gives no scale regarding issue complexity or volume.",
+            "whyItMatters": "Handling production issues is valuable experience for junior candidates, but without scope or volume details, recruiters cannot assess your operational impact.",
+            "recommendation": "Quantify your ticket resolution output or detail the types of production issues (e.g., frontend rendering, API response errors) you resolved.",
+            "correctedText": "Investigated and resolved [ADD: average number of tickets resolved per week] production client issues, maintaining application stability.",
+            "metricDiscoveryQuestions": [
+              "How many support tickets or client issues did you typically resolve per week or month?",
+              "What common technical issues did you fix (e.g., database query errors, React state bugs, broken links)?"
+            ],
+            "evidence": [
               {
                 "section": "experience",
                 "itemId": "exp_001",
-                "bulletId": "exp_001_b02",
-                "originalText": "Assisted senior developers with backend bug fixing and routine database maintenance tasks."
+                "bulletId": "exp_001_b04",
+                "originalText": "Handled customer support tickets and investigated client issues in production."
               }
             ],
-            "correctionType": "none"
+            "correctionType": "rewrite"
           },
           {
-            "id": "issue_003",
+            "id": "iss_005",
             "severity": "medium",
             "category": "skill_evidence_gap",
-            "title": "Skills listed without supporting experience evidence",
-            "diagnosis": "The skills section lists Java, C++, Python, MySQL, Git, Windows, and Linux, yet none of the experience bullets reference these technologies.",
-            "whyItMatters": "Recruiters may question proficiency in those areas when they cannot see concrete usage examples.",
-            "recommendation": "Add bullet points that demonstrate how those technologies were used, or remove them from the list to keep the skills section tightly aligned with proven experience.",
+            "title": "Key skills listed in skills section lack evidence in work experience",
+            "diagnosis": "The skills section lists Java, C++, Python, MySQL, Git, Windows, and Linux, but the experience descriptions provide limited supporting evidence of where or how these were used.",
+            "whyItMatters": "When recruiters see technical skills listed without matching mentions in your roles or projects, they may wonder about your practical depth with those tools.",
+            "recommendation": "Integrate key technologies like MySQL or Git into your bullet points where applicable, or group your skills section into core technologies versus secondary tools.",
             "correctedText": null,
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "skills",
@@ -419,26 +528,21 @@
             "correctionType": "none"
           },
           {
-            "id": "issue_004",
-            "severity": "medium",
-            "category": "impact",
-            "title": "Bullets focus on responsibilities rather than outcomes",
-            "diagnosis": "All nine bullets describe tasks performed (e.g., \"Created landing pages\", \"Handled customer support tickets\") without mentioning results, improvements, or measurable impact.",
-            "whyItMatters": "Outcome‑oriented statements demonstrate value and help the candidate stand out among other applicants with similar duties.",
-            "recommendation": "Reframe each bullet to include the effect of the work—such as performance gains, bug reductions, user satisfaction improvements, or time saved.",
+            "id": "iss_006",
+            "severity": "low",
+            "category": "ats_readability",
+            "title": "Contact info merged with summary block in text parsing",
+            "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety.",
+            "whyItMatters": "If contact fields are embedded inside section content blocks, applicant tracking systems may struggle to correctly populate candidate contact fields.",
+            "recommendation": "Ensure contact details sit cleanly in a standard header block clearly separated from paragraph summary text.",
             "correctedText": null,
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b01",
-                "originalText": "Responsible for writing code for web applications using JavaScript and React."
-              },
-              {
-                "section": "experience",
-                "itemId": "exp_002",
-                "bulletId": "exp_002_b01",
-                "originalText": "Created landing pages for clients using HTML, CSS, and basic JavaScript."
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Jordan Miller jordan.miller@example.com | (555) 789-0123 | Chicago, IL Hardworking software engineer looking to leverage my programming skills in a dynamic full stack development position. Responsible, detail-oriented team player with experience in multiple languages."
               }
             ],
             "correctionType": "none"
@@ -447,40 +551,40 @@
         "priorityActions": [
           {
             "priority": 1,
-            "title": "Rewrite the summary for specificity",
-            "action": "Replace generic phrases with concrete examples of technologies used, projects completed, and any measurable contributions.",
-            "reason": "A focused summary quickly tells recruiters why you’re a fit for a junior full‑stack role."
+            "title": "Rewrite duty statements into active engineering wins",
+            "action": "Replace passive starters like 'Responsible for' and 'Assisted with' with strong technical verbs such as 'Engineered', 'Developed', and 'Resolved'.",
+            "reason": "This immediately conveys technical ownership and shows hiring managers what you can independently build."
           },
           {
             "priority": 2,
-            "title": "Strengthen action verbs and add outcomes",
-            "action": "Begin each bullet with a strong verb and include the result of the work (e.g., \"Developed a React component that reduced page load time\").",
-            "reason": "Active language and outcome focus make achievements clear and compelling."
+            "title": "Remove routine meeting bullets",
+            "action": "Delete bullets citing daily standup or weekly status meeting attendance and replace them with specific application features or bug fixes delivered.",
+            "reason": "Meeting attendance is an implicit job requirement and takes up valuable space that should showcase your development skills."
           },
           {
             "priority": 3,
-            "title": "Align skills with demonstrated experience",
-            "action": "Either add experience bullets that show use of Java, C++, Python, MySQL, Git, Windows, and Linux, or remove those items from the skills list.",
-            "reason": "Consistent skill evidence builds credibility with recruiters."
+            "title": "Quantify production support and ticket resolution",
+            "action": "Add key numbers reflecting your weekly ticket output or defect resolution efficiency to demonstrate operational impact.",
+            "reason": "Quantifying your support work turns generic tasks into concrete proof of performance."
           },
           {
             "priority": 4,
-            "title": "Add outcome‑oriented details to existing bullets",
-            "action": "For each responsibility, think about the impact (e.g., bugs fixed, performance improvements, user satisfaction) and incorporate that into the bullet.",
-            "reason": "Outcome statements differentiate you from candidates who list duties only."
+            "title": "Align skills list with experience text",
+            "action": "Mention specific technologies like MySQL, Python, or Git inside your role descriptions or project bullets.",
+            "reason": "Demonstrating context for your skills validates your expertise and helps pass ATS skill verification."
           }
         ],
         "metadata": {
-          "provider": "groq",
-          "model": "openai/gpt-oss-120b",
-          "latencyMs": 9995,
-          "requestId": "req_1790454151660_c4f00953",
-          "inputTokens": 4106,
-          "outputTokens": 3523,
+          "provider": "gemini",
+          "model": "gemini-3.6-flash",
+          "latencyMs": 39429,
+          "requestId": "req_1791191764119_c25ac4e4",
+          "inputTokens": 9937,
+          "outputTokens": 2535,
           "finishReason": "stop",
           "inputMode": "compact_text",
           "inputSerializerVersion": "compact-resume-v1",
-          "promptVersion": "resume-synthesis-v3.0",
+          "promptVersion": "resume-synthesis-v3.1",
           "pipelineVersion": "v3"
         }
       },
@@ -488,25 +592,25 @@
         "schemaValid": true,
         "evidenceValid": true,
         "unsupportedAssumptions": 0,
-        "rewriteViolations": 0
+        "rewriteViolations": 1
       },
-      "latencyMs": 40788,
+      "latencyMs": 40616,
       "tokenUsage": {
-        "input": 4106,
-        "output": 3523
+        "input": 9937,
+        "output": 2535
       },
       "classification": "SUCCESS"
     },
     {
-      "timestamp": "2026-09-26T20:23:38.503Z",
+      "timestamp": "2026-10-05T09:17:40.080Z",
       "fixture": "MIXED (Mixed Experience)",
       "type": "mixed",
       "inputHash": "1593f607ebd84cd3",
       "llmInputHash": "b2ad889789b8bac2",
-      "promptVersion": "resume-synthesis-v3.0",
+      "promptVersion": "resume-synthesis-v3.1",
       "pipelineVersion": "v3",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
       "signals": {
         "skillGaps": 11,
         "totalMetrics": 8,
@@ -518,18 +622,18 @@
           "name": "Elena Rostova",
           "targetRole": "Full Stack Software Engineer",
           "experienceLevel": "3 years",
-          "primaryProfile": "Full Stack Engineer"
+          "primaryProfile": "Full Stack Software Engineer"
         },
         "dashboard": null,
         "overallReview": {
-          "summary": "Elena shows solid, measurable impact on performance and automation, and even an open‑source contribution that got real community traction. The resume is a bit heavy on responsibility statements and lists many technologies without clear proof of use, which can dilute the impression of depth. Tightening the language, pairing every skill with a concrete example, and shifting more bullets toward outcomes will make the story clearer and stronger.",
+          "summary": "Elena, your transition from data analytics into full-stack engineering gives you a distinct advantage, and your top engineering wins immediately catch a recruiter's attention. Cutting report turnaround from 20 minutes down to 35 seconds and earning over 120 GitHub stars on your open-source package demonstrate clear technical capability and project execution.\n\nTo make your application even stronger for full-stack engineering roles, you'll want to address a few key areas. Your skills section lists several prominent tools—such as TypeScript, Express, and Docker—that don't currently appear in your bullet points, which can leave technical screeners wondering where you applied them. Additionally, replacing passive administrative tasks with active engineering outcomes will ensure every line on your resume showcases technical impact.",
           "tone": "conversational"
         },
         "strengths": [
           {
             "id": "str_001",
-            "title": "Clear performance improvement",
-            "description": "Reduced report generation time dramatically, showing strong engineering impact.",
+            "title": "Exceptional Latency Optimization",
+            "description": "Demonstrates clear technical ownership and drastic performance improvement on a core analytics feature.",
             "evidence": [
               {
                 "section": "experience",
@@ -541,21 +645,8 @@
           },
           {
             "id": "str_002",
-            "title": "High‑volume data automation",
-            "description": "Built a pipeline that processes 80,000 records daily, demonstrating scalability and reliability.",
-            "evidence": [
-              {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b02",
-                "originalText": "Migrated manual CSV ingestion workflows into automated PostgreSQL pipeline processing 80,000 customer records daily."
-              }
-            ]
-          },
-          {
-            "id": "str_003",
-            "title": "Time‑saving scripting",
-            "description": "Automated weekly reconciliation, saving six hours of manual effort each week.",
+            "title": "Measurable Process Automation",
+            "description": "Quantifies direct time savings achieved by automating routine spreadsheet audits with Python.",
             "evidence": [
               {
                 "section": "experience",
@@ -566,9 +657,9 @@
             ]
           },
           {
-            "id": "str_004",
-            "title": "Open‑source community impact",
-            "description": "Published a package that earned 120+ GitHub stars and active adoption.",
+            "id": "str_003",
+            "title": "Open-Source Community Validation",
+            "description": "Provides objective social proof of code quality and developer interest through GitHub adoption metrics.",
             "evidence": [
               {
                 "section": "projects",
@@ -581,33 +672,15 @@
         ],
         "issues": [
           {
-            "id": "issue_001",
-            "severity": "low",
-            "category": "weak_language",
-            "title": "Weak action verb in responsibility bullet",
-            "diagnosis": "Bullet starts with \"Responsible for\", which is a weak verb and does not convey ownership.",
-            "whyItMatters": "Recruiters scan for strong ownership language; vague verbs can make the candidate appear less proactive.",
-            "recommendation": "Replace the weak verb with a direct action verb that shows what you did.",
-            "correctedText": "Managed Jira tickets and attended sprint planning ceremonies.",
-            "evidence": [
-              {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b03",
-                "originalText": "Responsible for maintaining Jira tickets and attending sprint planning ceremonies."
-              }
-            ],
-            "correctionType": "rewrite"
-          },
-          {
-            "id": "issue_002",
+            "id": "iss_001",
             "severity": "medium",
             "category": "skill_evidence_gap",
-            "title": "Many listed skills lack supporting evidence",
-            "diagnosis": "The skills section lists 19 technologies, but 11 of them (e.g., TypeScript, Redux, Tailwind CSS, Express, Docker, AWS) are not referenced in any experience or project bullet.",
-            "whyItMatters": "Recruiters may question depth of expertise when a skill appears only on a list without concrete proof of use.",
-            "recommendation": "Add brief bullet points or project details that demonstrate how you applied the missing technologies, or remove them if you have limited experience.",
+            "title": "Skills Section Lists Technologies Without Experience Evidence",
+            "diagnosis": "The skills section lists several key technologies—including TypeScript, Redux, Express, Docker, and AWS—but the resume provides limited supporting evidence of where they were used in your positions or projects.",
+            "whyItMatters": "Technical recruiters and engineering managers cross-check listed skills against experience bullets. When major frameworks are listed without project context, screeners may assume introductory familiarity rather than production usage.",
+            "recommendation": "Integrate key target technologies (like Express, Docker, or TypeScript) directly into your project or experience descriptions where you used them, or adjust the skills section to reflect your primary working stack.",
             "correctedText": null,
+            "metricDiscoveryQuestions": [],
             "evidence": [
               {
                 "section": "skills",
@@ -619,32 +692,66 @@
             "correctionType": "none"
           },
           {
-            "id": "issue_003",
+            "id": "iss_002",
             "severity": "medium",
-            "category": "impact",
-            "title": "High proportion of responsibility‑focused bullets",
-            "diagnosis": "7 of the 9 bullets describe duties (e.g., maintaining tickets, attending ceremonies, collaborating) rather than concrete outcomes.",
-            "whyItMatters": "Outcome‑oriented statements give recruiters a clearer picture of the value you delivered; too many responsibilities can make the resume feel flat.",
-            "recommendation": "Reframe responsibility bullets to highlight results, such as \"Reduced sprint planning time by X%\" or \"Improved ticket resolution speed by Y%\" where data is available.",
-            "correctedText": null,
+            "category": "clarity",
+            "title": "Low-Impact Duty Statement Softens Engineering Profile",
+            "diagnosis": "The bullet describes basic administrative task maintenance ('Responsible for maintaining Jira tickets and attending sprint planning ceremonies') rather than technical contributions or engineering ownership.",
+            "whyItMatters": "A technical resume has limited real estate. Listing general meeting attendance and ticket maintenance can detract from your engineering accomplishments and lower the perceived depth of your role.",
+            "recommendation": "Replace basic task maintenance statements with technical contributions, agile delivery leadership, or engineering outcomes. If sprint involvement is notable, frame it around driving backlog delivery.",
+            "correctedText": "Managed sprint task delivery and agile engineering backlog tracking in Jira.",
+            "metricDiscoveryQuestions": [
+              "Did you lead any sprint planning sessions, refine user stories, or coordinate feature delivery across the team?"
+            ],
             "evidence": [
               {
                 "section": "experience",
                 "itemId": "exp_001",
                 "bulletId": "exp_001_b03",
                 "originalText": "Responsible for maintaining Jira tickets and attending sprint planning ceremonies."
-              },
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_003",
+            "severity": "low",
+            "category": "impact",
+            "title": "Project Bullet Lacks Operational Scale or Metric Context",
+            "diagnosis": "The description highlights key features of the Redis queue monitoring dashboard, but omits scale or operational impact details.",
+            "whyItMatters": "Highlighting system scale or job volume helps recruiters understand whether the tool was built for small-scale experiments or heavy production workloads.",
+            "recommendation": "Quantify the scale of the queue or system monitored, or state the manual monitoring overhead eliminated by visual queue health gauges.",
+            "correctedText": "Engineered a lightweight React and Node.js dashboard monitoring active Redis queues, processing [ADD: typical job volume or queue throughput] with visual health gauges and automated retries.",
+            "metricDiscoveryQuestions": [
+              "How many active Redis queues, concurrent jobs, or records did this dashboard process or monitor?",
+              "Did visual health gauges or job retries reduce incident response time or manual queue troubleshooting effort?"
+            ],
+            "evidence": [
               {
-                "section": "experience",
-                "itemId": "exp_001",
-                "bulletId": "exp_001_b04",
-                "originalText": "Built REST API endpoints for user authentication and authorization using JWT tokens."
-              },
+                "section": "projects",
+                "itemId": "proj_001",
+                "bulletId": "proj_001_b01",
+                "originalText": "Developed lightweight dashboard monitoring active Redis queues with visual queue health gauges and job retries."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_004",
+            "severity": "low",
+            "category": "ats_readability",
+            "title": "Contact Details Placed Alongside Summary Text",
+            "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety.",
+            "whyItMatters": "When contact information shares a single text block with summary text, older or strict ATS parsers can misinterpret email addresses, phone numbers, or location fields.",
+            "recommendation": "Ensure contact details are kept in distinct header lines separated from the summary narrative block.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
               {
-                "section": "experience",
-                "itemId": "exp_002",
-                "bulletId": "exp_002_b03",
-                "originalText": "Collaborated with business stakeholders to gather data requirements and clarify metric definitions."
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Elena Rostova elena.rostova@example.com | (555) 456-7890 | Boston, MA | github.com/erostova Full Stack Engineer transitioning from data analytics into modern web platform development. 3 years of combined experience building analytical dashboards, Python ETL pipelines, and full-stack React/Node.js web applications."
               }
             ],
             "correctionType": "none"
@@ -653,34 +760,40 @@
         "priorityActions": [
           {
             "priority": 1,
-            "title": "Strengthen language in responsibility bullets",
-            "action": "Replace weak verbs like \"Responsible for\" with direct action verbs and, where possible, attach a measurable outcome.",
-            "reason": "Clear ownership and results are key signals for recruiters."
+            "title": "Align Skills Section with Experience Evidence",
+            "action": "Add specific project or experience bullet points demonstrating practical use of Docker, Express, TypeScript, and AWS, or streamline the skills section to reflect your main technical stack.",
+            "reason": "Recruiters evaluate technical credibility by verifying listed skills against project accomplishments."
           },
           {
             "priority": 2,
-            "title": "Align skills with demonstrated experience",
-            "action": "Add concise bullet points or project notes that show how you used the listed technologies that currently lack evidence.",
-            "reason": "Evidence of skill usage builds credibility for the breadth of your stack."
+            "title": "Replace Low-Impact Duty Bullets",
+            "action": "Swap out the passive Jira maintenance bullet with a concrete full-stack or backend engineering achievement.",
+            "reason": "Every line on a software engineering resume should demonstrate technical outcome or project ownership."
           },
           {
             "priority": 3,
-            "title": "Shift more bullets toward outcomes",
-            "action": "Re‑write duty‑focused statements to emphasize the impact you achieved (e.g., time saved, performance gains, quality improvements).",
-            "reason": "Outcome‑focused content makes your contributions tangible and memorable."
+            "title": "Add System Scale to Project Experience",
+            "action": "Incorporate typical job volume or queue throughput into the Redis workflow monitor project bullet.",
+            "reason": "Providing scale indicators helps technical screeners evaluate the depth of your software engineering work."
+          },
+          {
+            "priority": 4,
+            "title": "Verify Header and Summary Parsing Layout",
+            "action": "Format contact details clearly above the summary block so ATS parsers reliably capture phone, email, and location.",
+            "reason": "Clear structure prevents contact field parsing errors when submitting applications online."
           }
         ],
         "metadata": {
-          "provider": "groq",
-          "model": "openai/gpt-oss-120b",
-          "latencyMs": 6425,
-          "requestId": "req_1790454212065_136921ea",
-          "inputTokens": 4411,
-          "outputTokens": 2642,
+          "provider": "gemini",
+          "model": "gemini-3.6-flash",
+          "latencyMs": 35689,
+          "requestId": "req_1791191824385_11d91170",
+          "inputTokens": 10234,
+          "outputTokens": 2199,
           "finishReason": "stop",
           "inputMode": "compact_text",
           "inputSerializerVersion": "compact-resume-v1",
-          "promptVersion": "resume-synthesis-v3.0",
+          "promptVersion": "resume-synthesis-v3.1",
           "pipelineVersion": "v3"
         }
       },
@@ -688,39 +801,602 @@
         "schemaValid": true,
         "evidenceValid": true,
         "unsupportedAssumptions": 1,
-        "rewriteViolations": 0
+        "rewriteViolations": 2
       },
-      "latencyMs": 36823,
+      "latencyMs": 36524,
       "tokenUsage": {
-        "input": 4411,
-        "output": 2642
+        "input": 10234,
+        "output": 2199
       },
       "classification": "UNSUPPORTED_CLAIM_WARNING"
     },
     {
-      "timestamp": "2026-09-26T20:24:28.985Z",
+      "timestamp": "2026-10-05T09:18:51.504Z",
       "fixture": "STRONG FULLSTACK (Marcus Vance)",
       "type": "strong_fullstack",
-      "inputHash": null,
-      "llmInputHash": null,
-      "promptVersion": "resume-synthesis-v3.0",
-      "pipelineVersion": "v2",
-      "model": "openai/gpt-oss-120b",
-      "provider": "groq",
-      "signals": null,
-      "parsedOutput": null,
+      "inputHash": "514e43d86b03f168",
+      "llmInputHash": "9541e9aa3db6ec14",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "signals": {
+        "skillGaps": 13,
+        "totalMetrics": 16,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Marcus Vance",
+          "targetRole": "Senior Full Stack & Cloud Systems Engineer",
+          "experienceLevel": "6 years",
+          "primaryProfile": "Software Engineering / Full Stack & Cloud Systems"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Marcus, your resume presents an exceptionally strong technical profile. 7 of your 11 bullets already include hard numbers, showing clear impact in high-throughput Go services, PostgreSQL latency optimization, and automated AWS infrastructure. Your ability to link engineering work directly to tangible results—like cutting deployment lead times from 4 hours to 18 minutes—makes your expertise immediately obvious to a technical recruiter.\n\nTo make your resume even sharper, clean up the skill evidence gaps where tools like Python, gRPC, and GraphQL appear in your skills section without supporting experience in your bullet points. Additionally, ensure your contact details are distinctly separated from your summary text in your layout so Applicant Tracking Systems extract your profile cleanly.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "High-Throughput Systems Optimization",
+            "description": "Demonstrates engineering depth by quantifying a impressive 9x scale in telemetry ingestion throughput using Go and Kafka.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second."
+              }
+            ]
+          },
+          {
+            "id": "str_002",
+            "title": "Dramatic Infrastructure Deployment Velocity",
+            "description": "Shows high ownership by quantifying multi-region AWS automation gains from 4 hours down to 18 minutes.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes."
+              }
+            ]
+          },
+          {
+            "id": "str_003",
+            "title": "High-Value Transactional Risk Mitigation",
+            "description": "Highlights business-critical system reliability by proving double-charge elimination across $14M in transaction volume.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b02",
+                "originalText": "Implemented idempotent Stripe payment webhook pipeline, eliminating double-charge incidents across $14M in annual billing volume."
+              }
+            ]
+          },
+          {
+            "id": "str_004",
+            "title": "Targeted Database Performance Tuning",
+            "description": "Clear technical accomplishment pairing composite B-tree indexing with Redis caching to cut p99 latency by 58%.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b02",
+                "originalText": "Reduced PostgreSQL p99 query latency by 58% by restructuring composite B-tree indexes and implementing Redis read-aside caching."
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "iss_001",
+            "severity": "medium",
+            "category": "skill_evidence_gap",
+            "title": "Listed skills lack supporting evidence in work history",
+            "diagnosis": "Your skills section lists technologies like Python, Express, gRPC, GraphQL, AWS ECS, and Lambda, but these tools do not appear anywhere in your experience or project descriptions.",
+            "whyItMatters": "Recruiters and technical screeners cross-reference listed skills with your work history. Unverified technical skills in the skill block make it harder to assess your hands-on proficiency.",
+            "recommendation": "Align your skills list with your demonstrated experience by pruning unevidenced tools or adding brief technical details to your existing projects where those tools were applied.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "skills",
+                "itemId": "skills_001",
+                "bulletId": "skills_001",
+                "originalText": "Languages:\nGo, TypeScript, JavaScript, Python, SQL\n\nBackend & Systems:\nNode.js, Express, gRPC, REST APIs, GraphQL, Kafka, Redis\n\nCloud & DevOps:\nAWS (ECS, Lambda, RDS, S3), Docker, Terraform, CI/CD, Kubernetes\n\nDatabases:\nPostgreSQL, DynamoDB, Redis"
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "iss_002",
+            "severity": "low",
+            "category": "ats_readability",
+            "title": "Contact header merged with summary text block",
+            "diagnosis": "Your extracted resume text places contact details directly alongside your summary statement in a single combined text block.",
+            "whyItMatters": "When ATS parsers ingest merged contact details and summary text, email and phone numbers can mess up candidate profile fields or obscure the professional summary.",
+            "recommendation": "Ensure contact details sit on distinct lines directly above the summary section in your plain document structure.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Marcus Vance marcus.vance@example.com | (555) 234-8901 | Seattle, WA | linkedin.com/in/marcusvance-demo Senior Full Stack & Cloud Systems Engineer with 6 years of experience architecting high-throughput distributed systems in Go, TypeScript, and AWS. Proven track record leading infrastructure migrations, optimizing database latency, and mentoring engineering teams."
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "iss_003",
+            "severity": "medium",
+            "category": "outcome_visibility",
+            "title": "Raft consensus bullet omits failover performance outcome",
+            "diagnosis": "The bullet describes building a distributed Raft consensus engine across 5 nodes, but omits quantifiable performance metrics like failover speed or election latency.",
+            "whyItMatters": "While your follow-up benchmark bullet demonstrates write throughput, this bullet reads like a functional description without showing how resilient or quick the failover mechanism was.",
+            "recommendation": "Enhance the bullet by stating the election recovery time or failover convergence speed achieved during node partition simulations.",
+            "correctedText": "Engineered a distributed, fault-tolerant consensus engine implementing Raft leader election across 5 simulated nodes, achieving failover recovery in [ADD: failover recovery time in milliseconds].",
+            "metricDiscoveryQuestions": [
+              "What was the average failover recovery time when a leader node was dropped?",
+              "How fast were log entries replicated across the 5 nodes during consensus?"
+            ],
+            "evidence": [
+              {
+                "section": "projects",
+                "itemId": "proj_001",
+                "bulletId": "proj_001_b01",
+                "originalText": "Built distributed, fault-tolerant consensus engine implementing Raft leader election and log replication across 5 simulated nodes."
+              }
+            ],
+            "correctionType": "rewrite"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Prune unevidenced technologies from skills block",
+            "action": "Review your skills section and remove tools like Python, gRPC, and GraphQL that lack supporting context in your experience descriptions.",
+            "reason": "Ensures technical recruiters can easily verify every tool listed on your resume against your actual experience."
+          },
+          {
+            "priority": 2,
+            "title": "Separate contact header from professional summary",
+            "action": "Ensure header contact info uses clear vertical spacing above your summary section.",
+            "reason": "Prevents ATS automated parsers from clumping contact details into summary block fields."
+          },
+          {
+            "priority": 3,
+            "title": "Quantify failover speed in project work",
+            "action": "Add election failover recovery latency to your Raft consensus engine project bullet point.",
+            "reason": "Demonstrates end-to-end systems engineering precision with concrete performance metrics."
+          }
+        ],
+        "metadata": {
+          "provider": "gemini",
+          "model": "gemini-3.6-flash",
+          "latencyMs": 50211,
+          "requestId": "req_1791191881289_7bea469c",
+          "inputTokens": 10614,
+          "outputTokens": 2038,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.1",
+          "pipelineVersion": "v3"
+        }
+      },
       "validationResult": {
-        "schemaValid": false,
-        "evidenceValid": false,
+        "schemaValid": true,
+        "evidenceValid": true,
+        "unsupportedAssumptions": 1,
+        "rewriteViolations": 1
+      },
+      "latencyMs": 51410,
+      "tokenUsage": {
+        "input": 10614,
+        "output": 2038
+      },
+      "classification": "UNSUPPORTED_CLAIM_WARNING"
+    },
+    {
+      "timestamp": "2026-10-05T09:20:01.713Z",
+      "fixture": "NON-IT US (Marcus Reed — Sales)",
+      "type": "non_it_sales",
+      "inputHash": "f18cedcc7a11be79",
+      "llmInputHash": "6c3183aa5be8bd3a",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.6-flash",
+      "provider": "gemini",
+      "signals": {
+        "skillGaps": 9,
+        "totalMetrics": 2,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Marcus Reed",
+          "targetRole": "Regional Sales Manager",
+          "experienceLevel": "7 years",
+          "primaryProfile": "Sales & Marketing"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Marcus, you have a solid 7-year foundation in B2B industrial sales, with direct territory management experience and clear career progression. Achieving President's Club recognition in 2021 and maintaining active sales certifications like Challenger Sale give you strong credibility for a Regional Sales Manager role.\n\nTo make your resume compelling for senior leadership, you need to bring your sales numbers to the front. Right now, almost all your experience points describe daily responsibilities rather than sales results, quota percentages, or revenue growth. Adding those core performance metrics will immediately elevate your application.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "Proven High-Performance Sales Recognition",
+            "description": "Demonstrates top-tier sales achievement with clear recognition in a competitive B2B sales environment.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b04",
+                "originalText": "Achieved President's Club recognition in 2021."
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "iss_001",
+            "severity": "high",
+            "category": "impact",
+            "title": "Territory management bullet lacks sales revenue and quota outcomes",
+            "diagnosis": "The primary bullet for your current role relies on duty-focused language ('Responsible for managing') and omits the financial scope, quota target, and actual revenue results of your territory.",
+            "whyItMatters": "Recruiters hiring for Regional Sales Managers look immediately for book-of-business numbers and quota attainment percentages to gauge whether you can handle higher regional revenue targets.",
+            "recommendation": "Lead with active sales verbs and quantify your territory by adding your annual revenue target or percentage of quota achieved.",
+            "correctedText": "Managed a multi-state B2B industrial sales territory across Texas and Oklahoma, delivering [ADD: annual territory revenue or quota attainment %] across accounts in manufacturing and construction.",
+            "metricDiscoveryQuestions": [
+              "What was your annual territory revenue quota, and what percentage of that quota did you hit?",
+              "How much total revenue did your Texas and Oklahoma territory produce last year?"
+            ],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Responsible for managing a territory of B2B accounts across Texas and Oklahoma for industrial and safety supplies."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_002",
+            "severity": "medium",
+            "category": "impact",
+            "title": "Account retention work is stated as a duty without measurable retention outcomes",
+            "diagnosis": "The bullet describes holding renewal conversations and preventing churn, but does not show the retention rate or total account value saved.",
+            "whyItMatters": "Sales executives evaluate account management capabilities based on concrete retention metrics and revenue expansion, not just routine renewal efforts.",
+            "recommendation": "Reframe the bullet to highlight your explicit renewal rate or the total contract value preserved during this period.",
+            "correctedText": "Drove customer retention across small and mid-sized accounts, maintaining a [ADD: renewal or retention rate %] to prevent account churn.",
+            "metricDiscoveryQuestions": [
+              "What was your client renewal or retention rate percentage during this period?",
+              "What was the total annual contract value (ACV) of the accounts you successfully renewed?"
+            ],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_002",
+                "bulletId": "exp_002_b02",
+                "originalText": "Handled renewal conversations with existing customers and worked to prevent account churn."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_003",
+            "severity": "low",
+            "category": "skill_evidence_gap",
+            "title": "Core sales methodologies listed in skills lack evidence in experience bullets",
+            "diagnosis": "The skills section lists key items like HubSpot, Contract Negotiation, and Pipeline Management, but the resume provides limited supporting evidence of where they were applied in your roles.",
+            "whyItMatters": "Hiring managers look at work experience bullets to verify how skills were practically executed during real deal cycles.",
+            "recommendation": "Weave key skills like Contract Negotiation and Pipeline Management directly into your accomplishment statements under Atlas Industrial Supply and Metro Business Solutions.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "skills",
+                "itemId": "skills_001",
+                "bulletId": "skills_001",
+                "originalText": "Technical Skills:\nSalesforce, HubSpot, CRM Management, Lead Generation, Contract Negotiation, Pipeline Management, Cold Calling, Account Management, Microsoft Excel, Forecasting"
+              }
+            ],
+            "correctionType": "none"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Add Quota and Territory Revenue Metrics",
+            "action": "Update your current Territory Sales Manager bullet points to include your annual territory revenue volume and quota attainment percentage.",
+            "reason": "Regional Sales Manager roles require clear evidence that you can hit and exceed revenue quotas."
+          },
+          {
+            "priority": 2,
+            "title": "Quantify Retention and Growth Performance",
+            "action": "Add specific client retention percentages and renewed contract values to your Account Executive experience.",
+            "reason": "Demonstrates your ability to protect existing revenue streams and expand existing B2B accounts."
+          },
+          {
+            "priority": 3,
+            "title": "Integrate Core Sales Skills into Experience Bullets",
+            "action": "Incorporate listed skills like Contract Negotiation, Pipeline Management, and CRM platforms directly into your job descriptions.",
+            "reason": "Connects your skill section claims directly to practical accomplishments in your career history."
+          }
+        ],
+        "metadata": {
+          "provider": "gemini",
+          "model": "gemini-3.6-flash",
+          "latencyMs": 49442,
+          "requestId": "req_1791191952266_a77eaa9b",
+          "inputTokens": 10020,
+          "outputTokens": 1947,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.1",
+          "pipelineVersion": "v3"
+        }
+      },
+      "validationResult": {
+        "schemaValid": true,
+        "evidenceValid": true,
         "unsupportedAssumptions": 0,
         "rewriteViolations": 0
       },
-      "latencyMs": 30466,
+      "latencyMs": 50185,
       "tokenUsage": {
-        "input": null,
-        "output": null
+        "input": 10020,
+        "output": 1947
       },
-      "classification": "PROVIDER_ERROR"
+      "classification": "SUCCESS"
+    },
+    {
+      "timestamp": "2026-10-05T09:21:03.643Z",
+      "fixture": "NON-IT NON-US (Priya Sharma — Nurse)",
+      "type": "non_it_healthcare_nonus",
+      "inputHash": "7d79cd11cd041afc",
+      "llmInputHash": "32325102a6d0f91e",
+      "promptVersion": "resume-synthesis-v3.1",
+      "pipelineVersion": "v3",
+      "model": "gemini-3.8-flash",
+      "provider": "gemini",
+      "signals": {
+        "skillGaps": 8,
+        "totalMetrics": 5,
+        "parserWarnings": 1
+      },
+      "parsedOutput": {
+        "analysisVersion": "2.2",
+        "candidateSnapshot": {
+          "name": "Priya Sharma",
+          "targetRole": "Registered Nurse",
+          "experienceLevel": "Mid-Level (2-5 years)",
+          "primaryProfile": "Healthcare & Clinical"
+        },
+        "dashboard": null,
+        "overallReview": {
+          "summary": "Priya, your clinical background across medical-surgical and general ward settings gives you solid hands-on patient care experience. Holding active BLS and ACLS certifications alongside direct experience in post-operative care, IV cannulation, and infection control audits demonstrates strong baseline clinical competence to healthcare recruiters.\n\nTo compete effectively in the US healthcare market, your resume needs two key shifts: aligning with US formatting standards and framing your clinical workload. Removing personal details (date of birth, marital status) and the declaration block will make your application standard and bias-safe. From there, replacing passive duty phrasing with active clinical contributions—and specifying your patient-to-nurse ratios—will immediately communicate the volume and acuity you can manage.",
+          "tone": "conversational"
+        },
+        "strengths": [
+          {
+            "id": "str_001",
+            "title": "Essential Acute Care Life Support Certifications",
+            "description": "Holding both Basic Life Support (BLS) and Advanced Cardiovascular Life Support (ACLS) credentials directly matches core clinical requirements for US acute care and medical-surgical nursing roles.",
+            "evidence": [
+              {
+                "section": "certifications",
+                "itemId": "cert_002",
+                "bulletId": "cert_002",
+                "originalText": "Basic Life Support (BLS)"
+              },
+              {
+                "section": "certifications",
+                "itemId": "cert_003",
+                "bulletId": "cert_003",
+                "originalText": "Advanced Cardiovascular Life Support (ACLS)"
+              }
+            ]
+          },
+          {
+            "id": "str_002",
+            "title": "Proactive Patient Education and Discharge Communication",
+            "description": "Leading structured discharge education demonstrates patient-centered communication, which is directly tied to readmission prevention and post-discharge compliance in hospital settings.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b04",
+                "originalText": "Conducted patient and family education sessions on discharge care and medication adherence."
+              }
+            ]
+          },
+          {
+            "id": "str_003",
+            "title": "Active Participation in Hospital-Wide Infection Control",
+            "description": "Involvement in infection control audits and outbreak-related vaccination campaigns reflects institutional safety awareness and quality compliance beyond routine bedside tasks.",
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b05",
+                "originalText": "Participated in monthly infection control audits and supported vaccination drives during the dengue outbreak."
+              }
+            ]
+          }
+        ],
+        "issues": [
+          {
+            "id": "iss_001",
+            "severity": "high",
+            "category": "us_market_alignment",
+            "title": "Extracted text includes personal demographic details",
+            "diagnosis": "The extracted header text contains personal information: 'Date of Birth: 14/03/1992 Marital Status: Married Nationality: Indian'.",
+            "whyItMatters": "US healthcare employers and ATS platforms strictly avoid personal data such as birth date, marital status, and nationality to adhere to Equal Employment Opportunity (EEO) guidelines and prevent unconscious bias during screening.",
+            "recommendation": "Remove date of birth, marital status, and nationality from the header. Keep only your full name, phone number, email address, location (City, State/Country), and clinical license credentials.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Priya Sharma priya.sharma@example.com | +91 98765 43210 | Bengaluru, India Date of Birth: 14/03/1992 Marital Status: Married Nationality: Indian To obtain a position as a Registered Nurse in a reputed hospital where I can utilize my clinical skills and grow professionally while providing compassionate patient care."
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "iss_002",
+            "severity": "medium",
+            "category": "us_market_alignment",
+            "title": "Declaration and signature block in extracted text",
+            "diagnosis": "The end of the resume contains a formal declaration statement: 'I hereby declare that the above information is true and correct to the best of my knowledge.' alongside date, place, and signature fields.",
+            "whyItMatters": "Declaration and signature blocks are customary in certain international markets but are entirely absent from US resumes. Including them consumes valuable page space without providing clinical recruiter signal.",
+            "recommendation": "Delete the declaration sentence, place, date, and signature line completely. Use the reclaimed space to detail clinical procedures or unit context.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "certifications",
+                "itemId": "cert_007",
+                "bulletId": "cert_007",
+                "originalText": "I hereby declare that the above information is true and correct to the best of my knowledge."
+              }
+            ],
+            "correctionType": "none"
+          },
+          {
+            "id": "iss_003",
+            "severity": "medium",
+            "category": "impact",
+            "title": "Core nursing care framed as passive duty without patient scope",
+            "diagnosis": "The bullet relies on the passive duty phrase 'Responsible for taking care of' and does not convey shift caseload or unit volume.",
+            "whyItMatters": "US nurse recruiters review patient ratios to gauge whether you can handle the acuity and fast pace of their medical-surgical floors.",
+            "recommendation": "Lead with an active clinical verb and specify the typical nurse-to-patient ratio or daily patient volume you managed during a shift.",
+            "correctedText": "Delivered comprehensive medical-surgical care and administered physician-prescribed medications for [ADD: typical number of patients per shift] patients.",
+            "metricDiscoveryQuestions": [
+              "What was your standard nurse-to-patient ratio on the medical-surgical ward (e.g., 1:5, 1:6)?",
+              "How many patient beds was the medical-surgical unit equipped with in total?"
+            ],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b01",
+                "originalText": "Responsible for taking care of patients in the medical-surgical ward and administering medications as per doctor instructions."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_004",
+            "severity": "medium",
+            "category": "ownership_clarity",
+            "title": "Supportive phrasing weakens clinical procedural ownership",
+            "diagnosis": "The phrasing 'Helped with wound dressing, IV cannulation, and post-operative care' uses supporting language ('Helped with') rather than claiming direct clinical execution.",
+            "whyItMatters": "IV placement, complex wound management, and post-surgical monitoring are core nursing competencies. Framing them as assistance can suggest you were shadowing rather than independently executing these procedures.",
+            "recommendation": "Use strong clinical action verbs such as 'Administered', 'Executed', or 'Managed' to clearly reflect your procedural autonomy.",
+            "correctedText": "Administered post-operative care, sterile wound dressings, and peripheral IV cannulations for medical-surgical patients.",
+            "metricDiscoveryQuestions": [
+              "What types of surgical cases or wound complexities did you routinely manage (e.g., abdominal, orthopedic)?",
+              "How many IV placements or dressing changes did you perform across an average shift?"
+            ],
+            "evidence": [
+              {
+                "section": "experience",
+                "itemId": "exp_001",
+                "bulletId": "exp_001_b03",
+                "originalText": "Helped with wound dressing, IV cannulation, and post-operative care for patients."
+              }
+            ],
+            "correctionType": "rewrite"
+          },
+          {
+            "id": "iss_005",
+            "severity": "low",
+            "category": "positioning",
+            "title": "Career objective phrasing replaces professional clinical positioning",
+            "diagnosis": "The summary closes with an outdated objective statement: 'To obtain a position as a Registered Nurse in a reputed hospital where I can utilize my clinical skills...'.",
+            "whyItMatters": "US recruiters scan summaries for what you offer (years of experience, primary clinical environments, core strengths) rather than what you seek from the employer.",
+            "recommendation": "Replace the objective sentence with a professional profile summary highlighting your years of medical-surgical nursing experience, patient assessment strengths, and active BLS/ACLS credentials.",
+            "correctedText": null,
+            "metricDiscoveryQuestions": [],
+            "evidence": [
+              {
+                "section": "summary",
+                "itemId": "summary_001",
+                "bulletId": "summary_001",
+                "originalText": "Priya Sharma priya.sharma@example.com | +91 98765 43210 | Bengaluru, India Date of Birth: 14/03/1992 Marital Status: Married Nationality: Indian To obtain a position as a Registered Nurse in a reputed hospital where I can utilize my clinical skills and grow professionally while providing compassionate patient care."
+              }
+            ],
+            "correctionType": "none"
+          }
+        ],
+        "priorityActions": [
+          {
+            "priority": 1,
+            "title": "Remove non-US personal details and declaration",
+            "action": "Delete date of birth, marital status, nationality, and the closing declaration block from your resume text.",
+            "reason": "Aligns the document with standard US hiring practices and EEO bias-prevention standards while freeing up space for clinical achievements."
+          },
+          {
+            "priority": 2,
+            "title": "Add nurse-to-patient staffing ratios",
+            "action": "Incorporate your typical shift caseload (e.g., 1:5 ratio or specific bed count) into your St. John's and City Care Hospital experience bullets.",
+            "reason": "Provides US nurse managers immediate context on your clinical stamina, time management, and unit acuity handling."
+          },
+          {
+            "priority": 3,
+            "title": "Upgrade passive phrasing to direct clinical ownership",
+            "action": "Replace phrases like 'Responsible for' and 'Helped with' with active clinical verbs such as 'Administered', 'Managed', 'Assessed', and 'Executed'.",
+            "reason": "Signals independent procedural competence and ownership over patient care delivery."
+          },
+          {
+            "priority": 4,
+            "title": "Streamline education and replace the objective",
+            "action": "Remove secondary school credentials (10th and 12th CBSE) to highlight your B.Sc. Nursing degree, and convert the objective into a targeted professional summary.",
+            "reason": "US clinical resumes focus on post-secondary nursing degrees and professional qualifications rather than secondary school marks."
+          }
+        ],
+        "metadata": {
+          "provider": "gemini",
+          "model": "gemini-3.8-flash",
+          "latencyMs": 40830,
+          "requestId": "req_1791192022810_35c45f18",
+          "inputTokens": 10934,
+          "outputTokens": 2669,
+          "finishReason": "stop",
+          "inputMode": "compact_text",
+          "inputSerializerVersion": "compact-resume-v1",
+          "promptVersion": "resume-synthesis-v3.1",
+          "pipelineVersion": "v3"
+        }
+      },
+      "validationResult": {
+        "schemaValid": true,
+        "evidenceValid": true,
+        "unsupportedAssumptions": 0,
+        "rewriteViolations": 0
+      },
+      "latencyMs": 41916,
+      "tokenUsage": {
+        "input": 10934,
+        "output": 2669
+      },
+      "classification": "UNSUPPORTED_CLAIM_WARNING"
     }
   ]
 }

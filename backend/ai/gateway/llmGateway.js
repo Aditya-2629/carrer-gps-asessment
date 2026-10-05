@@ -180,10 +180,12 @@ export class LLMGateway {
           throw err
         }
 
-        // Production Fallback check: ONLY fallback for transient retryable conditions
+        // Production Fallback check: ONLY fallback for transient retryable conditions.
+        // 413 (payload/context too large for this model) also falls back — a bigger
+        // context model in the chain can still succeed.
         const isRetryable =
           err.isRetryable ||
-          [408, 429, 500, 502, 503].includes(err.statusCode) ||
+          [408, 413, 429, 500, 502, 503].includes(err.statusCode) ||
           err.code === PROVIDER_ERROR_CODES.RATE_LIMIT ||
           err.code === PROVIDER_ERROR_CODES.TIMEOUT ||
           err.code === PROVIDER_ERROR_CODES.EMPTY_CONTENT

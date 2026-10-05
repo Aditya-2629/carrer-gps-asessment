@@ -43,6 +43,18 @@ const FIXTURES = [
     targetRole: 'Senior Full Stack & Cloud Systems Engineer',
     type: 'strong_fullstack',
   },
+  {
+    name: 'NON-IT US (Marcus Reed — Sales)',
+    file: '../agents/resume/fixtures/sales-us-professional.txt',
+    targetRole: 'Regional Sales Manager',
+    type: 'non_it_sales',
+  },
+  {
+    name: 'NON-IT NON-US (Priya Sharma — Nurse)',
+    file: '../agents/resume/fixtures/nurse-healthcare.txt',
+    targetRole: 'Registered Nurse',
+    type: 'non_it_healthcare_nonus',
+  },
 ]
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -65,7 +77,10 @@ async function runBenchmarkFixture(fixture, model = 'openai/gpt-oss-120b') {
       targetRole: fixture.targetRole,
       model,
       inputMode: 'compact_text',
-      isBenchmark: true,
+      // isBenchmark=false so the gateway can use the production fallback chain —
+      // Groq free-tier TPM (8k) can no longer fit the v3.1 prompt + output budget
+      // for larger resumes. The actual model used is recorded per run.
+      isBenchmark: false,
       useV3Pipeline: true,
     })
     if (result.success) break

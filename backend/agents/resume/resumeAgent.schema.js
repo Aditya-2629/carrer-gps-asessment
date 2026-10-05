@@ -18,6 +18,7 @@ export const ISSUE_CATEGORIES = [
   'ats_readability',
   'ownership_clarity',
   'skill_evidence_gap',
+  'us_market_alignment',
 ]
 
 export const CORRECTION_TYPES = [
@@ -46,6 +47,10 @@ export const ISSUE_CONTRACT = {
   whyItMatters: 'Why a recruiter or hiring manager cares',
   recommendation: 'Clear, actionable advice on how to improve',
   correctedText: null, // String only if safe rewrite from existing evidence; otherwise null
+  // V3.1: 1-3 targeted questions that help the candidate DISCOVER their real
+  // metric (drawn from the domain playbook). Required when the issue concerns
+  // missing quantification/impact; omit or use [] otherwise.
+  metricDiscoveryQuestions: [],
   correctionType: 'rewrite', // 'rewrite' | 'trim' | 'clarification' | 'restructure' | 'none'
   confidence: 0.95,
 }

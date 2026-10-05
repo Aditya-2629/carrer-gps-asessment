@@ -18,6 +18,8 @@ import { formatCompactFactsSummary } from '../facts/resumeFactExtractor.js'
 import { filterGroundedObservations } from '../analyzers/evidenceAnalyzer.js'
 import { formatPrecomputedSignalsForPrompt } from '../signals/precomputedSignals.js'
 import { formatSkillGuidanceForPrompt } from '../skillsEngine/index.js'
+import { formatDomainContextForPrompt } from '../market/domainClassifier.js'
+import { formatUsMarketSignalsForPrompt } from '../market/usMarketSignals.js'
 
 export { SYNTHESIS_PROMPT_VERSION }
 
@@ -191,6 +193,22 @@ export function buildSynthesisMessages(state) {
 
   if (targetRole) {
     userPrompt += `\n\nTARGET ROLE: ${targetRole}`
+  }
+
+  // Domain Context block (V3.1 — IT vs non-IT impact vocabulary & metric discovery)
+  if (state.domainProfile) {
+    const domainContext = formatDomainContextForPrompt(state.domainProfile)
+    if (domainContext) {
+      userPrompt += `\n\n${domainContext}`
+    }
+  }
+
+  // US Market Signals block (V3.1 — non-US convention coaching)
+  if (state.usMarketSignals) {
+    const usMarketContext = formatUsMarketSignalsForPrompt(state.usMarketSignals)
+    if (usMarketContext) {
+      userPrompt += `\n\n${usMarketContext}`
+    }
   }
 
   // Role-specific context block (Phase 2.4 — V2.6 injection)

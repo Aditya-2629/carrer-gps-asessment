@@ -8,10 +8,12 @@
 
 import {
   REQUIRED_ANALYSIS_FIELDS,
+  ISSUE_CATEGORIES,
   ISSUE_SEVERITIES,
   CORRECTION_TYPES,
 } from './resumeAgent.schema.js'
 import { jsonrepair } from 'jsonrepair'
+import { stripFillInSlots, findMalformedFillInSlots } from './validation/fillInSlots.js'
 
 export class ResumeAgentValidator {
   /**
@@ -118,6 +120,7 @@ export class ResumeAgentValidator {
     const bulletMap = new Map() // bulletId -> text
     const textSet = new Set() // lower-cased trimmed bullet texts
     const itemMap = new Map() // itemId -> item
+    const textToIdMap = new Map() // lower-cased trimmed bullet text -> bulletId (exact)
 
     const registerItems = (items) => {
       if (!Array.isArray(items)) return
@@ -130,7 +133,12 @@ export class ResumeAgentValidator {
             if (b.id) {
               const cleanText = (b.text || '').trim()
               bulletMap.set(b.id, cleanText)
-              if (cleanText) textSet.add(cleanText.toLowerCase())
+              if (cleanText) {
+                textSet.add(cleanText.toLowerCase())
+                if (!textToIdMap.has(cleanText.toLowerCase())) {
+                  textToIdMap.set(cleanText.toLowerCase(), b.id)
+                }
+              }
             }
           }
         }
@@ -140,6 +148,9 @@ export class ResumeAgentValidator {
     registerItems(canonicalResume?.experience)
     registerItems(canonicalResume?.projects)
     registerItems(canonicalResume?.education)
+    // V3.1: certifications are citable evidence (RN license, CPA, PMP, BLS/ACLS…)
+    // — especially important for non-IT candidates where certs carry the credibility.
+    registerItems(canonicalResume?.certifications)
 
     // Register summary as a single stable-ID block (summary_001)
     const summaryText = (canonicalResume?.summary?.text || '').trim()
@@ -147,6 +158,7 @@ export class ResumeAgentValidator {
       itemMap.set('summary_001', canonicalResume?.summary)
       bulletMap.set('summary_001', summaryText)
       textSet.add(summaryText.toLowerCase())
+      textToIdMap.set(summaryText.toLowerCase(), 'summary_001')
     }
 
     // Register skills as a single stable-ID block (skills_001 and skills)
@@ -168,9 +180,10 @@ export class ResumeAgentValidator {
       itemMap.set('skills', skillsObj)
       bulletMap.set('skills', skillsText)
       textSet.add(skillsText.toLowerCase())
+      textToIdMap.set(skillsText.toLowerCase(), 'skills_001')
     }
 
-    return { bulletMap, textSet, itemMap }
+    return { bulletMap, textSet, itemMap, textToIdMap }
   }
 
   /**
@@ -633,6 +646,33 @@ export class ResumeAgentValidator {
         issue.severity = 'medium'
       }
 
+      // Validate & normalize Category (V3.1)
+      // Models occasionally emit near-miss category names; map known aliases
+      // and default unknowns to "clarity" so downstream UI grouping stays stable.
+      if (!ISSUE_CATEGORIES.includes(issue.category)) {
+        const CATEGORY_ALIASES = {
+          unclear_ownership: 'ownership_clarity',
+          ownership: 'ownership_clarity',
+          weak_language: 'clarity',
+          passive_language: 'clarity',
+          missing_outcome: 'outcome_visibility',
+          missing_metrics: 'impact',
+          quantification: 'impact',
+          formatting: 'structure',
+          layout: 'ats_readability',
+          us_market: 'us_market_alignment',
+          non_us_convention: 'us_market_alignment',
+        }
+        const alias = CATEGORY_ALIASES[String(issue.category || '').toLowerCase()]
+        if (alias) {
+          warnings.push(`${issueIdx}: Category "${issue.category}" normalized to "${alias}".`)
+          issue.category = alias
+        } else {
+          warnings.push(`${issueIdx}: Invalid category "${issue.category}". Defaulting to "clarity".`)
+          issue.category = 'clarity'
+        }
+      }
+
       // Validate Correction Type
       if (!CORRECTION_TYPES.includes(issue.correctionType)) {
         issue.correctionType = issue.correctedText ? 'rewrite' : 'none'
@@ -660,7 +700,7 @@ export class ResumeAgentValidator {
         }
 
         const itemId = (ev.itemId || '').trim()
-        const bulletId = (ev.bulletId || '').trim()
+        let bulletId = (ev.bulletId || '').trim()
         const originalText = (ev.originalText || '').trim()
 
         if (!itemId) {
@@ -674,11 +714,40 @@ export class ResumeAgentValidator {
         }
 
         if (bulletId) {
-          const isBullet = bulletMap.has(bulletId)
-          const isItem = itemMap.has(bulletId)
-          if (!isBullet && !isItem) {
-            evidenceErrors.push(`${evRef}: bulletId "${bulletId}" does not exist in canonical resume.`)
-          } else if (originalText) {
+          let isBullet = bulletMap.has(bulletId)
+          let isItem = itemMap.has(bulletId)
+
+          // V3.1: self-healing relink — if the model cited a wrong/nonexistent
+          // bulletId but the originalText EXACTLY matches a real bullet, relink
+          // instead of failing the whole analysis. Fidelity is preserved because
+          // the text must match verbatim; only the ID pointer is corrected.
+          if (!isBullet && !isItem && originalText) {
+            const key = originalText.toLowerCase().replace(/\s+/g, ' ').trim()
+            let relinkId = textToIdMap.get(key) || null
+            if (!relinkId) {
+              const keyLoose = originalText.toLowerCase().trim()
+              for (const [txt, id] of textToIdMap) {
+                if (txt === keyLoose) {
+                  relinkId = id
+                  break
+                }
+              }
+            }
+            if (relinkId) {
+              ev.bulletId = relinkId
+              if (!ev.itemId) ev.itemId = relinkId
+              warnings.push(
+                `${evRef}: bulletId "${bulletId}" not found — relinked to "${relinkId}" via exact text match.`
+              )
+              bulletId = relinkId
+              isBullet = bulletMap.has(bulletId)
+              isItem = itemMap.has(bulletId)
+            } else {
+              evidenceErrors.push(`${evRef}: bulletId "${bulletId}" does not exist in canonical resume.`)
+            }
+          }
+
+          if ((isBullet || isItem) && originalText) {
             let actualText = ''
             if (isBullet) {
               actualText = bulletMap.get(bulletId) || ''
@@ -859,6 +928,14 @@ export class ResumeAgentValidator {
       warnings.push(msg)
     }
 
+    // 12. V3.1: Fill-in slot format enforcement
+    // [ADD: ...] slots are allowed in correctedText / recommendation /
+    // priorityActions[].action, but must be well-formed (no digits inside).
+    // Slots anywhere else (diagnosis, whyItMatters, strengths, overallReview)
+    // are disallowed — factual fields must never contain metric homework.
+    const fillInSlotWarnings = this.detectFillInSlotViolations(analysis)
+    warnings.push(...fillInSlotWarnings)
+
     const isSchemaValid = errors.length === 0
     const isEvidenceValid = evidenceErrors.length === 0
 
@@ -915,7 +992,8 @@ export class ResumeAgentValidator {
 
       for (const { key, value } of fieldsToCheck) {
         if (!value || typeof value !== 'string') continue
-        const valueLower = value.toLowerCase()
+        // V3.1: strip well-formed [ADD: ...] fill-in slots before traceability checks
+        const valueLower = stripFillInSlots(value).toLowerCase()
         const fieldRef = `issues[${i}].${key}`
 
         // Check all percentages
@@ -1190,7 +1268,8 @@ export class ResumeAgentValidator {
       for (let i = 0; i < analysis.issues.length; i++) {
         const issue = analysis.issues[i]
         if (!issue || typeof issue !== 'object') continue
-        const recommendation = issue.recommendation || ''
+        // V3.1: strip well-formed [ADD: ...] slots before placeholder-pattern matching
+        const recommendation = stripFillInSlots(issue.recommendation || '')
         if (!recommendation) continue
         const originalText = ResumeAgentValidator.getEvidenceText(issue.evidence).toLowerCase()
         const evidenceIds = ResumeAgentValidator.getEvidenceIds(issue.evidence)
@@ -1233,7 +1312,8 @@ export class ResumeAgentValidator {
       for (let i = 0; i < analysis.priorityActions.length; i++) {
         const pa = analysis.priorityActions[i]
         if (!pa || typeof pa !== 'object') continue
-        const action = pa.action || ''
+        // V3.1: strip well-formed [ADD: ...] slots before placeholder-pattern matching
+        const action = stripFillInSlots(pa.action || '')
         if (!action) continue
         const seenClaims = new Set()
 
@@ -1418,7 +1498,9 @@ export class ResumeAgentValidator {
       if (!issue || typeof issue !== 'object') continue
       if (!issue.correctedText || typeof issue.correctedText !== 'string') continue
 
-      const correctedText = issue.correctedText.trim()
+      // V3.1: strip well-formed [ADD: ...] slots first — slot text like
+      // "% improvement" must not be mistaken for a fabricated outcome claim
+      const correctedText = stripFillInSlots(issue.correctedText).trim()
       if (!correctedText) continue
 
       const issueId = issue.id || `iss_${i + 1}`
@@ -1456,10 +1538,59 @@ export class ResumeAgentValidator {
   }
 
   /**
+   * V3.1: Fill-in slot format enforcement.
+   * 1. Malformed slots (digits inside, wrong bracket format) are violations.
+   * 2. Slots in factual fields (diagnosis, whyItMatters, strengths, overallReview,
+   *    candidateSnapshot) are violations — slots are homework, never facts.
+   */
+  static detectFillInSlotViolations(analysis) {
+    const warnings = []
+    if (!analysis || typeof analysis !== 'object') return warnings
+
+    const check = (field, text) => {
+      if (!text || typeof text !== 'string') return
+      for (const problem of findMalformedFillInSlots(text)) {
+        warnings.push(`${field}: [malformed_fill_in_slot] ${problem}`)
+      }
+    }
+
+    if (Array.isArray(analysis.issues)) {
+      for (let i = 0; i < analysis.issues.length; i++) {
+        const issue = analysis.issues[i]
+        if (!issue || typeof issue !== 'object') continue
+        check(`issues[${i}].correctedText`, issue.correctedText)
+        check(`issues[${i}].recommendation`, issue.recommendation)
+        // Disallowed factual fields
+        check(`issues[${i}].diagnosis`, issue.diagnosis)
+        check(`issues[${i}].whyItMatters`, issue.whyItMatters)
+      }
+    }
+
+    if (Array.isArray(analysis.priorityActions)) {
+      for (let i = 0; i < analysis.priorityActions.length; i++) {
+        check(`priorityActions[${i}].action`, analysis.priorityActions[i]?.action)
+      }
+    }
+
+    check('overallReview.summary', analysis.overallReview?.summary)
+
+    if (Array.isArray(analysis.strengths)) {
+      for (let i = 0; i < analysis.strengths.length; i++) {
+        check(`strengths[${i}].description`, analysis.strengths[i]?.description)
+      }
+    }
+
+    return warnings
+  }
+
+  /**
    * Checks if rewritten text added numbers, %, or $ not present in original text
    */
   static detectHallucinatedMetrics(originalText, correctedText) {
     if (!correctedText) return false
+
+    // V3.1: fill-in slots contain no digits but strip them for safety anyway
+    correctedText = stripFillInSlots(correctedText)
 
     // Extract all numbers and percentage/dollar signs from original
     const origMetrics = originalText.match(/(\$?\d+(?:\.\d+)?%?|\b\d+x\b)/gi) || []

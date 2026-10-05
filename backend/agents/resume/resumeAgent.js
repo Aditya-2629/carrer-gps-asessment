@@ -49,6 +49,8 @@ import { validateClaims } from './validation/claimValidator.js'
 import { validateRecommendations } from './validation/recommendationValidator.js'
 import { classifyAllEvidence, resolveEvidenceConsistency } from './classification/index.js'
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
+import { classifyDomain } from './market/domainClassifier.js'
+import { detectUsMarketSignals } from './market/usMarketSignals.js'
 
 export class ResumeAgent {
   /**
@@ -201,6 +203,20 @@ export class ResumeAgent {
         evidenceClassifications = classifyAllEvidence(resumeFacts, signals, canonicalResume)
         state.evidenceClassifications = evidenceClassifications
 
+        // Step 5.7: Domain Profile + US-Market Signals (V3.1)
+        // Deterministic classification of the candidate's professional domain
+        // (IT vs non-IT) and detection of non-US resume conventions, injected
+        // as context blocks by the synthesis builder.
+        const domainProfile = classifyDomain(canonicalResume)
+        state.domainProfile = domainProfile
+
+        const usMarketSignals = detectUsMarketSignals({
+          resumeText: compactText,
+          pageCount: typeof parsedDoc.pageCount === 'number' ? parsedDoc.pageCount : null,
+          location: canonicalResume.candidate?.contact?.location || null,
+        })
+        state.usMarketSignals = usMarketSignals
+
         // Step 6: Build Synthesis Messages (compact context only)
         messages = buildSynthesisMessages(state)
         promptVersion = SYNTHESIS_PROMPT_VERSION
@@ -240,6 +256,8 @@ export class ResumeAgent {
           resumeFacts: state?.resumeFacts || null,
           analyzerObservations: state?.analyzerObservations || null,
           evidenceClassifications: state?.evidenceClassifications || null,
+          domainProfile: state?.domainProfile || null,
+          usMarketSignals: state?.usMarketSignals || null,
           systemPrompt: sysMsg,
           userPrompt: userMsg,
           fullPrompt: messages.map((m) => `[${m.role.toUpperCase()}]\n${m.content}`).join('\n\n'),
