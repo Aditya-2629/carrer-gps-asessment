@@ -6,6 +6,7 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { generateContentWithFallback } from '../utils/geminiClient.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
+import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -253,6 +254,20 @@ export const generateReport = async (req, res) => {
         aiReport.resume_agent = agentResult.analysis
       } else if (agentResult) {
         console.warn('Resume Agent did not succeed; report continues without resume_agent:', agentResult.error || agentResult.status)
+      }
+    }
+
+    // Multi-Agent Architecture: LinkedIn Agent (deterministic, instant).
+    // Analyzes the scraped profile with the same scorecard contract the
+    // Resume Agent uses, so the report UI renders both identically.
+    if (user.linkedinData) {
+      try {
+        aiReport.linkedin_agent = analyzeLinkedInProfile(user.linkedinData, {
+          targetRole: user.resumeJson?.target_role || '',
+          primaryProfile: user.resumeJson?.primary_profile || '',
+        })
+      } catch (liErr) {
+        console.warn('LinkedIn Agent failed; report continues without linkedin_agent:', liErr.message)
       }
     }
 

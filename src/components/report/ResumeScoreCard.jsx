@@ -64,7 +64,7 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
   )
 }
 
-export default function ResumeScoreCard({ dashboard, candidateName, variant = 'dark' }) {
+export default function ResumeScoreCard({ dashboard, candidateName, variant = 'dark', title = 'Resume Health Score', scoreWord = 'resume' }) {
   if (!dashboard || typeof dashboard.score !== 'number') return null
   const light = variant === 'light'
   const { score, grade, gradeLabel, grades, checks, summary } = dashboard
@@ -83,9 +83,9 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
 
         <div className="flex-1 min-w-0 space-y-3 w-full">
           <div>
-            <div className={`text-[11px] uppercase tracking-widest font-bold ${labelColor}`}>Resume Health Score</div>
+            <div className={`text-[11px] uppercase tracking-widest font-bold ${labelColor}`}>{title}</div>
             <div className={`text-lg font-bold ${headingText}`}>
-              {candidateName ? `${candidateName}, your resume scores ` : 'Your resume scores '}
+              {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
                 {score}/100
               </span>

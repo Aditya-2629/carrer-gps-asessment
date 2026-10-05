@@ -10,6 +10,7 @@ import {
   Article,
   ChartBar,
   FileText,
+  LinkedinLogo,
 } from '@phosphor-icons/react'
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: 'bottleneck', label: 'Bottleneck', icon: Warning, highlight: true },
   { id: 'strengths', label: 'Strengths', icon: Sparkle },
   { id: 'resume-ai', label: 'Resume AI', icon: FileText },
+  { id: 'linkedin-ai', label: 'LinkedIn AI', icon: LinkedinLogo },
   { id: 'opportunities', label: 'Opportunities', icon: TrendDown },
   { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
   { id: 'priorities', label: 'Priorities', icon: ListChecks },
@@ -25,13 +27,17 @@ const NAV_ITEMS = [
   { id: 'diagnosis', label: 'Deep Dive', icon: Article },
 ]
 
-export default function StickyReportNav({ candidateName, targetRole, showResumeAi = false }) {
+export default function StickyReportNav({ candidateName, targetRole, showResumeAi = false, showLinkedinAi = false }) {
   const safeName = typeof candidateName === 'string' ? candidateName : (typeof candidateName === 'object' ? (candidateName?.name || 'Candidate') : 'Candidate')
   const safeRole = typeof targetRole === 'string' ? targetRole : 'Target Role'
   const [activeSection, setActiveSection] = useState('overview')
 
-  // The Resume AI section only exists when the agent analysis is attached
-  const navItems = showResumeAi ? NAV_ITEMS : NAV_ITEMS.filter((n) => n.id !== 'resume-ai')
+  // Agent sections only exist when their analysis is attached
+  const navItems = NAV_ITEMS.filter(
+    (n) =>
+      (n.id !== 'resume-ai' || showResumeAi) &&
+      (n.id !== 'linkedin-ai' || showLinkedinAi)
+  )
 
   useEffect(() => {
     const handleScroll = () => {

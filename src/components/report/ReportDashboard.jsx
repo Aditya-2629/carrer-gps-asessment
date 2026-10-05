@@ -28,6 +28,9 @@ import RoadmapTimeline from './RoadmapTimeline'
 import DetailedDiagnosis from './DetailedDiagnosis'
 import FinalNextAction from './FinalNextAction'
 import ResumeDeepDiagnosis from './ResumeDeepDiagnosis'
+import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
+import AgentScoreboard from './AgentScoreboard'
+import ReportChatbot from './ReportChatbot'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
@@ -398,6 +401,172 @@ const MOCK_REPORT = {
         "reason": "Quantifying your debugging workload demonstrates operational reliability and capability in maintaining live web applications."
       }
     ]
+  },
+  // LinkedIn Agent deterministic sample
+  linkedin_agent: {
+    "agent": "linkedin",
+    "version": "linkedin-agent-v1",
+    "computedAt": "2026-10-05T18:37:22.595Z",
+    "dataAvailable": true,
+    "score": 71,
+    "grade": "B",
+    "gradeLabel": "Good",
+    "grades": {
+      "branding": {
+        "label": "Branding & Story",
+        "score": 65,
+        "grade": "C",
+        "gradeLabel": "Needs Work",
+        "facts": [
+          "Headline too short",
+          "About section needs work"
+        ]
+      },
+      "visibility": {
+        "label": "Search Visibility",
+        "score": 75,
+        "grade": "B",
+        "gradeLabel": "Good",
+        "facts": [
+          "340 connections",
+          "0 recommendations"
+        ]
+      },
+      "completeness": {
+        "label": "Profile Completeness",
+        "score": 70,
+        "grade": "B",
+        "gradeLabel": "Good",
+        "facts": [
+          "2 experiences (0 with descriptions)",
+          "4 skills listed"
+        ]
+      },
+      "consistency": {
+        "label": "Resume Consistency",
+        "score": 80,
+        "grade": "B",
+        "gradeLabel": "Good",
+        "facts": [
+          "Target role: Senior Full Stack Engineer"
+        ]
+      }
+    },
+    "checks": [
+      {
+        "id": "li_headline",
+        "label": "Searchable headline",
+        "status": "warn",
+        "detail": "Too short for recruiter searches",
+        "category": "branding"
+      },
+      {
+        "id": "li_about",
+        "label": "About section with proof",
+        "status": "fail",
+        "detail": "~110 characters, no numbers yet",
+        "category": "branding"
+      },
+      {
+        "id": "li_connections",
+        "label": "500+ connections bracket",
+        "status": "warn",
+        "detail": "340 connections",
+        "category": "visibility"
+      },
+      {
+        "id": "li_recommendations",
+        "label": "At least one recommendation",
+        "status": "fail",
+        "detail": "0 recommendation(s)",
+        "category": "visibility"
+      },
+      {
+        "id": "li_experience",
+        "label": "Experiences with descriptions",
+        "status": "fail",
+        "detail": "0 of 2 roles have descriptions",
+        "category": "completeness"
+      },
+      {
+        "id": "li_skills",
+        "label": "Skills coverage (10-15)",
+        "status": "fail",
+        "detail": "4 skills listed",
+        "category": "completeness"
+      },
+      {
+        "id": "li_role_match",
+        "label": "Headline matches target role",
+        "status": "warn",
+        "detail": "Resume targets: Senior Full Stack Engineer",
+        "category": "consistency"
+      }
+    ],
+    "issues": [
+      {
+        "id": "li_001",
+        "severity": "medium",
+        "category": "branding",
+        "title": "Headline is too short to be searchable",
+        "diagnosis": "\"Software Developer at TechSolutions\" gives recruiters very little to match on. Most recruiter searches combine role + skills keywords.",
+        "recommendation": "Expand to \"Target Role | Domain & Core Skills | Distinctive Win\" — around 8-15 words."
+      },
+      {
+        "id": "li_002",
+        "severity": "medium",
+        "category": "branding",
+        "title": "About section is thin",
+        "diagnosis": "Only ~110 characters — recruiters and LinkedIn search both reward a fuller story with concrete outcomes.",
+        "recommendation": "Aim for 1200-2000 characters: your positioning, 2-3 quantified wins, and a closing line about the role you want."
+      },
+      {
+        "id": "li_003",
+        "severity": "low",
+        "category": "visibility",
+        "title": "Below the 500-connections bracket",
+        "diagnosis": "At 340 connections you sit just under the 500+ bracket that recruiters read as \"well-networked\".",
+        "recommendation": "A few weeks of consistent 10/day personalized invitations gets you over the 500 mark."
+      },
+      {
+        "id": "li_004",
+        "severity": "medium",
+        "category": "visibility",
+        "title": "No recommendations on the profile",
+        "diagnosis": "Zero recommendations removes the only third-party proof on the profile — recruiters notice an empty recommendations rail.",
+        "recommendation": "Ask 2-3 former managers or senior colleagues for a short recommendation referencing a specific project."
+      },
+      {
+        "id": "li_005",
+        "severity": "medium",
+        "category": "completeness",
+        "title": "Experience entries lack descriptions",
+        "diagnosis": "Most experience entries have no description — LinkedIn search only matches skills that appear in text, and recruiters skim for proof.",
+        "recommendation": "Add 2-3 short, metric-led bullets to each role, consistent with the resume."
+      },
+      {
+        "id": "li_006",
+        "severity": "medium",
+        "category": "completeness",
+        "title": "Skills list is sparse",
+        "diagnosis": "4 skills listed. LinkedIn ranks profiles in recruiter search partly by skills coverage — fewer than 10 sharply reduces discoverability.",
+        "recommendation": "List up to 15 skills that match your target role, ordered by strength."
+      },
+      {
+        "id": "li_007",
+        "severity": "medium",
+        "category": "consistency",
+        "title": "Headline does not reflect the target role",
+        "diagnosis": "The resume targets \"Senior Full Stack Engineer\" but the LinkedIn headline never mentions it — a recruiter cross-checking the two sees a mismatch.",
+        "recommendation": "Align the headline (and About closing line) with the same target role as the resume."
+      }
+    ],
+    "summary": {
+      "fix": 6,
+      "warn": 1,
+      "pass": 0,
+      "checksTotal": 7
+    }
   },
   career_health_score: 41,
   score_label: 'Emerging',
@@ -773,12 +942,16 @@ function ReportDashboardContent() {
         candidateName={candidateName}
         targetRole={targetRole}
         showResumeAi={Boolean(reportData.resume_agent)}
+        showLinkedinAi={Boolean(reportData.linkedin_agent?.dataAvailable)}
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-12">
         {/* SECTION A: REPORT HERO */}
         <ReportHero reportData={reportData} />
+
+        {/* SECTION A2: MULTI-AGENT SCOREBOARD (ATLAS + RESUME + LINKEDIN) */}
+        <AgentScoreboard reportData={reportData} />
 
         {/* SECTION B: CAREER HEALTH SNAPSHOT */}
         <CareerHealthSnapshot
@@ -797,6 +970,9 @@ function ReportDashboardContent() {
 
         {/* SECTION D2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
         <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
+
+        {/* SECTION D3: AI LINKEDIN DEEP DIAGNOSIS (SCORECARD + PROFILE FIXES) */}
+        <LinkedInDeepDiagnosis linkedinAgent={reportData.linkedin_agent} />
 
         {/* SECTION E: WHERE YOU ARE LOSING OPPORTUNITIES (PRIORITIZED + RESUME EVIDENCE) */}
         <OpportunitiesList
@@ -838,6 +1014,9 @@ function ReportDashboardContent() {
           onBookCall={handleBookCall}
         />
       </main>
+
+      {/* Floating agent chat (Atlas) */}
+      <ReportChatbot />
 
       {/* ─── Footer ─── */}
       <footer className="border-t border-[var(--border-default)] py-8 text-center text-xs text-[var(--text-muted)] space-y-2">
