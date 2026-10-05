@@ -1,24 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import {
-  FileText,
-  Sparkle,
-  CheckCircle,
-  WarningCircle,
-  ArrowRight,
-  Printer,
-  User,
-  ListChecks,
-} from '@phosphor-icons/react'
+import { FileText, Sparkle, CheckCircle, WarningCircle, ArrowRight, Printer, ListChecks, ArrowLeft } from '@phosphor-icons/react'
 import ResumeScoreCard from '../components/report/ResumeScoreCard.jsx'
 import ResumeBulletAudit from '../components/report/ResumeBulletAudit.jsx'
 
 const STORAGE_KEY = 'craftureResumeReport'
 
 /**
- * ResumeReportPage — the full, polished diagnosis report.
- * Data source: sessionStorage['craftureResumeReport'] (set by the Test Lab
- * "Open Full Report" action, or any future caller that POSTs an evaluate run).
- * Route: /resume-report
+ * ResumeReportPage — the full, polished, PRINT-FIRST diagnosis report.
+ * Light professional theme (like competitor reports) so Print/Save-PDF
+ * produces the complete, readable document.
+ * Data: sessionStorage['craftureResumeReport']. Route: /resume-report
  */
 export default function ResumeReportPage() {
   const [payload, setPayload] = useState(null)
@@ -38,11 +29,11 @@ export default function ResumeReportPage() {
 
   if (!payload?.analysis) {
     return (
-      <div className="min-h-screen bg-[#070b14] text-gray-200 flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-[#0f172a] border border-gray-800 rounded-3xl p-8 text-center space-y-4">
-          <FileText size={36} className="text-indigo-400 mx-auto" />
-          <h1 className="text-lg font-bold text-white">No Report Loaded</h1>
-          <p className="text-xs text-gray-400 leading-relaxed">
+      <div className="min-h-screen bg-slate-100 text-slate-700 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center space-y-4">
+          <FileText size={36} className="text-indigo-500 mx-auto" />
+          <h1 className="text-lg font-bold text-slate-900">No Report Loaded</h1>
+          <p className="text-xs text-slate-500 leading-relaxed">
             Run a resume analysis in the Test Lab and click &ldquo;Open Full Report&rdquo; to view the polished
             diagnosis report here.
           </p>
@@ -63,168 +54,223 @@ export default function ResumeReportPage() {
   const strengths = (analysis.strengths || []).filter(Boolean)
   const issues = (analysis.issues || []).filter(Boolean)
   const priorityActions = (analysis.priorityActions || []).filter(Boolean)
+  const firstName = (snapshot.name || '').split(' ')[0]
 
-  const severityStyles = {
-    high: 'bg-red-950/80 border-red-700/60 text-red-300',
-    medium: 'bg-amber-950/80 border-amber-700/60 text-amber-300',
-    low: 'bg-sky-950/80 border-sky-700/60 text-sky-300',
+  const analyzedAt = meta?.analyzedAt ? new Date(meta.analyzedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+
+  const severityChip = {
+    high: 'bg-red-50 border-red-200 text-red-700',
+    medium: 'bg-amber-50 border-amber-200 text-amber-700',
+    low: 'bg-sky-50 border-sky-200 text-sky-700',
   }
 
+  const SectionTitle = ({ num, icon, children, accent = 'text-indigo-500' }) => (
+    <div className="flex items-center gap-3 mb-4">
+      <span className="text-[10px] font-mono font-bold text-slate-300 tracking-widest">{num}</span>
+      <span className={`${accent} flex items-center`}>{icon}</span>
+      <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">{children}</h2>
+      <span className="flex-1 h-px bg-slate-200" />
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-[#070b14] text-[#e2e8f0] p-4 sm:p-8 font-sans print:bg-white">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-800 pb-5 print:border-gray-300">
-          <div>
-            <div className="text-[11px] uppercase tracking-widest font-mono text-indigo-400 font-bold mb-1.5">
-              Crafture Resume Diagnosis Report
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans print:bg-white">
+      {/* Print styles: complete report, A4, clean page breaks, keep chip colors */}
+      <style>{`
+        @page { size: A4; margin: 12mm; }
+        @media print {
+          .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { background: #fff !important; }
+          .print-card { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; }
+          .print-section { break-inside: auto; }
+          .print-break-before { break-before: page; page-break-before: always; }
+          a { text-decoration: none; color: inherit; }
+        }
+      `}</style>
+
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 print:p-0 print:max-w-none space-y-8">
+        {/* ── Report header ─────────────────────────────────────────── */}
+        <header className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8 print:shadow-none print:border-slate-300 print:rounded-none print:break-inside-avoid">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold text-lg print:bg-slate-900">C</div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-500 print:text-indigo-700">Crafture Career GPS</div>
+                <div className="text-xs text-slate-400 font-medium">Resume Diagnosis Report</div>
+              </div>
             </div>
-            <h1 className="text-2xl font-extrabold text-white flex items-center gap-2.5 print:text-black">
-              <User size={24} className="text-indigo-400" />
-              {snapshot.name || 'Candidate'}
-            </h1>
-            <p className="text-xs text-gray-400 mt-1">
-              Target: <span className="text-gray-200 font-semibold">{snapshot.targetRole || '—'}</span>
-              {snapshot.experienceLevel && <> · {snapshot.experienceLevel}</>}
-              {snapshot.primaryProfile && <> · {snapshot.primaryProfile}</>}
-            </p>
-            {meta?.model && (
-              <p className="text-[10px] font-mono text-gray-600 mt-1.5">
-                Analyzed {meta.analyzedAt || 'recently'} · {meta.model} · {analysis.analysisVersion || '2.2'} contract
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="no-print text-xs bg-slate-900 hover:bg-slate-700 text-white font-bold px-4 py-2.5 rounded-xl flex items-center gap-2"
+            >
+              <Printer size={14} weight="bold" /> Print / Save PDF
+            </button>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-slate-100 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{snapshot.name || 'Candidate'}</h1>
+              <p className="text-sm text-slate-500 mt-1.5">
+                Target: <span className="font-semibold text-slate-700">{snapshot.targetRole || '—'}</span>
+                {snapshot.experienceLevel && <span className="text-slate-300"> · </span>}
+                {snapshot.experienceLevel}
               </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="text-xs bg-gray-900 hover:bg-gray-800 border border-gray-800 px-3.5 py-2 rounded-lg text-gray-300 font-medium print:hidden"
-          >
-            <Printer size={14} className="inline mr-1.5 -mt-0.5" /> Print / Save PDF
-          </button>
-        </div>
-
-        {/* Scorecard */}
-        <ResumeScoreCard dashboard={dashboard} candidateName={snapshot.name} />
-
-        {/* Overall review */}
-        {analysis.overallReview && (
-          <div className="bg-[#0f172a] border border-gray-800/90 rounded-2xl p-6 shadow-xl print:bg-white print:border-gray-300">
-            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-              <Sparkle size={16} weight="fill" /> The Recruiter's Read
-            </h3>
-            <div className="text-sm text-gray-200 leading-relaxed whitespace-pre-line print:text-black">
-              {typeof analysis.overallReview === 'string'
-                ? analysis.overallReview
-                : analysis.overallReview?.summary || ''}
+              {snapshot.primaryProfile && <p className="text-xs text-slate-400 mt-0.5">{snapshot.primaryProfile}</p>}
+            </div>
+            <div className="text-right text-[11px] text-slate-400 leading-relaxed">
+              {analyzedAt && <div>Analyzed {analyzedAt}</div>}
+              {meta?.model && <div className="font-mono text-[10px]">{meta.model}</div>}
+              {dashboard?.grade && (
+                <div className="mt-1 text-2xl font-extrabold text-slate-900">
+                  {dashboard.score}<span className="text-sm text-slate-400 font-semibold">/100 · {dashboard.grade}</span>
+                </div>
+              )}
             </div>
           </div>
+        </header>
+
+        {/* ── 01 Scorecard ──────────────────────────────────────────── */}
+        <section className="print-section">
+          <SectionTitle num="01" icon={<ListChecks size={16} weight="bold" />}>Health Scorecard</SectionTitle>
+          <ResumeScoreCard dashboard={dashboard} candidateName={firstName} variant="light" />
+        </section>
+
+        {/* ── 02 Recruiter's read ───────────────────────────────────── */}
+        {analysis.overallReview && (
+          <section className="print-section">
+            <SectionTitle num="02" icon={<Sparkle size={16} weight="fill" />} accent="text-emerald-500">The Recruiter's Read</SectionTitle>
+            <div className="print-card bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                {typeof analysis.overallReview === 'string'
+                  ? analysis.overallReview
+                  : analysis.overallReview?.summary || ''}
+              </div>
+            </div>
+          </section>
         )}
 
-        {/* Strengths */}
+        {/* ── 03 What's working ─────────────────────────────────────── */}
         {strengths.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-              <CheckCircle size={16} className="text-emerald-400" /> What's Working ({strengths.length})
-            </h3>
-            <div className="grid grid-cols-1 gap-3">
+          <section className="print-section">
+            <SectionTitle num="03" icon={<CheckCircle size={16} weight="fill" />} accent="text-emerald-500">
+              What's Working ({strengths.length})
+            </SectionTitle>
+            <div className="space-y-3">
               {strengths.map((s, i) => (
-                <div key={s.id || i} className="bg-[#0f172a] border border-emerald-900/40 rounded-2xl p-5 print:bg-white print:border-gray-300">
-                  <div className="text-sm font-bold text-white flex items-start gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center justify-center text-xs font-mono shrink-0 mt-0.5">
-                      {i + 1}
-                    </span>
-                    {s.title}
+                <div key={s.id || i} className="print-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-3.5">
+                  <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-slate-900">{s.title}</div>
+                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{s.description}</p>
                   </div>
-                  <p className="text-xs text-gray-300 mt-2 leading-relaxed">{s.description}</p>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* Bullet audit */}
-        {dashboard?.bulletAudit && <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} />}
+        {/* ── 04 Line-by-line audit ─────────────────────────────────── */}
+        {dashboard?.bulletAudit?.length > 0 && (
+          <section className={`print-section ${issues.length > 3 ? 'print-break-before' : ''}`}>
+            <SectionTitle num="04" icon={<FileText size={16} weight="bold" />}>Line-by-Line Audit</SectionTitle>
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+              <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} variant="light" />
+            </div>
+          </section>
+        )}
 
-        {/* Issues */}
+        {/* ── 05 Deep diagnosis ─────────────────────────────────────── */}
         {issues.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-              <WarningCircle size={16} className="text-amber-400" /> Deep Diagnosis ({issues.length})
-            </h3>
-            {issues.map((iss, i) => {
-              const ev = Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence
-              const qs = Array.isArray(iss.metricDiscoveryQuestions) ? iss.metricDiscoveryQuestions : []
-              return (
-                <div key={iss.id || i} className="bg-[#0f172a] border border-gray-800/90 rounded-2xl p-5 space-y-3 shadow-xl print:bg-white print:border-gray-300">
-                  <div className="flex flex-wrap items-center gap-2 border-b border-gray-800/80 pb-3 print:border-gray-200">
-                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${severityStyles[iss.severity] || severityStyles.low}`}>
-                      {iss.severity}
-                    </span>
-                    <span className="text-xs font-bold text-white">{iss.title}</span>
-                  </div>
-                  {iss.diagnosis && <p className="text-xs text-gray-300 leading-relaxed">{iss.diagnosis}</p>}
-                  {iss.whyItMatters && (
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      <span className="text-gray-500 font-bold uppercase text-[10px]">Why it matters: </span>
-                      {iss.whyItMatters}
-                    </p>
-                  )}
-                  {iss.recommendation && (
-                    <p className="text-xs text-indigo-200 leading-relaxed bg-indigo-950/30 border border-indigo-900/50 rounded-xl p-3">
-                      <ArrowRight size={12} className="inline mr-1 -mt-0.5 text-indigo-400" />
-                      {iss.recommendation}
-                    </p>
-                  )}
-                  {qs.length > 0 && (
-                    <div className="bg-[#070b14] border border-gray-800 rounded-xl p-3">
-                      <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1.5">
-                        Go find your real numbers:
+          <section className="print-section print-break-before">
+            <SectionTitle num="05" icon={<WarningCircle size={16} weight="fill" />} accent="text-amber-500">
+              Deep Diagnosis ({issues.length})
+            </SectionTitle>
+            <div className="space-y-4">
+              {issues.map((iss, i) => {
+                const ev = Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence
+                const qs = Array.isArray(iss.metricDiscoveryQuestions) ? iss.metricDiscoveryQuestions : []
+                return (
+                  <div key={iss.id || i} className="print-card bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${severityChip[iss.severity] || severityChip.low}`}>
+                        {iss.severity} · {String(iss.category || '').replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-sm font-bold text-slate-900">{iss.title}</span>
+                    </div>
+                    {iss.diagnosis && <p className="text-xs text-slate-600 leading-relaxed">{iss.diagnosis}</p>}
+                    {iss.whyItMatters && (
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        <span className="font-bold uppercase text-[10px] text-slate-400">Why it matters — </span>
+                        {iss.whyItMatters}
+                      </p>
+                    )}
+                    {iss.recommendation && (
+                      <p className="text-xs text-indigo-900 leading-relaxed bg-indigo-50 border border-indigo-100 rounded-xl p-3.5">
+                        <ArrowRight size={12} className="inline mr-1.5 -mt-0.5 text-indigo-500" />
+                        {iss.recommendation}
+                      </p>
+                    )}
+                    {qs.length > 0 && (
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-xl p-3.5">
+                        <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1.5">
+                          Go find your real numbers:
+                        </div>
+                        <ul className="space-y-1">
+                          {qs.map((q, qi) => (
+                            <li key={qi} className="text-[11px] text-slate-600 flex items-start gap-1.5">
+                              <span className="text-amber-500 font-bold">?</span> {q}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul className="space-y-1">
-                        {qs.map((q, qi) => (
-                          <li key={qi} className="text-[11px] text-gray-300 flex items-start gap-1.5">
-                            <span className="text-amber-500">?</span> {q}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {ev?.originalText && (
-                    <div className="text-[11px] text-gray-500 italic font-mono border-l-2 border-gray-700 pl-3">
-                      &ldquo;{ev.originalText}&rdquo;
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                    )}
+                    {ev?.originalText && (
+                      <div className="text-[11px] text-slate-400 italic border-l-2 border-slate-200 pl-3 leading-relaxed">
+                        &ldquo;{ev.originalText}&rdquo;
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
         )}
 
-        {/* Priority actions */}
+        {/* ── 06 Action plan ────────────────────────────────────────── */}
         {priorityActions.length > 0 && (
-          <div className="bg-[#0f172a] border border-indigo-900/50 rounded-2xl p-6 shadow-xl print:bg-white print:border-gray-300">
-            <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2 mb-4">
-              <ListChecks size={16} /> Do These First
-            </h3>
-            <div className="space-y-3">
+          <section className="print-section print-break-before">
+            <SectionTitle num="06" icon={<ListChecks size={16} weight="bold" />}>Do These First</SectionTitle>
+            <div className="print-card bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
               {priorityActions.map((pa, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-lg bg-indigo-950 border border-indigo-800 text-indigo-300 flex items-center justify-center text-xs font-bold shrink-0">
+                <div key={i} className="flex items-start gap-3.5">
+                  <span className="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center text-xs font-bold shrink-0">
                     {pa.priority || i + 1}
                   </span>
-                  <div>
-                    <div className="text-xs font-bold text-white">{pa.title}</div>
-                    {pa.action && <div className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{pa.action}</div>}
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-slate-900">{pa.title}</div>
+                    {pa.action && <div className="text-xs text-slate-500 mt-0.5 leading-relaxed">{pa.action}</div>}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
-        <p className="text-center text-[10px] text-gray-600 pb-4">
-          Generated by Crafture Resume Agent · Deterministic scorecard + expert synthesis · Not an ATS prediction
-        </p>
+        {/* ── Footer ────────────────────────────────────────────────── */}
+        <footer className="pt-4 pb-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-400 print:mt-6">
+          <span>Crafture Resume Agent · Deterministic scorecard + expert synthesis</span>
+          <span>Not an ATS prediction · {analyzedAt}</span>
+        </footer>
+
+        <div className="no-print text-center pb-4">
+          <a href="/test-lab" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600">
+            <ArrowLeft size={12} /> Back to Test Lab
+          </a>
+        </div>
       </div>
     </div>
   )
