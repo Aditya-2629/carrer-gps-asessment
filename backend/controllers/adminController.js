@@ -6,6 +6,8 @@
  */
 
 import User from '../models/User.js'
+import AgentRun from '../models/AgentRun.js'
+import FindingFeedback from '../models/FindingFeedback.js'
 import { adminLogin } from '../utils/adminAuth.js'
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -292,4 +294,93 @@ export const exportUsersCsv = async (req, res) => {
   }
 }
 
-export default { adminLoginController, listUsers, getUserDetail, downloadResume, downloadReport, deleteUser, getStats, exportUsersCsv }
+// ─── Per-agent analytics (Phase E) ───────────────────────────────────────────
+// Reads AgentRun (runs, latency, tokens, judge) + FindingFeedback (acceptance)
+// for the last 30 days. Answers: "which agent earns its cost?"
+
+const percentile = (sorted, p) => {
+  if (!sorted.length) return null
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1))
+  return sorted[idx]
+}
+
+export const getAgentAnalytics = async (_req, res) => {
+  try {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+    const [runAgg, feedbackAgg] = await Promise.all([
+      AgentRun.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        {
+          $group: {
+            _id: '$agent',
+            runs: { $sum: 1 },
+            successes: { $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] } },
+            cached: { $sum: { $cond: [{ $eq: ['$cached', true] }, 1, 0] } },
+            latencies: { $push: '$latencyMs' },
+            inputTokens: { $sum: { $ifNull: ['$cost.inputTokens', 0] } },
+            outputTokens: { $sum: { $ifNull: ['$cost.outputTokens', 0] } },
+            avgJudge: { $avg: { $cond: [{ $ifNull: ['$judgeScore', false] }, '$judgeScore', null] } },
+            models: { $addToSet: { $ifNull: ['$model', 'unknown'] } },
+          },
+        },
+        { $sort: { runs: -1 } },
+      ]),
+      FindingFeedback.aggregate([
+        { $match: { createdAt: { $gte: since } } },
+        {
+          $group: {
+            _id: '$agent',
+            up: { $sum: { $cond: [{ $eq: ['$rating', 'up'] }, 1, 0] } },
+            down: { $sum: { $cond: [{ $eq: ['$rating', 'down'] }, 1, 0] } },
+          },
+        },
+      ]),
+    ])
+
+    const fbByAgent = Object.fromEntries(feedbackAgg.map((f) => [f._id, f]))
+
+    const agents = runAgg.map((a) => {
+      const latencies = [...(a.latencies || [])].sort((x, y) => x - y)
+      const fb = fbByAgent[a._id] || { up: 0, down: 0 }
+      return {
+        agent: a._id,
+        runs: a.runs,
+        successRate: a.runs ? Math.round((a.successes / a.runs) * 100) : null,
+        cacheRate: a.runs ? Math.round((a.cached / a.runs) * 100) : null,
+        avgLatencyMs: latencies.length ? Math.round(latencies.reduce((x, y) => x + y, 0) / latencies.length) : null,
+        p50LatencyMs: percentile(latencies, 50),
+        p95LatencyMs: percentile(latencies, 95),
+        inputTokens: a.inputTokens,
+        outputTokens: a.outputTokens,
+        avgJudgeScore: a.avgJudge !== null && a.avgJudge !== undefined ? Math.round(a.avgJudge * 10) / 10 : null,
+        models: (a.models || []).filter(Boolean).slice(0, 3),
+        thumbsUp: fb.up,
+        thumbsDown: fb.down,
+        acceptanceRate: fb.up + fb.down > 0 ? Math.round((fb.up / (fb.up + fb.down)) * 100) : null,
+      }
+    })
+
+    return res.status(200).json({
+      success: true,
+      windowDays: 30,
+      feedbackTotal: feedbackAgg.reduce((a, f) => a + f.up + f.down, 0),
+      agents,
+    })
+  } catch (err) {
+    console.error('Admin getAgentAnalytics error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to load agent analytics.' })
+  }
+}
+
+export default {
+  adminLoginController,
+  listUsers,
+  getUserDetail,
+  downloadResume,
+  downloadReport,
+  deleteUser,
+  getStats,
+  exportUsersCsv,
+  getAgentAnalytics,
+}

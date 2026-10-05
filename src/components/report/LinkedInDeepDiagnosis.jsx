@@ -1,6 +1,7 @@
 import React from 'react'
 import { LinkedinLogo, WarningCircle, ArrowRight } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
+import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 
 /**
@@ -53,6 +54,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                   {iss.severity} · {String(iss.category || '').replace(/_/g, ' ')}
                 </span>
                 <span className="text-sm font-bold text-[var(--text-primary)]">{iss.title}</span>
+                <span className="ml-auto">
+                  <FeedbackThumbs agent="linkedin" findingId={iss.id || `li_issue_${i}`} />
+                </span>
               </div>
               {iss.diagnosis && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{iss.diagnosis}</p>}
               {iss.recommendation && (

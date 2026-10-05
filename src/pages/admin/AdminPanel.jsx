@@ -266,6 +266,92 @@ function DetailDrawer({ userId, api, onClose }) {
   )
 }
 
+// ─── Agent analytics (Phase E) ───────────────────────────────────────────────
+function AgentAnalytics({ api }) {
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+
+  const load = useCallback(() => {
+    api('/admin/agents')
+      .then(({ ok, data }) => (ok ? setData(data) : setError(data.message)))
+      .catch((e) => setError(e.message))
+  }, [api])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (error) return <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-xs">{error}</div>
+  if (!data) return <div className="bg-white border border-slate-200 rounded-2xl p-6 text-xs text-slate-400">Loading agent analytics…</div>
+  if (!data.agents?.length)
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 text-xs text-slate-400">
+        No agent runs in the last 30 days yet. Generate a report to populate this.
+      </div>
+    )
+
+  const agentNames = { resume: 'Resume Agent', linkedin: 'LinkedIn Agent', judge: 'Judge Agent', overall: 'Atlas (Overall)' }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          Agent Analytics — last {data.windowDays} days · {data.feedbackTotal} candidate ratings
+        </h3>
+        <button onClick={load} className="text-[11px] text-slate-400 hover:text-slate-700 cursor-pointer">↻ Refresh</button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {data.agents.map((a) => (
+          <div key={a.agent} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-900">{agentNames[a.agent] || a.agent}</span>
+              <span className="text-[10px] font-mono text-slate-400">{a.runs} runs</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-base font-extrabold text-slate-900 tabular-nums">{a.successRate ?? '—'}%</div>
+                <div className="text-[9px] uppercase font-bold text-slate-400">Success</div>
+              </div>
+              <div>
+                <div className="text-base font-extrabold text-slate-900 tabular-nums">{a.cacheRate ?? '—'}%</div>
+                <div className="text-[9px] uppercase font-bold text-slate-400">Cached</div>
+              </div>
+              <div>
+                <div className="text-base font-extrabold text-slate-900 tabular-nums">
+                  {a.avgJudgeScore ?? '—'}
+                </div>
+                <div className="text-[9px] uppercase font-bold text-slate-400">Judge /10</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500 border-t border-slate-100 pt-2">
+              <span>p50: <b className="text-slate-700 tabular-nums">{a.p50LatencyMs != null ? (a.p50LatencyMs / 1000).toFixed(1) + 's' : '—'}</b></span>
+              <span>p95: <b className="text-slate-700 tabular-nums">{a.p95LatencyMs != null ? (a.p95LatencyMs / 1000).toFixed(1) + 's' : '—'}</b></span>
+              <span>tok in: <b className="text-slate-700 tabular-nums">{a.inputTokens?.toLocaleString() || '—'}</b></span>
+              <span>tok out: <b className="text-slate-700 tabular-nums">{a.outputTokens?.toLocaleString() || '—'}</b></span>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Candidate rating</span>
+              <span className="text-xs font-bold">
+                <span className="text-emerald-600">👍 {a.thumbsUp}</span>{' '}
+                <span className="text-red-500">👎 {a.thumbsDown}</span>{' '}
+                {a.acceptanceRate !== null && <span className="text-slate-400 font-mono text-[10px]">({a.acceptanceRate}%)</span>}
+              </span>
+            </div>
+
+            {a.models?.length > 0 && (
+              <div className="text-[9px] font-mono text-slate-300 truncate" title={a.models.join(', ')}>{a.models.join(', ')}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main panel ──────────────────────────────────────────────────────────────
 export default function AdminPanel({ onLogout }) {
   const [stats, setStats] = useState(null)
@@ -377,6 +463,9 @@ export default function AdminPanel({ onLogout }) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-5">
         <StatsRow stats={stats} />
+
+        <AgentAnalytics api={api} />
+
         <FilterBar filters={filters} setFilters={setFilters} onExport={handleExport} exporting={exporting} />
 
         {error && (

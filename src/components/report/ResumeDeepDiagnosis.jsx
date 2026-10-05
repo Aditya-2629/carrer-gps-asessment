@@ -2,6 +2,7 @@ import React from 'react'
 import { Sparkle, ListChecks, WarningCircle, ArrowRight } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
+import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 
 /**
@@ -88,6 +89,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
                     {iss.severity} · {String(iss.category || '').replace(/_/g, ' ')}
                   </span>
                   <span className="text-sm font-bold text-[var(--text-primary)]">{iss.title}</span>
+                  <span className="ml-auto">
+                    <FeedbackThumbs agent="resume" findingId={iss.id || `issue_${i}`} />
+                  </span>
                 </div>
                 {iss.diagnosis && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{iss.diagnosis}</p>}
                 {iss.recommendation && (

@@ -144,6 +144,16 @@ export const api = {
     }
   },
 
+  // POST /api/feedback — candidate's 👍/👎 on an agent finding (Phase E)
+  sendFindingFeedback: async ({ userId, agent, findingId, rating, comment }) => {
+    try {
+      const res = await client.post('/feedback', { userId, agent, findingId, rating, comment })
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to record feedback.')
+    }
+  },
+
   // POST /api/assessment/resume-talk
   askResumeAI: async ({ userId, question }) => {
     try {

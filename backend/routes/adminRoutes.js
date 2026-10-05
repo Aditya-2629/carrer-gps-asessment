@@ -13,6 +13,7 @@ import {
   deleteUser,
   getStats,
   exportUsersCsv,
+  getAgentAnalytics,
 } from '../controllers/adminController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -23,6 +24,7 @@ router.post('/login', adminLoginController)
 router.use(adminGuard)
 
 router.get('/stats', getStats)
+router.get('/agents', getAgentAnalytics)
 router.get('/users', listUsers)
 router.get('/users/export.csv', exportUsersCsv)
 router.get('/users/:id', getUserDetail)
