@@ -5,6 +5,7 @@ import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEm
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { generateContentWithFallback } from '../utils/geminiClient.js'
+import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -203,13 +204,35 @@ export const generateReport = async (req, res) => {
 
     const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
-    // Call Gemini API with gemini-3.6-flash and multi-key / multi-model fallback
     const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
 
-    const { text: responseText } = await generateContentWithFallback({
+    // Call Gemini API with gemini-3.6-flash and multi-key / multi-model fallback.
+    // V3.1: the Resume Specialist Agent (deep diagnosis + scorecard) runs IN
+    // PARALLEL with the Atlas report so its latency stays hidden.
+    const atlasReportPromise = generateContentWithFallback({
       contents: promptText,
       modelName: 'gemini-3.6-flash',
     })
+
+    let resumeAgentPromise = null
+    if (user.resumeData && user.resumeData.length > 0) {
+      const resumeTargetRole =
+        effectiveSemanticProfile?.targetRole ||
+        effectiveSemanticProfile?.target_role ||
+        user.answers?.targetRole ||
+        user.resumeJson?.target_role ||
+        ''
+      resumeAgentPromise = ResumeAgent.evaluate({
+        buffer: user.resumeData,
+        filename: user.resumeName || 'resume',
+        targetRole: resumeTargetRole,
+      }).catch((agentErr) => {
+        console.error('Resume Agent failed during report generation:', agentErr.message)
+        return null
+      })
+    }
+
+    const { text: responseText } = await atlasReportPromise
 
     const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
     const aiReport = JSON.parse(cleanJsonString)
@@ -220,6 +243,17 @@ export const generateReport = async (req, res) => {
     }
     if (user.linkedinData) {
       aiReport.linkedin_json = user.linkedinData
+    }
+
+    // V3.1: attach the Resume Specialist Agent's deep diagnosis (scorecard,
+    // bullet audit, coach-card issues) once the parallel run settles.
+    if (resumeAgentPromise) {
+      const agentResult = await resumeAgentPromise
+      if (agentResult?.success && agentResult.analysis) {
+        aiReport.resume_agent = agentResult.analysis
+      } else if (agentResult) {
+        console.warn('Resume Agent did not succeed; report continues without resume_agent:', agentResult.error || agentResult.status)
+      }
     }
 
     // Save report to User DB

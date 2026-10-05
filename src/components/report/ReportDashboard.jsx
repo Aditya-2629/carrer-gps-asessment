@@ -27,11 +27,378 @@ import TopPriorities from './TopPriorities'
 import RoadmapTimeline from './RoadmapTimeline'
 import DetailedDiagnosis from './DetailedDiagnosis'
 import FinalNextAction from './FinalNextAction'
+import ResumeDeepDiagnosis from './ResumeDeepDiagnosis'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 // Complete mock report fallback
 const MOCK_REPORT = {
+  // V3.1 Resume Specialist Agent deep diagnosis (sample from real agent run)
+  resume_agent: {
+    "analysisVersion": "2.2",
+    "candidateSnapshot": {
+      "name": "Jordan Miller",
+      "targetRole": "Junior Full Stack Developer",
+      "experienceLevel": "Mid-Level (2-5 years)",
+      "primaryProfile": "Full Stack Software Development"
+    },
+    "dashboard": {
+      "version": "resume-scorecard-v1",
+      "computedAt": "2026-10-05T11:13:00.180Z",
+      "score": 93,
+      "grade": "A",
+      "gradeLabel": "Excellent",
+      "grades": {
+        "impact": {
+          "label": "Impact",
+          "score": 96,
+          "grade": "A",
+          "gradeLabel": "Excellent",
+          "facts": [
+            "0 of 9 bullets include a hard number",
+            "Impact issues: yes"
+          ]
+        },
+        "positioning": {
+          "label": "Positioning",
+          "score": 84,
+          "grade": "B",
+          "gradeLabel": "Good",
+          "facts": [
+            "Positioning/ownership issues: yes"
+          ]
+        },
+        "ats_readability": {
+          "label": "ATS Safety",
+          "score": 88,
+          "grade": "A",
+          "gradeLabel": "Excellent",
+          "facts": [
+            "Contact details merged with summary text",
+            "ATS issues: yes"
+          ]
+        },
+        "credibility": {
+          "label": "Credibility",
+          "score": 92,
+          "grade": "A",
+          "gradeLabel": "Excellent",
+          "facts": [
+            "Fabrication/assumption warnings: 0",
+            "Skill evidence issues: yes"
+          ]
+        },
+        "brevity": {
+          "label": "Brevity",
+          "score": 100,
+          "grade": "A",
+          "gradeLabel": "Excellent",
+          "facts": [
+            "Average bullet length: 9.7 words",
+            "All bullets within length"
+          ]
+        },
+        "us_market_alignment": {
+          "label": "US Alignment",
+          "score": 100,
+          "grade": "A",
+          "gradeLabel": "Excellent",
+          "facts": [
+            "No non-US conventions detected",
+            "No personal details"
+          ]
+        }
+      },
+      "checks": [
+        {
+          "id": "quantified_evidence",
+          "label": "Quantified achievements",
+          "status": "fail",
+          "detail": "0 of 9 bullets include a hard number",
+          "category": "impact"
+        },
+        {
+          "id": "outcome_verbs",
+          "label": "Bullets lead with outcome or action verbs",
+          "status": "fail",
+          "detail": "0 of 9 bullets show a clear action/outcome verb",
+          "category": "impact"
+        },
+        {
+          "id": "no_tool_dump",
+          "label": "No tool-dump bullets",
+          "status": "pass",
+          "detail": "Every bullet explains the work, not just the stack",
+          "category": "impact"
+        },
+        {
+          "id": "contact_header",
+          "label": "Contact details parse cleanly",
+          "status": "warn",
+          "detail": "Contact info sits alongside other text — check ATS parsing",
+          "category": "ats_readability"
+        },
+        {
+          "id": "no_personal_details",
+          "label": "No personal details (US norm)",
+          "status": "pass",
+          "detail": "Nothing a US recruiter would expect removed",
+          "category": "us_market_alignment"
+        },
+        {
+          "id": "no_declaration",
+          "label": "No declaration/signature block",
+          "status": "pass",
+          "detail": "None found",
+          "category": "us_market_alignment"
+        },
+        {
+          "id": "no_objective_section",
+          "label": "Uses a summary, not an Objective",
+          "status": "pass",
+          "detail": "No Objective section found",
+          "category": "us_market_alignment"
+        },
+        {
+          "id": "skill_evidence",
+          "label": "Skills backed by evidence",
+          "status": "warn",
+          "detail": "1 skill evidence gap(s) flagged",
+          "category": "credibility"
+        },
+        {
+          "id": "bullet_length",
+          "label": "Bullet length (1-2 lines)",
+          "status": "pass",
+          "detail": "Average 9.7 words",
+          "category": "brevity"
+        },
+        {
+          "id": "page_count",
+          "label": "1-2 page length",
+          "status": "pass",
+          "detail": "Parsed document is approximately 1 page(s)",
+          "category": "brevity"
+        },
+        {
+          "id": "certifications",
+          "label": "Certifications / licenses included",
+          "status": "warn",
+          "detail": "No certifications listed — add any you hold",
+          "category": "credibility"
+        },
+        {
+          "id": "no_repetition",
+          "label": "No repeated achievements",
+          "status": "pass",
+          "detail": "Each bullet carries distinct content",
+          "category": "impact"
+        }
+      ],
+      "bulletAudit": [
+        {
+          "bulletId": "exp_001_b01",
+          "section": "experience",
+          "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
+          "text": "Responsible for writing code for web applications using JavaScript and React.",
+          "status": "fix",
+          "reason": "Core development framed as a passive duty rather than active delivery",
+          "rewrite": "Built web application features using JavaScript and React across [ADD: number of web applications deployed].",
+          "issueId": "iss_002",
+          "category": "clarity"
+        },
+        {
+          "bulletId": "exp_001_b02",
+          "section": "experience",
+          "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
+          "text": "Assisted senior developers with backend bug fixing and routine database maintenance tasks.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        },
+        {
+          "bulletId": "exp_001_b03",
+          "section": "experience",
+          "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
+          "text": "Worked with team members in daily agile standup meetings.",
+          "status": "fix",
+          "reason": "Routine meeting attendance listed as an achievement",
+          "rewrite": null,
+          "issueId": "iss_003",
+          "category": "clarity"
+        },
+        {
+          "bulletId": "exp_001_b04",
+          "section": "experience",
+          "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
+          "text": "Handled customer support tickets and investigated client issues in production.",
+          "status": "fix",
+          "reason": "Production troubleshooting lacks operational scope and volume",
+          "rewrite": "Investigated and resolved production client issues and support tickets, resolving [ADD: average number of tickets resolved per week].",
+          "issueId": "iss_004",
+          "category": "outcome_visibility"
+        },
+        {
+          "bulletId": "exp_001_b05",
+          "section": "experience",
+          "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
+          "text": "Built REST APIs and wrote documentation for team members.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        },
+        {
+          "bulletId": "exp_002_b01",
+          "section": "experience",
+          "itemName": "Experience",
+          "text": "Created landing pages for clients using HTML, CSS, and basic JavaScript.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        },
+        {
+          "bulletId": "exp_002_b02",
+          "section": "experience",
+          "itemName": "Experience",
+          "text": "Attended weekly project status meetings with project managers.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        },
+        {
+          "bulletId": "exp_002_b03",
+          "section": "experience",
+          "itemName": "Experience",
+          "text": "Updated content and images on WordPress websites.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        },
+        {
+          "bulletId": "exp_002_b04",
+          "section": "experience",
+          "itemName": "Experience",
+          "text": "Tested website links and browser compatibility across Chrome and Safari.",
+          "status": "warn",
+          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "rewrite": null,
+          "issueId": null,
+          "category": null
+        }
+      ],
+      "summary": {
+        "fix": 3,
+        "warn": 6,
+        "pass": 0,
+        "checksPassed": 7,
+        "checksTotal": 12,
+        "strengths": 2,
+        "issues": 5
+      }
+    },
+    "overallReview": {
+      "summary": "Jordan, your background shows a practical progression across both frontend interfaces and backend REST APIs. Having hands-on experience building React components, documenting APIs, and investigating live production issues gives you a solid foundation for junior full stack developer roles.\n\nThe main area to sharpen is how you communicate your daily impact. Right now, all 9 of your bullets describe tasks or routine meetings rather than measurable results. Upgrading passive phrases like \"responsible for\" to active verbs, cutting out meeting attendance bullets, and adding concrete ticket or project volumes will immediately make your technical contributions stand out to US engineering recruiters.",
+      "tone": "conversational"
+    },
+    "issues": [
+      {
+        "id": "iss_001",
+        "severity": "low",
+        "category": "ats_readability",
+        "title": "Extracted contact details merged into summary section",
+        "diagnosis": "Your extracted resume text places contact details directly alongside your summary, which is worth checking for ATS-parsing safety.",
+        "whyItMatters": "When applicant tracking systems parse a header merged into body text, contact fields like email and phone number can get misread or discarded, making it harder for recruiters to reach you directly.",
+        "recommendation": "Ensure your name, email, phone number, and location sit cleanly in their own dedicated header block separate from the summary paragraph in your document source.",
+        "correctedText": null,
+        "metricDiscoveryQuestions": [],
+        "evidence": [
+          {
+            "section": "summary",
+            "itemId": "summary_001",
+            "bulletId": "summary_001",
+            "originalText": "Jordan Miller jordan.miller@example.com | (555) 789-0123 | Chicago, IL Hardworking software engineer looking to leverage my programming skills in a dynamic full stack development position. Responsible, detail-oriented team player with experience in multiple languages."
+          }
+        ],
+        "correctionType": "none"
+      },
+      {
+        "id": "iss_002",
+        "severity": "medium",
+        "category": "clarity",
+        "title": "Core development framed as a passive duty rather than active delivery",
+        "diagnosis": "The bullet begins with \"Responsible for writing code\", which reads like a job description duty rather than an active engineering contribution.",
+        "whyItMatters": "Engineering recruiters scan quickly for what you personally built. Duty-oriented phrasing softens ownership and makes it harder to see what features or components you delivered.",
+        "recommendation": "Lead with a power action verb such as \"Engineered\" or \"Built\" and define the scope of the web applications you contributed to.",
+        "correctedText": "Built web application features using JavaScript and React across [ADD: number of web applications deployed].",
+        "metricDiscoveryQuestions": [
+          "How many web applications or distinct features did you build using JavaScript and React?",
+          "What was the typical user base size or traffic volume for these web applications?"
+        ],
+        "evidence": [
+          {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b01",
+            "originalText": "Responsible for writing code for web applications using JavaScript and React."
+          }
+        ],
+        "correctionType": "rewrite"
+      },
+      {
+        "id": "iss_003",
+        "severity": "medium",
+        "category": "clarity",
+        "title": "Routine meeting attendance listed as an achievement",
+        "diagnosis": "\"Worked with team members in daily agile standup meetings\" describes routine attendance rather than a technical deliverable or outcome.",
+        "whyItMatters": "Attending standups is an expected baseline activity in software teams. Listing it as a standalone bullet uses up valuable resume space without highlighting technical skills.",
+        "recommendation": "Replace this line with an engineering accomplishment, such as sprint deliverables completed, code reviews conducted, or cross-functional feature planning.",
+        "correctedText": null,
+        "metricDiscoveryQuestions": [
+          "What specific features or sprint deliverables did you ship through your agile team cycles?",
+          "Did you collaborate on peer code reviews or sprint planning that improved delivery turnaround?"
+        ],
+        "evidence": [
+          {
+            "section": "experience",
+            "itemId": "exp_001",
+            "bulletId": "exp_001_b03",
+            "originalText": "Worked with team members in daily agile standup meetings."
+          }
+        ],
+        "correctionType": "none"
+      }
+    ],
+    "priorityActions": [
+      {
+        "priority": 1,
+        "title": "Replace duty statements with active engineering verbs",
+        "action": "Revise bullets starting with \"Responsible for\" and \"Assisted\" to power verbs like \"Built\", \"Engineered\", and \"Resolved\".",
+        "reason": "Shifting from job descriptions to active contributions demonstrates ownership and makes your code contributions immediately visible."
+      },
+      {
+        "priority": 2,
+        "title": "Swap meeting attendance lines for technical contributions",
+        "action": "Remove bullets that only mention attending agile standups or status meetings and replace them with sprint deliverables or feature releases.",
+        "reason": "Recruiters already assume you attend meetings; dedicating bullets to attendance wastes space that could showcase technical output."
+      },
+      {
+        "priority": 3,
+        "title": "Quantify production troubleshooting volume",
+        "action": "Add an estimate of weekly support tickets or client issues resolved to your production support bullet.",
+        "reason": "Quantifying your debugging workload demonstrates operational reliability and capability in maintaining live web applications."
+      }
+    ]
+  },
   career_health_score: 41,
   score_label: 'Emerging',
   scores: {
@@ -429,6 +796,9 @@ function ReportDashboardContent() {
           issues={reportData.critical_issues}
           resumeJsonData={reportData.resume_json}
         />
+
+        {/* SECTION E2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
+        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
 
         {/* FUNNEL JOURNEY + WHY AREN'T INTERVIEWS CONVERTING + RISK RADAR */}
         <FunnelAndConversionSection
