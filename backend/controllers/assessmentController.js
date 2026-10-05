@@ -7,6 +7,7 @@ import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { generateContentWithFallback } from '../utils/geminiClient.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
+import { runCareerAgents } from '../agents/orchestrator.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -208,30 +209,28 @@ export const generateReport = async (req, res) => {
     const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
 
     // Call Gemini API with gemini-3.6-flash and multi-key / multi-model fallback.
-    // V3.1: the Resume Specialist Agent (deep diagnosis + scorecard) runs IN
-    // PARALLEL with the Atlas report so its latency stays hidden.
+    // V3.1 platform: agent execution is owned by the ORCHESTRATOR (Phase B) —
+    // it runs Resume + LinkedIn agents in parallel (with caching + AgentRun
+    // persistence) while Atlas generates the narrative, hiding all latency.
     const atlasReportPromise = generateContentWithFallback({
       contents: promptText,
       modelName: 'gemini-3.6-flash',
     })
 
-    let resumeAgentPromise = null
-    if (user.resumeData && user.resumeData.length > 0) {
-      const resumeTargetRole =
-        effectiveSemanticProfile?.targetRole ||
-        effectiveSemanticProfile?.target_role ||
-        user.answers?.targetRole ||
-        user.resumeJson?.target_role ||
-        ''
-      resumeAgentPromise = ResumeAgent.evaluate({
-        buffer: user.resumeData,
-        filename: user.resumeName || 'resume',
-        targetRole: resumeTargetRole,
-      }).catch((agentErr) => {
-        console.error('Resume Agent failed during report generation:', agentErr.message)
-        return null
-      })
-    }
+    const resumeTargetRole =
+      effectiveSemanticProfile?.targetRole ||
+      effectiveSemanticProfile?.target_role ||
+      user.answers?.targetRole ||
+      user.resumeJson?.target_role ||
+      ''
+
+    const agentsPromise = runCareerAgents({
+      resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
+      resumeName: user.resumeName || '',
+      resumeTargetRole,
+      linkedinData: user.linkedinData || null,
+      userId: user._id,
+    })
 
     const { text: responseText } = await atlasReportPromise
 
@@ -246,29 +245,14 @@ export const generateReport = async (req, res) => {
       aiReport.linkedin_json = user.linkedinData
     }
 
-    // V3.1: attach the Resume Specialist Agent's deep diagnosis (scorecard,
-    // bullet audit, coach-card issues) once the parallel run settles.
-    if (resumeAgentPromise) {
-      const agentResult = await resumeAgentPromise
-      if (agentResult?.success && agentResult.analysis) {
-        aiReport.resume_agent = agentResult.analysis
-      } else if (agentResult) {
-        console.warn('Resume Agent did not succeed; report continues without resume_agent:', agentResult.error || agentResult.status)
-      }
+    // Phase B: attach both agent diagnoses once the orchestrator settles.
+    // Either agent can be null (no data / failed) without breaking the report.
+    const { resumeAgent: resumeAgentAnalysis, linkedinAgent: linkedinAgentAnalysis } = await agentsPromise
+    if (resumeAgentAnalysis) {
+      aiReport.resume_agent = resumeAgentAnalysis
     }
-
-    // Multi-Agent Architecture: LinkedIn Agent (deterministic, instant).
-    // Analyzes the scraped profile with the same scorecard contract the
-    // Resume Agent uses, so the report UI renders both identically.
-    if (user.linkedinData) {
-      try {
-        aiReport.linkedin_agent = analyzeLinkedInProfile(user.linkedinData, {
-          targetRole: user.resumeJson?.target_role || '',
-          primaryProfile: user.resumeJson?.primary_profile || '',
-        })
-      } catch (liErr) {
-        console.warn('LinkedIn Agent failed; report continues without linkedin_agent:', liErr.message)
-      }
+    if (linkedinAgentAnalysis) {
+      aiReport.linkedin_agent = linkedinAgentAnalysis
     }
 
     // Save report to User DB
