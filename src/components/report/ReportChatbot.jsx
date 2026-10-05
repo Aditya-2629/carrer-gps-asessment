@@ -16,6 +16,15 @@ const QUICK_QUESTIONS = [
   'Is my LinkedIn helping or hurting?',
 ]
 
+const scrollToSection = (href) => {
+  const id = (href || '').replace('#', '')
+  const el = id && document.getElementById(id)
+  if (el) {
+    const pos = el.getBoundingClientRect().top + window.scrollY
+    window.scrollTo({ top: pos - 90, behavior: 'smooth' })
+  }
+}
+
 export default function ReportChatbot() {
   const userId = useAppStore((s) => s.userId)
   const [open, setOpen] = useState(false)
@@ -41,7 +50,15 @@ export default function ReportChatbot() {
     setLoading(true)
     try {
       const res = await api.post('/assessment/resume-talk', { userId, question })
-      setMessages((m) => [...m, { role: 'agent', text: res.data?.answer || 'Sorry — I could not generate an answer. Try again.' }])
+      setMessages((m) => [
+        ...m,
+        {
+          role: 'agent',
+          text: res.data?.answer || 'Sorry — I could not generate an answer. Try again.',
+          routedIntent: res.data?.routedIntent || null,
+          sectionLink: res.data?.sectionLink || null,
+        },
+      ])
     } catch (_e) {
       setMessages((m) => [...m, { role: 'agent', text: 'Something went wrong reaching the agent. Please try again in a moment.' }])
     } finally {
@@ -100,6 +117,15 @@ export default function ReportChatbot() {
                   }`}
                 >
                   {m.text}
+                  {m.routedIntent && (
+                    <button
+                      type="button"
+                      onClick={() => scrollToSection(m.sectionLink)}
+                      className="mt-2 block text-[10px] font-bold text-[var(--primary)] hover:underline cursor-pointer"
+                    >
+                      ↳ Jump to {m.routedIntent} in your report
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

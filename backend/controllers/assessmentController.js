@@ -180,11 +180,29 @@ export const generateReport = async (req, res) => {
 }
 
 // Chat / Ask questions about resume & LinkedIn to AI — NOW WITH RAG KNOWLEDGE BASE
+// Phase F: this is now a ROUTER agent (Anthropic routing pattern) — it
+// classifies the question, loads ONLY the relevant agent's findings, and the
+// reply carries deep-links to the report sections it references.
+
+const CHAT_INTENTS = [
+  { id: 'resume', section: 'resume-ai', label: 'Resume diagnosis', match: /\b(resume|bullet|rewrite|quantif|ats|score (on )?my resume|cover letter|achievement)\b/i },
+  { id: 'linkedin', section: 'linkedin-ai', label: 'LinkedIn audit', match: /\b(linkedin|headline|profile pic|connection|network(ing)?|recommendation)\b/i },
+  { id: 'roadmap', section: 'priorities', label: 'Action plan', match: /\b(plan|roadmap|this week|first|priorit|next step|what (should|do) i do|30|60|90)\b/i },
+  { id: 'assessment', section: 'snapshot', label: 'Career health', match: /\b(health|score|bottleneck|funnel|conversion|stat|overall|summary)\b/i },
+]
+
+function classifyChatIntent(question) {
+  for (const intent of CHAT_INTENTS) {
+    if (intent.match.test(question)) return intent
+  }
+  return { id: 'general', section: 'agent-team', label: 'Full report' }
+}
+
 export const chatResume = async (req, res) => {
   const { userId, question } = req.body
 
   if (!userId || !question) {
-    return res.status(400).json({ message: 'User ID and question are required.' })
+    return res.status(400).json({ message: 'userId and question are required.' })
   }
 
   try {
@@ -193,12 +211,48 @@ export const chatResume = async (req, res) => {
       return res.status(404).json({ message: 'User not found.' })
     }
 
-    const resumeContext = user.resumeJson ? JSON.stringify(user.resumeJson) : 'No structured resume JSON available.'
-    const linkedinContext = user.linkedinData ? JSON.stringify(user.linkedinData) : 'No LinkedIn profile scraped.'
-    const answersContext = user.answers ? JSON.stringify(user.answers) : 'No assessment answers available.'
-    const reportContext = user.aiReport ? JSON.stringify(user.aiReport) : 'No AI report generated yet.'
+    const intent = classifyChatIntent(question)
 
-    // Build RAG context using the question + user profile as query
+    // Phase F: route context by intent — the agent whose findings the question
+    // is about, plus a compact shared base. Nothing else.
+    const r = user.aiReport || {}
+    const contextParts = [`CANDIDATE: ${user.resumeJson?.candidate_name || user.email} | target: ${r.resume_json?.target_role || 'unknown'}`]
+
+    if (intent.id === 'resume' || intent.id === 'general') {
+      const ra = r.resume_agent
+      if (ra) {
+        contextParts.push(
+          `RESUME AGENT DIAGNOSIS (score ${ra.dashboard?.score ?? '?'}/${ra.dashboard?.grade ?? '?'}):\n` +
+          `checklist: ${(ra.checks || []).map((c) => `${c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗'} ${c.label}`).join(' | ')}\n` +
+          `issues: ${(ra.issues || []).slice(0, 5).map((i) => `- [${i.severity}/${i.category}] ${i.title} → ${String(i.recommendation || '').slice(0, 120)}`).join('\n')}\n` +
+          `overall: ${String(ra.overallReview?.summary || '').slice(0, 400)}`
+        )
+      }
+    }
+    if (intent.id === 'linkedin' || intent.id === 'general') {
+      const la = r.linkedin_agent
+      if (la?.dataAvailable) {
+        contextParts.push(
+          `LINKEDIN AGENT DIAGNOSIS (score ${la.score}/${la.grade}):\n` +
+          `checklist: ${(la.checks || []).map((c) => `${c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗'} ${c.label}`).join(' | ')}\n` +
+          `fixes: ${(la.issues || []).slice(0, 5).map((i) => `- [${i.severity}] ${i.title} → ${String(i.recommendation || '').slice(0, 120)}`).join('\n')}`
+        )
+      }
+    }
+    if (intent.id === 'roadmap' || intent.id === 'assessment' || intent.id === 'general') {
+      if (r.career_health_score) {
+        contextParts.push(
+          `ASSESSMENT SNAPSHOT: career health ${r.career_health_score}/100 (${r.score_label || '—'})\n` +
+          `scores: ${JSON.stringify(r.scores || {})}\n` +
+          `critical issues: ${(r.critical_issues || []).slice(0, 3).map((i) => `- ${i.title}`).join('\n')}\n` +
+          `top priorities: ${(r.mission_board || []).slice(0, 3).map((m) => `- ${m.title || m.mission || JSON.stringify(m).slice(0, 80)}`).join('\n')}`
+        )
+      }
+    }
+
+    const resumeContext = contextParts.join('\n\n')
+
+    // RAG context using the question + user profile as query
     let ragKnowledgeContext = ''
     try {
       const ragQuery = `${question} ${user.resumeJson?.target_role || ''} ${user.resumeJson?.top_skills?.join(' ') || ''}`
@@ -210,11 +264,11 @@ export const chatResume = async (req, res) => {
     const prompt = `
       You are "Atlas", a $2000/hour Elite Executive Career Strategist, Senior Technical Recruiter, and ATS Expert who has placed 500+ candidates into FAANG and Fortune 500 companies.
 
-      You are having a REAL-TIME conversation with a candidate who has completed a career assessment. You have access to their FULL profile data below.
+      You are having a REAL-TIME conversation with a candidate who has completed a career assessment run by a team of specialist AI agents (Resume Agent, LinkedIn Agent, Assessment Agent). Their findings are below.
 
       CRITICAL PERSONA RULES:
       - You are NOT a generic chatbot. You are a fierce, authoritative career coach who speaks with extreme specificity.
-      - EVERY answer MUST reference specific data points from the candidate's resume, LinkedIn, or assessment answers.
+      - EVERY answer MUST reference specific data points from the candidate's diagnosis below (checklist items, issue titles, scores).
       - Name their actual skills, roles, scores, and gaps. Never say generic things like "your resume needs work" — say exactly WHAT needs fixing and HOW.
       - Be direct, punchy, and brutally honest but constructive. Use concrete numbers, percentages, and actionable tactics.
       - Answer in 3-5 impactful sentences. Longer if the question demands depth.
@@ -223,21 +277,11 @@ export const chatResume = async (req, res) => {
       ### KNOWLEDGE BASE (Verified Career Intelligence):
       ${ragKnowledgeContext}
 
-      ### CANDIDATE'S FULL PROFILE:
+      ### AGENT FINDINGS (routed for this question — intent: ${intent.label}):
 
-      Candidate Question: "${question}"
-
-      Parsed Resume JSON:
       ${resumeContext}
 
-      LinkedIn Profile JSON:
-      ${linkedinContext}
-
-      Assessment Answers (31 questions about job search strategy, visa status, application methods, etc.):
-      ${answersContext}
-
-      Previously Generated AI Career Report:
-      ${reportContext}
+      Candidate Question: "${question}"
     `
 
     const { text: replyText } = await generateContentWithFallback({
@@ -245,7 +289,11 @@ export const chatResume = async (req, res) => {
       modelName: 'gemini-3.6-flash',
     })
 
-    return res.status(200).json({ answer: replyText.trim() })
+    return res.status(200).json({
+      answer: replyText.trim(),
+      routedIntent: intent.label,
+      sectionLink: `#${intent.section}`,
+    })
   } catch (error) {
     console.error('Error in chatResume controller:', error)
     return res.status(500).json({ message: 'Failed to process query.' })
