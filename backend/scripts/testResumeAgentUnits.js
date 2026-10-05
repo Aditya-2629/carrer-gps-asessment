@@ -404,7 +404,12 @@ async function runUnitTests() {
   assert(successEvalResult.success === true, 'Successful analysis returns success: true')
   assert(successEvalResult.classification === 'SUCCESS', 'Classification is SUCCESS')
   assert(successEvalResult.analysis.analysisVersion === '2.2', 'Analysis version is 2.2')
-  assert(successEvalResult.analysis.dashboard === null, 'Dashboard is null (deterministic layer calculates scores)')
+  // V3.1: dashboard is now the deterministic Scorecard (score/grade/checks/bulletAudit)
+  const dash = successEvalResult.analysis.dashboard
+  assert(
+    dash && typeof dash.score === 'number' && typeof dash.grade === 'string' && Array.isArray(dash.checks),
+    'Dashboard is the deterministic Scorecard (score, grade, checks)'
+  )
 
   llmGateway.generate = origGenerate
 

@@ -51,6 +51,7 @@ import { classifyAllEvidence, resolveEvidenceConsistency } from './classificatio
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
 import { classifyDomain } from './market/domainClassifier.js'
 import { detectUsMarketSignals } from './market/usMarketSignals.js'
+import { computeScorecard } from './scoring/resumeScorecard.js'
 
 export class ResumeAgent {
   /**
@@ -462,8 +463,26 @@ export class ResumeAgent {
       }
 
       // Embed metadata into analysis object safely
+      // V3.1: deterministic Scorecard Engine fills `dashboard` (previously null).
+      // Computed AFTER all LLM-output validation, so it reflects the final,
+      // sanitized issue set. Zero LLM cost — runs in milliseconds.
+      let dashboard = null
+      try {
+        dashboard = computeScorecard({
+          analysis: parsedAnalysis,
+          canonicalResume,
+          precomputedSignals,
+          usMarketSignals: state?.usMarketSignals || null,
+          validation,
+          pageCount: typeof parsedDoc.pageCount === 'number' ? parsedDoc.pageCount : null,
+        })
+      } catch (scoreErr) {
+        console.warn('[ResumeAgent] Scorecard computation failed:', scoreErr.message)
+      }
+
       const finalAnalysis = {
         ...parsedAnalysis,
+        dashboard,
         metadata: gatewayMetadata,
       }
 

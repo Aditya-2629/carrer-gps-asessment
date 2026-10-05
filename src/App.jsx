@@ -7,6 +7,7 @@ import AnalysisLoader from './components/loading/AnalysisLoader'
 import ReportDashboard from './components/report/ReportDashboard'
 import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
 import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
+import ResumeReportPage from './pages/ResumeReportPage'
 
 const phaseVariants = {
   initial: { opacity: 0 },
@@ -49,6 +50,12 @@ export default function App() {
 
   if (isTestLabRoute) {
     return <ResumeAgentTestLab />
+  }
+
+  // Check if the polished resume diagnosis report is requested
+  const isResumeReportRoute = ['/resume-report', '/resume-diagnosis'].includes(pathname.toLowerCase())
+  if (isResumeReportRoute) {
+    return <ResumeReportPage />
   }
 
   // Check if direct report preview route is requested

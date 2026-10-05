@@ -24,6 +24,8 @@ import {
   CaretRight,
   FileText,
 } from '@phosphor-icons/react'
+import ResumeScoreCard from '../components/report/ResumeScoreCard.jsx'
+import ResumeBulletAudit from '../components/report/ResumeBulletAudit.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -254,6 +256,25 @@ function ResumeAgentTestLabContent() {
     link.download = filename
     link.click()
     URL.revokeObjectURL(url)
+  }
+
+  // Opens the polished /resume-report view for the current analysis
+  const openFullReport = (result) => {
+    const analysis = result?.parsedOutput
+    if (!analysis) return
+    const payload = {
+      analysis,
+      meta: {
+        model: result.testRun?.actualModel || result.testRun?.requestedModel || result.model,
+        analyzedAt: new Date().toISOString(),
+      },
+    }
+    try {
+      sessionStorage.setItem('craftureResumeReport', JSON.stringify(payload))
+      window.open('/resume-report', '_blank')
+    } catch (_e) {
+      // sessionStorage full/unavailable — report page shows its empty state
+    }
   }
 
   const handleRunSingle = async () => {
@@ -969,6 +990,15 @@ function ResumeAgentTestLabContent() {
                     </button>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={() => openFullReport(currentInspectResult)}
+                    className="text-xs bg-indigo-900/70 hover:bg-indigo-800 border border-indigo-700/60 text-indigo-200 font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <ArrowRight size={16} weight="bold" />
+                    OPEN FULL REPORT
+                  </button>
+
                   {currentInspectResult.reviewExport && (
                     <button
                       type="button"
@@ -1106,6 +1136,14 @@ function ResumeAgentTestLabContent() {
                     </div>
                   )}
 
+                  {/* V3.1 Scorecard — instant verdict (deterministic, no LLM) */}
+                  {currentInspectResult.parsedOutput?.dashboard && (
+                    <ResumeScoreCard
+                      dashboard={currentInspectResult.parsedOutput.dashboard}
+                      candidateName={currentInspectResult.parsedOutput?.candidateSnapshot?.name}
+                    />
+                  )}
+
                   {/* Candidate Snapshot Card */}
                   {currentInspectResult.parsedOutput?.candidateSnapshot && (
                     <div className="bg-[#0f172a] border border-gray-800/90 rounded-2xl p-5 shadow-xl">
@@ -1215,6 +1253,11 @@ function ResumeAgentTestLabContent() {
                           })}
                       </div>
                     </div>
+                  )}
+
+                  {/* V3.1 Line-by-Line Bullet Audit (before → after) */}
+                  {currentInspectResult.parsedOutput?.dashboard?.bulletAudit?.length > 0 && (
+                    <ResumeBulletAudit bulletAudit={currentInspectResult.parsedOutput.dashboard.bulletAudit} />
                   )}
 
                   {/* Issues Section (Clear 4-Part Evidence Visualization + Warnings) */}

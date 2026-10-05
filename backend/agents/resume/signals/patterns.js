@@ -1,4 +1,4 @@
-/**
+ /**
  * Deterministic Signal Patterns & Keyword Dictionaries — V2.5 Phase 1
  *
  * Centralized configuration for regex patterns and keyword matchers
