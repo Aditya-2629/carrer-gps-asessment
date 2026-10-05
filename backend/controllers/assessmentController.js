@@ -8,6 +8,7 @@ import { generateContentWithFallback } from '../utils/geminiClient.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
+import { generateReportBundle } from '../services/reportGeneration.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -167,111 +168,14 @@ export const generateReport = async (req, res) => {
   }
 
   try {
-    const user = await User.findById(userId)
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' })
-    }
-
-    // Back-Gate check: Verify user is verified
-    if (!user.isVerified) {
-      return res.status(403).json({ message: 'Unauthorized. Email not verified.' })
-    }
-
-    const hasAnswers = user.answers && Object.keys(user.answers).length > 0
-    if (!hasAnswers) {
-      return res.status(400).json({ message: 'No answers found. Please submit the assessment first.' })
-    }
-
-    // If LinkedIn URL was provided but profile wasn't scraped yet, scrape now via Apify
-    if (user.linkedinUrl && !user.linkedinData) {
-      try {
-        const scrapedProfile = await scrapeLinkedInProfile(user.linkedinUrl)
-        if (scrapedProfile) {
-          user.linkedinData = scrapedProfile
-        }
-      } catch (e) {
-        console.error('Apify LinkedIn scraping failed during report generation:', e)
-      }
-    }
-
-    // Build RAG-enhanced Knowledge Base context (baseline + uploaded documents)
-    let dynamicKbContent = null
-    try {
-      const smartQuery = buildSmartQuery(user.answers, user.resumeJson)
-      dynamicKbContent = await buildRAGContext(smartQuery)
-    } catch (kbErr) {
-      console.error('Error building RAG context, using default fallback:', kbErr)
-    }
-
-    const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
-
-    const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
-
-    // Call Gemini API with gemini-3.6-flash and multi-key / multi-model fallback.
-    // V3.1 platform: agent execution is owned by the ORCHESTRATOR (Phase B) —
-    // it runs Resume + LinkedIn agents in parallel (with caching + AgentRun
-    // persistence) while Atlas generates the narrative, hiding all latency.
-    const atlasReportPromise = generateContentWithFallback({
-      contents: promptText,
-      modelName: 'gemini-3.6-flash',
-    })
-
-    const resumeTargetRole =
-      effectiveSemanticProfile?.targetRole ||
-      effectiveSemanticProfile?.target_role ||
-      user.answers?.targetRole ||
-      user.resumeJson?.target_role ||
-      ''
-
-    const agentsPromise = runCareerAgents({
-      resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
-      resumeName: user.resumeName || '',
-      resumeTargetRole,
-      linkedinData: user.linkedinData || null,
-      userId: user._id,
-    })
-
-    const { text: responseText } = await atlasReportPromise
-
-    const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
-    const aiReport = JSON.parse(cleanJsonString)
-
-    // Include structured resume & linkedin json in final report output
-    if (user.resumeJson) {
-      aiReport.resume_json = user.resumeJson
-    }
-    if (user.linkedinData) {
-      aiReport.linkedin_json = user.linkedinData
-    }
-
-    // Phase B: attach both agent diagnoses once the orchestrator settles.
-    // Either agent can be null (no data / failed) without breaking the report.
-    const { resumeAgent: resumeAgentAnalysis, linkedinAgent: linkedinAgentAnalysis } = await agentsPromise
-    if (resumeAgentAnalysis) {
-      aiReport.resume_agent = resumeAgentAnalysis
-    }
-    if (linkedinAgentAnalysis) {
-      aiReport.linkedin_agent = linkedinAgentAnalysis
-    }
-
-    // Save report to User DB
-    user.aiReport = aiReport
-    await user.save()
-
-    // Trigger Admin Email asynchronously (so candidate doesn't wait)
-    sendAdminReportEmail(
-      user.email,
-      user.answers,
-      aiReport,
-      user.resumeData,
-      user.resumeName
-    )
-
+    // Phase C: the generation engine lives in services/reportGeneration.js —
+    // shared by this blocking controller and the async ReportJob worker.
+    const { user, aiReport } = await generateReportBundle({ userId, semanticProfile })
     return res.status(200).json(aiReport)
   } catch (error) {
     console.error('Error in generateReport controller:', error)
-    return res.status(400).json({ message: error.message || 'Failed to generate AI report. Please try again.' })
+    const status = error.statusCode || 400
+    return res.status(status).json({ message: error.message || 'Failed to generate AI report. Please try again.' })
   }
 }
 

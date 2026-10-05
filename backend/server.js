@@ -8,6 +8,7 @@ import assessmentRoutes from './routes/assessmentRoutes.js'
 import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes.js'
 import resumeAgentRoutes from './routes/resumeAgentRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
+import reportJobRoutes from './routes/reportJobRoutes.js'
 import resumeAgentTestRoutes from './routes/resumeAgentTestRoutes.js'
 
 // Load environment variables
@@ -61,6 +62,7 @@ app.use('/api/knowledge-base', knowledgeBaseRoutes)
 app.use('/api/resume-agent', resumeAgentRoutes)
 app.use('/api/resume-agent/test', resumeAgentTestRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/report-jobs', reportJobRoutes)
 
 // Health Check
 app.get('/health', (req, res) => {

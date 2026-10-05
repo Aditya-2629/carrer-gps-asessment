@@ -35,6 +35,51 @@ export const api = {
     }
   },
 
+  // Phase C: async job flow — save answers, then create a report job and
+  // stream progress via SSE instead of holding one request open.
+  startReportJob: async ({ userId, formData }) => {
+    try {
+      const semanticProfile = buildSemanticAssessmentPayload(formData)
+
+      const allAnswers = { ...formData }
+      let resumeFile = null
+      if (formData.resume) {
+        if (formData.resume instanceof FileList && formData.resume.length > 0) {
+          resumeFile = formData.resume[0]
+        } else if (Array.isArray(formData.resume) && formData.resume.length > 0) {
+          resumeFile = formData.resume[0]
+        } else if (formData.resume instanceof File) {
+          resumeFile = formData.resume
+        }
+      }
+      delete allAnswers.resume
+
+      const bodyFormData = new FormData()
+      bodyFormData.append('userId', userId)
+      bodyFormData.append('answers', JSON.stringify(allAnswers))
+      bodyFormData.append('semanticProfile', JSON.stringify(semanticProfile))
+      if (resumeFile) {
+        bodyFormData.append('resume', resumeFile)
+      }
+
+      await client.post('/assessment/save-answers', bodyFormData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      const res = await client.post('/report-jobs', { userId, semanticProfile })
+      if (!res.data?.jobId) throw new Error('Failed to start report job.')
+      return { jobId: res.data.jobId, semanticProfile }
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.message || 'Failed to start report job.')
+    }
+  },
+
+  // GET /api/report-jobs/:id — poll fallback when SSE unavailable
+  getReportJob: async (jobId) => {
+    const res = await client.get(`/report-jobs/${jobId}`)
+    return res.data
+  },
+
   // POST /api/assessment/generate-report
   generateReport: async ({ userId, formData }) => {
     try {
