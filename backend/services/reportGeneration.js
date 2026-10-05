@@ -16,6 +16,8 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { generateContentWithFallback } from '../utils/geminiClient.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
+import { judgeReport } from '../agents/judge/judgeAgent.js'
+import AgentRun from '../models/AgentRun.js'
 
 export async function generateReportBundle({ userId, semanticProfile, onProgress = () => {} }) {
   const report = (stage, message) => {
@@ -89,7 +91,7 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
   report('composing', 'Atlas is composing your executive report…')
 
   const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
-  const aiReport = JSON.parse(cleanJsonString)
+  let aiReport = JSON.parse(cleanJsonString)
 
   // Include structured resume & linkedin json in final report output
   if (user.resumeJson) {
@@ -107,6 +109,72 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
   }
   if (linkedinAgentAnalysis) {
     aiReport.linkedin_agent = linkedinAgentAnalysis
+  }
+
+  // ── Phase D: Judge Agent quality gate ──────────────────────────────────────
+  // Every report is scored on a fixed rubric before shipping. Below-threshold
+  // reports get ONE regeneration with the judge's notes; the result ships with
+  // a warning flag either way (never blocks the candidate).
+  if (process.env.JUDGE_ENABLED !== 'false') {
+    try {
+      report('quality_gate', 'Judge agent is auditing report quality…')
+      let judgeRun = await judgeReport(aiReport)
+      let judge = judgeRun.result
+      let regenerated = false
+
+      const keepAgentBundle = (source, target) => {
+        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'dashboard']) {
+          if (source[key] !== undefined) target[key] = source[key]
+        }
+        return target
+      }
+
+      if (typeof judge?.score === 'number' && judge.score < 7 && judge.fallback !== true) {
+        report('quality_pass', 'Judge found quality gaps — regenerating the narrative once with its notes…')
+        try {
+          const repairNotes = (judge.flags || []).join('; ') || 'Be more specific and warmer; cite the candidate’s actual words.'
+          const retryPrompt = `${promptText}\n\nQUALITY NOTES FROM YOUR REVIEWER (fix these in your JSON):\n- ${repairNotes}`
+          const { text: retryText } = await generateContentWithFallback({
+            contents: retryPrompt,
+            modelName: 'gemini-3.6-flash',
+          })
+          const retryReport = JSON.parse(retryText.replace(/```json/g, '').replace(/```/g, '').trim())
+          keepAgentBundle(aiReport, retryReport)
+          aiReport = retryReport
+          regenerated = true
+          judgeRun = await judgeReport(aiReport)
+          judge = judgeRun.result
+        } catch (regenErr) {
+          console.warn('[ReportGeneration] Judge-triggered regeneration failed, shipping first draft:', regenErr.message)
+        }
+      }
+
+      aiReport.judge = {
+        score: judge?.score ?? null,
+        subscores: judge?.subscores || {},
+        flags: judge?.flags || [],
+        summary: judge?.summary || '',
+        fallback: Boolean(judge?.fallback),
+        regenerated,
+        warning: typeof judge?.score === 'number' && judge.score < 7,
+      }
+
+      // Judge run is itself an auditable AgentRun row
+      if (mongoose.connection.readyState === 1) {
+        AgentRun.create({
+          agent: 'judge',
+          agentVersion: '1.0.0',
+          inputHash: `report:${Date.now()}`,
+          userId: user._id,
+          status: 'SUCCESS',
+          latencyMs: judgeRun.telemetry?.durationMs ?? 0,
+          judgeScore: aiReport.judge.score,
+          output: { flags: aiReport.judge.flags, summary: aiReport.judge.summary },
+        }).catch(() => {})
+      }
+    } catch (judgeErr) {
+      console.warn('[ReportGeneration] Judge gate failed (non-fatal):', judgeErr.message)
+    }
   }
 
   // Save report to User DB
