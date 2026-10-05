@@ -52,6 +52,15 @@ import { formatCompactSignalSummary } from './signals/signalEngine.js'
 import { classifyDomain } from './market/domainClassifier.js'
 import { detectUsMarketSignals } from './market/usMarketSignals.js'
 import { computeScorecard } from './scoring/resumeScorecard.js'
+import { RESUME_AGENT } from '../core/agentContract.js'
+import { runAgentLifecycle } from '../core/BaseAgent.js'
+import { generateStructured } from '../core/structuredOutput.js'
+import { registerPrompt } from '../core/promptRegistry.js'
+import { SYNTHESIS_SYSTEM_PROMPT } from './synthesis/resumeSynthesis.prompt.js'
+
+// Phase A (kernel): the synthesis prompt lives in the registry so every run
+// is traceable to exact prompt text via hash.
+registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PROMPT)
 
 export class ResumeAgent {
   /**
@@ -281,22 +290,51 @@ export class ResumeAgent {
       )
       if (promptCapture) promptCapture.generation.maxTokens = scaledMaxTokens
 
-      // ── Step 7: LLM Synthesis Call ───────────────────────────────────────────
-      const gatewayResponse = await llmGateway.generate({
-        purpose: 'resume_analysis',
-        messages,
-        model,
-        isSynthetic,
-        isBenchmark,
-        responseFormat: 'json_object',
-        temperature,
-        topP,
-        maxTokens: scaledMaxTokens,
-        signal,
-      })
+      // ── Steps 7+8 (Phase A kernel): bounded validate→retry synthesis ────────
+      // Policy comes from the agent contract: up to N attempts with validation
+      // errors injected as a repair note between attempts. Truncation is fatal
+      // (retrying with the same budget cannot fix it) and falls through to the
+      // truncation guard below.
+      let gatewayResponse = null
+      let validation = null
+      let finishReason = 'stop'
+      const maxSynthesisAttempts = Math.max(1, RESUME_AGENT.retryPolicy.maxAttempts)
 
-      rawModelOutput = gatewayResponse.text
-      const finishReason = gatewayResponse.finishReason || 'stop'
+      for (let attempt = 1; attempt <= maxSynthesisAttempts; attempt++) {
+        gatewayResponse = await llmGateway.generate({
+          purpose: RESUME_AGENT.purpose,
+          messages,
+          model,
+          isSynthetic,
+          isBenchmark,
+          responseFormat: 'json_object',
+          temperature,
+          topP,
+          maxTokens: scaledMaxTokens,
+          signal,
+        })
+        rawModelOutput = gatewayResponse.text
+        finishReason = gatewayResponse.finishReason || 'stop'
+        if (promptCapture) promptCapture.generation.attempt = attempt
+
+        if (finishReason === 'length') break // fatal
+
+        validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
+        if (validation.isValid) break
+
+        if (attempt < maxSynthesisAttempts) {
+          const problems = [...(validation.errors || []), ...(validation.evidenceErrors || [])].slice(0, 8)
+          console.warn(`[ResumeAgent] Synthesis attempt ${attempt} failed validation — retrying with repair note`)
+          messages = [
+            ...messages,
+            {
+              role: 'user',
+              content: `Your previous JSON failed validation. Return the COMPLETE corrected JSON object only. Fix these problems and change nothing that was already valid:\n- ${problems.join('\n- ')}`,
+            },
+          ]
+        }
+      }
+
       const gatewayMetadata = {
         provider: gatewayResponse.provider || 'groq',
         model: gatewayResponse.actualModel || model,
@@ -309,6 +347,7 @@ export class ResumeAgent {
         inputSerializerVersion: INPUT_SERIALIZER_VERSION,
         promptVersion,
         pipelineVersion: useV3Pipeline ? 'v3' : 'v2',
+        synthesisAttempts: maxSynthesisAttempts,
       }
 
       // ── Truncation Guard ──────────────────────────────────────────────────────
@@ -350,10 +389,8 @@ export class ResumeAgent {
         }
       }
 
-      // ── Step 8: Schema & Evidence Validation (existing V2.2 validator) ───────
-      const validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
-
-      if (!validation.isValid) {
+      // ── Step 8 (validation ran inside the kernel retry loop above) ──────────
+      if (!validation || !validation.isValid) {
         const errorSummary = [...(validation.errors || []), ...(validation.evidenceErrors || [])].join('; ')
         const isJsonError = (validation.errors || []).some((e) =>
           e.toLowerCase().includes('json') || e.toLowerCase().includes('parse')

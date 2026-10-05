@@ -60,7 +60,13 @@ export const aiConfig = {
     return process.env.AI_RESUME_FALLBACK_ENABLED === 'true'
   },
   get defaultResumeModel() {
-    return process.env.GROQ_RESUME_MODEL_PRIMARY || 'openai/gpt-oss-120b'
+    // V3.1 platform rename: RESUME_PRIMARY_MODEL is canonical;
+    // GROQ_RESUME_MODEL_PRIMARY kept as a legacy fallback for existing .env files.
+    return (
+      process.env.RESUME_PRIMARY_MODEL ||
+      process.env.GROQ_RESUME_MODEL_PRIMARY ||
+      'openai/gpt-oss-120b'
+    )
   },
   groq: {
     get baseUrl() {
