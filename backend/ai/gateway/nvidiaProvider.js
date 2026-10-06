@@ -68,7 +68,11 @@ export class NvidiaProvider {
     }
 
     const timeoutController = new AbortController()
-    const timeoutId = setTimeout(() => timeoutController.abort(), this.config.timeoutMs || 60000)
+    // Large report generations (16k output tokens) legitimately run 2-3 min —
+    // scale the timeout with the requested budget instead of a flat 60s.
+    const baseTimeoutMs = this.config.timeoutMs || 60000
+    const scaledTimeoutMs = maxTokens != null && maxTokens > 4000 ? Math.max(baseTimeoutMs, maxTokens * 12) : baseTimeoutMs
+    const timeoutId = setTimeout(() => timeoutController.abort(), scaledTimeoutMs)
     const combinedSignal = signal || timeoutController.signal
 
     const startTime = Date.now()

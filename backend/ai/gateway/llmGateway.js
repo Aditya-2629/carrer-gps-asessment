@@ -7,7 +7,7 @@
  */
 
 import { aiConfig } from '../config/aiConfig.js'
-import { getModel, isModelAllowedForData } from '../config/modelRegistry.js'
+import { getModel, isModelAllowedForData, listModelsForPurpose } from '../config/modelRegistry.js'
 import { GroqProvider } from './groqProvider.js'
 import { OpenRouterProvider } from './openrouterProvider.js'
 import { GeminiProvider } from './geminiProvider.js'
@@ -58,6 +58,7 @@ export class LLMGateway {
     maxTokens = null,
     temperature = 0.2,
     topP = 0.9,
+    treatLengthAsRetryable = false,
     signal = null,
   }) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -74,11 +75,18 @@ export class LLMGateway {
     // In benchmark mode OR when fallback is disabled in config, test ONLY the requested model
     const allowFallback = !isBenchmark && this.config.fallbackEnabled
 
-    // Determine execution plan
+    // Determine execution plan. Purpose-aware: when no explicit model is
+    // requested, every registered model serving this purpose joins the chain
+    // (registry order) before the production fallback chain — so a Gemini
+    // quota/503 outage can be absorbed by NVIDIA/Groq models.
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
-      const remainingChain = PRODUCTION_FALLBACK_CHAIN.filter((m) => m !== requestedModelId)
-      modelsToTry = [requestedModelId, ...remainingChain]
+      const chain = new Set([requestedModelId])
+      if (!model) {
+        for (const m of listModelsForPurpose(purpose)) chain.add(m.id)
+      }
+      for (const m of PRODUCTION_FALLBACK_CHAIN.filter((m) => m !== requestedModelId)) chain.add(m)
+      modelsToTry = Array.from(chain)
     }
 
     let lastError = null
@@ -150,6 +158,20 @@ export class LLMGateway {
           ...(maxTokens != null ? { maxTokens } : {}),
           signal,
         })
+
+        // Phase E-fix: JSON outputs cut by a token-limit (finishReason 'length')
+        // are unusable — callers can opt into treating them as a provider
+        // failure so the next (bigger-context) model takes the shot.
+        if (treatLengthAsRetryable && result.finishReason === 'length' && i < modelsToTry.length - 1) {
+          span.finish({ success: false, error: { code: 'MODEL_OUTPUT_INCOMPLETE', message: 'Truncated output — falling to next model' } })
+          lastError = new ProviderError({
+            code: 'MODEL_OUTPUT_INCOMPLETE',
+            message: `[${currentModelId}] output truncated (finishReason: length)`,
+            statusCode: 500,
+            isRetryable: true,
+          })
+          continue
+        }
 
         span.finish({
           actualModel: result.actualModel || currentModelId,

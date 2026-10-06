@@ -132,7 +132,8 @@ export const MODEL_REGISTRY = {
     id: 'nvidia/nemotron-3-super-120b-a12b',
     displayName: 'NVIDIA Nemotron 3 Super 120B A12B',
     provider: 'nvidia',
-    purpose: ['resume_analysis'],
+    // Multi-provider resilience: serves Atlas when Gemini capacity/quota fails
+    purpose: ['resume_analysis', 'assessment_report'],
     supportsJsonObject: true,
     supportsJsonSchema: false,
     supportsReasoning: true,

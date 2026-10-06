@@ -14,10 +14,102 @@ import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
-import { generateContentWithFallback } from '../utils/geminiClient.js'
+import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
 import AgentRun from '../models/AgentRun.js'
+import { jsonrepair } from 'jsonrepair'
+
+// ── Atlas completeness machinery (fixes truncated/incomplete reports) ───────
+// The Atlas JSON is large (13+ sections); without an explicit output budget
+// Gemini truncates it and whole widgets (funnel, risk heatmap, mission board)
+// silently vanish. We now: budget the output, repair-parse, verify section
+// completeness, and retry once when the draft is incomplete.
+
+const REQUIRED_ATLAS_FIELDS = ['career_health_score', 'score_label', 'score_breakdown', 'market_reality_check', 'critical_issues', 'roadmap']
+const ATLAS_ARRAY_SECTIONS = ['funnel_stages', 'risk_heatmap', 'mission_board', 'roadmap', 'critical_issues', 'rejection_factors']
+
+function atlasCompleteness(report) {
+  if (!report || typeof report !== 'object') return 0
+  let score = 0
+  for (const key of REQUIRED_ATLAS_FIELDS) {
+    if (report[key] !== undefined && report[key] !== null) score += 1
+  }
+  for (const key of ATLAS_ARRAY_SECTIONS) {
+    if (Array.isArray(report[key]) && report[key].length > 0) score += 1
+  }
+  return score
+}
+
+function parseAtlasJson(text) {
+  const cleaned = String(text).replace(/```json/g, '').replace(/```/g, '').trim()
+  try {
+    return JSON.parse(cleaned)
+  } catch (_e) {
+    return JSON.parse(jsonrepair(cleaned)) // truncation artifacts
+  }
+}
+
+export { parseAtlasJson, atlasCompleteness }
+
+/**
+ * Fixes common LLM shape deviations so the frontend always gets the contract
+ * shape. Non-Gemini models (nemotron etc.) sometimes return section objects
+ * instead of arrays — e.g. mission_board: {xp_level, missions: [...]} or
+ * funnel_stages: {applications_count: 100, ...}. Coerce to arrays.
+ */
+function normalizeAtlasShapes(report) {
+  if (!report || typeof report !== 'object') return report
+
+  // mission_board: { xp_level, missions: [...] } → lift the missions array
+  if (report.mission_board && !Array.isArray(report.mission_board) && Array.isArray(report.mission_board.missions)) {
+    report.mission_board = report.mission_board.missions
+  }
+
+  for (const key of ATLAS_ARRAY_SECTIONS) {
+    const v = report[key]
+    if (v && !Array.isArray(v) && typeof v === 'object') {
+      // object-of-items → array of {name, ...item}
+      report[key] = Object.entries(v).map(([k, val]) =>
+        val && typeof val === 'object' && !Array.isArray(val) ? { name: k, ...val } : { name: k, value: val }
+      )
+    } else if (v !== undefined && v !== null && !Array.isArray(v)) {
+      report[key] = [v]
+    }
+  }
+
+  // career_journey must be an object — if an array came back, take the first item
+  if (Array.isArray(report.career_journey)) {
+    report.career_journey = report.career_journey[0] || null
+  }
+
+  return report
+}
+
+// Every Atlas call carries this contract — array sections are non-negotiable
+// for the dashboard widgets, and models deviate without it.
+const ATLAS_FORMAT_CONTRACT = `
+
+FORMAT CONTRACT (strict):
+- funnel_stages, risk_heatmap, mission_board, rejection_factors, critical_issues, roadmap, recommended_tools MUST be JSON ARRAYS of objects — never objects with named keys.
+- career_journey MUST be a single object: {"current_phase_id": "...", "guide_message": "..."}.
+- Never wrap arrays inside wrapper objects. Never merge sections. Return every section fully populated.`
+
+async function callAtlas(promptText, extraInstructions = '') {
+  // Phase E-fix: Atlas now routes through the LLM gateway (multi-provider) —
+  // when Gemini capacity/quota fails, NVIDIA/Groq models serve the report.
+  // Explicit output budget prevents the silent section truncation the judge
+  // caught earlier; normalizeAtlasShapes fixes non-Gemini shape deviations.
+  const { text: responseText } = await llmGateway.generate({
+    purpose: 'assessment_report',
+    messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+    responseFormat: 'json_object',
+    temperature: 0.4,
+    maxTokens: 16000,
+    treatLengthAsRetryable: true,
+  })
+  return normalizeAtlasShapes(parseAtlasJson(responseText))
+}
 
 export async function generateReportBundle({ userId, semanticProfile, onProgress = () => {} }) {
   const report = (stage, message) => {
@@ -72,11 +164,7 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
   // Atlas narrative and the agent orchestrator run in parallel (Phase B).
   report('agents_running', 'Resume + LinkedIn agents analyzing in parallel with Atlas…')
 
-  const atlasReportPromise = generateContentWithFallback({
-    contents: promptText,
-    modelName: 'gemini-3.6-flash',
-  })
-
+  // Agents start first (the long pole) and run in parallel with Atlas.
   const agentsPromise = runCareerAgents({
     resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
     resumeName: user.resumeName || '',
@@ -86,12 +174,27 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
     onProgress: (e) => report(`agent_${e.agent}_${e.stage}`, e.message),
   })
 
-  const { text: responseText } = await atlasReportPromise
-
-  report('composing', 'Atlas is composing your executive report…')
-
-  const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
-  let aiReport = JSON.parse(cleanJsonString)
+  // Atlas draft with completeness guard: if the model returns a partial JSON
+  // (missing sections), retry ONCE with an explicit completeness instruction
+  // and keep whichever draft is more complete.
+  let aiReport = await callAtlas(promptText)
+  let draftCompleteness = atlasCompleteness(aiReport)
+  if (draftCompleteness < REQUIRED_ATLAS_FIELDS.length + ATLAS_ARRAY_SECTIONS.length - 2) {
+    report('composing', 'First draft was incomplete — asking Atlas for the full report…')
+    try {
+      const retryDraft = await callAtlas(
+        promptText,
+        '\n\nIMPORTANT: Your previous response was incomplete. Return the COMPLETE JSON object with EVERY section fully populated — especially funnel_stages, risk_heatmap, mission_board, rejection_factors, career_journey, and recommended_tools. Do not skip or shorten any array. If a section is long, prioritize completeness over prose length.'
+      )
+      const retryCompleteness = atlasCompleteness(retryDraft)
+      if (retryCompleteness > draftCompleteness) {
+        aiReport = retryDraft
+        draftCompleteness = retryCompleteness
+      }
+    } catch (retryErr) {
+      console.warn('[ReportGeneration] Atlas completeness retry failed, using first draft:', retryErr.message)
+    }
+  }
 
   // Include structured resume & linkedin json in final report output
   if (user.resumeJson) {
@@ -134,16 +237,21 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
         try {
           const repairNotes = (judge.flags || []).join('; ') || 'Be more specific and warmer; cite the candidate’s actual words.'
           const retryPrompt = `${promptText}\n\nQUALITY NOTES FROM YOUR REVIEWER (fix these in your JSON):\n- ${repairNotes}`
-          const { text: retryText } = await generateContentWithFallback({
-            contents: retryPrompt,
-            modelName: 'gemini-3.6-flash',
-          })
-          const retryReport = JSON.parse(retryText.replace(/```json/g, '').replace(/```/g, '').trim())
-          keepAgentBundle(aiReport, retryReport)
-          aiReport = retryReport
-          regenerated = true
-          judgeRun = await judgeReport(aiReport)
-          judge = judgeRun.result
+          const retryReport = await callAtlas(retryPrompt)
+          // Anti-degradation guard: a regeneration that LOSES sections (truncation,
+          // lazy model) is worse than a below-threshold complete report — keep the
+          // current draft unless the retry is at least as complete.
+          const retryCompleteness = atlasCompleteness(retryReport)
+          if (retryCompleteness >= draftCompleteness) {
+            keepAgentBundle(aiReport, retryReport)
+            aiReport = retryReport
+            draftCompleteness = retryCompleteness
+            regenerated = true
+            judgeRun = await judgeReport(aiReport)
+            judge = judgeRun.result
+          } else {
+            console.warn(`[ReportGeneration] Judge regen less complete (${retryCompleteness} < ${draftCompleteness}) — keeping current draft`)
+          }
         } catch (regenErr) {
           console.warn('[ReportGeneration] Judge-triggered regeneration failed, shipping first draft:', regenErr.message)
         }

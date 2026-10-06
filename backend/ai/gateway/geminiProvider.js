@@ -11,7 +11,7 @@ export class GeminiProvider {
     this.name = 'gemini'
   }
 
-  async generate({ model = 'gemini-3.8-flash', messages, isBenchmark = false, temperature = 0.2, topP = 0.9 }) {
+  async generate({ model = 'gemini-3.8-flash', messages, isBenchmark = false, temperature = 0.2, topP = 0.9, maxTokens = null }) {
     const startTime = Date.now()
     try {
       // Concatenate chat messages into prompt string
@@ -26,6 +26,9 @@ export class GeminiProvider {
       const generationConfig = {}
       if (temperature != null) generationConfig.temperature = temperature
       if (topP != null) generationConfig.topP = topP
+      // Large report JSONs exceed Gemini's default output cap — the gateway
+      // callers that need room pass maxTokens explicitly.
+      if (maxTokens != null) generationConfig.maxOutputTokens = maxTokens
 
       const result = await generateContentWithFallback({
         contents: promptText,
