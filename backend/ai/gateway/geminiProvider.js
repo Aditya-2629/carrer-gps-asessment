@@ -11,7 +11,18 @@ export class GeminiProvider {
     this.name = 'gemini'
   }
 
-  async generate({ model = 'gemini-3.8-flash', messages, isBenchmark = false, temperature = 0.2, topP = 0.9, maxTokens = null }) {
+  async generate({
+    model = process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    messages,
+    isBenchmark = false,
+    temperature = 0.2,
+    topP = 0.9,
+    maxTokens = null,
+    timeoutMs = 30000,
+    totalDeadlineMs = 60000,
+    signal = null,
+    requestId = null,
+  }) {
     const startTime = Date.now()
     try {
       // Concatenate chat messages into prompt string
@@ -19,15 +30,12 @@ export class GeminiProvider {
         .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
         .join('\n\n')
 
-      // In benchmark mode, strictly disable fallback to other models (e.g. gemini-3.6-flash)
-      // Key rotation across GEMINI_API_KEYS still operates to utilize configured quota.
+      // In benchmark mode, strictly disable fallback to other models (e.g. gemini-2.5-flash)
       const fallbackModels = isBenchmark ? [] : undefined
 
       const generationConfig = {}
       if (temperature != null) generationConfig.temperature = temperature
       if (topP != null) generationConfig.topP = topP
-      // Large report JSONs exceed Gemini's default output cap — the gateway
-      // callers that need room pass maxTokens explicitly.
       if (maxTokens != null) generationConfig.maxOutputTokens = maxTokens
 
       const result = await generateContentWithFallback({
@@ -35,6 +43,10 @@ export class GeminiProvider {
         modelName: model,
         fallbackModels,
         generationConfig,
+        timeoutMs,
+        totalDeadlineMs,
+        signal,
+        requestId,
       })
 
       const latencyMs = Date.now() - startTime
@@ -52,7 +64,7 @@ export class GeminiProvider {
         text: result.text.trim(),
         actualModel: result.modelUsed || model,
         finishReason,
-        requestId: null,
+        requestId: requestId || null,
         tokens: {
           prompt: usage?.promptTokenCount ?? null,
           completion: usage?.candidatesTokenCount ?? null,
@@ -62,11 +74,41 @@ export class GeminiProvider {
         rawResponse: result.rawResponse,
       }
     } catch (err) {
+      if (err instanceof ProviderError) {
+        if (!err.provider || err.provider === 'unknown') err.provider = this.name
+        if (!err.model || err.model === 'unknown') err.model = model
+        throw err
+      }
+
       const errMsg = err.message || 'Gemini generation failure'
-      const isRateLimit = errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED')
-      const isUnavailable = errMsg.includes('503') || errMsg.includes('Unavailable') || errMsg.includes('high demand')
-      const isTimeout = errMsg.includes('timeout') || errMsg.includes('408')
-      const isConfigError = errMsg.includes('API_KEY') || errMsg.includes('not found')
+      const isRateLimit =
+        errMsg.includes('429') ||
+        errMsg.includes('402') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('RESOURCE_EXHAUSTED') ||
+        errMsg.includes('Rate limit') ||
+        errMsg.includes('prepayment') ||
+        errMsg.includes('Payment Required') ||
+        errMsg.includes('payment required')
+      const isUnavailable =
+        errMsg.includes('503') ||
+        errMsg.includes('Unavailable') ||
+        errMsg.includes('SERVICE_UNAVAILABLE') ||
+        errMsg.includes('overloaded') ||
+        errMsg.includes('high demand')
+      const isTimeout =
+        errMsg.includes('timeout') ||
+        errMsg.includes('Timeout') ||
+        errMsg.includes('aborted') ||
+        errMsg.includes('408')
+      const isNotFound =
+        errMsg.includes('404') ||
+        errMsg.includes('not found') ||
+        errMsg.includes('is no longer available')
+      const isConfigError =
+        errMsg.includes('api_key') ||
+        errMsg.includes('api key') ||
+        errMsg.includes('no gemini_api_key found')
 
       let code = PROVIDER_ERROR_CODES.SERVER_ERROR
       let statusCode = 500
@@ -74,13 +116,17 @@ export class GeminiProvider {
 
       if (isRateLimit) {
         code = PROVIDER_ERROR_CODES.RATE_LIMIT
-        statusCode = 429
+        statusCode = errMsg.includes('402') || errMsg.includes('prepayment') ? 402 : 429
       } else if (isUnavailable) {
-        code = PROVIDER_ERROR_CODES.SERVER_ERROR
+        code = PROVIDER_ERROR_CODES.SERVICE_UNAVAILABLE
         statusCode = 503
       } else if (isTimeout) {
         code = PROVIDER_ERROR_CODES.TIMEOUT
         statusCode = 408
+      } else if (isNotFound) {
+        code = PROVIDER_ERROR_CODES.MODEL_NOT_FOUND
+        statusCode = 404
+        isRetryable = false
       } else if (isConfigError) {
         code = PROVIDER_ERROR_CODES.PROVIDER_NOT_CONFIGURED
         statusCode = 401

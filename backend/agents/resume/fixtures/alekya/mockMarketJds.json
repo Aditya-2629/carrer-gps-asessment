@@ -1,0 +1,57 @@
+[
+  {
+    "sourceJobId": "alekya_market_01",
+    "title": "Data Analyst & Business Intelligence Specialist",
+    "company": "Apex Retail Group",
+    "location": "Chicago, IL",
+    "description": "Design and maintain high-impact Tableau and Power BI dashboards. Write complex SQL queries against Snowflake and PostgreSQL. 3+ years experience required.",
+    "skills": ["SQL", "Tableau", "Power BI", "Snowflake", "PostgreSQL"],
+    "senioritySignals": ["Technical Ownership"],
+    "responsibilities": ["Design and maintain high-impact Tableau dashboards", "Collaborate with cross-functional leadership"],
+    "fingerprint": "fp_alekya_01"
+  },
+  {
+    "sourceJobId": "alekya_market_02",
+    "title": "Senior BI Analyst",
+    "company": "Horizon Health Data",
+    "location": "Remote",
+    "description": "Build executive dashboards in Tableau. Optimize SQL queries and data models in Snowflake. Experience automating reporting workflows required.",
+    "skills": ["SQL", "Tableau", "Snowflake", "Python"],
+    "senioritySignals": ["Technical Ownership"],
+    "responsibilities": ["Build executive dashboards in Tableau", "Optimize SQL queries and data models in Snowflake"],
+    "fingerprint": "fp_alekya_02"
+  },
+  {
+    "sourceJobId": "alekya_market_03",
+    "title": "Analytics Specialist",
+    "company": "FinEdge Analytics",
+    "location": "New York, NY",
+    "description": "Analyze customer acquisition funnels and cohort retention using SQL and Python. Present data stories using Looker and Tableau.",
+    "skills": ["SQL", "Python", "Tableau", "Looker"],
+    "senioritySignals": ["Cross-functional leadership"],
+    "responsibilities": ["Analyze customer acquisition funnels and cohort retention", "Present findings to executive leadership"],
+    "fingerprint": "fp_alekya_03"
+  },
+  {
+    "sourceJobId": "alekya_market_04",
+    "title": "Business Intelligence Engineer",
+    "company": "Logix Logistics",
+    "location": "Chicago, IL",
+    "description": "Develop automated ETL data pipelines and enterprise dashboards connecting BigQuery and Power BI. 4 years of SQL expertise and data warehouse modeling required.",
+    "skills": ["SQL", "Power BI", "BigQuery", "Python"],
+    "senioritySignals": ["Technical Ownership"],
+    "responsibilities": ["Develop automated ETL pipelines and dashboards", "Ensure high data quality and reliability"],
+    "fingerprint": "fp_alekya_04"
+  },
+  {
+    "sourceJobId": "alekya_market_05",
+    "title": "Data & Reporting Analyst",
+    "company": "Global E-Commerce Group",
+    "location": "Chicago, IL",
+    "description": "Create automated reporting dashboards using Tableau and SQL. Partner with product managers on user engagement metrics and cohort analysis across all business units.",
+    "skills": ["SQL", "Tableau", "Snowflake", "Excel"],
+    "senioritySignals": ["Cross-functional leadership"],
+    "responsibilities": ["Create automated reporting dashboards", "Partner with product managers on user metrics"],
+    "fingerprint": "fp_alekya_05"
+  }
+]

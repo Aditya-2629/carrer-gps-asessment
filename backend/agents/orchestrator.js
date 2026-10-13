@@ -13,15 +13,41 @@
 import crypto from 'crypto'
 import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
+import JobMarketBucket from '../models/JobMarketBucket.js'
 import { ResumeAgent } from './resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from './linkedin/linkedinAgent.js'
 import { LINKEDIN_AGENT } from './core/agentContract.js'
+import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
 const MONGO_CONNECTED = () => mongoose.connection.readyState === 1
 
 const sha256 = (data) => crypto.createHash('sha256').update(String(data)).digest('hex').slice(0, 24)
+
+/**
+ * Computes deterministic analysis cache fingerprint participating in AgentRun deduplication.
+ * Includes resume, target JD, target role, resolved bucket, and marketBucketVersion.
+ * In benchmark mode (cacheMode === 'bypass'), returns null to force evaluation.
+ */
+export function computeAnalysisCacheFingerprint({
+  resumeBuffer = null,
+  resumeText = '',
+  targetJobDescription = '',
+  targetRole = '',
+  bucketKey = '',
+  experienceBucket = '',
+  marketBucketVersion = 0,
+  cacheMode = 'default',
+}) {
+  if (cacheMode === 'bypass') return null
+  const resumeHash = crypto.createHash('sha256').update(resumeBuffer || resumeText || '').digest('hex')
+  const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
+  const bucket = bucketKey || (targetRole && experienceBucket ? `${targetRole}::${experienceBucket}` : 'default')
+  return sha256(
+    `resume:${resumeHash}:jd:${jdHash}:${targetRole}:${bucket}:v:${marketBucketVersion}`
+  )
+}
 
 /**
  * Persists an AgentRun row. Fail-safe: analytics must never break the report.
@@ -72,9 +98,11 @@ export async function runCareerAgents(bundle) {
     resumeBuffer = null,
     resumeName = '',
     resumeTargetRole = '',
+    targetJobDescription = '',
     linkedinData = null,
     userId = null,
     onProgress = null,
+    cacheMode = 'default', // 'default' | 'bypass'
   } = bundle
 
   const jobs = []
@@ -83,10 +111,31 @@ export async function runCareerAgents(bundle) {
   if (resumeBuffer && resumeBuffer.length > 0) {
     jobs.push(
       (async () => {
+        // Resolve market bucket and version for cache fingerprinting (Section 25)
+        let marketBucketVersion = 0
+        let bucketKey = 'default'
+        try {
+          const resolved = resolveMarketBucket({
+            targetRole: resumeTargetRole,
+            targetJobDescription,
+          })
+          bucketKey = resolved.bucketKey
+          if (MONGO_CONNECTED()) {
+            const bucketDoc = await JobMarketBucket.findOne({ bucketKey }).select('activeVersion').lean()
+            marketBucketVersion = bucketDoc?.activeVersion || 0
+          }
+        } catch (_bErr) {
+          /* fallback to 0 */
+        }
+
+        const resumeHash = crypto.createHash('sha256').update(resumeBuffer).digest('hex')
+        const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
         const inputHash = sha256(
-          `resume:${crypto.createHash('sha256').update(resumeBuffer).digest('hex')}:${resumeTargetRole}`
+          `resume:${resumeHash}:jd:${jdHash}:${resumeTargetRole}:${bucketKey}:v:${marketBucketVersion}`
         )
-        const cached = await findCachedRun('resume', inputHash)
+
+        // Cache lookup only when cacheMode !== 'bypass'
+        const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null
         if (cached) {
           if (onProgress) onProgress({ stage: 'cache_hit', agent: 'resume', message: 'Resume Agent: reused cached analysis' })
           await persistRun({
@@ -109,11 +158,12 @@ export async function runCareerAgents(bundle) {
           buffer: resumeBuffer,
           filename: resumeName || 'resume',
           targetRole: resumeTargetRole,
+          targetJobDescription,
         })
 
         await persistRun({
           agent: 'resume',
-          agentVersion: '3.1.0',
+          agentVersion: '3.2.0',
           inputHash,
           userId,
           status: result.success ? 'SUCCESS' : 'AGENT_FAILED',

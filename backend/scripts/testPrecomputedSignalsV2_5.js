@@ -62,13 +62,19 @@ async function runTests() {
   assert(proj002Sig?.hasQuantifier === false, 'proj_002_b01.hasQuantifier === false')
   assert(proj002Sig?.wordCount === 6, `proj_002_b01.wordCount === 6 (got ${proj002Sig?.wordCount})`)
 
-  // 1.2 Contact Merge Signal on summary_001
+  // 1.2 Contact Merge Signal on summary_001 (Clean header separated from summary in V3.3)
   const cm = swapnilSignals.contactMerge
-  assert(cm.isContactMerged === true, 'contactMerge.isContactMerged === true for Swapnil')
-  assert(cm.emailDetected === true, 'contactMerge.emailDetected === true (swapnil.jadhav@example.com)')
-  assert(cm.phoneDetected === true, 'contactMerge.phoneDetected === true ((555) 345-6789)')
-  assert(cm.urlDetected === true, 'contactMerge.urlDetected === true (linkedin.com/in/swapnil-jadhav-dev)')
+  assert(cm.isContactMerged === false, 'contactMerge.isContactMerged === false for Swapnil (header separated cleanly)')
+  assert(cm.emailDetected === false, 'contactMerge.emailDetected === false in summary body')
+  assert(cm.phoneDetected === false, 'contactMerge.phoneDetected === false in summary body')
+  assert(cm.urlDetected === false, 'contactMerge.urlDetected === false in summary body')
   assert(cm.section === 'summary' && cm.bulletId === 'summary_001', 'contactMerge targets summary_001')
+
+  // Direct unit check on computeContactMergeSignal for actual merged text
+  const mergedSynthetic = computeContactMergeSignal('Contact: john@example.com | (555) 123-4567 | linkedin.com/in/john')
+  assert(mergedSynthetic.isContactMerged === true, 'Synthetic merged summary correctly triggers isContactMerged === true')
+  assert(mergedSynthetic.emailDetected === true, 'Synthetic merged summary emailDetected === true')
+  assert(mergedSynthetic.phoneDetected === true, 'Synthetic merged summary phoneDetected === true')
 
   // 1.3 Quantification Rollup on Swapnil
   const qr = swapnilSignals.quantification
@@ -87,11 +93,11 @@ async function runTests() {
   const elenaCanonical = ResumeNormalizer.normalize(elenaDoc, 'Full Stack Engineer')
   const elenaSignals = computePrecomputedSignals(elenaCanonical)
 
-  // 2.1 Contact Merge on Elena
+  // 2.1 Contact Merge on Elena (Clean header separated from summary)
   const elenaCM = elenaSignals.contactMerge
-  assert(elenaCM.isContactMerged === true, 'contactMerge.isContactMerged === true for Elena Rostova')
-  assert(elenaCM.emailDetected === true, 'Elena contactMerge emailDetected === true')
-  assert(elenaCM.urlDetected === true, 'Elena contactMerge urlDetected === true (github.com/erostova)')
+  assert(elenaCM.isContactMerged === false, 'contactMerge.isContactMerged === false for Elena Rostova (header separated cleanly)')
+  assert(elenaCM.emailDetected === false, 'Elena contactMerge emailDetected === false in summary body')
+  assert(elenaCM.urlDetected === false, 'Elena contactMerge urlDetected === false in summary body')
 
   // 2.2 Quantification Rollup on Elena
   const elenaQR = elenaSignals.quantification
@@ -130,7 +136,15 @@ async function runTests() {
   assert(formattedPrompt.includes('PRECOMPUTED SIGNALS (deterministic, do not recompute'), 'Prompt contains precomputed header')
   assert(formattedPrompt.includes('quantification: { totalBullets: 10, quantifiedBullets: 7, density: 0.70 }'), 'Prompt contains quantification line')
   assert(formattedPrompt.includes('proj_002_b01: hasQuantifier=false, technologyCount=5, hasOutcomeVerb=false, isToolDumpCandidate=true'), 'Prompt contains tool dump candidate line')
-  assert(formattedPrompt.includes('contactMerge: { emailDetected=true, phoneDetected=true, urlDetected=true, isContactMerged=true }'), 'Prompt contains contactMerge line')
+  assert(formattedPrompt.includes('contactMerge: { emailDetected=false, phoneDetected=false, urlDetected=false, isContactMerged=false }'), 'Prompt contains clean contactMerge line for Swapnil')
+
+  // Verify synthetic contactMerge formatting
+  const formattedMerged = formatPrecomputedSignalsForPrompt({
+    bulletSignalsList: [],
+    quantification: { totalBullets: 0, quantifiedBullets: 0, density: 0 },
+    contactMerge: { emailDetected: true, phoneDetected: true, urlDetected: true, isContactMerged: true }
+  })
+  assert(formattedMerged.includes('contactMerge: { emailDetected=true, phoneDetected=true, urlDetected=true, isContactMerged=true }'), 'Prompt formats positive contactMerge line accurately')
 
   console.log('\n================================================================')
   console.log(`RESULTS: ${passed} passed, ${failed} failed`)

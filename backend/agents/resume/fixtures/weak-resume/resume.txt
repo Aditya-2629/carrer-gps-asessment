@@ -1,0 +1,27 @@
+Jordan Miller
+jordan.miller@example.com | (555) 789-0123 | Chicago, IL
+
+SUMMARY
+Hardworking software engineer looking to leverage my programming skills in a dynamic full stack development position. Responsible, detail-oriented team player with experience in multiple languages.
+
+SKILLS
+Java, C++, Python, HTML, CSS, JavaScript, React, MySQL, Git, Windows, Linux
+
+EXPERIENCE
+Software Developer | TechSolutions Inc. | Chicago, IL
+June 2022 – Present
+• Responsible for writing code for web applications using JavaScript and React.
+• Assisted senior developers with backend bug fixing and routine database maintenance tasks.
+• Worked with team members in daily agile standup meetings.
+• Handled customer support tickets and investigated client issues in production.
+• Built REST APIs and wrote documentation for team members.
+
+Junior Web Developer | Apex Media Works | Chicago, IL
+August 2021 – May 2022
+• Created landing pages for clients using HTML, CSS, and basic JavaScript.
+• Attended weekly project status meetings with project managers.
+• Updated content and images on WordPress websites.
+• Tested website links and browser compatibility across Chrome and Safari.
+
+EDUCATION
+B.A. in Information Systems | DePaul University | 2017 – 2021

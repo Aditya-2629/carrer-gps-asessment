@@ -1,0 +1,57 @@
+[
+  {
+    "sourceJobId": "swapnil_market_01",
+    "title": "Senior Backend & AI Engineer",
+    "company": "Vektor Dynamics",
+    "location": "San Francisco, CA",
+    "description": "Architect high-performance distributed AI services in Python and FastAPI. Experience with Redis caching, Kafka streaming, and AWS required. Must demonstrate strong system design and technical ownership.",
+    "skills": ["Python", "FastAPI", "Redis", "Kafka", "AWS", "System Design"],
+    "senioritySignals": ["System Design", "Technical Ownership"],
+    "responsibilities": ["Architect high-performance distributed AI services", "Collaborate with data platform engineers"],
+    "fingerprint": "fp_swapnil_01"
+  },
+  {
+    "sourceJobId": "swapnil_market_02",
+    "title": "Senior Full Stack Software Engineer",
+    "company": "Cognitive AI Systems",
+    "location": "San Jose, CA",
+    "description": "Lead full-stack engineering initiatives using React, Node.js, and Python. Build scalable APIs with PostgreSQL, Redis, and Docker. 5+ years experience required.",
+    "skills": ["React", "Node.js", "Python", "PostgreSQL", "Redis", "Docker"],
+    "senioritySignals": ["Lead", "Architecture"],
+    "responsibilities": ["Lead full-stack engineering initiatives", "Implement robust APIs with PostgreSQL and Redis"],
+    "fingerprint": "fp_swapnil_02"
+  },
+  {
+    "sourceJobId": "swapnil_market_03",
+    "title": "Senior AI Systems Engineer",
+    "company": "DeepPulse Labs",
+    "location": "Palo Alto, CA",
+    "description": "Design and build enterprise RAG pipelines, LLM agent tool calling protocols, and vector databases in Python and AWS. Requires 6+ years experience.",
+    "skills": ["Python", "RAG", "LLM", "AWS", "Kafka", "Vector DBs"],
+    "senioritySignals": ["System Design", "Technical Ownership"],
+    "responsibilities": ["Design and build enterprise RAG pipelines", "Scale real-time agent workloads"],
+    "fingerprint": "fp_swapnil_03"
+  },
+  {
+    "sourceJobId": "swapnil_market_04",
+    "title": "Senior Distributed Systems Engineer",
+    "company": "Apex Cloud Infrastructure",
+    "location": "Sunnyvale, CA",
+    "description": "Build high-throughput event processing pipelines using Go, Kafka, and Redis. Ensure high availability, zero-downtime deployments, and SOC2 compliance.",
+    "skills": ["Go", "Kafka", "Redis", "AWS", "Kubernetes", "SOC2"],
+    "senioritySignals": ["Technical Ownership", "Architecture"],
+    "responsibilities": ["Build high-throughput event processing pipelines", "Ensure high availability and zero-downtime deployments"],
+    "fingerprint": "fp_swapnil_04"
+  },
+  {
+    "sourceJobId": "swapnil_market_05",
+    "title": "Staff AI Platform Engineer",
+    "company": "Synthetix AI",
+    "location": "San Francisco, CA",
+    "description": "Drive technical direction for agentic AI orchestration. Proficiency in Python, TypeScript, Docker, and AWS CI/CD pipelines. Mentor mid-level engineers.",
+    "skills": ["Python", "TypeScript", "Docker", "AWS", "CI/CD"],
+    "senioritySignals": ["Mentorship", "Technical Ownership"],
+    "responsibilities": ["Drive technical direction for agentic AI orchestration", "Mentor and guide junior engineers"],
+    "fingerprint": "fp_swapnil_05"
+  }
+]

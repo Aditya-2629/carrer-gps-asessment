@@ -114,6 +114,32 @@ export const MODEL_REGISTRY = {
     enabled: true,
   },
 
+  'gemini-2.5-flash': {
+    id: 'gemini-2.5-flash',
+    displayName: 'Google Gemini 2.5 Flash',
+    provider: 'gemini',
+    purpose: ['resume_analysis', 'assessment_report'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: false, // Disabled: returns HTTP 404 on production projects/credentials
+  },
+
+  'gemini-1.5-flash': {
+    id: 'gemini-1.5-flash',
+    displayName: 'Google Gemini 1.5 Flash (Discontinued)',
+    provider: 'gemini',
+    purpose: ['resume_analysis', 'assessment_report'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: false,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: false,
+  },
+
   'grok-beta': {
     id: 'grok-beta',
     displayName: 'xAI Grok Beta',

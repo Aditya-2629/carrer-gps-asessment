@@ -1,0 +1,14 @@
+Job Title: Senior Data Analyst & BI Specialist
+Company: Omnichannel Consumer Brands
+Location: Chicago, IL (Hybrid)
+Experience: 3-5 years data analysis experience
+
+About The Role:
+We are looking for a Senior Data Analyst to lead our business intelligence initiatives. You will develop automated executive dashboards and write performant SQL against modern cloud data warehouses.
+
+Requirements:
+- 3+ years experience as a Data Analyst or BI Developer.
+- Advanced proficiency in SQL, Tableau, and Snowflake.
+- Experience with dbt or modern data transformation workflows is highly valued.
+- Proven track record communicating insights directly to business stakeholders.
+- Python data manipulation skills (Pandas) preferred.

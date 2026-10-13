@@ -1,0 +1,25 @@
+Alekya Rao
+alekya.rao@example.com | (555) 890-1234 | Chicago, IL | linkedin.com/in/alekya-rao-bi
+
+PROFESSIONAL SUMMARY
+Data Analyst and Business Intelligence Specialist with 4 years of experience transforming complex transactional data into actionable executive dashboards. Expert in SQL modeling, Tableau, Power BI, and Python automation.
+
+TECHNICAL SKILLS
+Analytics & BI: Tableau, Power BI, Looker, Excel (Advanced)
+Databases & Cloud: SQL, PostgreSQL, Snowflake, BigQuery, AWS S3
+Languages & Tools: Python (Pandas, NumPy), Git, JIRA, Agile
+
+PROFESSIONAL EXPERIENCE
+Data Analyst | Pinnacle Retail Analytics | Chicago, IL
+January 2022 – Present
+• Designed automated sales performance dashboard in Tableau and SQL, cutting weekly executive reporting prep from 12 hours to 45 minutes across 8 regional directors.
+• Analyzed customer churn patterns across 450,000 loyalty accounts, isolating 3 key abandonment triggers and improving campaign retention by 14%.
+• Authored optimized PostgreSQL queries reducing batch reporting runtime by 32%.
+
+Junior BI Analyst | MetroLogix Solutions | Austin, TX
+July 2020 – December 2021
+• Built real-time supply chain inventory tracker in Power BI connecting 4 warehouse data sources.
+• Cleansed and standardized historical procurement datasets in Python, validating 120,000+ line items for audit readiness.
+
+EDUCATION
+B.S. in Information Systems | University of Illinois Urbana-Champaign | 2016 – 2020

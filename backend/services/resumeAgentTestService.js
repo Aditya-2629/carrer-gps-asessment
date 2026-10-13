@@ -160,6 +160,7 @@ export class ResumeAgentTestService {
     model,
     inputMode = 'compact_text',
     isSynthetic = false,
+    isBenchmark = false,
     signal = null,
   }) {
     if (!model) {
@@ -271,7 +272,7 @@ export class ResumeAgentTestService {
       model,
       inputMode,
       isSynthetic,
-      isBenchmark: true,
+      isBenchmark: Boolean(isBenchmark),
       documentOverride: parsedDoc,
       canonicalResumeOverride: canonicalResume,
       signal,
@@ -400,15 +401,15 @@ export class ResumeAgentTestService {
     let status = 'success'
     let jsonValid = Boolean(parsedOutput)
     let schemaValid = evalResult.success
-    let evidenceValid = evalResult.success && warnings.length === 0 && unsupportedClaims.length === 0
     let fabricationDetected =
       unsupportedClaims.length > 0 ||
+      (valDetails.v3RewriteViolations && valDetails.v3RewriteViolations.length > 0) ||
       warnings.some(
         (w) =>
-          w.toLowerCase().includes('invent') ||
-          w.toLowerCase().includes('hallucinat') ||
-          w.toLowerCase().includes('unsupported')
+          typeof w === 'string' &&
+          (w.toLowerCase().includes('invented') || w.toLowerCase().includes('hallucinat'))
       )
+    let evidenceValid = evalResult.success && (valDetails.isEvidenceValid !== false) && !fabricationDetected
 
     const classification = evalResult.classification || (evalResult.success ? 'SUCCESS' : 'SCHEMA_VALIDATION_ERROR')
     status = evalResult.status || (evalResult.success ? 'success' : 'failed')
@@ -568,6 +569,7 @@ export class ResumeAgentTestService {
     models = [],
     inputMode = 'compact_text',
     isSynthetic = false,
+    isBenchmark = true,
     signal = null,
   }) {
     if (!Array.isArray(models) || models.length === 0) {
@@ -687,7 +689,7 @@ export class ResumeAgentTestService {
           model: modelId,
           inputMode,
           isSynthetic,
-          isBenchmark: true, // Strict benchmark isolation
+          isBenchmark: Boolean(isBenchmark),
           documentOverride: parsedDoc,
           canonicalResumeOverride: canonicalResume,
           signal,
@@ -794,10 +796,10 @@ export class ResumeAgentTestService {
         let status = 'success'
         let jsonValid = Boolean(parsedOutput)
         let schemaValid = evalResult.success
-        let evidenceValid = evalResult.success && warnings.length === 0
         let fabricationDetected = warnings.some(
-          (w) => w.toLowerCase().includes('invent') || w.toLowerCase().includes('hallucinat')
+          (w) => typeof w === 'string' && (w.toLowerCase().includes('invented') || w.toLowerCase().includes('hallucinat'))
         )
+        let evidenceValid = evalResult.success && (valDetails.isEvidenceValid !== false) && !fabricationDetected
 
         if (!evalResult.success) {
           const isJsonParseFailure = valErrors.some(

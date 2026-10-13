@@ -71,7 +71,7 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
       period: newPeriod,
       per_week: perWeek,
       per_month: perMonth,
-      formatted: newRaw ? `${newRaw} per ${newPeriod}` : '',
+      formatted: newRaw ? `${newRaw}${step.unit ? ` ${step.unit}` : ''} per ${newPeriod}` : '',
       is_na: false,
     })
   }
@@ -166,19 +166,19 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
           onKeyDown={handleKeyDown}
           placeholder={
             step.placeholder
-              ? `${step.placeholder} (${period === 'week' ? 'per week' : 'per month'})`
-              : `e.g., ${period === 'week' ? '15 per week' : '60 per month'}`
+              ? `${step.placeholder} (${step.unit ? `${step.unit} ` : ''}per ${period})`
+              : `e.g., ${period === 'week' ? `15 ${step.unit ? `${step.unit} ` : ''}per week` : `60 ${step.unit ? `${step.unit} ` : ''}per month`}`
           }
           disabled={isNA}
           min={0}
-          className={`premium-input pr-24 ${error ? 'error' : ''}`}
+          className={`premium-input ${step.unit ? 'pr-32' : 'pr-24'} ${error ? 'error' : ''}`}
           aria-label={step.label}
           aria-invalid={!!error}
         />
 
         {/* Units badge */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] px-2 py-1 rounded border border-[var(--border-default)]">
-          /{period}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-xs font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] px-2.5 py-1 rounded border border-[var(--border-default)]">
+          {step.unit ? `${step.unit} / ${period}` : `/${period}`}
         </div>
       </div>
 
@@ -196,8 +196,8 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
               Normalized pace:{' '}
               <strong className="text-[var(--text-primary)]">
                 {period === 'week'
-                  ? `~${Math.round(cleanedNum * 4.33)} / month`
-                  : `~${Math.round((cleanedNum / 4.33) * 10) / 10} / week`}
+                  ? `~${Math.round(cleanedNum * 4.33)} ${step.unit ? `${step.unit} ` : ''}/ month`
+                  : `~${Math.round((cleanedNum / 4.33) * 10) / 10} ${step.unit ? `${step.unit} ` : ''}/ week`}
               </strong>{' '}
               (AI-calibrated)
             </span>

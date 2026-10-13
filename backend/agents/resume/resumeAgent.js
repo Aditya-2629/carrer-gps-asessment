@@ -7,6 +7,7 @@
  */
 
 import { DocumentParser } from '../../services/documentParser/index.js'
+import { DeterministicChunker, ContextBudgetExceededError } from './chunking/deterministicChunker.js'
 import { ResumeNormalizer } from './resumeAgent.normalizer.js'
 import { ResumeAgentPrompt, PROMPT_VERSION as V2_PROMPT_VERSION } from './resumeAgent.prompt.js'
 import { ResumeAgentValidator } from './resumeAgent.validator.js'
@@ -51,12 +52,17 @@ import { classifyAllEvidence, resolveEvidenceConsistency } from './classificatio
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
 import { classifyDomain } from './market/domainClassifier.js'
 import { detectUsMarketSignals } from './market/usMarketSignals.js'
+import { resolveMarketBucket } from './market/marketBucketResolver.js'
+import { getMarketDataForBucket } from './market/marketJdRetriever.js'
+import { evaluateMarketEvidence, isMarketLanguageSafe } from './market/marketEvidence.js'
+import { setMarketContext } from './state/resumeState.js'
 import { computeScorecard } from './scoring/resumeScorecard.js'
 import { RESUME_AGENT } from '../core/agentContract.js'
 import { runAgentLifecycle } from '../core/BaseAgent.js'
 import { generateStructured } from '../core/structuredOutput.js'
 import { registerPrompt } from '../core/promptRegistry.js'
 import { SYNTHESIS_SYSTEM_PROMPT } from './synthesis/resumeSynthesis.prompt.js'
+import { runOrchestratedSynthesis } from './orchestration/orchestrationRunner.js'
 
 // Phase A (kernel): the synthesis prompt lives in the registry so every run
 // is traceable to exact prompt text via hash.
@@ -88,7 +94,12 @@ export class ResumeAgent {
     filename = '',
     resumeText = '',
     targetRole = '',
+    targetJobDescription = '',
+    experienceLevel = '',
+    marketContextOverride = null,
     model = null,
+    orchestrationMode = process.env.RESUME_AGENT_ORCHESTRATION_MODE || 'hybrid_deterministic_reasoning',
+    taskPolicies = {},
     inputMode = 'compact_text',
     isSynthetic = false,
     isBenchmark = false,
@@ -119,6 +130,13 @@ export class ResumeAgent {
       if (!parsedDoc.rawText || !parsedDoc.rawText.trim()) {
         throw new Error('Could not extract readable text from document. Scanned or empty document.')
       }
+
+      // ── Step 1.5: Deterministic Chunking & Deduplication ───────────────────
+      const chunkResult = DeterministicChunker.process(parsedDoc, {
+        safeTokenBudget: 32000,
+        maxSectionChars: 16000,
+      })
+      parsedDoc = chunkResult.parsedDoc
 
       // ── Step 2: Normalize → Canonical Resume ────────────────────────────────
       if (!canonicalResume) {
@@ -227,6 +245,54 @@ export class ResumeAgent {
         })
         state.usMarketSignals = usMarketSignals
 
+        // Step 5.8: Market Intelligence Layer (V3 Market-Aware Analysis)
+        // Resolves canonical Role × Experience bucket, retrieves 5 market JDs or triggers background refresh,
+        // and evaluates comparative evidence without overriding candidate's target JD.
+        const bucketResolution = resolveMarketBucket({
+          targetRole: effectiveRole,
+          targetJobDescription,
+          canonicalResume,
+          resumeText: compactText,
+        })
+
+        let marketData = marketContextOverride
+        if (!marketData) {
+          try {
+            marketData = await getMarketDataForBucket(bucketResolution.bucketKey, { autoRefresh: true })
+          } catch (marketErr) {
+            console.warn('[ResumeAgent] Market lookup failed (non-fatal):', marketErr.message)
+            marketData = { status: 'unavailable', bucketKey: bucketResolution.bucketKey, reason: marketErr.message }
+          }
+        }
+
+        const marketEvidence = evaluateMarketEvidence({
+          canonicalResume,
+          targetJobDescription,
+          marketProfile: marketData?.marketProfile || null,
+        })
+
+        const marketContext = {
+          status: marketData?.status || 'unavailable',
+          role: bucketResolution.roleName,
+          roleKey: bucketResolution.roleKey,
+          experienceBucket: bucketResolution.experienceBucket,
+          bucketKey: bucketResolution.bucketKey,
+          candidateExperienceYears: bucketResolution.candidateExperienceYears,
+          jdExperienceRequirement: bucketResolution.jdExperienceRequirement,
+          marketSampleSize: marketData?.sampleSize || 0,
+          marketVersion: marketData?.version || 0,
+          targetAlignment: marketEvidence.targetAlignment || [],
+          marketEvidenceGaps: marketEvidence.marketEvidenceGaps || [],
+          marketStrengths: marketEvidence.marketStrengths || [],
+          marketSignals: marketData?.marketProfile?.skills?.slice(0, 5) || [],
+          confidence: bucketResolution.confidence,
+          method: bucketResolution.method,
+        }
+
+        setMarketContext(state, marketContext)
+        state.targetJobDescription = targetJobDescription
+        state.marketProfile = marketData?.marketProfile || null
+
         // Step 6: Build Synthesis Messages (compact context only)
         messages = buildSynthesisMessages(state)
         promptVersion = SYNTHESIS_PROMPT_VERSION
@@ -268,6 +334,7 @@ export class ResumeAgent {
           evidenceClassifications: state?.evidenceClassifications || null,
           domainProfile: state?.domainProfile || null,
           usMarketSignals: state?.usMarketSignals || null,
+          marketContext: state?.marketContext || null,
           systemPrompt: sysMsg,
           userPrompt: userMsg,
           fullPrompt: messages.map((m) => `[${m.role.toUpperCase()}]\n${m.content}`).join('\n\n'),
@@ -300,38 +367,73 @@ export class ResumeAgent {
       let finishReason = 'stop'
       const maxSynthesisAttempts = Math.max(1, RESUME_AGENT.retryPolicy.maxAttempts)
 
-      for (let attempt = 1; attempt <= maxSynthesisAttempts; attempt++) {
-        gatewayResponse = await llmGateway.generate({
-          purpose: RESUME_AGENT.purpose,
-          messages,
+      if (
+        useV3Pipeline &&
+        (orchestrationMode === 'specialized_parallel_agents' ||
+          orchestrationMode === 'hybrid_deterministic_reasoning' ||
+          orchestrationMode === 'baseline_single_synthesis')
+      ) {
+        const orchResult = await runOrchestratedSynthesis({
+          mode: orchestrationMode,
+          state,
+          canonicalResume,
+          targetRole: effectiveRole,
+          targetJobDescription,
+          taskPolicies,
           model,
-          isSynthetic,
           isBenchmark,
-          responseFormat: 'json_object',
-          temperature,
-          topP,
-          maxTokens: scaledMaxTokens,
           signal,
         })
-        rawModelOutput = gatewayResponse.text
-        finishReason = gatewayResponse.finishReason || 'stop'
-        if (promptCapture) promptCapture.generation.attempt = attempt
+        rawModelOutput = orchResult.rawModelOutput
+        validation = orchResult.validation || ResumeAgentValidator.validate(rawModelOutput, canonicalResume)
+        finishReason = orchResult.finishReason || 'stop'
+        gatewayResponse = {
+          text: rawModelOutput,
+          actualModel: orchResult.metrics?.model || model,
+          provider: orchResult.metrics?.provider || 'groq',
+          latencyMs: orchResult.metrics?.gatewayLatencyMs ?? orchResult.metrics?.totalDurationMs ?? 0,
+          requestId: orchResult.metrics?.gatewayRequestId || `orch_${Date.now()}`,
+          tokens: {
+            prompt: orchResult.metrics?.inputTokens || 0,
+            completion: orchResult.metrics?.outputTokens || 0,
+            total: orchResult.metrics?.totalTokens || 0,
+          },
+          finishReason,
+        }
+      } else {
+        for (let attempt = 1; attempt <= maxSynthesisAttempts; attempt++) {
+          gatewayResponse = await llmGateway.generate({
+            purpose: RESUME_AGENT.purpose,
+            messages,
+            model,
+            isSynthetic,
+            isBenchmark,
+            responseFormat: 'json_object',
+            temperature,
+            topP,
+            maxTokens: scaledMaxTokens,
+            signal,
+          })
+          rawModelOutput = gatewayResponse.text
+          finishReason = gatewayResponse.finishReason || 'stop'
+          if (promptCapture) promptCapture.generation.attempt = attempt
 
-        if (finishReason === 'length') break // fatal
+          if (finishReason === 'length') break // fatal
 
-        validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
-        if (validation.isValid) break
+          validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
+          if (validation.isValid) break
 
-        if (attempt < maxSynthesisAttempts) {
-          const problems = [...(validation.errors || []), ...(validation.evidenceErrors || [])].slice(0, 8)
-          console.warn(`[ResumeAgent] Synthesis attempt ${attempt} failed validation — retrying with repair note`)
-          messages = [
-            ...messages,
-            {
-              role: 'user',
-              content: `Your previous JSON failed validation. Return the COMPLETE corrected JSON object only. Fix these problems and change nothing that was already valid:\n- ${problems.join('\n- ')}`,
-            },
-          ]
+          if (attempt < maxSynthesisAttempts) {
+            const problems = [...(validation.errors || []), ...(validation.evidenceErrors || [])].slice(0, 8)
+            console.warn(`[ResumeAgent] Synthesis attempt ${attempt} failed validation — retrying with repair note`)
+            messages = [
+              ...messages,
+              {
+                role: 'user',
+                content: `Your previous JSON failed validation. Return the COMPLETE corrected JSON object only. Fix these problems and change nothing that was already valid:\n- ${problems.join('\n- ')}`,
+              },
+            ]
+          }
         }
       }
 
@@ -389,13 +491,46 @@ export class ResumeAgent {
         }
       }
 
-      // ── Step 8 (validation ran inside the kernel retry loop above) ──────────
-      if (!validation || !validation.isValid) {
-        const errorSummary = [...(validation.errors || []), ...(validation.evidenceErrors || [])].join('; ')
-        const isJsonError = (validation.errors || []).some((e) =>
+      // ── Step 8: Evidence Validation & Safe Recovery ─────────────────────────
+      // If validation failed strictly because of evidence errors on a subset of issues,
+      // attempt safe recovery: prune the ungrounded issues if at least 3 valid issues remain.
+      if (
+        validation &&
+        validation.isSchemaValid &&
+        !validation.isEvidenceValid &&
+        Array.isArray(validation.sanitizedAnalysis?.issues)
+      ) {
+        const failingIndices = new Set()
+        for (const err of validation.evidenceErrors || []) {
+          const match = err.match(/^issues\[(\d+)\]/)
+          if (match) failingIndices.add(parseInt(match[1], 10))
+        }
+        if (failingIndices.size > 0 && validation.sanitizedAnalysis.issues.length - failingIndices.size >= 3) {
+          const recoveredIssues = validation.sanitizedAnalysis.issues.filter((_, idx) => !failingIndices.has(idx))
+          console.warn(
+            `[ResumeAgent] Safe recovery applied: pruned ${failingIndices.size} ungrounded issues; ${recoveredIssues.length} valid issues retained.`
+          )
+          const recoveredAnalysis = {
+            ...validation.sanitizedAnalysis,
+            issues: recoveredIssues,
+          }
+          const revalidated = ResumeAgentValidator.validate(recoveredAnalysis, canonicalResume)
+          if (revalidated.isValid) {
+            validation = revalidated
+            validation.warnings.push(
+              `Safe recovery applied: pruned ${failingIndices.size} issues with invalid evidence; ${recoveredIssues.length} verified issues retained.`
+            )
+          }
+        }
+      }
+
+      if (!validation || !validation.isValid || !validation.isEvidenceValid) {
+        const errorSummary = [...(validation?.errors || []), ...(validation?.evidenceErrors || [])].join('; ')
+        const isJsonError = (validation?.errors || []).some((e) =>
           e.toLowerCase().includes('json') || e.toLowerCase().includes('parse')
         )
-        const isEvidenceError = validation.evidenceErrors && validation.evidenceErrors.length > 0
+        const isEvidenceError =
+          !validation?.isEvidenceValid || (validation?.evidenceErrors && validation.evidenceErrors.length > 0)
 
         let failureClassification = 'SCHEMA_VALIDATION_ERROR'
         if (isJsonError) failureClassification = 'INVALID_JSON'
@@ -405,8 +540,8 @@ export class ResumeAgent {
           actualModel: gatewayResponse.actualModel,
           success: false,
           error: { code: failureClassification, message: errorSummary },
-          schemaValid: validation.isSchemaValid ?? false,
-          evidenceValidationValid: validation.isEvidenceValid ?? false,
+          schemaValid: validation?.isSchemaValid ?? false,
+          evidenceValidationValid: false,
           inputMode,
         })
 
@@ -456,6 +591,64 @@ export class ResumeAgent {
         // Claim fabrication check
         const claimResult = validateClaims(parsedAnalysis, canonicalResume)
         v3Violations.push(...claimResult.violations)
+
+        // If claim violations were detected, attempt safe recovery by pruning violating issues if >= 3 remain
+        if (v3Violations.length > 0) {
+          const violatingIssueIndices = new Set()
+          for (const v of v3Violations) {
+            if (typeof v.issueIndex === 'number') violatingIssueIndices.add(v.issueIndex)
+          }
+          if (violatingIssueIndices.size > 0 && parsedAnalysis.issues.length - violatingIssueIndices.size >= 3) {
+            parsedAnalysis.issues = parsedAnalysis.issues.filter((_, idx) => !violatingIssueIndices.has(idx))
+            v3Violations = []
+            validation.warnings.push(
+              `Safe recovery applied: pruned ${violatingIssueIndices.size} issues with claim violations; ${parsedAnalysis.issues.length} verified issues retained.`
+            )
+          }
+        }
+
+        // Hard gate on remaining v3Violations:
+        if (v3Violations.length > 0) {
+          const violationSummary = v3Violations.map((v) => v.message || v.claim || JSON.stringify(v)).join('; ')
+          const failureClassification = 'EVIDENCE_VALIDATION_ERROR'
+          const telemetryRecord = span.finish({
+            actualModel: gatewayResponse.actualModel,
+            success: false,
+            error: { code: failureClassification, message: `Evidence claim validation failed: ${violationSummary}` },
+            schemaValid: Boolean(validation.isSchemaValid),
+            evidenceValidationValid: false,
+            inputMode,
+          })
+          return {
+            success: false,
+            status: failureClassification,
+            classification: failureClassification,
+            error: `Resume analysis evidence claim validation failed: ${violationSummary}`,
+            code: failureClassification,
+            rawModelOutput,
+            metadata: gatewayMetadata,
+            validationDetails: {
+              ...validation,
+              v3RewriteViolations: v3Violations,
+            },
+            canonicalResume,
+            signals,
+            state: state || null,
+            document: parsedDoc,
+            promptCapture,
+            inputMode,
+            inputSerializerVersion: INPUT_SERIALIZER_VERSION,
+            canonicalInputHash,
+            llmInputHash,
+            canonicalInputCharacters,
+            compactInputCharacters,
+            canonicalEstimatedTokens,
+            compactEstimatedTokens,
+            inputSizeReductionPercent,
+            llmInput,
+            telemetry: telemetryRecord,
+          }
+        }
 
         // Recommendation duplication check (§13, §14)
         const recResult = validateRecommendations(parsedAnalysis.issues || [])
@@ -517,10 +710,18 @@ export class ResumeAgent {
         console.warn('[ResumeAgent] Scorecard computation failed:', scoreErr.message)
       }
 
+      const activeMarketContext = state?.marketContext || null
+
       const finalAnalysis = {
         ...parsedAnalysis,
         dashboard,
-        metadata: gatewayMetadata,
+        ...(activeMarketContext ? { marketContext: activeMarketContext } : {}),
+        metadata: {
+          ...gatewayMetadata,
+          agentVersion: '3.2.0',
+          marketProfileVersion: state?.marketProfile?.version || 'none',
+          marketBucketVersion: activeMarketContext?.marketVersion || 0,
+        },
       }
 
       const hasClaimWarnings =
@@ -531,12 +732,13 @@ export class ResumeAgent {
         v3Assumptions.length > 0
 
       const successClassification = hasClaimWarnings ? 'UNSUPPORTED_CLAIM_WARNING' : 'SUCCESS'
+      const isEvidenceGenuinelyValid = Boolean(validation.isEvidenceValid && v3Violations.length === 0)
 
       const telemetryRecord = span.finish({
         actualModel: gatewayResponse.actualModel,
         success: true,
-        schemaValid: true,
-        evidenceValidationValid: validation.warnings.length === 0 && !hasClaimWarnings,
+        schemaValid: Boolean(validation.isSchemaValid),
+        evidenceValidationValid: isEvidenceGenuinelyValid,
         issueCount: finalAnalysis.issues?.length || 0,
         promptTokens: gatewayResponse.tokens?.prompt,
         completionTokens: gatewayResponse.tokens?.completion,
@@ -557,6 +759,7 @@ export class ResumeAgent {
         status: successClassification,
         classification: successClassification,
         analysis: finalAnalysis,
+        marketContext: activeMarketContext,
         rawModelOutput,
         canonicalResume,
         signals,
@@ -610,17 +813,24 @@ export class ResumeAgent {
         },
       }
     } catch (err) {
-      const telemetryRecord = span.finish({ success: false, error: err })
+      const sanitizedMsg = (err.message || 'Resume Agent analysis failed.')
+        .replace(/gsk_[a-zA-Z0-9_-]{8,}/gi, 'gsk_***')
+        .replace(/AIza[a-zA-Z0-9_-]{8,}/gi, 'AIza***')
+        .replace(/bearer\s+[a-zA-Z0-9._-]+/gi, 'Bearer ***')
+
+      const telemetryRecord = span.finish({ success: false, error: { ...err, message: sanitizedMsg } })
+      const isBudgetExceeded = err instanceof ContextBudgetExceededError || err.code === 'CONTEXT_BUDGET_EXCEEDED'
+      const statusClassification = isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'
 
       return {
         success: false,
-        status: 'PROVIDER_ERROR',
-        classification: 'PROVIDER_ERROR',
-        error: err.message || 'Resume Agent analysis failed.',
-        code: err.code || 'PROVIDER_ERROR',
-        statusCode: err.statusCode || 500,
+        status: statusClassification,
+        classification: statusClassification,
+        error: sanitizedMsg,
+        code: err.code || (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'),
+        statusCode: err.statusCode || (isBudgetExceeded ? 413 : 500),
         provider: err.provider || 'gateway',
-        details: err.details || null,
+        details: err.details || (isBudgetExceeded ? { estimatedTokens: err.estimatedTokens, safeTokenBudget: err.safeTokenBudget } : null),
         rawModelOutput,
         metadata: {
           provider: err.provider || 'gateway',

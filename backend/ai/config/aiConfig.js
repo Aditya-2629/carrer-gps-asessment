@@ -120,9 +120,21 @@ export const aiConfig = {
       return parseInt(process.env.GROK_TIMEOUT_MS || '60000', 10)
     },
   },
+  get totalDeadlineMs() {
+    return parseInt(process.env.AI_TOTAL_DEADLINE_MS || '120000', 10)
+  },
   gemini: {
     get defaultModel() {
-      return process.env.GEMINI_MODEL || 'gemini-3.8-flash'
+      return process.env.GEMINI_MODEL || 'gemini-3.6-flash'
+    },
+    get perAttemptTimeoutMs() {
+      return parseInt(process.env.GEMINI_PER_ATTEMPT_TIMEOUT_MS || '30000', 10)
+    },
+    get timeoutMs() {
+      return parseInt(process.env.GEMINI_TIMEOUT_MS || '30000', 10)
+    },
+    get totalDeadlineMs() {
+      return parseInt(process.env.GEMINI_TOTAL_DEADLINE_MS || process.env.AI_TOTAL_DEADLINE_MS || '60000', 10)
     },
   },
   nvidia: {

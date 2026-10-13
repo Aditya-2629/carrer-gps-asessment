@@ -15,6 +15,7 @@ import {
   ArrowsClockwise,
 } from '@phosphor-icons/react'
 import { TOKEN_KEY } from './AdminLogin.jsx'
+import MarketLibrarySection from './MarketLibrarySection.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -465,6 +466,8 @@ export default function AdminPanel({ onLogout }) {
         <StatsRow stats={stats} />
 
         <AgentAnalytics api={api} />
+
+        <MarketLibrarySection api={api} />
 
         <FilterBar filters={filters} setFilters={setFilters} onExport={handleExport} exporting={exporting} />
 

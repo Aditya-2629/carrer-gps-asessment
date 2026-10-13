@@ -47,6 +47,9 @@ export function createResumeState({ documentId = null, parserVersion = null } = 
     // ── Layer 4.5: Precomputed Signals (V2.5 Phase 1) ────────────────────────
     precomputedSignals: null,
 
+    // ── Layer 4.8: Market Context (V3 Market Intelligence) ───────────────────
+    marketContext: null,
+
     // ── Layer 5: Analyser Observations (deterministic code analysers) ─────────
     analyzerObservations: {
       positioning: null,
@@ -151,6 +154,18 @@ export function setSignals(state, signals) {
  */
 export function setPrecomputedSignals(state, precomputedSignals) {
   state.precomputedSignals = precomputedSignals
+  return state
+}
+
+/**
+ * Attaches market intelligence context (V3 Market Intelligence) to state.
+ *
+ * @param {ResumeState} state
+ * @param {Object} marketContext
+ * @returns {ResumeState}
+ */
+export function setMarketContext(state, marketContext) {
+  state.marketContext = marketContext
   return state
 }
 
@@ -263,6 +278,8 @@ export default {
   setCanonicalResume,
   setResumeFacts,
   setSignals,
+  setPrecomputedSignals,
+  setMarketContext,
   setAnalyzerObservations,
   setSynthesisOutput,
   setValidation,

@@ -49,6 +49,40 @@ router.get('/models', (req, res) => {
   })
 })
 
+import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
+import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+
+/**
+ * GET /api/resume-agent/market-context
+ * Returns active market status and bucket info for a given role and experience level.
+ */
+router.get('/market-context', async (req, res) => {
+  try {
+    const targetRole = req.query.role || req.query.targetRole || ''
+    const targetJobDescription = req.query.jd || req.query.targetJobDescription || ''
+    const bucketResolution = resolveMarketBucket({
+      targetRole,
+      targetJobDescription,
+    })
+
+    const marketData = await getMarketDataForBucket(bucketResolution.bucketKey, { autoRefresh: false })
+
+    return res.status(200).json({
+      success: true,
+      marketContext: {
+        status: marketData.status,
+        bucketKey: bucketResolution.bucketKey,
+        role: bucketResolution.roleName,
+        experienceBucket: bucketResolution.experienceBucket,
+        marketVersion: marketData.version || 0,
+        sampleSize: marketData.sampleSize || 0,
+      },
+    })
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+})
+
 /**
  * POST /api/resume-agent/evaluate
  * Evaluates candidate resume via either multipart file upload or direct JSON text.
@@ -56,6 +90,8 @@ router.get('/models', (req, res) => {
 router.post('/evaluate', upload.single('resume'), async (req, res) => {
   try {
     const targetRole = req.body?.targetRole || ''
+    const targetJobDescription = req.body?.targetJobDescription || req.body?.targetJd || ''
+    const experienceLevel = req.body?.experienceLevel || ''
     const model = req.body?.model || null
     const isSynthetic = req.body?.isSynthetic === true || req.body?.isSynthetic === 'true'
     const resumeText = req.body?.resumeText || ''
@@ -74,6 +110,8 @@ router.post('/evaluate', upload.single('resume'), async (req, res) => {
       filename: req.file?.originalname || '',
       resumeText,
       targetRole,
+      targetJobDescription,
+      experienceLevel,
       model,
       isSynthetic,
     })
@@ -91,6 +129,7 @@ router.post('/evaluate', upload.single('resume'), async (req, res) => {
     return res.status(200).json({
       success: true,
       analysis: evaluationResult.analysis,
+      marketContext: evaluationResult.marketContext,
       canonicalResume: evaluationResult.canonicalResume,
       document: evaluationResult.document,
       warnings: evaluationResult.warnings,

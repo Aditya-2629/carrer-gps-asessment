@@ -194,10 +194,9 @@ export const EXPERIENCE = {
     visual: 'support-team',
     icon: '🛡️',
     reaction: {
-      No: 'Independent solo navigator route mapped 🚶',
-      'Working with Freelancer': 'Freelancer collaboration noted 🤝',
-      'C2C Consultancy (Free)': 'C2C corporate pathway logged 🏢',
-      'W2 Fulltime (Paid Consultancy)': 'W2 staffing & placement track recorded 💼',
+      'No (Doing it all by myself — 100% Solo)': 'Independent solo navigator route mapped · 100% autonomy 🚶',
+      'C2C (Free Upfront) — Takes up to 20% cut while you work': 'C2C corporate pathway logged · Commission optimization active 🏢',
+      'W2 Fulltime — Upfront fee + % of your annual package': 'W2 staffing & placement track recorded · Package maximization enabled 💼',
     },
   },
   16: {
@@ -325,7 +324,7 @@ export const EXPERIENCE = {
     sceneTitle: 'Dedicated Sprint Bandwidth',
     chapter: 'Build Your Route',
     title: 'How much time can you realistically invest in changing your career?',
-    helper: 'Choose whether you calculate your dedicated job-search bandwidth per week or per month.',
+    helper: 'Choose whether you calculate your dedicated job-search bandwidth in hours per week or per month.',
     visual: 'time-bank',
     icon: '⏱️',
     presets: {
@@ -509,7 +508,11 @@ export const SEMANTIC_REGISTRY = {
     semanticKey: 'third_party_representation_status',
     questionIntent: 'Identify third-party agency, freelancer recruiter, C2C vendor, or consultancy representation influencing employer direct-hire eligibility.',
     answerType: 'category',
-    possibleValues: ['No', 'Working with Freelancer', 'C2C Consultancy (Free)', 'W2 Fulltime (Paid Consultancy)'],
+    possibleValues: [
+      'No (Doing it all by myself — 100% Solo)',
+      'C2C (Free Upfront) — Takes up to 20% cut while you work',
+      'W2 Fulltime — Upfront fee + % of your annual package',
+    ],
     interpretationRules: 'Third-party representation can introduce non-competes, bill-rate markups, or vendor restrictions that influence placement strategy.'
   },
   appsWeek: {
@@ -901,16 +904,14 @@ const RAW_STEPS = [
     label: EXPERIENCE[15].title,
     sublabel: EXPERIENCE[15].helper,
     options: [
-      'No',
-      'Working with Freelancer',
-      'C2C Consultancy (Free)',
-      'W2 Fulltime (Paid Consultancy)',
+      'No (Doing it all by myself — 100% Solo)',
+      'C2C (Free Upfront) — Takes up to 20% cut while you work',
+      'W2 Fulltime — Upfront fee + % of your annual package',
     ],
     optionIcons: {
-      No: '🚶',
-      'Working with Freelancer': '🤝',
-      'C2C Consultancy (Free)': '🏢',
-      'W2 Fulltime (Paid Consultancy)': '💼',
+      'No (Doing it all by myself — 100% Solo)': '🚶',
+      'C2C (Free Upfront) — Takes up to 20% cut while you work': '🏢',
+      'W2 Fulltime — Upfront fee + % of your annual package': '💼',
     },
     required: true,
     autoAdvance: false,
@@ -1082,7 +1083,7 @@ const RAW_STEPS = [
     sublabel: EXPERIENCE[24].helper,
     options: ['Yes', 'No', 'Not Applicable (Not a Developer)'],
     optionIcons: {
-      Yes: '😰',
+      Yes: '😎',
       No: '💪',
       'Not Applicable (Not a Developer)': '💼',
     },
@@ -1142,6 +1143,7 @@ const RAW_STEPS = [
     id: 26,
     name: 'hoursWeek',
     type: 'quantitative',
+    unit: 'hours',
     label: EXPERIENCE[26].title,
     sublabel: EXPERIENCE[26].helper,
     placeholder: 'e.g., 10',
@@ -1289,6 +1291,7 @@ const RAW_STEPS = [
 export const STEPS = RAW_STEPS.map((step) => ({
   ...step,
   aiSemantics: SEMANTIC_REGISTRY[step.name] || {},
+  unit: step.unit || SEMANTIC_REGISTRY[step.name]?.unit || null,
 }))
 
 /**
@@ -1306,12 +1309,13 @@ export function buildSemanticAssessmentPayload(formData = {}) {
       let qObj = typeof rawVal === 'object' && rawVal !== null ? rawVal : null
       if (!qObj && (typeof rawVal === 'string' || typeof rawVal === 'number')) {
         const num = parseFloat(String(rawVal).replace(/[^0-9.]/g, '')) || 0
+        const unitSuffix = step.unit || semantics.unit ? ` ${step.unit || semantics.unit}` : ''
         qObj = {
           raw: rawVal,
           period: 'week',
           per_week: num,
           per_month: Math.round(num * 4.33),
-          formatted: `${num} per week`,
+          formatted: `${num}${unitSuffix} per week`,
           is_na: false,
         }
       }

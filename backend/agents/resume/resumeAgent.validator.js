@@ -622,7 +622,7 @@ export class ResumeAgentValidator {
     }
 
     // 4. Build Evidence Verification Maps
-    const { bulletMap, textSet, itemMap } = this.buildCanonicalLookup(canonicalResume)
+    const { bulletMap, textSet, itemMap, textToIdMap } = this.buildCanonicalLookup(canonicalResume)
 
     // 5. Validate Issues
     const issues = Array.isArray(analysis.issues) ? analysis.issues : []
@@ -639,6 +639,11 @@ export class ResumeAgentValidator {
     for (let i = 0; i < issues.length; i++) {
       const issue = issues[i]
       const issueIdx = `issues[${i}]`
+
+      if (!issue || typeof issue !== 'object') {
+        errors.push(`${issueIdx}: Expected issue object, received ${typeof issue}.`)
+        continue
+      }
 
       // Validate Severity
       if (!ISSUE_SEVERITIES.includes(issue.severity)) {

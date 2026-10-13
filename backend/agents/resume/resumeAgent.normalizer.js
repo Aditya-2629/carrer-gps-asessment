@@ -3,6 +3,8 @@
  * Converts raw parsed document text into structured Canonical Resume JSON with stable IDs.
  */
 
+import { detectCertifications } from './signals/certificationDetector.js'
+
 export class ResumeNormalizer {
   /**
    * Main normalization function
@@ -22,10 +24,10 @@ export class ResumeNormalizer {
     const projects = this.parseProjects(sections.projects || [])
     const education = this.parseEducation(sections.education || [])
     const skills = this.parseSkills(sections.skills || [])
-    const certifications = this.parseCertifications(sections.certifications || [])
+    const initialCertifications = this.parseCertifications(sections.certifications || [])
     const summary = this.parseSummary(sections.summary || [])
 
-    return {
+    const canonical = {
       document: {
         type: parsedDoc.type || 'text',
         pageCount: parsedDoc.pageCount || 1,
@@ -33,13 +35,22 @@ export class ResumeNormalizer {
         warnings: parsedDoc.warnings || [],
       },
       candidate,
+      header: sections.header || [],
       summary,
       experience,
       projects,
       education,
       skills,
-      certifications,
+      certifications: initialCertifications,
     }
+
+    // Deterministically detect certifications across skills, summary, and experience
+    const detectedCerts = detectCertifications(canonical)
+    if (detectedCerts && detectedCerts.length > 0) {
+      canonical.certifications = detectedCerts
+    }
+
+    return canonical
   }
 
   /**
@@ -98,10 +109,53 @@ export class ResumeNormalizer {
   }
 
   /**
+   * Determines whether a line belongs in the header block (name, contact, links, location, headline)
+   * rather than being part of the summary or body text.
+   */
+  static isContactOrHeaderLine(line) {
+    if (!line || typeof line !== 'string') return false
+    const clean = line.trim()
+    if (!clean) return false
+
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
+    const urlRegex = /(?:https?:\/\/|www\.|linkedin\.com|github\.com|gitlab\.com|portfolio|twitter\.com|x\.com)/i
+
+    // 1. Explicit contact info: email, phone, web link / profile
+    if (emailRegex.test(clean) || phoneRegex.test(clean) || urlRegex.test(clean)) {
+      if (clean.length < 150 || /[|•·/]/.test(clean)) {
+        return true
+      }
+    }
+
+    // 2. Location format: "City, ST", "City, Country", "Postal"
+    const locationRegex = /^[A-Z][a-zA-Z\s]+,\s*([A-Z]{2}|[A-Za-z\s]+)(\s+\d{5}(-\d{4})?)?$/
+    if (locationRegex.test(clean) && clean.length < 60) {
+      return true
+    }
+
+    // 3. Delimited short metadata line (e.g. "San Jose, CA | US Citizen | Full-Time")
+    if (/[|•·]/.test(clean) && clean.length < 100) {
+      return true
+    }
+
+    // 4. Short candidate name or title/headline: length < 60, no full-sentence punctuation at end
+    if (clean.length < 60 && !/[.!?]$/.test(clean) && !clean.includes(';')) {
+      const narrativeSignals = /\b(experience with|proven track record|responsible for|seeking to|passionate about|skilled in|years of experience|results-driven)\b/i
+      if (!narrativeSignals.test(clean)) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
    * Segments lines into major resume sections based on recognizable headings
    */
   static segmentSections(lines) {
     const sections = {
+      header: [],
       summary: [],
       experience: [],
       projects: [],
@@ -111,15 +165,15 @@ export class ResumeNormalizer {
       misc: [],
     }
 
-    let currentSection = 'summary'
+    let currentSection = 'header'
 
     const sectionPatterns = [
-      { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history)$/i },
-      { key: 'projects', regex: /^(projects|technical\s+projects|personal\s+projects|academic\s+projects)$/i },
-      { key: 'education', regex: /^(education|academic\s+background|academics)$/i },
-      { key: 'skills', regex: /^(skills|technical\s+skills|core\s+competencies|technologies)$/i },
-      { key: 'certifications', regex: /^(certifications|licenses|courses|awards)$/i },
-      { key: 'summary', regex: /^(summary|professional\s+summary|profile|about\s+me|objective)$/i },
+      { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history)$/i },
+      { key: 'projects', regex: /^(projects|technical\s+projects|personal\s+projects|academic\s+projects|key\s+projects)$/i },
+      { key: 'education', regex: /^(education|academic\s+background|academics|education\s+and\s+training)$/i },
+      { key: 'skills', regex: /^(skills|technical\s+skills|core\s+competencies|technologies|tools\s+and\s+technologies)$/i },
+      { key: 'certifications', regex: /^(certifications|licenses|courses|awards|certifications\s+and\s+licenses)$/i },
+      { key: 'summary', regex: /^(summary|professional\s+summary|profile|about\s+me|objective|career\s+summary|executive\s+summary)$/i },
     ]
 
     for (const line of lines) {
@@ -138,6 +192,15 @@ export class ResumeNormalizer {
 
       if (matchedSection) {
         currentSection = matchedSection
+      } else if (currentSection === 'header') {
+        // We are before any explicit section heading
+        if (this.isContactOrHeaderLine(line)) {
+          sections.header.push(line)
+        } else {
+          // Narrative prose before first section heading is an unheaded summary
+          currentSection = 'summary'
+          sections.summary.push(line)
+        }
       } else {
         sections[currentSection].push(line)
       }
@@ -154,6 +217,66 @@ export class ResumeNormalizer {
     return {
       text,
       source: { page: 1 },
+    }
+  }
+
+  /**
+   * Helper to parse experience header lines into { role, company, location, dates, startDate, endDate }
+   */
+  static parseExperienceHeader(line1, line2 = null) {
+    const dateRangeRegex = /((?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b)\s*(?:[–—\-–]|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b|present|current|now))/i
+    const roleKeywords = /\b(engineer|developer|architect|manager|lead|director|analyst|scientist|consultant|specialist|designer|intern|administrator|coordinator|programmer|officer|head|vp|president|founder|cto|ceo|cpo)\b/i
+    const locationRegex = /^(?:[A-Za-z\s.]+,\s*(?:[A-Z]{2}|[A-Za-z\s]+)|remote|hybrid|onsite)$/i
+
+    let role = ''
+    let company = ''
+    let location = ''
+    let dates = ''
+    let startDate = ''
+    let endDate = ''
+
+    const allLines = [line1, line2].filter(Boolean)
+    const unconsumedParts = []
+
+    for (const line of allLines) {
+      const dMatch = line.match(dateRangeRegex)
+      if (dMatch) {
+        if (!dates) dates = dMatch[0]
+        const cleanLine = line.replace(dMatch[0], '').replace(/^[|–—\-\s]+|[|–—\-\s]+$/g, '').trim()
+        if (cleanLine) {
+          unconsumedParts.push(...cleanLine.split(/[|•]/).map((s) => s.trim()).filter(Boolean))
+        }
+      } else {
+        unconsumedParts.push(...line.split(/[|•]/).map((s) => s.trim()).filter(Boolean))
+      }
+    }
+
+    if (dates) {
+      const parts = dates.split(/[–—\-–]|(?:\s+to\s+)/i).map((s) => s.trim()).filter(Boolean)
+      startDate = parts[0] || ''
+      endDate = parts[1] || (dates.toLowerCase().includes('present') ? 'Present' : '')
+    }
+
+    for (let i = 0; i < unconsumedParts.length; i++) {
+      const part = unconsumedParts[i]
+      if (!location && locationRegex.test(part)) {
+        location = part
+      } else if (!role && roleKeywords.test(part)) {
+        role = part
+      } else if (!company) {
+        company = part
+      } else if (!role) {
+        role = part
+      }
+    }
+
+    return {
+      role,
+      company: company || line1,
+      location,
+      dates,
+      startDate,
+      endDate,
     }
   }
 
@@ -193,29 +316,28 @@ export class ResumeNormalizer {
           const itemId = `exp_${String(expCounter).padStart(3, '0')}`
           expCounter++
 
+          const parsed = this.parseExperienceHeader(line)
           currentItem = {
             id: itemId,
-            company: line,
-            role: '',
-            startDate: '',
-            endDate: '',
+            company: parsed.company,
+            role: parsed.role,
+            location: parsed.location,
+            startDate: parsed.startDate,
+            endDate: parsed.endDate,
+            dates: parsed.dates,
             bullets: [],
+            _rawHeader1: line,
           }
           items.push(currentItem)
         } else if (currentItem && currentItem.bullets.length === 0) {
-          // If already started an item, second header line might be role or dates
-          if (!currentItem.role) {
-            currentItem.role = line
-          } else {
-            // Treat as bullet if it looks like a sentence
-            const bulletId = `${currentItem.id}_b${String(bulletCounter).padStart(2, '0')}`
-            currentItem.bullets.push({
-              id: bulletId,
-              text: line,
-              source: { page: 1, bbox: null },
-            })
-            bulletCounter++
-          }
+          // Second line of header before bullets (often dates or role)
+          const updated = this.parseExperienceHeader(currentItem._rawHeader1 || currentItem.company, line)
+          currentItem.company = updated.company || currentItem.company
+          currentItem.role = updated.role || currentItem.role
+          currentItem.location = updated.location || currentItem.location
+          currentItem.startDate = updated.startDate || currentItem.startDate
+          currentItem.endDate = updated.endDate || currentItem.endDate
+          currentItem.dates = updated.dates || currentItem.dates
         } else if (currentItem) {
           // Non-bullet line within existing job
           const bulletId = `${currentItem.id}_b${String(bulletCounter).padStart(2, '0')}`
@@ -229,17 +351,26 @@ export class ResumeNormalizer {
           // Create initial experience item if none exists
           const itemId = `exp_${String(expCounter).padStart(3, '0')}`
           expCounter++
+          const parsed = this.parseExperienceHeader(line)
           currentItem = {
             id: itemId,
-            company: line,
-            role: '',
-            startDate: '',
-            endDate: '',
+            company: parsed.company,
+            role: parsed.role,
+            location: parsed.location,
+            startDate: parsed.startDate,
+            endDate: parsed.endDate,
+            dates: parsed.dates,
             bullets: [],
+            _rawHeader1: line,
           }
           items.push(currentItem)
         }
       }
+    }
+
+    // Clean internal temporary fields
+    for (const it of items) {
+      delete it._rawHeader1
     }
 
     return items
@@ -296,11 +427,21 @@ export class ResumeNormalizer {
 
     for (const line of lines) {
       if (line.length > 5) {
+        const parts = line.split(/[|•]/).map((s) => s.trim()).filter(Boolean)
+        let degree = parts[0] || line
+        let institution = parts[1] || ''
+        let year = parts[2] || ''
+
+        if (/\b(?:19|20)\d{2}\b/.test(institution) && !year) {
+          year = institution
+          institution = ''
+        }
+
         education.push({
           id: `edu_${String(eduCounter).padStart(3, '0')}`,
-          degree: line,
-          institution: '',
-          year: '',
+          degree,
+          institution,
+          year,
         })
         eduCounter++
       }

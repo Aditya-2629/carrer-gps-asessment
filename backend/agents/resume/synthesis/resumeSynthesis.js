@@ -20,6 +20,7 @@ import { formatPrecomputedSignalsForPrompt } from '../signals/precomputedSignals
 import { formatSkillGuidanceForPrompt } from '../skillsEngine/index.js'
 import { formatDomainContextForPrompt } from '../market/domainClassifier.js'
 import { formatUsMarketSignalsForPrompt } from '../market/usMarketSignals.js'
+import { formatMarketProfileForPrompt } from '../market/marketProfileBuilder.js'
 
 export { SYNTHESIS_PROMPT_VERSION }
 
@@ -193,6 +194,20 @@ export function buildSynthesisMessages(state) {
 
   if (targetRole) {
     userPrompt += `\n\nTARGET ROLE: ${targetRole}`
+  }
+
+  // Target Job Description (Primary Benchmark — Section 15 priority)
+  if (state.targetJobDescription && state.targetJobDescription.trim()) {
+    userPrompt += `\n\nTARGET JOB DESCRIPTION (Primary Priority Goal):\n${state.targetJobDescription.trim().slice(0, 2500)}`
+  }
+
+  // Sampled Market Intelligence block (V3 Market Intelligence — Section 18)
+  const activeMarketProfile = state.marketProfile || state.marketContext?.marketProfile
+  if (activeMarketProfile) {
+    const marketBlock = formatMarketProfileForPrompt(activeMarketProfile)
+    if (marketBlock) {
+      userPrompt += `\n\n${marketBlock}`
+    }
   }
 
   // Domain Context block (V3.1 — IT vs non-IT impact vocabulary & metric discovery)

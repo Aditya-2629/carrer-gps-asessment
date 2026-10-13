@@ -15,12 +15,16 @@ import { GrokProvider } from './grokProvider.js'
 import { NvidiaProvider } from './nvidiaProvider.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
 import { AITelemetry } from '../telemetry/aiTelemetry.js'
+import { LLMCache, llmCache } from '../cache/llmCache.js'
+import { llmQueue } from '../queue/llmQueue.js'
+import { liteLlmRouter } from './liteLlmRouter.js'
 
 // Production fallback chain in priority order
 export const PRODUCTION_FALLBACK_CHAIN = [
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
-  'gemini-3.8-flash',
+  'nvidia/nemotron-3-super-120b-a12b',
+  process.env.GEMINI_MODEL || 'gemini-3.6-flash',
 ]
 
 export class LLMGateway {
@@ -45,6 +49,8 @@ export class LLMGateway {
    * @param {boolean} [params.isSynthetic=false] - Flag indicating synthetic/anonymized data
    * @param {string} [params.responseFormat='json_object'] - Desired format
    * @param {boolean} [params.isBenchmark=false] - Benchmark flag (STRICTLY disables fallback)
+   * @param {string} [params.contentHash] - Content hash for cache fingerprinting
+   * @param {boolean} [params.bypassCache=false] - Explicitly bypass request cache
    * @param {AbortSignal} [params.signal] - Abort signal
    * @returns {Promise<{ text: string, actualModel: string, latencyMs: number, requestId: string, tokens: object }>}
    */
@@ -59,7 +65,10 @@ export class LLMGateway {
     temperature = 0.2,
     topP = 0.9,
     treatLengthAsRetryable = false,
+    contentHash = null,
+    bypassCache = false,
     signal = null,
+    totalDeadlineMs = null,
   }) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new ProviderError({
@@ -70,7 +79,28 @@ export class LLMGateway {
       })
     }
 
+    const effectiveTotalDeadlineMs = totalDeadlineMs || this.config.totalDeadlineMs || 60000
+    const requestStartTime = Date.now()
+
     const requestedModelId = model || this.config.defaultResumeModel
+
+    // 1. Request Fingerprinting & Cache Lookup
+    let fingerprint = null
+    if (!isBenchmark && !bypassCache && contentHash) {
+      fingerprint = LLMCache.computeFingerprint({
+        purpose,
+        model: requestedModelId,
+        contentHash,
+        responseFormat,
+        temperature,
+      })
+
+      const cached = llmCache.get(fingerprint)
+      if (cached) {
+        console.log(`[LLMGateway] Cache hit for fingerprint ${fingerprint.slice(0, 10)}... (0ms, 0 tokens)`)
+        return cached
+      }
+    }
 
     // In benchmark mode OR when fallback is disabled in config, test ONLY the requested model
     const allowFallback = !isBenchmark && this.config.fallbackEnabled
@@ -92,6 +122,18 @@ export class LLMGateway {
     let lastError = null
 
     for (let i = 0; i < modelsToTry.length; i++) {
+      const remainingDeadlineMs = effectiveTotalDeadlineMs - (Date.now() - requestStartTime)
+      if (remainingDeadlineMs <= 0) {
+        lastError = new ProviderError({
+          code: PROVIDER_ERROR_CODES.TIMEOUT,
+          message: `Total request deadline of ${effectiveTotalDeadlineMs}ms exceeded across fallback chain.`,
+          statusCode: 408,
+          isRetryable: false,
+          details: { timeoutSource: 'total_request_deadline', totalDeadlineMs: effectiveTotalDeadlineMs },
+        })
+        throw lastError
+      }
+
       const currentModelId = modelsToTry[i]
       const modelMetadata = getModel(currentModelId)
 
@@ -138,6 +180,19 @@ export class LLMGateway {
         continue
       }
 
+      // 2. LiteLLMRouter Circuit Breaker Check (Fast Failover)
+      const availability = liteLlmRouter.isProviderAvailable(providerKey)
+      const hasAlternativeProviders = modelsToTry
+        .slice(i + 1)
+        .some((m) => {
+          const meta = getModel(m)
+          return meta && meta.provider !== providerKey && liteLlmRouter.isProviderAvailable(meta.provider).isAvailable
+        })
+      if (allowFallback && !availability.isAvailable && hasAlternativeProviders) {
+        console.warn(`[LLMGateway] Fast-failover: Skipping degraded provider "${providerKey}" (${availability.reason}) in favor of remaining candidates.`)
+        continue
+      }
+
       const span = AITelemetry.startSpan({
         purpose,
         provider: providerKey,
@@ -148,15 +203,44 @@ export class LLMGateway {
         const supportsJsonObject =
           responseFormat === 'json_object' && Boolean(modelMetadata.supportsJsonObject)
 
-        const result = await providerInstance.generate({
-          model: currentModelId,
-          messages,
-          supportsJsonObject,
-          isBenchmark,
-          temperature,
-          topP,
-          ...(maxTokens != null ? { maxTokens } : {}),
+        const configuredTimeout =
+          providerKey === 'gemini'
+            ? (this.config.gemini?.totalDeadlineMs || this.config.gemini?.timeoutMs || 60000)
+            : (this.config[providerKey]?.timeoutMs || 60000)
+        const timeoutMs = Math.min(configuredTimeout, remainingDeadlineMs)
+        const perAttemptTimeoutMs =
+          providerKey === 'gemini'
+            ? (this.config.gemini?.perAttemptTimeoutMs || this.config.gemini?.timeoutMs || 30000)
+            : timeoutMs
+
+        // Provider deadline is bounded slightly within router timeout (1500ms safety buffer)
+        // to allow internal provider error handling and telemetry cleanup before router-level abort
+        const providerDeadlineMs = timeoutMs <= 2000 ? timeoutMs : Math.max(1000, timeoutMs - 1500)
+
+        // 3. Bounded Queue & Rate Limiter Execution
+        const result = await llmQueue.enqueue({
+          provider: providerKey,
           signal,
+          execute: () =>
+            liteLlmRouter.executeWithTimeout(
+              (attemptSignal) =>
+                providerInstance.generate({
+                  model: currentModelId,
+                  messages,
+                  supportsJsonObject,
+                  isBenchmark,
+                  temperature,
+                  topP,
+                  ...(maxTokens != null ? { maxTokens } : {}),
+                  signal: attemptSignal || signal,
+                  timeoutMs: perAttemptTimeoutMs,
+                  totalDeadlineMs: providerDeadlineMs,
+                  requestId: span.requestId,
+                }),
+              timeoutMs,
+              providerKey,
+              signal
+            ),
         })
 
         // Phase E-fix: JSON outputs cut by a token-limit (finishReason 'length')
@@ -173,6 +257,9 @@ export class LLMGateway {
           continue
         }
 
+        // Report success to router circuit breaker
+        liteLlmRouter.reportSuccess(providerKey)
+
         span.finish({
           actualModel: result.actualModel || currentModelId,
           success: true,
@@ -181,7 +268,7 @@ export class LLMGateway {
           totalTokens: result.tokens?.total,
         })
 
-        return {
+        const finalResponse = {
           ...result,
           requestId: span.requestId,
           provider: providerKey,
@@ -189,7 +276,17 @@ export class LLMGateway {
           actualModel: result.actualModel || currentModelId,
           finishReason: result.finishReason || 'stop',
         }
+
+        // Cache valid response
+        if (fingerprint && !isBenchmark) {
+          llmCache.set(fingerprint, finalResponse)
+        }
+
+        return finalResponse
       } catch (err) {
+        // Report failure to circuit breaker
+        liteLlmRouter.reportFailure(providerKey, err)
+
         span.finish({
           success: false,
           error: err,
@@ -202,15 +299,17 @@ export class LLMGateway {
           throw err
         }
 
-        // Production Fallback check: ONLY fallback for transient retryable conditions.
-        // 413 (payload/context too large for this model) also falls back — a bigger
-        // context model in the chain can still succeed.
+        // Production Fallback check: fallback for transient retryable conditions OR model 404 when remaining candidates exist
         const isRetryable =
           err.isRetryable ||
-          [408, 413, 429, 500, 502, 503].includes(err.statusCode) ||
+          [402, 408, 413, 429, 500, 502, 503].includes(err.statusCode) ||
+          (err.statusCode === 404 && i < modelsToTry.length - 1) ||
+          (err.code === PROVIDER_ERROR_CODES.MODEL_NOT_FOUND && i < modelsToTry.length - 1) ||
           err.code === PROVIDER_ERROR_CODES.RATE_LIMIT ||
           err.code === PROVIDER_ERROR_CODES.TIMEOUT ||
-          err.code === PROVIDER_ERROR_CODES.EMPTY_CONTENT
+          err.code === PROVIDER_ERROR_CODES.EMPTY_CONTENT ||
+          err.code === PROVIDER_ERROR_CODES.SERVICE_UNAVAILABLE ||
+          err.code === 'SERVICE_UNAVAILABLE'
 
         if (!isRetryable || i === modelsToTry.length - 1) {
           throw err

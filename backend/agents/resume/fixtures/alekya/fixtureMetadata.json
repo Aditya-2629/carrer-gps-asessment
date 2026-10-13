@@ -1,0 +1,12 @@
+{
+  "role": "Data Analyst & BI Specialist",
+  "experience": "4 years",
+  "expectedBucket": "data-analyst::3-5",
+  "expectedMarketSkills": ["SQL", "Tableau", "Power BI", "Snowflake", "Python"],
+  "forbiddenClaims": [
+    "you don't know",
+    "mandatory for this role",
+    "you will be rejected",
+    "you lack"
+  ]
+}

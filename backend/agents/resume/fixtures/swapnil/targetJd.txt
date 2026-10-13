@@ -1,0 +1,15 @@
+Job Title: Senior AI & Full Stack Software Engineer
+Company: CloudScale AI
+Location: San Jose, CA (Hybrid)
+Experience: Minimum 5+ years of software engineering experience
+
+About The Role:
+We are looking for a Senior AI & Full Stack Engineer to lead the architecture of enterprise LLM agents and distributed APIs. You will design and build high-scale RAG pipelines, microservices, and reactive user interfaces.
+
+Requirements:
+- 5+ years building backend systems and full-stack web applications.
+- Strong proficiency in Python, TypeScript, and Go.
+- Production experience with FastMCP, LangChain, or LLM agent frameworks.
+- Deep knowledge of PostgreSQL, Redis caching, Kafka streaming, and AWS cloud infrastructure.
+- Demonstrated system design ownership and technical leadership.
+- Knowledge of Kubernetes and CI/CD pipelines.

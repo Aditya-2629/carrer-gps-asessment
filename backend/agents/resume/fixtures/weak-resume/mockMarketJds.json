@@ -1,0 +1,47 @@
+[
+  {
+    "sourceJobId": "market_weak_001",
+    "title": "Junior Full Stack Engineer",
+    "company": "AppForge Labs",
+    "location": "Remote",
+    "description": "AppForge is hiring a Junior Full Stack Engineer (0-2 years experience). Responsibilities: Develop features using React and Node.js. Build RESTful APIs and integrate PostgreSQL databases. Write unit tests with Jest. Work closely with product and QA teams in Git workflows. Qualifications: Degree in CS or equivalent, proficiency in JavaScript, React, Node.js, and Git.",
+    "source": "mock_market",
+    "sourceUrl": "https://example.com/jobs/001"
+  },
+  {
+    "sourceJobId": "market_weak_002",
+    "title": "Entry Level Software Developer",
+    "company": "NextGen Systems",
+    "location": "Chicago, IL",
+    "description": "Seeking Entry Level Software Developer with 1 year experience. Responsibilities: Maintain React frontend and Express backend services. Write unit tests, debug customer issues, and collaborate using GitHub. Requirements: Solid JavaScript/TypeScript foundations, familiarity with React, Node.js, and SQL.",
+    "source": "mock_market",
+    "sourceUrl": "https://example.com/jobs/002"
+  },
+  {
+    "sourceJobId": "market_weak_003",
+    "title": "Junior Web Developer",
+    "company": "PixelCraft Studios",
+    "location": "Austin, TX",
+    "description": "PixelCraft seeks a passionate Junior Web Developer (0-2 years). Build responsive user interfaces in React and Tailwind. Integrate RESTful endpoints built in Node.js/Express. Version control with Git. Required: Strong HTML/CSS/JavaScript, React experience, enthusiasm to learn full-stack tools.",
+    "source": "mock_market",
+    "sourceUrl": "https://example.com/jobs/003"
+  },
+  {
+    "sourceJobId": "market_weak_004",
+    "title": "Associate Software Engineer",
+    "company": "DataVibe Analytics",
+    "location": "New York, NY",
+    "description": "DataVibe is hiring an Associate Software Engineer (0-2 years). Responsibilities: Assist in building full-stack analytics dashboards. Implement UI in React/TypeScript, backend endpoints in Node.js, and automated Jest tests. Git version control and code reviews. Requirements: JavaScript/TypeScript, React, Node.js, basic SQL.",
+    "source": "mock_market",
+    "sourceUrl": "https://example.com/jobs/004"
+  },
+  {
+    "sourceJobId": "market_weak_005",
+    "title": "Junior Full Stack Developer",
+    "company": "EchoTech Solutions",
+    "location": "Denver, CO",
+    "description": "Join EchoTech as a Junior Full Stack Developer. Responsibilities: Develop customer-facing web apps using React, Node.js, Express, and MongoDB. Participate in daily standups and Git pull requests. Requirements: 0-2 years experience, strong JavaScript, React, REST APIs, Git, good teamwork.",
+    "source": "mock_market",
+    "sourceUrl": "https://example.com/jobs/005"
+  }
+]

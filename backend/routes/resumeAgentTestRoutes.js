@@ -121,6 +121,8 @@ router.post('/run', upload.single('resume'), async (req, res) => {
       })
     }
 
+    const isBenchmark = req.body?.isBenchmark === true || req.body?.isBenchmark === 'true'
+
     const testResult = await ResumeAgentTestService.runSingleTest({
       buffer: req.file?.buffer || null,
       mimeType: req.file?.mimetype || '',
@@ -130,6 +132,7 @@ router.post('/run', upload.single('resume'), async (req, res) => {
       model,
       inputMode,
       isSynthetic,
+      isBenchmark,
     })
 
     const statusCode = testResult.success ? 200 : testResult.status === 'blocked' ? 422 : 200
@@ -177,6 +180,8 @@ router.post('/compare', upload.single('resume'), async (req, res) => {
       })
     }
 
+    const isBenchmark = req.body?.isBenchmark === true || req.body?.isBenchmark === 'true'
+
     const compareResult = await ResumeAgentTestService.runComparisonTest({
       buffer: req.file?.buffer || null,
       mimeType: req.file?.mimetype || '',
@@ -186,6 +191,7 @@ router.post('/compare', upload.single('resume'), async (req, res) => {
       models,
       inputMode,
       isSynthetic,
+      isBenchmark,
     })
 
     return res.status(200).json(compareResult)

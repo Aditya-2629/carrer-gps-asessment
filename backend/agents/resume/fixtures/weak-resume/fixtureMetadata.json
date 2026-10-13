@@ -1,0 +1,12 @@
+{
+  "role": "Junior Full Stack Developer",
+  "experience": "0-2 years",
+  "expectedBucket": "software-engineer::0-2",
+  "expectedMarketSkills": ["JavaScript", "React", "Node.js", "Git", "TypeScript"],
+  "forbiddenClaims": [
+    "you don't know",
+    "mandatory for this role",
+    "you will be rejected",
+    "you lack"
+  ]
+}

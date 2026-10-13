@@ -1,0 +1,12 @@
+{
+  "role": "Senior AI & Full Stack Engineer",
+  "experience": "5+ years",
+  "expectedBucket": "software-engineer::6-8",
+  "expectedMarketSkills": ["Python", "FastAPI", "Kafka", "Redis", "AWS"],
+  "forbiddenClaims": [
+    "you don't know",
+    "mandatory for this role",
+    "you will be rejected",
+    "you lack"
+  ]
+}

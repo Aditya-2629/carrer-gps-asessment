@@ -64,6 +64,24 @@ export class AITelemetry {
       },
     }
   }
+
+  /**
+   * Standardized observability logging across provider attempts and fallbacks.
+   * Strictly logs only metadata without API keys, resume text, or prompts.
+   */
+  static logAttempt({
+    requestId,
+    model,
+    attempt,
+    durationMs,
+    httpStatus,
+    timeoutSource = null,
+    fallbackOutcome = 'unknown',
+  }) {
+    console.log(
+      `[AITelemetry] ${requestId} | model=${model} | attempt=${attempt} | duration=${durationMs}ms | status=${httpStatus} | timeoutSource=${timeoutSource || 'none'} | outcome=${fallbackOutcome}`
+    )
+  }
 }
 
 export default AITelemetry

@@ -231,7 +231,9 @@ function ResumeAgentTestLabContent() {
         setModels([
           { id: 'openai/gpt-oss-120b', displayName: 'Groq GPT-OSS 120B (Primary)', provider: 'groq', configured: true },
           { id: 'openai/gpt-oss-20b', displayName: 'Groq GPT-OSS 20B (Fallback)', provider: 'groq', configured: true },
-          { id: 'gemini-3.6-flash', displayName: 'Google Gemini 3.8 Flash', provider: 'gemini', configured: true },
+          { id: 'gemini-3.8-flash', displayName: 'Google Gemini 3.8 Flash (Latest)', provider: 'gemini', configured: true },
+          { id: 'gemini-3.7-flash', displayName: 'Google Gemini 3.7 Flash', provider: 'gemini', configured: true },
+          { id: 'gemini-3.6-flash', displayName: 'Google Gemini 3.6 Flash', provider: 'gemini', configured: true },
         ])
       }
     }

@@ -1,0 +1,19 @@
+Title: Junior Full Stack Developer
+Company: CloudScale Dynamics
+Location: Chicago, IL (Hybrid)
+Experience: 0-2 years
+
+About the Role:
+We are seeking an enthusiastic Junior Full Stack Developer to build modern web applications and customer-facing dashboards.
+
+Key Responsibilities:
+- Build frontend interfaces using modern JavaScript (ES6+), React, and Tailwind CSS.
+- Develop backend endpoints using Node.js and Express with PostgreSQL.
+- Write unit tests using Jest and participate in Git code reviews.
+- Collaborate with product designers and senior engineers in daily agile sprints.
+
+Requirements:
+- 0 to 2 years of professional software engineering experience.
+- Strong foundational knowledge of JavaScript, React, and REST APIs.
+- Familiarity with TypeScript and modern version control (Git).
+- Excellent communication and eager attitude to learn in a fast-paced environment.
