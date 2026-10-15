@@ -19,12 +19,18 @@ import { LLMCache, llmCache } from '../cache/llmCache.js'
 import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 
-// Production fallback chain in priority order
+// Production fallback chain in priority order:
+// 1. Primary: Gemini 3.8 Flash (Google)
+// 2. 1st Fallback: GPT-OSS 120B (Groq)
+// 3. 2nd Fallback: GPT-OSS 20B (Groq)
+// 4. 3rd Fallback: Nemotron 3 Super 120B (NVIDIA NIM)
+// 5. 4th Fallback: Gemini 3.6 Flash (Google)
 export const PRODUCTION_FALLBACK_CHAIN = [
+  process.env.RESUME_PRIMARY_MODEL || 'gemini-3.8-flash',
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
   'nvidia/nemotron-3-super-120b-a12b',
-  process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+  'gemini-3.6-flash',
 ]
 
 export class LLMGateway {
@@ -112,10 +118,12 @@ export class LLMGateway {
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
       const chain = new Set([requestedModelId])
+      for (const m of PRODUCTION_FALLBACK_CHAIN.filter((m) => m !== requestedModelId)) {
+        chain.add(m)
+      }
       if (!model) {
         for (const m of listModelsForPurpose(purpose)) chain.add(m.id)
       }
-      for (const m of PRODUCTION_FALLBACK_CHAIN.filter((m) => m !== requestedModelId)) chain.add(m)
       modelsToTry = Array.from(chain)
     }
 

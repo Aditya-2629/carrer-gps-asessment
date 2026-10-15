@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { FileText, Sparkle, CheckCircle, WarningCircle, ArrowRight, Printer, ListChecks, ArrowLeft } from '@phosphor-icons/react'
 import ResumeScoreCard from '../components/report/ResumeScoreCard.jsx'
 import ResumeBulletAudit from '../components/report/ResumeBulletAudit.jsx'
+import brandLogo from '../assets/images/crafture-logo.jpg'
 
 const STORAGE_KEY = 'craftureResumeReport'
 
@@ -31,7 +32,11 @@ export default function ResumeReportPage() {
     return (
       <div className="min-h-screen bg-slate-100 text-slate-700 flex items-center justify-center p-6 font-sans">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center space-y-4">
-          <FileText size={36} className="text-indigo-500 mx-auto" />
+          <img
+            src={brandLogo}
+            alt="Crafture"
+            className="w-12 h-12 rounded-xl object-cover border border-slate-200 mx-auto shadow-sm"
+          />
           <h1 className="text-lg font-bold text-slate-900">No Report Loaded</h1>
           <p className="text-xs text-slate-500 leading-relaxed">
             Run a resume analysis in the Test Lab and click &ldquo;Open Full Report&rdquo; to view the polished
@@ -94,7 +99,11 @@ export default function ResumeReportPage() {
         <header className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 sm:p-8 print:shadow-none print:border-slate-300 print:rounded-none print:break-inside-avoid">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold text-lg print:bg-slate-900">C</div>
+              <img
+                src={brandLogo}
+                alt="Crafture"
+                className="w-10 h-10 rounded-xl object-cover border border-slate-200 print:border-slate-300 shadow-sm"
+              />
               <div>
                 <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-500 print:text-indigo-700">Crafture Career GPS</div>
                 <div className="text-xs text-slate-400 font-medium">Resume Diagnosis Report</div>
@@ -112,11 +121,27 @@ export default function ResumeReportPage() {
           <div className="mt-6 pt-6 border-t border-slate-100 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{snapshot.name || 'Candidate'}</h1>
-              <p className="text-sm text-slate-500 mt-1.5">
-                Target: <span className="font-semibold text-slate-700">{snapshot.targetRole || '—'}</span>
-                {snapshot.experienceLevel && <span className="text-slate-300"> · </span>}
-                {snapshot.experienceLevel}
-              </p>
+              <div className="text-sm text-slate-500 mt-1.5 flex flex-wrap items-center gap-x-2">
+                <span>Target: <strong className="font-semibold text-slate-800">{snapshot.targetRole || '—'}</strong></span>
+                {snapshot.presentRole && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span>Current: <strong className="font-semibold text-emerald-700">{snapshot.presentRole}{snapshot.presentCompany ? ` @ ${snapshot.presentCompany}` : ''}</strong></span>
+                  </>
+                )}
+                {snapshot.pastRoles && snapshot.pastRoles.length > 0 && snapshot.pastRoles[0]?.role && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span>Prev: <span className="font-medium text-slate-600">{snapshot.pastRoles[0].role}{snapshot.pastRoles[0].company ? ` @ ${snapshot.pastRoles[0].company}` : ''}</span></span>
+                  </>
+                )}
+                {snapshot.experienceLevel && (
+                  <>
+                    <span className="text-slate-300">·</span>
+                    <span>{snapshot.experienceLevel}</span>
+                  </>
+                )}
+              </div>
               {snapshot.primaryProfile && <p className="text-xs text-slate-400 mt-0.5">{snapshot.primaryProfile}</p>}
             </div>
             <div className="text-right text-[11px] text-slate-400 leading-relaxed">
@@ -158,17 +183,22 @@ export default function ResumeReportPage() {
               What's Working ({strengths.length})
             </SectionTitle>
             <div className="space-y-3">
-              {strengths.map((s, i) => (
-                <div key={s.id || i} className="print-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-3.5">
-                  <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-slate-900">{s.title}</div>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">{s.description}</p>
+              {strengths.map((s, i) => {
+                const isObj = typeof s === 'object' && s !== null
+                const title = isObj ? (s.title || 'Key Strength') : String(s || '')
+                const desc = isObj ? (s.description || s.text || '') : ''
+                return (
+                  <div key={isObj ? s.id || i : i} className="print-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-3.5">
+                    <span className="w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center text-xs font-bold shrink-0">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-900">{title}</div>
+                      {desc && <p className="text-xs text-slate-500 mt-1 leading-relaxed">{desc}</p>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         )}

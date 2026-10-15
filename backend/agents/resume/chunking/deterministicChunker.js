@@ -86,10 +86,19 @@ export class DeterministicChunker {
             continue
           }
           seenBulletSignatures.add(normalizedBullet)
-        } else if (seenExactLines.has(lower)) {
-          // 3. Exact non-bullet line repetition (repeated headers, email, phone, section titles across pages)
-          duplicatesRemoved++
-          continue
+        } else {
+          // 3. Only deduplicate true header/contact lines repeated across page breaks (never drop identical job titles, skills, or locations)
+          const isContactOrHeader =
+            /@/.test(line) ||
+            /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/.test(line) ||
+            /linkedin\.com/i.test(line) ||
+            /github\.com/i.test(line) ||
+            /^(?:curriculum\s+vitae|resume)$/i.test(line.trim())
+
+          if (isContactOrHeader && seenExactLines.has(lower)) {
+            duplicatesRemoved++
+            continue
+          }
         }
 
         seenExactLines.add(lower)

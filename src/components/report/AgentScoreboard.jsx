@@ -51,6 +51,22 @@ export default function AgentScoreboard({ reportData }) {
   const resumeDash = reportData?.resume_agent?.dashboard
   const linkedin = reportData?.linkedin_agent
 
+  const resumeScore = typeof resumeDash?.score === 'number'
+    ? resumeDash.score
+    : (typeof reportData?.resume_json?.ats_score === 'number'
+        ? reportData.resume_json.ats_score
+        : (typeof reportData?.scores?.resume?.score === 'number'
+            ? reportData.scores.resume.score
+            : (typeof reportData?.scores?.resume === 'number' ? reportData.scores.resume : null)))
+
+  const resumeGrade = resumeDash?.grade || (resumeScore !== null ? (resumeScore >= 85 ? 'A' : resumeScore >= 70 ? 'B' : resumeScore >= 55 ? 'C' : resumeScore >= 40 ? 'D' : 'F') : null)
+
+  const hasResumeData = Boolean(
+    resumeDash ||
+    reportData?.resume_agent ||
+    (reportData?.resume_json && resumeScore !== null)
+  )
+
   const agents = [
     careerScore !== null && {
       id: 'snapshot',
@@ -61,13 +77,13 @@ export default function AgentScoreboard({ reportData }) {
       grade: careerScore >= 85 ? 'A' : careerScore >= 70 ? 'B' : careerScore >= 55 ? 'C' : careerScore >= 40 ? 'D' : 'F',
       cta: 'View snapshot',
     },
-    resumeDash && {
+    hasResumeData && resumeScore !== null && {
       id: 'resume-ai',
       name: 'Resume Agent',
       desc: 'Line-by-line resume audit + rewrites',
       icon: <FileText size={20} weight="fill" className="text-emerald-500" />,
-      score: resumeDash.score,
-      grade: resumeDash.grade,
+      score: resumeScore,
+      grade: resumeGrade || 'B',
       cta: 'View diagnosis',
     },
     linkedin?.dataAvailable && {

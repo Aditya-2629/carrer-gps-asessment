@@ -42,7 +42,7 @@ function extractFactTokens(text) {
 function buildSourceFactTokens(canonicalResume) {
   const tokens = new Set()
   const addText = (text) => {
-    if (text) extractFactTokens(text).forEach((t) => tokens.add(t))
+    if (text) extractFactTokens(String(text)).forEach((t) => tokens.add(t))
   }
 
   const summaryText =
@@ -54,12 +54,27 @@ function buildSourceFactTokens(canonicalResume) {
   for (const exp of (canonicalResume.experience || [])) {
     addText(exp.company)
     addText(exp.role)
+    addText(exp.dates)
+    addText(exp.startDate)
+    addText(exp.endDate)
     for (const b of (exp.bullets || [])) addText(b.text)
   }
 
   for (const proj of (canonicalResume.projects || [])) {
     addText(proj.title)
+    addText(proj.dates)
     for (const b of (proj.bullets || [])) addText(b.text)
+  }
+
+  for (const edu of (canonicalResume.education || [])) {
+    addText(edu.institution)
+    addText(edu.degree)
+    addText(edu.dates)
+    addText(edu.year)
+  }
+
+  if (canonicalResume.rawText) {
+    addText(canonicalResume.rawText)
   }
 
   return tokens
@@ -73,12 +88,19 @@ function buildSourceFactTokens(canonicalResume) {
  * @param {string} location - For error reporting
  * @returns {Array<string>} violations
  */
-function validateTextClaims(text, sourceTokens, location) {
+function validateTextClaims(text, sourceTokens, location, canonicalResume = null) {
   if (!text) return []
   const violations = []
   const generatedTokens = extractFactTokens(text)
   for (const token of generatedTokens) {
     if (!sourceTokens.has(token)) {
+      // Allow 4-digit calendar year if present anywhere in canonicalResume
+      if (/^(?:19|20)\d{2}$/.test(token) && canonicalResume) {
+        const resumeStr = JSON.stringify(canonicalResume)
+        if (resumeStr.includes(token)) {
+          continue
+        }
+      }
       violations.push(`[${location}] Fabricated metric or claim detected: "${token}" not found in source resume`)
     }
   }
@@ -102,24 +124,25 @@ export function validateClaims(parsedAnalysis, canonicalResume) {
   allViolations.push(...validateTextClaims(
     parsedAnalysis.overallReview?.summary,
     sourceTokens,
-    'overallReview.summary'
+    'overallReview.summary',
+    canonicalResume
   ))
 
   // Strengths
   for (const str of (parsedAnalysis.strengths || [])) {
-    allViolations.push(...validateTextClaims(str.description, sourceTokens, `${str.id}.description`))
+    allViolations.push(...validateTextClaims(str.description, sourceTokens, `${str.id}.description`, canonicalResume))
   }
 
   // Issues
   for (const iss of (parsedAnalysis.issues || [])) {
-    allViolations.push(...validateTextClaims(iss.diagnosis, sourceTokens, `${iss.id}.diagnosis`))
-    allViolations.push(...validateTextClaims(iss.recommendation, sourceTokens, `${iss.id}.recommendation`))
-    allViolations.push(...validateTextClaims(iss.correctedText, sourceTokens, `${iss.id}.correctedText`))
+    allViolations.push(...validateTextClaims(iss.diagnosis, sourceTokens, `${iss.id}.diagnosis`, canonicalResume))
+    allViolations.push(...validateTextClaims(iss.recommendation, sourceTokens, `${iss.id}.recommendation`, canonicalResume))
+    allViolations.push(...validateTextClaims(iss.correctedText, sourceTokens, `${iss.id}.correctedText`, canonicalResume))
   }
 
   // Priority actions
   for (const pa of (parsedAnalysis.priorityActions || [])) {
-    allViolations.push(...validateTextClaims(pa.action, sourceTokens, `priority_${pa.priority}.action`))
+    allViolations.push(...validateTextClaims(pa.action, sourceTokens, `priority_${pa.priority}.action`, canonicalResume))
   }
 
   return {

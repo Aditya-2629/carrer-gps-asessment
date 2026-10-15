@@ -34,7 +34,7 @@ function pushEvent(job, stage, message) {
 // ─── Create job ──────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
-    const { userId, semanticProfile } = req.body || {}
+    const { userId, semanticProfile, precomputedResumeAgent, precomputedResumeJson } = req.body || {}
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: 'Valid userId is required.' })
     }
@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
 
     const job = await ReportJob.create({ userId, status: 'queued' })
     // Fire-and-forget worker — the client is streaming, not waiting on this
-    processJob(job._id.toString(), userId, parsedProfile)
+    processJob(job._id.toString(), userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson })
 
     return res.status(202).json({ success: true, jobId: job._id.toString() })
   } catch (err) {
@@ -66,7 +66,7 @@ router.post('/', async (req, res) => {
 // ─── Worker ──────────────────────────────────────────────────────────────────
 const running = (globalThis.__reportJobRunning ||= new Set())
 
-async function processJob(jobId, userId, semanticProfile) {
+async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
   try {
@@ -79,6 +79,8 @@ async function processJob(jobId, userId, semanticProfile) {
     const { aiReport } = await generateReportBundle({
       userId,
       semanticProfile,
+      precomputedResumeAgent: options.precomputedResumeAgent || null,
+      precomputedResumeJson: options.precomputedResumeJson || null,
       onProgress: ({ stage, message }) => pushEvent(job, stage, message),
     })
 

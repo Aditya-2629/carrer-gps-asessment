@@ -216,7 +216,7 @@ const MOCK_REPORT = {
           "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
           "text": "Assisted senior developers with backend bug fixing and routine database maintenance tasks.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Opens with weak/supporting phrasing ('Assisted') — start with a strong ownership action verb (e.g., Architected, Engineered, Automated, Spearheaded)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -249,7 +249,7 @@ const MOCK_REPORT = {
           "itemName": "Software Developer | TechSolutions Inc. | Chicago, IL",
           "text": "Built REST APIs and wrote documentation for team members.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -260,7 +260,7 @@ const MOCK_REPORT = {
           "itemName": "Experience",
           "text": "Created landing pages for clients using HTML, CSS, and basic JavaScript.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -271,7 +271,7 @@ const MOCK_REPORT = {
           "itemName": "Experience",
           "text": "Attended weekly project status meetings with project managers.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -282,7 +282,7 @@ const MOCK_REPORT = {
           "itemName": "Experience",
           "text": "Updated content and images on WordPress websites.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -293,7 +293,7 @@ const MOCK_REPORT = {
           "itemName": "Experience",
           "text": "Tested website links and browser compatibility across Chrome and Safari.",
           "status": "warn",
-          "reason": "No number and no outcome verb — the work is invisible at a glance",
+          "reason": "Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)",
           "rewrite": null,
           "issueId": null,
           "category": null
@@ -583,7 +583,7 @@ const MOCK_REPORT = {
     visa_status: 'F-1 OPT (STEM Extension)',
     contact: { email: 'arjun.mehta@example.com', phone: '+1 (555) 234-5678', location: 'San Francisco, CA' },
     top_skills: ['React.js', 'Node.js', 'TypeScript', 'GraphQL', 'AWS (EC2/S3)', 'MongoDB', 'Docker', 'PostgreSQL'],
-    missing_ats_keywords: ['Quantified ROI Metrics', 'Kubernetes Orchestration', 'STAR Achievement Bullets', 'CI/CD Automation'],
+    missing_ats_keywords: [],
     ats_score: 68,
     strengths: [
       'Strong modern JavaScript/TypeScript framework ecosystem and full-stack API design',
@@ -811,9 +811,12 @@ function ReportDashboardContent() {
     )
   }
 
+  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+
   // Case 2: Assessment completed + verified, but report generation pending
-  const hasAssessmentData = Boolean(formData && Object.keys(formData).length >= 5)
-  if (!storeReportData && !isMockPreview && userId && hasAssessmentData) {
+  const hasResumeData = Boolean(storeResumeAnalysis?.data || storeResumeAnalysis?.status === 'completed')
+  const hasAssessmentData = Boolean(formData && Object.keys(formData).length > 0)
+  if (!storeReportData && !isMockPreview && userId && (hasAssessmentData || hasResumeData || email)) {
     return <AnalysisLoader />
   }
 
@@ -850,11 +853,44 @@ function ReportDashboardContent() {
   const reportData = storeReportData || (isMockPreview ? MOCK_REPORT : null)
   if (!reportData) return null
 
-  const rawName = reportData.resume_json?.candidate_name || reportData.resume_json?.name || reportData.candidate_name
-  const candidateName = typeof rawName === 'string' ? rawName : (typeof rawName === 'object' ? (rawName?.name || 'Candidate') : 'Candidate')
+  // Gracefully merge background resume agent analysis if not already attached on reportData
+  if (!reportData.resume_agent && storeResumeAnalysis?.data?.analysis) {
+    reportData.resume_agent = storeResumeAnalysis.data.analysis
+  }
+  if (!reportData.resume_json && storeResumeAnalysis?.data?.canonicalResume) {
+    reportData.resume_json = storeResumeAnalysis.data.canonicalResume
+  }
 
-  const rawRole = reportData.resume_json?.target_role || reportData.target_role
-  const targetRole = typeof rawRole === 'string' ? rawRole : 'Senior Full Stack Engineer'
+  // Resolve Candidate Name dynamically from all possible resume & assessment sources
+  const rawName =
+    reportData.resume_agent?.candidateSnapshot?.name ||
+    reportData.resume_json?.candidate?.name ||
+    reportData.resume_json?.candidate_name ||
+    reportData.resume_json?.name ||
+    reportData.candidate_name ||
+    formData?.name ||
+    formData?.fullName ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.name ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.name ||
+    (email ? email.split('@')[0] : '')
+
+  const candidateName = typeof rawName === 'string' ? rawName.trim() : (rawName?.name || '')
+
+  // Resolve Target Role dynamically from all possible resume & assessment sources
+  const rawRole =
+    reportData.resume_agent?.candidateSnapshot?.targetRole ||
+    reportData.resume_json?.candidate?.targetRole ||
+    reportData.resume_json?.target_role ||
+    reportData.target_role ||
+    formData?.targetRole ||
+    formData?.target_role ||
+    formData?.desiredRole ||
+    formData?.role ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
+    ''
+
+  const targetRole = typeof rawRole === 'string' ? rawRole.trim() : ''
 
 
   const handleBookCall = async () => {
@@ -956,6 +992,9 @@ function ReportDashboardContent() {
         {/* SECTION B: CAREER HEALTH SNAPSHOT */}
         <CareerHealthSnapshot
           scores={reportData.scores || reportData.score_breakdown}
+          resumeAgent={reportData.resume_agent}
+          resumeJson={reportData.resume_json}
+          reportData={reportData}
           onNavigateSection={handleNavigateSection}
         />
 
@@ -966,7 +1005,11 @@ function ReportDashboardContent() {
         />
 
         {/* SECTION D: WHAT IS WORKING (COMPACT STRENGTHS) */}
-        <WhatIsWorking resumeJsonData={reportData.resume_json} />
+        <WhatIsWorking
+          resumeJsonData={reportData.resume_json}
+          resumeAgent={reportData.resume_agent}
+          reportData={reportData}
+        />
 
         {/* SECTION D2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
         <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
@@ -976,8 +1019,9 @@ function ReportDashboardContent() {
 
         {/* SECTION E: WHERE YOU ARE LOSING OPPORTUNITIES (PRIORITIZED + RESUME EVIDENCE) */}
         <OpportunitiesList
-          issues={reportData.critical_issues}
+          issues={reportData.critical_issues?.length ? reportData.critical_issues : (reportData.resume_agent?.issues || [])}
           resumeJsonData={reportData.resume_json}
+          resumeAgent={reportData.resume_agent}
         />
 
         {/* FUNNEL JOURNEY + WHY AREN'T INTERVIEWS CONVERTING + RISK RADAR */}
@@ -993,6 +1037,8 @@ function ReportDashboardContent() {
         {/* SECTION F: TOP PRIORITIES (WHAT TO FIX FIRST) */}
         <TopPriorities
           missionBoardData={reportData.mission_board}
+          resumeAgent={reportData.resume_agent}
+          reportData={reportData}
           onNavigateSection={handleNavigateSection}
         />
 

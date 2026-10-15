@@ -10,40 +10,77 @@ import {
   CaretUp,
 } from '@phosphor-icons/react'
 
-export default function TopPriorities({ missionBoardData, onNavigateSection }) {
+export default function TopPriorities({ missionBoardData, resumeAgent, reportData, onNavigateSection }) {
   const [showAll, setShowAll] = useState(false)
 
-  const PRIORITIES = [
+  const DEFAULT_PRIORITIES = [
     {
       num: '01',
       title: 'ATS Resume Overhaul & Achievement Bullets',
-      why: '75% of applications are rejected by ATS filters before a human recruiter ever sees them.',
-      action: 'Rewrite your top 3 experience bullets with quantified metrics using the Google STAR/XYZ formula.',
-      expectedDirection: 'Immediate 2-3x increase in initial recruiter screening calls within 14 days.',
+      why: 'Applications without quantified metrics get filtered out before human recruiter review.',
+      action: 'Rewrite top experience bullets with quantified metrics and measurable outcomes.',
+      expectedDirection: 'Immediate increase in initial recruiter screening calls within 14 days.',
       targetSection: 'opportunities',
       impact: 'Highest Impact',
     },
     {
       num: '02',
-      title: 'Direct Tech Recruiter Outreach Blitz',
-      why: '80% of senior and mid-level roles are filled before they ever reach public Easy Apply boards.',
-      action: 'Identify and send personalized value propositions to 5 target recruiters weekly.',
-      expectedDirection: 'Bypass the high-volume candidate backlog and secure fast-track interviews.',
+      title: 'Targeted Recruiter & Hiring Manager Outreach',
+      why: 'Proactive outreach bypasses high-volume job board queues and secures direct conversations.',
+      action: 'Identify and send concise, value-focused messages to relevant recruiters weekly.',
+      expectedDirection: 'Faster initial screening and direct interview scheduling.',
       targetSection: 'diagnosis',
       tab: 'linkedin',
       impact: 'High Impact',
     },
     {
       num: '03',
-      title: 'Align LinkedIn Profile Keywords for Inbound Search',
-      why: 'Corporate recruiters search LinkedIn daily using role-specific algorithmic skill filters.',
-      action: 'Update headline, about section, and top 5 skills to match your target role requirements.',
-      expectedDirection: 'Inbound recruiter search appearances up 40% in your local market.',
+      title: 'Align Profile Keywords for Inbound Search',
+      why: 'Corporate recruiters search daily using specific skill and title filters.',
+      action: 'Update headline, summary, and core skills to align with target role requirements.',
+      expectedDirection: 'Higher appearance in relevant recruiter searches.',
       targetSection: 'diagnosis',
       tab: 'linkedin',
       impact: 'High Impact',
     },
   ]
+
+  const agentActions = Array.isArray(resumeAgent?.priorityActions) && resumeAgent.priorityActions.length > 0
+    ? resumeAgent.priorityActions.filter(Boolean).map((pa, i) => {
+        const isObj = typeof pa === 'object' && pa !== null
+        return {
+          num: String(isObj ? (pa.priority || i + 1) : i + 1).padStart(2, '0'),
+          title: isObj ? pa.title : String(pa || ''),
+          why: isObj ? (pa.reason || 'Surfaced as a top priority in your recruiter audit.') : 'High-impact resume action item.',
+          action: isObj ? (typeof pa.action === 'string' ? pa.action : pa.action?.description || pa.action?.text || '') : '',
+          expectedDirection: 'Directly addresses identified resume bottleneck.',
+          targetSection: 'resume-ai',
+          impact: i === 0 ? 'Highest Impact' : 'High Impact',
+        }
+      })
+    : (Array.isArray(resumeAgent?.issues) && resumeAgent.issues.length > 0
+        ? resumeAgent.issues.slice(0, 3).map((iss, i) => ({
+            num: String(i + 1).padStart(2, '0'),
+            title: iss.title || `Resolve ${iss.category ? String(iss.category).replace(/_/g, ' ') : 'Resume Gap'}`,
+            why: iss.whyItMatters || iss.diagnosis || 'High-priority gap surfaced in resume recruiter review.',
+            action: iss.recommendation || (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) || 'Apply recruiter recommended rewrite.',
+            expectedDirection: 'Directly improves resume ATS readability and callback conversion.',
+            targetSection: 'opportunities',
+            impact: i === 0 ? 'Highest Impact' : 'High Impact',
+          }))
+        : (Array.isArray(reportData?.critical_issues) && reportData.critical_issues.length > 0
+            ? reportData.critical_issues.slice(0, 3).map((iss, i) => ({
+                num: String(i + 1).padStart(2, '0'),
+                title: typeof iss === 'string' ? iss : iss.title || 'Critical Issue Resolution',
+                why: typeof iss === 'object' ? iss.description || iss.diagnosis || 'Critical pipeline bottleneck.' : 'Critical pipeline bottleneck.',
+                action: typeof iss === 'object' && iss.action_steps ? (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) : 'Implement high-impact fix.',
+                expectedDirection: 'Eliminates active job search bottleneck.',
+                targetSection: 'opportunities',
+                impact: i === 0 ? 'Highest Impact' : 'High Impact',
+              }))
+            : []))
+
+  const PRIORITIES = agentActions.length > 0 ? agentActions.slice(0, 3) : DEFAULT_PRIORITIES
 
   // Extra missions from missionBoardData if user wants to see all
   const rawMissions = Array.isArray(missionBoardData?.missions) ? missionBoardData.missions : [

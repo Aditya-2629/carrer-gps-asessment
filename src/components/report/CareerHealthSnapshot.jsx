@@ -15,15 +15,42 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function CareerHealthSnapshot({ scores, onNavigateSection }) {
+export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, reportData, onNavigateSection }) {
   // Extract or compute the 4 core dimensions
   // 1. Impact (Resume / Projects)
-  const resumeScore = Number(scores?.resume?.score ?? scores?.resume) || 34
-  const resumeDiag = safeText(scores?.resume?.diagnosis, 'Lacks quantified metrics and business ROI figures.')
+  const dynResume = Number(
+    scores?.resume?.score ??
+    scores?.resume ??
+    resumeAgent?.dashboard?.score ??
+    resumeJson?.ats_score ??
+    reportData?.resume_agent?.dashboard?.score ??
+    reportData?.resume_json?.ats_score
+  )
+  const resumeScore = !isNaN(dynResume) && dynResume > 0 ? dynResume : 34
+  const resumeDiag = safeText(
+    scores?.resume?.diagnosis ||
+    resumeAgent?.dashboard?.summary ||
+    resumeAgent?.overallReview?.summary ||
+    resumeJson?.executive_ai_critique,
+    'Lacks quantified metrics and business ROI figures.'
+  )
 
   // 2. Positioning (ATS & LinkedIn)
-  const linkedinScore = Number(scores?.linkedin?.score ?? scores?.linkedin) || 38
-  const linkedinDiag = safeText(scores?.linkedin?.diagnosis, 'Decent completeness but low recruiter keyword density.')
+  const dynPositioning = Number(
+    scores?.linkedin?.score ??
+    scores?.linkedin ??
+    scores?.positioning?.score ??
+    scores?.positioning ??
+    resumeJson?.ats_score ??
+    reportData?.linkedin_agent?.score
+  )
+  const linkedinScore = !isNaN(dynPositioning) && dynPositioning > 0 ? dynPositioning : 38
+  const linkedinDiag = safeText(
+    scores?.linkedin?.diagnosis ||
+    reportData?.linkedin_agent?.summary ||
+    scores?.positioning?.diagnosis,
+    'Decent completeness but low recruiter keyword density.'
+  )
 
   // 3. Job Search (Outreach & Application Velocity)
   const outreachScore = Number(scores?.outreach?.score ?? scores?.outreach) || 22

@@ -18,6 +18,7 @@ import { WarningCircle, ArrowLeft, FileText, LinkedinLogo, Compass, Check } from
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api, normalizeReportData } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -176,6 +177,25 @@ export default function AnalysisLoader() {
       aria-live="polite"
       aria-label="Agents are analyzing your career assessment"
     >
+      {/* Brand logo */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="mb-6 text-center"
+      >
+        <div className="inline-flex items-center gap-3">
+          <img
+            src={brandLogo}
+            alt="Crafture"
+            className="w-10 h-10 rounded-xl object-cover border border-[var(--border-default)] shadow-sm"
+          />
+          <span className="text-xl font-bold tracking-tight text-[var(--text-primary)] font-['Poppins']">
+            Crafture <span className="text-[var(--primary)]">Career GPS</span>
+          </span>
+        </div>
+      </motion.div>
+
       {/* Title */}
       <motion.h2
         initial={{ opacity: 0, y: 10 }}

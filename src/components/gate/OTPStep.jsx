@@ -21,9 +21,13 @@ export default function OTPStep() {
       setUserId(data.userId)
       if (data.report) {
         setReportData(data.report)
+        setPhase(PHASES.REPORT)
+        navigateTo('/report')
+      } else {
+        // Transition to loading phase so AnalysisLoader starts report job and streams SSE
+        setPhase(PHASES.LOADING)
+        navigateTo('/loading')
       }
-      setPhase(PHASES.REPORT)
-      navigateTo('/report')
     },
     onError: () => {
       setIsError(true)
@@ -125,7 +129,7 @@ export default function OTPStep() {
             <div className="font-semibold text-xs uppercase tracking-wider">⚠️ SMTP Delivery Failed (Server Limit)</div>
             <div className="text-xs opacity-80">
               Please use this bypass verification code:
-              <div className="font-bold text-lg tracking-wider mt-1 select-all underline text-white">
+              <div className="font-bold text-lg tracking-wider mt-1 select-all underline text-red">
                 {devOtp}
               </div>
             </div>

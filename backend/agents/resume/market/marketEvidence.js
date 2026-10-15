@@ -157,7 +157,7 @@ export function evaluateMarketEvidence(params = {}) {
   // 3. Market Context & Evidence Gaps (Priority 2 / Contextual)
   const marketEvidenceGaps = []
   const marketStrengths = []
-  const sampleSize = marketProfile?.sampleSize || 5
+  const sampleSize = marketProfile?.sampleSize || 15
 
   if (marketProfile && Array.isArray(marketProfile.skills)) {
     for (const item of marketProfile.skills) {
@@ -166,8 +166,9 @@ export function evaluateMarketEvidence(params = {}) {
       const frequencyRatio = item.frequencyRatio
       const evidenced = hasResumeEvidence(skillName)
 
-      // High market frequency skill
-      if (frequency >= 3) {
+      // High market frequency skill: appears in >= 35% of sampled JDs (or >= 3 if small sample)
+      const minThreshold = sampleSize >= 10 ? Math.ceil(sampleSize * 0.35) : 3
+      if (frequency >= minThreshold) {
         if (evidenced) {
           marketStrengths.push({
             skill: skillName,
@@ -200,8 +201,8 @@ export function evaluateMarketEvidence(params = {}) {
 
   return {
     targetAlignment,
-    marketEvidenceGaps: marketEvidenceGaps.slice(0, 5),
-    marketStrengths: marketStrengths.slice(0, 5),
+    marketEvidenceGaps: marketEvidenceGaps.slice(0, 10),
+    marketStrengths: marketStrengths.slice(0, 10),
     marketSampleSize: sampleSize,
     targetJdCovered: targetJdSkills.length > 0,
   }

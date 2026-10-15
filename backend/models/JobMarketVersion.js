@@ -35,7 +35,7 @@ const jobMarketVersionSchema = new mongoose.Schema(
     ],
     marketProfile: {
       bucketKey: { type: String, required: true },
-      sampleSize: { type: Number, default: 5 },
+      sampleSize: { type: Number, default: 15 },
       skills: [
         {
           name: { type: String, required: true },

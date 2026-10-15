@@ -2,9 +2,9 @@ import { motion } from 'framer-motion'
 import { User, Briefcase, IdentificationCard, Calendar, Robot, Compass } from '@phosphor-icons/react'
 
 export default function ReportHeaderCard({ candidateData }) {
-  const name = candidateData?.candidate_name || candidateData?.name || 'Arjun Mehta'
-  const targetRole = candidateData?.target_role || 'Data Analyst / BI Analyst'
-  const visaStatus = candidateData?.visa_status || 'F-1 OPT (STEM Extension)'
+  const name = candidateData?.candidate_name || candidateData?.name || candidateData?.candidate?.name || ''
+  const targetRole = candidateData?.target_role || candidateData?.candidate?.targetRole || ''
+  const visaStatus = candidateData?.visa_status || candidateData?.candidate?.visaStatus || ''
   const reportDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   return (

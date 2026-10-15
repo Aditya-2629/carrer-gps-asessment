@@ -89,18 +89,27 @@ export function resolveEvidenceConsistency(analysis, evidenceClassifications = {
       }
 
       if (classification === CLASSIFICATION_VALUES.STRONG) {
-        // Retained in strengths, removed from issues
-        for (const idx of issIndices) issuesToRemove.add(idx)
-        contradictionRecord.action = 'retained_in_strengths_removed_from_issues'
+        // Retained in strengths, removed from issues unless that would drop issues below 3
+        if (issues.length - issuesToRemove.size > 3) {
+          for (const idx of issIndices) issuesToRemove.add(idx)
+          contradictionRecord.action = 'retained_in_strengths_removed_from_issues'
+        } else {
+          for (const idx of strIndices) strengthsToRemove.add(idx)
+          contradictionRecord.action = 'retained_in_issues_to_preserve_minimum'
+        }
       } else if (classification === CLASSIFICATION_VALUES.WEAK) {
         // Retained in issues, removed from strengths
         for (const idx of strIndices) strengthsToRemove.add(idx)
         contradictionRecord.action = 'retained_in_issues_removed_from_strengths'
       } else {
-        // BORDERLINE or default: remove from BOTH!
+        // BORDERLINE or default: remove from both if safe, otherwise prioritize keeping issue count >= 3
         for (const idx of strIndices) strengthsToRemove.add(idx)
-        for (const idx of issIndices) issuesToRemove.add(idx)
-        contradictionRecord.action = 'omitted_from_both'
+        if (issues.length - issuesToRemove.size > 3) {
+          for (const idx of issIndices) issuesToRemove.add(idx)
+          contradictionRecord.action = 'omitted_from_both'
+        } else {
+          contradictionRecord.action = 'retained_in_issues_omitted_from_strengths'
+        }
       }
 
       contradictions.push(contradictionRecord)

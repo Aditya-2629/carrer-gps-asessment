@@ -26,6 +26,7 @@ import {
 } from '@phosphor-icons/react'
 import ResumeScoreCard from '../components/report/ResumeScoreCard.jsx'
 import ResumeBulletAudit from '../components/report/ResumeBulletAudit.jsx'
+import brandLogo from '../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -430,10 +431,14 @@ function ResumeAgentTestLabContent() {
       {/* Top Banner */}
       <div className="max-w-7xl mx-auto mb-8 border-b border-gray-800/80 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Flask size={22} weight="fill" className="text-emerald-400" />
+          <div className="flex items-center gap-3 mb-2">
+            <img
+              src={brandLogo}
+              alt="Crafture"
+              className="w-7 h-7 rounded-lg object-cover border border-gray-700 shadow-sm"
+            />
             <span className="text-xs uppercase tracking-widest font-mono text-emerald-400 font-bold">
-              CAREER GPS • AI EVALUATION CONSOLE V1.2
+              CRAFTURE CAREER GPS • AI EVALUATION CONSOLE V1.2
             </span>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">
@@ -708,13 +713,20 @@ function ResumeAgentTestLabContent() {
 
           {/* Loading Indicator */}
           {loading && (
-            <div className="bg-[#0f172a] border border-gray-800 rounded-2xl p-12 text-center text-gray-400 space-y-3">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-400 mx-auto" />
+            <div className="bg-[#0f172a] border border-gray-800 rounded-2xl p-12 text-center text-gray-400 space-y-4">
+              <div className="relative w-16 h-16 mx-auto mb-2">
+                <img
+                  src={brandLogo}
+                  alt="Crafture"
+                  className="w-16 h-16 rounded-2xl object-cover border border-indigo-500/40 shadow-xl shadow-indigo-500/20"
+                />
+                <div className="absolute -inset-1 rounded-2xl border-2 border-indigo-500/50 animate-ping pointer-events-none opacity-30" />
+              </div>
               <div className="text-sm font-semibold text-white">
-                {mode === 'single' ? `Executing ${selectedModel}...` : 'Running multi-model benchmark sequence...'}
+                {mode === 'single' ? `Generating Resume Report with ${selectedModel}...` : 'Generating multi-model comparison reports...'}
               </div>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                Validating output without automatic retries. Raw outputs and exact prompts will be captured upon completion.
+                Generating deterministic resume scorecard and synthesis. Raw outputs and exact prompts will be captured upon completion.
               </p>
             </div>
           )}

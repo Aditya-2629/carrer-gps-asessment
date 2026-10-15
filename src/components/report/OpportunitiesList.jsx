@@ -45,93 +45,62 @@ function normalizeEvidence(ev, fallback) {
   }
 }
 
-export default function OpportunitiesList({ issues, resumeJsonData }) {
+export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent }) {
   const [expandedId, setExpandedId] = useState(null)
   const [copiedKey, setCopiedKey] = useState(null)
   const [appliedId, setAppliedId] = useState(null)
 
-  // Map incoming issues or synthesize from critical_issues & resume_json
-  const defaultIssues = [
-    {
-      id: 'iss_001',
-      severity: 'high',
-      category: 'Resume Positioning',
-      title: 'Low Application-to-Interview Conversion',
-      diagnosis: 'Your strongest technical achievements are buried below routine duties, causing ATS parsers and recruiters to drop your profile.',
-      affectedSection: 'Experience Section',
-      whyItMatters: 'Recruiters spend an average of 6 to 8 seconds scanning a resume. If measurable business impact is not surfaced in the top 2 lines of each role, the candidate is auto-categorized into the rejection pile.',
-      evidence: {
-        section: 'experience',
-        itemId: 'exp_001',
-        bulletId: 'exp_001_b01',
-        originalText: 'Responsible for maintaining backend services, database migrations, and collaborating with cross-functional teams on feature delivery.',
-      },
-      recommendation: 'Rephrase with quantified business metrics (latency reduction, cost savings, user scale) using the Google STAR/XYZ formula.',
-      correctedText: 'Architected and optimized Go backend microservices handling 45,000 req/sec, reducing p99 database query latency by 58% across $14M billing infrastructure.',
-    },
-    {
-      id: 'iss_002',
-      severity: 'medium',
-      category: 'Project Positioning',
-      title: 'Project Portfolio Lacks Enterprise Context',
-      diagnosis: 'Your personal project section reads like a tutorial exercise rather than an enterprise-grade distributed system.',
-      affectedSection: 'Projects Section',
-      whyItMatters: 'Senior engineering hiring managers evaluate side projects to gauge technical depth and architectural decision-making under real-world constraints.',
-      evidence: {
-        section: 'projects',
-        itemId: 'proj_001',
-        bulletId: 'proj_001_b01',
-        originalText: 'Built a full-stack dashboard with React and Node.js for tracking user analytics.',
-      },
-      recommendation: 'State the engineering motivation, throughput benchmark, and fault-tolerance architecture implemented.',
-      correctedText: 'Engineered real-time distributed analytics pipeline in React, TypeScript, and Go with Kafka event streaming, serving 250,000 MAU with zero downtime.',
-    },
-    {
-      id: 'iss_003',
-      severity: 'medium',
-      category: 'Outreach & Visibility',
-      title: 'Over-Reliance on Standard Easy Apply',
-      diagnosis: 'Applying only through job boards exposes your resume to 350+ competing candidates per listing.',
-      affectedSection: 'Outreach Strategy',
-      whyItMatters: 'Over 70% of senior and mid-level roles are filled through warm introductions and direct recruiter outreach before postings close.',
-      evidence: {
-        section: 'networking',
-        itemId: 'net_001',
-        bulletId: 'net_001_b01',
-        originalText: 'Applied to 100+ roles via LinkedIn Easy Apply with minimal outreach to hiring managers.',
-      },
-      recommendation: 'Target 5 direct tech recruiters at tier-1/tier-2 companies weekly with customized 3-sentence value propositions.',
-      correctedText: 'Direct Recruiter Outreach Cadence: Identify hiring manager, pitch specific architecture alignment, and request a 10-minute briefing call.',
-    },
+  // Merge resume_agent issues (with direct bullet evidence) with report issues
+  const rawList = [
+    ...(Array.isArray(resumeAgent?.issues) ? resumeAgent.issues : []),
+    ...(Array.isArray(issues) ? issues : []),
   ]
 
-  // If external issues are provided, merge gracefully
+  // Deduplicate by title or id
+  const seen = new Set()
+  const uniqueIssues = rawList.filter((iss) => {
+    const key = (typeof iss === 'string' ? iss : iss?.id || iss?.title || '').trim().toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  // If issues are provided, map them cleanly with dynamic values
   const opportunityList =
-    Array.isArray(issues) && issues.length > 0
-      ? issues.map((iss, i) => {
-          const defaultRef = defaultIssues[i % defaultIssues.length]
+    uniqueIssues.length > 0
+      ? uniqueIssues.map((iss, i) => {
           if (typeof iss === 'string') {
             return {
-              ...defaultRef,
               id: `iss_${i + 1}`,
+              severity: 'medium',
+              category: 'Resume Strategy',
               title: iss,
+              diagnosis: 'Surfaced during recruiter review of your application materials.',
+              affectedSection: 'Resume',
+              whyItMatters: 'Addressing this opportunity helps avoid premature filtering in competitive hiring pipelines.',
+              evidence: null,
+              recommendation: 'Refine this area based on target industry benchmarks.',
+              correctedText: null,
             }
           }
-          const normEv = normalizeEvidence(iss?.evidence, defaultRef.evidence)
+
+          const normEv = iss?.evidence ? normalizeEvidence(iss.evidence, null) : null
+          const rawCategory = iss?.category ? String(iss.category).replace(/_/g, ' ') : 'Resume Strategy'
+
           return {
             id: iss?.id || `iss_${i + 1}`,
             severity: typeof iss?.severity === 'string' ? iss.severity.toLowerCase() : 'medium',
-            category: safeString(iss?.category, defaultRef.category),
-            title: safeString(iss?.title, defaultRef.title),
-            diagnosis: safeString(iss?.diagnosis || iss?.description, defaultRef.diagnosis),
-            affectedSection: safeString(iss?.affectedSection || normEv?.section, defaultRef.affectedSection),
-            whyItMatters: safeString(iss?.whyItMatters, defaultRef.whyItMatters),
+            category: rawCategory,
+            title: safeString(iss?.title, `Priority Opportunity #${i + 1}`),
+            diagnosis: safeString(iss?.diagnosis || iss?.description, 'Identified during technical and ATS recruiter diagnosis.'),
+            affectedSection: safeString(iss?.affectedSection || normEv?.section, 'Resume Document'),
+            whyItMatters: safeString(iss?.whyItMatters, 'Optimizing this directly increases recruiter conversion and ATS pass rates.'),
             evidence: normEv,
-            recommendation: safeString(iss?.recommendation || iss?.action_steps?.[0] || iss?.action, defaultRef.recommendation),
+            recommendation: safeString(iss?.recommendation || iss?.action_steps?.[0] || iss?.action, 'Apply the recommended recruiter rewrite or clarification.'),
             correctedText: iss?.correctedText ? safeString(iss.correctedText, null) : null,
           }
         })
-      : defaultIssues
+      : []
 
   const handleCopy = (text, key) => {
     navigator.clipboard.writeText(text)
@@ -169,6 +138,10 @@ export default function OpportunitiesList({ issues, resumeJsonData }) {
       icon: '🟢',
       class: 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20',
     }
+  }
+
+  if (opportunityList.length === 0) {
+    return null
   }
 
   return (

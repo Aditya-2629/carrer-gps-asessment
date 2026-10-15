@@ -10,7 +10,7 @@
 import { ApifyClient } from 'apify-client'
 
 export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
-export const DEFAULT_MAX_CANDIDATES = 20
+export const DEFAULT_MAX_CANDIDATES = 35
 export const DEFAULT_TIMEOUT_MS = 120000
 export const DEFAULT_MAX_RETRIES = 3
 

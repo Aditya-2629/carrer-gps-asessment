@@ -24,6 +24,7 @@ export class GeminiProvider {
     requestId = null,
   }) {
     const startTime = Date.now()
+    const targetModel = model === 'gemini-3.8' ? 'gemini-3.8-flash' : (model || process.env.GEMINI_MODEL || 'gemini-3.8-flash')
     try {
       // Concatenate chat messages into prompt string
       const promptText = messages
@@ -40,7 +41,7 @@ export class GeminiProvider {
 
       const result = await generateContentWithFallback({
         contents: promptText,
-        modelName: model,
+        modelName: targetModel,
         fallbackModels,
         generationConfig,
         timeoutMs,

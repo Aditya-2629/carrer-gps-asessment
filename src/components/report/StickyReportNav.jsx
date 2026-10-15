@@ -28,8 +28,8 @@ const NAV_ITEMS = [
 ]
 
 export default function StickyReportNav({ candidateName, targetRole, showResumeAi = false, showLinkedinAi = false }) {
-  const safeName = typeof candidateName === 'string' ? candidateName : (typeof candidateName === 'object' ? (candidateName?.name || 'Candidate') : 'Candidate')
-  const safeRole = typeof targetRole === 'string' ? targetRole : 'Target Role'
+  const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
+  const safeRole = typeof targetRole === 'string' ? targetRole.trim() : ''
   const [activeSection, setActiveSection] = useState('overview')
 
   // Agent sections only exist when their analysis is attached
@@ -77,13 +77,19 @@ export default function StickyReportNav({ candidateName, targetRole, showResumeA
     <div className="sticky top-0 z-40 bg-[var(--surface-base)]/90 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs">
       <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
         {/* Candidate Context Pill (Desktop only) */}
-        <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-[var(--border-default)] shrink-0 text-xs">
-          <span className="font-bold text-[var(--text-primary)]">{safeName}</span>
-          <span className="text-[var(--text-muted)]">•</span>
-          <span className="text-[var(--text-secondary)] truncate max-w-[160px] font-medium">
-            {safeRole}
-          </span>
-        </div>
+        {safeName && (
+          <div className="hidden lg:flex items-center gap-2 pr-3 border-r border-[var(--border-default)] shrink-0 text-xs">
+            <span className="font-bold text-[var(--text-primary)]">{safeName}</span>
+            {safeRole && (
+              <>
+                <span className="text-[var(--text-muted)]">•</span>
+                <span className="text-[var(--text-secondary)] truncate max-w-[160px] font-medium">
+                  {safeRole}
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Scrollable Navigation Chips */}
         <nav

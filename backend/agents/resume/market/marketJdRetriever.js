@@ -1,7 +1,7 @@
 /**
  * Market JD Retriever — Career GPS Resume Agent V3
  *
- * Retrieves the exactly 5 active market JDs and their deterministic MarketProfile
+ * Retrieves the exactly 15 active market JDs and their deterministic MarketProfile
  * for a resolved bucket. If the bucket has insufficient JDs, automatically enqueues
  * a background refresh and returns a transparent status.
  *

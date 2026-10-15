@@ -244,14 +244,14 @@ function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, le
     category: 'impact',
   })
 
-  // 2. Outcome verbs
-  const withOutcome = bulletSignalsList.filter((b) => b.hasOutcomeVerb !== false).length
+  // 2. Outcome verbs & qualitative CAR outcomes
+  const withOutcome = bulletSignalsList.filter((b) => b.hasOutcomeVerb !== false || b.hasQualitativeOutcome === true).length
   const outcomeShare = bulletSignalsList.length > 0 ? withOutcome / bulletSignalsList.length : 1
   checks.push({
     id: 'outcome_verbs',
     label: 'Bullets lead with outcome or action verbs',
     status: outcomeShare >= 0.7 ? 'pass' : outcomeShare >= 0.4 ? 'warn' : 'fail',
-    detail: `${withOutcome} of ${bulletSignalsList.length} bullets show a clear action/outcome verb`,
+    detail: `${withOutcome} of ${bulletSignalsList.length} bullets show a clear action/outcome verb or CAR result`,
     category: 'impact',
   })
 
@@ -396,6 +396,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
           break
         }
       }
+      const isCurrentRole = item?.isCurrent === true || /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '')
+
       for (const b of item.bullets || []) {
         if (!b?.id || !b?.text) continue
         const sig = signalByBullet.get(b.id)
@@ -403,12 +405,34 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
 
         let status = 'pass'
         let reason = 'Clear, specific, no defects found'
+
         if (issue) {
           status = issue.severity === 'low' ? 'warn' : 'fix'
           reason = issue.title || issue.diagnosis?.slice(0, 90) || 'Flagged by analysis'
-        } else if (sig && sig.hasQuantifier === false && sig.hasOutcomeVerb === false) {
+        } else if (sig?.isToolDumpCandidate) {
           status = 'warn'
-          reason = 'No number and no outcome verb — the work is invisible at a glance'
+          reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
+        } else if (sig?.weakVerbIssue) {
+          status = 'warn'
+          reason = `Opens with weak/supporting phrasing ('${sig.weakVerbMatch}') — start with a strong ownership action verb (e.g., Architected, Engineered, Automated, Spearheaded)`
+        } else if (sig?.tenseIssue === 'gerund_opening') {
+          status = 'warn'
+          reason = `Starts with an '-ing' participle ('${sig.openingWord}') — use a direct ${isCurrentRole ? 'present-tense verb (e.g., Design, Secure, Lead)' : 'past-tense action verb (e.g., Designed, Secured, Led)'}`
+        } else if (sig?.tenseIssue === 'wrong_tense') {
+          status = 'warn'
+          reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
+        } else if (sig?.repetitiveVerbIssue) {
+          status = 'warn'
+          reason = `Repeats opening verb '${sig.openingWord}' (used ${sig.openingVerbCount}x) — vary your action verbs to keep each bullet distinct`
+        } else if (sig?.buzzwordIssue) {
+          status = 'warn'
+          reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
+        } else if (sig && sig.hasQuantifier === false && sig.hasQualitativeOutcome === false && sig.hasOutcomeVerb === false) {
+          status = 'warn'
+          reason = 'Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)'
+        } else {
+          status = 'pass'
+          reason = 'Clear, specific, no defects found'
         }
 
         audit.push({

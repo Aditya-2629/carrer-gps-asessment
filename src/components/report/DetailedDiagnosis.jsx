@@ -65,7 +65,10 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
         const res = await api.askResumeAI({ userId, question: q })
         aiReplyText = res.answer
       } else {
-        aiReplyText = `Regarding "${q}": Based on your parsed resume, your ATS readability score is ${resume.ats_score || 68}/100. To boost your conversion, immediately integrate missing keywords (${(resume.missing_ats_keywords || ['STAR Metrics', 'CI/CD Automation']).slice(0, 2).join(', ')}) and rewrite bullet points using measurable revenue/efficiency metrics.`
+        const kwPart = missingKeywordsList.length > 0
+          ? `integrate missing target keywords (${missingKeywordsList.slice(0, 3).join(', ')}) and `
+          : ''
+        aiReplyText = `Regarding "${q}": Based on your parsed resume, your ATS readability score is ${resume.ats_score || (missingKeywordsList.length === 0 ? 88 : 68)}/100. To boost your conversion, ${kwPart}rewrite your core achievement bullets using measurable revenue, speed, or throughput metrics.`
       }
 
       const aiMsg = { sender: 'ai', text: typeof aiReplyText === 'string' ? aiReplyText : JSON.stringify(aiReplyText) }
@@ -122,13 +125,16 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     if (typeof f === 'string') return f
     if (typeof f === 'object' && f) return f.fact || f.text || f.title || ''
     return String(f || '')
-  }).filter(Boolean)
+  })
 
-  const rawSkills = Array.isArray(resume.top_skills)
+  // Extracted Skills (dynamically resolved from resume_json or resume_agent)
+  const rawSkills = Array.isArray(resume.top_skills) && resume.top_skills.length > 0
     ? resume.top_skills
-    : Array.isArray(resume.skills)
+    : Array.isArray(resume.skills) && resume.skills.length > 0
     ? resume.skills
-    : ['React.js', 'Node.js', 'TypeScript', 'GraphQL', 'AWS', 'MongoDB']
+    : Array.isArray(reportData?.resume_agent?.canonicalResume?.skills) && reportData.resume_agent.canonicalResume.skills.length > 0
+    ? reportData.resume_agent.canonicalResume.skills
+    : []
 
   const skillsList = rawSkills.map((s) => {
     if (typeof s === 'string') return s
@@ -136,15 +142,39 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     return String(s || '')
   }).filter(Boolean)
 
-  const rawKeywords = Array.isArray(resume.missing_ats_keywords)
-    ? resume.missing_ats_keywords
-    : ['Quantified ROI Metrics', 'Kubernetes Orchestration', 'STAR Achievement Bullets', 'CI/CD Automation']
+  // Real missing keywords without prefix/dummy fallbacks
+  const placeholderPatterns = [
+    /^keyword\d+$/i,
+    /quantified roi metrics/i,
+    /star achievement bullets/i,
+    /ci\/cd automation/i,
+    /kubernetes orchestration/i,
+  ]
 
-  const missingKeywordsList = rawKeywords.map((kw) => {
-    if (typeof kw === 'string') return kw
-    if (typeof kw === 'object' && kw) return kw.name || kw.keyword || ''
-    return String(kw || '')
-  }).filter(Boolean)
+  const isPlaceholder = (kw) => {
+    if (!kw || typeof kw !== 'string') return true
+    return placeholderPatterns.some((pattern) => pattern.test(kw.trim()))
+  }
+
+  // 1) Target JD requirements that were not matched
+  const targetJdGaps = (reportData?.resume_agent?.marketContext?.targetAlignment || [])
+    .filter((t) => !t.matched)
+    .map((t) => t.skill || t.requirement || '')
+    .filter(Boolean)
+
+  // 2) Market context gaps between JD/target role and candidate resume
+  const marketGaps = (reportData?.resume_agent?.marketContext?.marketEvidenceGaps || [])
+    .map((g) => g.skill || g.name || '')
+    .filter(Boolean)
+
+  // 3) Parsed missing ATS keywords from resume JSON (ignoring dummy placeholders)
+  const parsedAtsKeywords = (Array.isArray(resume.missing_ats_keywords) ? resume.missing_ats_keywords : [])
+    .map((kw) => (typeof kw === 'string' ? kw : kw?.name || kw?.keyword || ''))
+    .filter((kw) => kw && !isPlaceholder(kw))
+
+  // Combine and deduplicate
+  const combinedMissing = Array.from(new Set([...targetJdGaps, ...marketGaps, ...parsedAtsKeywords])).slice(0, 8)
+  const missingKeywordsList = combinedMissing
 
   const rawCritRisk = reportData?.risk_heatmap?.critical_risk
   const criticalRiskText =
@@ -215,10 +245,16 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <span className="text-xs font-mono font-bold uppercase text-[var(--text-muted)] block">Score</span>
-                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Needs Keyword Lift</span>
+                    <span className={`text-xs font-semibold ${missingKeywordsList.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {missingKeywordsList.length > 0 ? 'Needs Keyword Lift' : '✓ Keyword Coverage Clean'}
+                    </span>
                   </div>
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center font-mono font-extrabold text-lg text-amber-600 dark:text-amber-400">
-                    {resume.ats_score || 68}
+                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center font-mono font-extrabold text-lg ${
+                    missingKeywordsList.length > 0
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                  }`}>
+                    {resume.ats_score || (missingKeywordsList.length === 0 ? 88 : 68)}
                   </div>
                 </div>
               </div>
@@ -231,28 +267,54 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                     <Target size={16} weight="bold" />
                     <span>Extracted Core Skills</span>
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {skillsList.map((s, i) => (
-                      <span key={i} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--emerald-bg)] text-[var(--emerald)] border border-emerald-500/20">
-                        {s}
-                      </span>
-                    ))}
-                  </div>
+                  {skillsList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {skillsList.map((s, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--emerald-bg)] text-[var(--emerald)] border border-emerald-500/20">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--text-muted)] italic">
+                      No explicit technical skills list extracted from document.
+                    </p>
+                  )}
                 </div>
 
                 {/* Missing Keywords */}
                 <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                    <WarningOctagon size={16} weight="bold" />
-                    <span>Missing Critical ATS Keywords</span>
+                  <span className={`text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${missingKeywordsList.length > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-[var(--emerald)]'}`}>
+                    {missingKeywordsList.length > 0 ? (
+                      <WarningOctagon size={16} weight="bold" />
+                    ) : (
+                      <CheckCircle size={16} weight="fill" />
+                    )}
+                    <span>{missingKeywordsList.length > 0 ? 'Missing Critical ATS Keywords' : 'Keyword Coverage Status'}</span>
                   </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {missingKeywordsList.map((kw, i) => (
-                      <span key={i} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                        + {kw}
-                      </span>
-                    ))}
-                  </div>
+                  {missingKeywordsList.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {missingKeywordsList.map((kw, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          + {kw}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[var(--emerald)] flex items-center justify-center shrink-0">
+                        <CheckCircle size={20} weight="fill" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[var(--text-primary)]">
+                          No Critical Keyword Gaps Found
+                        </p>
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          Your resume cleanly covers the key technical terminology expected for this role.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

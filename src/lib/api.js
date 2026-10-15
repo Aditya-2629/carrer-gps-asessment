@@ -35,11 +35,33 @@ export const api = {
     }
   },
 
+  // Immediate background resume agent evaluation on upload (Step 5)
+  evaluateResume: async ({ file, targetRole = '', signal }) => {
+    try {
+      const form = new FormData()
+      form.append('resume', file)
+      if (targetRole) form.append('targetRole', targetRole)
+
+      const res = await client.post('/resume-agent/evaluate', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 180000,
+        signal,
+      })
+      return res.data
+    } catch (err) {
+      if (axios.isCancel?.(err) || err.name === 'CanceledError' || err.name === 'AbortError') {
+        throw err
+      }
+      throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to evaluate resume.')
+    }
+  },
+
   // Phase C: async job flow — save answers, then create a report job and
   // stream progress via SSE instead of holding one request open.
   startReportJob: async ({ userId, formData }) => {
     try {
       const semanticProfile = buildSemanticAssessmentPayload(formData)
+      const resumeAnalysis = typeof window !== 'undefined' ? window.__useAppStore?.getState()?.resumeAnalysis?.data : null
 
       const allAnswers = { ...formData }
       let resumeFile = null
@@ -54,6 +76,15 @@ export const api = {
       }
       delete allAnswers.resume
 
+      // Guarantee at least baseline answers exist so save-answers and generateReportBundle succeed
+      if (Object.keys(allAnswers).length === 0) {
+        allAnswers.resumeVersions = '1'
+        allAnswers.customizeResume = 'Yes'
+        if (resumeAnalysis?.canonicalResume?.candidate?.targetRole) {
+          allAnswers.targetRole = resumeAnalysis.canonicalResume.candidate.targetRole
+        }
+      }
+
       const bodyFormData = new FormData()
       bodyFormData.append('userId', userId)
       bodyFormData.append('answers', JSON.stringify(allAnswers))
@@ -61,12 +92,20 @@ export const api = {
       if (resumeFile) {
         bodyFormData.append('resume', resumeFile)
       }
+      if (resumeAnalysis?.canonicalResume) {
+        bodyFormData.append('precomputedResumeJson', JSON.stringify(resumeAnalysis.canonicalResume))
+      }
 
       await client.post('/assessment/save-answers', bodyFormData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const res = await client.post('/report-jobs', { userId, semanticProfile })
+      const res = await client.post('/report-jobs', {
+        userId,
+        semanticProfile,
+        precomputedResumeAgent: resumeAnalysis?.analysis || null,
+        precomputedResumeJson: resumeAnalysis?.canonicalResume || null,
+      })
       if (!res.data?.jobId) throw new Error('Failed to start report job.')
       return { jobId: res.data.jobId, semanticProfile }
     } catch (err) {

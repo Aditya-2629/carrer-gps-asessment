@@ -617,6 +617,15 @@ export const generateContentWithFallback = async ({
                 : 'retry',
             })
 
+            // 503 Service Unavailable means Google cluster capacity spike: cascade immediately to next model/provider to avoid 30s blocking delays
+            if (classification.status === 503) {
+              console.warn(
+                `[Gemini] Model "${currentModel}" is experiencing high demand (503). Cascading to next candidate immediately.`
+              )
+              modelFailedWithTransient = true
+              break
+            }
+
             if (!isLastAttempt && remainingAfterAttempt > 500) {
               const retryAfter = parseRetryAfter(err)
               const backoffMs = calculateBackoffWithJitter(attempt, baseBackoffMs, maxBackoffMs, retryAfter)

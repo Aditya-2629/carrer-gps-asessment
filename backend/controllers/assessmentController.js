@@ -33,7 +33,7 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
         "location": "City, State/Country or N/A"
       },
       "top_skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6"],
-      "missing_ats_keywords": ["Keyword1", "Keyword2", "Keyword3", "Keyword4"],
+      "missing_ats_keywords": [],
       "ats_score": 65,
       "strengths": ["Strength 1 with quantitative evidence", "Strength 2"],
       "red_flags": ["Red Flag 1 (e.g. poor formatting, lack of metrics, gaps)", "Red Flag 2"],
@@ -41,6 +41,8 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
       "education": ["Degree / Institution"],
       "executive_ai_critique": "A direct, punchy 3-4 sentence text evaluation by executive AI recruiter 'Atlas' analyzing this resume's strengths, critical ATS flaws, and harsh reality feedback for the candidate."
     }
+
+    NOTE ON missing_ats_keywords: Return an array of genuine technical skills, frameworks, or tools that are expected for the candidate's target role but completely missing from this resume. If the resume already has strong coverage or no specific technical gaps are identified, return an empty array []. NEVER return placeholder values like 'Keyword1', 'Quantified ROI Metrics', or generic phrases.
   `
 
   const filePart = {
@@ -56,7 +58,25 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   })
 
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
-  return JSON.parse(cleanJson)
+  const parsed = JSON.parse(cleanJson)
+
+  // Sanitize missing_ats_keywords to remove any placeholder values
+  const placeholderPatterns = [
+    /^keyword\d+$/i,
+    /quantified roi metrics/i,
+    /star achievement bullets/i,
+    /ci\/cd automation/i,
+    /kubernetes orchestration/i,
+  ]
+  if (Array.isArray(parsed.missing_ats_keywords)) {
+    parsed.missing_ats_keywords = parsed.missing_ats_keywords
+      .map((kw) => (typeof kw === 'string' ? kw.trim() : ''))
+      .filter((kw) => kw && !placeholderPatterns.some((p) => p.test(kw)))
+  } else {
+    parsed.missing_ats_keywords = []
+  }
+
+  return parsed
 }
 
 // Save answers and resume upload
@@ -128,9 +148,21 @@ export const saveAnswers = async (req, res) => {
       user.resumeData = req.file.buffer
       user.resumeName = req.file.originalname
       
-      // Convert resume to structured JSON via Gemini (throws error on failure)
-      const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
-      user.resumeJson = resumeJson
+      if (req.body?.precomputedResumeJson) {
+        try {
+          user.resumeJson = typeof req.body.precomputedResumeJson === 'string'
+            ? JSON.parse(req.body.precomputedResumeJson)
+            : req.body.precomputedResumeJson
+        } catch (_e) {
+          // fallback
+        }
+      }
+      
+      if (!user.resumeJson) {
+        // Convert resume to structured JSON via Gemini (throws error on failure)
+        const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
+        user.resumeJson = resumeJson
+      }
     }
 
     await user.save()

@@ -14,6 +14,7 @@ import {
 } from './resumeAgent.schema.js'
 import { jsonrepair } from 'jsonrepair'
 import { stripFillInSlots, findMalformedFillInSlots } from './validation/fillInSlots.js'
+import { QUALITATIVE_OUTCOME_REGEX } from './signals/patterns.js'
 
 export class ResumeAgentValidator {
   /**
@@ -77,6 +78,61 @@ export class ResumeAgentValidator {
     }
   }
 
+
+  /**
+   * Generates a concrete Google X-Y-Z framework rewrite for an issue evidence bullet.
+   * "Accomplished [X] as measured by [Y] by doing [Z]"
+   * Enforces at most one [ADD: ...] slot with zero digits.
+   * Uses only technologies, tools, and facts directly present in originalText.
+   */
+  static buildGoogleXYZRewrite(originalText) {
+    if (!originalText || typeof originalText !== 'string') {
+      return 'Accomplished key deliverables with target [ADD: measurable metric] by executing core engineering responsibilities.'
+    }
+
+    // 1. Clean bullet prefixes and framework markers
+    let clean = originalText
+      .replace(/^[•\-*▪–—·\s]+/, '')
+      .replace(/^(?:action|challenge|result|impact):\s*/i, '')
+      .trim()
+
+    // 2. Check if original text has a Result section
+    const resultMatch = clean.match(/\bresult:\s*([\s\S]+)$/i)
+    if (resultMatch) {
+      const actionPart = clean.slice(0, resultMatch.index).replace(/^(?:action|challenge):\s*/i, '').replace(/[.,;:\s]+$/, '').trim()
+      const resultPart = resultMatch[1].replace(/[.,;:\s]+$/, '').trim()
+
+      // If result part has a number or metric already, reorder: Result by Action
+      if (/\b\d+%|\b\d+\b/.test(resultPart)) {
+        return `${resultPart} by ${actionPart.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+      }
+      return `${resultPart} with target [ADD: key performance metric] by ${actionPart.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+    }
+
+    // 3. Check if original text has a metric or clear qualitative CAR outcome already
+    if (/\b\d+%|\b\d+\b/.test(clean) || QUALITATIVE_OUTCOME_REGEX.test(clean)) {
+      // Fix gerund opening if present
+      let polished = clean
+      const gerundMatch = polished.match(/^([A-Z][a-z]+)ing\b(.*)$/)
+      if (gerundMatch) {
+        const base = gerundMatch[1]
+        const rest = gerundMatch[2]
+        polished = `${base}ed${rest}`
+      }
+      return polished.endsWith('.') ? polished : `${polished}.`
+    }
+
+    // 4. Transform standard bullet using Google X-Y-Z
+    const stripped = clean.replace(/[.!?]+$/, '').trim()
+    const verbMatch = stripped.match(/^([A-Z][a-z]+(?:ed|ted|zed|sed|lt|ilt|ound|ken|ven|wn))\b\s*(.*)$/)
+    if (verbMatch) {
+      const verb = verbMatch[1]
+      const rest = verbMatch[2]
+      return `${verb} ${rest} targeting [ADD: measurable outcome metric].`
+    }
+
+    return `Delivered target [ADD: key performance metric] by ${stripped.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+  }
 
   /**
    * Safely extracts all original text from an evidence field (array or single object)
@@ -184,6 +240,20 @@ export class ResumeAgentValidator {
     }
 
     return { bulletMap, textSet, itemMap, textToIdMap }
+  }
+
+  /**
+   * Checks whether a quote string exists verbatim or substantially in the canonical resume.
+   */
+  static isVerbatimInCanonical(quote, canonicalResume) {
+    if (!quote || typeof quote !== 'string' || !canonicalResume) return false
+    const lookup = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+    const normQuote = quote.trim().toLowerCase()
+    if (lookup.textSet.has(normQuote)) return true
+    for (const text of lookup.textSet) {
+      if (text.includes(normQuote) || normQuote.includes(text)) return true
+    }
+    return false
   }
 
   /**
@@ -822,7 +892,61 @@ export class ResumeAgentValidator {
       validatedIssues.push(issue)
     }
 
-    analysis.issues = validatedIssues
+    // Programmatic Clustering & Deduplication of Issues:
+    // Guarantees ZERO duplicate issue titles and aggregates evidence arrays
+    const clusteredIssues = []
+    const seenTitles = new Map()
+
+    for (const issue of validatedIssues) {
+      const normTitle = (issue.title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (seenTitles.has(normTitle)) {
+        const primary = seenTitles.get(normTitle)
+        let evList = []
+        if (Array.isArray(issue.evidence)) {
+          evList = issue.evidence
+        } else if (issue.evidence && typeof issue.evidence === 'object') {
+          evList = [issue.evidence]
+        }
+        for (const ev of evList) {
+          const isDup = primary.evidence.some(
+            (e) => (e.bulletId && e.bulletId === ev.bulletId) || (e.originalText && e.originalText === ev.originalText)
+          )
+          if (!isDup) {
+            primary.evidence.push(ev)
+          }
+        }
+        if (issue.severity === 'high') primary.severity = 'high'
+        else if (issue.severity === 'medium' && primary.severity === 'low') primary.severity = 'medium'
+
+        if (!primary.correctedText && issue.correctedText) {
+          primary.correctedText = issue.correctedText
+          primary.correctionType = issue.correctionType || 'rewrite'
+        }
+      } else {
+        if (!Array.isArray(issue.evidence)) {
+          issue.evidence = issue.evidence ? [issue.evidence] : []
+        }
+        seenTitles.set(normTitle, issue)
+        clusteredIssues.push(issue)
+      }
+    }
+
+    // Guarantee Concrete Recruiter Rewrites:
+    // Ensure every issue of severity "medium" or "high" returns a non-null correctedText
+    // using the Google X-Y-Z framework with at most one [ADD: metric] slot.
+    for (let idx = 0; idx < clusteredIssues.length; idx++) {
+      const iss = clusteredIssues[idx]
+      iss.id = `iss_${String(idx + 1).padStart(3, '0')}`
+
+      if ((iss.severity === 'medium' || iss.severity === 'high') && (!iss.correctedText || iss.correctedText === 'null')) {
+        const primaryEvidence = (Array.isArray(iss.evidence) && iss.evidence[0]) || iss.evidence || {}
+        const evText = primaryEvidence.originalText || iss.title || ''
+        iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(evText)
+        iss.correctionType = 'rewrite'
+      }
+    }
+
+    analysis.issues = clusteredIssues
 
     // 6. Validate Strengths
     if (!Array.isArray(analysis.strengths)) {

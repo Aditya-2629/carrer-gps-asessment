@@ -77,7 +77,20 @@ export const MODEL_REGISTRY = {
   // --- Fallback / Secondary Providers (for future or explicit comparison) ---
   'gemini-3.8-flash': {
     id: 'gemini-3.8-flash',
-    displayName: 'Google Gemini 3.8 Flash (Latest)',
+    displayName: 'Google Gemini 3.8 Flash (Primary)',
+    provider: 'gemini',
+    purpose: ['resume_analysis', 'assessment_report'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
+  'gemini-3.8': {
+    id: 'gemini-3.8',
+    displayName: 'Google Gemini 3.8 Flash (Alias)',
     provider: 'gemini',
     purpose: ['resume_analysis', 'assessment_report'],
     supportsJsonObject: true,

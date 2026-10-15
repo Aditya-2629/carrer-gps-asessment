@@ -6,73 +6,108 @@ import {
   ShieldCheck,
   Cpu,
   ChartLineUp,
+  Star,
 } from '@phosphor-icons/react'
 
-export default function WhatIsWorking({ resumeJsonData }) {
-  const resume = resumeJsonData || {}
-  const rawStrengths = Array.isArray(resume.strengths) ? resume.strengths : []
+const ICONS = [Cpu, Lightning, ShieldCheck, ChartLineUp, Sparkle, Star]
 
-  const getStrengthText = (item, fallback) => {
-    if (!item) return fallback
-    if (typeof item === 'string') return item
-    if (Array.isArray(item)) {
-      const joined = item.map((i) => (typeof i === 'string' ? i : i?.text || '')).filter(Boolean).join(' ')
-      return joined || fallback
+export default function WhatIsWorking({ resumeJsonData, resumeAgent, reportData }) {
+  // Collect actual strengths from the resume agent or report payload
+  const agentStrengths = Array.isArray(resumeAgent?.strengths) ? resumeAgent.strengths : []
+  const reportStrengths = Array.isArray(reportData?.strengths) ? reportData.strengths : []
+  const jsonStrengths = Array.isArray(resumeJsonData?.strengths) ? resumeJsonData.strengths : []
+
+  const rawStrengths = agentStrengths.length > 0
+    ? agentStrengths
+    : reportStrengths.length > 0
+    ? reportStrengths
+    : jsonStrengths
+
+  // Transform strengths dynamically
+  let strengthsList = rawStrengths
+    .filter(Boolean)
+    .map((str, idx) => {
+      const isObj = typeof str === 'object' && str !== null
+      const title = isObj ? str.title : (typeof str === 'string' ? str : '')
+      const explanation = isObj
+        ? (str.description || str.text || '')
+        : ''
+      const evList = isObj && Array.isArray(str.evidence) ? str.evidence : []
+      const evText = evList[0]?.originalText || ''
+
+      return {
+        id: isObj ? str.id || `str_${idx}` : `str_${idx}`,
+        title: title || 'Demonstrated Capability',
+        explanation: explanation || evText || title,
+        metricBadge: isObj && str.category ? String(str.category).replace(/_/g, ' ') : 'Verified Strength',
+        highlightTag: evText ? 'Evidence in Resume' : 'Recruiter Validated',
+        icon: ICONS[idx % ICONS.length],
+      }
+    })
+    .filter((s) => s.title || s.explanation)
+
+  // Fallback 1: Derive from passing ATS checklist items from Resume Agent
+  if (strengthsList.length === 0 && Array.isArray(resumeAgent?.dashboard?.checks)) {
+    const passedChecks = resumeAgent.dashboard.checks.filter((c) => c.status === 'pass')
+    for (const c of passedChecks) {
+      strengthsList.push({
+        id: `check_${c.id}`,
+        title: c.label || 'Recruiter Quality Standard Met',
+        explanation: c.detail || 'Verified passing standard on ATS and recruiter audit.',
+        metricBadge: 'ATS Audit Passed',
+        highlightTag: 'Recruiter Validated',
+        icon: ShieldCheck,
+      })
     }
-    if (typeof item === 'object') {
-      const val = item.description || item.title || item.signal || item.text
-      if (typeof val === 'string') return val
-      if (typeof val === 'object' && val) return val.text || val.description || fallback
-    }
-    return fallback
   }
 
-  const getStrengthTitle = (item, fallback) => {
-    if (!item) return fallback
-    if (typeof item === 'string') return fallback
-    if (typeof item === 'object') {
-      const val = item.title || item.name
-      if (typeof val === 'string') return val
+  // Fallback 2: If still empty, derive from resume experience/skills
+  if (strengthsList.length === 0 && resumeJsonData) {
+    const experience = Array.isArray(resumeJsonData.experience) ? resumeJsonData.experience : []
+    const skills = Array.isArray(resumeJsonData.skills) || Array.isArray(resumeJsonData.top_skills)
+      ? (resumeJsonData.skills || resumeJsonData.top_skills)
+      : []
+
+    if (experience.length > 0) {
+      const topRole = experience[0]
+      const roleTitle = topRole.title || topRole.role || topRole.name
+      const company = topRole.company || topRole.organization
+      const topBullet = Array.isArray(topRole.bullets) ? topRole.bullets[0]?.text || topRole.bullets[0] : ''
+
+      if (roleTitle || topBullet) {
+        strengthsList.push({
+          id: 'exp_str_1',
+          title: roleTitle ? `Proven Experience as ${roleTitle}` : 'Core Experience Track Record',
+          explanation: topBullet || (company ? `Demonstrated track record at ${company}.` : 'Demonstrated work experience.'),
+          metricBadge: 'Experience Asset',
+          highlightTag: 'Documented in Resume',
+          icon: ShieldCheck,
+        })
+      }
     }
-    return fallback
+
+    if (skills.length > 0) {
+      const skillSample = skills.slice(0, 6).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean).join(', ')
+      if (skillSample) {
+        strengthsList.push({
+          id: 'skill_str_1',
+          title: 'Demonstrated Technical & Domain Skills',
+          explanation: `Demonstrated competency across ${skillSample}.`,
+          metricBadge: 'Core Capability',
+          highlightTag: 'Resume Documented',
+          icon: Cpu,
+        })
+      }
+    }
   }
 
-  // Build 3 compact strengths with concrete metrics / evidence
-  const STRENGTHS_DATA = [
-    {
-      id: 's1',
-      title: getStrengthTitle(rawStrengths[0], 'Technical Stack Execution'),
-      icon: Cpu,
-      explanation: getStrengthText(
-        rawStrengths[0],
-        'Demonstrated modern full-stack deployment across React, TypeScript, Node.js & AWS.'
-      ),
-      metricBadge: 'Core Technical Advantage',
-      highlightTag: 'Proven in production',
-    },
-    {
-      id: 's2',
-      title: getStrengthTitle(rawStrengths[1], 'Scalable Systems & Optimization'),
-      icon: Lightning,
-      explanation: getStrengthText(
-        rawStrengths[1],
-        'Hands-on performance tuning and architecture improvements across high-volume pipelines.'
-      ),
-      metricBadge: '40% Latency & Velocity Win',
-      highlightTag: 'Production Impact',
-    },
-    {
-      id: 's3',
-      title: getStrengthTitle(rawStrengths[2], 'Enterprise Architecture & Reliability'),
-      icon: ShieldCheck,
-      explanation: getStrengthText(
-        rawStrengths[2],
-        'Established reliability standards, cloud modernization, and multi-tenant isolation protocols.'
-      ),
-      metricBadge: 'SOC2 & Production Scale',
-      highlightTag: 'High Seniority Signal',
-    },
-  ]
+  // If there are no verified strengths found at all, return null so we don't display hardcoded fake data
+  if (strengthsList.length === 0) {
+    return null
+  }
+
+  // Render up to 3 verified items
+  const displayItems = strengthsList.slice(0, 3)
 
   return (
     <section id="strengths" className="space-y-4">
@@ -93,16 +128,16 @@ export default function WhatIsWorking({ resumeJsonData }) {
         </p>
       </div>
 
-      {/* 3 Compact Strength Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-        {STRENGTHS_DATA.map((item, idx) => {
+      {/* Dynamic Strengths Cards Grid */}
+      <div className={`grid grid-cols-1 ${displayItems.length === 1 ? 'md:grid-cols-1' : displayItems.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4 items-start`}>
+        {displayItems.map((item) => {
           const Icon = item.icon
 
           return (
             <motion.div
               key={item.id}
               whileHover={{ y: -3, transition: { duration: 0.2 } }}
-              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-emerald-500/20 bg-emerald-500/[0.02] shadow-xs flex flex-col justify-between space-y-4"
+              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-emerald-500/20 bg-emerald-500/[0.02] shadow-xs flex flex-col justify-between space-y-4 h-full"
             >
               <div className="space-y-3">
                 {/* Header Icon + Metric Badge */}

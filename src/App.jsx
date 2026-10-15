@@ -72,6 +72,16 @@ export default function App() {
     return <ResumeReportPage />
   }
 
+  // Check if loading route is requested
+  const isLoadingRoute = ['/loading', '/analysis-loading'].includes(pathname.toLowerCase())
+  if (isLoadingRoute) {
+    return (
+      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+        <AnalysisLoader />
+      </div>
+    )
+  }
+
   // Check if direct report preview route is requested
   const isReportRoute = [
     '/report',

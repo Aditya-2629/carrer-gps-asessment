@@ -12,11 +12,13 @@
 import { executeModeA, MODE_A_NAME } from './modeA_baseline.js'
 import { executeModeB, MODE_B_NAME } from './modeB_parallel.js'
 import { executeModeC, MODE_C_NAME } from './modeC_hybrid.js'
+import { executeModeD, MODE_D_NAME } from './modeD_chunked.js'
 
 export const SUPPORTED_ORCHESTRATION_MODES = [
   MODE_A_NAME,
   MODE_B_NAME,
   MODE_C_NAME,
+  MODE_D_NAME,
 ]
 
 /**
@@ -46,9 +48,21 @@ export async function runOrchestratedSynthesis({
 }) {
   const selectedMode = SUPPORTED_ORCHESTRATION_MODES.includes(mode)
     ? mode
-    : (process.env.RESUME_AGENT_ORCHESTRATION_MODE || MODE_C_NAME)
+    : (process.env.RESUME_AGENT_ORCHESTRATION_MODE || MODE_D_NAME)
 
   switch (selectedMode) {
+    case MODE_D_NAME:
+      return executeModeD({
+        state,
+        canonicalResume,
+        targetRole,
+        targetJobDescription,
+        taskPolicies,
+        model,
+        isBenchmark,
+        signal,
+      })
+
     case MODE_B_NAME:
       return executeModeB({
         state,

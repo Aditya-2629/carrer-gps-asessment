@@ -26,8 +26,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode A & General Primary Synthesis
   final_synthesis: {
     task: 'final_synthesis',
-    provider: 'groq',
-    model: aiConfig.defaultResumeModel || 'openai/gpt-oss-120b',
+    provider: 'auto',
+    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
     temperature: 0.2,
     maxTokens: 8192,
   },
@@ -35,8 +35,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode B: Agent 1 — Resume Auditor
   resume_audit: {
     task: 'resume_audit',
-    provider: 'groq',
-    model: aiConfig.defaultResumeModel || 'openai/gpt-oss-120b',
+    provider: 'auto',
+    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
     temperature: 0.1,
     maxTokens: 4096,
   },
@@ -44,8 +44,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode B: Agent 2 — Target JD Matcher
   jd_match: {
     task: 'jd_match',
-    provider: 'groq',
-    model: aiConfig.defaultResumeModel || 'openai/gpt-oss-120b',
+    provider: 'auto',
+    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
     temperature: 0.1,
     maxTokens: 3072,
   },
@@ -53,8 +53,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode B: Agent 3 — Market Gap Analyst
   market_gap: {
     task: 'market_gap',
-    provider: 'groq',
-    model: aiConfig.defaultResumeModel || 'openai/gpt-oss-120b',
+    provider: 'auto',
+    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
     temperature: 0.1,
     maxTokens: 3072,
   },
@@ -62,8 +62,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode B: Agent 4 — Evidence / Claim Validator
   evidence_validation: {
     task: 'evidence_validation',
-    provider: 'groq',
-    model: aiConfig.fallbackResumeModel || 'openai/gpt-oss-20b',
+    provider: 'auto',
+    model: 'openai/gpt-oss-120b',
     temperature: 0.0,
     maxTokens: 3072,
   },

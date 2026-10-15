@@ -25,26 +25,91 @@ function getScoreBadgeClass(score) {
   return 'bg-red-500/15 text-red-500 dark:text-red-400 border-red-500/30'
 }
 
+import useAppStore from '../../store/useAppStore'
+
 export default function ReportHero({ reportData }) {
-  const candidate = reportData?.resume_json || {}
+  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+  const formData = useAppStore((s) => s.formData)
+  const email = useAppStore((s) => s.email)
+
+  const candidate = reportData?.resume_json || storeResumeAnalysis?.data?.canonicalResume || {}
+  const resumeAgent = reportData?.resume_agent || storeResumeAnalysis?.data?.analysis || {}
+
   const rawName =
-    typeof candidate.candidate_name === 'string' ? candidate.candidate_name :
-    typeof candidate.name === 'string' ? candidate.name :
-    typeof reportData?.candidate_name === 'string' ? reportData.candidate_name :
-    typeof candidate.candidate_name === 'object' ? (candidate.candidate_name?.name || 'Candidate') :
-    'Candidate'
-  const firstName = (typeof rawName === 'string' ? rawName.trim().split(' ')[0] : 'Candidate') || 'Candidate'
+    resumeAgent?.candidateSnapshot?.name ||
+    candidate?.candidate?.name ||
+    candidate?.candidate_name ||
+    candidate?.name ||
+    reportData?.candidate_name ||
+    formData?.name ||
+    formData?.fullName ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.name ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.name ||
+    (email ? email.split('@')[0] : '')
+
+  const firstName = (typeof rawName === 'string' && rawName.trim())
+    ? rawName.trim().split(' ')[0]
+    : ''
+
   const targetRole =
-    typeof candidate.target_role === 'string' ? candidate.target_role :
-    typeof reportData?.target_role === 'string' ? reportData.target_role :
-    'Senior Full Stack Engineer'
+    resumeAgent?.candidateSnapshot?.targetRole ||
+    candidate?.candidate?.targetRole ||
+    candidate?.target_role ||
+    reportData?.target_role ||
+    formData?.targetRole ||
+    formData?.target_role ||
+    formData?.desiredRole ||
+    formData?.role ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
+    ''
+
   const visaStatus =
-    typeof candidate.visa_status === 'string' ? candidate.visa_status :
-    typeof reportData?.visa_status === 'string' ? reportData.visa_status :
-    'F-1 OPT (STEM Extension)'
-  const healthScore = Math.max(0, Number(reportData?.career_health_score) || 41)
+    candidate?.candidate?.visaStatus ||
+    candidate?.visa_status ||
+    reportData?.visa_status ||
+    formData?.visaStatus ||
+    formData?.visa_status ||
+    formData?.workAuthorization ||
+    formData?.work_authorization ||
+    ''
+
+  const presentRole =
+    resumeAgent?.candidateSnapshot?.presentRole ||
+    candidate?.candidate?.presentRole ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentRole ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentRole ||
+    ''
+
+  const presentCompany =
+    resumeAgent?.candidateSnapshot?.presentCompany ||
+    candidate?.candidate?.presentCompany ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentCompany ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentCompany ||
+    ''
+
+  const pastRoles =
+    resumeAgent?.candidateSnapshot?.pastRoles ||
+    candidate?.candidate?.pastRoles ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.pastRoles ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.pastRoles ||
+    []
+
+  const healthScore = Math.max(
+    0,
+    Number(
+      reportData?.career_health_score ??
+      resumeAgent?.dashboard?.score ??
+      reportData?.score ??
+      0
+    ) || 45
+  )
+
   const scoreLabel =
-    typeof reportData?.score_label === 'string' ? reportData.score_label : 'Emerging'
+    typeof reportData?.score_label === 'string'
+      ? reportData.score_label
+      : resumeAgent?.dashboard?.gradeLabel || (healthScore >= 75 ? 'Strong' : healthScore >= 50 ? 'Developing' : 'Emerging')
+
   const reportDate = new Date().toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -69,17 +134,27 @@ export default function ReportHero({ reportData }) {
   const scoreColor = getScoreColor(healthScore)
 
   // One-line diagnosis synthesis
-  const rawStrength = candidate.strengths?.[0] || reportData?.strengths?.[0]
-  const strongestAdvantage =
-    typeof rawStrength === 'string' ? rawStrength :
-    rawStrength?.title || rawStrength?.description || rawStrength?.signal ||
-    'Technical Stack Execution & Modern Framework Experience'
+  const rawStrength =
+    resumeAgent?.strengths?.[0] ||
+    reportData?.strengths?.[0] ||
+    candidate?.strengths?.[0]
 
-  const primaryIssue = reportData?.critical_issues?.[0] || reportData?.issues?.[0]
+  const strongestAdvantage =
+    typeof rawStrength === 'string'
+      ? rawStrength
+      : rawStrength?.title
+      ? rawStrength.title
+      : rawStrength?.description || rawStrength?.signal || null
+
+  const primaryIssue =
+    reportData?.critical_issues?.[0] ||
+    resumeAgent?.issues?.[0] ||
+    reportData?.issues?.[0]
+
   const biggestBottleneck =
-    typeof primaryIssue === 'string' ? primaryIssue :
-    primaryIssue?.title || primaryIssue?.diagnosis ||
-    'Application-to-Interview Conversion Drop-off'
+    typeof primaryIssue === 'string'
+      ? primaryIssue
+      : primaryIssue?.title || primaryIssue?.diagnosis || null
 
   return (
     <section id="overview" className="relative pt-2 pb-6">
@@ -130,41 +205,67 @@ export default function ReportHero({ reportData }) {
                 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--text-primary)] tracking-tight leading-[1.15]"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
-                {firstName}, here's where your{' '}
+                {firstName ? `${firstName}, here's where your ` : `Here's where your `}
                 <span className="text-[var(--primary)]">job search stands.</span>
               </h1>
 
-              {/* Target Role & Visa Badges */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)]">
-                  <Briefcase size={14} className="text-[var(--primary)]" weight="bold" />
-                  <span>Target: {targetRole}</span>
-                </span>
-                {visaStatus && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                    <IdentificationCard size={14} weight="bold" />
-                    <span>{visaStatus}</span>
-                  </span>
-                )}
-              </div>
+              {/* Target, Present & Past Roles, Visa Badges */}
+              {(targetRole || presentRole || pastRoles.length > 0 || visaStatus) && (
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  {targetRole && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)]">
+                      <Briefcase size={14} className="text-[var(--primary)]" weight="bold" />
+                      <span>Target: {targetRole}</span>
+                    </span>
+                  )}
+                  {presentRole && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <Briefcase size={14} weight="bold" />
+                      <span>Current: {presentRole}{presentCompany ? ` @ ${presentCompany}` : ''}</span>
+                    </span>
+                  )}
+                  {pastRoles.length > 0 && pastRoles[0]?.role && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)]">
+                      <span>Prev: {pastRoles[0].role}{pastRoles[0].company ? ` @ ${pastRoles[0].company}` : ''}</span>
+                    </span>
+                  )}
+                  {visaStatus && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      <IdentificationCard size={14} weight="bold" />
+                      <span>{visaStatus}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Coach One-Line Key Diagnosis Card */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2.5">
-              <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
-                <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
-                <span>Coach Executive Diagnosis</span>
+            {(strongestAdvantage || biggestBottleneck) && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2.5">
+                <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
+                  <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
+                  <span>Coach Executive Diagnosis</span>
+                </div>
+                <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
+                  {strongestAdvantage && (
+                    <>
+                      &ldquo;Your strongest advantage is{' '}
+                      <strong className="text-[var(--emerald)] font-bold">{strongestAdvantage}</strong>.
+                    </>
+                  )}
+                  {biggestBottleneck && (
+                    <>
+                      {strongestAdvantage ? ' ' : '“'}Your biggest bottleneck right now is{' '}
+                      <strong className="text-red-500 dark:text-red-400 font-bold">
+                        {biggestBottleneck}
+                      </strong>
+                      .&rdquo;
+                    </>
+                  )}
+                  {!biggestBottleneck && strongestAdvantage && '”'}
+                </p>
               </div>
-              <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
-                &ldquo;Your strongest advantage is{' '}
-                <strong className="text-[var(--emerald)] font-bold">{strongestAdvantage}</strong>.
-                Your biggest bottleneck right now is{' '}
-                <strong className="text-red-500 dark:text-red-400 font-bold">
-                  {biggestBottleneck}
-                </strong>
-                .&rdquo;
-              </p>
-            </div>
+            )}
           </div>
 
           {/* Right Column: Circular Progress Visualization */}

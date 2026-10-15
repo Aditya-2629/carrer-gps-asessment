@@ -95,9 +95,10 @@ export function buildDeterministicDossier({
 
   // 3. Deterministic Market Evidence Gaps from active market context
   if (marketContext && Array.isArray(marketContext.marketEvidenceGaps)) {
+    const sampleSize = marketContext.marketSampleSize || 15
     dossier.marketEvidenceGaps = marketContext.marketEvidenceGaps.map((g) => ({
       skill: g.skill,
-      frequency: `${g.frequencyCount || Math.round(g.marketFrequency * 5)}/5 JDs`,
+      frequency: `${g.frequencyCount || Math.round((g.marketFrequency || 0) * sampleSize)}/${sampleSize} JDs`,
       status: 'NOT_EVIDENCED_IN_RESUME',
     }))
   }

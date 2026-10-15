@@ -1,3 +1,5 @@
+import { CheckCircle } from '@phosphor-icons/react'
+
 export default function TextInput({ value = '', onChange, error, step, onNext }) {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') onNext?.()
@@ -27,6 +29,13 @@ export default function TextInput({ value = '', onChange, error, step, onNext })
         aria-label={step.label}
         aria-invalid={!!error}
       />
+
+      {step.name === 'linkedin' && value && (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+          <CheckCircle size={14} weight="fill" />
+          <span>Auto-detected from resume — editable if needed</span>
+        </div>
+      )}
 
       {step.suggestions && step.suggestions.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mt-1">

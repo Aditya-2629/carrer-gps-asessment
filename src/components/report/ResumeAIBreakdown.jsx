@@ -19,9 +19,9 @@ const MOCK_RESUME_JSON = {
   target_role: 'Senior Full Stack Engineer',
   years_of_experience: '4.5 Years',
   contact: { email: 'alex.mercer@example.com', phone: '+1 (555) 234-5678', location: 'San Francisco, CA' },
-  top_skills: ['React.js', 'Node.js', 'TypeScript', 'GraphQL', 'AWS (EC2/S3)', 'MongoDB', 'Docker'],
-  missing_ats_keywords: ['Quantified ROI Metrics', 'Kubernetes Orchestration', 'STAR Achievement Bullets', 'CI/CD Automation'],
-  ats_score: 68,
+  top_skills: [],
+  missing_ats_keywords: [],
+  ats_score: 85,
   strengths: [
     'Strong modern JavaScript/TypeScript framework ecosystem experience',
     'Demonstrated full-stack project deployment capabilities'
@@ -43,6 +43,22 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
   const userId = useAppStore((s) => s.userId)
 
   const [showRawJson, setShowRawJson] = useState(false)
+
+  const placeholderPatterns = [
+    /^keyword\d+$/i,
+    /quantified roi metrics/i,
+    /star achievement bullets/i,
+    /ci\/cd automation/i,
+    /kubernetes orchestration/i,
+  ]
+  const isPlaceholder = (kw) => {
+    if (!kw || typeof kw !== 'string') return true
+    return placeholderPatterns.some((pattern) => pattern.test(kw.trim()))
+  }
+
+  const missingKeywords = (Array.isArray(resume.missing_ats_keywords) ? resume.missing_ats_keywords : [])
+    .map((kw) => (typeof kw === 'string' ? kw : kw?.name || kw?.keyword || ''))
+    .filter((kw) => kw && !isPlaceholder(kw))
 
   // Interactive AI Q&A Text Chat state
   const [chatMessages, setChatMessages] = useState([
@@ -76,7 +92,10 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
         aiReplyText = res.answer
       } else {
         // Fallback local mock AI response
-        aiReplyText = `Regarding "${q}": Based on your parsed resume JSON, your ATS readability score is ${resume.ats_score}/100. To boost your conversion, immediately integrate missing keywords (${resume.missing_ats_keywords.slice(0, 2).join(', ')}) and rewrite bullet points using measurable revenue/efficiency metrics.`
+        const kwMention = missingKeywords.length > 0
+          ? `immediately integrate missing keywords (${missingKeywords.slice(0, 2).join(', ')}) and `
+          : `ensure achievement metrics are clearly quantified, and `
+        aiReplyText = `Regarding "${q}": Based on your parsed resume JSON, your ATS readability score is ${resume.ats_score}/100. To boost your conversion, ${kwMention}rewrite bullet points using measurable revenue/efficiency metrics.`
       }
 
       const aiMsg = { sender: 'ai', text: aiReplyText }
@@ -174,20 +193,36 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
 
         {/* Missing Critical ATS Keywords */}
         <div className="bg-[var(--surface-sunken)] p-6 rounded-xl border border-[var(--border-default)] space-y-3.5 shadow-2xs">
-          <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-wider">
-            <WarningOctagon size={18} />
-            <span>Missing Critical ATS Keywords</span>
+          <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-wider ${missingKeywords.length > 0 ? 'text-amber-500' : 'text-[var(--emerald)]'}`}>
+            {missingKeywords.length > 0 ? <WarningOctagon size={18} /> : <CheckCircle size={18} weight="fill" />}
+            <span>{missingKeywords.length > 0 ? 'Missing Critical ATS Keywords' : 'Keyword Coverage Status'}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {(resume.missing_ats_keywords || []).map((kw, i) => (
-              <span
-                key={i}
-                className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs"
-              >
-                + {kw}
-              </span>
-            ))}
-          </div>
+          {missingKeywords.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {missingKeywords.map((kw, i) => (
+                <span
+                  key={i}
+                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs"
+                >
+                  + {kw}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-[var(--emerald)] flex items-center justify-center shrink-0">
+                <CheckCircle size={20} weight="fill" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[var(--text-primary)]">
+                  No Critical Keyword Gaps Found
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)]">
+                  Your resume cleanly covers the key technical terminology expected for this role.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -200,12 +235,24 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
             <span>Key Resume Strengths</span>
           </h4>
           <ul className="space-y-2.5 text-sm text-[var(--text-primary)] list-none pl-0 font-medium">
-            {(resume.strengths || []).map((item, idx) => (
-              <li key={idx} className="bg-[var(--surface-sunken)] p-3.5 rounded-xl border border-[var(--border-default)] leading-relaxed flex items-start gap-2.5">
-                <span className="text-[var(--emerald)] font-bold mt-0.5">•</span>
-                <span>{item}</span>
-              </li>
-            ))}
+            {(resume.strengths || []).map((item, idx) => {
+              const text = typeof item === 'string' ? item : (item?.description || item?.title || item?.text || '')
+              return (
+                <li key={idx} className="bg-[var(--surface-sunken)] p-3.5 rounded-xl border border-[var(--border-default)] leading-relaxed flex items-start gap-2.5">
+                  <span className="text-[var(--emerald)] font-bold mt-0.5">•</span>
+                  <div>
+                    {typeof item === 'object' && item?.title && item?.description ? (
+                      <>
+                        <strong className="text-[var(--text-primary)] block mb-0.5">{item.title}</strong>
+                        <span className="text-[var(--text-secondary)]">{item.description}</span>
+                      </>
+                    ) : (
+                      <span>{text}</span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
 
@@ -216,12 +263,24 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
             <span>ATS Red Flags & Structural Weaknesses</span>
           </h4>
           <ul className="space-y-2.5 text-sm text-[var(--text-primary)] list-none pl-0 font-medium">
-            {(resume.red_flags || []).map((item, idx) => (
-              <li key={idx} className="bg-red-500/5 p-3.5 rounded-xl border border-red-500/15 leading-relaxed flex items-start gap-2.5">
-                <span className="text-red-500 font-bold mt-0.5">•</span>
-                <span>{item}</span>
-              </li>
-            ))}
+            {(resume.red_flags || []).map((item, idx) => {
+              const text = typeof item === 'string' ? item : (item?.description || item?.title || item?.text || '')
+              return (
+                <li key={idx} className="bg-red-500/5 p-3.5 rounded-xl border border-red-500/15 leading-relaxed flex items-start gap-2.5">
+                  <span className="text-red-500 font-bold mt-0.5">•</span>
+                  <div>
+                    {typeof item === 'object' && item?.title && item?.description ? (
+                      <>
+                        <strong className="text-red-400 block mb-0.5">{item.title}</strong>
+                        <span className="text-[var(--text-secondary)]">{item.description}</span>
+                      </>
+                    ) : (
+                      <span>{text}</span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
       </div>

@@ -78,7 +78,7 @@ export function serializeResumeForLLM(canonicalResume, options = {}) {
       if (exp.role) headerLines.push(`Role: ${exp.role.trim()}`)
       if (exp.company) headerLines.push(`Company: ${exp.company.trim()}`)
       if (exp.location) headerLines.push(`Location: ${exp.location.trim()}`)
-      const dates = [exp.startDate, exp.endDate].filter(Boolean).join(' - ')
+      const dates = [exp.startDate, exp.endDate].filter(Boolean).join(' - ') || exp.dates || ''
       if (dates) headerLines.push(`Dates: ${dates.trim()}`)
 
       const bulletLines = []

@@ -32,38 +32,56 @@ function safeText(val, fallback = '') {
 }
 
 export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
-  // Extract primary bottleneck details from report data
-  const primaryIssue = reportData?.critical_issues?.[0]
-  const leakStage = safeText(reportData?.funnel_stages?.biggest_leak_stage, 'Recruiter Calls')
-  const apps = Number(reportData?.funnel_stages?.applications_count) || 100
-  const calls = Number(reportData?.funnel_stages?.recruiter_calls_count) || 5
+  // Extract primary bottleneck details from report data or resume agent issues
+  const primaryIssue =
+    reportData?.critical_issues?.[0] ||
+    reportData?.resume_agent?.issues?.[0] ||
+    reportData?.issues?.[0]
 
   const title = safeText(
     primaryIssue?.title,
-    'Your resume is strong technically, but your impact is not being surfaced quickly enough.'
+    'Your resume impact needs to be surfaced more clearly for recruiters.'
   )
 
-  const category = 'CONVERSION BOTTLENECK • TOP PRIORITY'
+  const category = primaryIssue?.category
+    ? `${String(primaryIssue.category).replace(/_/g, ' ').toUpperCase()} • TOP PRIORITY`
+    : 'CONVERSION BOTTLENECK • TOP PRIORITY'
 
   const whyThisMatters = safeText(
-    primaryIssue?.description || primaryIssue?.diagnosis,
-    'ATS algorithms auto-screen thousands of applications within hours. When achievement bullets lack clear business impact (percentages, revenue, latency reduction), hiring managers assume passive responsibility rather than proactive leadership.'
+    primaryIssue?.whyItMatters || primaryIssue?.description || primaryIssue?.diagnosis,
+    'Recruiters screen resumes in under 10 seconds. Eliminating this specific bottleneck directly improves conversion to initial recruiter phone screens.'
   )
 
-  // 1-3 concrete evidence items
-  const dropPct = apps > 0 ? (((apps - calls) / apps) * 100).toFixed(1) : '95.0'
-  const evidenceList = [
-    `A ${dropPct}% drop-off was detected between Applications (${apps}) and initial Recruiter Calls (${calls}).`,
-    'Bullet points list responsibilities rather than quantified outcomes (missing metrics: %, $, team sizes).',
-    'Standard resume formatting risks getting auto-filtered by ATS parsers before recruiter review.',
-  ]
+  // Build concrete evidence items from actual resume issue evidence or funnel
+  const evidenceList = []
+  if (primaryIssue?.evidence) {
+    const ev = primaryIssue.evidence
+    const evText = Array.isArray(ev)
+      ? ev.map((e) => e?.originalText || (typeof e === 'string' ? e : '')).filter(Boolean).join(' ')
+      : (ev?.originalText || (typeof ev === 'string' ? ev : ''))
+    if (evText) {
+      evidenceList.push(`Resume excerpt: “${evText}”`)
+    }
+  }
+  if (primaryIssue?.diagnosis && primaryIssue.diagnosis !== whyThisMatters) {
+    evidenceList.push(primaryIssue.diagnosis)
+  }
+  if (reportData?.funnel_stages?.applications_count) {
+    const apps = Number(reportData.funnel_stages.applications_count)
+    const calls = Number(reportData.funnel_stages.recruiter_calls_count || 0)
+    const dropPct = apps > 0 ? (((apps - calls) / apps) * 100).toFixed(0) : '0'
+    evidenceList.push(`Funnel metrics: ${apps} applications yielded ${calls} initial screens (${dropPct}% drop-off).`)
+  }
+  if (evidenceList.length === 0) {
+    evidenceList.push('Identified during recruiter verification of your resume bullet structure and impact statements.')
+  }
 
   const rawAction = Array.isArray(primaryIssue?.action_steps)
     ? primaryIssue.action_steps[0]
     : primaryIssue?.action_steps
   const whatToDo = safeText(
     rawAction || primaryIssue?.recommendation,
-    'Rephrase your top 3 achievement bullets using the Google STAR/XYZ formula: "Accomplished [X] as measured by [Y] by doing [Z]".'
+    'Implement the recruiter recommended fix outlined below to surface your verified achievements.'
   )
 
   return (

@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/react'
 import { TOKEN_KEY } from './AdminLogin.jsx'
 import MarketLibrarySection from './MarketLibrarySection.jsx'
+import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -449,7 +450,11 @@ export default function AdminPanel({ onLogout }) {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold">C</span>
+            <img
+              src={brandLogo}
+              alt="Crafture"
+              className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm"
+            />
             <div>
               <div className="text-sm font-extrabold text-slate-900 leading-tight">Crafture Admin Console</div>
               <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">User & Agent Operations</div>

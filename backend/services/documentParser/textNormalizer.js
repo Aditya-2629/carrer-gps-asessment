@@ -21,6 +21,8 @@ export class TextNormalizer {
       .replace(/[\u2013\u2014]/g, '-') // en-dash, em-dash
       .replace(/\u00A0/g, ' ') // non-breaking spaces
       .replace(/[ \t]+/g, ' ') // collapse multiple spaces within a line
+      .replace(/^[ \t]*(?:--\s*)?(?:page\s+)?\d+\s+(?:of|\/)\s+\d+(?:\s*--)?\s*$/gim, '') // strip page numbers (e.g. "-- 1 of 2 --", "1 of 2")
+      .replace(/^[ \t]*---\s*Page\s+\d+\s*---\s*$/gim, '') // strip parser page banners
       .replace(/\n{3,}/g, '\n\n') // collapse excessive blank lines
       .trim()
   }

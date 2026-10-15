@@ -1,5 +1,10 @@
 import dotenv from 'dotenv'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config()
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 
 /**
  * Collects and deduplicates all available Groq API keys from environment variables.
@@ -54,19 +59,15 @@ export const getAllGroqKeys = () => {
  */
 export const aiConfig = {
   get defaultProvider() {
-    return process.env.AI_RESUME_PROVIDER || 'groq'
+    return process.env.RESUME_AGENT_PROVIDER || process.env.AI_RESUME_PROVIDER || 'gemini'
   },
   get fallbackEnabled() {
-    return process.env.AI_RESUME_FALLBACK_ENABLED === 'true'
+    return process.env.AI_RESUME_FALLBACK_ENABLED !== 'false'
   },
   get defaultResumeModel() {
-    // V3.1 platform rename: RESUME_PRIMARY_MODEL is canonical;
-    // GROQ_RESUME_MODEL_PRIMARY kept as a legacy fallback for existing .env files.
-    return (
-      process.env.RESUME_PRIMARY_MODEL ||
-      process.env.GROQ_RESUME_MODEL_PRIMARY ||
-      'openai/gpt-oss-120b'
-    )
+    // Primary model: GEMINI 3.8 Flash (V3.2 priority), followed by Groq 120B fallback
+    if (process.env.RESUME_PRIMARY_MODEL) return process.env.RESUME_PRIMARY_MODEL
+    return 'gemini-3.8-flash'
   },
   groq: {
     get baseUrl() {

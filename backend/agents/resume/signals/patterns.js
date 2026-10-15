@@ -38,8 +38,93 @@ export const CONTACT_PATTERNS = {
   url: /(?:linkedin\.com\/|github\.com\/|[a-zA-Z0-9-]+\.(?:com|org|io|dev|net|me|ai)\b)/i,
 }
 
+// ── Qualitative STAR / CAR Outcomes ───────────────────────────────────────────
+// Matches purpose/result clauses demonstrating problem-solving or business value
+export const QUALITATIVE_OUTCOME_REGEX =
+  /\b(?:to retire|replacing|enforcing|eliminating|preventing|enabling|giving|ensuring|validating|improving|reducing|cutting|shortening|speeding up|lifting|raising|strengthening|simplifying|streamlining|modernizing|automating|securing|sustaining|achieving|delivering)\b/i
+
+// ── Weak / Passive Opening Verbs ───────────────────────────────────────────────
+export const WEAK_OPENER_REGEX =
+  /^(?:Using|Utilizing|Utilized|Used|Worked on|Working on|Responsible for|Helped|Assisted|Supported|Contributed to|Involved in|Tasked with|Handled|Participated in|Partnering with|Partnered with|Collaborated with|Collaborating with)\b/i
+
+// ── AI Buzzwords & Robotic Clichés ────────────────────────────────────────────
+export const AI_BUZZWORDS_REGEX =
+  /\b(?:synergized|synergistic|spearheaded cutting-edge|paradigm|holistic|leverage|leveraging|utilized|utilizing|seamlessly|testament to|poised to|dynamic environment|fast-paced environment|go-getter|thought leader|best-in-class|world-class|mission-critical|delved|tapestry|orchestrated a myriad)\b/i
+
+// ── Gerund Opener Regex ────────────────────────────────────────────────────────
+export const GERUND_OPENER_REGEX = /^[•\-*▪–—\s]*([a-zA-Z]+ing)\b/i
+
+// ── Common Irregular Past Tense Verbs ─────────────────────────────────────────
+export const IRREGULAR_PAST_VERBS = new Set([
+  'built', 'led', 'wrote', 'drove', 'oversaw', 'ran', 'held', 'made', 'cut', 'split',
+  'set', 'sent', 'spent', 'spoke', 'chose', 'drew', 'grew', 'threw', 'flew', 'knew',
+  'began', 'swam', 'sang', 'drank', 'found', 'wound', 'bound', 'ground', 'stood',
+  'understood', 'struck', 'stuck', 'strung', 'hung', 'swung', 'dug', 'spun', 'won',
+  'shot', 'met', 'fed', 'bled', 'bred', 'fled', 'sped', 'left', 'slept', 'swept',
+  'wept', 'crept', 'lost', 'sold', 'bought', 'brought', 'caught', 'thought', 'taught',
+])
+
+// ── Common Present Tense Verbs for Engineering / Technical Resumes ────────────
+export const COMMON_PRESENT_VERBS = new Set([
+  'architect', 'automate', 'build', 'configure', 'coordinate', 'create', 'deliver',
+  'deploy', 'design', 'develop', 'direct', 'drive', 'engineer', 'enforce', 'ensure',
+  'establish', 'execute', 'guide', 'implement', 'integrate', 'lead', 'maintain',
+  'manage', 'mentor', 'migrate', 'modernize', 'monitor', 'optimize', 'orchestrate',
+  'oversee', 'perform', 'refactor', 'remediate', 'resolve', 'scale', 'secure',
+  'spearhead', 'standardize', 'streamline', 'support', 'test', 'troubleshoot', 'write',
+  'analyze', 'author', 'collaborate', 'conduct', 'construct', 'facilitate', 'partner'
+])
+
+/**
+ * Normalizes an opening verb into a base stem for repetition tracking.
+ */
+export function getVerbStem(word = '') {
+  if (!word) return ''
+  const lower = word.toLowerCase().trim()
+  const irregularMap = {
+    built: 'build', building: 'build', builds: 'build', build: 'build',
+    led: 'lead', leading: 'lead', leads: 'lead', lead: 'lead',
+    wrote: 'write', writing: 'write', writes: 'write', write: 'write',
+    drove: 'drive', driving: 'drive', drives: 'drive', drive: 'drive',
+    oversaw: 'oversee', overseeing: 'oversee', oversees: 'oversee', oversee: 'oversee',
+    ran: 'run', running: 'run', runs: 'run', run: 'run',
+    held: 'hold', holding: 'hold', holds: 'hold', hold: 'hold',
+    made: 'make', making: 'make', makes: 'make', make: 'make',
+    cut: 'cut', cutting: 'cut', cuts: 'cut',
+    split: 'split', splitting: 'split', splits: 'split',
+    set: 'set', setting: 'set', sets: 'set',
+    sent: 'send', sending: 'send', sends: 'send', send: 'send',
+    spent: 'spend', spending: 'spend', spends: 'spend', spend: 'spend',
+  }
+  if (irregularMap[lower]) return irregularMap[lower]
+  if (lower.endsWith('ing')) {
+    const base = lower.slice(0, -3)
+    if (base.length > 2 && base[base.length - 1] === base[base.length - 2]) {
+      return base.slice(0, -1)
+    }
+    return base
+  }
+  if (lower.endsWith('ed')) {
+    const base = lower.slice(0, -2)
+    if (base.length > 2 && base[base.length - 1] === base[base.length - 2]) {
+      return base.slice(0, -1)
+    }
+    return base
+  }
+  if (lower.endsWith('es')) return lower.slice(0, -2)
+  if (lower.endsWith('s') && !lower.endsWith('ss')) return lower.slice(0, -1)
+  return lower
+}
+
 export default {
   QUANTIFIER_PATTERNS,
   OUTCOME_VERBS_REGEX,
   CONTACT_PATTERNS,
+  QUALITATIVE_OUTCOME_REGEX,
+  WEAK_OPENER_REGEX,
+  AI_BUZZWORDS_REGEX,
+  GERUND_OPENER_REGEX,
+  IRREGULAR_PAST_VERBS,
+  COMMON_PRESENT_VERBS,
+  getVerbStem,
 }

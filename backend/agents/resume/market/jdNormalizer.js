@@ -248,10 +248,10 @@ export function normalizeSingleJd(rawJob, targetRoleKey = '') {
  *
  * @param {Array<Object>} candidates
  * @param {string} targetRoleKey
- * @param {number} [targetCount=5]
+ * @param {number} [targetCount=15]
  * @returns {{ selected: Array<Object>, totalFetched: number, duplicatesRemoved: number, validCount: number }}
  */
-export function processAndSelectTopJds(candidates = [], targetRoleKey = '', targetCount = 5) {
+export function processAndSelectTopJds(candidates = [], targetRoleKey = '', targetCount = 15) {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     return { selected: [], totalFetched: 0, duplicatesRemoved: 0, validCount: 0 }
   }
@@ -327,7 +327,7 @@ export const normalizeJdRecord = normalizeSingleJd
 
 export function selectTopMarketJds(candidates = [], options = {}) {
   const targetRoleKey = options.targetRole || options.targetRoleKey || ''
-  const targetCount = options.targetCount || 5
+  const targetCount = options.targetCount || parseInt(process.env.MARKET_JD_TARGET_COUNT || '15', 10)
   const result = processAndSelectTopJds(candidates, targetRoleKey, targetCount)
   return {
     selectedJds: result.selected,

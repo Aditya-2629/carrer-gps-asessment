@@ -14,6 +14,12 @@ import {
   QUANTIFIER_PATTERNS,
   OUTCOME_VERBS_REGEX,
   CONTACT_PATTERNS,
+  QUALITATIVE_OUTCOME_REGEX,
+  WEAK_OPENER_REGEX,
+  AI_BUZZWORDS_REGEX,
+  IRREGULAR_PAST_VERBS,
+  COMMON_PRESENT_VERBS,
+  getVerbStem,
 } from './patterns.js'
 
 /**
@@ -89,9 +95,10 @@ export function extractDeclaredSkillDictionary(skillsInput) {
  * @param {string} bulletId - Unique bullet ID (e.g. 'exp_001_b01', 'proj_002_b01')
  * @param {string} text - Verbatim bullet text
  * @param {string[]} skillDictionary - Declared skills list
+ * @param {Object} [options] - Additional context: { isCurrentRole, repetitiveVerbIssue, openingVerbCount }
  * @returns {Object} BulletSignals
  */
-export function computeBulletSignals(bulletId, text = '', skillDictionary = []) {
+export function computeBulletSignals(bulletId, text = '', skillDictionary = [], options = {}) {
   const cleanText = (text || '').trim()
   const wordCount = cleanText ? cleanText.split(/\s+/).filter(Boolean).length : 0
 
@@ -122,12 +129,46 @@ export function computeBulletSignals(bulletId, text = '', skillDictionary = []) 
   const uniqueTechnologies = Array.from(new Set(technologyMentions))
   const technologyCount = uniqueTechnologies.length
 
-  // 3. Outcome Verbs
+  // 3. Outcome Verbs & Qualitative Outcomes
   const hasOutcomeVerb = OUTCOME_VERBS_REGEX.test(cleanText)
+  const hasQualitativeOutcome = QUALITATIVE_OUTCOME_REGEX.test(cleanText) || hasOutcomeVerb
 
-  // 4. Tool Dump Candidate: technologyCount >= 3 AND hasOutcomeVerb === false AND hasQuantifier === false
+  // 4. Tool Dump Candidate: technologyCount >= 3 AND hasOutcomeVerb === false AND hasQuantifier === false AND hasQualitativeOutcome === false
   const isToolDumpCandidate =
-    technologyCount >= 3 && hasOutcomeVerb === false && hasQuantifier === false
+    technologyCount >= 3 && hasOutcomeVerb === false && hasQuantifier === false && hasQualitativeOutcome === false
+
+  // 5. Opener & First Word Extraction
+  const openerMatch = cleanText.match(/^[•\-*▪–—\s]*([A-Za-z]+)/)
+  const openingWord = openerMatch ? openerMatch[1] : ''
+  const openingVerbStem = getVerbStem(openingWord)
+
+  // 6. Weak / Passive Opening Verbs
+  const weakMatch = cleanText.replace(/^[•\-*▪–—\s]+/, '').match(WEAK_OPENER_REGEX)
+  const weakVerbIssue = Boolean(weakMatch)
+  const weakVerbMatch = weakMatch ? weakMatch[0].trim() : ''
+
+  // 7. Gerund & Tense Issues
+  const isCurrentRole = Boolean(options.isCurrentRole)
+  let tenseIssue = null
+  const isGerund = /^[A-Za-z]+ing$/i.test(openingWord)
+  if (isGerund) {
+    tenseIssue = 'gerund_opening'
+  } else if (!isCurrentRole && openingWord) {
+    const lowerWord = openingWord.toLowerCase()
+    const isPastTense = lowerWord.endsWith('ed') || IRREGULAR_PAST_VERBS.has(lowerWord)
+    if (!isPastTense && COMMON_PRESENT_VERBS.has(lowerWord)) {
+      tenseIssue = 'wrong_tense'
+    }
+  }
+
+  // 8. Repetitive Verb Issue
+  const repetitiveVerbIssue = Boolean(options.repetitiveVerbIssue)
+  const openingVerbCount = options.openingVerbCount || 1
+
+  // 9. AI Buzzwords & Robotic Clichés
+  const buzzwordMatchResult = cleanText.match(AI_BUZZWORDS_REGEX)
+  const buzzwordIssue = Boolean(buzzwordMatchResult)
+  const buzzwordMatch = buzzwordMatchResult ? buzzwordMatchResult[0].trim() : ''
 
   return {
     bulletId,
@@ -137,7 +178,18 @@ export function computeBulletSignals(bulletId, text = '', skillDictionary = []) 
     technologyMentions: uniqueTechnologies,
     technologyCount,
     hasOutcomeVerb,
+    hasQualitativeOutcome,
     isToolDumpCandidate,
+    openingWord,
+    openingVerbStem,
+    weakVerbIssue,
+    weakVerbMatch,
+    tenseIssue,
+    isCurrentRole,
+    repetitiveVerbIssue,
+    openingVerbCount,
+    buzzwordIssue,
+    buzzwordMatch,
   }
 }
 
@@ -227,16 +279,17 @@ export function computePrecomputedSignals(resumeInput) {
   const skillDictionary = extractDeclaredSkillDictionary(skillsInput)
 
   // 3. Extract Experience and Project Bullets
-  const bulletEntries = [] // Array of { bulletId, text }
+  const bulletEntries = [] // Array of { bulletId, text, isCurrentRole, parentId }
 
   // Case A: Canonical resume shape with experience[] and projects[]
   if (Array.isArray(resumeInput.experience)) {
     for (const exp of resumeInput.experience) {
       if (!exp || !Array.isArray(exp.bullets)) continue
+      const isCurrent = exp.isCurrent === true || /present|current|now/i.test(exp.endDate || '') || /present|current|now/i.test(exp.dates || '')
       for (const b of exp.bullets) {
         if (!b || !b.text) continue
         const bulletId = b.id || `${exp.id}_b01`
-        bulletEntries.push({ bulletId, text: b.text })
+        bulletEntries.push({ bulletId, text: b.text, isCurrentRole: isCurrent, parentId: exp.id || 'exp_001' })
       }
     }
   }
@@ -244,10 +297,11 @@ export function computePrecomputedSignals(resumeInput) {
   if (Array.isArray(resumeInput.projects)) {
     for (const proj of resumeInput.projects) {
       if (!proj || !Array.isArray(proj.bullets)) continue
+      const isCurrent = /present|current|now/i.test(proj.dates || '')
       for (const b of proj.bullets) {
         if (!b || !b.text) continue
         const bulletId = b.id || `${proj.id}_b01`
-        bulletEntries.push({ bulletId, text: b.text })
+        bulletEntries.push({ bulletId, text: b.text, isCurrentRole: isCurrent, parentId: proj.id || 'proj_001' })
       }
     }
   }
@@ -256,17 +310,51 @@ export function computePrecomputedSignals(resumeInput) {
   if (bulletEntries.length === 0) {
     for (const [key, val] of Object.entries(resumeInput)) {
       if ((key.startsWith('exp_') || key.startsWith('proj_')) && typeof val === 'string') {
-        bulletEntries.push({ bulletId: key, text: val })
+        bulletEntries.push({ bulletId: key, text: val, isCurrentRole: false, parentId: 'entry_001' })
       }
     }
   }
 
-  // 4. Compute Bullet Signals
+  // 4. Compute Bullet Signals with repetition and tense tracking
   const bulletSignalsList = []
   const bulletSignalsMap = {}
 
+  const globalStemSeen = new Map()
+  const entryStemSeen = new Map()
+
   for (const entry of bulletEntries) {
-    const sig = computeBulletSignals(entry.bulletId, entry.text, skillDictionary)
+    const cleanText = (entry.text || '').trim()
+    const openerMatch = cleanText.match(/^[•\-*▪–—\s]*([A-Za-z]+)/)
+    const openingWord = openerMatch ? openerMatch[1] : ''
+    const stem = getVerbStem(openingWord)
+
+    const parentId = entry.parentId || 'entry_001'
+    if (!entryStemSeen.has(parentId)) {
+      entryStemSeen.set(parentId, new Map())
+    }
+
+    let repetitiveVerbIssue = false
+    let openingVerbCount = 1
+
+    if (stem && stem.length > 2) {
+      const gCount = (globalStemSeen.get(stem) || 0) + 1
+      globalStemSeen.set(stem, gCount)
+
+      const pMap = entryStemSeen.get(parentId)
+      const eCount = (pMap.get(stem) || 0) + 1
+      pMap.set(stem, eCount)
+
+      openingVerbCount = gCount
+      if (gCount >= 3 || eCount >= 2) {
+        repetitiveVerbIssue = true
+      }
+    }
+
+    const sig = computeBulletSignals(entry.bulletId, entry.text, skillDictionary, {
+      isCurrentRole: entry.isCurrentRole ?? false,
+      repetitiveVerbIssue,
+      openingVerbCount,
+    })
     bulletSignalsList.push(sig)
     bulletSignalsMap[entry.bulletId] = sig
   }

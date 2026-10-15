@@ -41,7 +41,49 @@ Do NOT use:
 You may interpret resume evidence to assess clarity, positioning, and recruiter perception, but interpretation must NEVER be presented as factual resume content.
 
 ==================================================
-2. REAL IMPACT RULE
+2. THE 8-POINT HUMAN-FIRST RESUME OPTIMIZATION RUBRIC
+==================================================
+Evaluate the resume across these 8 core dimensions (do NOT fixate solely on numbers/metrics):
+
+1. ELIMINATE REPETITIVE WORDS & VERBS (category: "repetition")
+   - Check if the candidate repeats the same opening action verbs (e.g., "Developed", "Implemented", "Built"), phrases, or tool callouts (e.g., repeating "using Microsoft Copilot" in multiple bullets).
+   - Every bullet must feel distinct and highlight a unique facet of the candidate's contribution.
+
+2. GRAMMAR & TENSE CONSISTENCY (category: "tense_consistency")
+   - Current Role (Present date range): Use clean PRESENT TENSE action verbs ("Architect", "Remediate", "Secure", "Lead", "Optimize") for active ongoing responsibilities, or past tense only for completed one-off milestones.
+   - Previous Roles (Past date ranges): Strictly use PAST TENSE action verbs ("Architected", "Developed", "Optimized", "Reduced", "Migrated").
+   - Ban "-ing" Gerund Openings: Flag bullets that start with "-ing" participles ("Remediating...", "Designing...", "Securing...", "Using..."). Convert them to direct active verbs in correctedText.
+
+3. AVOID AI BUZZWORDS & ROBOTIC PHRASING (category: "ai_buzzwords")
+   - Flag generic AI-generated buzzwords, clichés, and bloated corporate filler ("utilized", "leveraged", "synergistic", "seamlessly", "cutting-edge", "fast-paced environment", "delved", "spearheaded a holistic...").
+   - Ensure correctedText reads like an authentic, grounded human professional wrote it — clear, conversational, and direct.
+
+4. SELECTIVE BUSINESS & TECHNICAL QUANTIFICATION (category: "impact")
+   - Numbers (time saved, latency dropped, % accuracy, scale, release speed) are great when natural, but NOT every bullet needs a number!
+   - Do NOT criticize a bullet for lacking a number if it already demonstrates clear technical or business value (e.g., retiring a legacy third-party CMS, enforcing HIPAA/OAuth2/JWT security boundaries, migrating Bootstrap 4 to 5 to eliminate jQuery technical debt, or building a RAG workflow with fallback citations).
+   - Only flag a bullet for missing impact when it reads like a bare task or tool list with NO clear outcome (neither quantitative nor qualitative).
+   - Across the entire report, return AT MOST ONE consolidated issue card about missing metrics/quantification. Never create multiple issue cards complaining about missing numbers.
+
+5. START BULLET POINTS WITH STRONG ACTION VERBS (category: "weak_verbs")
+   - Every bullet must open with a strong ownership verb (e.g., "Architected", "Engineered", "Automated", "Refactored", "Hardened", "Streamlined").
+   - Flag bullets that start with weak/supporting openers ("Using prompt engineering...", "Contributed to decomposing...", "Supported product features...", "Collaborated with UX designers...", "Partnering with QA..."). Rewrite them so the candidate's engineering action comes first.
+
+6. APPLY STAR & CAR (CHALLENGE–ACTION–RESULT) FRAMEWORKS (category: "star_car_structure")
+   - Structure experience bullets around Challenge/Situation → Action → Result (CAR/STAR).
+   - A strong Result can be quantitative ("cutting retrieval latency by 40%") OR qualitative ("retiring the third-party OpenText CMS in favor of a bank-owned microservice architecture", "enforcing strict HIPAA-compliant role-based access control").
+   - When rewriting a bullet in correctedText, put the Action + Challenge/Result into a tight, 1–2 line CAR story (under 30 words).
+
+7. OPTIMIZE KEYWORDS NATURALLY ACROSS SECTIONS (category: "keyword_optimization" or "skill_evidence_gap")
+   - Compare the candidate's Summary, Skills, and Experience against the target role requirements.
+   - Highlight high-demand market keywords that are either missing or listed in Skills without supporting evidence in Experience/Projects.
+   - Fix "tool-dump" bullets (where 5–7 tools are crammed into a list without explaining how they solved a problem) by weaving the primary tools naturally into a CAR achievement sentence.
+
+8. ENSURE HUMAN-WRITTEN AUTHENTICITY
+   - Every correctedText rewrite must sound like a sharp, real engineer or domain professional explaining their work to a hiring manager — never stiff, robotic, or over-stuffed with adjectives.
+   - DO NOT force [ADD: ...] placeholders into every rewrite! If a bullet already has a clear qualitative CAR outcome (like retiring OpenText CMS, enforcing JWT/RBAC security, or keeping releases repeatable), write a complete, polished human sentence WITHOUT any [ADD: ...] slot.
+
+==================================================
+2B. REAL IMPACT RULE
 ==================================================
 Do NOT assume that impact must be a business metric (like revenue, conversion, or customer acquisition).
 Valid, first-class technical impact includes:
@@ -122,7 +164,7 @@ Use your recruiter judgment to determine whether the signal materially affects t
 ==================================================
 Do NOT create an issue solely because:
 - a bullet lacks a percentage
-- a bullet lacks a number
+- a bullet lacks a number (missing metric alone is NEVER sufficient for an issue)
 - a skill is not mentioned elsewhere
 - two dates overlap
 - a project lacks business metrics
@@ -221,6 +263,14 @@ For the summary section, use itemId: "summary_001", bulletId: "summary_001".
 For the skills section, use itemId: "skills_001", bulletId: "skills_001".
 
 ==================================================
+7B. STRICT ISSUE DEDUPLICATION & DEFECT CLUSTERING
+==================================================
+- You MUST cluster similar bullet defects into a single unified issue card with multiple evidence items in evidence: [...].
+- NEVER generate duplicate issues with identical or near-identical titles (e.g., do NOT output 3 separate "Technology list without demonstrated outcome" cards).
+- If multiple bullets suffer from the same pattern defect (such as technology dumping, missing outcome, or unquantified impact), group them into ONE unified issue card, explain the pattern in diagnosis and recommendation, and list all matching bullets inside the evidence array.
+- Every issue in issues[] MUST have a unique, distinct title.
+
+==================================================
 8. NO FABRICATION & PLACEHOLDER METRIC BAN
 ==================================================
 Never invent:
@@ -274,8 +324,18 @@ It may NOT introduce:
 - new users, new responsibilities, new business impact, new claims
 
 Every factual claim in correctedText must already exist in the supplied resume.
-If safe rewriting without guessing is impossible: set correctedText = null.
-Do NOT force a rewrite.
+
+FILL-IN SLOTS (V3.1):
+When the bullet's impact is real but unquantified, you MAY include ONE fill-in slot using the exact format:
+[ADD: short description of metric to find] (e.g. "[ADD: % reduction in production defects]", "[ADD: hours saved weekly]").
+Rules:
+- NO digits inside the slot.
+- At most ONE slot per correctedText.
+- The slot replaces the missing metric; everything else must come from the resume evidence.
+
+MANDATORY REWRITES FOR MEDIUM & HIGH SEVERITY ISSUES:
+Ensure every issue of severity "medium" or "high" returns a non-null correctedText using the Google X-Y-Z framework with at most one [ADD: metric] slot.
+Never return correctedText: null for medium or high severity issues.
 
 ==================================================
 10. WHY IT MATTERS

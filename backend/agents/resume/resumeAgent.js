@@ -98,7 +98,7 @@ export class ResumeAgent {
     experienceLevel = '',
     marketContextOverride = null,
     model = null,
-    orchestrationMode = process.env.RESUME_AGENT_ORCHESTRATION_MODE || 'hybrid_deterministic_reasoning',
+    orchestrationMode = process.env.RESUME_AGENT_ORCHESTRATION_MODE || 'chunked_section_synthesis',
     taskPolicies = {},
     inputMode = 'compact_text',
     isSynthetic = false,
@@ -369,7 +369,8 @@ export class ResumeAgent {
 
       if (
         useV3Pipeline &&
-        (orchestrationMode === 'specialized_parallel_agents' ||
+        (orchestrationMode === 'chunked_section_synthesis' ||
+          orchestrationMode === 'specialized_parallel_agents' ||
           orchestrationMode === 'hybrid_deterministic_reasoning' ||
           orchestrationMode === 'baseline_single_synthesis')
       ) {
@@ -384,6 +385,12 @@ export class ResumeAgent {
           isBenchmark,
           signal,
         })
+        if (!orchResult.success && orchResult.finishReason === 'error') {
+          const providerErr = new Error(orchResult.validation?.errors?.[0] || 'Orchestration LLM call failed')
+          providerErr.code = 'PROVIDER_ERROR'
+          providerErr.provider = orchResult.metrics?.provider || 'groq'
+          throw providerErr
+        }
         rawModelOutput = orchResult.rawModelOutput
         validation = orchResult.validation || ResumeAgentValidator.validate(rawModelOutput, canonicalResume)
         finishReason = orchResult.finishReason || 'stop'
@@ -592,18 +599,56 @@ export class ResumeAgent {
         const claimResult = validateClaims(parsedAnalysis, canonicalResume)
         v3Violations.push(...claimResult.violations)
 
-        // If claim violations were detected, attempt safe recovery by pruning violating issues if >= 3 remain
+        // If claim violations were detected, attempt safe recovery
         if (v3Violations.length > 0) {
-          const violatingIssueIndices = new Set()
-          for (const v of v3Violations) {
-            if (typeof v.issueIndex === 'number') violatingIssueIndices.add(v.issueIndex)
+          // 1. Sanitize recommendations that contain hypothetical metric examples in parentheses e.g. (e.g. 35%)
+          for (const iss of parsedAnalysis.issues || []) {
+            if (iss.recommendation && /\(e\.g\.?[^)]*\d+[^)]*\)/i.test(iss.recommendation)) {
+              iss.recommendation = iss.recommendation.replace(/\s*\(e\.g\.?[^)]*\d+[^)]*\)/gi, '').trim()
+            }
+            if (iss.correctedText) {
+              const textViolations = validateClaims({ issues: [{ ...iss, diagnosis: '', recommendation: '' }] }, canonicalResume)
+              if (textViolations.violations && textViolations.violations.length > 0) {
+                const evText = ResumeAgentValidator.getEvidenceText(iss.evidence)
+                iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(evText || iss.title)
+                iss.correctionType = 'rewrite'
+              }
+            }
           }
-          if (violatingIssueIndices.size > 0 && parsedAnalysis.issues.length - violatingIssueIndices.size >= 3) {
-            parsedAnalysis.issues = parsedAnalysis.issues.filter((_, idx) => !violatingIssueIndices.has(idx))
-            v3Violations = []
-            validation.warnings.push(
-              `Safe recovery applied: pruned ${violatingIssueIndices.size} issues with claim violations; ${parsedAnalysis.issues.length} verified issues retained.`
-            )
+
+          // Re-sync priorityActions action text with sanitized recommendations
+          if (Array.isArray(parsedAnalysis.priorityActions)) {
+            parsedAnalysis.priorityActions = parsedAnalysis.issues.slice(0, 3).map((iss, idx) => ({
+              priority: idx + 1,
+              title: iss.title,
+              action: iss.recommendation,
+              reason: iss.whyItMatters,
+            }))
+          }
+
+          // Re-validate claims after sanitization
+          const recheck = validateClaims(parsedAnalysis, canonicalResume)
+          v3Violations = recheck.violations || []
+
+          // If any issues STILL violate claims, prune them if >= 3 remain
+          if (v3Violations.length > 0) {
+            const violatingIssueIds = new Set()
+            for (const v of v3Violations) {
+              const m = typeof v === 'string' ? v.match(/\[(iss_\d+|issue_\d+)/i) : null
+              if (m) violatingIssueIds.add(m[1].toLowerCase())
+              else if (typeof v.issueIndex === 'number') violatingIssueIds.add(`iss_${String(v.issueIndex + 1).padStart(3, '0')}`)
+            }
+
+            if (violatingIssueIds.size > 0 && parsedAnalysis.issues.length - violatingIssueIds.size >= 3) {
+              parsedAnalysis.issues = parsedAnalysis.issues.filter(
+                (iss) => !violatingIssueIds.has((iss.id || '').toLowerCase())
+              )
+              const finalCheck = validateClaims(parsedAnalysis, canonicalResume)
+              v3Violations = finalCheck.violations || []
+              validation.warnings.push(
+                `Safe recovery applied: pruned ${violatingIssueIds.size} issues with claim violations; ${parsedAnalysis.issues.length} verified issues retained.`
+              )
+            }
           }
         }
 
@@ -714,6 +759,17 @@ export class ResumeAgent {
 
       const finalAnalysis = {
         ...parsedAnalysis,
+        candidateSnapshot: {
+          ...(parsedAnalysis.candidateSnapshot || {}),
+          name: parsedAnalysis.candidateSnapshot?.name || canonicalResume.candidate?.name || '',
+          targetRole: parsedAnalysis.candidateSnapshot?.targetRole || canonicalResume.candidate?.targetRole || effectiveRole || '',
+          experienceLevel: parsedAnalysis.candidateSnapshot?.experienceLevel || (canonicalResume.experience?.length ? `${Math.max(1, canonicalResume.experience.length * 2)}+ years` : ''),
+          presentRole: canonicalResume.candidate?.presentRole || '',
+          presentCompany: canonicalResume.candidate?.presentCompany || '',
+          pastRoles: canonicalResume.candidate?.pastRoles || [],
+          allRoles: canonicalResume.candidate?.allRoles || [],
+          linkedinUrl: canonicalResume.candidate?.contact?.linkedin || '',
+        },
         dashboard,
         ...(activeMarketContext ? { marketContext: activeMarketContext } : {}),
         metadata: {

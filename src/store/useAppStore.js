@@ -139,6 +139,13 @@ const useAppStore = create((set) => ({
       return { formData: nextFormData }
     }),
 
+  // Background Resume Agent Analysis state: { status: 'idle' | 'analyzing' | 'completed' | 'error', data: null, error: null, filename: null }
+  resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
+  setResumeAnalysis: (update) =>
+    set((state) => ({
+      resumeAnalysis: typeof update === 'function' ? update(state.resumeAnalysis) : { ...state.resumeAnalysis, ...update },
+    })),
+
   // Report
   reportData: initial.reportData,
   setReportData: (reportData) => {
@@ -193,6 +200,7 @@ const useAppStore = create((set) => ({
       direction: 1,
       formData: {},
       reportData: null,
+      resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
     })
   },
 }))

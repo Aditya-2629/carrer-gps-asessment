@@ -111,7 +111,13 @@ async function callAtlas(promptText, extraInstructions = '') {
   return normalizeAtlasShapes(parseAtlasJson(responseText))
 }
 
-export async function generateReportBundle({ userId, semanticProfile, onProgress = () => {} }) {
+export async function generateReportBundle({
+  userId,
+  semanticProfile,
+  precomputedResumeAgent = null,
+  precomputedResumeJson = null,
+  onProgress = () => {},
+}) {
   const report = (stage, message) => {
     try {
       onProgress({ stage, message, at: new Date().toISOString() })
@@ -126,6 +132,10 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
 
   const hasAnswers = user.answers && Object.keys(user.answers).length > 0
   if (!hasAnswers) throw Object.assign(new Error('No answers found. Please submit the assessment first.'), { statusCode: 400 })
+
+  if (precomputedResumeJson && !user.resumeJson) {
+    user.resumeJson = precomputedResumeJson
+  }
 
   report('preparing', 'Scraping LinkedIn profile and building knowledge context…')
 
@@ -164,15 +174,37 @@ export async function generateReportBundle({ userId, semanticProfile, onProgress
   // Atlas narrative and the agent orchestrator run in parallel (Phase B).
   report('agents_running', 'Resume + LinkedIn agents analyzing in parallel with Atlas…')
 
-  // Agents start first (the long pole) and run in parallel with Atlas.
-  const agentsPromise = runCareerAgents({
-    resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
-    resumeName: user.resumeName || '',
-    resumeTargetRole,
-    linkedinData: user.linkedinData || null,
-    userId: user._id,
-    onProgress: (e) => report(`agent_${e.agent}_${e.stage}`, e.message),
-  })
+  // If precomputedResumeAgent is already supplied from upload-time execution,
+  // skip duplicate ResumeAgent LLM execution and only run LinkedIn agent if needed.
+  let agentsPromise
+  if (precomputedResumeAgent) {
+    report('agent_resume_agent_done', 'Precomputed Resume Agent diagnosis attached.')
+    agentsPromise = (async () => {
+      const linkedinRes = await runCareerAgents({
+        resumeBuffer: null,
+        resumeName: '',
+        resumeTargetRole,
+        linkedinData: user.linkedinData || null,
+        userId: user._id,
+        onProgress: (e) => {
+          if (e.agent !== 'resume') report(`agent_${e.agent}_${e.stage}`, e.message)
+        },
+      })
+      return {
+        resumeAgent: precomputedResumeAgent,
+        linkedinAgent: linkedinRes.linkedinAgent,
+      }
+    })()
+  } else {
+    agentsPromise = runCareerAgents({
+      resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
+      resumeName: user.resumeName || '',
+      resumeTargetRole,
+      linkedinData: user.linkedinData || null,
+      userId: user._id,
+      onProgress: (e) => report(`agent_${e.agent}_${e.stage}`, e.message),
+    })
+  }
 
   // Atlas draft with completeness guard: if the model returns a partial JSON
   // (missing sections), retry ONCE with an explicit completeness instruction
