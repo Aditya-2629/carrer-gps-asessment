@@ -70,14 +70,18 @@ async function persistRun(row) {
 async function findCachedRun(agent, inputHash) {
   if (!MONGO_CONNECTED()) return null
   try {
-    return await AgentRun.findOne({
+    AgentRun.deleteMany({ output: null, cached: true }).catch(() => {})
+    const query = {
       agent,
       inputHash,
       status: 'SUCCESS',
+      output: { $ne: null },
       createdAt: { $gte: new Date(Date.now() - CACHE_TTL_MS) },
-    })
-      .sort({ createdAt: -1 })
-      .lean()
+    }
+    if (agent === 'linkedin') {
+      query['output.dataAvailable'] = true
+    }
+    return await AgentRun.findOne(query).sort({ createdAt: -1 }).lean()
   } catch (_e) {
     return null
   }
@@ -158,10 +162,11 @@ export async function runCareerAgents(bundle) {
       if (onProgress) {
         onProgress({ stage: 'resume_parsing', agent: 'resume', message: 'Parsing resume structure & extracting canonical facts…' })
       }
+      const isRealCanonicalResume = canonicalResume && (Array.isArray(canonicalResume.experience) || Array.isArray(canonicalResume.experiences))
       resumeContext = await ResumeAgent.prepareCanonicalContext({
         buffer: resumeBuffer,
         text: resumeText,
-        canonicalResumeOverride: canonicalResume,
+        canonicalResumeOverride: isRealCanonicalResume ? canonicalResume : null,
         filename: resumeName || 'resume',
         targetRole: resumeTargetRole,
       })
@@ -203,19 +208,8 @@ export async function runCareerAgents(bundle) {
         )
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null
-        if (cached) {
+        if (cached && cached.output) {
           if (onProgress) onProgress({ stage: 'cache_hit', agent: 'resume', message: 'Resume Agent: reused cached analysis' })
-          await persistRun({
-            agent: 'resume',
-            agentVersion: cached.agentVersion,
-            inputHash,
-            userId,
-            status: 'SUCCESS',
-            cached: true,
-            output: null,
-            latencyMs: 0,
-            model: cached.model,
-          })
           return { key: 'resumeAgent', analysis: cached.output }
         }
 
@@ -315,19 +309,9 @@ export async function runCareerAgents(bundle) {
         const inputHash = sha256(`linkedin:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:v:${LINKEDIN_AGENT.version}`)
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('linkedin', inputHash) : null
-        if (cached) {
+        if (cached && cached.output) {
           if (onProgress) onProgress({ stage: 'cache_hit', agent: 'linkedin', message: 'LinkedIn Agent: reused cached audit' })
-          await persistRun({
-            agent: 'linkedin',
-            agentVersion: cached.agentVersion,
-            inputHash,
-            userId,
-            status: 'SUCCESS',
-            cached: true,
-            output: null,
-            latencyMs: 0,
-          })
-          return { key: 'linkedinAgent', analysis: cached.output }
+          return { key: 'linkedinAgent', analysis: cached.output, linkedinData: activeProfile }
         }
 
         if (onProgress) onProgress({ stage: 'agent_started', agent: 'linkedin', message: 'LinkedIn Agent: auditing & optimizing' })

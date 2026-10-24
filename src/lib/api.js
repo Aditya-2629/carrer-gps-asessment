@@ -93,12 +93,20 @@ export const api = {
 
       const allAnswers = { ...formData }
 
-      // Retrieve pre-scraped LinkedIn profile from formData or sessionStorage
+      // Retrieve pre-scraped LinkedIn profile from formData, sessionStorage, or in-flight promise
       let preScrapedLinkedin = formData.linkedinData || null
       if (!preScrapedLinkedin && typeof sessionStorage !== 'undefined') {
         try {
           const cached = sessionStorage.getItem('craftureLinkedinScrape')
           if (cached) preScrapedLinkedin = JSON.parse(cached)
+        } catch (_e) {}
+      }
+      if (!preScrapedLinkedin && typeof window !== 'undefined' && window.__linkedinScrapePromise) {
+        try {
+          preScrapedLinkedin = await Promise.race([
+            window.__linkedinScrapePromise,
+            new Promise((r) => setTimeout(() => r(null), 6000)),
+          ])
         } catch (_e) {}
       }
       if (preScrapedLinkedin) {

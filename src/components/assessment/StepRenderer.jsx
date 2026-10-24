@@ -98,14 +98,16 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     // Step 11 background scrape trigger: non-blocking LinkedIn scrape
     if (step.name === 'linkedin' && typeof formData.linkedin === 'string' && formData.linkedin.trim()) {
       const url = formData.linkedin.trim()
-      api.scrapeLinkedInProfile(url).then((res) => {
+      window.__linkedinScrapePromise = api.scrapeLinkedInProfile(url).then((res) => {
         if (res?.success && res?.profile) {
           useAppStore.getState().setFormData('linkedinData', res.profile)
           try {
             sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
           } catch (_e) {}
+          return res.profile
         }
-      }).catch(() => {})
+        return null
+      }).catch(() => null)
     }
 
     onNext()

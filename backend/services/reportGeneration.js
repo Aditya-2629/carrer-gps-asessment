@@ -16,6 +16,7 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
+import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
 import AgentRun from '../models/AgentRun.js'
 import { jsonrepair } from 'jsonrepair'
@@ -203,6 +204,7 @@ export async function generateReportBundle({
   semanticProfile,
   precomputedResumeAgent = null,
   precomputedResumeJson = null,
+  precomputedLinkedinData = null,
   onProgress = () => {},
 }) {
   const report = (stage, message) => {
@@ -223,6 +225,15 @@ export async function generateReportBundle({
   if (precomputedResumeJson && !user.resumeJson) {
     user.resumeJson = precomputedResumeJson
   }
+
+  if (precomputedLinkedinData && !user.linkedinData) {
+    user.linkedinData = precomputedLinkedinData
+  }
+
+  const effectiveCanonicalResume =
+    precomputedResumeJson ||
+    precomputedResumeAgent?.canonicalResume ||
+    (Array.isArray(user.resumeJson?.experience) || Array.isArray(user.resumeJson?.experiences) ? user.resumeJson : null)
 
   const effectiveLinkedinUrl = user.linkedinUrl || user.answers?.linkedin || user.answers?.linkedinUrl || ''
 
@@ -261,10 +272,10 @@ export async function generateReportBundle({
       const linkedinRes = await runCareerAgents({
         resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
         resumeName: user.resumeName || '',
-        canonicalResume: precomputedResumeAgent.canonicalResume || user.resumeJson || null,
+        canonicalResume: effectiveCanonicalResume,
         resumeTargetRole,
         linkedinUrl: effectiveLinkedinUrl,
-        linkedinData: user.linkedinData || null,
+        linkedinData: user.linkedinData || precomputedLinkedinData || null,
         userId: user._id,
         skipResumeSynthesis: true,
         onProgress: (e) => {
@@ -284,10 +295,10 @@ export async function generateReportBundle({
     agentsPromise = runCareerAgents({
       resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
       resumeName: user.resumeName || '',
-      canonicalResume: user.resumeJson || null,
+      canonicalResume: effectiveCanonicalResume,
       resumeTargetRole,
       linkedinUrl: effectiveLinkedinUrl,
-      linkedinData: user.linkedinData || null,
+      linkedinData: user.linkedinData || precomputedLinkedinData || null,
       userId: user._id,
       onProgress: (e) => {
         const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
@@ -333,9 +344,31 @@ export async function generateReportBundle({
   const result = await agentsPromise
   aiReport.resume_agent = result?.resumeAgent || null
   aiReport.linkedin_agent = result?.linkedinAgent || null
-  if (!aiReport.linkedin_json && result?.linkedinData) {
-    aiReport.linkedin_json = result.linkedinData
-    user.linkedinData = result.linkedinData
+  if (!aiReport.linkedin_json && (result?.linkedinData || user.linkedinData || precomputedLinkedinData)) {
+    aiReport.linkedin_json = result?.linkedinData || user.linkedinData || precomputedLinkedinData
+    user.linkedinData = aiReport.linkedin_json
+  }
+
+  // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
+  const activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
+  if ((!aiReport.linkedin_agent || aiReport.linkedin_agent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl)) {
+    try {
+      console.log('[ReportGeneration] Running safety net evaluateLinkedIn directly...')
+      const directLi = await evaluateLinkedIn({
+        profile: activeLinkedinData,
+        resumeContext: {
+          canonicalResume: effectiveCanonicalResume,
+          targetRole: resumeTargetRole,
+        },
+        runLlm: true,
+        preferredProvider: 'groq',
+      })
+      if (directLi) {
+        aiReport.linkedin_agent = directLi
+      }
+    } catch (directErr) {
+      console.warn('[ReportGeneration] Safety net evaluateLinkedIn failed:', directErr.message)
+    }
   }
 
   aiReport.user_answers = user.answers || {}

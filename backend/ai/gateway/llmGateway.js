@@ -262,8 +262,10 @@ export class LLMGateway {
       })
 
       try {
-        const supportsJsonObject =
-          responseFormat === 'json_object' && Boolean(modelMetadata.supportsJsonObject)
+        const isJsonFormat =
+          responseFormat === 'json_object' ||
+          (typeof responseFormat === 'object' && responseFormat?.type === 'json_object')
+        const supportsJsonObject = isJsonFormat && Boolean(modelMetadata.supportsJsonObject)
 
         const configuredTimeout =
           providerKey === 'gemini'
