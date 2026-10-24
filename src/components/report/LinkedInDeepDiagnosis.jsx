@@ -29,8 +29,8 @@ import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 
 const severityChip = {
-  high: 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/80 dark:border-red-700/60 dark:text-red-300',
-  medium: 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/80 dark:border-amber-700/60 dark:text-amber-300',
+  high: 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/80 dark:border-rose-700/60 dark:text-rose-300',
+  medium: 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300',
   low: 'bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-950/80 dark:border-sky-700/60 dark:text-sky-300',
 }
 
@@ -220,7 +220,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
               className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
                 hasBanner
                   ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-amber-50 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
               }`}
             >
               {hasBanner ? 'Custom Banner Active' : 'Default Gray Banner'}
@@ -232,7 +232,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
               className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
                 hasBanner
                   ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
               }`}
             >
               {hasBanner ? <CheckCircle size={24} weight="fill" /> : <Palette size={24} weight="fill" />}
@@ -299,7 +299,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
           </div>
 
           {/* Visual Banner Canvas Mockup (4:1 Aspect Ratio Preview with Guaranteed White Contrast) */}
-          <div className="relative w-full rounded-xl overflow-hidden shadow-md border border-slate-700/60 bg-gradient-to-r from-[#0b1728] via-[#0f2444] to-[#1e1b4b] p-5 sm:p-7 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] text-white">
+          <div className="relative w-full rounded-xl overflow-hidden shadow-md border border-[var(--border-default)] bg-gradient-to-r from-[#0a66c2] via-[#084b8a] to-[#003366] p-5 sm:p-7 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] text-white">
             <div className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
 
             <div className="relative z-10 flex justify-end">
@@ -357,21 +357,21 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
 
       {/* ── 4. Resume-vs-LinkedIn Missing Sections & Discrepancy Alert ────── */}
       {hasCrossDiscrepancies && (
-        <div className="rounded-2xl border border-amber-300/90 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-700/60 p-5 sm:p-6 space-y-4 shadow-xs">
-          <div className="flex items-start gap-3.5">
-            <span className="p-2.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex items-start gap-3.5 border-b border-[var(--border-default)] pb-4">
+            <span className="p-2.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 shrink-0 mt-0.5">
               <ShieldWarning size={24} weight="duotone" />
             </span>
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">
                   Missing Sections & Cross-Platform Discrepancies
                 </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 dark:bg-amber-900/70 dark:text-amber-200">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
                   Recruiter Screening Alert
                 </span>
               </div>
-              <p className="text-xs text-amber-900/85 dark:text-amber-300/90 leading-relaxed">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Differences between your verified resume and LinkedIn profile (e.g. omitted sections, title drift, timeline drift, or missing skills) are immediate friction points that recruiters notice in candidate screenings.
               </p>
             </div>
@@ -382,32 +382,32 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             {missingSections.map((sec, idx) => (
               <div
                 key={sec.id || `missing_sec_${idx}`}
-                className="bg-white/95 dark:bg-[#0c1425] border border-red-200/90 dark:border-red-900/60 rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
+                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                     {sec.type === 'missing_certifications' ? (
-                      <Certificate size={15} className="text-red-600 dark:text-red-400" />
+                      <Certificate size={15} className="text-rose-600 dark:text-rose-400" />
                     ) : sec.type === 'missing_projects' ? (
-                      <FolderSimple size={15} className="text-red-600 dark:text-red-400" />
+                      <FolderSimple size={15} className="text-rose-600 dark:text-rose-400" />
                     ) : (
-                      <WarningCircle size={15} className="text-red-600 dark:text-red-400" />
+                      <WarningCircle size={15} className="text-rose-600 dark:text-rose-400" />
                     )}
                     {safeText(sec.title)}
                   </span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-100 text-red-900 dark:bg-red-900/70 dark:text-red-200">
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
                     Missing Section
                   </span>
                 </div>
 
-                <div className="space-y-1.5 bg-slate-50 dark:bg-slate-900/70 rounded-lg p-2.5 font-mono text-[11px] border border-slate-200/60 dark:border-slate-800/60">
-                  <div className="flex gap-2 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">Resume:</span>
+                <div className="space-y-1.5 bg-[var(--surface-card)] rounded-lg p-2.5 font-mono text-[11px] border border-[var(--border-default)]">
+                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                    <span className="font-semibold text-[var(--text-primary)] shrink-0">Resume:</span>
                     <span className="truncate">{safeText(sec.resumeClaim)}</span>
                   </div>
-                  <div className="flex gap-2 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">LinkedIn:</span>
-                    <span className="truncate text-red-700 dark:text-red-300 font-semibold">{safeText(sec.linkedinClaim)}</span>
+                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                    <span className="font-semibold text-rose-600 dark:text-rose-400 shrink-0">LinkedIn:</span>
+                    <span className="truncate text-rose-600 dark:text-rose-400 font-semibold">{safeText(sec.linkedinClaim)}</span>
                   </div>
                 </div>
 
@@ -427,32 +427,36 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             {discrepancies.map((disc, idx) => (
               <div
                 key={disc.id || idx}
-                className="bg-white/95 dark:bg-[#0c1425] border border-amber-200/90 dark:border-amber-800/60 rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
+                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                     {disc.type === 'timeline_drift' ? (
-                      <CalendarBlank size={15} className="text-amber-600 dark:text-amber-400" />
+                      <CalendarBlank size={15} className="text-[#0a66c2]" />
                     ) : disc.type === 'title_drift' ? (
-                      <Briefcase size={15} className="text-amber-600 dark:text-amber-400" />
+                      <Briefcase size={15} className="text-[#0a66c2]" />
                     ) : (
-                      <WarningCircle size={15} className="text-amber-600 dark:text-amber-400" />
+                      <WarningCircle size={15} className="text-rose-600 dark:text-rose-400" />
                     )}
                     {safeText(disc.title)}
                   </span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/70 dark:text-amber-200">
+                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                    disc.severity === 'high'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                  }`}>
                     {safeText(disc.severity) || 'warning'}
                   </span>
                 </div>
 
-                <div className="space-y-1.5 bg-slate-50 dark:bg-slate-900/70 rounded-lg p-2.5 font-mono text-[11px] border border-slate-200/60 dark:border-slate-800/60">
-                  <div className="flex gap-2 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">Resume:</span>
+                <div className="space-y-1.5 bg-[var(--surface-card)] rounded-lg p-2.5 font-mono text-[11px] border border-[var(--border-default)]">
+                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                    <span className="font-semibold text-[var(--text-primary)] shrink-0">Resume:</span>
                     <span className="truncate">{safeText(disc.resumeClaim)}</span>
                   </div>
-                  <div className="flex gap-2 text-slate-700 dark:text-slate-300">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 shrink-0">LinkedIn:</span>
-                    <span className="truncate text-amber-700 dark:text-amber-300 font-semibold">{safeText(disc.linkedinClaim)}</span>
+                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                    <span className="font-semibold text-rose-600 dark:text-rose-400 shrink-0">LinkedIn:</span>
+                    <span className="truncate text-rose-600 dark:text-rose-400 font-semibold">{safeText(disc.linkedinClaim)}</span>
                   </div>
                 </div>
 
@@ -471,13 +475,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             {droppedImpact.map((drop, idx) => (
               <div
                 key={drop.id || idx}
-                className="bg-white/95 dark:bg-[#0c1425] border border-amber-200/90 dark:border-amber-800/60 rounded-xl p-4 space-y-2 text-xs shadow-2xs"
+                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2 text-xs shadow-2xs"
               >
                 <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
-                  <TrendDown size={15} className="text-amber-600 dark:text-amber-400" />
+                  <TrendDown size={15} className="text-[#0a66c2]" />
                   Omitted Resume Achievement ({safeText(drop.company) || 'Experience'})
                 </div>
-                <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/70 dark:border-emerald-800/50 rounded-lg p-2.5 text-emerald-950 dark:text-emerald-200 italic text-[11px]">
+                <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-2.5 text-emerald-700 dark:text-emerald-400 italic text-[11px]">
                   "{safeText(drop.sampleResumeProof)}"
                 </div>
                 <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(drop.diagnosis)}</p>
@@ -571,20 +575,20 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             </div>
           )}
 
-          {/* Story-Driven About Section Card (Obsidian Theme) */}
+          {/* Story-Driven About Section Card */}
           {rawAbout && (
-            <div className="rounded-2xl border border-slate-800 bg-[#0c1322] dark:bg-[#070b14] text-slate-100 p-5 sm:p-7 space-y-4 shadow-lg relative overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-7 space-y-4 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                       Story-Driven About Section Rewrite
                     </h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-semibold">
                       {aboutWordCount} words · {aboutCharCount} chars (limit: 2,600)
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[var(--text-secondary)]">
                     Engineered for modern recruiter scan habits: The Hook → Quantified Proof → Next Role Call-to-Connect
                   </p>
                 </div>
@@ -592,10 +596,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                 <button
                   type="button"
                   onClick={() => handleCopy(fullAboutText, 'about_rewrite')}
-                  className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
                     copiedId === 'about_rewrite'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-[#0a66c2] hover:bg-[#004182] text-white'
                   }`}
                 >
                   {copiedId === 'about_rewrite' ? (
@@ -610,43 +614,43 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                 </button>
               </div>
 
-              <div className="space-y-4 bg-slate-900/80 border border-slate-800/80 rounded-xl p-5 text-xs text-slate-200 leading-relaxed">
+              <div className="space-y-4 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-5 text-xs text-[var(--text-secondary)] leading-relaxed">
                 {aboutIsString ? (
-                  <p className="text-slate-100 whitespace-pre-wrap">{rawAbout}</p>
+                  <p className="text-[var(--text-primary)] whitespace-pre-wrap">{rawAbout}</p>
                 ) : (
                   <>
                     {hookText && (
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-[#0a66c2]">
                           Paragraph 1: The Hook (Technical Identity & Domain)
                         </span>
-                        <p className="text-slate-100 font-medium whitespace-pre-wrap">
+                        <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap">
                           {hookText}
                         </p>
                       </div>
                     )}
                     {proofText && (
-                      <div className="space-y-1 pt-2 border-t border-slate-800/70">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
+                      <div className="space-y-1 pt-2 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
                           Paragraph 2: Quantified Proof & Architecture Scale
                         </span>
-                        <p className="text-slate-300 whitespace-pre-wrap">
+                        <p className="text-[var(--text-secondary)] whitespace-pre-wrap">
                           {proofText}
                         </p>
                       </div>
                     )}
                     {ctaText && (
-                      <div className="space-y-1 pt-2 border-t border-slate-800/70">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400">
+                      <div className="space-y-1 pt-2 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
                           Paragraph 3: Next Role Focus & Call to Connect
                         </span>
-                        <p className="text-slate-200 italic whitespace-pre-wrap">
+                        <p className="text-[var(--text-secondary)] italic whitespace-pre-wrap">
                           {ctaText}
                         </p>
                       </div>
                     )}
                     {!hookText && !proofText && !ctaText && fallbackFullText && (
-                      <p className="text-slate-100 whitespace-pre-wrap">
+                      <p className="text-[var(--text-primary)] whitespace-pre-wrap">
                         {fallbackFullText}
                       </p>
                     )}
