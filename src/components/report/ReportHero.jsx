@@ -95,6 +95,20 @@ export default function ReportHero({ reportData }) {
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.pastRoles ||
     []
 
+  const rawSkills = Array.isArray(candidate?.top_skills) && candidate.top_skills.length > 0
+    ? candidate.top_skills
+    : Array.isArray(candidate?.skills) && candidate.skills.length > 0
+    ? candidate.skills
+    : Array.isArray(resumeAgent?.canonicalResume?.skills) && resumeAgent.canonicalResume.skills.length > 0
+    ? resumeAgent.canonicalResume.skills
+    : []
+
+  const skillsList = rawSkills.map((s) => {
+    if (typeof s === 'string') return s
+    if (typeof s === 'object' && s) return s.name || s.skill || ''
+    return String(s || '')
+  }).filter(Boolean)
+
   const healthScore = Math.max(
     0,
     Number(
