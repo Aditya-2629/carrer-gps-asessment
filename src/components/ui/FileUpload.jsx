@@ -40,15 +40,17 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       })
 
       try {
-        const targetRole =
-          formData.targetRole ||
-          formData.target_role ||
-          formData.role ||
-          ''
+        // Clear stale targetRole on new resume upload unless user explicitly locked it or pasted a custom JD
+        const isCustomLocked = Boolean(formData.isCustomTargetRoleLocked || formData.customTargetRoleLocked)
+        const customJd = formData.targetJobDescription || formData.targetJd || ''
+        const targetRole = isCustomLocked
+          ? (formData.targetRole || formData.target_role || formData.role || '')
+          : ''
 
         const result = await api.evaluateResume({
           file,
           targetRole,
+          targetJobDescription: customJd,
           signal: controller.signal,
         })
 
@@ -81,7 +83,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (detectedName && !formData.name && !formData.fullName) {
             bulkUpdates.name = detectedName
           }
-          if (detectedTarget && !formData.targetRole && !formData.target_role && !formData.role) {
+          if (detectedTarget && (!isCustomLocked || !formData.targetRole)) {
             bulkUpdates.targetRole = detectedTarget
           }
           if (Object.keys(bulkUpdates).length > 0) {
@@ -149,19 +151,14 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
 
       setFileError('')
       onChange(file)
+      useAppStore.getState().setResumeFile(file)
+      if (typeof window !== 'undefined') {
+        window.__uploadedResumeFile = file
+      }
       startBackgroundAnalysis(file)
     },
     [step, onChange, startBackgroundAnalysis]
   )
-
-  // Clean up abort controller on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
 
   const handleDrop = (e) => {
     e.preventDefault()
@@ -177,8 +174,12 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
     }
   }
 
-  const hasFile = value instanceof File
-  const lowerFileName = hasFile ? value.name.toLowerCase() : ''
+  const storeFile = useAppStore((s) => s.resumeFile)
+  const effectiveFile = value instanceof File ? value : (storeFile instanceof File ? storeFile : null)
+  const hasFile = Boolean(effectiveFile || (value && typeof value === 'object' && value.name))
+  const fileName = effectiveFile?.name || value?.name || ''
+  const fileSize = effectiveFile?.size || value?.size || 0
+  const lowerFileName = fileName.toLowerCase()
   const isDocx = lowerFileName.endsWith('.docx') || lowerFileName.endsWith('.doc')
 
   return (
@@ -219,10 +220,10 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
               <div className="text-center">
                 <p className="font-medium text-sm flex items-center justify-center gap-1.5" style={{ color: '#10b981' }}>
                   <CheckCircle size={16} weight="fill" />
-                  <span className="font-semibold">{value.name}</span>
+                  <span className="font-semibold">{fileName}</span>
                 </p>
                 <p className="text-xs mt-1 text-[var(--text-muted)]">
-                  {(value.size / 1024 / 1024).toFixed(2)} MB · Click or drop to replace
+                  {(fileSize / 1024 / 1024).toFixed(2)} MB · Click or drop to replace
                 </p>
               </div>
             </motion.div>

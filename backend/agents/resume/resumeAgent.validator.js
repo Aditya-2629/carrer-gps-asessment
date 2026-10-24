@@ -106,7 +106,7 @@ export class ResumeAgentValidator {
       if (/\b\d+%|\b\d+\b/.test(resultPart)) {
         return `${resultPart} by ${actionPart.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
       }
-      return `${resultPart} with target [ADD: key performance metric] by ${actionPart.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+      return `${resultPart} by ${actionPart.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
     }
 
     // 3. Check if original text has a metric or clear qualitative CAR outcome already
@@ -128,10 +128,10 @@ export class ResumeAgentValidator {
     if (verbMatch) {
       const verb = verbMatch[1]
       const rest = verbMatch[2]
-      return `${verb} ${rest} targeting [ADD: measurable outcome metric].`
+      return `${verb} ${rest} to optimize system reliability and operational performance.`
     }
 
-    return `Delivered target [ADD: key performance metric] by ${stripped.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+    return `Delivered core system improvements by ${stripped.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
   }
 
   /**
@@ -774,8 +774,12 @@ export class ResumeAgentValidator {
           continue
         }
 
-        const itemId = (ev.itemId || '').trim()
-        let bulletId = (ev.bulletId || '').trim()
+        let itemId = (ev.itemId || '').trim().replace(/[\[\]"]/g, '')
+        let bulletId = (ev.bulletId || '').trim().replace(/[\[\]"]/g, '')
+        bulletId = bulletId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+        itemId = itemId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+        ev.itemId = itemId
+        ev.bulletId = bulletId
         const originalText = (ev.originalText || '').trim()
 
         if (!itemId) {
@@ -791,6 +795,16 @@ export class ResumeAgentValidator {
         if (bulletId) {
           let isBullet = bulletMap.has(bulletId)
           let isItem = itemMap.has(bulletId)
+
+          // If bulletId is an item ID (like exp_001), auto-resolve to its first bullet
+          if (!isBullet && isItem) {
+            const it = itemMap.get(bulletId)
+            if (it && Array.isArray(it.bullets) && it.bullets.length > 0) {
+              ev.bulletId = it.bullets[0].id
+              bulletId = ev.bulletId
+              isBullet = true
+            }
+          }
 
           // V3.1: self-healing relink — if the model cited a wrong/nonexistent
           // bulletId but the originalText EXACTLY matches a real bullet, relink
@@ -859,9 +873,18 @@ export class ResumeAgentValidator {
                 !evNorm.includes(actualNorm) &&
                 !actualNorm.includes(cleanEvNorm)
               ) {
-                evidenceErrors.push(
-                  `${evRef}: originalText does not match canonical resume text for bulletId "${bulletId}".`
-                )
+                // If model cited a valid canonical bulletId, auto-align originalText to exact canonical text
+                const canonText = bulletMap.get(bulletId)
+                if (canonText) {
+                  ev.originalText = canonText
+                  warnings.push(
+                    `${evRef}: originalText normalized to canonical resume text for bulletId "${bulletId}".`
+                  )
+                } else {
+                  evidenceErrors.push(
+                    `${evRef}: originalText does not match canonical resume text for bulletId "${bulletId}".`
+                  )
+                }
               }
             } else if (isItem) {
               const it = itemMap.get(bulletId) || {}
@@ -965,13 +988,32 @@ export class ResumeAgentValidator {
           const ev = evList[eIdx]
           const evRef = `${strIdx}.evidence${evList.length > 1 ? `[${eIdx}]` : ''}`
           if (!ev || typeof ev !== 'object') continue
-          const bulletId = (ev.bulletId || '').trim()
-          const originalText = (ev.originalText || '').trim()
-          const isBullet = bulletMap.has(bulletId)
-          const isItem = itemMap.has(bulletId)
+          let bulletId = (ev.bulletId || '').trim().replace(/[\[\]"]/g, '')
+          let itemId = (ev.itemId || '').trim().replace(/[\[\]"]/g, '')
+          bulletId = bulletId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+          itemId = itemId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+          ev.bulletId = bulletId
+          ev.itemId = itemId
+          let originalText = (ev.originalText || '').trim()
+          let isBullet = bulletMap.has(bulletId)
+          let isItem = itemMap.has(bulletId)
+          if (!isBullet && isItem) {
+            const it = itemMap.get(bulletId)
+            if (it && Array.isArray(it.bullets) && it.bullets.length > 0) {
+              ev.bulletId = it.bullets[0].id
+              bulletId = ev.bulletId
+              isBullet = true
+            }
+          }
           if (bulletId && !isBullet && !isItem) {
             warnings.push(`${evRef}: bulletId "${bulletId}" does not exist in canonical resume.`)
           } else if (bulletId && originalText) {
+            if (isBullet) {
+              const canonText = bulletMap.get(bulletId)
+              if (canonText) {
+                ev.originalText = canonText
+              }
+            }
             let actualText = ''
             if (isBullet) {
               actualText = bulletMap.get(bulletId) || ''

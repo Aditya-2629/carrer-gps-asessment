@@ -9,6 +9,111 @@ import { detectCertifications } from './signals/certificationDetector.js'
 // Broad role keywords matching all modern technical, management, product, data, design, and operations titles
 export const ROLE_KEYWORDS_REGEX = /\b(engineer|developer|architect|manager|lead|director|analyst|scientist|consultant|specialist|designer|intern|administrator|coordinator|programmer|officer|head|vp|president|founder|cto|ceo|cpo|coo|cso|fellow|associate|technician|representative|trainee|apprentice|practitioner|researcher|operator|advisor|strategist|auditor|recruiter|tester|qa|sde|swe|devops|sre|scrum\s+master|product\s+owner|instructor|professor|assistant|writer|marketer|producer|supervisor)\b/i
 
+/**
+ * Validates that a string looks like a legitimate job title:
+ * - Must not end with a period (.)
+ * - Must not exceed 65 characters
+ * - Must not start with a lowercase preposition (across, throughout, with, using, for, to, by, in, etc.)
+ * - Must not be a narrative sentence fragment
+ */
+export function isValidRoleTitle(role) {
+  if (!role || typeof role !== 'string') return false
+  const trimmed = role.trim()
+  if (trimmed.length === 0 || trimmed.length > 65) return false
+  // Never end with a period
+  if (trimmed.endsWith('.')) return false
+  // Never start with a lowercase preposition or sentence connector
+  if (/^(?:across|throughout|with|using|for|to|by|in|from|at|on|under|and|or|including|such as)\b/i.test(trimmed)) return false
+  // Never contain narrative duty phrases
+  if (/\b(?:responsible for|worked on|helped with|participated in|experience in|expertise in|objectives throughout)\b/i.test(trimmed)) return false
+  return true
+}
+
+/**
+ * Validates that a string looks like a legitimate company name:
+ * - Must not end with a period (.)
+ * - Must not exceed 70 characters
+ * - Must not start with lowercase prepositions
+ */
+export function isValidCompanyName(company) {
+  if (!company || typeof company !== 'string') return false
+  const trimmed = company.trim()
+  if (trimmed.length === 0 || trimmed.length > 70) return false
+  if (trimmed.endsWith('.')) return false
+  if (/^(?:across|throughout|with|using|for|to|by|in|from|at|on|under)\b/i.test(trimmed)) return false
+  return true
+}
+
+/**
+ * Cleans raw role title string, stripping technology lists after —, –, -, or |
+ * and converting ALL CAPS to Title Case.
+ */
+export function cleanRoleTitle(rawTitle) {
+  if (!rawTitle || typeof rawTitle !== 'string') return ''
+  let cleaned = rawTitle.replace(/^[•\-*▪–—|#]+\s*/, '').trim()
+
+  // Strip technology list or secondary keywords after —, –, -, or |
+  // e.g. "SENIOR FULL STACK SOFTWARE DEVELOPER - JAVA / SPRING / REACT" -> "SENIOR FULL STACK SOFTWARE DEVELOPER"
+  const delimiterParts = cleaned.split(/\s*(?:[—–|]|\s+-\s+)\s*/)
+  if (delimiterParts.length > 1 && ROLE_KEYWORDS_REGEX.test(delimiterParts[0])) {
+    cleaned = delimiterParts[0].trim()
+  } else {
+    // Check if line contains a dash separating tech (e.g. "DEVELOPER - REACT / NODE")
+    const dashMatch = cleaned.match(/^(.*?)(?:\s+-\s+[A-Za-z0-9\s/&,.-]+)$/)
+    if (dashMatch && dashMatch[1] && ROLE_KEYWORDS_REGEX.test(dashMatch[1])) {
+      cleaned = dashMatch[1].trim()
+    }
+  }
+
+  // Convert ALL CAPS to Title Case (e.g., "SENIOR FULL STACK SOFTWARE DEVELOPER" -> "Senior Full Stack Software Developer")
+  if (cleaned.length > 3 && cleaned === cleaned.toUpperCase() && /[A-Z]/.test(cleaned)) {
+    cleaned = cleaned
+      .toLowerCase()
+      .split(/\s+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  }
+
+  return cleaned
+}
+
+/**
+ * Extracts candidate role from the opening sentence of the professional summary.
+ */
+export function extractRoleFromSummary(summaryText) {
+  if (!summaryText || typeof summaryText !== 'string') return ''
+  const firstSentence = summaryText.split(/[.!?\n]/)[0] || ''
+  const match = firstSentence.match(/(?:(?:senior|junior|lead|principal|staff|associate|chief|vp|head\s+of)?\s*(?:full\s*stack|frontend|backend|cloud|systems|devops|data|software|web|mobile|ai|machine\s*learning|qa|security)?\s*(?:engineer|developer|architect|analyst|scientist|specialist|manager|lead|consultant|programmer))\b/i)
+  if (match) {
+    return cleanRoleTitle(match[0].trim())
+  }
+  return ''
+}
+
+/**
+ * Priority 4 fallback: Infers role from keyword frequency, ensuring Full Stack /
+ * Software Engineering is never overridden by secondary mentions of data tools.
+ */
+export function inferRoleFromKeywordFrequency(resumeText = '') {
+  if (!resumeText) return 'Software Engineer'
+  const text = resumeText.toLowerCase()
+
+  const fullStackSignals = ['full stack', 'fullstack', 'react', 'node.js', 'spring boot', 'software developer', 'software engineer', 'microservices', 'typescript', 'java developer']
+  const fullStackCount = fullStackSignals.filter((kw) => text.includes(kw)).length
+
+  const dataAnalystSignals = ['data analyst', 'tableau', 'power bi', 'business intelligence', 'bi analyst', 'looker', 'reporting analyst']
+  const dataCount = dataAnalystSignals.filter((kw) => text.includes(kw)).length
+
+  if (fullStackCount >= 2) {
+    return 'Senior Full Stack Software Developer'
+  }
+  if (dataCount >= 2 && !text.includes('software engineer') && !text.includes('full stack developer') && !text.includes('software developer')) {
+    return 'Data Analyst'
+  }
+  return 'Software Engineer'
+}
+
+
 // Date range regex matching present and historical employment spans
 export const DATE_RANGE_REGEX = /((?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b)\s*(?:[–—\-–]|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b|present|current|now|active)|\b(?:since\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}\s*-\s*present\b|\b(?:19|20)\d{2}\s*-\s*present\b)/i
 
@@ -27,11 +132,100 @@ export class ResumeNormalizer {
     const candidate = this.extractCandidateInfo(lines, targetRoleOverride, rawText)
     const sections = this.segmentSections(lines)
 
-    const experience = this.parseExperience(sections.experience || [])
-    const projects = this.parseProjects(sections.projects || [])
+    // Check if structured experiences, projects, skills, certifications already exist from AI Chunker or Parser
+    const structuredExp = parsedDoc.experiences || parsedDoc.experience || parsedDoc.structuredResume?.experiences || parsedDoc.resumeJson?.experiences
+    const structuredProjects = parsedDoc.projects || parsedDoc.structuredResume?.projects || parsedDoc.resumeJson?.projects
+    const structuredSkills = parsedDoc.skills || parsedDoc.structuredResume?.skills || parsedDoc.resumeJson?.skills
+    const structuredCerts = parsedDoc.certifications || parsedDoc.structuredResume?.certifications || parsedDoc.resumeJson?.certifications
+
+    let experience = []
+    if (Array.isArray(structuredExp) && structuredExp.length > 0 && structuredExp[0].role) {
+      // Map AI Chunker structured experiences directly with stable IDs and validation guards
+      experience = structuredExp.map((exp, idx) => {
+        const expId = `exp_${String(idx + 1).padStart(3, '0')}`
+        const rawRole = exp.role || ''
+        const cleanRole = isValidRoleTitle(rawRole) ? rawRole.trim() : (cleanRoleTitle(rawRole) || 'Software Engineer')
+        const rawComp = exp.company || ''
+        const cleanComp = isValidCompanyName(rawComp) ? rawComp.trim() : (rawComp.trim() || 'Company')
+        const dates = exp.dates || (exp.startDate && exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.startDate || '')
+        const isCurrent = exp.isCurrent ?? (/present|current|now/i.test(exp.endDate || '') || /present|current|now/i.test(dates))
+
+        const bullets = (exp.bullets || []).map((b, bIdx) => {
+          const text = typeof b === 'string' ? b.trim() : (b.text || '').trim()
+          return {
+            id: `${expId}_b${String(bIdx + 1).padStart(2, '0')}`,
+            text,
+            source: { page: 1, bbox: null },
+          }
+        }).filter((b) => b.text.length > 0)
+
+        return {
+          id: expId,
+          role: cleanRole,
+          company: cleanComp,
+          location: exp.location || '',
+          startDate: exp.startDate || '',
+          endDate: exp.endDate || '',
+          dates,
+          isCurrent,
+          bullets,
+        }
+      })
+    } else {
+      experience = this.parseExperience(sections.experience || [])
+    }
+
+    let projects = []
+    if (Array.isArray(structuredProjects) && structuredProjects.length > 0 && (structuredProjects[0].title || structuredProjects[0].name)) {
+      projects = structuredProjects.map((p, idx) => {
+        const projId = `proj_${String(idx + 1).padStart(3, '0')}`
+        const title = (p.title || p.name || 'Technical Project').trim()
+        const techStack = p.techStack || p.tech || ''
+        const bullets = (p.bullets || []).map((b, bIdx) => {
+          const text = typeof b === 'string' ? b.trim() : (b.text || '').trim()
+          return {
+            id: `${projId}_b${String(bIdx + 1).padStart(2, '0')}`,
+            text,
+            source: { page: 1 },
+          }
+        }).filter((b) => b.text.length > 0)
+
+        return {
+          id: projId,
+          title,
+          techStack,
+          bullets,
+        }
+      })
+    } else {
+      projects = this.parseProjects(sections.projects || [])
+    }
+
     const education = this.parseEducation(sections.education || [])
-    const skills = this.parseSkills(sections.skills || [])
-    const initialCertifications = this.parseCertifications(sections.certifications || [])
+
+    let skills = []
+    if (Array.isArray(structuredSkills) && structuredSkills.length > 0) {
+      skills = structuredSkills.map((s, idx) => ({
+        id: `skill_${String(idx + 1).padStart(3, '0')}`,
+        name: typeof s === 'string' ? s.trim() : (s.name || '').trim(),
+        category: typeof s === 'object' && s.category ? s.category : 'General',
+      })).filter((s) => s.name.length > 0)
+    } else {
+      skills = this.parseSkills(sections.skills || [])
+    }
+
+    let initialCertifications = []
+    if (Array.isArray(structuredCerts) && structuredCerts.length > 0) {
+      initialCertifications = structuredCerts.map((c, idx) => ({
+        id: `cert_${String(idx + 1).padStart(3, '0')}`,
+        name: typeof c === 'string' ? c.trim() : (c.name || '').trim(),
+        issuer: typeof c === 'object' && c.issuer ? c.issuer : '',
+        year: typeof c === 'object' && c.year ? c.year : '',
+      })).filter((c) => c.name.length > 0)
+    } else {
+      initialCertifications = this.parseCertifications(sections.certifications || [])
+    }
+
     const summary = this.parseSummary(sections.summary || [])
 
     // ── Extract past and present roles from experience ─────────────────────────
@@ -78,13 +272,32 @@ export class ResumeNormalizer {
       if (firstIdx !== -1) pastRoles.splice(firstIdx, 1)
     }
 
-    // Resolve target role: Override > Headline > Present Role > First Past Role
+    // Strict Priority Order for Target Role Inference (when user has not explicitly typed/locked a custom Target Role for current upload):
+    // Priority 1 (Resume Headline): Inspect lines 2–4 in header block, strip tech list after —, -, |
+    // Priority 2 (Current / Most Recent Job Title): experiences[0].role
+    // Priority 3 (Professional Summary Opening Clause): first sentence of summary
+    // Priority 4 (Keyword Bucket Fallback): Full stack / engineering prioritized over secondary data tools
+    const headlineRole = cleanRoleTitle(candidate.headline)
+    const currentJobRole = cleanRoleTitle(presentRole || (experience[0]?.role ? experience[0].role : ''))
+    const summaryRole = extractRoleFromSummary(summary?.text || '')
+    const keywordFallback = inferRoleFromKeywordFrequency(rawText)
+
+    let inferredTargetRole = ''
+    if (headlineRole && ROLE_KEYWORDS_REGEX.test(headlineRole)) {
+      inferredTargetRole = headlineRole
+    } else if (currentJobRole && ROLE_KEYWORDS_REGEX.test(currentJobRole)) {
+      inferredTargetRole = currentJobRole
+    } else if (summaryRole && ROLE_KEYWORDS_REGEX.test(summaryRole)) {
+      inferredTargetRole = summaryRole
+    } else {
+      inferredTargetRole = keywordFallback
+    }
+
     const resolvedTargetRole =
       (typeof targetRoleOverride === 'string' && targetRoleOverride.trim()) ||
-      candidate.headline ||
-      presentRole ||
-      (pastRoles[0]?.role || '')
+      inferredTargetRole
 
+    candidate.headline = headlineRole || candidate.headline
     candidate.targetRole = resolvedTargetRole
     candidate.presentRole = presentRole
     candidate.presentCompany = presentCompany
@@ -112,6 +325,32 @@ export class ResumeNormalizer {
     const detectedCerts = detectCertifications(canonical)
     if (detectedCerts && detectedCerts.length > 0) {
       canonical.certifications = detectedCerts
+    }
+
+    // Inline Fallback Scan: If certifications array is still empty, scan EDUCATION, SKILLS, and rawText
+    if (!canonical.certifications || canonical.certifications.length === 0) {
+      const inlineCertRegex = /\b(?:AWS\s+Certified[A-Za-z0-9\s/-]*|Azure\s+Certified[A-Za-z0-9\s/-]*|Google\s+[A-Za-z\s]+Certificate|Meta\s+[A-Za-z\s]+(?:Certificate|Certification)|IBM\s+[A-Za-z\s]+(?:Certificate|Certification)|PMP|Certified\s+Scrum\s*Master|CSM|CompTIA\s+[A-Za-z+]+|Certified\s+[A-Za-z0-9\s/-]+|Certificate\s+in\s+[A-Za-z0-9\s/-]+)\b/gi
+      const textToScan = [
+        ...(canonical.education || []).map((e) => `${e.degree || ''} ${e.institution || ''}`),
+        ...(canonical.skills || []).map((s) => s.name || ''),
+        canonical.summary?.text || '',
+        rawText,
+      ].join('\n')
+
+      const matches = textToScan.match(inlineCertRegex)
+      if (matches && matches.length > 0) {
+        const uniqueMatches = Array.from(new Set(matches.map((m) => m.trim()))).filter((m) => m.length > 4 && !/^(?:certified|certificate)$/i.test(m))
+        if (uniqueMatches.length > 0) {
+          canonical.certifications = uniqueMatches.map((certName, idx) => ({
+            id: `cert_${String(idx + 1).padStart(3, '0')}`,
+            name: certName,
+            issuer: '',
+            year: '',
+            category: 'General',
+            source: 'inline_scan',
+          }))
+        }
+      }
     }
 
     return canonical
@@ -212,8 +451,9 @@ export class ResumeNormalizer {
       }
     }
 
-    // 4. Extract professional headline from header (lines right after name that match role keywords)
-    for (const line of headerLines) {
+    // 4. Extract professional headline from header (lines 2-4 right after name that match role keywords)
+    for (let i = 0; i < Math.min(headerLines.length, 6); i++) {
+      const line = headerLines[i]
       if (line === name) continue
       if (
         !line.includes('@') &&
@@ -221,10 +461,10 @@ export class ResumeNormalizer {
         !line.toLowerCase().includes('http') &&
         !line.toLowerCase().includes('linkedin') &&
         line.length > 3 &&
-        line.length < 80 &&
+        line.length < 100 &&
         ROLE_KEYWORDS_REGEX.test(line)
       ) {
-        headline = line.replace(/^[•\-*▪–—|]+\s*/, '').trim()
+        headline = cleanRoleTitle(line)
         break
       }
     }
@@ -298,11 +538,11 @@ export class ResumeNormalizer {
     let currentSection = 'header'
 
     const sectionPatterns = [
-      { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history|work\s+history)$/i },
+      { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history|relevant\s+experience|career\s+history|work\s+history)$/i },
       { key: 'projects', regex: /^(projects|technical\s+projects|personal\s+projects|academic\s+projects|key\s+projects)$/i },
       { key: 'education', regex: /^(education|academic\s+background|academics|education\s+and\s+training)$/i },
       { key: 'skills', regex: /^(skills|technical\s+skills|core\s+competencies|technologies|tools\s+and\s+technologies|core\s+skills)$/i },
-      { key: 'certifications', regex: /^(certifications|licenses|courses|awards|certifications\s+and\s+licenses)$/i },
+      { key: 'certifications', regex: /^(?:certifications?|certificates?|licenses?(?:\s*(?:&|and)\s*certifications?)?|professional\s+certifications?|training\s*(?:&|and)\s*certifications?|credentials|licenses|courses|awards)$/i },
       { key: 'summary', regex: /^(summary|professional\s+summary|profile|about\s+me|objective|career\s+summary|executive\s+summary)$/i },
     ]
 
@@ -395,7 +635,7 @@ export class ResumeNormalizer {
     if (!rawText || typeof rawText !== 'string') return ''
 
     const bulletRegex = /^[•\-*▪–—·]\s*|\b\d+\.\s+/
-    const sectionHeaderRegex = /^(?:work\s+experience|professional\s+experience|experience|projects|technical\s+skills|skills|education|certifications?|summary|professional\s+summary|awards|volunteer)$/i
+    const sectionHeaderRegex = /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|relevant\s+experience|career\s+history|work\s+history|projects|technical\s+projects|personal\s+projects|key\s+projects|technical\s+skills|skills|core\s+competencies|education|certifications?|summary|professional\s+summary|awards|volunteer)$/i
     const lines = rawText.split('\n')
     const result = []
     let currentBullet = null
@@ -503,22 +743,30 @@ export class ResumeNormalizer {
       if (!role && /\s+(?:at|@)\s+/i.test(part)) {
         const atParts = part.split(/\s+(?:at|@)\s+/i)
         if (atParts[0] && atParts[1]) {
-          role = atParts[0].trim()
-          company = atParts[1].trim()
-          continue
+          const candidateRole = atParts[0].trim()
+          const candidateCompany = atParts[1].trim()
+          if (isValidRoleTitle(candidateRole) && isValidCompanyName(candidateCompany)) {
+            role = candidateRole
+            company = candidateCompany
+            continue
+          }
         }
       }
 
       // Check location
       if (!location && locationRegex.test(part)) {
         location = part
-      } else if (!role && ROLE_KEYWORDS_REGEX.test(part)) {
+      } else if (!role && ROLE_KEYWORDS_REGEX.test(part) && isValidRoleTitle(part)) {
         role = part
-      } else if (!company) {
+      } else if (!company && isValidCompanyName(part)) {
         company = part
-      } else if (!role) {
+      } else if (!role && isValidRoleTitle(part)) {
         role = part
       }
+    }
+
+    if (!isValidRoleTitle(role)) {
+      role = ''
     }
 
     let finalCompany = (company || line1 || '').trim()
@@ -546,6 +794,21 @@ export class ResumeNormalizer {
       endDate: endDate.trim(),
       isCurrent,
     }
+  }
+
+  /**
+   * Identifies whether an unbulleted line is a continuation or sentence fragment
+   */
+  static isSentenceFragment(line) {
+    if (!line || typeof line !== 'string') return false
+    const clean = line.trim()
+    if (!clean) return false
+    // Starts with lowercase or common prepositions/conjunctions
+    if (/^[a-z]/.test(clean)) return true
+    if (/^(?:across|throughout|with|using|for|to|by|in|from|at|on|under|and|or|including|such as)\b/i.test(clean)) return true
+    // Ends with sentence-terminating punctuation
+    if (/[.!?;]$/.test(clean)) return true
+    return false
   }
 
   /**
@@ -869,15 +1132,25 @@ export class ResumeNormalizer {
     const certifications = []
     let certCounter = 1
 
-    for (const line of lines) {
-      if (line.length > 4) {
-        certifications.push({
-          id: `cert_${String(certCounter).padStart(3, '0')}`,
-          name: line,
-          issuer: '',
-          year: '',
-        })
-        certCounter++
+    for (const rawLine of lines) {
+      if (!rawLine || typeof rawLine !== 'string') continue
+      // Split on bullets, pipes, semicolons, newlines, or spaced dashes
+      const items = rawLine
+        .split(/(?:[•|;]|\s+-\s+|\n)/)
+        .map((s) => s.replace(/^[•\-*▪–—·#]+\s*/, '').trim())
+        .filter((s) => s.length > 4)
+
+      for (const item of items) {
+        const cleanName = item.replace(/[.]+$/, '').trim()
+        if (cleanName.length > 3) {
+          certifications.push({
+            id: `cert_${String(certCounter).padStart(3, '0')}`,
+            name: cleanName,
+            issuer: '',
+            year: '',
+          })
+          certCounter++
+        }
       }
     }
 

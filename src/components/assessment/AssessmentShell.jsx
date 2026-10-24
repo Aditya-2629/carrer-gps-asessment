@@ -5,6 +5,7 @@ import { STEPS, CHAPTERS } from '../../lib/assessmentSteps'
 import StepRenderer from './StepRenderer'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import { generateAllRandomAssessmentData } from '../../lib/randomQuizFiller'
+import { triggerResumeAgentFromLinkedInStep } from '../../lib/resumeAgentTrigger'
 
 const slideVariants = {
   enter: (dir) => ({
@@ -79,6 +80,11 @@ export default function AssessmentShell() {
   }
 
   const goNext = () => {
+    // Run AI Resume Agent when user moves forward with the LinkedIn URL assessment question
+    if (step.name === 'linkedin') {
+      triggerResumeAgentFromLinkedInStep()
+    }
+
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1, 1)
     } else {

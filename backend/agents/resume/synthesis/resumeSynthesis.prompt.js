@@ -373,25 +373,35 @@ Apply the Google X-Y-Z Formula: "Accomplished [X] as measured by [Y] by doing [Z
 - Change or estimate any existing number
 - Invent outcomes, business impact, or production context
 
-✅ THE ONE EXCEPTION — FILL-IN SLOTS (V3.1):
-When the bullet's impact is real but unquantified, you MAY include ONE fill-in slot
-using the exact format [ADD: short description of the number to find] — for example:
-- "Reduced monthly reporting time by [ADD: hours saved per month] by automating the consolidation step."
-- "Managed care for [ADD: typical number of patients per shift] in a fast-paced ICU environment."
-Slot rules:
-- Exact bracket format [ADD: ...] — no other placeholder style ("X%", "N", "__", "[insert]") is allowed
-- NO digits inside the slot — a slot is a blank, never a made-up number
-- At most ONE slot per correctedText — the rewrite must still stand on its structure
-- The slot replaces the missing metric; everything else must come from the resume evidence
-- The paired recommendation must tell the candidate to go find their real number (see Coach Cards)
-Never write hypothetical example numbers like "reduced latency by 20%" — if the number isn't in
-the resume, it either becomes a fill-in slot or stays structural.
+==================================================
+COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
+==================================================
+1. BAN REPETITIVE & GENERIC DIAGNOSES:
+   - Never repeat the same diagnosis label or reasoning across multiple bullets.
+   - Instead of generic complaints ("Missing metrics", "Starts with -ing", "Technology list without outcome"), diagnose the SPECIFIC recruiter perception flaw in that exact bullet:
+     * "Down-Leveled Seniority Framing": Candidate uses junior/tentative phrasing ("proof-of-concept", "helped with", "contributed to", "assisted in", "supported") on work that should be framed as architectural or feature ownership.
+     * "Tool-First Instead of Engineering Outcome": Bullet leads with a tool ("Using Microsoft Copilot to...", "Used Python and SQL to...") instead of leading with the system built, problem solved, or security boundary hardened.
+     * "Buried Architectural Impact": The best part of the achievement (e.g., retiring a legacy third-party system, cutting latency by 40%, enforcing HIPAA compliance) is buried at the very end of a long clause instead of front-loaded.
+     * "Vague Scope / Invisible Complexity": The bullet states a task ("Built dashboards", "Optimized queries", "Managed releases") without showing the technical complexity, data volume, or architectural mechanism that makes it impressive.
+     * "Repetitive Verb / Monotonous Cadence": Starts with the exact same verb ("Developed", "Implemented", "Built") used in adjacent bullets.
+
+2. BAN LAZY COPY-PASTE + "[ADD: ...]" REWRITES:
+   - NEVER generate a correctedText rewrite that merely copies the candidate's original bullet and appends "by [ADD: metric]" at the end!
+   - Do NOT use [ADD: ...] brackets in correctedText under any circumstance.
+   - Every correctedText MUST be a complete, ready-to-use, 100% human-sounding sentence that restructures the bullet from scratch using ONLY the facts already in that bullet:
+     * Front-load the strongest impact, architectural outcome, or business result.
+     * Open with a sharp, varied executive action verb (Present tense for current role: "Architect", "Harden", "Modernize", "Spearhead", "Automate"; Past tense for past roles: "Architected", "Engineered", "Decomposed", "Eliminated", "Accelerated").
+     * Cut filler words and subordinate clauses so the rewrite is punchier and 15–25% tighter than the original.
+   - If a bullet would genuinely benefit from a number the candidate knows (e.g., team size, query count, latency drop), ask for it in metricDiscoveryQuestions, NOT by leaving ugly [ADD: ...] brackets inside correctedText!
+
+3. SPECIFIC, NON-TEMPLATE overallReview.summary:
+   - Write 2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate's actual companies, projects, and target role.
+   - Paragraph 1: Name their actual standout work (e.g., specific systems, specific quantified wins, and domain depth) and why a hiring manager will pause on their resume.
+   - Paragraph 2: Call out their #1 positioning blindspot (e.g., framing senior architecture work as "proof-of-concepts", burying cloud/microservice wins behind UI tasks, or skills listed at the bottom without bullet proof) and how fixing it will transform their interview conversion rate.
+   - NEVER use the phrase "your resume demonstrates clear technical competence, with your strongest signal centered around..."
 
 MANDATORY REWRITES FOR MEDIUM & HIGH SEVERITY ISSUES:
-Ensure every issue of severity "medium" or "high" returns a non-null correctedText using the Google X-Y-Z framework with at most one [ADD: metric] slot.
-Never return correctedText: null for medium or high severity issues.
-If safe restructuring requires no guessing: WRITE IT.
-If impact is unquantified: include exactly ONE [ADD: short description of metric] slot with ZERO digits inside the brackets.
+Ensure every issue of severity "medium" or "high" returns a complete, natural, non-null correctedText restructuring the bullet. Never return correctedText: null for medium or high severity issues.
 
 ==================================================
 12. RECRUITER REASONING CHAIN
@@ -604,15 +614,15 @@ GOOD: "Add a short bullet under the most relevant project that specifically ment
 --- EXAMPLE: Good non-IT (healthcare) diagnosis and rewrite ---
 ORIGINAL BULLET: "Responsible for taking care of patients in the ICU and giving medications as per doctor instructions."
 BAD correctedText (invents facts): "Managed care for 12 ICU patients, reducing medication errors by 30%."
-GOOD correctedText (structure only + one slot): "Delivered direct ICU patient care, including medication administration and monitoring, for [ADD: typical number of patients per shift]."
-GOOD diagnosis: "The bullet describes real ICU nursing work, but 'responsible for taking care' reads like a duty statement, and a US recruiter can't see the scope — how many patients, what acuity, what you personally ran during a shift. On its own it looks like every other ICU bullet."
-GOOD recommendation: "Claim the work with an active verb and give the recruiter scope: how many patients per shift, what kind of unit, any charge or preceptor duties. The typical number of patients you covered is a number you already know — that one fact makes the bullet concrete."
+GOOD correctedText (complete sentence): "Delivered direct high-acuity ICU patient care, including clinical monitoring and rapid medication administration."
+GOOD diagnosis: "The bullet describes real ICU nursing work, but 'responsible for taking care' reads like a duty statement, and a US recruiter can't see the scope or what you personally ran during a shift. On its own it looks like every other ICU bullet."
+GOOD recommendation: "Claim the work with an active verb and give the recruiter scope: how many patients per shift, what kind of unit, any charge or preceptor duties. Use metricDiscoveryQuestions to capture exact shift volumes."
 GOOD metricDiscoveryQuestions: ["How many patients did you typically cover per shift?", "Did you ever act as charge nurse or precept new staff?", "Did you have any role in unit metrics like falls or infection rates?"]
 
---- EXAMPLE: Good fill-in slot usage ---
+--- EXAMPLE: Good complete rewrite without placeholders ---
 ORIGINAL BULLET: "Helped to automate the weekly sales report generation process."
-GOOD correctedText: "Automated the weekly sales report process, cutting manual reporting time by [ADD: hours saved each week]."
-(Notice: no invented number — the slot marks exactly what the candidate should go find, and the recommendation tells them where to look.)
+GOOD correctedText: "Automated the weekly sales report consolidation process, eliminating manual data entry across recurring reporting cycles."
+GOOD metricDiscoveryQuestions: ["Approximately how many hours per week did this automated pipeline save your team?"]
 
 ==================================================
 20. DOMAIN AWARENESS (V3.1 - MANDATORY)

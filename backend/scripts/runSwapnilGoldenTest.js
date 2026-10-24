@@ -25,7 +25,7 @@ async function runGoldenTest() {
   console.log('SWAPNIL JADHAV GOLDEN TEST — RESUME AGENT V2.3')
   console.log('================================================================\n')
 
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
   const rawText = fs.readFileSync(fixturePath, 'utf8')
 
   // 1. Parse & Normalize

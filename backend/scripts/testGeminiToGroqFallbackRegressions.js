@@ -297,7 +297,7 @@ async function runRegressionTests() {
   // ── TEST 5: All Providers Fail -> No Fake Successful Report (Mocked) ───────
   console.log('\n--- 5. All Providers Fail -> No Fake Successful Report ---')
   try {
-    const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+    const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
     const resumeText = fs.readFileSync(fixturePath, 'utf8')
 
     // Simulate failure by forcing an invalid model in benchmark mode

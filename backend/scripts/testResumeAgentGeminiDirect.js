@@ -10,7 +10,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 async function runTest() {
   console.log('=== TESTING ACTUAL RESUME AGENT PROMPT WITH GEMINI-3.6-FLASH ===')
   const resumeText = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
 

@@ -67,7 +67,7 @@ test('Standard contact line does NOT trigger isContactMerged anomaly', () => {
 // =============================================================================
 console.log('\n--- SUITE 2: Intelligent Experience & Education Parsing ---')
 
-const swapnilRaw = fs.readFileSync(path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'), 'utf8')
+const swapnilRaw = fs.readFileSync(path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'), 'utf8')
 const normSwapnil = ResumeNormalizer.normalize({ rawText: swapnilRaw })
 
 test('Swapnil exp_001 company extracted accurately', () => {

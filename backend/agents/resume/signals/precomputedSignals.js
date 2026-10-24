@@ -137,13 +137,16 @@ export function computeBulletSignals(bulletId, text = '', skillDictionary = [], 
   const isToolDumpCandidate =
     technologyCount >= 3 && hasOutcomeVerb === false && hasQuantifier === false && hasQualitativeOutcome === false
 
-  // 5. Opener & First Word Extraction
-  const openerMatch = cleanText.match(/^[•\-*▪–—\s]*([A-Za-z]+)/)
+  // 5. Opener & First Word Extraction (strip leading bullet points and CAR/STAR labels like "Action:", "Challenge:")
+  const strippedText = cleanText
+    .replace(/^[•\-*▪–—\s]+/, '')
+    .replace(/^(?:Action|Challenge|Result|Context|Task|Situation|Impact)\s*[:\-–—]\s*/i, '')
+  const openerMatch = strippedText.match(/^([A-Za-z]+)/)
   const openingWord = openerMatch ? openerMatch[1] : ''
   const openingVerbStem = getVerbStem(openingWord)
 
   // 6. Weak / Passive Opening Verbs
-  const weakMatch = cleanText.replace(/^[•\-*▪–—\s]+/, '').match(WEAK_OPENER_REGEX)
+  const weakMatch = strippedText.match(WEAK_OPENER_REGEX)
   const weakVerbIssue = Boolean(weakMatch)
   const weakVerbMatch = weakMatch ? weakMatch[0].trim() : ''
 
@@ -324,7 +327,10 @@ export function computePrecomputedSignals(resumeInput) {
 
   for (const entry of bulletEntries) {
     const cleanText = (entry.text || '').trim()
-    const openerMatch = cleanText.match(/^[•\-*▪–—\s]*([A-Za-z]+)/)
+    const strippedText = cleanText
+      .replace(/^[•\-*▪–—\s]+/, '')
+      .replace(/^(?:Action|Challenge|Result|Context|Task|Situation|Impact)\s*[:\-–—]\s*/i, '')
+    const openerMatch = strippedText.match(/^([A-Za-z]+)/)
     const openingWord = openerMatch ? openerMatch[1] : ''
     const stem = getVerbStem(openingWord)
 

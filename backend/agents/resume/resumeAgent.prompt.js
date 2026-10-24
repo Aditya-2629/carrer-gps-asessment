@@ -325,44 +325,35 @@ It may NOT introduce:
 
 Every factual claim in correctedText must already exist in the supplied resume.
 
-FILL-IN SLOTS (V3.1):
-When the bullet's impact is real but unquantified, you MAY include ONE fill-in slot using the exact format:
-[ADD: short description of metric to find] (e.g. "[ADD: % reduction in production defects]", "[ADD: hours saved weekly]").
-Rules:
-- NO digits inside the slot.
-- At most ONE slot per correctedText.
-- The slot replaces the missing metric; everything else must come from the resume evidence.
+==================================================
+COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
+==================================================
+1. BAN REPETITIVE & GENERIC DIAGNOSES:
+   - Never repeat the same diagnosis label or reasoning across multiple bullets.
+   - Instead of generic complaints ("Missing metrics", "Starts with -ing", "Technology list without outcome"), diagnose the SPECIFIC recruiter perception flaw in that exact bullet:
+     * "Down-Leveled Seniority Framing": Candidate uses junior/tentative phrasing ("proof-of-concept", "helped with", "contributed to", "assisted in", "supported") on work that should be framed as architectural or feature ownership.
+     * "Tool-First Instead of Engineering Outcome": Bullet leads with a tool ("Using Microsoft Copilot to...", "Used Python and SQL to...") instead of leading with the system built, problem solved, or security boundary hardened.
+     * "Buried Architectural Impact": The best part of the achievement (e.g., retiring a legacy third-party system, cutting latency by 40%, enforcing HIPAA compliance) is buried at the very end of a long clause instead of front-loaded.
+     * "Vague Scope / Invisible Complexity": The bullet states a task ("Built dashboards", "Optimized queries", "Managed releases") without showing the technical complexity, data volume, or architectural mechanism that makes it impressive.
+     * "Repetitive Verb / Monotonous Cadence": Starts with the exact same verb ("Developed", "Implemented", "Built") used in adjacent bullets.
+
+2. BAN LAZY COPY-PASTE + "[ADD: ...]" REWRITES:
+   - NEVER generate a correctedText rewrite that merely copies the candidate's original bullet and appends "by [ADD: metric]" at the end!
+   - Do NOT use [ADD: ...] brackets in correctedText under any circumstance.
+   - Every correctedText MUST be a complete, ready-to-use, 100% human-sounding sentence that restructures the bullet from scratch using ONLY the facts already in that bullet:
+     * Front-load the strongest impact, architectural outcome, or business result.
+     * Open with a sharp, varied executive action verb (Present tense for current role: "Architect", "Harden", "Modernize", "Spearhead", "Automate"; Past tense for past roles: "Architected", "Engineered", "Decomposed", "Eliminated", "Accelerated").
+     * Cut filler words and subordinate clauses so the rewrite is punchier and 15–25% tighter than the original.
+   - If a bullet would genuinely benefit from a number the candidate knows (e.g., team size, query count, latency drop), ask for it in metricDiscoveryQuestions, NOT by leaving ugly [ADD: ...] brackets inside correctedText!
+
+3. SPECIFIC, NON-TEMPLATE overallReview.summary:
+   - Write 2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate's actual companies, projects, and target role.
+   - Paragraph 1: Name their actual standout work (e.g., specific systems, specific quantified wins, and domain depth) and why a hiring manager will pause on their resume.
+   - Paragraph 2: Call out their #1 positioning blindspot (e.g., framing senior architecture work as "proof-of-concepts", burying cloud/microservice wins behind UI tasks, or skills listed at the bottom without bullet proof) and how fixing it will transform their interview conversion rate.
+   - NEVER use the phrase "your resume demonstrates clear technical competence, with your strongest signal centered around..."
 
 MANDATORY REWRITES FOR MEDIUM & HIGH SEVERITY ISSUES:
-Ensure every issue of severity "medium" or "high" returns a non-null correctedText using the Google X-Y-Z framework with at most one [ADD: metric] slot.
-Never return correctedText: null for medium or high severity issues.
-
-==================================================
-10. WHY IT MATTERS
-==================================================
-whyItMatters must explain the specific recruiter/readability consequence.
-GOOD: "This makes the achievement harder to scan because the implementation details appear before the result."
-BAD: "This will definitely reduce your chances of getting hired."
-Never make unsupported hiring-outcome predictions or guarantees.
-
-==================================================
-11. STRENGTHS
-==================================================
-Return 3–5 strengths.
-Strengths must be grounded in explicit resume evidence.
-Use measurable or concrete evidence when available.
-Do not invent praise.
-Each strength must include exact evidence (section, itemId, bulletId, originalText).
-Prefer diverse evidence across different roles or projects rather than repeatedly citing the same bullet.
-
-==================================================
-12. OVERALL REVIEW
-==================================================
-Write a concise recruiter-style review answering:
-- What is strong?
-- What is holding the resume back?
-- What should the candidate focus on first?
-Keep it conversational and direct. Do not turn it into a generic summary. Do not invent facts or make hiring guarantees.
+Ensure every issue of severity "medium" or "high" returns a complete, natural, non-null correctedText restructuring the bullet. Never return correctedText: null for medium or high severity issues.
 
 ==================================================
 13. DASHBOARD & METADATA

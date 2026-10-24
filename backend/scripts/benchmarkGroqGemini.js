@@ -49,7 +49,7 @@ async function runBenchmark() {
   }
 
   // Load synthetic fixture
-  const fixturePath = path.resolve(__dirname, '../agents/resume/fixtures/strong-fullstack.txt')
+  const fixturePath = path.resolve(__dirname, '../tests/fixtures/strong-fullstack.txt')
   const resumeText = fs.readFileSync(fixturePath, 'utf8')
 
   console.log('='.repeat(70))

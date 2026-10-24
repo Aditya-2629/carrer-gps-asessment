@@ -11,7 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 async function testLiveFallbackCascade() {
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
   const resumeText = fs.readFileSync(fixturePath, 'utf8')
 
   console.log('Testing Live Gemini -> Groq Fallback Cascade on ResumeAgent.evaluate...')
@@ -44,7 +44,7 @@ async function testLiveFallbackCascade() {
   
   // Groq is the REAL live provider (gateway.providers.groq is unchanged!)
   console.log('Executing LLMGateway.generate with Gemini (429) -> Live Groq...')
-  const prompt = fs.readFileSync(path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'), 'utf8')
+  const prompt = fs.readFileSync(path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'), 'utf8')
   
   const res = await gateway.generate({
     purpose: 'resume_analysis',

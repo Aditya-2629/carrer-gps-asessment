@@ -92,6 +92,7 @@ router.post('/evaluate', upload.single('resume'), async (req, res) => {
     const targetRole = req.body?.targetRole || ''
     const targetJobDescription = req.body?.targetJobDescription || req.body?.targetJd || ''
     const experienceLevel = req.body?.experienceLevel || ''
+    const linkedinUrl = req.body?.linkedinUrl || req.body?.linkedin || ''
     const model = req.body?.model || null
     const isSynthetic = req.body?.isSynthetic === true || req.body?.isSynthetic === 'true'
     const resumeText = req.body?.resumeText || ''
@@ -112,6 +113,7 @@ router.post('/evaluate', upload.single('resume'), async (req, res) => {
       targetRole,
       targetJobDescription,
       experienceLevel,
+      linkedinUrl,
       model,
       isSynthetic,
     })

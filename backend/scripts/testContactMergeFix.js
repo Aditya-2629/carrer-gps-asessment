@@ -48,7 +48,7 @@ if (sigTrue.contactMerge.isContactMerged === true) {
 }
 
 // Test 3: Swapnil Jadhav Fixture
-const swapnilRaw = fs.readFileSync(path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'), 'utf8')
+const swapnilRaw = fs.readFileSync(path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'), 'utf8')
 const normSwapnil = ResumeNormalizer.normalize({ rawText: swapnilRaw })
 const sigSwapnil = computePrecomputedSignals(normSwapnil)
 

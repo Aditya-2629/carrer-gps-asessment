@@ -113,7 +113,7 @@ async function main() {
   runs.push(
     await runLiveEvaluation(
       'GOLDEN TEST (Swapnil Jadhav)',
-      '../agents/resume/fixtures/swapnil-jadhav.txt',
+      '../tests/fixtures/swapnil-jadhav.txt',
       'Senior AI & Full Stack Engineer'
     )
   )
@@ -125,7 +125,7 @@ async function main() {
   runs.push(
     await runLiveEvaluation(
       'SMALL RESUME (Jordan Miller)',
-      '../agents/resume/fixtures/weak-fullstack.txt',
+      '../tests/fixtures/weak-fullstack.txt',
       'Junior Full Stack Developer'
     )
   )
@@ -137,7 +137,7 @@ async function main() {
   runs.push(
     await runLiveEvaluation(
       'MEDIUM RESUME (Mixed Experience)',
-      '../agents/resume/fixtures/mixed-experience.txt',
+      '../tests/fixtures/mixed-experience.txt',
       'Full Stack Software Engineer'
     )
   )
@@ -149,7 +149,7 @@ async function main() {
   runs.push(
     await runLiveEvaluation(
       'LARGE RESUME (Marcus Vance)',
-      '../agents/resume/fixtures/strong-fullstack.txt',
+      '../tests/fixtures/strong-fullstack.txt',
       'Senior Full Stack & Cloud Systems Engineer'
     )
   )

@@ -21,7 +21,7 @@ async function runEndToEndVerification() {
   console.log(`- Gateway totalDeadlineMs: ${aiConfig.totalDeadlineMs}ms`)
   console.log(`- Groq timeoutMs: ${aiConfig.groq.timeoutMs}ms`)
 
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
   const resumeText = fs.readFileSync(fixturePath, 'utf8')
   const targetRole = 'Senior AI & Full Stack Engineer'
 

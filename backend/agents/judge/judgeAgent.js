@@ -108,19 +108,50 @@ function buildDigest(aiReport) {
     correctedText: i.correctedText || '',
   }))
 
+  // LinkedIn Agent shape (V2.0 audit findings & cross-agent discrepancies)
+  const linkedinIssues = (r.linkedin_agent?.issues || []).filter(Boolean).map((i) => ({
+    title: i.title,
+    whyItMatters: i.whyItMatters || i.detail || '',
+    recommendation: i.recommendation || '',
+    evidence: (Array.isArray(i.evidence) ? i.evidence[0] : (typeof i.evidence === 'string' ? i.evidence : '')) || '',
+    severity: i.severity || 'medium',
+    category: i.category || 'linkedin',
+    correctedText: '',
+  }))
+
+  const linkedinDiscrepancies = (r.linkedin_agent?.discrepancies || []).filter(Boolean).map((d) => ({
+    title: d.title || d.type || 'Cross-Agent Discrepancy',
+    whyItMatters: d.detail || '',
+    recommendation: d.recommendation || '',
+    evidence: d.evidence || '',
+    severity: d.severity || 'medium',
+    category: 'discrepancy',
+    correctedText: '',
+  }))
+
   const review =
     r.resume_agent?.overallReview?.summary ||
     [r.coach_intervention?.urgency_statement, r.coach_intervention?.value_prop].filter(Boolean).join(' ') ||
     r.market_reality_check?.headline ||
     ''
 
-  const issues = [...atlasIssues, ...agentIssues]
-  const rewrites = issues.map((i) => i.correctedText).filter(Boolean).slice(0, 4)
+  const issues = [...atlasIssues, ...agentIssues, ...linkedinIssues, ...linkedinDiscrepancies]
+  const rewrites = [
+    ...issues.map((i) => i.correctedText).filter(Boolean),
+    ...(r.linkedin_agent?.optimizations?.headlines || []).slice(0, 2),
+    ...(r.linkedin_agent?.optimizations?.headlineOptions || []).map((h) => h.text || h).slice(0, 2),
+  ].filter(Boolean).slice(0, 4)
+
   const domain =
     r.resume_agent?.candidateSnapshot?.primaryProfile ||
     r.resume_json?.target_role ||
     ''
-  const dashboard = r.dashboard ? `resume score ${r.dashboard.score}/${r.dashboard.grade}` : r.career_health_score ? `career health ${r.career_health_score}` : 'no scorecard'
+  const scores = [
+    r.dashboard ? `resume score ${r.dashboard.score}/${r.dashboard.grade}` : (r.resume_agent?.dashboard ? `resume score ${r.resume_agent.dashboard.score}/${r.resume_agent.dashboard.grade}` : null),
+    r.linkedin_agent?.dataAvailable && typeof r.linkedin_agent.score === 'number' ? `linkedin score ${r.linkedin_agent.score}/${r.linkedin_agent.grade || ''}` : null,
+    r.career_health_score ? `career health ${r.career_health_score}` : null,
+  ].filter(Boolean).join(' | ') || 'no scorecard'
+
   const market = r.market_reality_check
     ? `market headline: ${r.market_reality_check.headline || ''}\nbrutal facts: ${(r.market_reality_check.brutal_facts || []).slice(0, 2).join(' | ')}`
     : ''
@@ -130,12 +161,12 @@ function buildDigest(aiReport) {
     issues,
     text: [
       `OVERALL NARRATIVE:\n${review.slice(0, 900)}`,
-      `SCORES: ${dashboard}${r.judge ? '' : ''}`,
+      `SCORES: ${scores}${r.judge ? '' : ''}`,
       market && `MARKET REALITY CHECK:\n${market.slice(0, 300)}`,
       domain && `CANDIDATE DOMAIN: ${domain}`,
       `FINDINGS (${issues.length}):`,
       ...issues
-        .slice(0, 10)
+        .slice(0, 12)
         .map(
           (i, idx) =>
             `${idx + 1}. [${i.severity || '?'}/${i.category || '?'}] ${i.title}\n   why: ${String(i.whyItMatters).slice(0, 150)}\n   next step: ${String(i.recommendation).slice(0, 150)}`
@@ -152,6 +183,12 @@ function buildDigest(aiReport) {
 async function executeJudge(aiReport) {
   const digest = buildDigest(aiReport)
 
+  // Default to fast deterministic heuristic immediately in production (0ms latency, 0 API quota burned)
+  // unless process.env.ENABLE_LLM_JUDGE === 'true'
+  if (process.env.ENABLE_LLM_JUDGE !== 'true') {
+    return heuristicScore(digest)
+  }
+
   try {
     const { text } = await generateStructured({
       contractId: JUDGE_AGENT.id,
@@ -161,7 +198,13 @@ async function executeJudge(aiReport) {
         { role: 'user', content: `Judge this generated career report:\n\n${digest.text}` },
       ],
       maxAttempts: 1,
-      generation: { temperature: 0.1, maxTokens: 800 },
+      generation: {
+        temperature: 0.1,
+        maxTokens: 1500,
+        preferredProvider: 'groq',
+        model: 'openai/gpt-oss-120b',
+        responseFormat: 'json_object',
+      },
       validate: (raw) => {
         try {
           const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())

@@ -3,7 +3,7 @@ import { DocumentParser } from '../services/documentParser/index.js'
 import { ResumeNormalizer } from '../agents/resume/resumeAgent.normalizer.js'
 
 async function inspect() {
-  const buf = fs.readFileSync('backend/agents/resume/fixtures/alekya/Alekya_Maddu_Resume.pdf')
+  const buf = fs.readFileSync('backend/tests/fixtures/alekya/Alekya_Maddu_Resume.pdf')
   const parsedDoc = await DocumentParser.parse({
     buffer: buf,
     filename: 'Alekya_Maddu_Resume.pdf',

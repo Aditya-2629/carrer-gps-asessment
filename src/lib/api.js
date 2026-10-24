@@ -1,6 +1,7 @@
 // ─── Live API Layer connected to Node.js Backend ───
 import axios from 'axios'
 import { buildSemanticAssessmentPayload } from './assessmentSteps'
+import { getResumeFileFromStorage } from './resumeStorage'
 
 // Reads VITE_API_URL from environment at build time.
 // In development: falls back to localhost:5000
@@ -35,12 +36,18 @@ export const api = {
     }
   },
 
-  // Immediate background resume agent evaluation on upload (Step 5)
-  evaluateResume: async ({ file, targetRole = '', signal }) => {
+  // Immediate background resume agent evaluation on upload (Step 5) or LinkedIn step advance (Step 11)
+  evaluateResume: async ({ file, resumeText = '', targetRole = '', targetJobDescription = '', linkedinUrl = '', signal }) => {
     try {
       const form = new FormData()
-      form.append('resume', file)
+      if (file) {
+        form.append('resume', file)
+      } else if (resumeText) {
+        form.append('resumeText', resumeText)
+      }
       if (targetRole) form.append('targetRole', targetRole)
+      if (targetJobDescription) form.append('targetJobDescription', targetJobDescription)
+      if (linkedinUrl) form.append('linkedinUrl', linkedinUrl)
 
       const res = await client.post('/resume-agent/evaluate', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -56,22 +63,72 @@ export const api = {
     }
   },
 
+  // Background scrape LinkedIn profile on Step 11
+  scrapeLinkedInProfile: async (url) => {
+    return client
+      .post('/linkedin-agent/scrape', { url })
+      .then((r) => r.data)
+      .catch(() => ({ success: false, profile: null }))
+  },
+
   // Phase C: async job flow — save answers, then create a report job and
   // stream progress via SSE instead of holding one request open.
   startReportJob: async ({ userId, formData }) => {
     try {
       const semanticProfile = buildSemanticAssessmentPayload(formData)
-      const resumeAnalysis = typeof window !== 'undefined' ? window.__useAppStore?.getState()?.resumeAnalysis?.data : null
+      let resumeAnalysis = typeof window !== 'undefined' ? window.__useAppStore?.getState()?.resumeAnalysis?.data : null
+      if (!resumeAnalysis && typeof sessionStorage !== 'undefined') {
+        try {
+          const cached = sessionStorage.getItem('craftureResumeReport')
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            resumeAnalysis = {
+              analysis: parsed.analysis,
+              canonicalResume: parsed.meta?.canonicalResume,
+              marketContext: parsed.meta?.marketContext,
+            }
+          }
+        } catch (_e) {}
+      }
 
       const allAnswers = { ...formData }
+
+      // Retrieve pre-scraped LinkedIn profile from formData or sessionStorage
+      let preScrapedLinkedin = formData.linkedinData || null
+      if (!preScrapedLinkedin && typeof sessionStorage !== 'undefined') {
+        try {
+          const cached = sessionStorage.getItem('craftureLinkedinScrape')
+          if (cached) preScrapedLinkedin = JSON.parse(cached)
+        } catch (_e) {}
+      }
+      if (preScrapedLinkedin) {
+        allAnswers.linkedinData = preScrapedLinkedin
+      }
+
       let resumeFile = null
-      if (formData.resume) {
-        if (formData.resume instanceof FileList && formData.resume.length > 0) {
-          resumeFile = formData.resume[0]
-        } else if (Array.isArray(formData.resume) && formData.resume.length > 0) {
-          resumeFile = formData.resume[0]
-        } else if (formData.resume instanceof File) {
-          resumeFile = formData.resume
+      if (formData.resume instanceof File) {
+        resumeFile = formData.resume
+      } else if (formData.resume instanceof FileList && formData.resume.length > 0) {
+        resumeFile = formData.resume[0]
+      } else if (Array.isArray(formData.resume) && formData.resume.length > 0 && formData.resume[0] instanceof File) {
+        resumeFile = formData.resume[0]
+      }
+
+      // Recover original raw File if formData.resume was sanitized to { name, size, type } by localStorage
+      if (!resumeFile && typeof window !== 'undefined') {
+        const storeResume = window.__useAppStore?.getState()?.resumeFile
+        if (storeResume instanceof File) {
+          resumeFile = storeResume
+        } else if (window.__uploadedResumeFile instanceof File) {
+          resumeFile = window.__uploadedResumeFile
+        } else {
+          try {
+            const storedFile = await getResumeFileFromStorage()
+            if (storedFile instanceof File) {
+              resumeFile = storedFile
+              window.__useAppStore?.getState()?.setResumeFile?.(storedFile)
+            }
+          } catch (_e) {}
         }
       }
       delete allAnswers.resume
@@ -105,6 +162,7 @@ export const api = {
         semanticProfile,
         precomputedResumeAgent: resumeAnalysis?.analysis || null,
         precomputedResumeJson: resumeAnalysis?.canonicalResume || null,
+        linkedinData: preScrapedLinkedin || null,
       })
       if (!res.data?.jobId) throw new Error('Failed to start report job.')
       return { jobId: res.data.jobId, semanticProfile }
@@ -130,13 +188,29 @@ export const api = {
       
       // Safe extraction of the resume File object from react-hook-form value
       let resumeFile = null
-      if (formData.resume) {
-        if (formData.resume instanceof FileList && formData.resume.length > 0) {
-          resumeFile = formData.resume[0]
-        } else if (Array.isArray(formData.resume) && formData.resume.length > 0) {
-          resumeFile = formData.resume[0]
-        } else if (formData.resume instanceof File) {
-          resumeFile = formData.resume
+      if (formData.resume instanceof File) {
+        resumeFile = formData.resume
+      } else if (formData.resume instanceof FileList && formData.resume.length > 0) {
+        resumeFile = formData.resume[0]
+      } else if (Array.isArray(formData.resume) && formData.resume.length > 0 && formData.resume[0] instanceof File) {
+        resumeFile = formData.resume[0]
+      }
+
+      // Recover original raw File if formData.resume was sanitized to { name, size, type } by localStorage
+      if (!resumeFile && typeof window !== 'undefined') {
+        const storeResume = window.__useAppStore?.getState()?.resumeFile
+        if (storeResume instanceof File) {
+          resumeFile = storeResume
+        } else if (window.__uploadedResumeFile instanceof File) {
+          resumeFile = window.__uploadedResumeFile
+        } else {
+          try {
+            const storedFile = await getResumeFileFromStorage()
+            if (storedFile instanceof File) {
+              resumeFile = storedFile
+              window.__useAppStore?.getState()?.setResumeFile?.(storedFile)
+            }
+          } catch (_e) {}
         }
       }
 
@@ -295,6 +369,10 @@ export function normalizeReportData(data) {
     mission_board: data.mission_board ?? null,
     resume_json: data.resume_json ?? null,
     linkedin_json: data.linkedin_json ?? null,
+    resume_agent: data.resume_agent ?? null,
+    linkedin_agent: data.linkedin_agent ?? null,
+    judge: data.judge ?? null,
+    dashboard: data.dashboard ?? null,
     summary: data.summary || 'Your custom AI assessment report has been successfully generated and compiled based on your 31 answers.',
   }
 }

@@ -15,7 +15,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 async function main() {
   console.log('=== TESTING REAL FULL RESUME PROMPT AGAINST LIVE GEMINI ===')
   const resumeText = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
   const targetRole = 'Senior AI & Full Stack Engineer'

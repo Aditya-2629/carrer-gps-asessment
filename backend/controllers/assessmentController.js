@@ -30,8 +30,35 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
       "contact": {
         "email": "Email if present or N/A",
         "phone": "Phone if present or N/A",
-        "location": "City, State/Country or N/A"
+        "location": "City, State/Country or N/A",
+        "linkedin": "LinkedIn URL if present or N/A",
+        "github": "GitHub URL if present or N/A"
       },
+      "experiences": [
+        {
+          "role": "Exact role title (must NOT end with period, max 65 chars, no prepositions like 'across' or 'throughout')",
+          "company": "Company name",
+          "location": "City, State or Remote",
+          "startDate": "Start Date (e.g. Month Year)",
+          "endDate": "End Date (e.g. Month Year or Present)",
+          "isCurrent": true,
+          "bullets": [
+            "Verbatim bullet point 1",
+            "Verbatim bullet point 2"
+          ]
+        }
+      ],
+      "projects": [
+        {
+          "title": "Project Title",
+          "techStack": "Technologies used (e.g. React, Node.js, AWS)",
+          "bullets": [
+            "Verbatim bullet point"
+          ]
+        }
+      ],
+      "skills": ["Skill1", "Skill2", "Skill3"],
+      "certifications": ["Certification name 1", "Certification name 2"],
       "top_skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6"],
       "missing_ats_keywords": [],
       "ats_score": 65,
@@ -54,7 +81,7 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
 
   const { text: responseText } = await generateContentWithFallback({
     contents: [prompt, filePart],
-    modelName: 'gemini-3.6-flash',
+    modelName: 'gemini-3.5-flash-lite',
   })
 
   const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
@@ -127,6 +154,17 @@ export const saveAnswers = async (req, res) => {
       user.semanticProfile = semanticProfile
     }
 
+    // Check if linkedinData was already pre-scraped from Step 11
+    if (answers.linkedinData) {
+      try {
+        user.linkedinData = typeof answers.linkedinData === 'string'
+          ? JSON.parse(answers.linkedinData)
+          : answers.linkedinData
+      } catch (_e) {
+        user.linkedinData = answers.linkedinData
+      }
+    }
+
     // Detect LinkedIn URL in submitted answers
     let extractedLinkedinUrl = null
     for (const [key, val] of Object.entries(answers)) {
@@ -138,9 +176,17 @@ export const saveAnswers = async (req, res) => {
 
     if (extractedLinkedinUrl) {
       user.linkedinUrl = extractedLinkedinUrl
-      // Trigger Apify LinkedIn Scraper (throws error on invalid URL or scraping failure)
-      const scrapedProfile = await scrapeLinkedInProfile(extractedLinkedinUrl)
-      user.linkedinData = scrapedProfile
+      // If not yet pre-scraped, attempt live scrape (non-fatal, never reject saveAnswers with 400)
+      if (!user.linkedinData) {
+        try {
+          const scrapedProfile = await scrapeLinkedInProfile(extractedLinkedinUrl)
+          if (scrapedProfile) {
+            user.linkedinData = scrapedProfile
+          }
+        } catch (scrapeErr) {
+          console.warn('[AssessmentController] Live Apify LinkedIn scraping non-fatal error:', scrapeErr.message)
+        }
+      }
     }
 
     // Handle uploaded file if present via Multer
@@ -159,9 +205,13 @@ export const saveAnswers = async (req, res) => {
       }
       
       if (!user.resumeJson) {
-        // Convert resume to structured JSON via Gemini (throws error on failure)
-        const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
-        user.resumeJson = resumeJson
+        try {
+          // Convert resume to structured JSON via Gemini (non-fatal so resumeData buffer is always preserved)
+          const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
+          user.resumeJson = resumeJson
+        } catch (parseErr) {
+          console.warn('[AssessmentController] Non-fatal parseResumeToJSON error (resumeData buffer preserved):', parseErr.message)
+        }
       }
     }
 
@@ -318,7 +368,7 @@ export const chatResume = async (req, res) => {
 
     const { text: replyText } = await generateContentWithFallback({
       contents: prompt,
-      modelName: 'gemini-3.6-flash',
+      modelName: 'gemini-3.5-flash-lite',
     })
 
     return res.status(200).json({

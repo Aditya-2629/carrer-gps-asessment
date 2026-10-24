@@ -78,8 +78,8 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     DEFAULT_APIFY_JOB_ACTOR
 
   const maxCandidates =
-    options.maxCandidates ||
-    parseInt(process.env.MARKET_JD_MAX_CANDIDATES || '20', 10) ||
+    (options.maxCandidates && options.maxCandidates > 0 ? options.maxCandidates : null) ||
+    (parseInt(process.env.MARKET_JD_MAX_CANDIDATES, 10) > 0 ? parseInt(process.env.MARKET_JD_MAX_CANDIDATES, 10) : null) ||
     DEFAULT_MAX_CANDIDATES
 
   const maxRetries =
@@ -107,26 +107,33 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
   const startTime = Date.now()
   let lastError = null
 
-  // Universal input contract adaptable across LinkedIn/Indeed job scrapers
+  // Universal input contract adaptable across LinkedIn/Indeed job scrapers (e.g. bebity/linkedin-jobs-scraper)
   const actorInput = {
     queries: [searchSpec.query],
     query: searchSpec.query,
     title: searchSpec.query,
-    maxItems: maxCandidates,
-    maxResults: maxCandidates,
+    rows: maxCandidates,            // MUST BE 35, NEVER 0!
+    maxRowsPerUrl: maxCandidates,   // MUST BE 35, NEVER 0!
+    maxRows: maxCandidates,
     limit: maxCandidates,
+    maxItems: maxCandidates,
     location: 'United States',
     country: 'us',
+    companyProfile: false,          // Disables 1,000s of company sub-crawls!
+    enrichCompany: false,
     scrapeCompanyDetails: false,
+    easyApply: false,
+    under10Applicants: false,
   }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`[Apify JdScraper] Starting Actor run "${actorId}" (attempt ${attempt}/${maxRetries}) for query: "${searchSpec.query}"...`)
 
-      // Run actor and wait for finish with bounded timeout
+      // Run actor and wait for finish with bounded timeout and maxItems limit
       const run = await client.actor(actorId).call(actorInput, {
         waitSecs: Math.round(timeoutMs / 1000),
+        maxItems: maxCandidates,
       })
 
       if (!run || !run.defaultDatasetId) {

@@ -116,6 +116,105 @@ export function getVerbStem(word = '') {
   return lower
 }
 
+/**
+ * Converts a gerund (-ing) verb into either present tense or past tense.
+ */
+export function normalizeGerundVerb(word = '', isPresent = true) {
+  if (!word) return ''
+  const lower = word.toLowerCase().trim()
+  const gerundToPresent = {
+    remediating: 'Remediate',
+    designing: 'Design',
+    building: 'Build',
+    leading: 'Lead',
+    refactoring: 'Refactor',
+    developing: 'Develop',
+    implementing: 'Implement',
+    creating: 'Create',
+    architecting: 'Architect',
+    automating: 'Automate',
+    authoring: 'Author',
+    prototyping: 'Prototype',
+    partnering: 'Partner',
+    collaborating: 'Collaborate',
+    applying: 'Apply',
+    securing: 'Secure',
+    configuring: 'Configure',
+    orchestrating: 'Orchestrate',
+    optimizing: 'Optimize',
+    hardening: 'Harden',
+    driving: 'Drive',
+    spearheading: 'Spearhead',
+    migrating: 'Migrate',
+    establishing: 'Establish',
+    integrating: 'Integrate',
+    deploying: 'Deploy',
+    conducting: 'Conduct',
+    analyzing: 'Analyze',
+    directing: 'Direct',
+    managing: 'Manage',
+    scaling: 'Scale',
+    testing: 'Test',
+    monitoring: 'Monitor',
+    maintaining: 'Maintain',
+  }
+  const gerundToPast = {
+    remediating: 'Remediated',
+    designing: 'Designed',
+    building: 'Built',
+    leading: 'Led',
+    refactoring: 'Refactored',
+    developing: 'Developed',
+    implementing: 'Implemented',
+    creating: 'Created',
+    architecting: 'Architected',
+    automating: 'Automated',
+    authoring: 'Authored',
+    prototyping: 'Prototyped',
+    partnering: 'Partnered',
+    collaborating: 'Collaborated',
+    applying: 'Applied',
+    securing: 'Secured',
+    configuring: 'Configured',
+    orchestrating: 'Orchestrated',
+    optimizing: 'Optimized',
+    hardening: 'Hardened',
+    driving: 'Drove',
+    spearheading: 'Spearheaded',
+    migrating: 'Migrated',
+    establishing: 'Established',
+    integrating: 'Integrated',
+    deploying: 'Deployed',
+    conducting: 'Conducted',
+    analyzing: 'Analyzed',
+    directing: 'Directed',
+    managing: 'Managed',
+    scaling: 'Scaled',
+    testing: 'Tested',
+    monitoring: 'Monitored',
+    maintaining: 'Maintained',
+  }
+
+  if (isPresent) {
+    if (gerundToPresent[lower]) return gerundToPresent[lower]
+    if (lower.endsWith('ing')) {
+      let stem = lower.slice(0, -3)
+      if (stem.length > 2 && stem[stem.length - 1] === stem[stem.length - 2]) {
+        stem = stem.slice(0, -1)
+      } else if (!stem.endsWith('e') && !['act', 'adapt', 'adopt', 'affect', 'affirm', 'align', 'audit', 'author', 'boost', 'build', 'chart', 'check', 'clean', 'clear', 'coach', 'craft', 'cross', 'draft', 'drill', 'earn', 'form', 'gain', 'grow', 'guide', 'help', 'hold', 'hunt', 'join', 'launch', 'lead', 'learn', 'lift', 'link', 'load', 'lock', 'mark', 'meet', 'mend', 'mind', 'mold', 'mount', 'open', 'pack', 'pass', 'pick', 'plan', 'post', 'pull', 'push', 'rank', 'read', 'reap', 'root', 'run', 'scan', 'seek', 'sell', 'send', 'set', 'ship', 'show', 'shut', 'sign', 'sink', 'skip', 'sort', 'span', 'spin', 'spur', 'stem', 'step', 'stop', 'swap', 'team', 'tend', 'test', 'track', 'trim', 'turn', 'vet', 'view', 'warn', 'wash', 'win', 'work'].includes(stem)) {
+        stem = stem + 'e'
+      }
+      return stem.charAt(0).toUpperCase() + stem.slice(1)
+    }
+  } else {
+    if (gerundToPast[lower]) return gerundToPast[lower]
+    const pres = normalizeGerundVerb(word, true)
+    if (pres.endsWith('e')) return pres + 'd'
+    return pres + 'ed'
+  }
+  return word
+}
+
 export default {
   QUANTIFIER_PATTERNS,
   OUTCOME_VERBS_REGEX,
@@ -127,4 +226,6 @@ export default {
   IRREGULAR_PAST_VERBS,
   COMMON_PRESENT_VERBS,
   getVerbStem,
+  normalizeGerundVerb,
 }
+

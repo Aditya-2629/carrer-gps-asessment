@@ -20,7 +20,7 @@ async function runBenchmarkV15() {
   console.log('Prompt: resume-expert-v1.5')
   console.log('================================================================\n')
 
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/strong-fullstack.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/strong-fullstack.txt')
   const resumeText = fs.readFileSync(fixturePath, 'utf8')
   const targetRole = 'Senior Full Stack & Cloud Systems Engineer'
 

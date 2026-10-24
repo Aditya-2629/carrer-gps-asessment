@@ -2,12 +2,13 @@
  * Orchestrator — the supervisor. Controllers no longer coordinate agents; they
  * hand a CandidateBundle to the orchestrator and get a ReportBundle back.
  *
- * Responsibilities (blueprint Phase B):
- *  - build a stable inputHash per agent input → dedupe/cache in AgentRun
- *  - run agents in parallel (sectioning pattern) with per-agent isolation:
- *    one agent failing never breaks the others or the report
- *  - persist every run (success or failure) as an AgentRun row
- *  - emit progress events (consumed by SSE in Phase C)
+ * Responsibilities (Two-Stage Context-Bridged Architecture):
+ *  - Stage 1: Deterministic resume parsing & fact extraction (runs in ms with zero LLM calls)
+ *  - Stage 2: Parallel LLM synthesis with shared canonical context bridge between
+ *    Resume Agent and LinkedIn Agent (sectioning pattern with per-agent isolation)
+ *  - Dedupe/cache in AgentRun
+ *  - Persist every run (success or failure) as an AgentRun row
+ *  - Graceful degradation: failure or absence of one agent never breaks the other
  */
 
 import crypto from 'crypto'
@@ -15,9 +16,11 @@ import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { ResumeAgent } from './resume/resumeAgent.js'
-import { analyzeLinkedInProfile } from './linkedin/linkedinAgent.js'
+import { evaluateLinkedIn } from './linkedin/linkedinAgent.js'
 import { LINKEDIN_AGENT } from './core/agentContract.js'
 import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
+import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { getModel } from '../ai/config/modelRegistry.js'
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
@@ -81,42 +84,106 @@ async function findCachedRun(agent, inputHash) {
 }
 
 /**
- * Runs the Resume + LinkedIn agents for one candidate.
+ * Runs the Resume + LinkedIn agents for one candidate using a two-stage context bridge.
+ *
+ * Stage 1: Deterministic parsing & fact extraction from resume.
+ * Stage 2: Parallel evaluation where LinkedIn Agent receives the verified resume context.
  *
  * @param {Object} bundle
  * @param {Buffer|null}  bundle.resumeBuffer
  * @param {string}       bundle.resumeName
  * @param {string|null}  bundle.resumeTargetRole
+ * @param {string}       [bundle.targetJobDescription]
  * @param {Object|null}  bundle.linkedinData   - scraped LinkedIn profile
  * @param {string|null}  bundle.userId
  * @param {Function}     [bundle.onProgress]
+ * @param {string}       [bundle.cacheMode]    - 'default' | 'bypass'
  * @returns {Promise<{ resumeAgent: Object|null, linkedinAgent: Object|null }>}
  *   ready-to-attach report fields (null when that agent has no data/failed)
  */
 export async function runCareerAgents(bundle) {
   const {
     resumeBuffer = null,
+    resumeText = '',
+    canonicalResume = null,
+    resumeContextOverride = null,
     resumeName = '',
     resumeTargetRole = '',
     targetJobDescription = '',
     linkedinData = null,
+    linkedinUrl = '',
     userId = null,
     onProgress = null,
-    cacheMode = 'default', // 'default' | 'bypass'
+    cacheMode = 'default',
+    skipResumeSynthesis = false,
   } = bundle
 
-  const jobs = []
+  // ── Stage 0 (Background Apify Scraping Pipeline) ───────────────────────────
+  // When linkedinUrl is provided, start scrapeLinkedInProfile immediately in the background and hold the promise.
+  let apifyScrapePromise = null
+  let effectiveLinkedinUrl = linkedinUrl || ''
+  if (!effectiveLinkedinUrl && linkedinData) {
+    try {
+      effectiveLinkedinUrl = linkedinData.url || linkedinData.linkedinUrl || ''
+    } catch (_e) {}
+  }
+  if (!linkedinData && effectiveLinkedinUrl) {
+    if (onProgress) {
+      onProgress({ stage: 'apify_started', agent: 'linkedin', message: 'Apify background scrape: retrieving public LinkedIn profile & visual branding…' })
+    }
+    try {
+      apifyScrapePromise = scrapeLinkedInProfile(effectiveLinkedinUrl)
+        .then((res) => {
+          if (onProgress && res) {
+            onProgress({ stage: 'apify_done', agent: 'linkedin', message: 'Apify scrape complete: profile data & visual branding retrieved' })
+          }
+          return res
+        })
+        .catch((scrapeErr) => {
+          console.warn('[Orchestrator] Background Apify scrape failed or skipped:', scrapeErr.message)
+          return null
+        })
+    } catch (scrapeErr) {
+      console.warn('[Orchestrator] Background Apify scrape failed to start:', scrapeErr.message)
+      apifyScrapePromise = Promise.resolve(null)
+    }
+  }
 
-  // ── Resume Agent (LLM) ──────────────────────────────────────────────────────
-  if (resumeBuffer && resumeBuffer.length > 0) {
-    jobs.push(
-      (async () => {
-        // Resolve market bucket and version for cache fingerprinting (Section 25)
+  // ── Stage 1 (Fast Fact Extraction) ─────────────────────────────────────────
+  // Runs deterministically in ~15ms with zero LLM calls.
+  // Extracts canonical resume facts, verified skills, and experience timeline first.
+  let resumeContext = resumeContextOverride || null
+  if (!resumeContext && ((resumeBuffer && resumeBuffer.length > 0) || resumeText || canonicalResume)) {
+    try {
+      if (onProgress) {
+        onProgress({ stage: 'resume_parsing', agent: 'resume', message: 'Parsing resume structure & extracting canonical facts…' })
+      }
+      resumeContext = await ResumeAgent.prepareCanonicalContext({
+        buffer: resumeBuffer,
+        text: resumeText,
+        canonicalResumeOverride: canonicalResume,
+        filename: resumeName || 'resume',
+        targetRole: resumeTargetRole,
+      })
+    } catch (parseErr) {
+      console.warn('[Orchestrator] Stage 1 deterministic parsing failed (will attempt standard evaluate):', parseErr.message)
+    }
+  }
+
+  const effectiveTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
+
+  // ── Stage 2 (Pipelined Execution) ──────────────────────────────────────────
+  // Stage 2A: Resume Agent (LLM Synthesis)
+  let resumeJobPromise = null
+  if (!skipResumeSynthesis && ((resumeBuffer && resumeBuffer.length > 0) || resumeText || canonicalResume)) {
+    resumeJobPromise = (async () => {
+      const startedAt = Date.now()
+      try {
         let marketBucketVersion = 0
         let bucketKey = 'default'
         try {
           const resolved = resolveMarketBucket({
-            targetRole: resumeTargetRole,
+            targetRole: effectiveTargetRole,
             targetJobDescription,
           })
           bucketKey = resolved.bucketKey
@@ -128,13 +195,13 @@ export async function runCareerAgents(bundle) {
           /* fallback to 0 */
         }
 
-        const resumeHash = crypto.createHash('sha256').update(resumeBuffer).digest('hex')
+        const resumePayload = resumeBuffer || resumeText || JSON.stringify(canonicalResume || '')
+        const resumeHash = crypto.createHash('sha256').update(resumePayload).digest('hex')
         const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
         const inputHash = sha256(
-          `resume:${resumeHash}:jd:${jdHash}:${resumeTargetRole}:${bucketKey}:v:${marketBucketVersion}`
+          `resume:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}`
         )
 
-        // Cache lookup only when cacheMode !== 'bypass'
         const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null
         if (cached) {
           if (onProgress) onProgress({ stage: 'cache_hit', agent: 'resume', message: 'Resume Agent: reused cached analysis' })
@@ -145,7 +212,7 @@ export async function runCareerAgents(bundle) {
             userId,
             status: 'SUCCESS',
             cached: true,
-            output: null, // don't duplicate the blob — the original run holds it
+            output: null,
             latencyMs: 0,
             model: cached.model,
           })
@@ -153,12 +220,15 @@ export async function runCareerAgents(bundle) {
         }
 
         if (onProgress) onProgress({ stage: 'agent_started', agent: 'resume', message: 'Resume Agent: analyzing' })
-        const startedAt = Date.now()
         const result = await ResumeAgent.evaluate({
           buffer: resumeBuffer,
+          resumeText,
           filename: resumeName || 'resume',
-          targetRole: resumeTargetRole,
+          targetRole: effectiveTargetRole,
           targetJobDescription,
+          linkedinUrl: effectiveLinkedinUrl,
+          documentOverride: resumeContext?.parsedDoc || null,
+          canonicalResumeOverride: resumeContext?.canonicalResume || null,
         })
 
         await persistRun({
@@ -180,66 +250,148 @@ export async function runCareerAgents(bundle) {
 
         if (result.success) {
           if (onProgress) onProgress({ stage: 'agent_done', agent: 'resume', message: 'Resume Agent: complete' })
-          return { key: 'resumeAgent', analysis: result.analysis }
+          const modelMeta = result.metadata?.model ? getModel(result.metadata.model) : null
+          const provider = modelMeta?.provider || (result.metadata?.model?.includes('gemini') ? 'gemini' : (result.metadata?.model?.includes('gpt-oss') ? 'groq' : null))
+          return { key: 'resumeAgent', analysis: result.analysis, provider }
         }
         console.warn('[Orchestrator] Resume Agent failed:', result.status, result.error)
         if (onProgress) onProgress({ stage: 'agent_error', agent: 'resume', message: `Resume Agent failed: ${result.status}` })
         return { key: 'resumeAgent', analysis: null }
-      })()
-    )
+      } catch (resErr) {
+        console.warn('[Orchestrator] Resume Agent unexpected error:', resErr.message)
+        await persistRun({
+          agent: 'resume',
+          agentVersion: '3.2.0',
+          inputHash: sha256(`resume_err:${effectiveTargetRole}:${Date.now()}`),
+          userId,
+          status: 'AGENT_FAILED',
+          output: null,
+          latencyMs: Date.now() - startedAt,
+          error: { message: resErr.message },
+        })
+        if (onProgress) onProgress({ stage: 'agent_error', agent: 'resume', message: `Resume Agent error: ${resErr.message}` })
+        return { key: 'resumeAgent', analysis: null }
+      }
+    })()
   }
 
-  // ── LinkedIn Agent (deterministic) ──────────────────────────────────────────
-  if (linkedinData) {
-    jobs.push(
-      (async () => {
-        const inputHash = sha256(`linkedin:${linkedinData.url || linkedinData.fullName || 'profile'}`)
-        if (onProgress) onProgress({ stage: 'agent_started', agent: 'linkedin', message: 'LinkedIn Agent: auditing profile' })
-        const startedAt = Date.now()
-        try {
-          const analysis = analyzeLinkedInProfile(linkedinData, {
-            targetRole: resumeTargetRole || '',
-            primaryProfile: '',
-          })
+  // Stage 2B: LinkedIn Agent (Pipelined Execution with verified facts + background Apify scrape)
+  let linkedinJobPromise = null
+  if (linkedinData || effectiveLinkedinUrl || (resumeBuffer && resumeBuffer.length > 0) || resumeText || canonicalResume || resumeTargetRole) {
+    linkedinJobPromise = (async () => {
+      const startedAt = Date.now()
+      try {
+        // Decoupled Parallel Execution: LinkedIn Agent does NOT await ResumeAgent LLM synthesis.
+        // It immediately uses the deterministic Stage 1 verified canonical resume and facts (<150ms).
+        const verifiedCanonicalResume = resumeContext?.canonicalResume || canonicalResume || null
+        const verifiedFacts = resumeContext?.extractedFacts || null
+        const resumeProvider = 'gemini'
+
+        // Await background Apify scrape if one was started
+        let activeProfile = linkedinData
+        if (!activeProfile && apifyScrapePromise) {
+          try {
+            activeProfile = await apifyScrapePromise
+          } catch (_scrapeErr) {
+            activeProfile = null
+          }
+        }
+
+        const linkedinId =
+          activeProfile?.publicIdentifier ||
+          activeProfile?.url ||
+          activeProfile?.linkedinUrl ||
+          activeProfile?.fullName ||
+          activeProfile?.id ||
+          effectiveLinkedinUrl ||
+          'profile'
+
+        const resumeFingerprint =
+          verifiedCanonicalResume?.candidate?.name ||
+          (resumeBuffer ? crypto.createHash('sha256').update(resumeBuffer).digest('hex').slice(0, 16) : '') ||
+          effectiveTargetRole ||
+          'none'
+
+        const inputHash = sha256(`linkedin:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:v:${LINKEDIN_AGENT.version}`)
+
+        const cached = cacheMode !== 'bypass' ? await findCachedRun('linkedin', inputHash) : null
+        if (cached) {
+          if (onProgress) onProgress({ stage: 'cache_hit', agent: 'linkedin', message: 'LinkedIn Agent: reused cached audit' })
           await persistRun({
             agent: 'linkedin',
-            agentVersion: LINKEDIN_AGENT.version,
+            agentVersion: cached.agentVersion,
             inputHash,
             userId,
             status: 'SUCCESS',
-            output: analysis,
-            latencyMs: Date.now() - startedAt,
-            cached: false,
-          })
-          if (onProgress) onProgress({ stage: 'agent_done', agent: 'linkedin', message: 'LinkedIn Agent: complete' })
-          return { key: 'linkedinAgent', analysis }
-        } catch (err) {
-          console.warn('[Orchestrator] LinkedIn Agent failed:', err.message)
-          await persistRun({
-            agent: 'linkedin',
-            agentVersion: LINKEDIN_AGENT.version,
-            inputHash,
-            userId,
-            status: 'AGENT_FAILED',
+            cached: true,
             output: null,
-            latencyMs: Date.now() - startedAt,
-            error: { message: err.message },
+            latencyMs: 0,
           })
-          if (onProgress) onProgress({ stage: 'agent_error', agent: 'linkedin', message: `LinkedIn Agent failed: ${err.message}` })
-          return { key: 'linkedinAgent', analysis: null }
+          return { key: 'linkedinAgent', analysis: cached.output }
         }
-      })()
-    )
+
+        if (onProgress) onProgress({ stage: 'agent_started', agent: 'linkedin', message: 'LinkedIn Agent: auditing & optimizing' })
+
+        // Execute LinkedIn Agent's dedicated AI call via LLM Gateway with provider isolation
+        const analysis = await evaluateLinkedIn({
+          profile: activeProfile,
+          resumeContext: {
+            canonicalResume: verifiedCanonicalResume,
+            extractedFacts: verifiedFacts,
+            targetRole: effectiveTargetRole,
+            provider: resumeProvider,
+          },
+          runLlm: true,
+          preferredProvider: 'groq',
+          excludeProvider: resumeProvider,
+          onProgress,
+        })
+
+        await persistRun({
+          agent: 'linkedin',
+          agentVersion: LINKEDIN_AGENT.version,
+          inputHash,
+          userId,
+          status: 'SUCCESS',
+          output: analysis,
+          latencyMs: Date.now() - startedAt,
+          cached: false,
+        })
+        if (onProgress) onProgress({ stage: 'agent_done', agent: 'linkedin', message: 'LinkedIn Agent: complete' })
+        return { key: 'linkedinAgent', analysis, linkedinData: activeProfile }
+      } catch (err) {
+        console.warn('[Orchestrator] LinkedIn Agent failed (graceful isolation):', err.message)
+        let fallbackHash = 'linkedin_err'
+        try {
+          fallbackHash = sha256(`linkedin:${effectiveTargetRole}:${Date.now()}`)
+        } catch (_e) {}
+        await persistRun({
+          agent: 'linkedin',
+          agentVersion: LINKEDIN_AGENT.version,
+          inputHash: fallbackHash,
+          userId,
+          status: 'AGENT_FAILED',
+          output: null,
+          latencyMs: Date.now() - startedAt,
+          error: { message: err.message },
+        })
+        if (onProgress) onProgress({ stage: 'agent_error', agent: 'linkedin', message: `LinkedIn Agent failed: ${err.message}` })
+        return { key: 'linkedinAgent', analysis: null, linkedinData: null }
+      }
+    })()
   }
 
-  const settled = await Promise.all(jobs)
+  // Merge both agent outputs into the report bundle
+  const [resumeSettled, linkedinSettled] = await Promise.all([
+    resumeJobPromise || Promise.resolve(null),
+    linkedinJobPromise || Promise.resolve(null),
+  ])
 
-  const out = { resumeAgent: null, linkedinAgent: null }
-  for (const r of settled) {
-    if (r.key === 'resumeAgent') out.resumeAgent = r.analysis
-    if (r.key === 'linkedinAgent') out.linkedinAgent = r.analysis
+  return {
+    resumeAgent: resumeSettled?.analysis || null,
+    linkedinAgent: linkedinSettled?.analysis || null,
+    linkedinData: linkedinSettled?.linkedinData || null,
   }
-  return out
 }
 
-export default { runCareerAgents }
+export default { runCareerAgents, computeAnalysisCacheFingerprint }

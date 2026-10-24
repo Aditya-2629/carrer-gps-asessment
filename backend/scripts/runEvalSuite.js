@@ -22,7 +22,7 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES_DIR = path.join(__dirname, '../agents/resume/fixtures')
+const FIXTURES_DIR = path.join(__dirname, '../tests/fixtures')
 const OUT_PATH = path.join(__dirname, 'eval_suite_results.json')
 
 const ALL_FIXTURES = [

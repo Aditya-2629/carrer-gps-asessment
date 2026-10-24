@@ -25,6 +25,7 @@ import {
   FileText,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from '../components/report/ResumeScoreCard.jsx'
+import ResumeKeywordAlignment from '../components/report/ResumeKeywordAlignment.jsx'
 import ResumeBulletAudit from '../components/report/ResumeBulletAudit.jsx'
 import brandLogo from '../assets/images/crafture-logo.jpg'
 
@@ -233,6 +234,9 @@ function ResumeAgentTestLabContent() {
           { id: 'openai/gpt-oss-120b', displayName: 'Groq GPT-OSS 120B (Primary)', provider: 'groq', configured: true },
           { id: 'openai/gpt-oss-20b', displayName: 'Groq GPT-OSS 20B (Fallback)', provider: 'groq', configured: true },
           { id: 'gemini-3.8-flash', displayName: 'Google Gemini 3.8 Flash (Latest)', provider: 'gemini', configured: true },
+          { id: 'gemini-3.5-flash-lite', displayName: 'Google Gemini 3.5 Flash Lite', provider: 'gemini', configured: true },
+          { id: 'gemini-3.5-flash', displayName: 'Google Gemini 3.5 Flash', provider: 'gemini', configured: true },
+          { id: 'gemini-3.1-pro-preview', displayName: 'Google Gemini 3.1 Pro (Preview)', provider: 'gemini', configured: true },
           { id: 'gemini-3.7-flash', displayName: 'Google Gemini 3.7 Flash', provider: 'gemini', configured: true },
           { id: 'gemini-3.6-flash', displayName: 'Google Gemini 3.6 Flash', provider: 'gemini', configured: true },
         ])
@@ -317,6 +321,9 @@ function ResumeAgentTestLabContent() {
       const data = await res.json()
       if (!res.ok && !data.rawModelOutput && !data.status) {
         setErrorMsg(data.error || 'Test run failed.')
+      }
+      if (data?.canonicalResume?.candidate?.targetRole && (!targetRole || targetRole === 'Senior Full Stack & Cloud Systems Engineer')) {
+        setTargetRole(data.canonicalResume.candidate.targetRole)
       }
       setSingleResult(data)
     } catch (err) {
@@ -561,7 +568,11 @@ function ResumeAgentTestLabContent() {
                     <input
                       type="file"
                       accept=".pdf,.docx,.txt"
-                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null
+                        setFile(f)
+                        if (f) setTargetRole('')
+                      }}
                       className="hidden"
                     />
                     <span className="bg-gray-900 border border-gray-800 px-3 py-1.5 rounded-lg hover:border-gray-700">
@@ -1155,6 +1166,14 @@ function ResumeAgentTestLabContent() {
                     <ResumeScoreCard
                       dashboard={currentInspectResult.parsedOutput.dashboard}
                       candidateName={currentInspectResult.parsedOutput?.candidateSnapshot?.name}
+                    />
+                  )}
+
+                  {/* Keyword & JD Alignment */}
+                  {(currentInspectResult.parsedOutput?.dashboard?.keywordAlignment || currentInspectResult.parsedOutput?.keywordAlignment) && (
+                    <ResumeKeywordAlignment
+                      keywordAlignment={currentInspectResult.parsedOutput?.dashboard?.keywordAlignment || currentInspectResult.parsedOutput?.keywordAlignment}
+                      variant="dark"
                     />
                   )}
 

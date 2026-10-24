@@ -12,32 +12,41 @@ export class GeminiProvider {
   }
 
   async generate({
-    model = process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+    model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     messages,
+    supportsJsonObject = false,
+    responseFormat = null,
     isBenchmark = false,
     temperature = 0.2,
     topP = 0.9,
     maxTokens = null,
-    timeoutMs = 30000,
-    totalDeadlineMs = 60000,
+    timeoutMs = 18000,
+    totalDeadlineMs = 38000,
     signal = null,
     requestId = null,
   }) {
     const startTime = Date.now()
-    const targetModel = model === 'gemini-3.8' ? 'gemini-3.8-flash' : (model || process.env.GEMINI_MODEL || 'gemini-3.8-flash')
+    let targetModel = model
+    if (targetModel === 'gemini-3.8') targetModel = 'gemini-3.8-flash'
+    if (targetModel === 'gemini-3.1-pro') targetModel = 'gemini-3.1-pro-preview'
+    if (!targetModel) targetModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+
     try {
       // Concatenate chat messages into prompt string
       const promptText = messages
         .map((m) => `${m.role.toUpperCase()}:\n${m.content}`)
         .join('\n\n')
 
-      // In benchmark mode, strictly disable fallback to other models (e.g. gemini-2.5-flash)
+      // In benchmark mode, strictly disable fallback to other models
       const fallbackModels = isBenchmark ? [] : undefined
 
       const generationConfig = {}
       if (temperature != null) generationConfig.temperature = temperature
       if (topP != null) generationConfig.topP = topP
       if (maxTokens != null) generationConfig.maxOutputTokens = maxTokens
+      if (supportsJsonObject || responseFormat === 'json_object') {
+        generationConfig.responseMimeType = 'application/json'
+      }
 
       const result = await generateContentWithFallback({
         contents: promptText,

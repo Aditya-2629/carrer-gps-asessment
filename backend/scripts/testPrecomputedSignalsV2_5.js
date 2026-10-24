@@ -46,7 +46,7 @@ async function runTests() {
   // ── Test 1: Swapnil Jadhav Fixture ───────────────────────────────────────────
   console.log('--- TEST SUITE 1: Swapnil Jadhav Fixture ---')
   const swapnilRaw = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
   const swapnilDoc = await DocumentParser.parse({ text: swapnilRaw })
@@ -86,7 +86,7 @@ async function runTests() {
   // ── Test 2: Second Fixture (mixed-experience.txt / Elena Rostova) ─────────────
   console.log('\n--- TEST SUITE 2: Second Sample (mixed-experience.txt) ---')
   const elenaRaw = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/mixed-experience.txt'),
+    path.join(__dirname, '../tests/fixtures/mixed-experience.txt'),
     'utf8'
   )
   const elenaDoc = await DocumentParser.parse({ text: elenaRaw })

@@ -580,3 +580,76 @@ h1, h2, h3, h4, h5, h6 {
 @media (prefers-reduced-motion: reduce) {
   .skeleton-shimmer { animation: none; opacity: 0.6; }
 }
+
+/* ─── Master Print / PDF Engine ─── */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 12mm 14mm;
+  }
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .no-print,
+  button,
+  .filter-tabs,
+  .collapse-toggle,
+  .experience-dropdown-chevron,
+  .experience-dropdown-controls {
+    display: none !important;
+  }
+  /* Never allow scrollbars or clipped containers in print */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  /* Force expand all accordions in print */
+  .experience-dropdown-content,
+  .accordion-content {
+    display: block !important;
+    max-height: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  /* Allow large sections and experience groups to flow across pages naturally */
+  .report-container,
+  .report-section,
+  .print-section,
+  .experience-group,
+  .experience-bullets-list,
+  .scorecard-section {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    margin-bottom: 14px !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+  /* Keep section & company headers attached to their first item */
+  h1, h2, h3, .section-header, .experience-group-header, .section-title {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  /* Prevent individual small leaf cards from splitting mid-sentence */
+  .bullet-card,
+  .strength-card,
+  .keyword-bucket,
+  .keyword-row-group,
+  .checklist-item,
+  .print-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 8px !important;
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+}
+

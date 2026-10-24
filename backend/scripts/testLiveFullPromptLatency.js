@@ -14,7 +14,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 async function testFullPromptDirect() {
   const resumeText = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
   const targetRole = 'Senior AI & Full Stack Engineer'

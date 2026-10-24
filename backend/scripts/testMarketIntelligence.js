@@ -504,7 +504,7 @@ const fixtures = ['swapnil', 'alekya', 'weak-resume'];
 
 for (const fixName of fixtures) {
   await it(`Evaluates golden fixture "${fixName}" against expected bucket and constraints`, () => {
-    const fixDir = path.join(__dirname, '../agents/resume/fixtures', fixName);
+    const fixDir = path.join(__dirname, '../tests/fixtures', fixName);
     const meta = JSON.parse(fs.readFileSync(path.join(fixDir, 'fixtureMetadata.json'), 'utf-8'));
     const resumeText = fs.readFileSync(path.join(fixDir, 'resume.txt'), 'utf-8');
     const targetJdText = fs.readFileSync(path.join(fixDir, 'targetJd.txt'), 'utf-8');

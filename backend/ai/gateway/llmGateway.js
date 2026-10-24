@@ -20,18 +20,31 @@ import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 
 // Production fallback chain in priority order:
-// 1. Primary: Gemini 3.8 Flash (Google)
-// 2. 1st Fallback: GPT-OSS 120B (Groq)
-// 3. 2nd Fallback: GPT-OSS 20B (Groq)
-// 4. 3rd Fallback: Nemotron 3 Super 120B (NVIDIA NIM)
-// 5. 4th Fallback: Gemini 3.6 Flash (Google)
+// 1. Primary: Gemini 3.5 Flash Lite (Google instant fast inference)
+// 2. 1st Fallback: Groq (GPT-OSS 120B / 20B)
+// 3. 2nd Fallback: OpenRouter
+// 4. 3rd Fallback: OpenAI
 export const PRODUCTION_FALLBACK_CHAIN = [
-  process.env.RESUME_PRIMARY_MODEL || 'gemini-3.8-flash',
-  'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
-  'nvidia/nemotron-3-super-120b-a12b',
-  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite',
+  'groq',
+  'openrouter',
+  'openai',
 ]
+
+export const MAX_CONCURRENT_PER_PROVIDER = 4
+
+export const TRAP_MODELS = new Set([
+  'gemini-3.8-flash',
+  'gemini-3.8',
+  'gemini-3.7-flash',
+  'gemini-3.7',
+])
+
+const PROVIDER_MODEL_FALLBACKS = {
+  groq: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+  openrouter: ['google/gemma-4-26b-a4b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free'],
+  openai: ['openai/gpt-oss-120b'],
+}
 
 export class LLMGateway {
   constructor(config = aiConfig) {
@@ -75,6 +88,8 @@ export class LLMGateway {
     bypassCache = false,
     signal = null,
     totalDeadlineMs = null,
+    excludeProvider = null,
+    preferredProvider = null,
   }) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new ProviderError({
@@ -117,20 +132,59 @@ export class LLMGateway {
     // quota/503 outage can be absorbed by NVIDIA/Groq models.
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
-      const chain = new Set([requestedModelId])
-      for (const m of PRODUCTION_FALLBACK_CHAIN.filter((m) => m !== requestedModelId)) {
-        chain.add(m)
-      }
+      const chain = new Set()
       if (!model) {
-        for (const m of listModelsForPurpose(purpose)) chain.add(m.id)
+        for (const m of listModelsForPurpose(purpose)) {
+          if (!TRAP_MODELS.has(m.id)) chain.add(m.id)
+        }
+      }
+      if (requestedModelId && !TRAP_MODELS.has(requestedModelId)) {
+        chain.add(requestedModelId)
+      }
+      for (const entry of PRODUCTION_FALLBACK_CHAIN) {
+        if (entry === requestedModelId || TRAP_MODELS.has(entry)) continue
+        if (PROVIDER_MODEL_FALLBACKS[entry]) {
+          for (const m of PROVIDER_MODEL_FALLBACKS[entry]) {
+            if (m !== requestedModelId && !TRAP_MODELS.has(m)) chain.add(m)
+          }
+        } else {
+          chain.add(entry)
+        }
       }
       modelsToTry = Array.from(chain)
+    }
+
+    // Provider isolation / preference ordering:
+    // If preferredProvider is set, prepend its models.
+    // If excludeProvider is set, move models from that provider behind other candidates as a last-resort fallback.
+    if (preferredProvider || excludeProvider) {
+      const preferred = []
+      const regular = []
+      const excluded = []
+
+      for (const mId of modelsToTry) {
+        const meta = getModel(mId)
+        const prov = meta?.provider
+        if (excludeProvider && prov === excludeProvider) {
+          excluded.push(mId)
+        } else if (preferredProvider && prov === preferredProvider) {
+          preferred.push(mId)
+        } else {
+          regular.push(mId)
+        }
+      }
+
+      modelsToTry = [...preferred, ...regular, ...excluded]
     }
 
     let lastError = null
 
     for (let i = 0; i < modelsToTry.length; i++) {
-      const remainingDeadlineMs = effectiveTotalDeadlineMs - (Date.now() - requestStartTime)
+      let remainingDeadlineMs = effectiveTotalDeadlineMs - (Date.now() - requestStartTime)
+      // When cascading to the next candidate, guarantee at least 25000ms timeout budget so upstream timeouts never starve fallback
+      if (i > 0) {
+        remainingDeadlineMs = Math.max(remainingDeadlineMs, 25000)
+      }
       if (remainingDeadlineMs <= 0) {
         lastError = new ProviderError({
           code: PROVIDER_ERROR_CODES.TIMEOUT,
@@ -218,7 +272,7 @@ export class LLMGateway {
         const timeoutMs = Math.min(configuredTimeout, remainingDeadlineMs)
         const perAttemptTimeoutMs =
           providerKey === 'gemini'
-            ? (this.config.gemini?.perAttemptTimeoutMs || this.config.gemini?.timeoutMs || 30000)
+            ? (this.config.gemini?.perAttemptTimeoutMs || this.config.gemini?.timeoutMs || 20000)
             : timeoutMs
 
         // Provider deadline is bounded slightly within router timeout (1500ms safety buffer)

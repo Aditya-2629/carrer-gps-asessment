@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') })
 async function runDirectSdkPromptTest() {
   console.log('=== DIRECT GEMINI SDK TEST WITH ACTUAL RESUME AGENT PROMPT (NO GATEWAY TIMEOUT) ===')
   const resumeText = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
 

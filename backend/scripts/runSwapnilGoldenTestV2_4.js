@@ -35,7 +35,7 @@ async function main() {
   console.log('================================================================\n')
 
   const resumeText = fs.readFileSync(
-    path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt'),
+    path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt'),
     'utf8'
   )
 

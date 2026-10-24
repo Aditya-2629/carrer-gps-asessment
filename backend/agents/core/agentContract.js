@@ -52,10 +52,11 @@ export const RESUME_AGENT = defineAgent({
 export const LINKEDIN_AGENT = defineAgent({
   id: 'linkedin',
   name: 'LinkedIn Agent',
-  version: '1.0.0',
-  purpose: 'resume_analysis', // deterministic today; LLM synthesis may reuse this purpose later
-  persona: 'US recruiter visibility specialist',
-  usesLlm: false,
+  version: '2.0.0',
+  purpose: 'resume_analysis',
+  persona: 'US Technical Recruiter & LinkedIn Visibility Strategist',
+  usesLlm: true,
+  retryPolicy: { maxAttempts: 2, budgetUsd: 0.05 },
 })
 
 export const OVERALL_AGENT = defineAgent({

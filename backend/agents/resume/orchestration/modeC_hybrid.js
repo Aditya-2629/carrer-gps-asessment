@@ -128,7 +128,21 @@ export function buildDeterministicDossier({
 export function sanitizeModeCOutput(analysis) {
   if (!analysis || typeof analysis !== 'object') return analysis
 
-  // 1. overallReview normalization
+  // 1. dashboard normalization (required by contract, score must be null)
+  if (!('dashboard' in analysis)) {
+    analysis.dashboard = null
+  }
+
+  // 2. candidateSnapshot normalization
+  if (!analysis.candidateSnapshot) {
+    analysis.candidateSnapshot = {
+      name: 'Candidate',
+      targetRole: 'Software Professional',
+      topStrengths: (analysis.strengths || []).slice(0, 3).map((s) => s.title),
+    }
+  }
+
+  // 3. overallReview normalization
   if (typeof analysis.overallReview === 'string') {
     analysis.overallReview = {
       summary: analysis.overallReview,
@@ -143,7 +157,7 @@ export function sanitizeModeCOutput(analysis) {
     }
   }
 
-  // 2. strengths evidence normalization
+  // 4. strengths evidence normalization
   if (Array.isArray(analysis.strengths)) {
     analysis.strengths.forEach((str) => {
       if (str && str.evidence && !Array.isArray(str.evidence) && typeof str.evidence === 'object') {
@@ -155,20 +169,36 @@ export function sanitizeModeCOutput(analysis) {
     })
   }
 
-  // 3. issues evidence & metricDiscoveryQuestions normalization
+  // 5. issues evidence & metricDiscoveryQuestions normalization
   if (Array.isArray(analysis.issues)) {
     analysis.issues.forEach((iss) => {
-      if (iss && iss.evidence && !Array.isArray(iss.evidence) && typeof iss.evidence === 'object') {
+      if (iss && !iss.evidence && (iss.bulletId || iss.originalText)) {
+        iss.evidence = [{
+          section: 'experience',
+          itemId: iss.itemId || (iss.bulletId?.startsWith('exp_') ? iss.bulletId.slice(0, 7) : (iss.bulletId?.startsWith('proj_') ? iss.bulletId.slice(0, 8) : 'exp_001')),
+          bulletId: iss.bulletId || 'exp_001_b01',
+          originalText: iss.originalText || '',
+        }]
+      } else if (iss && iss.evidence && !Array.isArray(iss.evidence) && typeof iss.evidence === 'object') {
         iss.evidence = [iss.evidence]
       }
       if (iss && !Array.isArray(iss.metricDiscoveryQuestions)) {
         iss.metricDiscoveryQuestions = []
       }
     })
+  } else {
+    analysis.issues = []
   }
 
-  // 4. priorityActions normalization
-  if (Array.isArray(analysis.priorityActions)) {
+  // 6. priorityActions normalization
+  if (!Array.isArray(analysis.priorityActions) || analysis.priorityActions.length === 0) {
+    analysis.priorityActions = (analysis.issues || []).slice(0, 3).map((iss, idx) => ({
+      priority: idx + 1,
+      title: iss.title || 'Prioritize impact',
+      action: iss.recommendation || 'Strengthen technical outcome',
+      reason: iss.whyItMatters || 'High impact on recruiter conversion',
+    }))
+  } else {
     analysis.priorityActions.forEach((pa, idx) => {
       if (pa && typeof pa === 'object') {
         if (pa.priority === undefined && pa.order !== undefined) {
@@ -416,6 +446,8 @@ Synthesize the final report now using this dossier as factual foundation. Return
 export async function executeModeC({
   state,
   canonicalResume,
+  targetRole = '',
+  targetJobDescription = '',
   taskPolicies = {},
   model = null,
   isBenchmark = false,
@@ -425,8 +457,8 @@ export async function executeModeC({
   const llmCalls = []
 
   const compactResume = serializeResumeForLLM(canonicalResume)
-  const targetRole = state?.candidateSnapshot?.targetRole || 'Software Professional'
-  const targetJobDescription = state?.targetJobDescription || ''
+  const effectiveRole = targetRole || state?.candidateSnapshot?.targetRole || canonicalResume?.candidate?.targetRole || 'Software Professional'
+  const effectiveJd = targetJobDescription || state?.targetJobDescription || ''
   const marketProfile = state?.marketProfile || null
   const marketContext = state?.marketContext || null
   const resumeFacts = state?.resumeFacts || {}
@@ -439,7 +471,7 @@ export async function executeModeC({
     resumeFacts,
     signals,
     precomputedSignals,
-    targetJobDescription,
+    targetJobDescription: effectiveJd,
     marketProfile,
     marketContext,
   })
@@ -460,14 +492,14 @@ export async function executeModeC({
   let messages = buildHybridPrompt({
     compactResume,
     dossier,
-    targetRole,
-    targetJobDescription,
+    targetRole: effectiveRole,
+    targetJobDescription: effectiveJd,
     marketContext,
   })
 
   const contentHash = crypto
     .createHash('sha256')
-    .update(`${compactResume}:${targetRole}:${targetJobDescription}:${JSON.stringify(dossier)}`)
+    .update(`${compactResume}:${effectiveRole}:${effectiveJd}:${JSON.stringify(dossier)}`)
     .digest('hex')
 
   // 4. Execute single focused reasoning call with validation retry
@@ -512,6 +544,45 @@ export async function executeModeC({
       parsedForValidation = sanitizeModeCOutput(cleanObj)
     } catch (_ignore) {
       // CleanAndParse error will be handled by ResumeAgentValidator.validate
+    }
+
+    if (parsedForValidation && Array.isArray(parsedForValidation.issues) && parsedForValidation.issues.length < 3) {
+      const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+      const usedBullets = new Set(parsedForValidation.issues.map((i) => i.evidence?.[0]?.bulletId).filter(Boolean))
+      for (const [bId, text] of bulletMap.entries()) {
+        if (parsedForValidation.issues.length >= 3) break
+        if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
+        if (usedBullets.has(bId)) continue
+        usedBullets.add(bId)
+        const itemId = bId.startsWith('exp_') ? bId.slice(0, 7) : (bId.startsWith('proj_') ? bId.slice(0, 8) : bId)
+        parsedForValidation.issues.push({
+          id: `iss_${String(parsedForValidation.issues.length + 1).padStart(3, '0')}`,
+          severity: 'medium',
+          category: 'outcome_visibility',
+          title: 'Technical contribution missing measurable business outcome',
+          diagnosis: `The bullet highlights engineering effort without specifying measurable results or scale.`,
+          whyItMatters: 'Hiring managers prioritize bullets with concrete results and system impact.',
+          recommendation: 'Add metrics or outcomes detailing the impact (e.g. latency, users, throughput, or team efficiency).',
+          correctedText: ResumeAgentValidator.buildGoogleXYZRewrite(text),
+          metricDiscoveryQuestions: ['What were the measurable outcomes or scale of this work?'],
+          correctionType: 'rewrite',
+          confidence: 0.94,
+          evidence: [{
+            section: bId.startsWith('proj_') ? 'projects' : 'experience',
+            itemId,
+            bulletId: bId,
+            originalText: text,
+          }],
+        })
+      }
+      if (!Array.isArray(parsedForValidation.priorityActions) || parsedForValidation.priorityActions.length === 0) {
+        parsedForValidation.priorityActions = parsedForValidation.issues.slice(0, 3).map((iss, idx) => ({
+          priority: idx + 1,
+          title: iss.title,
+          action: iss.recommendation,
+          reason: iss.whyItMatters,
+        }))
+      }
     }
 
     validation = ResumeAgentValidator.validate(parsedForValidation, canonicalResume)

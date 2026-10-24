@@ -27,7 +27,7 @@ export const DEFAULT_TASK_POLICIES = {
   final_synthesis: {
     task: 'final_synthesis',
     provider: 'auto',
-    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
+    model: aiConfig.defaultResumeModel || 'gemini-3.5-flash-lite',
     temperature: 0.2,
     maxTokens: 8192,
   },
@@ -36,7 +36,7 @@ export const DEFAULT_TASK_POLICIES = {
   resume_audit: {
     task: 'resume_audit',
     provider: 'auto',
-    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
+    model: aiConfig.defaultResumeModel || 'gemini-3.5-flash-lite',
     temperature: 0.1,
     maxTokens: 4096,
   },
@@ -45,7 +45,7 @@ export const DEFAULT_TASK_POLICIES = {
   jd_match: {
     task: 'jd_match',
     provider: 'auto',
-    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
+    model: aiConfig.defaultResumeModel || 'gemini-3.5-flash-lite',
     temperature: 0.1,
     maxTokens: 3072,
   },
@@ -54,7 +54,7 @@ export const DEFAULT_TASK_POLICIES = {
   market_gap: {
     task: 'market_gap',
     provider: 'auto',
-    model: aiConfig.defaultResumeModel || 'gemini-3.8-flash',
+    model: aiConfig.defaultResumeModel || 'gemini-3.5-flash-lite',
     temperature: 0.1,
     maxTokens: 3072,
   },

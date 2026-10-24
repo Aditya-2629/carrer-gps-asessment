@@ -10,7 +10,7 @@ async function runAlekyaValidation() {
   console.log('ALEKYA RESUME & PIPELINE VERIFICATION SUITE')
   console.log('================================================================\n')
 
-  const pdfPath = 'backend/agents/resume/fixtures/alekya/Alekya_Maddu_Resume.pdf'
+  const pdfPath = 'backend/tests/fixtures/alekya/Alekya_Maddu_Resume.pdf'
   assert(fs.existsSync(pdfPath), `PDF file must exist at ${pdfPath}`)
 
   const buf = fs.readFileSync(pdfPath)

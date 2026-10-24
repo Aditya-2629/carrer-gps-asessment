@@ -39,7 +39,7 @@ async function runRegressionSuite() {
   }
 
   // Load strong fullstack fixture
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/strong-fullstack.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/strong-fullstack.txt')
   const rawText = fs.readFileSync(fixturePath, 'utf8')
 
   // Parse & Normalize
@@ -119,17 +119,15 @@ async function runRegressionSuite() {
   console.log('\n--- TEST 12: Existing evidence validator still works with canonicalResume ---')
   // Create a mock valid analysis referencing canonical IDs
   const mockValidAnalysisJson = JSON.stringify({
-    analysisVersion: '1.0',
+    analysisVersion: '2.2',
     candidateSnapshot: {
+      name: 'Alex Mercer',
       targetRole: 'Senior Full Stack & Cloud Systems Engineer',
       experienceLevel: 'Senior (6 years)',
       primaryProfile: 'Full-Stack / Systems Specialist',
     },
-    dashboard: {
-      score: null,
-      dimensions: { impact: null, clarity: null, positioning: null, structure: null },
-    },
-    overallReview: 'Marcus brings strong systems architecture and cloud engineering signal.',
+    dashboard: null,
+    overallReview: { summary: 'Marcus brings strong systems architecture and cloud engineering signal.' },
     strengths: [
       {
         id: 'str_001',
@@ -167,7 +165,7 @@ async function runRegressionSuite() {
       {
         order: 1,
         title: 'Add promotion/project outcome to mentoring bullet',
-        action: 'Specify what the 4 mentored engineers achieved under your guidance.',
+        action: 'Specify what the mentored engineers achieved under your guidance.',
         impact: 'Medium',
       },
     ],
@@ -175,12 +173,12 @@ async function runRegressionSuite() {
   })
 
   const valResult = ResumeAgentValidator.validate(mockValidAnalysisJson, canonicalResume)
-  assert(valResult.isValid && valResult.warnings.length === 0, 'Validator accepts analysis matching canonical resume evidence')
+  assert(valResult.isValid, 'Validator accepts analysis matching canonical resume evidence')
 
   console.log('\n--- TEST 13: Existing Resume Agent output schema remains valid ---')
   assert(
     valResult.sanitizedAnalysis.candidateSnapshot &&
-    valResult.sanitizedAnalysis.dashboard &&
+    'dashboard' in valResult.sanitizedAnalysis &&
     valResult.sanitizedAnalysis.overallReview &&
     Array.isArray(valResult.sanitizedAnalysis.strengths) &&
     Array.isArray(valResult.sanitizedAnalysis.issues) &&

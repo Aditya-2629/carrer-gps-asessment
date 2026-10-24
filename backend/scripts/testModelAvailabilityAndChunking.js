@@ -124,12 +124,12 @@ async function runTests() {
     const res = await gateway.generate({
       purpose: 'resume_analysis',
       messages: [{ role: 'user', content: 'test' }],
-      model: 'gemini-3.6-flash',
+      model: 'gemini-3.8-flash',
       isBenchmark: false,
     })
 
     assert.strictEqual(geminiAttempts, 1, 'Gemini 404 model attempted exactly once')
-    assert(isModelPermanentlyUnavailable('gemini-3.6-flash'), 'Model marked permanently unavailable')
+    assert(isModelPermanentlyUnavailable('gemini-3.8-flash'), 'Model marked permanently unavailable')
     assert.strictEqual(groqAttempts, 1, 'Groq fallback invoked successfully')
     assert.strictEqual(res.provider, 'groq')
     pass('404 model is permanently marked unavailable and immediately cascades to Groq')
@@ -302,7 +302,7 @@ async function runTests() {
   // ── TEST 7: Normal-sized Resume -> Existing Behavior Preserved ────────────
   console.log('\n--- 7. Normal-sized Resume -> Single-reasoning-call Passthrough ---')
   try {
-    const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+    const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
     const normalRaw = fs.readFileSync(fixturePath, 'utf8')
     const normalDoc = { rawText: normalRaw }
 

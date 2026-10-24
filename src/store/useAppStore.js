@@ -1,5 +1,6 @@
 // ─── Zustand Global Store ───
 import { create } from 'zustand'
+import { saveResumeFileToStorage, getResumeFileFromStorage, clearResumeFileFromStorage } from '../lib/resumeStorage'
 
 export const PHASES = {
   GATE: 'GATE',
@@ -130,14 +131,52 @@ const useAppStore = create((set) => ({
     set((state) => {
       const nextFormData = { ...state.formData, [key]: value }
       persistFormData(nextFormData)
-      return { formData: nextFormData }
+      const extra = {}
+      if (key === 'resume') {
+        const rawFile =
+          value instanceof File
+            ? value
+            : Array.isArray(value) && value[0] instanceof File
+            ? value[0]
+            : null
+        if (rawFile) {
+          extra.resumeFile = rawFile
+          if (typeof window !== 'undefined') window.__uploadedResumeFile = rawFile
+          saveResumeFileToStorage(rawFile)
+        }
+      }
+      return { formData: nextFormData, ...extra }
     }),
   setBulkFormData: (data) =>
     set((state) => {
       const nextFormData = { ...state.formData, ...data }
       persistFormData(nextFormData)
-      return { formData: nextFormData }
+      const extra = {}
+      if (data.resume) {
+        const rawFile =
+          data.resume instanceof File
+            ? data.resume
+            : Array.isArray(data.resume) && data.resume[0] instanceof File
+            ? data.resume[0]
+            : null
+        if (rawFile) {
+          extra.resumeFile = rawFile
+          if (typeof window !== 'undefined') window.__uploadedResumeFile = rawFile
+          saveResumeFileToStorage(rawFile)
+        }
+      }
+      return { formData: nextFormData, ...extra }
     }),
+
+  // Raw resume File in memory (never sanitized or cleared by localStorage JSON serialization)
+  resumeFile: null,
+  setResumeFile: (resumeFile) => {
+    if (resumeFile instanceof File) {
+      if (typeof window !== 'undefined') window.__uploadedResumeFile = resumeFile
+      saveResumeFileToStorage(resumeFile)
+    }
+    set({ resumeFile })
+  },
 
   // Background Resume Agent Analysis state: { status: 'idle' | 'analyzing' | 'completed' | 'error', data: null, error: null, filename: null }
   resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
@@ -188,7 +227,9 @@ const useAppStore = create((set) => ({
         localStorage.removeItem(STORAGE_KEYS.EMAIL)
         localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
         localStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
+        window.__uploadedResumeFile = null
       }
+      clearResumeFileFromStorage()
     } catch (e) {}
     set({
       phase: PHASES.ASSESSMENT,
@@ -200,6 +241,7 @@ const useAppStore = create((set) => ({
       direction: 1,
       formData: {},
       reportData: null,
+      resumeFile: null,
       resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
     })
   },
@@ -207,6 +249,13 @@ const useAppStore = create((set) => ({
 
 if (typeof window !== 'undefined') {
   window.__useAppStore = useAppStore
+  // Hydrate raw resume File from IndexedDB if memory state was cleared by refresh
+  getResumeFileFromStorage().then((storedFile) => {
+    if (storedFile && !useAppStore.getState().resumeFile) {
+      window.__uploadedResumeFile = storedFile
+      useAppStore.setState({ resumeFile: storedFile })
+    }
+  }).catch(() => {})
 }
 
 export default useAppStore

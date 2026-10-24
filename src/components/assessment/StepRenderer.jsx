@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, DiceThree, Sparkle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
+import { api } from '../../lib/api'
 import PhoneInput from '../ui/PhoneInput'
 import RadioGroup from '../ui/RadioGroup'
 import CheckboxGroup from '../ui/CheckboxGroup'
@@ -92,8 +93,23 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
   }, [formData, step, triggerError])
 
   const handleNext = useCallback(() => {
-    if (validate()) onNext()
-  }, [validate, onNext])
+    if (!validate()) return
+
+    // Step 11 background scrape trigger: non-blocking LinkedIn scrape
+    if (step.name === 'linkedin' && typeof formData.linkedin === 'string' && formData.linkedin.trim()) {
+      const url = formData.linkedin.trim()
+      api.scrapeLinkedInProfile(url).then((res) => {
+        if (res?.success && res?.profile) {
+          useAppStore.getState().setFormData('linkedinData', res.profile)
+          try {
+            sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+          } catch (_e) {}
+        }
+      }).catch(() => {})
+    }
+
+    onNext()
+  }, [validate, onNext, step.name, formData.linkedin])
 
   return (
     <div className="quiz-card p-6 sm:p-8 relative">

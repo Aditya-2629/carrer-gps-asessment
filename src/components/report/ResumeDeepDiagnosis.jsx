@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
+import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
@@ -148,6 +149,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
         <ResumeScoreCard dashboard={dashboard} candidateName={firstName} variant={variant} />
       )}
 
+      {/* Keyword & JD Alignment */}
+      {(dashboard?.keywordAlignment || resumeAgent.keywordAlignment) && (
+        <ResumeKeywordAlignment
+          keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
+          variant={variant}
+        />
+      )}
+
       {/* Two Column Grid: Recruiter's Read & What's Working */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Overall review */}
@@ -200,7 +209,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
       {dashboard?.bulletAudit?.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-          <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} variant={variant} />
+          <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
         </div>
       )}
 

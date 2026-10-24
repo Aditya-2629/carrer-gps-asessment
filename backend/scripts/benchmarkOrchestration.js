@@ -47,7 +47,7 @@ const MODES = [MODE_A_NAME, MODE_B_NAME, MODE_C_NAME];
  * Loads golden fixture files
  */
 function loadFixture(name) {
-  const dir = path.join(__dirname, '../agents/resume/fixtures', name);
+  const dir = path.join(__dirname, '../tests/fixtures', name);
   const metadata = JSON.parse(fs.readFileSync(path.join(dir, 'fixtureMetadata.json'), 'utf-8'));
   const resumeText = fs.readFileSync(path.join(dir, 'resume.txt'), 'utf-8');
   const targetJobDescription = fs.readFileSync(path.join(dir, 'targetJd.txt'), 'utf-8');

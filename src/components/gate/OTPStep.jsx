@@ -19,15 +19,10 @@ export default function OTPStep() {
     mutationFn: api.verifyOtp,
     onSuccess: (data) => {
       setUserId(data.userId)
-      if (data.report) {
-        setReportData(data.report)
-        setPhase(PHASES.REPORT)
-        navigateTo('/report')
-      } else {
-        // Transition to loading phase so AnalysisLoader starts report job and streams SSE
-        setPhase(PHASES.LOADING)
-        navigateTo('/loading')
-      }
+      setReportData(null)
+      // Always transition to loading phase so candidate watches the live SSE agent pipeline
+      setPhase(PHASES.LOADING)
+      navigateTo('/loading')
     },
     onError: () => {
       setIsError(true)

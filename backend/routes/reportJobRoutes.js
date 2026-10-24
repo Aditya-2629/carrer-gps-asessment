@@ -118,8 +118,20 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
 // ─── Poll fallback ───────────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const job = await ReportJob.findById(req.params.id).select('status events aiReport error').lean()
+    const job = await ReportJob.findById(req.params.id).select('status events aiReport error userId').lean()
     if (!job) return res.status(404).json({ success: false, message: 'Job not found.' })
+
+    // Fallback: If user already has aiReport saved in MongoDB, treat job as done immediately
+    if (job.status !== 'done' && job.userId) {
+      try {
+        const user = await User.findById(job.userId).select('aiReport').lean()
+        if (user?.aiReport) {
+          job.status = 'done'
+          job.aiReport = user.aiReport
+        }
+      } catch (_e) {}
+    }
+
     return res.status(200).json({ success: true, ...job })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Failed to load job.' })
@@ -133,8 +145,19 @@ router.get('/:id/stream', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid job id.' })
   }
 
-  const job = await ReportJob.findById(id).select('status events aiReport').lean()
+  const job = await ReportJob.findById(id).select('status events aiReport userId').lean()
   if (!job) return res.status(404).json({ success: false, message: 'Job not found.' })
+
+  // Fallback: If user already has aiReport saved, recover immediately
+  if (job.status !== 'done' && job.userId) {
+    try {
+      const user = await User.findById(job.userId).select('aiReport').lean()
+      if (user?.aiReport) {
+        job.status = 'done'
+        job.aiReport = user.aiReport
+      }
+    } catch (_e) {}
+  }
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -155,7 +178,7 @@ router.get('/:id/stream', async (req, res) => {
   // Replay history
   for (const event of job.events || []) send(event)
 
-  if (job.status === 'done') {
+  if (job.status === 'done' && job.aiReport) {
     send({ at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: job.aiReport })
     return res.end()
   }

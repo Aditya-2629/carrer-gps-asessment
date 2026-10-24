@@ -104,7 +104,11 @@ export function parseGeminiQuotaDetails(err) {
     msg.includes('perproject') ||
     msg.includes('per_project') ||
     msg.includes('project') ||
-    msg.includes('generaterequestsperdayperprojectpermodel')
+    msg.includes('generaterequestsperdayperprojectpermodel') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('quota') ||
+    msg.includes('rate limit') ||
+    msg.includes('429')
   ) {
     isProjectLevel = true
   }
@@ -160,8 +164,7 @@ export function parseGeminiQuotaDetails(err) {
  * gemini-2.5-flash is removed because it returns 404 on production credentials.
  */
 export const DEFAULT_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-  'gemini-3.8-flash',
+  process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
 ].filter(Boolean)
 
 /**
@@ -353,7 +356,7 @@ export const generateContentWithFallback = async ({
   modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash',
   fallbackModels = DEFAULT_MODELS,
   generationConfig = {},
-  timeoutMs = 30000,
+  timeoutMs = process.env.GEMINI_TIMEOUT_MS ? parseInt(process.env.GEMINI_TIMEOUT_MS, 10) : 15000,
   totalDeadlineMs = 60000,
   maxRetries = 2,
   baseBackoffMs = 500,
@@ -384,8 +387,32 @@ export const generateContentWithFallback = async ({
   const makeGenAI = _clientFactory || ((k) => new GoogleGenerativeAI(k))
   const waitFn = _sleepFn || sleep
 
-  // Build model try list starting with the requested modelName, filtering out permanently failed models
-  const candidateModels = Array.from(new Set([modelName, ...fallbackModels].filter(Boolean)))
+  const resolveAlias = (m) => {
+    if (m === 'gemini-3.1-pro') return 'gemini-3.1-pro-preview'
+    return m
+  }
+  const resolvedModelName = resolveAlias(modelName)
+  const resolvedFallbacks = (fallbackModels || []).map(resolveAlias)
+
+  // Build model try list starting with the requested modelName, filtering out slow/hanging models unless forced
+  const rawCandidates = Array.from(new Set([resolvedModelName, ...resolvedFallbacks].filter(Boolean)))
+  const explicitAllowed = new Set(
+    (process.env.GEMINI_FORCE_MODELS || process.env.GEMINI_EXPLICIT_MODELS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  )
+  const isCustomFallback = Boolean(fallbackModels && fallbackModels !== DEFAULT_MODELS)
+  const TRAP_MODELS = new Set(['gemini-3.8-flash', 'gemini-3.8', 'gemini-3.7-flash', 'gemini-3.7'])
+  const candidateModels = rawCandidates.filter((m) => {
+    if (!isCustomFallback && (TRAP_MODELS.has(m) || m === 'gemini-3.6-flash') && !explicitAllowed.has(m) && modelName !== m) {
+      return false
+    }
+    return true
+  })
+  if (candidateModels.length === 0) {
+    candidateModels.push('gemini-3.5-flash-lite')
+  }
   const modelsToTry = candidateModels.filter((m) => !isModelPermanentlyUnavailable(m))
   let lastModelError = null
 
@@ -617,12 +644,16 @@ export const generateContentWithFallback = async ({
                 : 'retry',
             })
 
-            // 503 Service Unavailable means Google cluster capacity spike: cascade immediately to next model/provider to avoid 30s blocking delays
-            if (classification.status === 503) {
+            // 503 Service Unavailable or 408 timeout: do NOT retry the dead model on the same key. Cooldown model for 5m and cascade immediately.
+            const isTimeoutError = classification.status === 408 || classification.isTimeout || timeoutTriggered
+            if (classification.status === 503 || isTimeoutError) {
+              const cooldownMs = 5 * 60 * 1000 // 5 minutes cooldown
+              projectModelQuotaMap.set(currentModel, Date.now() + cooldownMs)
               console.warn(
-                `[Gemini] Model "${currentModel}" is experiencing high demand (503). Cascading to next candidate immediately.`
+                `[Gemini] Model "${currentModel}" failed with ${classification.status || 408} (${isTimeoutError ? 'attempt_timeout' : 'high_demand'}). Cooldown set for 5m. Cascading to next candidate immediately.`
               )
               modelFailedWithTransient = true
+              breakKeysForModel = true
               break
             }
 

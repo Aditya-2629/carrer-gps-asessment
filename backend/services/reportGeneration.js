@@ -96,19 +96,36 @@ FORMAT CONTRACT (strict):
 - Never wrap arrays inside wrapper objects. Never merge sections. Return every section fully populated.`
 
 async function callAtlas(promptText, extraInstructions = '') {
-  // Phase E-fix: Atlas now routes through the LLM gateway (multi-provider) —
-  // when Gemini capacity/quota fails, NVIDIA/Groq models serve the report.
-  // Explicit output budget prevents the silent section truncation the judge
-  // caught earlier; normalizeAtlasShapes fixes non-Gemini shape deviations.
-  const { text: responseText } = await llmGateway.generate({
-    purpose: 'assessment_report',
-    messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
-    responseFormat: 'json_object',
-    temperature: 0.4,
-    maxTokens: 16000,
-    treatLengthAsRetryable: true,
-  })
-  return normalizeAtlasShapes(parseAtlasJson(responseText))
+  // Phase E-fix: Atlas routes through the LLM gateway with gemini-3.5-flash-lite as primary
+  // and groq (openai/gpt-oss-120b) as immediate failover so report synthesis never starves.
+  try {
+    const { text: responseText } = await llmGateway.generate({
+      purpose: 'assessment_report',
+      task: 'report_generation',
+      model: 'gemini-3.5-flash-lite',
+      messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+      responseFormat: 'json_object',
+      temperature: 0.4,
+      maxTokens: 16000,
+      maxRetries: 2,
+      treatLengthAsRetryable: true,
+    })
+    return normalizeAtlasShapes(parseAtlasJson(responseText))
+  } catch (primaryErr) {
+    console.warn('[ReportGeneration] Atlas generation via primary model failed/timed out. Falling back to Groq (openai/gpt-oss-120b):', primaryErr.message)
+    const { text: responseText } = await llmGateway.generate({
+      purpose: 'assessment_report',
+      task: 'report_generation',
+      model: 'openai/gpt-oss-120b',
+      messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+      responseFormat: 'json_object',
+      temperature: 0.4,
+      maxTokens: 16000,
+      treatLengthAsRetryable: true,
+      bypassCache: true,
+    })
+    return normalizeAtlasShapes(parseAtlasJson(responseText))
+  }
 }
 
 export async function generateReportBundle({
@@ -137,19 +154,9 @@ export async function generateReportBundle({
     user.resumeJson = precomputedResumeJson
   }
 
-  report('preparing', 'Scraping LinkedIn profile and building knowledge context…')
+  const effectiveLinkedinUrl = user.linkedinUrl || user.answers?.linkedin || user.answers?.linkedinUrl || ''
 
-  // LinkedIn scrape (if URL provided but not yet scraped)
-  if (user.linkedinUrl && !user.linkedinData) {
-    try {
-      const scrapedProfile = await scrapeLinkedInProfile(user.linkedinUrl)
-      if (scrapedProfile) {
-        user.linkedinData = scrapedProfile
-      }
-    } catch (e) {
-      console.error('Apify LinkedIn scraping failed during report generation:', e)
-    }
-  }
+  report('preparing', 'Building knowledge context and orchestrating agents…')
 
   // RAG-enhanced Knowledge Base context (baseline + uploaded documents)
   let dynamicKbContent = null
@@ -175,40 +182,54 @@ export async function generateReportBundle({
   report('agents_running', 'Resume + LinkedIn agents analyzing in parallel with Atlas…')
 
   // If precomputedResumeAgent is already supplied from upload-time execution,
-  // skip duplicate ResumeAgent LLM execution and only run LinkedIn agent if needed.
+  // skip duplicate ResumeAgent LLM execution and only run LinkedIn agent if needed,
+  // while still bridging the canonical resume facts to evaluateLinkedIn.
   let agentsPromise
   if (precomputedResumeAgent) {
     report('agent_resume_agent_done', 'Precomputed Resume Agent diagnosis attached.')
     agentsPromise = (async () => {
       const linkedinRes = await runCareerAgents({
-        resumeBuffer: null,
-        resumeName: '',
+        resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
+        resumeName: user.resumeName || '',
+        canonicalResume: precomputedResumeAgent.canonicalResume || user.resumeJson || null,
         resumeTargetRole,
+        linkedinUrl: effectiveLinkedinUrl,
         linkedinData: user.linkedinData || null,
         userId: user._id,
+        skipResumeSynthesis: true,
         onProgress: (e) => {
-          if (e.agent !== 'resume') report(`agent_${e.agent}_${e.stage}`, e.message)
+          if (e.agent !== 'resume') {
+            const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
+            report(st, e.message)
+          }
         },
       })
       return {
         resumeAgent: precomputedResumeAgent,
         linkedinAgent: linkedinRes.linkedinAgent,
+        linkedinData: linkedinRes.linkedinData,
       }
     })()
   } else {
     agentsPromise = runCareerAgents({
       resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
       resumeName: user.resumeName || '',
+      canonicalResume: user.resumeJson || null,
       resumeTargetRole,
+      linkedinUrl: effectiveLinkedinUrl,
       linkedinData: user.linkedinData || null,
       userId: user._id,
-      onProgress: (e) => report(`agent_${e.agent}_${e.stage}`, e.message),
+      onProgress: (e) => {
+        const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
+        report(st, e.message)
+      },
     })
   }
 
   // Atlas draft with completeness guard: if the model returns a partial JSON
   // (missing sections), retry ONCE with an explicit completeness instruction
   // and keep whichever draft is more complete.
+  report('atlas_roadmap', 'Generating Atlas strategic career roadmap & executive diagnostic…')
   let aiReport = await callAtlas(promptText)
   let draftCompleteness = atlasCompleteness(aiReport)
   if (draftCompleteness < REQUIRED_ATLAS_FIELDS.length + ATLAS_ARRAY_SECTIONS.length - 2) {
@@ -238,12 +259,12 @@ export async function generateReportBundle({
 
   // Attach both agent diagnoses once the orchestrator settles. Either agent
   // can be null (no data / failed) without breaking the report.
-  const { resumeAgent: resumeAgentAnalysis, linkedinAgent: linkedinAgentAnalysis } = await agentsPromise
-  if (resumeAgentAnalysis) {
-    aiReport.resume_agent = resumeAgentAnalysis
-  }
-  if (linkedinAgentAnalysis) {
-    aiReport.linkedin_agent = linkedinAgentAnalysis
+  const result = await agentsPromise
+  aiReport.resume_agent = result?.resumeAgent || null
+  aiReport.linkedin_agent = result?.linkedinAgent || null
+  if (!aiReport.linkedin_json && result?.linkedinData) {
+    aiReport.linkedin_json = result.linkedinData
+    user.linkedinData = result.linkedinData
   }
 
   // ── Phase D: Judge Agent quality gate ──────────────────────────────────────

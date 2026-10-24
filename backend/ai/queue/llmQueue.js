@@ -22,14 +22,14 @@ export class BoundedLLMQueue {
    */
   constructor({
     concurrencyLimits = {
-      gemini: 2,
-      groq: 3,
-      nvidia: 2,
-      openrouter: 2,
-      grok: 2,
+      gemini: 4,
+      groq: 4,
+      nvidia: 4,
+      openrouter: 4,
+      grok: 4,
     },
-    defaultConcurrency = 2,
-    defaultIntervalMs = 200,
+    defaultConcurrency = 4,
+    defaultIntervalMs = 150,
     maxQueueDepth = 50,
     maxWaitMs = 30000,
   } = {}) {
@@ -156,12 +156,13 @@ export class BoundedLLMQueue {
       return
     }
 
-    // Rate pacing / interval spacing
+    // Rate pacing / interval spacing with 150ms staggered jitter
     const lastDispatch = this.lastDispatchTimes.get(provider) || 0
     const now = Date.now()
     const elapsed = now - lastDispatch
-    if (elapsed < this.defaultIntervalMs) {
-      const delay = this.defaultIntervalMs - elapsed
+    const intervalWithJitter = this.defaultIntervalMs + Math.floor(Math.random() * 50)
+    if (elapsed < intervalWithJitter) {
+      const delay = intervalWithJitter - elapsed
       setTimeout(() => this.pump(provider), delay)
       return
     }

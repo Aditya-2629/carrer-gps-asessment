@@ -978,7 +978,7 @@ function ReportDashboardContent() {
         candidateName={candidateName}
         targetRole={targetRole}
         showResumeAi={Boolean(reportData.resume_agent)}
-        showLinkedinAi={Boolean(reportData.linkedin_agent?.dataAvailable)}
+        showLinkedinAi={Boolean(reportData.linkedin_agent && reportData.linkedin_agent.dataAvailable !== false)}
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}

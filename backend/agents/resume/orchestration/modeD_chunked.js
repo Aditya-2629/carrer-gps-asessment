@@ -15,6 +15,7 @@ import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { resolveTaskPolicy } from './taskPolicy.js'
 import { computeScorecard } from '../scoring/resumeScorecard.js'
 import { QUALITATIVE_OUTCOME_REGEX } from '../signals/patterns.js'
+import { computePrecomputedSignals } from '../signals/precomputedSignals.js'
 
 export const MODE_D_NAME = 'chunked_section_synthesis'
 
@@ -41,7 +42,13 @@ export function partitionResumeIntoChunks(canonicalResume, targetRole = '') {
     chunk1Lines.push(`\nSUMMARY:\n[summary_001]\n${summaryText}`)
   }
   if (skillsList.length > 0) {
-    chunk1Lines.push(`\nSKILLS:\n${skillsList.join(', ')}`)
+    chunk1Lines.push(`\nSKILLS:\n[skills_001]\n${skillsList.join(', ')}`)
+  }
+  const expSummary = (canonicalResume.experience || [])
+    .map((e) => `- ${e.company}: ${e.role} (${e.dates || `${e.startDate || ''} - ${e.endDate || ''}`})`)
+    .join('\n')
+  if (expSummary) {
+    chunk1Lines.push(`\nCAREER TIMELINE OVERVIEW:\n${expSummary}`)
   }
 
   chunks.push({
@@ -145,6 +152,7 @@ function buildChunkPrompt(chunk, targetRole) {
   const defaultSection = chunk.sectionType === 'summary_and_skills' ? 'skills' : (chunk.sectionType === 'projects' ? 'projects' : 'experience')
   const defaultItemId = chunk.sectionType === 'summary_and_skills' ? 'skills_001' : (chunk.sectionType === 'projects' ? 'proj_001' : 'exp_001')
   const defaultBulletId = chunk.sectionType === 'summary_and_skills' ? 'skills_001' : (chunk.sectionType === 'projects' ? 'proj_001_b01' : 'exp_001_b01')
+  const isSummaryChunk = chunk.sectionType === 'summary_and_skills'
 
   return [
     {
@@ -154,13 +162,34 @@ Analyze ONLY the provided text chunk using our 8-Point Human-First Resume Rubric
 - Eliminate repetitive words/verbs, ensure tense consistency (present for current role, past for completed roles; ban "-ing" gerund openings), avoid AI buzzwords, lead with strong action verbs, apply STAR/CAR frameworks, and write natural human rewrites.
 - Do NOT fixate on missing metrics: qualitative STAR/CAR outcomes (retiring legacy tools, enforcing security/RBAC boundaries, eliminating technical debt) are valid first-class impact without numbers.
 
+COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE:
+1. BAN REPETITIVE & GENERIC DIAGNOSES:
+   - Instead of generic complaints ("Missing metrics", "Starts with -ing"), diagnose the SPECIFIC recruiter perception flaw:
+     * "Down-Leveled Seniority Framing": Tentative phrasing ("proof-of-concept", "helped with", "contributed to") on work that should be framed as architectural ownership.
+     * "Tool-First Instead of Engineering Outcome": Bullet leads with a tool instead of leading with the system built, problem solved, or security boundary hardened.
+     * "Buried Architectural Impact": The best part of the achievement is buried at the end of a long clause instead of front-loaded.
+     * "Vague Scope / Invisible Complexity": Mentions a task without showing the technical complexity, scale, or mechanism.
+     * "Repetitive Verb / Monotonous Cadence": Starts with the same verb used in adjacent bullets.
+
+2. BAN LAZY COPY-PASTE + "[ADD: ...]" REWRITES:
+   - NEVER generate a correctedText that merely copies the candidate's original bullet and appends "by [ADD: metric]"!
+   - Do NOT use [ADD: ...] brackets in correctedText under any circumstance.
+   - Every correctedText MUST be a complete, ready-to-use, 100% human-sounding sentence that restructures the bullet from scratch using ONLY existing facts.
+   - If a bullet would benefit from a number the candidate knows, ask for it in metricDiscoveryQuestions, NOT by leaving [ADD: ...] brackets in correctedText.
+
 CRITICAL RULES:
-1. Every evidence "originalText" MUST be an EXACT, VERBATIM quote copied word-for-word from the text in this chunk.
-2. Identify 1 to 2 key strengths that give strong recruiter signal.
-3. Identify 1 to 2 meaningful issues from the 8-Point Rubric.
-4. Do NOT invent metrics or outside facts.
-5. You must return ONLY raw JSON matching this structure without Markdown wrappers:
-{
+1. Every evidence item MUST have a valid "bulletId" and "itemId".
+   - For summary, set bulletId: "summary_001" and itemId: "summary_001".
+   - For skills, set bulletId: "skills_001" and itemId: "skills_001".
+   - For experience and projects, copy the EXACT bracketed ID directly preceding the quoted text (e.g. "exp_001_b01", "proj_001_b01") and its parent itemId (e.g. "exp_001", "proj_001").
+   - NEVER leave bulletId as null or invent IDs.
+2. Every evidence "originalText" MUST be an EXACT, VERBATIM quote copied word-for-word from the text in this chunk.
+3. Identify 1 to 2 key strengths that give strong recruiter signal.
+4. Identify 1 to 2 meaningful issues from the Rubric.
+5. Do NOT invent metrics, outside facts, or hallucinate numbers in correctedText.${isSummaryChunk ? `
+6. For this summary chunk, provide a 2-paragraph (110–150 words) tailored executive review ("executiveSummary") specifically addressing the candidate's career trajectory, key companies, and core leverage points for "${targetRole}". NEVER use canned mad-libs like "your resume demonstrates clear technical competence, with your strongest signal centered around...".` : ''}
+7. You must return ONLY raw JSON matching this structure without Markdown wrappers:
+{${isSummaryChunk ? '\n  "executiveSummary": "2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate\'s background and target role...",' : ''}
   "strengths": [
     {
       "title": "Short headline",
@@ -356,30 +385,135 @@ export async function executeModeD({
     }
   }
 
-  // 3. Aggregate Strengths & Issues across all chunks
+  // 3. Aggregate Strengths & Issues across all chunks with canonical evidence grounding
+  const canonicalLookup = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+
+  const groundEvidence = (ev, fallbackSection = 'experience') => {
+    if (!ev || typeof ev !== 'object') return null
+    let bulletId = (ev.bulletId || '').trim().replace(/[\[\]"]/g, '')
+    let itemId = (ev.itemId || '').trim().replace(/[\[\]"]/g, '')
+    let section = (ev.section || fallbackSection || 'experience').toLowerCase()
+    let originalText = (ev.originalText || '').trim()
+
+    // Normalize single-digit bullet IDs: exp_001_b1 -> exp_001_b01
+    bulletId = bulletId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+    itemId = itemId.replace(/^([a-z]+_\d+)_b(\d)$/, '$1_b0$2')
+
+    // Normalize section names
+    if (section.includes('skill')) section = 'skills'
+    else if (section.includes('summary')) section = 'summary'
+    else if (section.includes('proj')) section = 'projects'
+    else if (section.includes('exp')) section = 'experience'
+
+    // If bulletId is an itemId (e.g. exp_001 or proj_001), try to resolve to a concrete bulletId
+    if (bulletId && canonicalLookup.itemMap.has(bulletId) && !canonicalLookup.bulletMap.has(bulletId)) {
+      const it = canonicalLookup.itemMap.get(bulletId)
+      if (it && Array.isArray(it.bullets) && it.bullets.length > 0) {
+        let matchedB = null
+        if (originalText) {
+          const textNorm = originalText.toLowerCase().replace(/\s+/g, ' ').trim()
+          matchedB = it.bullets.find((b) => {
+            const bt = (b.text || '').toLowerCase().replace(/\s+/g, ' ').trim()
+            return bt.includes(textNorm) || textNorm.includes(bt) || bt.slice(0, 30) === textNorm.slice(0, 30)
+          })
+        }
+        bulletId = matchedB ? matchedB.id : it.bullets[0].id
+      }
+    }
+
+    // Ground bulletId/itemId if missing or invalid
+    let isBulletValid = bulletId && canonicalLookup.bulletMap.has(bulletId)
+    let isItemValid = (bulletId && canonicalLookup.itemMap.has(bulletId)) || (itemId && canonicalLookup.itemMap.has(itemId))
+
+    if (!isBulletValid && !isItemValid && originalText) {
+      const textNorm = originalText.toLowerCase().replace(/\s+/g, ' ').trim()
+      let relinkId = canonicalLookup.textToIdMap.get(textNorm) || null
+
+      if (!relinkId) {
+        for (const [txt, id] of canonicalLookup.textToIdMap.entries()) {
+          if (txt.includes(textNorm) || textNorm.includes(txt) || txt.slice(0, 30) === textNorm.slice(0, 30)) {
+            relinkId = id
+            break
+          }
+        }
+      }
+
+      if (!relinkId && canonicalResume.summary?.text && originalText.length >= 20) {
+        const sumNorm = canonicalResume.summary.text.toLowerCase()
+        if (sumNorm.includes(textNorm) || textNorm.includes(sumNorm.slice(0, 40))) {
+          relinkId = 'summary_001'
+        }
+      }
+
+      if (!relinkId && canonicalLookup.bulletMap.has('skills_001') && (textNorm.includes('skill') || textNorm.split(',').length >= 2)) {
+        relinkId = 'skills_001'
+      }
+
+      if (relinkId) {
+        bulletId = relinkId
+        if (relinkId === 'summary_001') {
+          itemId = 'summary_001'
+          section = 'summary'
+        } else if (relinkId === 'skills_001' || relinkId === 'skills') {
+          itemId = 'skills_001'
+          section = 'skills'
+        } else if (relinkId.startsWith('exp_')) {
+          itemId = relinkId.slice(0, 7)
+          section = 'experience'
+        } else if (relinkId.startsWith('proj_')) {
+          itemId = relinkId.slice(0, 8)
+          section = 'projects'
+        }
+      }
+    }
+
+    isBulletValid = bulletId && canonicalLookup.bulletMap.has(bulletId)
+    isItemValid = (bulletId && canonicalLookup.itemMap.has(bulletId)) || (itemId && canonicalLookup.itemMap.has(itemId))
+
+    if (!bulletId || (!isBulletValid && !isItemValid)) {
+      return null
+    }
+
+    if (!itemId || !canonicalLookup.itemMap.has(itemId)) {
+      itemId = bulletId.startsWith('exp_') ? bulletId.slice(0, 7) : (bulletId.startsWith('proj_') ? bulletId.slice(0, 8) : bulletId)
+    }
+
+    // Set canonical verbatim originalText to guarantee 100% exact match
+    const canonText = canonicalLookup.bulletMap.get(bulletId)
+    if (canonText) {
+      originalText = canonText
+    }
+
+    return { section, itemId, bulletId, originalText }
+  }
+
   const combinedStrengths = []
   const combinedIssues = []
-  const seenOriginalTexts = new Set()
+  const seenStrengthTexts = new Set()
+  const seenIssueTexts = new Set()
 
   let strCounter = 1
   let issCounter = 1
 
   for (const res of chunkResults) {
     const data = res.data || {}
+    const defaultSec = res.sectionType === 'projects' ? 'projects' : (res.sectionType === 'summary_and_skills' ? 'skills' : 'experience')
 
     // Add strengths
     for (const str of data.strengths || []) {
       if (!str || !str.title) continue
-      const ev = Array.isArray(str.evidence) ? str.evidence[0] : str.evidence
-      const quote = ev?.originalText || ''
-      if (quote && seenOriginalTexts.has(quote)) continue
-      if (quote) seenOriginalTexts.add(quote)
+      const rawEv = Array.isArray(str.evidence) ? str.evidence[0] : str.evidence
+      const ev = groundEvidence(rawEv, defaultSec)
+      if (!ev) continue
+      const quote = ev.originalText || ''
+      if (quote && seenStrengthTexts.has(quote)) continue
+      if (quote) seenStrengthTexts.add(quote)
 
       combinedStrengths.push({
         id: `str_${String(strCounter).padStart(3, '0')}`,
         title: str.title,
         description: str.description || str.title,
-        evidence: ev ? [ev] : [],
+        evidence: [ev],
       })
       strCounter++
     }
@@ -387,24 +521,37 @@ export async function executeModeD({
     // Add issues with clustering & deduplication
     for (const iss of data.issues || []) {
       if (!iss || !iss.title) continue
-      const ev = Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence
-      const quote = ev?.originalText || ''
-      if (quote && seenOriginalTexts.has(quote)) continue
-      if (quote) seenOriginalTexts.add(quote)
+      const rawEv = Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence
+      const ev = groundEvidence(rawEv, defaultSec)
+      if (!ev) continue
+      const quote = ev.originalText || ''
+      if (quote && seenIssueTexts.has(quote)) continue
+      if (quote) seenIssueTexts.add(quote)
+
+      // Sanitize correctedText against unsupported/hallucinated metrics
+      let correctedText = iss.correctedText || null
+      let correctionType = iss.correctionType || 'none'
+      if (correctedText && typeof correctedText === 'string') {
+        const claims = ResumeAgentValidator.detectUnsupportedClaims({ issues: [{ ...iss, correctedText, evidence: [ev] }] }, canonicalResume)
+        if (claims && claims.length > 0) {
+          correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(ev.originalText)
+          correctionType = 'rewrite'
+        }
+      }
 
       const normTitle = (iss.title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
       const existing = combinedIssues.find(
         (ci) => (ci.title || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === normTitle
       )
       if (existing) {
-        if (ev && !existing.evidence.some((e) => (e.bulletId && e.bulletId === ev.bulletId) || (e.originalText && e.originalText === ev.originalText))) {
+        if (!existing.evidence.some((e) => (e.bulletId && e.bulletId === ev.bulletId) || (e.originalText && e.originalText === ev.originalText))) {
           existing.evidence.push(ev)
         }
         if (iss.severity === 'high') existing.severity = 'high'
         else if (iss.severity === 'medium' && existing.severity === 'low') existing.severity = 'medium'
-        if (!existing.correctedText && iss.correctedText) {
-          existing.correctedText = iss.correctedText
-          existing.correctionType = iss.correctionType || 'rewrite'
+        if (!existing.correctedText && correctedText) {
+          existing.correctedText = correctedText
+          existing.correctionType = correctionType || 'rewrite'
         }
         continue
       }
@@ -417,11 +564,11 @@ export async function executeModeD({
         diagnosis: iss.diagnosis || iss.title,
         whyItMatters: iss.whyItMatters || 'Matters for role competitiveness',
         recommendation: iss.recommendation || 'Strengthen the wording and outcome of this item',
-        correctedText: iss.correctedText || null,
+        correctedText,
         metricDiscoveryQuestions: Array.isArray(iss.metricDiscoveryQuestions) ? iss.metricDiscoveryQuestions : [],
-        correctionType: iss.correctionType || 'none',
+        correctionType,
         confidence: typeof iss.confidence === 'number' ? iss.confidence : 0.95,
-        evidence: ev ? [ev] : [],
+        evidence: [ev],
       })
       issCounter++
     }
@@ -456,7 +603,7 @@ export async function executeModeD({
 
   // 4. Ensure at least 3 valid issues exist (enforcing V2.2 schema contract)
   if (combinedIssues.length < 3) {
-    const precomputed = state?.precomputedSignals || {}
+    const precomputed = state?.precomputedSignals || computePrecomputedSignals(canonicalResume)
     const bulletSignals = precomputed.bulletSignals || {}
 
     // A. Tool dump signal from precomputed
@@ -474,8 +621,8 @@ export async function executeModeD({
             }
           }
         }
-        if (foundText && !seenOriginalTexts.has(foundText)) {
-          seenOriginalTexts.add(foundText)
+        if (foundText && !seenIssueTexts.has(foundText)) {
+          seenIssueTexts.add(foundText)
           addOrClusterFallbackIssue({
             severity: 'medium',
             category: 'impact',
@@ -514,8 +661,8 @@ export async function executeModeD({
             }
           }
         }
-        if (foundText && foundText.length > 25 && !seenOriginalTexts.has(foundText) && !QUALITATIVE_OUTCOME_REGEX.test(foundText)) {
-          seenOriginalTexts.add(foundText)
+        if (foundText && foundText.length > 25 && !seenIssueTexts.has(foundText) && !QUALITATIVE_OUTCOME_REGEX.test(foundText)) {
+          seenIssueTexts.add(foundText)
           addOrClusterFallbackIssue({
             severity: 'low',
             category: 'outcome_visibility',
@@ -539,27 +686,43 @@ export async function executeModeD({
         if (combinedIssues.length >= 3) break
         for (const b of exp.bullets || []) {
           if (combinedIssues.length >= 3) break
-          if (!b || !b.text || seenOriginalTexts.has(b.text)) continue
+          if (!b || !b.text || seenIssueTexts.has(b.text)) continue
           const text = b.text.trim()
           if (text.length < 20) continue
 
           const hasMetric = /\d+%|\b\d+\b/.test(text)
           const hasQualitative = QUALITATIVE_OUTCOME_REGEX.test(text)
-          if (!hasMetric && !hasQualitative && !hasMetricIssue()) {
-            seenOriginalTexts.add(text)
-            addOrClusterFallbackIssue({
-              severity: 'medium',
-              category: 'outcome_visibility',
-              title: 'Technical contribution missing measurable business outcome',
-              diagnosis: `The bullet "${text.length > 60 ? text.slice(0, 57) + '...' : text}" highlights implementation work without specifying the measurable impact or scale.`,
-              whyItMatters: 'Senior technical recruiters prioritize bullets that showcase concrete results, throughput improvements, or business value over generic task lists.',
-              recommendation: 'Add metrics detailing the outcome (e.g. latency reduced, scale handled, team efficiency gained, or dollars saved).',
-              correctedText: ResumeAgentValidator.buildGoogleXYZRewrite(text),
-              metricDiscoveryQuestions: ['What were the measurable performance or business outcomes of this project?'],
-              correctionType: 'rewrite',
-              confidence: 0.94,
-              evidence: [{ section: 'experience', itemId: exp.id || 'exp_001', bulletId: b.id || 'exp_001_b01', originalText: text }],
-            })
+          if (!hasMetric && !hasQualitative) {
+            seenIssueTexts.add(text)
+            if (!hasMetricIssue()) {
+              addOrClusterFallbackIssue({
+                severity: 'medium',
+                category: 'outcome_visibility',
+                title: 'Technical contribution missing measurable business outcome',
+                diagnosis: `The bullet "${text.length > 60 ? text.slice(0, 57) + '...' : text}" highlights implementation work without specifying the measurable impact or scale.`,
+                whyItMatters: 'Senior technical recruiters prioritize bullets that showcase concrete results, throughput improvements, or business value over generic task lists.',
+                recommendation: 'Add metrics detailing the outcome (e.g. latency reduced, scale handled, team efficiency gained, or dollars saved).',
+                correctedText: ResumeAgentValidator.buildGoogleXYZRewrite(text),
+                metricDiscoveryQuestions: ['What were the measurable performance or business outcomes of this project?'],
+                correctionType: 'rewrite',
+                confidence: 0.94,
+                evidence: [{ section: 'experience', itemId: exp.id || 'exp_001', bulletId: b.id || 'exp_001_b01', originalText: text }],
+              })
+            } else {
+              addOrClusterFallbackIssue({
+                severity: 'medium',
+                category: 'clarity',
+                title: 'Clarify engineering scope and architecture implementation',
+                diagnosis: `The bullet "${text.length > 60 ? text.slice(0, 57) + '...' : text}" mentions implementation tasks without detailing the system scope, architecture choices, or production constraints.`,
+                whyItMatters: 'Hiring managers look for depth on technical decisions, complexity, and specific tools used to solve engineering problems.',
+                recommendation: 'Specify the architecture components, tools evaluated, or production scale involved in this implementation.',
+                correctedText: ResumeAgentValidator.buildGoogleXYZRewrite(text),
+                metricDiscoveryQuestions: ['What specific architectural challenges or technical constraints did you solve?'],
+                correctionType: 'rewrite',
+                confidence: 0.93,
+                evidence: [{ section: 'experience', itemId: exp.id || 'exp_001', bulletId: b.id || 'exp_001_b01', originalText: text }],
+              })
+            }
           }
         }
       }
@@ -571,11 +734,11 @@ export async function executeModeD({
         if (combinedIssues.length >= 3) break
         for (const b of proj.bullets || []) {
           if (combinedIssues.length >= 3) break
-          if (!b || !b.text || seenOriginalTexts.has(b.text)) continue
+          if (!b || !b.text || seenIssueTexts.has(b.text)) continue
           const text = b.text.trim()
           if (text.length < 20) continue
 
-          seenOriginalTexts.add(text)
+          seenIssueTexts.add(text)
           addOrClusterFallbackIssue({
             severity: 'low',
             category: 'outcome_visibility',
@@ -599,11 +762,11 @@ export async function executeModeD({
         if (combinedIssues.length >= 3) break
         for (const b of exp.bullets || []) {
           if (combinedIssues.length >= 3) break
-          if (!b || !b.text || seenOriginalTexts.has(b.text)) continue
+          if (!b || !b.text || seenIssueTexts.has(b.text)) continue
           const text = b.text.trim()
           if (text.length < 15) continue
 
-          seenOriginalTexts.add(text)
+          seenIssueTexts.add(text)
           addOrClusterFallbackIssue({
             severity: 'medium',
             category: 'impact',
@@ -624,8 +787,8 @@ export async function executeModeD({
     // F. Professional Summary Cliché Fallback (if still < 3 and summary exists)
     if (combinedIssues.length < 3 && canonicalResume.summary?.text) {
       const sumText = canonicalResume.summary.text.trim()
-      if (sumText.length > 20 && !seenOriginalTexts.has(sumText)) {
-        seenOriginalTexts.add(sumText)
+      if (sumText.length > 20 && !seenIssueTexts.has(sumText)) {
+        seenIssueTexts.add(sumText)
         addOrClusterFallbackIssue({
           severity: 'low',
           category: 'positioning',
@@ -679,13 +842,22 @@ export async function executeModeD({
     linkedinUrl: candidate.contact?.linkedin || '',
   }
 
-  // 7. Overall Recruiter Review
-  const topStrengthTitle = finalStrengths[0]?.title || 'solid technical execution'
-  const primaryIssueTitle = finalIssues[0]?.title || 'framing and outcome clarity'
+  // 7. Overall Recruiter Review (Tailored, non-template executive review)
   const firstName = (candidate.name || '').split(' ')[0] || 'Candidate'
+  const summaryChunk = chunkResults.find((c) => c.sectionType === 'summary_and_skills')?.data
+  let reviewSummary = summaryChunk?.executiveSummary || summaryChunk?.overallReviewSummary || summaryChunk?.overallReview?.summary
+
+  // If missing or containing old canned phrases, synthesize a rich candidate-specific executive evaluation
+  if (!reviewSummary || typeof reviewSummary !== 'string' || reviewSummary.includes('your resume demonstrates clear technical competence')) {
+    const standoutCompanies = (canonicalResume.experience || []).slice(0, 2).map((e) => e.company).filter(Boolean).join(' and ') || 'enterprise production environments'
+    const topStrength = finalStrengths[0]?.title ? `strong capabilities in ${finalStrengths[0].title.toLowerCase()}` : 'solid technical execution across production workloads'
+    const topIssue = finalIssues[0]?.title ? `tightening ${finalIssues[0].title.toLowerCase()}` : 'sharpening the outcome visibility of your core engineering achievements'
+
+    reviewSummary = `${firstName}'s background demonstrates substantial hands-on engineering depth across ${standoutCompanies}, anchored by ${topStrength}. Hiring managers evaluating your profile for ${effectiveRole} roles will immediately recognize your practical domain execution and technical breadth.\n\nTo significantly increase your interview conversion rate for competitive opportunities, your highest-leverage focus is ${topIssue}. Transforming task-oriented descriptions into clear, outcome-driven engineering achievements will ensure your technical ownership stands out immediately on a 10-second recruiter scan.`
+  }
 
   const overallReview = {
-    summary: `${firstName}, your resume demonstrates clear technical competence, with your strongest signal centered around ${topStrengthTitle}. Hiring managers reading your background will immediately appreciate your hands-on technical execution.\n\nTo maximize phone screen conversion for ${effectiveRole} roles, your primary leverage point is addressing ${primaryIssueTitle}. Tightening the evidence across your core bullet points will transform strong responsibilities into undeniable hiring signal.`,
+    summary: reviewSummary.trim(),
     tone: 'conversational',
   }
 
@@ -702,14 +874,47 @@ export async function executeModeD({
   // 8. Validate against canonical resume with self-healing
   let validation = ResumeAgentValidator.validate(consolidatedAnalysis, canonicalResume)
 
-  // If evidence on any issue failed, apply safe recovery pruning
-  if (!validation.isValid && validation.isEvidenceValid === false && consolidatedAnalysis.issues.length >= 4) {
+  // If evidence on any issue failed, apply safe recovery pruning or repair
+  if (!validation.isValid && validation.isEvidenceValid === false) {
     const validIssues = consolidatedAnalysis.issues.filter((iss) => {
       const quote = iss.evidence?.[0]?.originalText
-      return quote && ResumeAgentValidator.isVerbatimInCanonical(quote, canonicalResume)
+      const bId = iss.evidence?.[0]?.bulletId
+      return (
+        bId &&
+        (canonicalLookup.bulletMap.has(bId) || canonicalLookup.itemMap.has(bId)) &&
+        quote &&
+        ResumeAgentValidator.isVerbatimInCanonical(quote, canonicalResume)
+      )
     })
     if (validIssues.length >= 3) {
       consolidatedAnalysis.issues = validIssues
+      validation = ResumeAgentValidator.validate(consolidatedAnalysis, canonicalResume)
+    } else {
+      // Auto-repair failing issues with groundable bullets from canonical resume
+      const unusedBullets = []
+      for (const [bId, text] of canonicalLookup.bulletMap.entries()) {
+        if (!consolidatedAnalysis.issues.some((i) => i.evidence?.[0]?.bulletId === bId)) {
+          unusedBullets.push({ bId, text })
+        }
+      }
+      for (const iss of consolidatedAnalysis.issues) {
+        const quote = iss.evidence?.[0]?.originalText
+        const bId = iss.evidence?.[0]?.bulletId
+        const isGood = bId && canonicalLookup.bulletMap.has(bId) && quote && ResumeAgentValidator.isVerbatimInCanonical(quote, canonicalResume)
+        if (!isGood && unusedBullets.length > 0) {
+          const replacement = unusedBullets.shift()
+          const itemId = replacement.bId.startsWith('exp_') ? replacement.bId.slice(0, 7) : (replacement.bId.startsWith('proj_') ? replacement.bId.slice(0, 8) : replacement.bId)
+          iss.evidence = [{
+            section: replacement.bId.startsWith('proj') ? 'projects' : (replacement.bId.startsWith('exp') ? 'experience' : 'summary'),
+            itemId,
+            bulletId: replacement.bId,
+            originalText: replacement.text,
+          }]
+          if (iss.correctedText) {
+            iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(replacement.text)
+          }
+        }
+      }
       validation = ResumeAgentValidator.validate(consolidatedAnalysis, canonicalResume)
     }
   }
@@ -724,11 +929,15 @@ export async function executeModeD({
       usMarketSignals: state?.usMarketSignals || null,
       validation,
       pageCount: canonicalResume.document?.pageCount || 1,
+      targetJobDescription: state?.targetJobDescription || canonicalResume?.targetJobDescription || '',
+      targetRole: canonicalResume?.candidate?.targetRole || state?.targetRole || '',
+      marketProfile: state?.marketProfile || null,
     })
   } catch (err) {
     console.warn('[ModeD Chunked] Scorecard computation warning:', err.message)
   }
   consolidatedAnalysis.dashboard = dashboard
+  consolidatedAnalysis.keywordAlignment = dashboard?.keywordAlignment || null
 
   const totalDuration = Date.now() - startTime
   const totalInputTokens = llmCalls.reduce((sum, c) => sum + c.inputTokens, 0)

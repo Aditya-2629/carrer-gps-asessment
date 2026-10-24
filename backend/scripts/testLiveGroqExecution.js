@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 async function main() {
-  const fixturePath = path.join(__dirname, '../agents/resume/fixtures/swapnil-jadhav.txt')
+  const fixturePath = path.join(__dirname, '../tests/fixtures/swapnil-jadhav.txt')
   const resumeText = fs.readFileSync(fixturePath, 'utf8')
 
   console.log('Testing Live Groq model openai/gpt-oss-120b through ResumeAgent.evaluate...')

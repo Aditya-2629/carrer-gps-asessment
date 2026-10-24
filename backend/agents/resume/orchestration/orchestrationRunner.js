@@ -48,7 +48,7 @@ export async function runOrchestratedSynthesis({
 }) {
   const selectedMode = SUPPORTED_ORCHESTRATION_MODES.includes(mode)
     ? mode
-    : (process.env.RESUME_AGENT_ORCHESTRATION_MODE || MODE_D_NAME)
+    : (process.env.RESUME_AGENT_ORCHESTRATION_MODE || MODE_C_NAME)
 
   switch (selectedMode) {
     case MODE_D_NAME:

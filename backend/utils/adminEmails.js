@@ -1,6 +1,9 @@
 import nodemailer from 'nodemailer'
 
 const getTransporter = () => {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    return null
+  }
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
@@ -21,6 +24,10 @@ const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
 export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeBuffer, resumeName) => {
   try {
     const transporter = getTransporter()
+    if (!transporter) {
+      console.warn('[Email] Skipping admin report email: SMTP credentials not configured.')
+      return
+    }
 
     // Convert Answers to HTML table format
     let answersHtml = "<table style='width:100%; border-collapse:collapse; margin-bottom:20px; font-family: sans-serif; font-size: 13px;'>"
@@ -95,7 +102,11 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
     await transporter.sendMail(mailOptions)
     console.log(`[Email] Admin notification sent successfully to ${ADMIN_EMAIL} for user ${userEmail}`)
   } catch (error) {
-    console.error('[Email] Failed to send admin report email:', error)
+    if (error.responseCode === 535 || error.code === 'EAUTH') {
+      console.warn(`[Email] Admin notification skipped: Gmail SMTP authentication failed (535 BadCredentials). Please refresh SMTP_PASS in .env.`)
+    } else {
+      console.warn(`[Email] Admin report notification skipped (${error.message || error.code || 'unknown error'}).`)
+    }
   }
 }
 
@@ -103,6 +114,10 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
 export const sendBookCallNotification = async (userEmail) => {
   try {
     const transporter = getTransporter()
+    if (!transporter) {
+      console.warn('[Email] Skipping book call notification: SMTP credentials not configured.')
+      return
+    }
     const mailOptions = {
       from: process.env.SMTP_FROM || `"Career GPS System" <${process.env.SMTP_USER}>`,
       to: ADMIN_EMAIL,
@@ -120,6 +135,10 @@ export const sendBookCallNotification = async (userEmail) => {
     await transporter.sendMail(mailOptions)
     console.log(`[Email] Book Call notification sent successfully to ${ADMIN_EMAIL} for ${userEmail}`)
   } catch (error) {
-    console.error('[Email] Failed to send book call notification:', error)
+    if (error.responseCode === 535 || error.code === 'EAUTH') {
+      console.warn(`[Email] Book call notification skipped: Gmail SMTP authentication failed (535 BadCredentials). Please refresh SMTP_PASS in .env.`)
+    } else {
+      console.warn(`[Email] Book call notification skipped (${error.message || error.code || 'unknown error'}).`)
+    }
   }
 }

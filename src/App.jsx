@@ -7,6 +7,7 @@ import AnalysisLoader from './components/loading/AnalysisLoader'
 import ReportDashboard from './components/report/ReportDashboard'
 import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
 import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
+import LinkedInAgentTestLab from './pages/LinkedInAgentTestLab'
 import ResumeReportPage from './pages/ResumeReportPage'
 import AdminPanel from './pages/admin/AdminPanel.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
@@ -25,6 +26,7 @@ function AdminRoute() {
 
 export default function App() {
   const phase = useAppStore((s) => s.phase)
+  const reportData = useAppStore((s) => s.reportData)
   const [pathname, setPathname] = useState(window.location.pathname)
 
   useEffect(() => {
@@ -66,30 +68,49 @@ export default function App() {
     return <ResumeAgentTestLab />
   }
 
+  // Check if current route is the LinkedIn Agent test lab
+  const isLinkedInTestRoute = [
+    '/linkedin-test',
+    '/linkedin-lab',
+    '/admin/linkedin-lab',
+    '/test-linkedin',
+  ].includes(pathname.toLowerCase())
+
+  if (isLinkedInTestRoute) {
+    return <LinkedInAgentTestLab />
+  }
+
   // Check if the polished resume diagnosis report is requested
   const isResumeReportRoute = ['/resume-report', '/resume-diagnosis'].includes(pathname.toLowerCase())
   if (isResumeReportRoute) {
     return <ResumeReportPage />
   }
 
-  // Check if loading route is requested
+  // Check if direct report preview route is requested OR phase is REPORT (takes precedence over loading)
+  const isReportRoute = [
+    '/report',
+    '/report-preview',
+    '/career-gps-report',
+  ].includes(pathname.toLowerCase()) || window.location.search.includes('phase=report') || phase === PHASES.REPORT
+
+  if (isReportRoute) {
+    return (
+      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+        <ReportDashboard />
+      </div>
+    )
+  }
+
+  // Check if loading route is requested (ONLY when report is not ready)
   const isLoadingRoute = ['/loading', '/analysis-loading'].includes(pathname.toLowerCase())
-  if (isLoadingRoute) {
+  if (isLoadingRoute && phase !== PHASES.REPORT && !reportData) {
     return (
       <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
         <AnalysisLoader />
       </div>
     )
   }
-
-  // Check if direct report preview route is requested
-  const isReportRoute = [
-    '/report',
-    '/report-preview',
-    '/career-gps-report',
-  ].includes(pathname.toLowerCase()) || window.location.search.includes('phase=report')
-
-  if (isReportRoute) {
+  if (isLoadingRoute && (phase === PHASES.REPORT || reportData)) {
     return (
       <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
         <ReportDashboard />

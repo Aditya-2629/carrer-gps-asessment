@@ -20,9 +20,51 @@
  *  - Missing quantification alone never drops a bullet below "warn".
  */
 
+import { normalizeGerundVerb } from '../signals/patterns.js'
+import { computeKeywordAlignment } from '../market/keywordAlignment.js'
+
 export const SCORECARD_VERSION = 'resume-scorecard-v1'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
+
+/**
+ * Generates a deterministic action-oriented rewrite for a bullet.
+ * Normalizes opening gerund participles (-ing) into direct action verbs and
+ * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
+ */
+export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
+  if (!bulletText) return ''
+  let clean = bulletText.replace(/^[•\-*▪–—\s]+/, '').trim()
+  const openingWord = sig?.openingWord || clean.split(/\s+/)[0] || ''
+
+  // 1. If starts with gerund (-ing) participle
+  if (/^[a-zA-Z]+ing$/i.test(openingWord)) {
+    const targetVerb = normalizeGerundVerb(openingWord, isCurrentRole)
+    const regex = new RegExp(`^${openingWord}\\b`, 'i')
+    clean = clean.replace(regex, targetVerb)
+  }
+  // 2. If starts with weak phrasing (Responsible for, Worked on, Assisted with)
+  else if (sig?.weakVerbIssue || /^(?:responsible for|worked on|assisted with|helped with|participated in)\s+/i.test(clean)) {
+    clean = clean.replace(/^(?:responsible for|working on|worked on|assisted with|helped with|participated in)\s+(?:the\s+)?/i, '')
+    const firstWord = clean.split(/\s+/)[0] || ''
+    if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
+      const targetVerb = normalizeGerundVerb(firstWord, isCurrentRole)
+      clean = clean.replace(new RegExp(`^${firstWord}\\b`, 'i'), targetVerb)
+    } else {
+      const verb = isCurrentRole ? 'Lead' : 'Led'
+      clean = `${verb} ${clean}`
+    }
+  }
+
+  // 3. Ensure sentence is clean, punctuated, and free of any [ADD: ...] brackets
+  clean = clean.replace(/\[ADD:[^\]]*\]/gi, '').replace(/\s{2,}/g, ' ').trim()
+  if (!/[.!?]$/.test(clean)) {
+    clean = `${clean}.`
+  }
+
+  return clean
+}
+
 
 export const GRADE_BANDS = [
   { min: 85, grade: 'A', label: 'Excellent' },
@@ -80,7 +122,17 @@ function bulletLengthStats(canonicalResume) {
 /**
  * Computes the full scorecard. Pure function.
  */
-export function computeScorecard({ analysis, canonicalResume, precomputedSignals, usMarketSignals, validation, pageCount = null }) {
+export function computeScorecard({
+  analysis,
+  canonicalResume,
+  precomputedSignals,
+  usMarketSignals,
+  validation,
+  pageCount = null,
+  targetJobDescription = '',
+  targetRole = '',
+  marketProfile = null,
+}) {
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
   const strengths = Array.isArray(analysis?.strengths) ? analysis.strengths.filter(Boolean) : []
   const flags = usMarketSignals?.flags || {}
@@ -88,6 +140,14 @@ export function computeScorecard({ analysis, canonicalResume, precomputedSignals
   const quant = precomputedSignals?.quantification || {}
   const bulletSignalsList = precomputedSignals?.bulletSignalsList || []
   const contactMerge = precomputedSignals?.contactMerge || {}
+
+  // ── 0. Keyword & JD Alignment (Deterministic) ──────────────────────────────
+  const keywordAlignment = computeKeywordAlignment({
+    canonicalResume,
+    targetJobDescription,
+    targetRole,
+    marketProfile,
+  })
 
   // ── 1. Category scores ─────────────────────────────────────────────────────
   const categoryPenalties = {}
@@ -176,6 +236,7 @@ export function computeScorecard({ analysis, canonicalResume, precomputedSignals
     grades,
     checks,
     bulletAudit,
+    keywordAlignment,
     summary: {
       fix: bulletAudit.filter((b) => b.status === 'fix').length,
       warn: bulletAudit.filter((b) => b.status === 'warn').length,
@@ -244,14 +305,25 @@ function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, le
     category: 'impact',
   })
 
-  // 2. Outcome verbs & qualitative CAR outcomes
-  const withOutcome = bulletSignalsList.filter((b) => b.hasOutcomeVerb !== false || b.hasQualitativeOutcome === true).length
-  const outcomeShare = bulletSignalsList.length > 0 ? withOutcome / bulletSignalsList.length : 1
+  // 2. Outcome verbs & qualitative CAR outcomes + Gerund participle consistency
+  const gerundBullets = (bulletSignalsList || []).filter((b) => b?.tenseIssue === 'gerund_opening')
+  const withOutcome = (bulletSignalsList || []).filter((b) => b?.hasOutcomeVerb !== false || b?.hasQualitativeOutcome === true).length
+  const totalBullets = (bulletSignalsList || []).length
+  const outcomeShare = totalBullets > 0 ? withOutcome / totalBullets : 1
+
+  let outcomeStatus = outcomeShare >= 0.7 ? 'pass' : outcomeShare >= 0.4 ? 'warn' : 'fail'
+  let outcomeDetail = `${withOutcome} of ${totalBullets} bullets show a clear action/outcome verb or CAR result`
+
+  if (gerundBullets.length >= 3) {
+    outcomeStatus = 'warn'
+    outcomeDetail = `${gerundBullets.length} bullets open with '-ing' participles (e.g. "${gerundBullets[0].openingWord}") — lead directly with strong present/past action verbs`
+  }
+
   checks.push({
     id: 'outcome_verbs',
     label: 'Bullets lead with outcome or action verbs',
-    status: outcomeShare >= 0.7 ? 'pass' : outcomeShare >= 0.4 ? 'warn' : 'fail',
-    detail: `${withOutcome} of ${bulletSignalsList.length} bullets show a clear action/outcome verb or CAR result`,
+    status: outcomeStatus,
+    detail: outcomeDetail,
     category: 'impact',
   })
 
@@ -405,6 +477,9 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
 
         let status = 'pass'
         let reason = 'Clear, specific, no defects found'
+        let quickPolishNote = null
+
+        const isAccomplished = sig && (sig.hasQuantifier === true || sig.hasQualitativeOutcome === true) && !sig.isToolDumpCandidate
 
         if (issue) {
           status = issue.severity === 'low' ? 'warn' : 'fix'
@@ -416,8 +491,15 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
           status = 'warn'
           reason = `Opens with weak/supporting phrasing ('${sig.weakVerbMatch}') — start with a strong ownership action verb (e.g., Architected, Engineered, Automated, Spearheaded)`
         } else if (sig?.tenseIssue === 'gerund_opening') {
-          status = 'warn'
-          reason = `Starts with an '-ing' participle ('${sig.openingWord}') — use a direct ${isCurrentRole ? 'present-tense verb (e.g., Design, Secure, Lead)' : 'past-tense action verb (e.g., Designed, Secured, Led)'}`
+          const targetVerb = normalizeGerundVerb(sig.openingWord, isCurrentRole)
+          if (isAccomplished) {
+            status = 'pass'
+            reason = 'Strong accomplishment with verified outcomes'
+            quickPolishNote = `Quick polish: Change '${sig.openingWord}' → '${targetVerb}' for direct ${isCurrentRole ? 'present' : 'past'} tense`
+          } else {
+            status = 'warn'
+            reason = `Starts with an '-ing' participle ('${sig.openingWord}') — use a direct ${isCurrentRole ? 'present-tense verb (e.g., Design, Secure, Lead)' : 'past-tense action verb (e.g., Designed, Secured, Led)'}`
+          }
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
@@ -435,6 +517,11 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
           reason = 'Clear, specific, no defects found'
         }
 
+        let rewrite = issue?.correctedText || null
+        if (!rewrite && (status !== 'pass' || quickPolishNote)) {
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+        }
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -442,7 +529,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
           text: b.text,
           status,
           reason,
-          rewrite: issue?.correctedText || null,
+          quickPolishNote,
+          rewrite,
           issueId: issue?.id || null,
           category: issue?.category || null,
         })

@@ -18,7 +18,7 @@ async function runRegression() {
   console.log(`Model: openai/gpt-oss-120b via Groq`)
   console.log('='.repeat(80))
 
-  const rawResume = fs.readFileSync(path.join(__dirname, '../agents/resume/fixtures/strong-fullstack.txt'), 'utf8')
+  const rawResume = fs.readFileSync(path.join(__dirname, '../tests/fixtures/strong-fullstack.txt'), 'utf8')
   const canonical = ResumeNormalizer.normalize({ rawText: rawResume }, 'Senior Full Stack & Cloud Systems Engineer')
   const messages = ResumeAgentPrompt.buildMessages(canonical, 'Senior Full Stack & Cloud Systems Engineer', { inputMode: 'compact_text' })
 

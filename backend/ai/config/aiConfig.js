@@ -65,9 +65,11 @@ export const aiConfig = {
     return process.env.AI_RESUME_FALLBACK_ENABLED !== 'false'
   },
   get defaultResumeModel() {
-    // Primary model: GEMINI 3.8 Flash (V3.2 priority), followed by Groq 120B fallback
     if (process.env.RESUME_PRIMARY_MODEL) return process.env.RESUME_PRIMARY_MODEL
-    return 'gemini-3.8-flash'
+    return 'gemini-3.5-flash-lite'
+  },
+  get defaultTimeoutMs() {
+    return parseInt(process.env.AI_DEFAULT_TIMEOUT_MS || '20000', 10)
   },
   groq: {
     get baseUrl() {
@@ -126,13 +128,13 @@ export const aiConfig = {
   },
   gemini: {
     get defaultModel() {
-      return process.env.GEMINI_MODEL || 'gemini-3.6-flash'
+      return process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
     },
     get perAttemptTimeoutMs() {
-      return parseInt(process.env.GEMINI_PER_ATTEMPT_TIMEOUT_MS || '30000', 10)
+      return parseInt(process.env.GEMINI_PER_ATTEMPT_TIMEOUT_MS || '20000', 10)
     },
     get timeoutMs() {
-      return parseInt(process.env.GEMINI_TIMEOUT_MS || '30000', 10)
+      return parseInt(process.env.GEMINI_TIMEOUT_MS || '20000', 10)
     },
     get totalDeadlineMs() {
       return parseInt(process.env.GEMINI_TOTAL_DEADLINE_MS || process.env.AI_TOTAL_DEADLINE_MS || '60000', 10)

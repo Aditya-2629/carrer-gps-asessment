@@ -21,37 +21,37 @@ import { SYNTHESIS_PROMPT_VERSION } from '../agents/resume/synthesis/resumeSynth
 const FIXTURES = [
   {
     name: 'GOLDEN (Swapnil Jadhav — Strong AI/Backend)',
-    file: '../agents/resume/fixtures/swapnil-jadhav.txt',
+    file: '../tests/fixtures/swapnil-jadhav.txt',
     targetRole: 'Senior AI & Full Stack Engineer',
     type: 'strong_technical',
   },
   {
     name: 'WEAK (Jordan Miller — Junior Fullstack)',
-    file: '../agents/resume/fixtures/weak-fullstack.txt',
+    file: '../tests/fixtures/weak-fullstack.txt',
     targetRole: 'Junior Full Stack Developer',
     type: 'weak',
   },
   {
     name: 'MIXED (Mixed Experience)',
-    file: '../agents/resume/fixtures/mixed-experience.txt',
+    file: '../tests/fixtures/mixed-experience.txt',
     targetRole: 'Full Stack Software Engineer',
     type: 'mixed',
   },
   {
     name: 'STRONG FULLSTACK (Marcus Vance)',
-    file: '../agents/resume/fixtures/strong-fullstack.txt',
+    file: '../tests/fixtures/strong-fullstack.txt',
     targetRole: 'Senior Full Stack & Cloud Systems Engineer',
     type: 'strong_fullstack',
   },
   {
     name: 'NON-IT US (Marcus Reed — Sales)',
-    file: '../agents/resume/fixtures/sales-us-professional.txt',
+    file: '../tests/fixtures/sales-us-professional.txt',
     targetRole: 'Regional Sales Manager',
     type: 'non_it_sales',
   },
   {
     name: 'NON-IT NON-US (Priya Sharma — Nurse)',
-    file: '../agents/resume/fixtures/nurse-healthcare.txt',
+    file: '../tests/fixtures/nurse-healthcare.txt',
     targetRole: 'Registered Nurse',
     type: 'non_it_healthcare_nonus',
   },

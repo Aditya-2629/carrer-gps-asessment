@@ -70,6 +70,58 @@ registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PR
 
 export class ResumeAgent {
   /**
+   * Deterministically parses, normalizes, and extracts canonical facts from a resume document.
+   * Runs in milliseconds with zero LLM calls.
+   * Used for cross-agent orchestration and fast deterministic pre-audits.
+   */
+  static async prepareCanonicalContext({
+    buffer = null,
+    mimeType = '',
+    filename = '',
+    resumeText = '',
+    targetRole = '',
+    documentOverride = null,
+    canonicalResumeOverride = null,
+  }) {
+    let parsedDoc = documentOverride
+    let canonicalResume = canonicalResumeOverride
+
+    if (!parsedDoc) {
+      parsedDoc = await DocumentParser.parse({
+        buffer,
+        mimeType,
+        filename,
+        text: resumeText,
+      })
+    }
+
+    if (!canonicalResume) {
+      const chunkResult = DeterministicChunker.process(parsedDoc, {
+        safeTokenBudget: 32000,
+        maxSectionChars: 16000,
+      })
+      parsedDoc = chunkResult.parsedDoc
+      canonicalResume = ResumeNormalizer.normalize(parsedDoc, targetRole)
+    }
+
+    const effectiveRole = targetRole || canonicalResume?.candidate?.targetRole || 'Technical Professional'
+    const rawFacts = extractResumeFacts(canonicalResume)
+    const normalizedFacts = normalizeFacts(rawFacts.facts)
+    const extractedFacts = { ...rawFacts, facts: normalizedFacts }
+    const signals = generateResumeSignals(canonicalResume)
+    const precomputedSignals = computePrecomputedSignals(canonicalResume)
+
+    return {
+      parsedDoc,
+      canonicalResume,
+      extractedFacts,
+      targetRole: effectiveRole,
+      signals,
+      precomputedSignals,
+    }
+  }
+
+  /**
    * Main entry point to evaluate a candidate resume.
    *
    * @param {Object} params
@@ -96,9 +148,10 @@ export class ResumeAgent {
     targetRole = '',
     targetJobDescription = '',
     experienceLevel = '',
+    linkedinUrl = '',
     marketContextOverride = null,
     model = null,
-    orchestrationMode = process.env.RESUME_AGENT_ORCHESTRATION_MODE || 'chunked_section_synthesis',
+    orchestrationMode = process.env.RESUME_AGENT_ORCHESTRATION_MODE || 'hybrid_deterministic_reasoning',
     taskPolicies = {},
     inputMode = 'compact_text',
     isSynthetic = false,
@@ -141,6 +194,9 @@ export class ResumeAgent {
       // ── Step 2: Normalize → Canonical Resume ────────────────────────────────
       if (!canonicalResume) {
         canonicalResume = ResumeNormalizer.normalize(parsedDoc, targetRole)
+      }
+      if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
+        canonicalResume.candidate.contact.linkedin = linkedinUrl
       }
 
       const effectiveRole = targetRole || canonicalResume.candidate?.targetRole || 'Technical Professional'
@@ -512,21 +568,55 @@ export class ResumeAgent {
           const match = err.match(/^issues\[(\d+)\]/)
           if (match) failingIndices.add(parseInt(match[1], 10))
         }
-        if (failingIndices.size > 0 && validation.sanitizedAnalysis.issues.length - failingIndices.size >= 3) {
-          const recoveredIssues = validation.sanitizedAnalysis.issues.filter((_, idx) => !failingIndices.has(idx))
-          console.warn(
-            `[ResumeAgent] Safe recovery applied: pruned ${failingIndices.size} ungrounded issues; ${recoveredIssues.length} valid issues retained.`
-          )
-          const recoveredAnalysis = {
-            ...validation.sanitizedAnalysis,
-            issues: recoveredIssues,
-          }
-          const revalidated = ResumeAgentValidator.validate(recoveredAnalysis, canonicalResume)
-          if (revalidated.isValid) {
-            validation = revalidated
-            validation.warnings.push(
-              `Safe recovery applied: pruned ${failingIndices.size} issues with invalid evidence; ${recoveredIssues.length} verified issues retained.`
+        if (failingIndices.size > 0) {
+          if (validation.sanitizedAnalysis.issues.length - failingIndices.size >= 3) {
+            const recoveredIssues = validation.sanitizedAnalysis.issues.filter((_, idx) => !failingIndices.has(idx))
+            console.warn(
+              `[ResumeAgent] Safe recovery applied: pruned ${failingIndices.size} ungrounded issues; ${recoveredIssues.length} valid issues retained.`
             )
+            const recoveredAnalysis = {
+              ...validation.sanitizedAnalysis,
+              issues: recoveredIssues,
+            }
+            const revalidated = ResumeAgentValidator.validate(recoveredAnalysis, canonicalResume)
+            if (revalidated.isValid) {
+              validation = revalidated
+              validation.warnings.push(
+                `Safe recovery applied: pruned ${failingIndices.size} issues with invalid evidence; ${recoveredIssues.length} verified issues retained.`
+              )
+            }
+          } else {
+            // Auto-heal failing issues using canonical bullet grounding
+            const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+            const unusedBullets = []
+            for (const [bId, text] of bulletMap.entries()) {
+              if (!validation.sanitizedAnalysis.issues.some((i) => i.evidence?.[0]?.bulletId === bId)) {
+                unusedBullets.push({ bId, text })
+              }
+            }
+            for (const idx of failingIndices) {
+              const iss = validation.sanitizedAnalysis.issues[idx]
+              if (iss && unusedBullets.length > 0) {
+                const rep = unusedBullets.shift()
+                const itemId = rep.bId.startsWith('exp_') ? rep.bId.slice(0, 7) : (rep.bId.startsWith('proj_') ? rep.bId.slice(0, 8) : rep.bId)
+                iss.evidence = [{
+                  section: rep.bId.startsWith('proj') ? 'projects' : (rep.bId.startsWith('exp') ? 'experience' : 'summary'),
+                  itemId,
+                  bulletId: rep.bId,
+                  originalText: rep.text,
+                }]
+                if (iss.correctedText) {
+                  iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(rep.text)
+                }
+              }
+            }
+            const revalidated = ResumeAgentValidator.validate(validation.sanitizedAnalysis, canonicalResume)
+            if (revalidated.isValid) {
+              validation = revalidated
+              validation.warnings.push(
+                `Safe recovery applied: auto-grounded ${failingIndices.size} issues with canonical resume bullets.`
+              )
+            }
           }
         }
       }
@@ -544,11 +634,12 @@ export class ResumeAgent {
         else if (isEvidenceError) failureClassification = 'EVIDENCE_VALIDATION_ERROR'
 
         const telemetryRecord = span.finish({
-          actualModel: gatewayResponse.actualModel,
+          actualModel: gatewayResponse?.actualModel || model,
           success: false,
           error: { code: failureClassification, message: errorSummary },
           schemaValid: validation?.isSchemaValid ?? false,
           evidenceValidationValid: false,
+          issueCount: validation?.sanitizedAnalysis?.issues?.length || 0,
           inputMode,
         })
 
@@ -750,6 +841,9 @@ export class ResumeAgent {
           usMarketSignals: state?.usMarketSignals || null,
           validation,
           pageCount: typeof parsedDoc.pageCount === 'number' ? parsedDoc.pageCount : null,
+          targetJobDescription: state?.targetJobDescription || canonicalResume?.targetJobDescription || '',
+          targetRole: effectiveRole || canonicalResume?.candidate?.targetRole || '',
+          marketProfile: state?.marketProfile || null,
         })
       } catch (scoreErr) {
         console.warn('[ResumeAgent] Scorecard computation failed:', scoreErr.message)
@@ -768,9 +862,10 @@ export class ResumeAgent {
           presentCompany: canonicalResume.candidate?.presentCompany || '',
           pastRoles: canonicalResume.candidate?.pastRoles || [],
           allRoles: canonicalResume.candidate?.allRoles || [],
-          linkedinUrl: canonicalResume.candidate?.contact?.linkedin || '',
+          linkedinUrl: canonicalResume.candidate?.contact?.linkedin || linkedinUrl || '',
         },
         dashboard,
+        keywordAlignment: dashboard?.keywordAlignment || null,
         ...(activeMarketContext ? { marketContext: activeMarketContext } : {}),
         metadata: {
           ...gatewayMetadata,

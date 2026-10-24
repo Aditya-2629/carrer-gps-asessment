@@ -2,6 +2,8 @@ import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import generateOTP from '../utils/generateOTP.js'
 
+import ReportJob from '../models/ReportJob.js'
+
 // Send OTP
 export const sendOtp = async (req, res) => {
   const { email } = req.body
@@ -13,12 +15,24 @@ export const sendOtp = async (req, res) => {
   try {
     const otp = generateOTP()
 
-    // Upsert User
-    await User.findOneAndUpdate(
+    // Upsert User and reset stale assessment fields so re-tests always generate a fresh report
+    const user = await User.findOneAndUpdate(
       { email: email.toLowerCase().trim() },
-      { otp, isVerified: false },
+      {
+        $set: {
+          otp,
+          isVerified: false,
+          aiReport: null,
+          linkedinData: null,
+          linkedinUrl: null,
+          resumeJson: null,
+        },
+      },
       { upsert: true, new: true }
     )
+
+    // Clean up any stale in-flight or completed jobs for this user
+    await ReportJob.deleteMany({ userId: user._id }).catch(() => {})
 
     // Nodemailer configuration with 10-second timeout parameters
     const transporter = nodemailer.createTransport({

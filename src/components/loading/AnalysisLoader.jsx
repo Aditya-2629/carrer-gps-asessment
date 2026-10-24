@@ -22,6 +22,10 @@ import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
+// Module-level in-flight job map keyed by userId:
+// Prevents React.StrictMode double-mounts from canceling or swallowing the job creation promise.
+const inflightJobByUser = new Map()
+
 // ── Agent pipeline model ─────────────────────────────────────────────────────
 const AGENT_NODES = [
   { id: 'resume', label: 'Resume Agent', hint: 'Line-by-line audit + rewrites', icon: FileText, tone: '#10b981' },
@@ -30,12 +34,32 @@ const AGENT_NODES = [
 ]
 
 function mapEventToState(stage) {
-  // stage examples: agent_resume_agent_started / agent_resume_agent_done /
-  // agent_resume_agent_error, agents_running, composing, report_ready
+  if (!stage) return null
+  const s = stage.toLowerCase()
+
+  // Resume agent events
+  if (s.includes('resume')) {
+    if (s.includes('done') || s.includes('complete')) return { agent: 'resume', state: 'done' }
+    if (s.includes('error') || s.includes('fail')) return { agent: 'resume', state: 'error' }
+    return { agent: 'resume', state: 'working' }
+  }
+
+  // LinkedIn agent events (Apify scrape, cross-audit, LLM synthesis)
+  if (s.includes('linkedin') || s.includes('apify') || s.includes('cross_audit') || s.includes('llm_synthesis')) {
+    if (s.includes('done') || s.includes('complete')) return { agent: 'linkedin', state: 'done' }
+    if (s.includes('error') || s.includes('fail')) return { agent: 'linkedin', state: 'error' }
+    return { agent: 'linkedin', state: 'working' }
+  }
+
+  // Atlas / overall pipeline events
+  if (s.includes('atlas') || s.includes('overall') || s.includes('composing') || s.includes('quality_gate') || s.includes('agents_running') || s === 'report_ready') {
+    if (s === 'report_ready' || s === 'composing') return { agent: 'overall', state: 'done' }
+    return { agent: 'overall', state: 'working' }
+  }
+
   const m = stage.match(/^agent_([a-z]+)_agent_(\w+)$/)
   if (m) return { agent: m[1], state: m[2] === 'done' ? 'done' : m[2] === 'error' ? 'error' : 'working' }
-  if (stage === 'agents_running') return { agent: 'overall', state: 'working' }
-  if (stage === 'composing') return { agent: 'overall', state: 'done' }
+
   return null
 }
 
@@ -45,14 +69,22 @@ export default function AnalysisLoader() {
   const [jobStarted, setJobStarted] = useState(false)
   const [agentStates, setAgentStates] = useState({ resume: 'idle', linkedin: 'idle', overall: 'idle' })
   const [liveMessages, setLiveMessages] = useState([])
-  const hasTriggeredRef = useRef(false)
+  const redirectedRef = useRef(false)
   const sourceRef = useRef(null)
   const reduceMotion = useReducedMotion()
 
   const handleReport = (report) => {
-    setReportData(normalizeReportData(report))
+    if (!report || redirectedRef.current) return
+    redirectedRef.current = true
+    if (userId) inflightJobByUser.delete(userId)
+    const normalized = normalizeReportData(report)
+    setReportData(normalized)
+    setPhase(PHASES.REPORT)
     navigateTo('/report')
-    setTimeout(() => setPhase(PHASES.REPORT), 500)
+    if (typeof window !== 'undefined' && window.location.pathname !== '/report') {
+      window.history.pushState(null, '', '/report')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
   }
 
   const applyEvent = (event) => {
@@ -74,39 +106,96 @@ export default function AnalysisLoader() {
 
   // ── Start job + subscribe ──────────────────────────────────────────────────
   useEffect(() => {
-    if (hasTriggeredRef.current) return
     if (!userId) return
-    hasTriggeredRef.current = true
 
     let pollTimer = null
-    let cancelled = false
+    let active = true
 
-    const startPolling = async (jobId) => {
-      // Fallback when SSE is blocked (proxies, older browsers)
+    const userEmail = formData?.email || formData?.step1?.email || null
+
+    let currentJobId = null
+
+    const startPolling = (jobId) => {
+      if (jobId) currentJobId = jobId
+      if (pollTimer) return
       pollTimer = setInterval(async () => {
+        if (!active || redirectedRef.current) {
+          if (pollTimer) clearInterval(pollTimer)
+          return
+        }
+
+        // 1. Check report-job status via poll endpoint
+        if (currentJobId) {
+          try {
+            const job = await api.getReportJob(currentJobId)
+            if (!active || redirectedRef.current) return
+            for (const ev of job.events || []) applyEvent(ev)
+            if (job.status === 'done' && job.aiReport) {
+              handleReport(job.aiReport)
+              if (pollTimer) clearInterval(pollTimer)
+              return
+            }
+            if (job.status === 'failed') {
+              setErrorMessage(job.error || 'Generation failed.')
+              if (pollTimer) clearInterval(pollTimer)
+              return
+            }
+          } catch (_e) {
+            /* keep polling */
+          }
+        }
+
+        // 2. Parallel fallback: check user's saved aiReport directly in MongoDB
         try {
-          const job = await api.getReportJob(jobId)
-          if (cancelled) return
-          for (const ev of job.events || []) applyEvent(ev)
-          if (job.status === 'done' && job.aiReport) handleReport(job.aiReport)
-          if (job.status === 'failed') setErrorMessage(job.error || 'Generation failed.')
-          if (job.status === 'done' || job.status === 'failed') clearInterval(pollTimer)
+          const savedReport = await api.getReport({ userId, email: userEmail })
+          if (savedReport && active && !redirectedRef.current) {
+            handleReport(savedReport)
+            if (pollTimer) clearInterval(pollTimer)
+            return
+          }
         } catch (_e) {
           /* keep polling */
         }
-      }, 3000)
+      }, 2500)
     }
 
-    ;(async () => {
-      try {
-        const { jobId } = await api.startReportJob({ userId, formData })
-        if (cancelled) return
+    // Start polling immediately in parallel with job creation / SSE
+    startPolling(null)
+
+    // Immediate check in case report was already generated previously or in background
+    api
+      .getReport({ userId, email: userEmail })
+      .then((existingReport) => {
+        if (existingReport && active && !redirectedRef.current) {
+          handleReport(existingReport)
+        }
+      })
+      .catch(() => {})
+
+    // Share exact same in-flight job promise across React.StrictMode double-mounts
+    let jobPromise = inflightJobByUser.get(userId)
+    if (!jobPromise) {
+      jobPromise = api.startReportJob({ userId, formData }).catch((err) => {
+        inflightJobByUser.delete(userId)
+        throw err
+      })
+      inflightJobByUser.set(userId, jobPromise)
+    }
+
+    jobPromise
+      .then(({ jobId }) => {
+        if (!active || redirectedRef.current) return
         setJobStarted(true)
 
-        // Subscribe via SSE (no auth headers needed — job id is the capability)
+        // Always call startPolling immediately in parallel with EventSource
+        startPolling(jobId)
+
+        // Subscribe via SSE
         const source = new EventSource(`${API_BASE}/report-jobs/${jobId}/stream`)
         sourceRef.current = source
+
         source.onmessage = (e) => {
+          if (!active || redirectedRef.current) return
           try {
             const event = JSON.parse(e.data)
             applyEvent(event)
@@ -114,21 +203,26 @@ export default function AnalysisLoader() {
               source.close()
             }
           } catch (_e) {
-            /* malformed frame — ignore */
+            /* malformed frame */
           }
         }
+
         source.onerror = () => {
-          // SSE dropped before completion → fall back to polling
+          // Keep polling running even if SSE closes or fails
           source.close()
-          if (!cancelled) startPolling(jobId)
+          if (active && !redirectedRef.current) {
+            startPolling(jobId)
+          }
         }
-      } catch (err) {
-        setErrorMessage(err?.message || 'Failed to start report generation.')
-      }
-    })()
+      })
+      .catch((err) => {
+        if (active && !redirectedRef.current) {
+          setErrorMessage(err?.message || 'Failed to start report generation.')
+        }
+      })
 
     return () => {
-      cancelled = true
+      active = false
       if (pollTimer) clearInterval(pollTimer)
       sourceRef.current?.close()
     }
@@ -280,19 +374,27 @@ export default function AnalysisLoader() {
       </div>
 
       {/* ── Live status ticker (real SSE messages) ── */}
-      <div className="w-full max-w-xl h-6 mb-6 relative overflow-hidden" aria-live="polite">
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={latest}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="text-xs font-semibold absolute inset-0 flex items-center justify-center text-center text-[var(--primary)]"
-          >
-            {latest}
-          </motion.p>
-        </AnimatePresence>
+      <div className="w-full max-w-xl mb-6 relative" aria-live="polite">
+        <div className="rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] px-4 py-2.5 flex items-center gap-2.5 shadow-2xs">
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--primary)]" />
+          </span>
+          <div className="h-5 flex-1 relative overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={latest}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.2 }}
+                className="text-xs font-semibold absolute inset-0 flex items-center text-[var(--text-primary)] truncate"
+              >
+                {latest}
+              </motion.p>
+            </AnimatePresence>
+          </div>
+        </div>
       </div>
 
       {/* ── Shape-matched skeletons (the report, ghosted) ── */}
