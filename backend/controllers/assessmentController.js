@@ -9,6 +9,7 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
+import { generateStandardReportPdf } from '../utils/reportPdfGenerator.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -436,3 +437,50 @@ export const getReport = async (req, res) => {
     return res.status(500).json({ message: 'Failed to retrieve report.' })
   }
 }
+
+// Stream generated standardized Report PDF directly
+export const downloadReportPdf = async (req, res) => {
+  const userId = req.params?.userId || req.query?.userId
+  const email = req.query?.email
+
+  if (!userId && !email) {
+    return res.status(400).json({ message: 'User ID or Email is required.' })
+  }
+
+  try {
+    let user = null
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId)
+    }
+    if (!user && email) {
+      user = await User.findOne({ email: email.toLowerCase().trim() })
+    }
+
+    if (!user || !user.aiReport) {
+      return res.status(404).json({ message: 'No completed report found for this user.' })
+    }
+
+    const pdfBuffer = await generateStandardReportPdf({
+      user,
+      answers: user.answers || {},
+      semanticProfile: user.semanticProfile || user.aiReport?.semantic_profile || null,
+      aiReport: user.aiReport,
+    })
+
+    const candidateName =
+      user.aiReport?.resume_agent?.candidateSnapshot?.name ||
+      user.answers?.fullName ||
+      user.answers?.name ||
+      user.name ||
+      (user.email ? user.email.split('@')[0] : 'Candidate')
+    const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="Career_GPS_Report_${safeName}.pdf"`)
+    return res.send(pdfBuffer)
+  } catch (error) {
+    console.error('Error in downloadReportPdf controller:', error)
+    return res.status(500).json({ message: 'Failed to generate report PDF.' })
+  }
+}
+

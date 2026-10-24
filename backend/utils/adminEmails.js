@@ -18,10 +18,12 @@ const getTransporter = () => {
   })
 }
 
+import { generateStandardReportPdf, formatAssessmentAnswer } from './reportPdfGenerator.js'
+
 const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
 
 // 1. Send Admin Report Email
-export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeBuffer, resumeName) => {
+export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {}, resumeBuffer = null, resumeName = null) => {
   try {
     const transporter = getTransporter()
     if (!transporter) {
@@ -29,13 +31,14 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
       return
     }
 
-    // Convert Answers to HTML table format
+    // Convert Answers to HTML table format (skipping raw blobs and formatting quantitative objects cleanly)
     let answersHtml = "<table style='width:100%; border-collapse:collapse; margin-bottom:20px; font-family: sans-serif; font-size: 13px;'>"
     answersHtml += "<tr style='background:#10b981; color:white;'><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Question</th><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Answer</th></tr>"
     
     for (const [key, value] of Object.entries(answers)) {
-      const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      const displayValue = Array.isArray(value) ? value.join(', ') : (value || 'N/A')
+      if (['linkedinData', 'resume', 'precomputedResumeJson', 'resumeJson', 'file'].includes(key)) continue
+      const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      const displayValue = formatAssessmentAnswer(key, value, aiReport?.semantic_profile) || 'N/A'
       answersHtml += `<tr><td style='padding:8px; border:1px solid #ddd; font-weight: bold; color: #374151;'>${formattedKey}</td><td style='padding:8px; border:1px solid #ddd; color: #1f2937;'>${displayValue}</td></tr>`
     }
     answersHtml += '</table>'
@@ -48,11 +51,11 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
         <table style="width:100%; border-collapse:collapse; margin: 15px 0;">
           <tr>
             <td style="padding: 6px 0; color: #4b5563;"><strong>Resume Score:</strong></td>
-            <td style="padding: 6px 0;">${aiReport.score_breakdown?.resume?.score ?? 'N/A'}</td>
+            <td style="padding: 6px 0;">${aiReport.resume_agent?.score ?? aiReport.score_breakdown?.resume?.score ?? 'N/A'}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #4b5563;"><strong>LinkedIn Score:</strong></td>
-            <td style="padding: 6px 0;">${aiReport.score_breakdown?.linkedin?.score ?? 'N/A'}</td>
+            <td style="padding: 6px 0;">${aiReport.linkedin_agent?.score ?? aiReport.score_breakdown?.linkedin?.score ?? 'N/A'}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #4b5563;"><strong>Outreach Score:</strong></td>
@@ -73,6 +76,40 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
       </div>
     `
 
+    // Generate Standardized Career GPS PDF Attachment
+    const attachments = []
+    try {
+      const reportPdfBuffer = await generateStandardReportPdf({
+        user: { email: userEmail },
+        answers,
+        semanticProfile: aiReport?.semantic_profile || null,
+        aiReport,
+      })
+      if (reportPdfBuffer && reportPdfBuffer.length > 0) {
+        const candidateName =
+          aiReport?.resume_agent?.candidateSnapshot?.name ||
+          answers.fullName ||
+          answers.name ||
+          userEmail.split('@')[0] ||
+          'Candidate'
+        const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
+        attachments.push({
+          filename: `Career_GPS_Report_${safeName}.pdf`,
+          content: reportPdfBuffer,
+          contentType: 'application/pdf',
+        })
+      }
+    } catch (pdfErr) {
+      console.warn('[Email] Could not generate report PDF attachment:', pdfErr.message)
+    }
+
+    if (resumeBuffer) {
+      attachments.push({
+        filename: resumeName || 'Candidate_Resume.pdf',
+        content: resumeBuffer,
+      })
+    }
+
     const mailOptions = {
       from: process.env.SMTP_FROM || `"Career GPS System" <${process.env.SMTP_USER}>`,
       to: ADMIN_EMAIL,
@@ -86,17 +123,10 @@ export const sendAdminReportEmail = async (userEmail, answers, aiReport, resumeB
           ${answersHtml}
           ${reportHtml}
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="font-size:12px; color:#9ca3af;">Resume is attached to this email if uploaded by the candidate.</p>
+          <p style="font-size:12px; color:#9ca3af;">Both the candidate's uploaded resume and the Executive Career GPS Report PDF are attached.</p>
         </div>
       `,
-      attachments: resumeBuffer
-        ? [
-            {
-              filename: resumeName || 'Resume.pdf',
-              content: resumeBuffer,
-            },
-          ]
-        : [],
+      attachments,
     }
 
     await transporter.sendMail(mailOptions)

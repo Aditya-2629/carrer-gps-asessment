@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { saveAnswers, generateReport, bookCall, chatResume, getReport } from '../controllers/assessmentController.js'
+import { saveAnswers, generateReport, bookCall, chatResume, getReport, downloadReportPdf } from '../controllers/assessmentController.js'
 
 const router = express.Router()
 
@@ -28,6 +28,7 @@ router.post('/save-answers', upload.single('resume'), saveAnswers)
 router.post('/generate-report', generateReport)
 router.get('/report', getReport)
 router.get('/report/:userId', getReport)
+router.get('/report-pdf', downloadReportPdf)
 router.post('/resume-talk', chatResume)
 router.post('/book-call', bookCall)
 

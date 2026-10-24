@@ -9,6 +9,7 @@ import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
 import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
 import LinkedInAgentTestLab from './pages/LinkedInAgentTestLab'
 import ResumeReportPage from './pages/ResumeReportPage'
+import FullCareerReportPage from './pages/FullCareerReportPage'
 import AdminPanel from './pages/admin/AdminPanel.jsx'
 import AdminLogin from './pages/admin/AdminLogin.jsx'
 
@@ -84,6 +85,12 @@ export default function App() {
   const isResumeReportRoute = ['/resume-report', '/resume-diagnosis'].includes(pathname.toLowerCase())
   if (isResumeReportRoute) {
     return <ResumeReportPage />
+  }
+
+  // Check if standardized full-report printable view is requested
+  const isFullReportRoute = ['/full-report', '/print-report'].includes(pathname.toLowerCase())
+  if (isFullReportRoute) {
+    return <FullCareerReportPage />
   }
 
   // Check if direct report preview route is requested OR phase is REPORT (takes precedence over loading)

@@ -9,6 +9,7 @@ import {
   Compass,
   ArrowRight,
   SpinnerGap,
+  DownloadSimple,
 } from '@phosphor-icons/react'
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api } from '../../lib/api'
@@ -948,12 +949,47 @@ function ReportDashboardContent() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={async () => {
+                try {
+                  const state = useAppStore.getState()
+                  const email = state.userEmail || reportData?.user_answers?.email || ''
+                  const userId = state.userId || ''
+                  const params = new URLSearchParams()
+                  if (userId) params.append('userId', userId)
+                  if (email) params.append('email', email)
+                  const url = `${import.meta.env.VITE_API_URL || '/api'}/assessment/report-pdf?${params.toString()}`
+                  window.open(url, '_blank')
+                } catch (_e) {
+                  sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
+                  window.open('/full-report?print=true', '_blank')
+                }
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Download print-perfect Career GPS Report PDF"
+            >
+              <DownloadSimple size={13} weight="bold" />
+              <span className="hidden sm:inline">Download PDF Report</span>
+            </button>
+
+            <button
+              onClick={() => {
+                sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
+                window.open('/full-report', '_blank')
+              }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Open full expanded document view for printing"
+            >
+              <Printer size={13} weight="bold" />
+              <span className="hidden md:inline">Print / Standardized View</span>
+            </button>
+
+            <button
               onClick={() => useAppStore.getState().setPhase(PHASES.ASSESSMENT)}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
               title="Return to assessment to re-test or edit inputs"
             >
               <ArrowsClockwise size={13} weight="bold" />
-              <span className="hidden sm:inline">Retest / Edit Assessment</span>
+              <span className="hidden sm:inline">Retest</span>
             </button>
 
             <button
