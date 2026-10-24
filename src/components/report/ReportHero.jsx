@@ -283,7 +283,7 @@ export default function ReportHero({ reportData }) {
                 <div className="mt-3 pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-start gap-2 bg-[var(--surface-card)] p-3 rounded-xl">
                   <span className="text-amber-500 font-bold shrink-0">⏱️ 6-Second Recruiter Verdict:</span>
                   <span>
-                    A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {skillsList.slice(0, 2).join(' and ') || 'modern stacks'}, but risks stalling if {reportData?.linkedin_agent?.discrepancies?.[0]?.title ? reportData.linkedin_agent.discrepancies[0].title.toLowerCase() : 'your headline does not mirror their exact boolean search string'}.
+                    A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {(skillsList || []).slice(0, 2).join(' and ') || 'modern stacks'}, but risks stalling if {reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'your headline does not mirror their exact boolean search string'}.
                   </span>
                 </div>
               </div>

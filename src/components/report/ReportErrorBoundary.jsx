@@ -19,6 +19,11 @@ export default class ReportErrorBoundary extends React.Component {
 
   handleReload = () => {
     this.setState({ hasError: false, error: null, errorInfo: null })
+    try {
+      if (typeof window !== 'undefined') {
+        window.location.reload()
+      }
+    } catch (_e) {}
   }
 
   handleResetToSample = () => {
