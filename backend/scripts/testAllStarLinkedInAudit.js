@@ -89,13 +89,14 @@ async function runAllStarTests() {
   // Cross-analyze ghost profile (no picture, no banner, no certs, no projects, no edu) against canonical resume
   const auditResult = analyzeCrossAgentDiscrepancies(ghostProfile, { canonicalResume, targetRole: 'Senior Full Stack Engineer' })
 
-  // Verify visualAudit
+  // Verify visualAudit / trust signals
   assert(auditResult.visualAudit, 'visualAudit object must be returned')
   assert.strictEqual(auditResult.visualAudit.hasPicture, false, 'visualAudit.hasPicture is false')
   assert.strictEqual(auditResult.visualAudit.hasBanner, false, 'visualAudit.hasBanner is false')
-  assert(auditResult.visualAudit.issues.some((i) => i.id === 'visual_photo_missing' && i.severity === 'high'), 'Photo penalty flagged as high')
-  assert(auditResult.visualAudit.issues.some((i) => i.id === 'visual_banner_default' && i.severity === 'medium'), 'Banner issue flagged as medium')
-  console.log('PASS: Flagged missing profile photo (high severity, 21x view penalty) and default gray cover banner')
+  // Note: visual_photo_missing and visual_banner_default were purged in Step 3 in favor of verifiable text signals
+  assert(!auditResult.visualAudit.issues.some((i) => i.id === 'visual_photo_missing'), 'Photo penalty removed from discrepancies')
+  assert(!auditResult.visualAudit.issues.some((i) => i.id === 'visual_banner_default'), 'Banner penalty removed from discrepancies')
+  console.log('PASS: Verified visual photo/banner penalties are safely excluded from discrepancy engine')
 
   // Verify missingSections
   assert(Array.isArray(auditResult.missingSections), 'missingSections must be an array')
@@ -109,27 +110,19 @@ async function runAllStarTests() {
   console.log('PASS: timelineWarnings array cleanly returned alongside timelineMismatches')
 
   // 4. All-Star Generative Optimizer Schema & Fallback
-  console.log('\n--- Test 4: All-Star Generative Optimizer & Canva Blueprint ---')
+  console.log('\n--- Test 4: All-Star Generative Optimizer & Narrative Polish ---')
   const opt = buildDeterministicOptimizations(ghostProfile, { canonicalResume, targetRole: 'Senior Full Stack Engineer' }, auditResult.missingSkills)
-  assert(opt.bannerStrategy, 'bannerStrategy generated')
-  assert(opt.bannerStrategy.bannerTagline, 'bannerTagline present')
-  assert(opt.bannerStrategy.bannerSecondaryText, 'bannerSecondaryText present')
-  assert(opt.bannerStrategy.designAdvice, 'designAdvice present')
   assert(Array.isArray(opt.featuredSectionRecommendations) && opt.featuredSectionRecommendations.length > 0, 'featuredSectionRecommendations present')
   assert(Array.isArray(opt.top3PinnedSkills) && opt.top3PinnedSkills.length === 3, 'top3PinnedSkills has 3 skills')
-  assert(Array.isArray(opt.visualPresenceTips) && opt.visualPresenceTips.length > 0, 'visualPresenceTips present')
   assert(Array.isArray(opt.headlines) && opt.headlines.length === 3, '3 headlines present')
   assert(opt.aboutRewrite.hook && opt.aboutRewrite.proof && opt.aboutRewrite.callToAction, '3-paragraph about rewrite present')
-  console.log(`PASS: Canva Blueprint generated: "${opt.bannerStrategy.bannerTagline}"`)
   console.log(`PASS: Top 3 Pinned Skills: ${opt.top3PinnedSkills.join(', ')}`)
   console.log(`PASS: Featured Section Recommendations: ${opt.featuredSectionRecommendations.map(f => f.title).join(', ')}`)
 
   // 5. System Prompt Schema
   console.log('\n--- Test 5: System Prompt Schema Verification ---')
-  assert(LINKEDIN_SYSTEM_PROMPT.includes('bannerStrategy'), 'System prompt contains bannerStrategy schema')
   assert(LINKEDIN_SYSTEM_PROMPT.includes('featuredSectionRecommendations'), 'System prompt contains featuredSectionRecommendations')
   assert(LINKEDIN_SYSTEM_PROMPT.includes('top3PinnedSkills'), 'System prompt contains top3PinnedSkills')
-  assert(LINKEDIN_SYSTEM_PROMPT.includes('visualPresenceTips'), 'System prompt contains visualPresenceTips')
   console.log('PASS: System prompt enforces complete All-Star LinkedIn package schema')
 
   console.log('\n================================================================')

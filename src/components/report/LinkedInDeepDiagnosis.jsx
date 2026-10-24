@@ -72,10 +72,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
 
   const variant = theme === 'dark' ? 'dark' : 'light'
   const issues = (linkedinAgent.issues || []).filter(Boolean)
-  const discrepancies = (linkedinAgent.discrepancies || []).filter(Boolean)
+  const isVisualItem = (item) => {
+    if (!item) return false
+    const str = [item.id, item.type, item.section, item.title, item.name, item.diagnosis].filter(Boolean).join(' ').toLowerCase()
+    return /visual_photo|visual_banner|profile photo|cover banner|headshot|avatar zone/i.test(str)
+  }
+  const discrepancies = (linkedinAgent.discrepancies || []).filter(Boolean).filter((d) => !isVisualItem(d))
   const droppedImpact = (linkedinAgent.droppedImpact || []).filter(Boolean)
   const missingSkills = (linkedinAgent.missingSkills || []).filter(Boolean)
-  const missingSections = (linkedinAgent.missingSections || []).filter(Boolean)
+  const missingSections = (linkedinAgent.missingSections || []).filter(Boolean).filter((s) => !isVisualItem(s))
   const optimizations = linkedinAgent.optimizations || linkedinAgent.aiOptimizations || null
 
   const visualAudit = linkedinAgent.visualAudit || {
@@ -166,200 +171,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
         scoreWord="LinkedIn profile"
       />
 
-      {/* ── 2. Visual Presence Status Indicators (Photo & Custom Banner) ──── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Profile Headshot Card */}
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Camera size={16} className="text-[#0a66c2]" />
-              Profile Photo Audit
-            </span>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                hasPhoto
-                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-red-50 dark:bg-red-950/80 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
-              }`}
-            >
-              {hasPhoto ? 'Photo Active' : 'Missing (21x View Penalty)'}
-            </span>
-          </div>
-
-          <div className="flex items-start gap-3.5">
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                hasPhoto
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400'
-              }`}
-            >
-              {hasPhoto ? <CheckCircle size={24} weight="fill" /> : <WarningCircle size={24} weight="fill" />}
-            </div>
-            <div className="space-y-1 text-xs">
-              <h4 className="font-bold text-[var(--text-primary)]">
-                {hasPhoto ? 'Headshot Detected & Active' : 'High Priority: Upload Professional Headshot'}
-              </h4>
-              <p className="text-[var(--text-secondary)] leading-relaxed">
-                {hasPhoto
-                  ? 'Your profile features a public photo. High-contrast headshots receive significantly higher click-through in recruiter search results.'
-                  : 'Profiles with a professional photo receive up to 21x more views and 36x more messages. A blank avatar suppresses recruiter outreach immediately.'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Custom Cover Banner Card */}
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Image size={16} className="text-[#0a66c2]" />
-              Cover Banner Audit
-            </span>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
-                hasBanner
-                  ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              {hasBanner ? 'Custom Banner Active' : 'Default Gray Banner'}
-            </span>
-          </div>
-
-          <div className="flex items-start gap-3.5">
-            <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
-                hasBanner
-                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              {hasBanner ? <CheckCircle size={24} weight="fill" /> : <Palette size={24} weight="fill" />}
-            </div>
-            <div className="space-y-1 text-xs">
-              <h4 className="font-bold text-[var(--text-primary)]">
-                {hasBanner ? 'Custom Cover Image Active' : 'Unbranded Visual Real Estate'}
-              </h4>
-              <p className="text-[var(--text-secondary)] leading-relaxed">
-                {hasBanner
-                  ? 'Custom background banner is configured, establishing visual branding above the fold.'
-                  : 'Your profile still displays the default gray geometric banner. Use the Canva blueprint below to build an All-Star branded cover.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 3. Canva Banner Blueprint & Visual Canvas Preview (One-Click Copy) ── */}
-      {bannerStrategy && (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-3.5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="p-1.5 rounded-lg bg-[#0a66c2]/10 text-[#0a66c2] dark:text-sky-400">
-                  <Palette size={18} weight="duotone" />
-                </span>
-                <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                  Canva Banner Blueprint & Live Preview
-                </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950/80 dark:text-sky-300 border border-sky-300/80 dark:border-sky-800/60 font-semibold">
-                  1584 × 396 px
-                </span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Copy this pre-engineered copy directly into Canva for your custom LinkedIn background cover.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                handleCopy(
-                  `${safeText(bannerStrategy.bannerTagline)}\n${safeText(bannerStrategy.bannerSecondaryText)}`,
-                  'canva_banner'
-                )
-              }
-              className={`py-2 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
-                copiedId === 'canva_banner'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-[#0a66c2] hover:bg-[#004182] text-white'
-              }`}
-            >
-              {copiedId === 'canva_banner' ? (
-                <>
-                  <Check size={14} weight="bold" /> Copied Banner Text!
-                </>
-              ) : (
-                <>
-                  <Copy size={14} /> Copy Banner Text
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Visual Banner Canvas Mockup (4:1 Aspect Ratio Preview with Guaranteed White Contrast) */}
-          <div className="relative w-full rounded-xl overflow-hidden shadow-md border border-[var(--border-default)] bg-gradient-to-r from-[#0a66c2] via-[#084b8a] to-[#003366] p-5 sm:p-7 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] text-white">
-            <div className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] opacity-15 pointer-events-none" />
-
-            <div className="relative z-10 flex justify-end">
-              <span className="text-[10px] uppercase font-mono tracking-widest px-2.5 py-0.5 rounded-full bg-white/10 text-sky-200 border border-white/15 backdrop-blur-xs">
-                LinkedIn Cover Canvas (1584 × 396)
-              </span>
-            </div>
-
-            <div className="relative z-10 sm:pl-28 md:pl-36 space-y-1.5 py-2">
-              <p className="text-sm sm:text-lg md:text-xl font-extrabold text-white tracking-tight leading-snug drop-shadow-sm">
-                {safeText(bannerStrategy.bannerTagline)}
-              </p>
-              <p className="text-xs sm:text-sm font-medium text-sky-200 drop-shadow-xs">
-                {safeText(bannerStrategy.bannerSecondaryText)}
-              </p>
-            </div>
-
-            <div className="absolute -bottom-5 left-4 sm:left-6 w-14 sm:w-16 h-14 sm:h-16 rounded-full border-2 border-white/30 bg-slate-850/90 backdrop-blur-xs flex items-center justify-center text-[9px] text-slate-300 font-medium text-center leading-tight shadow-md">
-              Avatar<br/>Zone
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
-            <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-                Primary Banner Tagline
-              </span>
-              <p className="text-sm font-bold text-[var(--text-primary)] leading-snug">
-                {safeText(bannerStrategy.bannerTagline)}
-              </p>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 block pt-1">
-                Secondary Subtitle / Core Stack
-              </span>
-              <p className="text-xs font-medium text-[var(--text-secondary)]">
-                {safeText(bannerStrategy.bannerSecondaryText)}
-              </p>
-            </div>
-
-            <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
-                  <Lightbulb size={12} weight="fill" /> Canva Design & Layout Advice
-                </span>
-                <p className="text-xs text-[var(--text-secondary)] leading-relaxed pt-1.5">
-                  {safeText(bannerStrategy.designAdvice)}
-                </p>
-              </div>
-              <p className="text-[11px] text-[var(--text-tertiary)] italic pt-2 border-t border-[var(--border-default)]">
-                Tip: Leave the lower-left 30% area clear of text to prevent mobile avatar overlap.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── 4. Resume-vs-LinkedIn Missing Sections & Discrepancy Alert ────── */}
       {hasCrossDiscrepancies && (
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-start gap-3.5 border-b border-[var(--border-default)] pb-4">
-            <span className="p-2.5 rounded-xl bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 shrink-0 mt-0.5">
+            <span className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0 mt-0.5">
               <ShieldWarning size={24} weight="duotone" />
             </span>
             <div className="space-y-1">
@@ -724,8 +540,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       </div>
 
                       {item.linkedinGap && (
-                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200">
-                          <WarningCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" weight="fill" />
+                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-800 dark:text-rose-200">
+                          <WarningCircle size={15} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" weight="fill" />
                           <div>
                             <span className="font-bold">LinkedIn Gap / Critique: </span>
                             <span>{safeText(item.linkedinGap)}</span>
@@ -773,10 +589,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
 
           {/* ── Top 3 Pinned Skills Badges ─────────────────────────────────── */}
           {top3PinnedSkills.length > 0 && (
-            <div className="bg-[var(--surface-card)] border border-amber-300/80 dark:border-amber-800/60 rounded-2xl p-5 space-y-3.5 shadow-xs">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3.5 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold text-amber-900 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <PushPin size={16} weight="fill" className="text-amber-500" />
+                <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                  <PushPin size={16} weight="fill" className="text-[var(--primary)]" />
                   Top 3 Pinned Skills (Profile Anchor)
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">
@@ -797,12 +613,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       className={`p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
                         isCopied
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/70 border-amber-200 dark:border-amber-800/70 text-[var(--text-primary)]'
+                          : 'border-[var(--primary)]/25 bg-[var(--primary-light)] hover:bg-[var(--primary-light)]/80 text-[var(--text-primary)]'
                       }`}
                       title="Click to copy pinned skill"
                     >
                       <div className="flex items-center gap-2">
-                        <PushPin size={14} weight="fill" className={isCopied ? 'text-white' : 'text-amber-600 dark:text-amber-400'} />
+                        <PushPin size={14} weight="fill" className={isCopied ? 'text-white' : 'text-[var(--primary)]'} />
                         <span className="text-xs font-bold">{skillName}</span>
                       </div>
                       {isCopied ? <Check size={14} weight="bold" /> : <Copy size={13} className="opacity-60" />}
@@ -946,8 +762,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                               </div>
                               <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(proj.description)}</p>
                               {proj.replaceNote && (
-                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 mt-1.5">
-                                  <ArrowRight size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-800 dark:text-sky-300 mt-1.5">
+                                  <ArrowRight size={13} className="text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
                                   <span><strong className="font-semibold">Action: </strong>{safeText(proj.replaceNote)}</span>
                                 </div>
                               )}
@@ -1008,27 +824,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Visual Presence Tips ───────────────────────────────────────── */}
-          {visualPresenceTips.length > 0 && (
-            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3 shadow-xs">
-              <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                <Globe size={15} className="text-sky-500" />
-                Visual Presence & Discoverability Tips
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                {visualPresenceTips.map((tip, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-secondary)] leading-relaxed flex items-start gap-2"
-                  >
-                    <span className="text-[var(--primary)] font-bold shrink-0">#{idx + 1}</span>
-                    <span>{safeText(tip)}</span>
-                  </div>
-                ))}
               </div>
             </div>
           )}

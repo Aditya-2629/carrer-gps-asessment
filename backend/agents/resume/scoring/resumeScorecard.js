@@ -33,33 +33,59 @@ const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
  * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
  */
 export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
-  if (!bulletText) return ''
+  if (!bulletText) return null
   let clean = bulletText.replace(/^[•\-*▪–—\s]+/, '').trim()
+  const originalClean = clean
   const openingWord = sig?.openingWord || clean.split(/\s+/)[0] || ''
 
-  // 1. If starts with gerund (-ing) participle
-  if (/^[a-zA-Z]+ing$/i.test(openingWord)) {
-    const targetVerb = normalizeGerundVerb(openingWord, isCurrentRole)
-    const regex = new RegExp(`^${openingWord}\\b`, 'i')
-    clean = clean.replace(regex, targetVerb)
-  }
-  // 2. If starts with weak phrasing (Responsible for, Worked on, Assisted with)
-  else if (sig?.weakVerbIssue || /^(?:responsible for|worked on|assisted with|helped with|participated in)\s+/i.test(clean)) {
-    clean = clean.replace(/^(?:responsible for|working on|worked on|assisted with|helped with|participated in)\s+(?:the\s+)?/i, '')
-    const firstWord = clean.split(/\s+/)[0] || ''
-    if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
-      const targetVerb = normalizeGerundVerb(firstWord, isCurrentRole)
-      clean = clean.replace(new RegExp(`^${firstWord}\\b`, 'i'), targetVerb)
-    } else {
-      const verb = isCurrentRole ? 'Lead' : 'Led'
-      clean = `${verb} ${clean}`
+  // 1. Replace weak/passive openers with strong ownership verbs
+  const weakOpeners = [
+    { pattern: /^(?:responsible for|tasked with|was responsible for)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Architect' : 'Architected' },
+    { pattern: /^(?:worked on|working on)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Engineer' : 'Engineered' },
+    { pattern: /^(?:helped with|helped to|assisted with|assisted in|participated in|supported)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
+    { pattern: /^(?:contributed to decomposing|decomposing)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Decompose' : 'Decomposed' },
+    { pattern: /^(?:managing|managed to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Direct' : 'Directed' },
+    { pattern: /^(?:using prompt engineering with|using|utilized)\s+/i, verb: isCurrentRole ? 'Deploy' : 'Deployed' },
+  ]
+
+  let matchedOpener = false
+  for (const { pattern, verb } of weakOpeners) {
+    if (pattern.test(clean)) {
+      clean = clean.replace(pattern, '')
+      const firstWord = clean.split(/\s+/)[0] || ''
+      if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
+        const targetVerb = normalizeGerundVerb(firstWord, isCurrentRole)
+        clean = clean.replace(new RegExp(`^${firstWord}\\b`, 'i'), targetVerb)
+      } else {
+        clean = `${verb} ${clean}`
+      }
+      matchedOpener = true
+      break
     }
   }
 
-  // 3. Ensure sentence is clean, punctuated, and free of any [ADD: ...] brackets
-  clean = clean.replace(/\[ADD:[^\]]*\]/gi, '').replace(/\s{2,}/g, ' ').trim()
+  // 2. If starts with gerund (-ing) participle
+  if (!matchedOpener && /^[a-zA-Z]+ing$/i.test(openingWord)) {
+    const targetVerb = normalizeGerundVerb(openingWord, isCurrentRole)
+    clean = clean.replace(new RegExp(`^${openingWord}\\b`, 'i'), targetVerb)
+  }
+
+  // 3. If bullet lacks a quantified metric, append a concrete metric prompt
+  const hasMetric = sig?.hasQuantifier || sig?.hasMetric || /\d+[%xXkKMbB]?|\b\d+\b/.test(clean)
+  if (!hasMetric) {
+    clean = clean.replace(/[.!?]+$/, '')
+    clean = `${clean} — reducing [latency / manual effort / defect rate] by [X]% across [N]+ production workflows`
+  }
+
+  // 4. Clean punctuation and whitespace
+  clean = clean.replace(/\s{2,}/g, ' ').trim()
   if (!/[.!?]$/.test(clean)) {
     clean = `${clean}.`
+  }
+
+  // 5. If only a single verb inflection changed and bullet already had a metric, don't show a fake identical rewrite
+  if (hasMetric && !matchedOpener && clean.toLowerCase().replace(/[^a-z]/g, '') === originalClean.toLowerCase().replace(/[^a-z]/g, '')) {
+    return null
   }
 
   return clean
@@ -225,7 +251,7 @@ export function computeScorecard({
   const checks = buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, len, pageCount, canonicalResume })
 
   // ── 4. Bullet audit ────────────────────────────────────────────────────────
-  const bulletAudit = buildBulletAudit({ analysis, canonicalResume, bulletSignalsList })
+  const bulletAudit = buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites: analysis?.bulletRewrites || analysis?.llmBulletRewrites || [] })
 
   return {
     version: SCORECARD_VERSION,
@@ -430,7 +456,15 @@ function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, le
  * Builds the per-bullet audit: every experience/project bullet gets a status,
  * a one-line reason, and the before→after rewrite when an issue cites it.
  */
-function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
+function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [] }) {
+  // Index LLM bullet rewrites by bulletId or roleIndex/bulletIndex
+  const llmRewriteMap = new Map()
+  if (Array.isArray(llmBulletRewrites)) {
+    llmBulletRewrites.forEach((rw) => {
+      if (rw?.bulletId) llmRewriteMap.set(rw.bulletId, rw)
+      if (rw?.id) llmRewriteMap.set(rw.id, rw)
+    })
+  }
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
 
   // Map bulletId → worst issue affecting it
@@ -517,7 +551,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList }) {
           reason = 'Clear, specific, no defects found'
         }
 
-        let rewrite = issue?.correctedText || null
+        const llmMatch = llmRewriteMap.get(b.id)
+        let rewrite = llmMatch?.rewrittenText || issue?.correctedText || null
         if (!rewrite && (status !== 'pass' || quickPolishNote)) {
           rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
         }

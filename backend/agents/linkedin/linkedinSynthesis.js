@@ -105,10 +105,11 @@ export function buildDeterministicOptimizations(
       linkedinGap = `Job title mismatch on LinkedIn ("${matchedLi.title}") vs Resume ("${e.role}") causes confusion in recruiter verification.`
     }
 
+    const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
     const upgraded = [
-      `Led end-to-end engineering for core ${e.role} initiatives at ${e.company}, scaling service reliability and system throughput.`,
-      rawBullets[0] || `Architected high-throughput services utilizing ${topStack}, reducing latency and streamlining deployment cycles.`,
-      rawBullets[1] || `Collaborated across engineering and product teams to deliver production-grade features with zero critical regression.`,
+      `Role Mandate: Led technical delivery for ${e.role} systems at ${e.company}, specializing in ${topStack}.`,
+      rawBullets[0] ? `Architected and optimized core features: ${rawBullets[0].replace(/^[•\-*▪–—\s]+/, '')}` : `Engineered high-throughput backend services using ${topStack}, improving reliability and latency.`,
+      rawBullets[1] ? `Scaled system performance: ${rawBullets[1].replace(/^[•\-*▪–—\s]+/, '')}` : `Collaborated across cross-functional engineering teams to deploy production microservices with zero critical defects.`,
     ]
 
     return {
@@ -116,6 +117,8 @@ export function buildDeterministicOptimizations(
       role: e.role || e.title || targetRole,
       dates: e.dates || '',
       linkedinGap,
+      beforeText,
+      afterText: upgraded.join('\n'),
       bullets: upgraded,
     }
   })
@@ -196,10 +199,10 @@ export function buildDeterministicOptimizations(
       items: [`("${targetRole}") AND (${skills.slice(0, 4).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
     },
     {
-      category: 'Custom Banner Blueprint',
-      trick: '4. Canva Cover Banner Safe Zone (1584x396px)',
-      advice: 'Design a 1584x396px banner with high-contrast typography. Shift all headline text and technology badges to the center-right 60% of the canvas to avoid the circular profile avatar overlay on mobile devices.',
-      items: [bannerStrategy.bannerTagline, bannerStrategy.bannerSecondaryText],
+      category: 'Featured Media Architecture',
+      trick: '4. Showcase High-Scale Technical Artifacts',
+      advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
+      items: [skills.slice(0, 3).join(' + ') + ' Architecture Repo', 'Live Demo URL'],
     },
     {
       category: 'Featured Section Asset',
@@ -400,43 +403,39 @@ export async function runLinkedInSynthesis(
     }
 
     // Sections to add from resume with replaceNote
-    let sectionsToAddFromResume = fallback.sectionsToAddFromResume
-    if (parsed.sectionsToAddFromResume && typeof parsed.sectionsToAddFromResume === 'object') {
-      const p = parsed.sectionsToAddFromResume
-      sectionsToAddFromResume = {
-        projects: Array.isArray(p.projects) && p.projects.length > 0
-          ? p.projects.slice(0, 4).map((pr, idx) => ({
-              title: pr.title || fallback.sectionsToAddFromResume.projects[idx]?.title || 'Core Project',
-              description: pr.description || fallback.sectionsToAddFromResume.projects[idx]?.description || '',
-              technologies: pr.technologies || fallback.sectionsToAddFromResume.projects[idx]?.technologies || [],
-              replaceNote: pr.replaceNote || fallback.sectionsToAddFromResume.projects[idx]?.replaceNote || '',
-            }))
-          : fallback.sectionsToAddFromResume.projects,
-        certifications: Array.isArray(p.certifications) && p.certifications.length > 0
-          ? p.certifications.slice(0, 5)
-          : fallback.sectionsToAddFromResume.certifications,
-        featured: Array.isArray(p.featured) && p.featured.length > 0
-          ? p.featured.slice(0, 3)
-          : fallback.sectionsToAddFromResume.featured,
-      }
-    }
+    let sectionsToAddFromResume = (parsed.sectionsToAddFromResume && typeof parsed.sectionsToAddFromResume === 'object' && ((Array.isArray(parsed.sectionsToAddFromResume.projects) && parsed.sectionsToAddFromResume.projects.length > 0) || (Array.isArray(parsed.sectionsToAddFromResume.certifications) && parsed.sectionsToAddFromResume.certifications.length > 0)))
+      ? {
+          projects: Array.isArray(parsed.sectionsToAddFromResume.projects) && parsed.sectionsToAddFromResume.projects.length > 0
+            ? parsed.sectionsToAddFromResume.projects.slice(0, 4).map((pr, idx) => ({
+                title: pr.title || fallback.sectionsToAddFromResume.projects[idx]?.title || 'Core Project',
+                description: pr.description || fallback.sectionsToAddFromResume.projects[idx]?.description || '',
+                technologies: pr.technologies || fallback.sectionsToAddFromResume.projects[idx]?.technologies || [],
+                replaceNote: pr.replaceNote || fallback.sectionsToAddFromResume.projects[idx]?.replaceNote || '',
+              }))
+            : fallback.sectionsToAddFromResume.projects,
+          certifications: Array.isArray(parsed.sectionsToAddFromResume.certifications) && parsed.sectionsToAddFromResume.certifications.length > 0
+            ? parsed.sectionsToAddFromResume.certifications.slice(0, 5)
+            : fallback.sectionsToAddFromResume.certifications,
+          featured: Array.isArray(parsed.sectionsToAddFromResume.featured) && parsed.sectionsToAddFromResume.featured.length > 0
+            ? parsed.sectionsToAddFromResume.featured.slice(0, 3)
+            : fallback.sectionsToAddFromResume.featured,
+        }
+      : fallback.sectionsToAddFromResume
 
     // Visibility Tricks
-    let visibilityTricks = fallback.visibilityTricks
-    if (Array.isArray(parsed.visibilityTricks) && parsed.visibilityTricks.length >= 3) {
-      visibilityTricks = parsed.visibilityTricks.slice(0, 5).map((vt, idx) => ({
-        category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
-        trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
-        advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
-        items: Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || []),
-      }))
-    }
+    let visibilityTricks = (Array.isArray(parsed.visibilityTricks) && parsed.visibilityTricks.length > 0)
+      ? parsed.visibilityTricks.slice(0, 5).map((vt, idx) => ({
+          category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
+          trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
+          advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
+          items: Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || []),
+        }))
+      : fallback.visibilityTricks
 
     // Top 3 pinned skills
-    let top3PinnedSkills = fallback.top3PinnedSkills
-    if (Array.isArray(parsed.top3PinnedSkills) && parsed.top3PinnedSkills.length >= 3) {
-      top3PinnedSkills = parsed.top3PinnedSkills.slice(0, 3)
-    }
+    let top3PinnedSkills = (Array.isArray(parsed.top3PinnedSkills) && parsed.top3PinnedSkills.length > 0)
+      ? parsed.top3PinnedSkills.slice(0, 3)
+      : fallback.top3PinnedSkills
 
     // Recommended skills to add
     let recommendedSkillsToAdd = fallback.recommendedSkillsToAdd

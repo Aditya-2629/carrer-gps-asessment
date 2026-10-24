@@ -151,35 +151,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
   )
   const visualIssues = []
 
-  if (!hasPhoto) {
-    const photoObs = {
-      id: 'visual_photo_missing',
-      type: 'missing_profile_photo',
-      severity: 'high',
-      title: 'Missing Profile Photo (21x View Penalty)',
-      resumeClaim: 'Professional Profile Presence',
-      linkedinClaim: 'No profile picture detected (default / ghost avatar)',
-      diagnosis: 'Profiles with a professional headshot receive up to 21x more views and 36x more recruiter messages. Operating without a profile photo triggers an immediate search penalty in LinkedIn algorithms.',
-      recommendation: 'Upload a crisp, high-resolution headshot with soft lighting, solid contrast, and professional framing.',
-    }
-    visualIssues.push(photoObs)
-    discrepancies.push(photoObs)
-  }
 
-  if (!hasBanner) {
-    const bannerObs = {
-      id: 'visual_banner_default',
-      type: 'default_cover_banner',
-      severity: 'medium',
-      title: 'Default Gray Background Banner Detected',
-      resumeClaim: targetRole || 'Target Career Positioning',
-      linkedinClaim: 'Default LinkedIn gray pattern banner',
-      diagnosis: 'Your profile still uses LinkedIn’s generic gray banner. The banner is prime visual real estate (1584x396px) seen above the fold that establishes your role focus, core stack, and engineering value proposition in the first 3 seconds.',
-      recommendation: 'Design a branded Canva banner (1584x396px) featuring your target role, top 3-4 technologies, and a concise engineering tagline.',
-    }
-    visualIssues.push(bannerObs)
-    discrepancies.push(bannerObs)
-  }
 
   if (profile.url && !hasCustomUrl) {
     const urlObs = {

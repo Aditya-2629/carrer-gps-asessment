@@ -30,9 +30,9 @@ import useAppStore from '../../store/useAppStore'
  */
 
 const severityChip = {
-  high: 'bg-red-950/80 border-red-700/60 text-red-300',
-  medium: 'bg-amber-950/80 border-amber-700/60 text-amber-300',
-  low: 'bg-sky-950/80 border-sky-700/60 text-sky-300',
+  high: 'bg-red-500/10 text-[var(--red)] border-red-500/25',
+  medium: 'bg-amber-500/10 text-amber-600 border-amber-500/25',
+  low: 'bg-sky-500/10 text-sky-600 border-sky-500/25',
 }
 
 function SectionHeader({ icon, title, accent, onOpenReport }) {

@@ -190,6 +190,15 @@ export function sanitizeModeCOutput(analysis) {
     analysis.issues = []
   }
 
+  // 5b. bulletRewrites normalization
+  if (Array.isArray(analysis.bulletRewrites)) {
+    analysis.bulletRewrites = analysis.bulletRewrites.filter(
+      (rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && rw.rewrittenText
+    )
+  } else {
+    analysis.bulletRewrites = []
+  }
+
   // 6. priorityActions normalization
   if (!Array.isArray(analysis.priorityActions) || analysis.priorityActions.length === 0) {
     analysis.priorityActions = (analysis.issues || []).slice(0, 3).map((iss, idx) => ({
@@ -283,17 +292,13 @@ Security bullets describing concrete security controls are legitimate technical 
 ==================================================
 3. PRIORITIZATION (TOP 3 TO 7 HIGH-CONVICTION ISSUES)
 ==================================================
-Select strictly between 3 and 7 issues (maximum 10, never fewer than 3).
-Prioritize issues that materially change a recruiter's decision:
-1. Missing meaningful outcome or result on core responsibilities
-2. Technology dumping (long skill lists with no demonstration of what was built)
-3. Unclear ownership or passive language that softens impact ("helped with", "responsible for")
-4. Weak prioritization (strongest achievements buried at the bottom)
-5. Generic summary without distinctive positioning
-6. Skill evidence gaps relative to target JD requirements (category: "skill_evidence_gap")
-7. ATS readability & extracted-text layout safety (category: "ats_readability")
-
-Do NOT create issues for trivial wording preferences or cosmetic minutiae.
+Select 5 to 6 deep, role-specific issues that evaluate the resume for targetRole:
+1. Seniority & Architecture Signal vs. Legacy Dilution: Flag where legacy tools (e.g., JSP, jQuery, WinSCP, routine release support) overshadow modern distributed systems, microservices, or cloud architecture.
+2. Unquantified Engineering Claims: Identify exact bullets that claim "cutting page load times", "improving responsiveness", "easing manual effort", or "raised release quality" without hard baseline-to-target numbers.
+3. Amateur / Student Phrasing in Summary or Projects: Flag phrases like "Currently learning Generative AI..." or "as a self-initiated project to explore..." and rewrite them into production-ready engineering positioning.
+4. Tech Stack & Keyword Alignment for targetRole: Audit how well their skills and top-third resume hook match high-paying recruiter searches.
+5. Ownership & Agency: Flag passive language ("assisted in", "worked on", "helped") that dilutes engineering ownership.
+6. ATS Readability & Contact Safety (category: "ats_readability").
 
 ==================================================
 4. CONSERVATIVE REWRITES & METRIC DISCOVERY
@@ -394,6 +399,14 @@ Return ONLY a valid JSON object matching this structure:
       "title": "Highest leverage fix first",
       "action": "Concrete step the candidate can execute today.",
       "reason": "Why this impacts hiring conversion"
+    }
+  ],
+  "bulletRewrites": [
+    {
+      "bulletId": "exp_001_b01",
+      "originalText": "Verbatim bullet text from canonical resume",
+      "rewrittenText": "Accomplished [X] as measured by [Y], by doing [Z] using Google XYZ formula",
+      "whyItWorks": "Transforms duty statement into senior engineering ownership and scale"
     }
   ]
 }`,

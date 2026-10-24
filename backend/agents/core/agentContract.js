@@ -52,7 +52,7 @@ export const RESUME_AGENT = defineAgent({
 export const LINKEDIN_AGENT = defineAgent({
   id: 'linkedin',
   name: 'LinkedIn Agent',
-  version: '3.0.0',
+  version: '4.0.0',
   purpose: 'resume_analysis',
   persona: 'US Technical Recruiter & LinkedIn Visibility Strategist',
   usesLlm: true,

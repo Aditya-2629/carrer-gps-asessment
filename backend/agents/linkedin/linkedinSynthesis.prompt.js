@@ -32,21 +32,24 @@ LINKEDIN TRANSFORMATION RULES (DO NOT COPY RESUME BULLETS)
    - Provide "linkedinGap": a candid, specific critique of what is wrong or missing on their current LinkedIn entry (e.g. company name typo breaking logo, title mismatch, dense unskimmable text, missing key metrics).
    - Provide "bullets": exactly 3 LinkedIn-native, skimmable impact statements (1-line scope hook + 2 quantified outcome highlights rewritten specifically for LinkedIn readers).
 3. HEADLINES (<220 CHARACTERS EACH):
-   - Provide 3 distinct formulas.
-   - Fix flaws in their current headline: eliminate passive openers ("Actively seeking...", "Looking for opportunities", "Student at...").
-   - Lead with Target Role + Core Stack & Cloud + Domain Specialization.
-4. ABOUT SECTION REWRITE:
-   - "currentCritique": 1-2 sentences explaining what is weak in their current LinkedIn About vs their resume.
-   - "hook": First 200 characters engineered to beat LinkedIn's "...see more" fold.
-   - "proof": 3-4 punchy, scannable impact highlights combining verified metrics across companies.
-   - "callToAction": Target role focus + Core Skills SEO footer.
-   - "fullText": Complete copy-paste ready text.
-5. SECTIONS TO ADD FROM RESUME:
-   - "projects": Include verified resume projects missing on LinkedIn, with a "replaceNote" calling out any outdated LinkedIn projects they should archive or replace.
-   - "certifications": High-priority certifications to add.
-   - "featured": Specific recommendation on what to pin (e.g. GitHub architecture repo rather than an unredacted resume PDF).
-6. VISIBILITY TRICKS:
-   - 5 hyper-specific LinkedIn growth and recruiter algorithm actions tailored to this candidate's target role, stack, and discrepancies.
+   - Must craft high-conversion 220-character headlines combining: [Target Senior Role] | [Core Architecture & Stack Keywords] | [Domain/Scale Proof Point].
+   - Strictly eliminate desperate phrases like "Actively seeking..." or "Open to work" (which lowers perceived candidate value) and explain why in "whyItWorks".
+4. ABOUT SECTION REWRITE (4-PARAGRAPH CONVERSATIONAL NARRATIVE):
+   - Paragraph 1: Bold architectural hook & domain authority (e.g. enterprise scale, distributed systems).
+   - Paragraph 2: Core engineering specialization (e.g. modernizing monoliths into microservices, cloud, AI pipelines).
+   - Paragraph 3: 3-4 scannable quantified career highlights with exact metrics from the verified resume.
+   - Paragraph 4: Forward-looking target role focus + clear call-to-action for hiring managers + Core Skills SEO block.
+   - "fullText": Complete copy-paste ready 4-paragraph text.
+5. EXPERIENCE UPGRADES (NEVER COPY RESUME BULLETS WORD-FOR-WORD):
+   - For every role, provide:
+     * "beforeText": What is currently on their LinkedIn for that role, or "Blank description on LinkedIn — 0 keywords indexed" if empty.
+     * "afterText": LinkedIn Role Mandate + 3 high-impact achievement bullets optimized for LinkedIn Recruiter boolean search.
+     * "linkedinGap": Exact critique of what is wrong or missing on their current LinkedIn entry for this company vs their resume.
+     * "bullets": Exactly 3 LinkedIn-native, skimmable impact statements.
+6. SECTIONS TO ADD FROM RESUME:
+   - Identify concrete resume assets missing from their LinkedIn (such as modern GenAI / RAG / Cloud projects, specific certifications, or missing role descriptions) and generate ready-to-paste copy with "replaceNote".
+7. VISIBILITY TRICKS:
+   - 5 hyper-specific LinkedIn growth and recruiter algorithm actions tailored to targetRole and stack.
 
 ==================================================
 REQUIRED OUTPUT SCHEMA (RETURN ONLY VALID JSON)
@@ -123,22 +126,12 @@ REQUIRED OUTPUT SCHEMA (RETURN ONLY VALID JSON)
   ],
   "top3PinnedSkills": ["Skill 1", "Skill 2", "Skill 3"],
   "recommendedSkillsToAdd": ["Skill 1", "Skill 2"],
-  "bannerStrategy": {
-    "bannerTagline": "Bold primary headline for Canva banner (4-7 words)",
-    "bannerSecondaryText": "Concise subtitle with core stack and value proposition",
-    "designAdvice": "Actionable Canva layout guidance: 1584x396px dimensions, leave lower-left 30% area clear for mobile avatar circle"
-  },
   "featuredSectionRecommendations": [
     {
       "title": "Project Title",
       "reason": "Why this project provides undeniable technical proof",
       "callToAction": "Pin advice"
     }
-  ],
-  "visualPresenceTips": [
-    "Headshot advice",
-    "Custom URL advice",
-    "Canva banner advice"
   ],
   "profileRedFlags": [
     {
