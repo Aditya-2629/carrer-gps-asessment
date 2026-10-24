@@ -213,9 +213,9 @@ export default function FullCareerReportPage() {
             <FileText size={18} className="text-emerald-600" weight="bold" />
             <span>3. AI Resume Deep Diagnosis & Line-by-Line Rewrites</span>
           </h2>
-          {resumeAgent?.overallReview && (
+          {Boolean(typeof resumeAgent?.overallReview === 'string' ? resumeAgent.overallReview : (resumeAgent?.overallReview?.summary || resumeAgent?.overallReview?.text)) && (
             <p className="text-xs text-slate-700 bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 leading-relaxed">
-              {resumeAgent.overallReview}
+              {typeof resumeAgent.overallReview === 'string' ? resumeAgent.overallReview : (resumeAgent.overallReview.summary || resumeAgent.overallReview.text)}
             </p>
           )}
 

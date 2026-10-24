@@ -200,8 +200,13 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('3. AI RESUME DEEP DIAGNOSIS & LINE-BY-LINE AUDIT')
       doc.moveDown(0.3)
 
-      if (resumeAgent?.overallReview) {
-        doc.fillColor('#334155').fontSize(7.5).font('Helvetica').text(resumeAgent.overallReview.slice(0, 320), { width: pageWidth })
+      const rawReview = resumeAgent?.overallReview
+      const reviewText = typeof rawReview === 'string'
+        ? rawReview
+        : rawReview?.summary || rawReview?.text || ''
+
+      if (reviewText) {
+        doc.fillColor('#334155').fontSize(7.5).font('Helvetica').text(reviewText.slice(0, 320), { width: pageWidth })
         doc.moveDown(0.4)
       }
 
