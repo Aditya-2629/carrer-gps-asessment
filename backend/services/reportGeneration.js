@@ -27,13 +27,17 @@ import { jsonrepair } from 'jsonrepair'
 // completeness, and retry once when the draft is incomplete.
 
 const REQUIRED_ATLAS_FIELDS = ['career_health_score', 'score_label', 'score_breakdown', 'market_reality_check', 'critical_issues', 'roadmap']
-const ATLAS_ARRAY_SECTIONS = ['funnel_stages', 'risk_heatmap', 'mission_board', 'roadmap', 'critical_issues', 'rejection_factors']
+const ATLAS_ARRAY_SECTIONS = ['roadmap', 'critical_issues', 'rejection_factors', 'recommended_tools']
+const ATLAS_OBJECT_SECTIONS = ['score_breakdown', 'market_reality_check', 'career_journey', 'funnel_stages', 'risk_heatmap', 'mission_board', 'coach_intervention']
 
 function atlasCompleteness(report) {
   if (!report || typeof report !== 'object') return 0
   let score = 0
   for (const key of REQUIRED_ATLAS_FIELDS) {
     if (report[key] !== undefined && report[key] !== null) score += 1
+  }
+  for (const key of ATLAS_OBJECT_SECTIONS) {
+    if (report[key] && typeof report[key] === 'object' && !Array.isArray(report[key])) score += 1
   }
   for (const key of ATLAS_ARRAY_SECTIONS) {
     if (Array.isArray(report[key]) && report[key].length > 0) score += 1
@@ -52,18 +56,83 @@ function parseAtlasJson(text) {
 
 export { parseAtlasJson, atlasCompleteness }
 
+function deriveFunnelFromAnswers(answers = {}) {
+  const parseNum = (val, defaultVal = 0) => {
+    if (typeof val === 'number') return val
+    if (!val) return defaultVal
+    const match = String(val).match(/\d+/)
+    return match ? parseInt(match[0], 10) : defaultVal
+  }
+
+  let apps = 0
+  const appsVal = answers.appsWeek || answers.applications_count || answers.applications
+  if (typeof appsVal === 'number') apps = appsVal
+  else if (appsVal === '50+' || appsVal === '50-100') apps = 60
+  else if (appsVal === '25-50') apps = 35
+  else if (appsVal === '10-25') apps = 20
+  else if (appsVal === '5-10') apps = 8
+  else if (appsVal === '1-5') apps = 3
+  else apps = parseNum(appsVal, 40)
+
+  const calls = parseNum(answers.humanScreen || answers.recruiter_calls_count || answers.calls, Math.max(1, Math.round(apps * 0.05)))
+  const interviews = parseNum(answers.aiScreen || answers.assessments || answers.interviews_count || answers.interviews, Math.max(0, Math.round(calls * 0.5)))
+  const finals = parseNum(answers.finalRounds || answers.final_rounds_count, Math.max(0, Math.round(interviews * 0.4)))
+  const offers = parseNum(answers.offers || answers.offers_count, 0)
+
+  let biggest_leak = 'Application to Recruiter Screen'
+  if (apps > 0 && (calls / apps) < 0.1) {
+    biggest_leak = 'Application to Recruiter Screen'
+  } else if (calls > 0 && (interviews / calls) < 0.3) {
+    biggest_leak = 'Recruiter Screen to Technical Interview'
+  } else if (interviews > 0 && (finals / interviews) < 0.4) {
+    biggest_leak = 'Technical Assessment to Final Round'
+  }
+
+  return {
+    applications_count: apps,
+    recruiter_calls_count: calls,
+    interviews_count: interviews,
+    final_rounds_count: finals,
+    offers_count: offers,
+    biggest_leak_stage: biggest_leak,
+  }
+}
+
 /**
  * Fixes common LLM shape deviations so the frontend always gets the contract
- * shape. Non-Gemini models (nemotron etc.) sometimes return section objects
- * instead of arrays — e.g. mission_board: {xp_level, missions: [...]} or
- * funnel_stages: {applications_count: 100, ...}. Coerce to arrays.
+ * shape. Ensures objects (funnel_stages, mission_board, risk_heatmap) retain
+ * their object schemas and arrays are coerced safely.
  */
-function normalizeAtlasShapes(report) {
+function normalizeAtlasShapes(report, answers = {}) {
   if (!report || typeof report !== 'object') return report
 
-  // mission_board: { xp_level, missions: [...] } → lift the missions array
-  if (report.mission_board && !Array.isArray(report.mission_board) && Array.isArray(report.mission_board.missions)) {
-    report.mission_board = report.mission_board.missions
+  // mission_board: wrap into object if returned as an array
+  if (Array.isArray(report.mission_board)) {
+    report.mission_board = {
+      xp_level: 'Level 3: Active Strategist',
+      xp_current: 500,
+      missions: report.mission_board,
+    }
+  }
+
+  // funnel_stages: ensure object shape and seed from answers
+  const userFunnel = deriveFunnelFromAnswers(answers)
+  if (!report.funnel_stages || Array.isArray(report.funnel_stages) || typeof report.funnel_stages !== 'object') {
+    report.funnel_stages = {
+      ...userFunnel,
+      diagnosis_message: 'High application drop-off detected at early recruiter screening.',
+    }
+  } else {
+    if (answers && (answers.appsWeek || answers.humanScreen || answers.aiScreen || answers.applications_count)) {
+      report.funnel_stages.applications_count = userFunnel.applications_count || report.funnel_stages.applications_count
+      report.funnel_stages.recruiter_calls_count = userFunnel.recruiter_calls_count ?? report.funnel_stages.recruiter_calls_count
+      report.funnel_stages.interviews_count = userFunnel.interviews_count ?? report.funnel_stages.interviews_count
+      report.funnel_stages.final_rounds_count = userFunnel.final_rounds_count ?? report.funnel_stages.final_rounds_count
+      report.funnel_stages.offers_count = userFunnel.offers_count ?? report.funnel_stages.offers_count
+      if (!report.funnel_stages.biggest_leak_stage) {
+        report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
+      }
+    }
   }
 
   for (const key of ATLAS_ARRAY_SECTIONS) {
@@ -91,11 +160,12 @@ function normalizeAtlasShapes(report) {
 const ATLAS_FORMAT_CONTRACT = `
 
 FORMAT CONTRACT (strict):
-- funnel_stages, risk_heatmap, mission_board, rejection_factors, critical_issues, roadmap, recommended_tools MUST be JSON ARRAYS of objects — never objects with named keys.
+- critical_issues, roadmap, rejection_factors, recommended_tools MUST be JSON ARRAYS of objects.
+- funnel_stages, risk_heatmap, mission_board, career_journey, market_reality_check, score_breakdown, coach_intervention MUST be JSON OBJECTS matching the exact keys in the prompt schema.
 - career_journey MUST be a single object: {"current_phase_id": "...", "guide_message": "..."}.
-- Never wrap arrays inside wrapper objects. Never merge sections. Return every section fully populated.`
+- Never merge sections. Return every section fully populated.`
 
-async function callAtlas(promptText, extraInstructions = '') {
+async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   // Phase E-fix: Atlas routes through the LLM gateway with gemini-3.5-flash-lite as primary
   // and groq (openai/gpt-oss-120b) as immediate failover so report synthesis never starves.
   try {
@@ -110,7 +180,7 @@ async function callAtlas(promptText, extraInstructions = '') {
       maxRetries: 2,
       treatLengthAsRetryable: true,
     })
-    return normalizeAtlasShapes(parseAtlasJson(responseText))
+    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
   } catch (primaryErr) {
     console.warn('[ReportGeneration] Atlas generation via primary model failed/timed out. Falling back to Groq (openai/gpt-oss-120b):', primaryErr.message)
     const { text: responseText } = await llmGateway.generate({
@@ -124,7 +194,7 @@ async function callAtlas(promptText, extraInstructions = '') {
       treatLengthAsRetryable: true,
       bypassCache: true,
     })
-    return normalizeAtlasShapes(parseAtlasJson(responseText))
+    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
   }
 }
 
@@ -230,14 +300,15 @@ export async function generateReportBundle({
   // (missing sections), retry ONCE with an explicit completeness instruction
   // and keep whichever draft is more complete.
   report('atlas_roadmap', 'Generating Atlas strategic career roadmap & executive diagnostic…')
-  let aiReport = await callAtlas(promptText)
+  let aiReport = await callAtlas(promptText, '', user.answers)
   let draftCompleteness = atlasCompleteness(aiReport)
-  if (draftCompleteness < REQUIRED_ATLAS_FIELDS.length + ATLAS_ARRAY_SECTIONS.length - 2) {
+  if (draftCompleteness < REQUIRED_ATLAS_FIELDS.length + ATLAS_ARRAY_SECTIONS.length + ATLAS_OBJECT_SECTIONS.length - 4) {
     report('composing', 'First draft was incomplete — asking Atlas for the full report…')
     try {
       const retryDraft = await callAtlas(
         promptText,
-        '\n\nIMPORTANT: Your previous response was incomplete. Return the COMPLETE JSON object with EVERY section fully populated — especially funnel_stages, risk_heatmap, mission_board, rejection_factors, career_journey, and recommended_tools. Do not skip or shorten any array. If a section is long, prioritize completeness over prose length.'
+        '\n\nIMPORTANT: Your previous response was incomplete. Return the COMPLETE JSON object with EVERY section fully populated — especially funnel_stages, risk_heatmap, mission_board, rejection_factors, career_journey, and recommended_tools. Do not skip or shorten any array. If a section is long, prioritize completeness over prose length.',
+        user.answers
       )
       const retryCompleteness = atlasCompleteness(retryDraft)
       if (retryCompleteness > draftCompleteness) {
@@ -267,6 +338,9 @@ export async function generateReportBundle({
     user.linkedinData = result.linkedinData
   }
 
+  aiReport.user_answers = user.answers || {}
+  aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null
+
   // ── Phase D: Judge Agent quality gate ──────────────────────────────────────
   // Every report is scored on a fixed rubric before shipping. Below-threshold
   // reports get ONE regeneration with the judge's notes; the result ships with
@@ -279,7 +353,7 @@ export async function generateReportBundle({
       let regenerated = false
 
       const keepAgentBundle = (source, target) => {
-        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'dashboard']) {
+        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'dashboard', 'user_answers', 'semantic_profile']) {
           if (source[key] !== undefined) target[key] = source[key]
         }
         return target
@@ -290,7 +364,7 @@ export async function generateReportBundle({
         try {
           const repairNotes = (judge.flags || []).join('; ') || 'Be more specific and warmer; cite the candidate’s actual words.'
           const retryPrompt = `${promptText}\n\nQUALITY NOTES FROM YOUR REVIEWER (fix these in your JSON):\n- ${repairNotes}`
-          const retryReport = await callAtlas(retryPrompt)
+          const retryReport = await callAtlas(retryPrompt, '', user.answers)
           // Anti-degradation guard: a regeneration that LOSES sections (truncation,
           // lazy model) is worse than a below-threshold complete report — keep the
           // current draft unless the retry is at least as complete.

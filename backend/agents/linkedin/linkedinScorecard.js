@@ -229,22 +229,55 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
   let consistency = 100
   if (crossAnalysis?.hasResumeContext) {
     for (const disc of crossAnalysis.discrepancies || []) {
-      if (disc.type === 'title_drift') {
+      const type = disc.type
+      const severity = disc.severity || (['title_drift', 'timeline_drift', 'education_mismatch', 'company_typo_unlinked_logo'].includes(type) ? 'high' : 'medium')
+      
+      if (type === 'company_typo_unlinked_logo') {
         consistency -= 20
         penalties.consistency += 20
-        addIssue('high', 'consistency', disc.title, disc.diagnosis, disc.recommendation)
-      } else if (disc.type === 'timeline_drift') {
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'title_drift') {
         consistency -= 20
         penalties.consistency += 20
-        addIssue('high', 'consistency', disc.title, disc.diagnosis, disc.recommendation)
-      } else if (disc.type === 'role_omission') {
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'timeline_drift') {
+        consistency -= 20
+        penalties.consistency += 20
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'education_mismatch') {
         consistency -= 15
         penalties.consistency += 15
-        addIssue('medium', 'consistency', disc.title, disc.diagnosis, disc.recommendation)
-      } else if (disc.type === 'skill_gap') {
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'incomplete_education_major') {
+        compScore -= 10
+        penalties.completeness += 10
+        addIssue(severity, 'completeness', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'missing_modern_projects') {
         consistency -= 15
         penalties.consistency += 15
-        addIssue('medium', 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'headline_wasted_opener') {
+        branding -= 15
+        penalties.branding += 15
+        addIssue(severity, 'branding', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'zero_recommendations') {
+        if (visibility.hasRecommendations) {
+          visScore -= 15
+          penalties.visibility += 15
+          addIssue(severity, 'visibility', disc.title, disc.diagnosis, disc.recommendation)
+        }
+      } else if (type === 'role_omission') {
+        consistency -= 15
+        penalties.consistency += 15
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else if (type === 'skill_gap') {
+        consistency -= 15
+        penalties.consistency += 15
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
+      } else {
+        consistency -= 10
+        penalties.consistency += 10
+        addIssue(severity, 'consistency', disc.title, disc.diagnosis, disc.recommendation)
       }
     }
 

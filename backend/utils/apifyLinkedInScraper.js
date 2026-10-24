@@ -12,6 +12,196 @@ import { ApifyClient } from 'apify-client'
  * @param {string} linkedinUrl - Candidate's public LinkedIn profile URL
  * @returns {Promise<Object|null>} Structured LinkedIn profile JSON object or null if token not configured
  */
+export const extractImageUrl = (val) => {
+  if (!val) return ''
+  if (typeof val === 'string') return val.trim()
+  if (typeof val === 'object') {
+    if (typeof val.url === 'string') return val.url.trim()
+    if (Array.isArray(val.sizes) && val.sizes.length > 0) {
+      const largest = val.sizes[val.sizes.length - 1]
+      if (typeof largest?.url === 'string') return largest.url.trim()
+    }
+  }
+  return ''
+}
+
+/**
+ * Pure mapper converting raw Apify profile (including harvestapi/linkedin-profile-scraper schema)
+ * into a standardized Canonical LinkedIn Profile object.
+ */
+export function mapApifyProfileToCanonical(profile = {}, formattedUrl = '', actorId = 'harvestapi/linkedin-profile-scraper') {
+  const fullName =
+    profile.fullName ||
+    profile.name ||
+    [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim() ||
+    'Not Specified'
+
+  const rawPicture =
+    profile.pictureUrl ||
+    profile.profilePicture ||
+    profile.avatar ||
+    profile.photoUrl ||
+    profile.displayPictureUrl ||
+    ''
+  const pictureUrl = extractImageUrl(rawPicture)
+  const hasPicture = Boolean(pictureUrl && !/ghost|default|placeholder|camera\.png/i.test(pictureUrl))
+
+  const rawBanner =
+    profile.bannerUrl ||
+    profile.coverUrl ||
+    profile.backgroundUrl ||
+    profile.coverPicture ||
+    profile.backgroundPicture ||
+    profile.banner ||
+    ''
+  const bannerUrl = extractImageUrl(rawBanner)
+  const isDefaultBanner = !bannerUrl || /default-banner|banner-default|default_banner/i.test(bannerUrl)
+  const hasBanner = !isDefaultBanner && bannerUrl.length > 0
+
+  const location =
+    typeof profile.location === 'string'
+      ? profile.location
+      : profile.location?.parsed?.text ||
+        profile.location?.linkedinText ||
+        profile.location?.text ||
+        profile.location?.name ||
+        'Not Specified'
+
+  const rawExperiences =
+    profile.experience ||
+    profile.experiences ||
+    profile.positions ||
+    []
+
+  const experiences = rawExperiences.map((exp) => {
+    const formattedDateRange = [
+      exp.startDate?.text || (exp.startDate?.year ? `${exp.startDate.month ? exp.startDate.month + '/' : ''}${exp.startDate.year}` : exp.startDate),
+      exp.endDate?.text || (exp.endDate?.year ? `${exp.endDate.month ? exp.endDate.month + '/' : ''}${exp.endDate.year}` : (exp.isCurrent ? 'Present' : exp.endDate)),
+    ]
+      .filter(Boolean)
+      .join(' – ')
+
+    return {
+      title: exp.position || exp.title || exp.role || 'N/A',
+      company: exp.companyName || exp.company || 'N/A',
+      companyLogo: exp.companyLogo === null ? null : (extractImageUrl(exp.companyLogo) || null),
+      companyId: exp.companyId || exp.companyLinkedinUrl || null,
+      duration: exp.duration || exp.dateRange || formattedDateRange || 'N/A',
+      startDate: exp.startDate?.text || (exp.startDate?.year ? `${exp.startDate.month ? exp.startDate.month + '/' : ''}${exp.startDate.year}` : (typeof exp.startDate === 'string' ? exp.startDate : null)),
+      endDate: exp.endDate?.text || (exp.endDate?.year ? `${exp.endDate.month ? exp.endDate.month + '/' : ''}${exp.endDate.year}` : (typeof exp.endDate === 'string' ? exp.endDate : null)),
+      location: typeof exp.location === 'string' ? exp.location : (exp.location?.parsed?.text || exp.location?.linkedinText || ''),
+      description: exp.description || '',
+    }
+  })
+
+  const rawEducation = profile.education || profile.educations || []
+  const education = rawEducation.map((edu) => {
+    const dates =
+      edu.period ||
+      edu.dateRange ||
+      [
+        edu.startDate?.text || (edu.startDate?.year ? String(edu.startDate.year) : edu.startDate),
+        edu.endDate?.text || (edu.endDate?.year ? String(edu.endDate.year) : edu.endDate),
+      ]
+        .filter(Boolean)
+        .join(' – ')
+
+    return {
+      school: edu.schoolName || edu.school || edu.institution || edu.university || 'N/A',
+      degree: edu.degree || edu.degreeName || edu.qualification || '',
+      fieldOfStudy: edu.fieldOfStudy || edu.major || null,
+      dates,
+    }
+  })
+
+  const rawCerts = Array.isArray(profile.certifications)
+    ? profile.certifications
+    : Array.isArray(profile.licensesAndCertifications)
+    ? profile.licensesAndCertifications
+    : Array.isArray(profile.licenses)
+    ? profile.licenses
+    : []
+
+  const certifications = rawCerts.map((c) => ({
+    name: c.title || c.name || 'Certification',
+    issuer: c.issuedBy || c.issuer || c.organization || c.authority || 'N/A',
+    issueDate: c.issuedAt || c.issueDate || c.date || c.year || '',
+    url: c.url || c.licenseUrl || '',
+  }))
+
+  const rawProjects = Array.isArray(profile.projects)
+    ? profile.projects
+    : Array.isArray(profile.featuredProjects)
+    ? profile.featuredProjects
+    : Array.isArray(profile.portfolio)
+    ? profile.portfolio
+    : []
+
+  const projects = rawProjects.map((p) => {
+    const dates =
+      p.dates ||
+      p.dateRange ||
+      [p.startDate?.text || p.startDate, p.endDate?.text || p.endDate].filter(Boolean).join(' – ')
+
+    return {
+      title: p.title || p.name || 'Project',
+      description: p.description || p.summary || '',
+      url: p.url || p.link || '',
+      dates,
+    }
+  })
+
+  const topSkills = Array.isArray(profile.topSkills)
+    ? profile.topSkills.map((s) => (typeof s === 'string' ? s : s?.name)).filter(Boolean)
+    : typeof profile.topSkills === 'string'
+    ? profile.topSkills.split(/\s*[•·|,]\s*/).filter(Boolean)
+    : []
+
+  const skills = (profile.skills || [])
+    .map((s) => (typeof s === 'string' ? s : s?.name))
+    .filter(Boolean)
+    .slice(0, 100)
+
+  const sectionTotals = profile.sectionTotals || null
+  const featured = Array.isArray(profile.featured?.slides)
+    ? profile.featured.slides
+    : Array.isArray(profile.featured)
+    ? profile.featured
+    : []
+
+  const recommendationsCount =
+    profile.receivedRecommendations ??
+    profile.recommendationsCount ??
+    (Array.isArray(profile.recommendations) ? profile.recommendations.length : 0)
+
+  return {
+    scraped_via: actorId,
+    url: formattedUrl || profile.url || '',
+    fullName,
+    headline: profile.headline || 'Not Specified',
+    about: profile.about || profile.summary || 'Not Specified',
+    location,
+    pictureUrl,
+    bannerUrl,
+    hasPicture,
+    hasBanner,
+    experiences,
+    education,
+    certifications,
+    projects,
+    skills,
+    topSkills,
+    sectionTotals,
+    featured,
+    connectionsCount: profile.connectionsCount || profile.connections || 'N/A',
+    recommendationsCount,
+  }
+}
+
+/**
+ * Scrapes a complete LinkedIn profile using Apify's cookieless actor:
+ * Default: "harvestapi/linkedin-profile-scraper" (configurable via APIFY_LINKEDIN_ACTOR_ID)
+ */
 export const scrapeLinkedInProfile = async (linkedinUrl) => {
   if (!linkedinUrl || typeof linkedinUrl !== 'string' || !linkedinUrl.trim()) {
     return null
@@ -41,7 +231,7 @@ export const scrapeLinkedInProfile = async (linkedinUrl) => {
   }
 
   const actorId = process.env.APIFY_LINKEDIN_ACTOR_ID || 'harvestapi/linkedin-profile-scraper'
-  const maxItemsLimit = Number(process.env.APIFY_LINKEDIN_MAX_ITEMS) || 35
+  const maxItemsLimit = Number(process.env.APIFY_LINKEDIN_MAX_ITEMS) || 100
 
   try {
     const client = new ApifyClient({ token })
@@ -51,14 +241,14 @@ export const scrapeLinkedInProfile = async (linkedinUrl) => {
       {
         urls: [formattedUrl],
         profileUrls: [formattedUrl],
-        rows: maxItemsLimit,            // MUST BE 35, NEVER 0!
-        maxRowsPerUrl: maxItemsLimit,   // MUST BE 35, NEVER 0!
+        rows: maxItemsLimit,
+        maxRowsPerUrl: maxItemsLimit,
         maxRows: maxItemsLimit,
         maxItems: maxItemsLimit,
         limit: maxItemsLimit,
-        maxSkills: 35,
+        maxSkills: 100,
         maxProfiles: 1,
-        companyProfile: false,          // Disables company sub-crawls!
+        companyProfile: false, // Disables company sub-crawls!
         enrichCompany: false,
         scrapeCompanyDetails: false,
       },
@@ -77,73 +267,7 @@ export const scrapeLinkedInProfile = async (linkedinUrl) => {
       throw new Error('Unable to extract profile data. Please ensure your LinkedIn profile is public and accessible.')
     }
 
-    const profile = items[0]
-
-    const rawPicture = profile.pictureUrl || profile.profilePicture || profile.avatar || profile.photoUrl || profile.displayPictureUrl || ''
-    const pictureUrl = typeof rawPicture === 'string' ? rawPicture.trim() : ''
-    const hasPicture = Boolean(pictureUrl && !/ghost|default|placeholder|camera\.png/i.test(pictureUrl))
-
-    const rawBanner = profile.bannerUrl || profile.coverUrl || profile.backgroundUrl || profile.coverPicture || profile.backgroundPicture || profile.banner || ''
-    const bannerUrl = typeof rawBanner === 'string' ? rawBanner.trim() : ''
-    const isDefaultBanner = !bannerUrl || /default-banner|banner-default|default_banner/i.test(bannerUrl)
-    const hasBanner = !isDefaultBanner && bannerUrl.length > 0
-
-    const rawCerts = Array.isArray(profile.certifications)
-      ? profile.certifications
-      : Array.isArray(profile.licensesAndCertifications)
-      ? profile.licensesAndCertifications
-      : Array.isArray(profile.licenses)
-      ? profile.licenses
-      : []
-    const certifications = rawCerts.map((c) => ({
-      name: c.name || c.title || 'Certification',
-      issuer: c.issuer || c.organization || c.authority || 'Issuing Organization',
-      issueDate: c.issueDate || c.date || c.year || '',
-      url: c.url || c.licenseUrl || '',
-    }))
-
-    const rawProjects = Array.isArray(profile.projects)
-      ? profile.projects
-      : Array.isArray(profile.featuredProjects)
-      ? profile.featuredProjects
-      : Array.isArray(profile.portfolio)
-      ? profile.portfolio
-      : []
-    const projects = rawProjects.map((p) => ({
-      title: p.title || p.name || 'Project',
-      description: p.description || p.summary || '',
-      url: p.url || '',
-      dates: p.dates || p.dateRange || '',
-    }))
-
-    // Return structured JSON formatted specifically for AI context understanding
-    return {
-      scraped_via: actorId,
-      url: formattedUrl,
-      fullName: profile.fullName || profile.name || 'Not Specified',
-      headline: profile.headline || 'Not Specified',
-      about: profile.about || profile.summary || 'Not Specified',
-      location: profile.location || 'Not Specified',
-      pictureUrl,
-      bannerUrl,
-      hasPicture,
-      hasBanner,
-      experiences: (profile.experiences || profile.positions || []).slice(0, 10).map((exp) => ({
-        title: exp.title || exp.role || 'N/A',
-        company: exp.company || exp.companyName || 'N/A',
-        duration: exp.duration || exp.dateRange || 'N/A',
-        description: exp.description || 'N/A',
-      })),
-      education: (profile.educations || profile.education || []).map((edu) => ({
-        school: edu.school || edu.schoolName || 'N/A',
-        degree: edu.degree || edu.degreeName || 'N/A',
-      })),
-      certifications,
-      projects,
-      skills: (profile.skills || []).map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean).slice(0, 35),
-      connectionsCount: profile.connectionsCount || profile.connections || 'N/A',
-      recommendationsCount: profile.recommendationsCount || (profile.recommendations ? profile.recommendations.length : 0),
-    }
+    return mapApifyProfileToCanonical(items[0], formattedUrl, actorId)
   } catch (error) {
     console.error('[Apify LinkedIn Scraper Error]:', error.message)
     throw new Error(error.message.includes('LinkedIn Scraping Error') ? error.message : `LinkedIn Scraping Error: ${error.message}`)

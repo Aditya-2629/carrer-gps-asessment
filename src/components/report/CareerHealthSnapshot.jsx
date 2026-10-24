@@ -19,46 +19,46 @@ export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, 
   // Extract or compute the 4 core dimensions
   // 1. Impact (Resume / Projects)
   const dynResume = Number(
-    scores?.resume?.score ??
-    scores?.resume ??
     resumeAgent?.dashboard?.score ??
+    scores?.resume?.score ??
     resumeJson?.ats_score ??
     reportData?.resume_agent?.dashboard?.score ??
     reportData?.resume_json?.ats_score
   )
-  const resumeScore = !isNaN(dynResume) && dynResume > 0 ? dynResume : 34
+  const resumeScore = !isNaN(dynResume) && dynResume > 0 ? dynResume : 55
   const resumeDiag = safeText(
     scores?.resume?.diagnosis ||
-    resumeAgent?.dashboard?.summary ||
     resumeAgent?.overallReview?.summary ||
-    resumeJson?.executive_ai_critique,
+    resumeAgent?.issues?.[0]?.title ||
+    resumeAgent?.dashboard?.summary,
     'Lacks quantified metrics and business ROI figures.'
   )
 
-  // 2. Positioning (ATS & LinkedIn)
-  const dynPositioning = Number(
+  // 2. Positioning (LinkedIn & Positioning)
+  const liAgent = reportData?.linkedin_agent
+  const dynLinkedin = Number(
+    liAgent?.score ??
     scores?.linkedin?.score ??
     scores?.linkedin ??
-    scores?.positioning?.score ??
-    scores?.positioning ??
-    resumeJson?.ats_score ??
-    reportData?.linkedin_agent?.score
+    scores?.positioning?.score
   )
-  const linkedinScore = !isNaN(dynPositioning) && dynPositioning > 0 ? dynPositioning : 38
+  const linkedinScore = !isNaN(dynLinkedin) && dynLinkedin > 0 ? dynLinkedin : 50
   const linkedinDiag = safeText(
-    scores?.linkedin?.diagnosis ||
-    reportData?.linkedin_agent?.summary ||
-    scores?.positioning?.diagnosis,
-    'Decent completeness but low recruiter keyword density.'
+    liAgent?.issues?.[0]?.title ||
+    liAgent?.issues?.[0]?.diagnosis ||
+    scores?.linkedin?.diagnosis,
+    'Profile completeness is good but keyword breadth can be enhanced.'
   )
 
   // 3. Job Search (Outreach & Application Velocity)
-  const outreachScore = Number(scores?.outreach?.score ?? scores?.outreach) || 22
+  const outreachScore = Number(scores?.outreach?.score ?? scores?.outreach ?? reportData?.scores?.outreach?.score) || 45
   const outreachDiag = safeText(scores?.outreach?.diagnosis, 'Outreach volume is low, relying mostly on standard Easy Apply.')
 
   // 4. Interview Readiness
-  const interviewScore = Number(scores?.interview?.score ?? scores?.interviews?.score ?? scores?.interview ?? scores?.interviews) || 42
+  const interviewScore = Number(scores?.interview?.score ?? scores?.interviews?.score ?? reportData?.scores?.interview?.score) || 50
   const interviewDiag = safeText(scores?.interview?.diagnosis || scores?.interviews?.diagnosis, 'Good technical answers, needs STAR behavioral structure.')
+
+  const hasLiData = Boolean(liAgent?.dataAvailable || liAgent?.score || reportData?.linkedin_json)
 
   const METRICS = [
     {
@@ -72,12 +72,12 @@ export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, 
     },
     {
       id: 'positioning',
-      label: 'ATS & Positioning',
+      label: 'LinkedIn & Positioning',
       score: linkedinScore,
       icon: Target,
       explanation: linkedinDiag,
-      targetSection: 'diagnosis',
-      tab: 'resume',
+      targetSection: hasLiData ? 'linkedin-ai' : 'diagnosis',
+      tab: 'linkedin',
       color: linkedinScore >= 60 ? 'emerald' : linkedinScore >= 40 ? 'amber' : 'rose',
     },
     {

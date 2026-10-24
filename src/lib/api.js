@@ -291,10 +291,10 @@ export const api = {
 export function normalizeReportData(data) {
   if (!data) return null
 
-  const scoresResume = data.scores?.resume?.score ?? data.score_breakdown?.resume?.score ?? data.score_breakdown?.resume ?? 50
-  const scoresResumeDiag = data.scores?.resume?.diagnosis ?? data.score_breakdown?.resume?.diagnosis ?? 'Lacks customized keyword matching.'
-  const scoresLinkedin = data.scores?.linkedin?.score ?? data.score_breakdown?.linkedin?.score ?? data.score_breakdown?.linkedin ?? 50
-  const scoresLinkedinDiag = data.scores?.linkedin?.diagnosis ?? data.score_breakdown?.linkedin?.diagnosis ?? 'Profile activity is low.'
+  const scoresResume = data.resume_agent?.dashboard?.score ?? data.scores?.resume?.score ?? data.score_breakdown?.resume?.score ?? data.resume_json?.ats_score ?? 50
+  const scoresResumeDiag = data.scores?.resume?.diagnosis ?? data.score_breakdown?.resume?.diagnosis ?? data.resume_agent?.overallReview?.summary ?? data.resume_agent?.issues?.[0]?.diagnosis ?? 'Lacks customized keyword matching.'
+  const scoresLinkedin = data.linkedin_agent?.score ?? data.scores?.linkedin?.score ?? data.score_breakdown?.linkedin?.score ?? 50
+  const scoresLinkedinDiag = data.scores?.linkedin?.diagnosis ?? data.score_breakdown?.linkedin?.diagnosis ?? data.linkedin_agent?.issues?.[0]?.diagnosis ?? 'Profile activity is low.'
   const scoresOutreach = data.scores?.outreach?.score ?? data.score_breakdown?.outreach?.score ?? data.score_breakdown?.outreach ?? 50
   const scoresOutreachDiag = data.scores?.outreach?.diagnosis ?? data.score_breakdown?.outreach?.diagnosis ?? 'Needs multi-channel networking.'
   const scoresInterview = data.scores?.interview?.score ?? data.score_breakdown?.interviews?.score ?? data.score_breakdown?.interview?.score ?? 50
@@ -309,12 +309,20 @@ export function normalizeReportData(data) {
     action_steps: issue.action_steps || []
   }))
 
-  const roadmap = (data.roadmap || []).map((w, idx) => ({
-    week: w.week || (idx + 1),
-    title: w.title || w.theme || w.goal || 'Action Sprint',
-    goal: w.goal || 'Urgent Sprint Objective',
-    tasks: w.tasks || [],
-  }))
+  const roadmap = (data.roadmap || []).map((w, idx) => {
+    const rawTasks = Array.isArray(w.tasks) && w.tasks.length > 0
+      ? w.tasks
+      : Array.isArray(w.actions) && w.actions.length > 0
+      ? w.actions
+      : [w.action, w.description, w.impact].filter(Boolean)
+    return {
+      week: w.week || w.timeframe || `Phase ${idx + 1}`,
+      title: w.title || w.theme || w.stage || w.goal || `Phase ${idx + 1}`,
+      goal: w.goal || w.impact || w.objective || '',
+      tasks: rawTasks,
+      successSignal: w.successSignal || w.success_signal || w.impact || '',
+    }
+  })
 
   const defaultUrls = {
     'jobscan': 'https://jobscan.co',
@@ -373,6 +381,8 @@ export function normalizeReportData(data) {
     linkedin_agent: data.linkedin_agent ?? null,
     judge: data.judge ?? null,
     dashboard: data.dashboard ?? null,
+    user_answers: data.user_answers ?? null,
+    semantic_profile: data.semantic_profile ?? null,
     summary: data.summary || 'Your custom AI assessment report has been successfully generated and compiled based on your 31 answers.',
   }
 }

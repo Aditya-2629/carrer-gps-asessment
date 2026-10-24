@@ -1,15 +1,3 @@
-/**
- * LinkedIn Cross-Agent Discrepancy Engine
- *
- * Compares normalized LinkedIn profile against Resume Agent's canonical facts:
- * 1. timelineMismatches: Checks if dates or company names contradict between Resume & LinkedIn
- * 2. titleDrift: Flags when LinkedIn title differs from target role or resume title
- * 3. skillGaps: Compares top verified skills on resume against LinkedIn skills
- * 4. droppedImpact: Checks if top quantified resume achievements are missing from LinkedIn descriptions
- *
- * 100% deterministic, zero LLM calls.
- */
-
 import { normalizeLinkedInProfile } from './linkedinNormalizer.js'
 
 function normalizeName(str) {
@@ -34,6 +22,96 @@ function extractYears(dateStr) {
   const matches = String(dateStr).match(/\b(19\d\d|20\d\d)\b/g)
   return matches ? matches.map((y) => parseInt(y, 10)) : []
 }
+
+function levenshtein(a, b) {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  const matrix = []
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i]
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        )
+      }
+    }
+  }
+  return matrix[b.length][a.length]
+}
+
+function getCompanySegments(comp) {
+  if (!comp) return []
+  const norm = normalizeName(comp)
+  const parts = String(comp)
+    .split(/[/|\\]/)
+    .map(normalizeName)
+    .filter(Boolean)
+  return Array.from(new Set([norm, ...parts]))
+}
+
+function matchCompany(rComp, lComp) {
+  if (!rComp || !lComp) return null
+  const rNorm = normalizeName(rComp)
+  const lNorm = normalizeName(lComp)
+  if (!rNorm || !lNorm) return null
+
+  // 1. Exact or substring match
+  if (rNorm === lNorm || rNorm.includes(lNorm) || lNorm.includes(rNorm)) {
+    return { matched: true, exact: rNorm === lNorm, diff: 0 }
+  }
+
+  // 2. Segment match (e.g. "It America / Abbott Laboratories" vs "Abbot Laboratories")
+  const rSegs = getCompanySegments(rComp)
+  const lSegs = getCompanySegments(lComp)
+  for (const rs of rSegs) {
+    for (const ls of lSegs) {
+      if (rs === ls || rs.includes(ls) || ls.includes(rs)) {
+        return { matched: true, exact: rs === ls, diff: 0 }
+      }
+      // Check word level Levenshtein
+      const rWords = rs.split(' ').filter((w) => w.length >= 4)
+      const lWords = ls.split(' ').filter((w) => w.length >= 4)
+      for (const rw of rWords) {
+        for (const lw of lWords) {
+          const dist = levenshtein(rw, lw)
+          if (dist > 0 && dist <= 2 && Math.max(rw.length, lw.length) >= 5) {
+            return { matched: true, exact: false, diff: dist, rWord: rw, lWord: lw }
+          }
+        }
+      }
+    }
+  }
+
+  return null
+}
+
+const PRIORITY_TECH = [
+  'LangGraph',
+  'LangChain',
+  'RAG',
+  'ChromaDB',
+  'FastAPI',
+  'Spring AI',
+  'Next.js',
+  'TypeScript',
+  'GraphQL',
+  'Redis',
+  'Kubernetes',
+  'AWS',
+  'Azure',
+  'Docker',
+  'PostgreSQL',
+  'MongoDB',
+  'Microservices',
+  'REST APIs',
+]
 
 /**
  * Cross-analyzes a LinkedIn profile with the candidate's canonical resume.
@@ -134,6 +212,31 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     discrepancies.push(connObs)
   }
 
+  // Red Flag 7B: 0 Recommendations Despite Strong Network / Experience
+  const recCount = profile.recommendationsCount ?? linkedInSignals?.visibility?.recommendationsCount ?? 0
+  const rawResumeExperiences = Array.isArray(canonicalResume?.experience)
+    ? canonicalResume.experience
+    : Array.isArray(canonicalResume?.experiences)
+    ? canonicalResume.experiences
+    : []
+  if (
+    recCount === 0 &&
+    (connCount >= 500 || (profile.experiences && profile.experiences.length >= 2) || rawResumeExperiences.length >= 2)
+  ) {
+    const zeroRecObs = {
+      id: 'trust_zero_recommendations',
+      type: 'zero_recommendations',
+      severity: 'medium',
+      title: '0 Recommendations Despite Established Enterprise Career',
+      resumeClaim: `${rawResumeExperiences.length} verified enterprise roles`,
+      linkedinClaim: `${connCount ? `${connCount}+` : '500+'} connections, 0 recommendations`,
+      diagnosis: 'Your profile has strong connections and multiple engineering positions but zero recommendations. Public social proof from engineering managers or tech leads acts as a decisive trust signal for recruiters.',
+      recommendation: 'Request 2-3 brief recommendations from former engineering managers or senior colleagues highlighting your technical delivery and team collaboration.',
+    }
+    visualIssues.push(zeroRecObs)
+    discrepancies.push(zeroRecObs)
+  }
+
   // ── 0B. Above-The-Fold About Hook Audit (<210 Characters) ─────────────────
   const rawAbout = (profile.about || '').trim()
   if (!rawAbout || rawAbout.length < 50) {
@@ -207,53 +310,69 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     }
   }
 
-  const resumeExperiences = Array.isArray(canonicalResume.experience)
-    ? canonicalResume.experience
-    : Array.isArray(canonicalResume.experiences)
-    ? canonicalResume.experiences
-    : []
+  const resumeExperiences = rawResumeExperiences
   const linkedInExperiences = Array.isArray(profile.experiences) ? profile.experiences : []
   const linkedInSkills = Array.isArray(profile.skills) ? profile.skills : []
   const normalizedLinkedInSkills = new Set(linkedInSkills.map(normalizeSkill).filter(Boolean))
 
-  // ── 1. Headline vs Target Role Title Drift ─────────────────────────────────
-  if (targetRole && profile.headline) {
-    const roleTokens = targetRole.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
-    const hlLower = profile.headline.toLowerCase()
-    const matches = roleTokens.filter((token) => hlLower.includes(token)).length
-    if (roleTokens.length > 0 && matches === 0) {
-      const headlineObservation = {
-        id: `drift_headline_001`,
-        type: 'headline_target_drift',
+  // ── 1. Headline vs Target Role Title Drift & Wasted Opener (Red Flag 7A) ───
+  if (profile.headline) {
+    const isWastedOpener =
+      /^(actively\s+seeking|seeking|looking\s+for|open\s+to|searching\s+for|aspiring)\b/i.test(profile.headline.trim()) ||
+      /\|\s*UCM\s*\|/i.test(profile.headline)
+
+    if (isWastedOpener) {
+      const wastedHlObs = {
+        id: 'headline_wasted_prefix',
+        type: 'headline_wasted_opener',
         severity: 'medium',
-        title: `Headline Diverges from Target Role ("${targetRole}")`,
-        resumeClaim: targetRole,
+        title: 'Passive Job-Seeker Opener Wasting Prime Headline SEO (First 50 Chars)',
+        resumeClaim: targetRole || 'Target Role Positioning',
         linkedinClaim: profile.headline,
-        diagnosis: `Your resume is positioned toward "${targetRole}", but your LinkedIn headline reads "${profile.headline}". Recruiter boolean searches for "${targetRole}" will fail to index your profile.`,
-        recommendation: `Align your headline with "${targetRole}" to maintain a single unified career narrative across all channels.`,
+        diagnosis:
+          'Recruiters only see the first ~50–60 characters in search cards and mobile feeds. Leading with "Actively seeking..." or school acronyms instead of your target engineering role wastes prime SEO real estate and lowers click-through rate.',
+        recommendation:
+          'Lead immediately with your target title and core technical stack (e.g., "Senior Full Stack Software Developer | Java · Spring Boot · React · Microservices").',
       }
-      titleDrift.push(headlineObservation)
-      discrepancies.push(headlineObservation)
+      titleDrift.push(wastedHlObs)
+      discrepancies.push(wastedHlObs)
+    }
+
+    if (targetRole) {
+      const roleTokens = targetRole.toLowerCase().split(/\s+/).filter((w) => w.length > 2)
+      const hlLower = profile.headline.toLowerCase()
+      const matches = roleTokens.filter((token) => hlLower.includes(token)).length
+      if (roleTokens.length > 0 && matches === 0 && !isWastedOpener) {
+        const headlineObservation = {
+          id: `drift_headline_001`,
+          type: 'headline_target_drift',
+          severity: 'medium',
+          title: `Headline Diverges from Target Role ("${targetRole}")`,
+          resumeClaim: targetRole,
+          linkedinClaim: profile.headline,
+          diagnosis: `Your resume is positioned toward "${targetRole}", but your LinkedIn headline reads "${profile.headline}". Recruiter boolean searches for "${targetRole}" will fail to index your profile.`,
+          recommendation: `Align your headline with "${targetRole}" to maintain a single unified career narrative across all channels.`,
+        }
+        titleDrift.push(headlineObservation)
+        discrepancies.push(headlineObservation)
+      }
     }
   }
 
   // ── 2. Experience Role, Company & Timeline Analysis ────────────────────────
   for (const rExp of resumeExperiences) {
-    const rCompanyNorm = normalizeName(rExp.company)
-    if (!rCompanyNorm) continue
+    let matchedExp = null
+    let matchMeta = null
+    for (const le of linkedInExperiences) {
+      const match = matchCompany(rExp.company, le.company)
+      if (match?.matched) {
+        matchedExp = le
+        matchMeta = match
+        break
+      }
+    }
 
-    // Find matching company in LinkedIn experiences
-    const lExp = linkedInExperiences.find((le) => {
-      const lCompanyNorm = normalizeName(le.company)
-      return (
-        lCompanyNorm &&
-        (rCompanyNorm.includes(lCompanyNorm) ||
-          lCompanyNorm.includes(rCompanyNorm) ||
-          rCompanyNorm.split(' ')[0] === lCompanyNorm.split(' ')[0])
-      )
-    })
-
-    if (!lExp) {
+    if (!matchedExp) {
       // Role present on resume but omitted on LinkedIn
       if (rExp.isCurrent || (rExp.bullets && rExp.bullets.length >= 2)) {
         const omission = {
@@ -273,7 +392,28 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       continue
     }
 
-    // Check Title Drift at this company
+    const lExp = matchedExp
+
+    // Red Flag 1: Company Name Typo & Missing Logo
+    const hasSpellingMismatch = matchMeta?.diff > 0
+    const hasNullLogo = lExp.companyLogo === null
+    if (hasSpellingMismatch || hasNullLogo) {
+      const typoObs = {
+        id: `company_typo_${timelineMismatches.length + 1}`,
+        type: 'company_typo_unlinked_logo',
+        severity: 'high',
+        title: 'Company Name Typo & Missing Official Logo on LinkedIn',
+        company: rExp.company,
+        resumeClaim: rExp.company,
+        linkedinClaim: `${lExp.company}${hasNullLogo ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
+        diagnosis: `Misspelling the employer name on LinkedIn ("${lExp.company}" vs "${rExp.company}") prevents LinkedIn from binding the official company page entity and leaves a generic placeholder logo, immediately raising authenticity flags during recruiter screening.`,
+        recommendation: `Fix the spelling to match the official LinkedIn Company Page ("${rExp.company}") and select the verified organization from the dropdown so the official logo renders.`,
+      }
+      timelineMismatches.push(typoObs)
+      discrepancies.push(typoObs)
+    }
+
+    // Red Flag 2: Check Title Drift at this company
     const rRoleNorm = normalizeName(rExp.role)
     const lRoleNorm = normalizeName(lExp.title)
     if (rRoleNorm && lRoleNorm && rRoleNorm !== lRoleNorm) {
@@ -352,7 +492,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     }
   }
 
-  // ── 4. Skill Coverage Gap Check ──────────────────────────────────────────
+  // ── 4. Skill Coverage Gap Check & Prioritized Tech (Red Flag 6) ────────────
   const resumeSkills = []
   if (Array.isArray(canonicalResume.skills)) {
     for (const s of canonicalResume.skills) {
@@ -366,6 +506,33 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     }
   }
 
+  // Also scan projects and experiences for priority technologies
+  for (const p of canonicalResume.projects || []) {
+    for (const t of p.technologies || p.skills || []) {
+      if (!resumeSkills.includes(t)) resumeSkills.push(t)
+    }
+    for (const b of p.bullets || []) {
+      const text = typeof b === 'string' ? b : b.text || ''
+      for (const pt of PRIORITY_TECH) {
+        const regex = new RegExp(`\\b${pt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (regex.test(text) && !resumeSkills.includes(pt)) {
+          resumeSkills.push(pt)
+        }
+      }
+    }
+  }
+  for (const e of canonicalResume.experience || canonicalResume.experiences || []) {
+    for (const b of e.bullets || []) {
+      const text = typeof b === 'string' ? b : b.text || ''
+      for (const pt of PRIORITY_TECH) {
+        const regex = new RegExp(`\\b${pt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+        if (regex.test(text) && !resumeSkills.includes(pt)) {
+          resumeSkills.push(pt)
+        }
+      }
+    }
+  }
+
   for (const skill of resumeSkills) {
     const norm = normalizeSkill(skill)
     if (!norm) continue
@@ -375,6 +542,13 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       }
     }
   }
+
+  // Sort missing skills so modern in-demand technologies are at the top
+  missingSkills.sort((a, b) => {
+    const aPri = PRIORITY_TECH.some((pt) => pt.toLowerCase() === a.toLowerCase()) ? 1 : 0
+    const bPri = PRIORITY_TECH.some((pt) => pt.toLowerCase() === b.toLowerCase()) ? 1 : 0
+    return bPri - aPri
+  })
 
   if (missingSkills.length >= 3) {
     const topMissingPreview = missingSkills.slice(0, 5).join(', ')
@@ -393,11 +567,124 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     discrepancies.push(skillGapObs)
   }
 
-  // ── 5. Missing Sections Check (Certifications, Projects / Featured, Education) ──
-  // A. Resume Certifications Missing on LinkedIn
-  const resumeCerts = Array.isArray(canonicalResume.certifications)
-    ? canonicalResume.certifications
-    : []
+  // ── 5. Missing Sections Check (Projects, Education, Certifications) ───────
+  // Red Flag 3: Projects Check
+  const resumeProjects = Array.isArray(canonicalResume.projects) ? canonicalResume.projects : []
+  const linkedInProjects = Array.isArray(profile.projects) ? profile.projects : []
+
+  if (resumeProjects.length > 0) {
+    const isProjectMatch = (rp, lp) => {
+      const rTitle = normalizeName(rp.title || rp.name)
+      const lTitle = normalizeName(lp.title || lp.name)
+      if (!rTitle || !lTitle) return false
+      if (rTitle === lTitle || rTitle.includes(lTitle) || lTitle.includes(rTitle)) return true
+      const rWords = rTitle.split(' ').filter((w) => w.length >= 4)
+      const lWords = lTitle.split(' ').filter((w) => w.length >= 4)
+      const common = rWords.filter((w) => lWords.includes(w))
+      return common.length >= 2
+    }
+
+    const missingModernProjects = resumeProjects.filter((rp) => !linkedInProjects.some((lp) => isProjectMatch(rp, lp)))
+
+    if (missingModernProjects.length > 0) {
+      const projectNames = missingModernProjects.map((p) => p.title || p.name).filter(Boolean).slice(0, 3).join(', ')
+      const projectOmission = {
+        id: `section_missing_projects_${missingSections.length + 1}`,
+        type: 'missing_modern_projects',
+        severity: 'high',
+        title: `Top Resume Projects Missing from LinkedIn (${projectNames})`,
+        company: 'Featured Projects',
+        resumeClaim: `Key verified technical projects: ${projectNames}`,
+        linkedinClaim: linkedInProjects.length > 0
+          ? `Only older / legacy projects listed (${linkedInProjects.map((p) => p.title || p.name).slice(0, 3).join(', ')})`
+          : 'No matching projects found on LinkedIn profile',
+        diagnosis:
+          'Recruiters checking LinkedIn only see outdated academic/legacy projects while your strongest modern engineering projects from the resume are completely absent from your LinkedIn Projects and Featured sections.',
+        recommendation: `Add your top modern resume projects (${projectNames}) to your LinkedIn Projects and Featured sections with GitHub links and architecture overviews.`,
+      }
+      const omissionType = linkedInProjects.length === 0 ? 'missing_projects' : 'missing_modern_projects'
+      missingSections.push({ ...projectOmission, type: omissionType })
+      discrepancies.push(projectOmission)
+    }
+  }
+
+  // Red Flag 4 & 5: Education Discrepancies
+  const resumeEdu = Array.isArray(canonicalResume.education) ? canonicalResume.education : []
+  const linkedInEdu = Array.isArray(profile.education) ? profile.education : []
+
+  if (linkedInEdu.length > 0 && resumeEdu.length > 0) {
+    for (const lEdu of linkedInEdu) {
+      const lSchoolNorm = normalizeName(lEdu.school)
+      if (!lSchoolNorm) continue
+
+      const matchedResumeEdu = resumeEdu.find((re) => {
+        const rSchoolNorm = normalizeName(re.institution || re.school || re.degree)
+        return (
+          rSchoolNorm &&
+          (rSchoolNorm.includes(lSchoolNorm) ||
+            lSchoolNorm.includes(rSchoolNorm) ||
+            rSchoolNorm.split(' ')[0] === lSchoolNorm.split(' ')[0])
+        )
+      })
+
+      if (!matchedResumeEdu) {
+        // Red Flag 4: Unlisted LinkedIn Degree Missing from Resume
+        const rSummary =
+          resumeEdu.map((e) => e.institution || e.school || e.degree).filter(Boolean).join(', ') || 'Listed resume education'
+        const unlistedEduObs = {
+          id: `edu_unlisted_${missingSections.length + 1}`,
+          type: 'education_mismatch',
+          severity: 'high',
+          title: `Unlisted LinkedIn Degree / Institution ("${lEdu.school}") Missing from Resume`,
+          company: 'Education',
+          resumeClaim: rSummary,
+          linkedinClaim: `${lEdu.degree || 'Degree'}${lEdu.fieldOfStudy ? ` (${lEdu.fieldOfStudy})` : ''} at ${lEdu.school} (${lEdu.dates || 'Dates unlisted'})`,
+          diagnosis: `Having an active or doctoral program (${lEdu.degree || 'Degree'} at ${lEdu.school}) on LinkedIn that is omitted from the resume triggers immediate recruiter confusion regarding student status, work authorization (CPT/OPT), and full-time availability.`,
+          recommendation: `Align your academic timeline across both documents. If this is an active degree program, state it consistently or provide context on your full-time availability.`,
+        }
+        missingSections.push(unlistedEduObs)
+        discrepancies.push(unlistedEduObs)
+      } else {
+        // Red Flag 5: Incomplete Education Metadata on LinkedIn — Missing fieldOfStudy
+        const hasFieldOfStudy = Boolean(lEdu.fieldOfStudy && lEdu.fieldOfStudy.trim())
+        const degreeHasField = /\b(computer science|engineering|software|electrical|data|information|business|mathematics)\b/i.test(lEdu.degree || '')
+        if (!hasFieldOfStudy && !degreeHasField) {
+          const missingFieldObs = {
+            id: `edu_missing_field_${missingSections.length + 1}`,
+            type: 'incomplete_education_major',
+            severity: 'medium',
+            title: `Missing Field of Study for ${lEdu.degree || 'Degree'} at ${lEdu.school}`,
+            company: 'Education',
+            resumeClaim: matchedResumeEdu.degree || 'Bachelor\'s with specified major',
+            linkedinClaim: `Degree: "${lEdu.degree}", Field of Study: Not Specified (null)`,
+            diagnosis: `Leaving the Field of Study blank prevents LinkedIn Recruiter filters for technical degrees (e.g. Computer Science, Electrical Engineering) from qualifying your profile.`,
+            recommendation: `Edit the education entry for ${lEdu.school} on LinkedIn to explicitly set the Field of Study.`,
+          }
+          missingSections.push(missingFieldObs)
+          discrepancies.push(missingFieldObs)
+        }
+      }
+    }
+  } else if (resumeEdu.length > 0 && linkedInEdu.length === 0) {
+    const institutions = resumeEdu.map((e) => e.institution || e.school).filter(Boolean).join(', ')
+    const degree = resumeEdu[0]?.degree || 'Degree'
+    const eduOmission = {
+      id: `section_missing_education_${missingSections.length + 1}`,
+      type: 'missing_education',
+      severity: 'medium',
+      title: 'Education Section Missing or Incomplete on LinkedIn',
+      company: 'Education',
+      resumeClaim: `${degree} from ${institutions || 'University'}`,
+      linkedinClaim: 'No education entries listed on LinkedIn profile',
+      diagnosis: `Your resume lists degrees from ${institutions || 'University'}, but your LinkedIn Education section is absent. Many recruiter automated screening pipelines filter strictly on verified education credentials.`,
+      recommendation: `Add your complete education background (${institutions || 'University'}) to your LinkedIn profile.`,
+    }
+    missingSections.push(eduOmission)
+    discrepancies.push(eduOmission)
+  }
+
+  // Certifications
+  const resumeCerts = Array.isArray(canonicalResume.certifications) ? canonicalResume.certifications : []
   const linkedInCerts = Array.isArray(profile.certifications) ? profile.certifications : []
 
   if (resumeCerts.length > 0) {
@@ -426,49 +713,6 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       missingSections.push(certOmission)
       discrepancies.push(certOmission)
     }
-  }
-
-  // B. Verified Resume Projects Missing from LinkedIn Featured / Projects
-  const resumeProjects = Array.isArray(canonicalResume.projects) ? canonicalResume.projects : []
-  const linkedInProjects = Array.isArray(profile.projects) ? profile.projects : []
-
-  if (resumeProjects.length > 0 && linkedInProjects.length === 0) {
-    const projectNames = resumeProjects.map((p) => p.title || p.name).filter(Boolean).slice(0, 3).join(', ')
-    const projectOmission = {
-      id: `section_missing_projects_${missingSections.length + 1}`,
-      type: 'missing_projects',
-      severity: 'medium',
-      title: 'Verified Technical Projects Missing from LinkedIn Featured',
-      company: 'Featured Projects',
-      resumeClaim: `${resumeProjects.length} key projects on resume (${projectNames || 'Technical Projects'})`,
-      linkedinClaim: 'No featured projects or portfolio items found on profile',
-      diagnosis: `Your resume highlights substantial technical projects (${projectNames || 'projects'}), but your LinkedIn profile has no Featured Projects or portfolio items pinned. Technical hiring managers scan the Featured section for architecture depth.`,
-      recommendation: `Feature 2-3 of your top projects (${projectNames || 'projects'}) in your LinkedIn Featured section with GitHub links or live demos.`,
-    }
-    missingSections.push(projectOmission)
-    discrepancies.push(projectOmission)
-  }
-
-  // C. Education Credentials Missing on LinkedIn
-  const resumeEdu = Array.isArray(canonicalResume.education) ? canonicalResume.education : []
-  const linkedInEdu = Array.isArray(profile.education) ? profile.education : []
-
-  if (resumeEdu.length > 0 && linkedInEdu.length === 0) {
-    const institutions = resumeEdu.map((e) => e.institution || e.school).filter(Boolean).join(', ')
-    const degree = resumeEdu[0]?.degree || 'Degree'
-    const eduOmission = {
-      id: `section_missing_education_${missingSections.length + 1}`,
-      type: 'missing_education',
-      severity: 'medium',
-      title: 'Education Section Missing or Incomplete on LinkedIn',
-      company: 'Education',
-      resumeClaim: `${degree} from ${institutions || 'University'}`,
-      linkedinClaim: 'No education entries listed on LinkedIn profile',
-      diagnosis: `Your resume lists degrees from ${institutions || 'University'}, but your LinkedIn Education section is absent. Many recruiter automated screening pipelines filter strictly on verified education credentials.`,
-      recommendation: `Add your complete education background (${institutions || 'University'}) to your LinkedIn profile.`,
-    }
-    missingSections.push(eduOmission)
-    discrepancies.push(eduOmission)
   }
 
   const timelineWarnings = [...timelineMismatches]
@@ -503,3 +747,4 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 }
 
 export default { analyzeCrossAgentDiscrepancies }
+

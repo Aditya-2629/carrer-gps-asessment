@@ -9,15 +9,34 @@
 
 const NOT_SPECIFIED = /^(?:not\s*specified|n\/?a|none|null|undefined|unknown|\s*)$/i
 
+export function extractImageUrl(val) {
+  if (!val) return ''
+  if (typeof val === 'string') return val.trim()
+  if (typeof val === 'object') {
+    if (typeof val.url === 'string') return val.url.trim()
+    if (Array.isArray(val.sizes) && val.sizes.length > 0) {
+      const largest = val.sizes[val.sizes.length - 1]
+      if (typeof largest?.url === 'string') return largest.url.trim()
+    }
+  }
+  return ''
+}
+
 /**
  * Strips HTML tags, decodes common entities, and trims whitespace.
+ * Never outputs "[object Object]".
  *
  * @param {any} val
  * @returns {string} Sanitized string or empty string
  */
 export function sanitizeText(val) {
   if (val === null || val === undefined) return ''
-  let str = String(val)
+  let str = ''
+  if (typeof val === 'object') {
+    str = val.url || val.parsed?.text || val.linkedinText || val.text || val.name || ''
+  } else {
+    str = String(val)
+  }
   // Strip basic HTML tags
   str = str.replace(/<[^>]*>/g, ' ')
   // Replace HTML entities
@@ -59,23 +78,34 @@ export function parseCount(val) {
 function normalizeExperience(exp) {
   if (!exp || typeof exp !== 'object') return null
 
-  const title = sanitizeText(exp.title || exp.role || exp.position)
-  const company = sanitizeText(exp.company || exp.companyName || exp.organization)
+  const title = sanitizeText(exp.position || exp.title || exp.role)
+  const company = sanitizeText(exp.companyName || exp.company || exp.organization)
   if (!title && !company) return null
 
+  const formattedDateRange = [
+    exp.startDate?.text || (exp.startDate?.year ? `${exp.startDate.month ? exp.startDate.month + '/' : ''}${exp.startDate.year}` : exp.startDate),
+    exp.endDate?.text || (exp.endDate?.year ? `${exp.endDate.month ? exp.endDate.month + '/' : ''}${exp.endDate.year}` : (exp.isCurrent ? 'Present' : exp.endDate)),
+  ]
+    .filter(Boolean)
+    .join(' – ')
+
   const dates = sanitizeText(
-    exp.dates ||
+    exp.duration ||
     exp.dateRange ||
+    exp.dates ||
     exp.timePeriod ||
-    [exp.startDate, exp.endDate || (exp.isCurrent ? 'Present' : '')].filter(Boolean).join(' – ')
+    formattedDateRange
   )
 
   const description = sanitizeText(exp.description || exp.summary || exp.details)
-  const location = sanitizeText(exp.location || exp.geo)
+  const location = sanitizeText(exp.location?.parsed?.text || exp.location?.linkedinText || exp.location || exp.geo)
+  const companyLogo = exp.companyLogo === null ? null : (extractImageUrl(exp.companyLogo) || null)
 
   return {
     title: title || 'Role Not Specified',
     company: company || 'Company Not Specified',
+    companyLogo,
+    companyId: exp.companyId || exp.companyLinkedinUrl || null,
     dates,
     description,
     location,
@@ -92,15 +122,21 @@ function normalizeExperience(exp) {
 function normalizeEducation(edu) {
   if (!edu || typeof edu !== 'object') return null
 
-  const school = sanitizeText(edu.school || edu.schoolName || edu.institution || edu.university)
+  const school = sanitizeText(edu.schoolName || edu.school || edu.institution || edu.university)
   const degree = sanitizeText(edu.degree || edu.degreeName || edu.qualification)
-  const fieldOfStudy = sanitizeText(edu.fieldOfStudy || edu.major || edu.field)
+  const fieldOfStudy = sanitizeText(edu.fieldOfStudy || edu.major || edu.field) || null
   if (!school && !degree) return null
 
   const dates = sanitizeText(
-    edu.dates ||
+    edu.period ||
     edu.dateRange ||
-    [edu.startDate, edu.endDate].filter(Boolean).join(' – ')
+    edu.dates ||
+    [
+      edu.startDate?.text || (edu.startDate?.year ? String(edu.startDate.year) : edu.startDate),
+      edu.endDate?.text || (edu.endDate?.year ? String(edu.endDate.year) : edu.endDate),
+    ]
+      .filter(Boolean)
+      .join(' – ')
   )
 
   return {
@@ -119,10 +155,10 @@ function normalizeEducation(edu) {
  */
 function normalizeCertification(cert) {
   if (!cert || typeof cert !== 'object') return null
-  const name = sanitizeText(cert.name || cert.title)
+  const name = sanitizeText(cert.title || cert.name)
   if (!name) return null
-  const issuer = sanitizeText(cert.issuer || cert.organization || cert.authority)
-  const issueDate = sanitizeText(cert.issueDate || cert.date || cert.year)
+  const issuer = sanitizeText(cert.issuedBy || cert.issuer || cert.organization || cert.authority) || 'N/A'
+  const issueDate = sanitizeText(cert.issuedAt || cert.issueDate || cert.date || cert.year)
   const url = sanitizeText(cert.url || cert.licenseUrl)
   return { name, issuer, issueDate, url }
 }
@@ -139,7 +175,11 @@ function normalizeProject(proj) {
   if (!title) return null
   const description = sanitizeText(proj.description || proj.summary)
   const url = sanitizeText(proj.url || proj.link)
-  const dates = sanitizeText(proj.dates || proj.dateRange)
+  const dates = sanitizeText(
+    proj.dates ||
+    proj.dateRange ||
+    [proj.startDate?.text || proj.startDate, proj.endDate?.text || proj.endDate].filter(Boolean).join(' – ')
+  )
   return { title, description, url, dates }
 }
 
@@ -203,6 +243,7 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
       fullName: '',
       headline: '',
       about: '',
+      location: 'Not Specified',
       pictureUrl: '',
       bannerUrl: '',
       hasPicture: false,
@@ -212,6 +253,9 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
       certifications: [],
       projects: [],
       skills: [],
+      topSkills: [],
+      sectionTotals: null,
+      featured: [],
       connectionsCount: null,
       recommendationsCount: null,
       url: '',
@@ -220,9 +264,21 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     }
   }
 
-  const fullName = sanitizeText(rawProfile.fullName || rawProfile.name)
+  const fullName = sanitizeText(
+    rawProfile.fullName ||
+    rawProfile.name ||
+    [rawProfile.firstName, rawProfile.lastName].filter(Boolean).join(' ')
+  )
   const headline = sanitizeText(rawProfile.headline || rawProfile.title)
   const about = sanitizeText(rawProfile.about || rawProfile.summary || rawProfile.bio)
+  const location =
+    sanitizeText(
+      rawProfile.location?.parsed?.text ||
+      rawProfile.location?.linkedinText ||
+      rawProfile.location?.text ||
+      rawProfile.location?.name ||
+      rawProfile.location
+    ) || 'Not Specified'
 
   // Experiences
   const rawExperiences = Array.isArray(rawProfile.experiences)
@@ -262,23 +318,35 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     : []
   const projects = rawProjects.map(normalizeProject).filter(Boolean)
 
-  // Skills
-  const skills = normalizeSkills(rawProfile.skills || rawProfile.skillsList)
+  // Skills (preserve all up to 100)
+  const skills = normalizeSkills(rawProfile.skills || rawProfile.skillsList).slice(0, 100)
+
+  // Top Skills
+  const topSkills = Array.isArray(rawProfile.topSkills)
+    ? rawProfile.topSkills.map((s) => typeof s === 'string' ? s : s?.name).filter(Boolean)
+    : typeof rawProfile.topSkills === 'string'
+    ? rawProfile.topSkills.split(/\s*[•·|,]\s*/).filter(Boolean)
+    : []
+
+  const sectionTotals = rawProfile.sectionTotals || null
+  const featured = Array.isArray(rawProfile.featured?.slides)
+    ? rawProfile.featured.slides
+    : Array.isArray(rawProfile.featured)
+    ? rawProfile.featured
+    : []
 
   // Visual Branding
-  const rawPicture = sanitizeText(
-    rawProfile.pictureUrl || rawProfile.profilePicture || rawProfile.avatar || rawProfile.photoUrl || ''
+  const pictureUrl = extractImageUrl(
+    rawProfile.pictureUrl || rawProfile.profilePicture || rawProfile.avatar || rawProfile.photoUrl || rawProfile.displayPictureUrl || ''
   )
-  const pictureUrl = rawPicture.startsWith('http') ? rawPicture : ''
   const isGhostPicture = !pictureUrl || /ghost_person|ghost-person|default-avatar|no-photo|camera\.png/i.test(pictureUrl)
   const hasPicture = typeof rawProfile.hasPicture === 'boolean'
     ? rawProfile.hasPicture
     : (!isGhostPicture && Boolean(pictureUrl))
 
-  const rawBanner = sanitizeText(
-    rawProfile.bannerUrl || rawProfile.coverUrl || rawProfile.backgroundUrl || rawProfile.coverPicture || rawProfile.backgroundPicture || ''
+  const bannerUrl = extractImageUrl(
+    rawProfile.bannerUrl || rawProfile.coverUrl || rawProfile.backgroundUrl || rawProfile.coverPicture || rawProfile.backgroundPicture || rawProfile.banner || ''
   )
-  const bannerUrl = rawBanner.startsWith('http') ? rawBanner : ''
   const isDefaultBanner = !bannerUrl || /default-banner|banner-default|default_banner/i.test(bannerUrl)
   const hasBanner = typeof rawProfile.hasBanner === 'boolean'
     ? rawProfile.hasBanner
@@ -289,7 +357,7 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     rawProfile.connectionsCount ?? rawProfile.connections ?? rawProfile.connectionCount
   )
   const recommendationsCount = parseCount(
-    rawProfile.recommendationsCount ?? rawProfile.recommendations ?? rawProfile.recommendationCount
+    rawProfile.recommendationsCount ?? rawProfile.recommendations ?? rawProfile.recommendationCount ?? rawProfile.receivedRecommendations
   )
 
   const rawUrl = sanitizeText(rawProfile.url || rawProfile.profileUrl || rawProfile.publicIdentifier)
@@ -307,6 +375,7 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     fullName,
     headline,
     about,
+    location,
     pictureUrl,
     bannerUrl,
     hasPicture,
@@ -316,6 +385,9 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     certifications,
     projects,
     skills,
+    topSkills,
+    sectionTotals,
+    featured,
     connectionsCount,
     recommendationsCount,
     url,

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import useAppStore from '../../store/useAppStore'
 import {
   ArrowRight,
   ArrowDown,
@@ -18,12 +19,35 @@ import {
 } from '@phosphor-icons/react'
 
 export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData }) {
+  const formData = useAppStore((s) => s.formData) || {}
+  const storeReport = useAppStore((s) => s.reportData) || {}
+  const answers = storeReport?.user_answers || formData || {}
+
   const safeFunnel = funnelData || {}
-  const apps = Number(safeFunnel.applications_count) || 100
-  const calls = Number(safeFunnel.recruiter_calls_count) || 5
-  const interviews = Number(safeFunnel.interviews_count) || 1
-  const finals = Number(safeFunnel.final_rounds_count) || 0
-  const offers = Number(safeFunnel.offers_count) || 0
+
+  const parseNum = (val, defaultVal = 0) => {
+    if (typeof val === 'number') return val
+    if (!val) return defaultVal
+    const match = String(val).match(/\d+/)
+    return match ? parseInt(match[0], 10) : defaultVal
+  }
+
+  const rawApps = answers.appsWeek || answers.applications_count || answers.applications
+  let defaultApps = 40
+  if (typeof rawApps === 'number') defaultApps = rawApps
+  else if (rawApps === '50+' || rawApps === '50-100') defaultApps = 60
+  else if (rawApps === '25-50') defaultApps = 35
+  else if (rawApps === '10-25') defaultApps = 20
+  else if (rawApps === '5-10') defaultApps = 8
+  else if (rawApps === '1-5') defaultApps = 3
+  else defaultApps = parseNum(rawApps, 40)
+
+  const apps = Number(safeFunnel.applications_count) || defaultApps || 40
+  const calls = Number(safeFunnel.recruiter_calls_count) ?? parseNum(answers.humanScreen || answers.recruiter_calls_count, Math.max(1, Math.round(apps * 0.05)))
+  const interviews = Number(safeFunnel.interviews_count) ?? parseNum(answers.aiScreen || answers.assessments, Math.max(0, Math.round(calls * 0.5)))
+  const finals = Number(safeFunnel.final_rounds_count) ?? parseNum(answers.finalRounds, Math.max(0, Math.round(interviews * 0.4)))
+  const offers = Number(safeFunnel.offers_count) ?? parseNum(answers.offers, 0)
+
   const leakStage = typeof safeFunnel.biggest_leak_stage === 'string'
     ? safeFunnel.biggest_leak_stage
     : safeFunnel.biggest_leak_stage?.stage || 'Recruiter Calls'
@@ -31,6 +55,18 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     ? safeFunnel.diagnosis_message
     : safeFunnel.diagnosis_message?.text ||
       'Most candidates drop off right between Applications and Recruiter Calls. Fix top-of-funnel keyword density and quantified metrics to double screening invitations.'
+
+  let dropPct = 85
+  if (leakStage.toLowerCase().includes('interview') && calls > 0) {
+    dropPct = Math.round(((calls - interviews) / calls) * 100)
+  } else if (leakStage.toLowerCase().includes('final') && interviews > 0) {
+    dropPct = Math.round(((interviews - finals) / interviews) * 100)
+  } else if (leakStage.toLowerCase().includes('offer') && finals > 0) {
+    dropPct = Math.round(((finals - offers) / finals) * 100)
+  } else {
+    dropPct = apps > 0 ? Math.round(((apps - calls) / apps) * 100) : 95
+  }
+  if (dropPct <= 0 || isNaN(dropPct)) dropPct = 85
 
   const calcPct = (val) => {
     const num = Number(val) || 0
@@ -46,69 +82,107 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
   ]
 
   const getSafeRiskTitle = (val) => {
-    if (!val) return 'Visa Sponsorship Timeline'
+    if (!val) return 'Target Positioning & Seniority Signal'
     if (typeof val === 'string') return val
-    if (Array.isArray(val)) return typeof val[0] === 'string' ? val[0] : val[0]?.title || val[0]?.name || 'Visa Sponsorship Timeline'
-    return val.title || val.name || val.risk || 'Visa Sponsorship Timeline'
+    if (Array.isArray(val)) return typeof val[0] === 'string' ? val[0] : val[0]?.title || val[0]?.name || 'Target Positioning & Seniority Signal'
+    return val.title || val.name || val.risk || 'Target Positioning & Seniority Signal'
   }
 
-  // Rejection reasons from existing rejection_factors
-  const rawFactors =
-    Array.isArray(rejectionData?.factors) && rejectionData.factors.length > 0
-      ? rejectionData.factors
-      : [
-          { name: 'Resume Impact & ATS Keywords', pct: 38, desc: 'ATS parser drop-offs & achievement bullets lacking quantifiable metrics.' },
-          { name: 'Application Strategy & Timing', pct: 22, desc: 'Late submissions on public boards facing 300+ competing applicants.' },
-          { name: 'LinkedIn Profile Optimization', pct: 17, desc: 'Incomplete headline keywords and low weekly outbound networking activity.' },
-          { name: 'Interview Behavioral Stories', pct: 11, desc: 'Unstructured responses to leadership and scenario questions (STAR gap).' },
-        ]
+  // Rejection reasons dynamically populated
+  let safeFactors = []
+  if (Array.isArray(rejectionData?.factors) && rejectionData.factors.length > 0) {
+    safeFactors = rejectionData.factors.map((f, idx) => ({
+      name: typeof f === 'string' ? f : f?.name || f?.title || `Factor ${idx + 1}`,
+      pct: typeof f === 'object' && f?.pct !== undefined ? Number(f.pct) || 25 : Math.max(10, 40 - idx * 10),
+      desc: typeof f === 'object' ? f?.desc || f?.description || '' : '',
+    }))
+  } else {
+    const resumeIssue = storeReport?.resume_agent?.issues?.[0]
+    const liIssue = storeReport?.linkedin_agent?.issues?.[0]
+    const userFeedback = Array.isArray(answers?.feedback) ? answers.feedback.join(', ') : answers?.feedback || ''
 
-  const safeFactors = rawFactors.map((f) => ({
-    name: typeof f === 'string' ? f : typeof f?.name === 'string' ? f.name : typeof f?.title === 'string' ? f.title : 'Factor',
-    pct: typeof f === 'object' && f?.pct !== undefined ? Number(f.pct) || 25 : 25,
-    desc: typeof f === 'object' ? (typeof f?.desc === 'string' ? f.desc : typeof f?.description === 'string' ? f.description : '') : '',
-  }))
+    safeFactors = [
+      {
+        name: resumeIssue?.title || 'Resume Impact & Quantified Metrics',
+        pct: 38,
+        desc: resumeIssue?.diagnosis || 'Achievement bullets lack concrete quantified revenue, scale, or latency metrics.',
+      },
+      {
+        name: 'Application Timing & Sourcing Channel',
+        pct: 28,
+        desc: 'Submitting through generic job aggregator boards with 200+ applicants rather than direct hiring managers.',
+      },
+      {
+        name: liIssue?.title || 'LinkedIn Discoverability & Secondary Keywords',
+        pct: 20,
+        desc: liIssue?.diagnosis || 'Profile lacks targeted keyword density to pass initial boolean recruiter filters.',
+      },
+      {
+        name: userFeedback ? `Candidate Reported Barrier: ${userFeedback.slice(0, 40)}` : 'Interview Behavioral Structuring',
+        pct: 14,
+        desc: 'Unstructured responses to behavioral STAR questions and system design depth.',
+      },
+    ]
+  }
 
   const [expandedReason, setExpandedReason] = useState(null)
   const toggleReason = (idx) => {
     setExpandedReason(expandedReason === idx ? null : idx)
   }
 
-  // Risk Radar items
+  // Risk Radar items dynamically built
+  const isCitizenOrGC = ['US Citizen', 'Permanent Resident (Green Card)'].includes(answers.visa)
   const criticalRisk = getSafeRiskTitle(riskData?.critical_risk)
   const mitigationPlan =
     (typeof riskData?.mitigation_plan === 'string' && riskData.mitigation_plan) ||
     riskData?.mitigation_plan?.text ||
-    'Target employers with verified e-Verify certification and explicit H-1B sponsorship history to prevent late-stage interview dropouts.'
+    (isCitizenOrGC
+      ? 'Target high-growth startups and Tier-1 engineering organizations where citizenship clears clearance and federal contracting tracks.'
+      : 'Target employers with verified e-Verify certification and explicit H-1B sponsorship history to prevent late-stage interview dropouts.')
+
+  const topSkills =
+    storeReport?.resume_agent?.canonicalResume?.skills ||
+    storeReport?.resume_json?.top_skills ||
+    storeReport?.resume_json?.skills ||
+    []
+  const nicheSkillText = topSkills.length >= 2 ? `${topSkills.slice(0, 2).join(' + ')} with Cloud Architecture` : 'Modern Cloud & GenAI Stack'
 
   const RADAR_ITEMS = [
+    isCitizenOrGC
+      ? {
+          title: 'Senior Market Positioning',
+          category: 'Target Positioning',
+          status: 'Active Focus',
+          statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+          desc: 'Position headline and summary around high-impact business outcomes to target senior salary bands.',
+        }
+      : {
+          title: criticalRisk,
+          category: 'Immigration & Timeline',
+          status: 'Active Focus',
+          statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+          desc: mitigationPlan,
+        },
     {
-      title: criticalRisk,
-      category: 'Immigration & Timeline',
-      status: 'Active Focus',
-      statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
-      desc: 'Verify e-Verify and historical sponsorship before advancing to round 3.',
-    },
-    {
-      title: 'Recruiter Ghosting',
+      title: 'Recruiter Ghosting & Pipeline Freezes',
       category: 'Pipeline Risk',
       status: 'Controlled',
       statusColor: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
       desc: 'Follow a strict 5-day post-interview follow-up template to maintain momentum.',
     },
     {
-      title: 'ATS Parser Compatibility',
+      title: storeReport?.resume_agent?.dashboard?.checks?.find((c) => c.status === 'warn')?.name || 'ATS Parser Compatibility',
       category: 'Resume Formatting',
       status: 'In Progress',
       statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
-      desc: 'Remove tables and non-standard symbols to ensure 100% text extraction.',
+      desc: 'Ensure single-column layout and standard section headers to guarantee 100% text extraction.',
     },
     {
       title: 'Market Competition Density',
       category: 'Macro Environment',
       status: 'Monitored',
       statusColor: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-      desc: 'Focus on niche skill combinations (e.g. Go + Kafka or TypeScript + AWS).',
+      desc: `Focus positioning on high-demand skills (${nicheSkillText}) to bypass commoditized competition.`,
     },
   ]
 
@@ -180,7 +254,7 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
             </div>
             <div className="space-y-1">
               <div className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                Biggest Drop-off Identified: {leakStage} (95% drop)
+                Biggest Drop-off Identified: {leakStage} ({dropPct}% drop)
               </div>
               <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
                 {diagnosis}

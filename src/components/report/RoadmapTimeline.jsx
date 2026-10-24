@@ -26,42 +26,56 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2 }) {
     return fallback
   }
 
+  const getPhaseActions = (phaseData, defaultActions) => {
+    if (!phaseData) return defaultActions
+    const rawList = Array.isArray(phaseData.tasks) && phaseData.tasks.length > 0
+      ? phaseData.tasks
+      : Array.isArray(phaseData.actions) && phaseData.actions.length > 0
+      ? phaseData.actions
+      : [phaseData.action, phaseData.description, phaseData.impact].filter(Boolean)
+
+    if (rawList.length > 0) {
+      return rawList.map((t, i) => getTaskText(t, defaultActions[i] || 'Complete key milestone objective.'))
+    }
+    return defaultActions
+  }
+
   // Structured 30 / 60 / 90 Day Milestones
   const PHASES = [
     {
       period: '30 DAYS',
-      stage: 'Phase 1: Fix Positioning & Resume',
-      goal: 'Eliminate ATS parser drop-offs and align technical positioning with your target role.',
-      actions: [
-        getTaskText(safeData[0]?.tasks?.[0], 'Rewrite top 5 achievement bullets using STAR/Google XYZ metrics.'),
-        getTaskText(safeData[0]?.tasks?.[1], 'Optimize LinkedIn headline and summary for target role search keywords.'),
-        getTaskText(safeData[0]?.tasks?.[2], 'Format resume for 100% clean ATS text extraction (standard single column).'),
-      ],
-      successSignal: 'ATS readability score > 80 and initial inbound recruiter views up 30%.',
+      stage: safeData[0]?.title || safeData[0]?.theme || 'Phase 1: Fix Positioning & Resume',
+      goal: safeData[0]?.goal || 'Eliminate ATS parser drop-offs and align technical positioning with your target role.',
+      actions: getPhaseActions(safeData[0], [
+        'Rewrite top 5 achievement bullets using STAR/Google XYZ metrics with hard numbers.',
+        'Optimize LinkedIn headline and summary for target role search keywords.',
+        'Format resume for 100% clean ATS text extraction (standard single column).',
+      ]),
+      successSignal: safeData[0]?.successSignal || safeData[0]?.success_signal || 'ATS readability score > 80 and initial inbound recruiter views up 30%.',
       active: currentPhaseId <= 2,
     },
     {
       period: '60 DAYS',
-      stage: 'Phase 2: Outreach Blitz & Network Velocity',
-      goal: 'Bypass the high-volume public applicant pool through structured recruiter outreach.',
-      actions: [
-        getTaskText(safeData[1]?.tasks?.[0], 'Send 5 personalized connection requests to tech recruiters weekly.'),
-        getTaskText(safeData[1]?.tasks?.[1], 'Request 2 informational interviews with alumni or peers at target firms.'),
-        getTaskText(safeData[1]?.tasks?.[2], 'Apply to 15-20 highly targeted roles with customized keyword matching.'),
-      ],
-      successSignal: 'Consistent 2-3 recruiter phone screens scheduled per week.',
+      stage: safeData[1]?.title || safeData[1]?.theme || 'Phase 2: Outreach Blitz & Network Velocity',
+      goal: safeData[1]?.goal || 'Bypass the high-volume public applicant pool through structured recruiter outreach.',
+      actions: getPhaseActions(safeData[1], [
+        'Send 5 personalized connection requests to tech recruiters weekly.',
+        'Request 2 informational interviews with alumni or peers at target firms.',
+        'Apply to 15-20 highly targeted roles with customized keyword matching.',
+      ]),
+      successSignal: safeData[1]?.successSignal || safeData[1]?.success_signal || 'Consistent 2-3 recruiter phone screens scheduled per week.',
       active: currentPhaseId === 3,
     },
     {
       period: '90 DAYS',
-      stage: 'Phase 3: Interview Mastery & Target Offer',
-      goal: 'Convert recruiter screenings into technical final rounds and verified job offers.',
-      actions: [
-        getTaskText(safeData[2]?.tasks?.[0], 'Practice 3 mock behavioral interviews with structured STAR stories.'),
-        getTaskText(safeData[2]?.tasks?.[1], 'Complete 5 system design or live coding practice sessions.'),
-        getTaskText(safeData[3]?.tasks?.[0], 'Prepare salary negotiation benchmarks and counter-offer strategy.'),
-      ],
-      successSignal: 'Final round technical interviews and written target offer received.',
+      stage: safeData[2]?.title || safeData[2]?.theme || 'Phase 3: Interview Mastery & Target Offer',
+      goal: safeData[2]?.goal || 'Convert recruiter screenings into technical final rounds and verified job offers.',
+      actions: getPhaseActions(safeData[2], [
+        'Practice 3 mock behavioral interviews with structured STAR stories.',
+        'Complete 5 system design or live coding practice sessions.',
+        'Prepare salary negotiation benchmarks and counter-offer strategy.',
+      ]),
+      successSignal: safeData[2]?.successSignal || safeData[2]?.success_signal || 'Final round technical interviews and written target offer received.',
       isGoal: true,
       active: currentPhaseId >= 4,
     },

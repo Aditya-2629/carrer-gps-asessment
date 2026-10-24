@@ -45,48 +45,92 @@ export default function TopPriorities({ missionBoardData, resumeAgent, reportDat
     },
   ]
 
-  const agentActions = Array.isArray(resumeAgent?.priorityActions) && resumeAgent.priorityActions.length > 0
-    ? resumeAgent.priorityActions.filter(Boolean).map((pa, i) => {
-        const isObj = typeof pa === 'object' && pa !== null
-        return {
-          num: String(isObj ? (pa.priority || i + 1) : i + 1).padStart(2, '0'),
-          title: isObj ? pa.title : String(pa || ''),
-          why: isObj ? (pa.reason || 'Surfaced as a top priority in your recruiter audit.') : 'High-impact resume action item.',
-          action: isObj ? (typeof pa.action === 'string' ? pa.action : pa.action?.description || pa.action?.text || '') : '',
-          expectedDirection: 'Directly addresses identified resume bottleneck.',
-          targetSection: 'resume-ai',
-          impact: i === 0 ? 'Highest Impact' : 'High Impact',
-        }
+  const liAgent = reportData?.linkedin_agent
+  const liIssues = Array.isArray(liAgent?.issues) ? liAgent.issues : []
+  const liDiscrepancies = Array.isArray(liAgent?.discrepancies) ? liAgent.discrepancies : []
+
+  const agentActions = []
+  if (Array.isArray(resumeAgent?.priorityActions) && resumeAgent.priorityActions.length > 0) {
+    resumeAgent.priorityActions.filter(Boolean).forEach((pa, i) => {
+      const isObj = typeof pa === 'object' && pa !== null
+      agentActions.push({
+        num: String(agentActions.length + 1).padStart(2, '0'),
+        title: isObj ? pa.title : String(pa || ''),
+        why: isObj ? (pa.reason || 'Surfaced as a top priority in your recruiter audit.') : 'High-impact resume action item.',
+        action: isObj ? (typeof pa.action === 'string' ? pa.action : pa.action?.description || pa.action?.text || '') : '',
+        expectedDirection: 'Directly addresses identified resume bottleneck.',
+        targetSection: 'resume-ai',
+        impact: i === 0 ? 'Highest Impact' : 'High Impact',
       })
-    : (Array.isArray(resumeAgent?.issues) && resumeAgent.issues.length > 0
-        ? resumeAgent.issues.slice(0, 3).map((iss, i) => ({
-            num: String(i + 1).padStart(2, '0'),
-            title: iss.title || `Resolve ${iss.category ? String(iss.category).replace(/_/g, ' ') : 'Resume Gap'}`,
-            why: iss.whyItMatters || iss.diagnosis || 'High-priority gap surfaced in resume recruiter review.',
-            action: iss.recommendation || (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) || 'Apply recruiter recommended rewrite.',
-            expectedDirection: 'Directly improves resume ATS readability and callback conversion.',
-            targetSection: 'opportunities',
-            impact: i === 0 ? 'Highest Impact' : 'High Impact',
-          }))
-        : (Array.isArray(reportData?.critical_issues) && reportData.critical_issues.length > 0
-            ? reportData.critical_issues.slice(0, 3).map((iss, i) => ({
-                num: String(i + 1).padStart(2, '0'),
-                title: typeof iss === 'string' ? iss : iss.title || 'Critical Issue Resolution',
-                why: typeof iss === 'object' ? iss.description || iss.diagnosis || 'Critical pipeline bottleneck.' : 'Critical pipeline bottleneck.',
-                action: typeof iss === 'object' && iss.action_steps ? (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) : 'Implement high-impact fix.',
-                expectedDirection: 'Eliminates active job search bottleneck.',
-                targetSection: 'opportunities',
-                impact: i === 0 ? 'Highest Impact' : 'High Impact',
-              }))
-            : []))
+    })
+  }
+
+  // Add top LinkedIn discrepancy if available
+  if (liDiscrepancies.length > 0) {
+    const disc = liDiscrepancies[0]
+    agentActions.push({
+      num: String(agentActions.length + 1).padStart(2, '0'),
+      title: disc.title || 'Reconcile LinkedIn & Resume Inconsistency',
+      why: disc.diagnosis || 'Recruiter flagged discrepancy between LinkedIn profile and resume.',
+      action: disc.recommendation || 'Align job titles, company names, or unlisted education.',
+      expectedDirection: 'Restores credibility during recruiter background verification.',
+      targetSection: 'linkedin-ai',
+      impact: 'Highest Impact',
+    })
+  }
+
+  // Add remaining resume issues or critical issues
+  if (agentActions.length < 3 && Array.isArray(resumeAgent?.issues)) {
+    for (const iss of resumeAgent.issues) {
+      if (agentActions.length >= 3) break
+      agentActions.push({
+        num: String(agentActions.length + 1).padStart(2, '0'),
+        title: iss.title || 'Resolve Resume Gap',
+        why: iss.whyItMatters || iss.diagnosis || 'High-priority gap surfaced in resume recruiter review.',
+        action: iss.recommendation || (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) || 'Apply recruiter recommended rewrite.',
+        expectedDirection: 'Directly improves resume ATS readability and callback conversion.',
+        targetSection: 'opportunities',
+        impact: 'High Impact',
+      })
+    }
+  }
+
+  if (agentActions.length < 3 && Array.isArray(reportData?.critical_issues)) {
+    for (const iss of reportData.critical_issues) {
+      if (agentActions.length >= 3) break
+      agentActions.push({
+        num: String(agentActions.length + 1).padStart(2, '0'),
+        title: typeof iss === 'string' ? iss : iss.title || 'Critical Issue Resolution',
+        why: typeof iss === 'object' ? iss.description || iss.diagnosis || 'Critical pipeline bottleneck.' : 'Critical pipeline bottleneck.',
+        action: typeof iss === 'object' && iss.action_steps ? (Array.isArray(iss.action_steps) ? iss.action_steps[0] : iss.action_steps) : 'Implement high-impact fix.',
+        expectedDirection: 'Eliminates active job search bottleneck.',
+        targetSection: 'opportunities',
+        impact: 'High Impact',
+      })
+    }
+  }
 
   const PRIORITIES = agentActions.length > 0 ? agentActions.slice(0, 3) : DEFAULT_PRIORITIES
 
-  // Extra missions from missionBoardData if user wants to see all
-  const rawMissions = Array.isArray(missionBoardData?.missions) ? missionBoardData.missions : [
-    { title: 'Add 2 Enterprise Side Projects', xp: '+10 XP', impact: 'Medium Impact' },
-    { title: '3 Mock Behavioral & System Interviews', xp: '+15 XP', impact: 'High Impact' },
+  // Extra missions dynamically populated from missionBoardData or remaining issues
+  const remainingIssues = [
+    ...liIssues.slice(1),
+    ...(resumeAgent?.issues || []).slice(2),
+    ...(reportData?.critical_issues || []).slice(2),
   ]
+
+  const rawMissions = Array.isArray(missionBoardData?.missions) && missionBoardData.missions.length > 0
+    ? missionBoardData.missions
+    : (remainingIssues.length > 0
+        ? remainingIssues.slice(0, 3).map((iss, idx) => ({
+            title: iss.title || 'Profile Optimization Task',
+            xp: `+${(idx + 1) * 10} XP`,
+            impact: iss.severity === 'high' ? 'High Impact' : 'Medium Impact',
+          }))
+        : [
+            { title: 'Update top 3 modern tech skills on LinkedIn', xp: '+10 XP', impact: 'Medium Impact' },
+            { title: 'Send 5 tailored connection requests this week', xp: '+15 XP', impact: 'High Impact' },
+          ])
 
   const extraMissions = rawMissions.map((m) => {
     if (typeof m === 'string') return { title: m, xp: '+10 XP', impact: 'Medium Impact' }
@@ -97,9 +141,10 @@ export default function TopPriorities({ missionBoardData, resumeAgent, reportDat
     }
   })
 
+  const healthScore = reportData?.career_health_score || 50
+  const xpCurrent = Number(missionBoardData?.xp_current) || Math.round(healthScore * 10)
   const rawXpLevel = missionBoardData?.xp_level
-  const xpLevel = typeof rawXpLevel === 'string' ? rawXpLevel : 'Level 4: Career Explorer'
-  const xpCurrent = Number(missionBoardData?.xp_current) || 410
+  const xpLevel = typeof rawXpLevel === 'string' ? rawXpLevel : (healthScore >= 75 ? 'Level 5: Offer Master' : healthScore >= 60 ? 'Level 4: Market Strategist' : 'Level 3: Active Optimizer')
   const xpGoal = 1000
 
   const handleActionClick = (item) => {

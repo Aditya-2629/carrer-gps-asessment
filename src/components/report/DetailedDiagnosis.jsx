@@ -433,35 +433,63 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
           )}
 
           {/* TAB 2: LINKEDIN & OUTREACH */}
-          {activeTab === 'linkedin' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
-                  <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                    LinkedIn Positioning Score
-                  </h4>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    Your profile completeness is good, but your weekly search appearance rate is depressed due to missing secondary keyword clusters in your headline and about section.
-                  </p>
-                  <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--primary)] font-semibold">
-                    💡 Tip: Add "Go | TypeScript | AWS | Distributed Systems" to your headline to trigger boolean recruiter searches.
-                  </div>
-                </div>
+          {activeTab === 'linkedin' && (() => {
+            const liAgent = reportData?.linkedin_agent
+            const liScore = liAgent?.score ?? reportData?.scores?.linkedin?.score ?? 60
+            const liDiagnosis =
+              liAgent?.issues?.[0]?.diagnosis ||
+              reportData?.scores?.linkedin?.diagnosis ||
+              'Your profile completeness is good, but your weekly search appearance rate is depressed due to missing secondary keyword clusters in your headline and about section.'
+            const headlineTip =
+              liAgent?.optimizations?.headlines?.[0]?.headline ||
+              (liAgent?.missingSkills?.length > 0
+                ? `Add "${liAgent.missingSkills.slice(0, 4).join(' | ')}" to your headline to trigger boolean recruiter searches.`
+                : skillsList.length > 0
+                ? `Feature "${skillsList.slice(0, 4).join(' | ')}" prominently in your headline.`
+                : 'Craft a value-focused headline aligning with your target tech stack.')
+            const outreachDiagnosis =
+              reportData?.scores?.outreach?.diagnosis ||
+              'Cold outreach volume is currently in the bottom quartile. Candidates targeting tech roles who send 5 personalized recruiter notes weekly experience a 4x higher interview invitation rate.'
+            const outreachCadence =
+              reportData?.semantic_profile?.coldEmails?.formattedAnswer ||
+              reportData?.user_answers?.coldEmails ||
+              '5 personalized connection requests per week with a 3-sentence value proposition.'
 
-                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
-                  <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                    Recruiter Outreach Cadence
-                  </h4>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    Cold outreach volume is currently in the bottom quartile. Candidates targeting senior tech roles who send 5 personalized recruiter notes weekly experience a 4x higher interview invitation rate.
-                  </p>
-                  <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--emerald)] font-semibold">
-                    ✓ Recommended Cadence: 5 personalized connection requests per week with a 3-sentence value proposition.
+            return (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                        LinkedIn Positioning Score
+                      </h4>
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20">
+                        {liScore}/100
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                      {liDiagnosis}
+                    </p>
+                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--primary)] font-semibold leading-relaxed">
+                      💡 Tip: {headlineTip}
+                    </div>
+                  </div>
+
+                  <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
+                    <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                      Recruiter Outreach Cadence
+                    </h4>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                      {outreachDiagnosis}
+                    </p>
+                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--emerald)] font-semibold">
+                      ✓ Recommended Cadence: {outreachCadence}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )
+          })()}
 
           {/* TAB 3: JOB SEARCH & VELOCITY */}
           {activeTab === 'jobsearch' && (
@@ -515,62 +543,88 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
           )}
 
           {/* TAB 4: INTERVIEW READINESS */}
-          {activeTab === 'interview' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
-                <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                  Behavioral & Technical STAR Framework
-                </h4>
-                <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                  Your mock interview score is <strong className="text-[var(--text-primary)] font-bold">42/100</strong>. When explaining architectural choices, anchor every answer in business outcomes:
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                    <span className="text-xs font-bold text-[var(--primary)] block">Situation / Task</span>
-                    <span className="text-[11px] text-[var(--text-muted)]">State the scale, throughput, or business constraint.</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                    <span className="text-xs font-bold text-amber-500 block">Action</span>
-                    <span className="text-[11px] text-[var(--text-muted)]">Highlight your specific engineering or leadership contribution.</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                    <span className="text-xs font-bold text-[var(--emerald)] block">Result / Metrics</span>
-                    <span className="text-[11px] text-[var(--text-muted)]">Quantify latency cuts, uptime, or cost savings achieved.</span>
+          {activeTab === 'interview' && (() => {
+            const interviewScore = reportData?.scores?.interview?.score ?? reportData?.semantic_profile?.assessScore?.rawAnswer ?? 50
+            const interviewDiagnosis =
+              reportData?.scores?.interview?.diagnosis ||
+              'When explaining architectural choices, anchor every answer in business outcomes:'
+
+            return (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
+                  <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                    Behavioral & Technical STAR Framework
+                  </h4>
+                  <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                    Your mock interview score is <strong className="text-[var(--text-primary)] font-bold">{interviewScore}/100</strong>. {interviewDiagnosis}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
+                      <span className="text-xs font-bold text-[var(--primary)] block">Situation / Task</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">State the scale, throughput, or business constraint.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
+                      <span className="text-xs font-bold text-amber-500 block">Action</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Highlight your specific engineering or leadership contribution.</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
+                      <span className="text-xs font-bold text-[var(--emerald)] block">Result / Metrics</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Quantify latency cuts, uptime, or cost savings achieved.</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )
+          })()}
 
           {/* TAB 5: RISK MATRIX 2X2 */}
-          {activeTab === 'risks' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-              <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4">
-                <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                  2x2 Risk Quadrant: Likelihood vs Business Impact
-                </h4>
-                <div className="grid grid-cols-2 gap-3 h-64 border-l-2 border-b-2 border-[var(--border-default)] pl-3 pb-3 text-xs">
-                  <div className="p-3 rounded-xl bg-red-500/5 border border-dashed border-[var(--border-default)] flex flex-col justify-end">
-                    <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">High Impact / Low Likelihood</span>
-                    <span className="text-xs font-semibold text-red-500 mt-1">• Recruiter Ghosting</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/30 flex flex-col justify-between">
-                    <span className="text-[10px] font-mono text-red-600 dark:text-red-400 font-bold uppercase">Critical Risk Zone</span>
-                    <span className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-500/20 px-2 py-1 rounded w-fit">
-                      + {criticalRiskText}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-emerald-500/5 border border-[var(--border-default)] flex items-end">
-                    <span className="text-xs font-semibold text-[var(--emerald)]">✓ Market Macro Stability</span>
-                  </div>
-                  <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex flex-col justify-center">
-                    <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 uppercase">Low Impact / High Likelihood</span>
-                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-1">• ATS Parsing Warnings</span>
+          {activeTab === 'risks' && (() => {
+            const highImpactLowLikelihood =
+              reportData?.risk_heatmap?.high_impact_low_likelihood ||
+              reportData?.critical_issues?.[1]?.title ||
+              'Recruiter Ghosting & Pipeline Freezes'
+            const criticalRisk =
+              reportData?.risk_heatmap?.critical_risk ||
+              reportData?.critical_issues?.[0]?.title ||
+              (reportData?.user_answers?.visa && !['US Citizen', 'Permanent Resident (Green Card)'].includes(reportData?.user_answers?.visa)
+                ? 'Visa Sponsorship Timeline Constraints'
+                : 'Application Volume vs Interview Conversion Gap')
+            const lowImpactHighLikelihood =
+              reportData?.risk_heatmap?.low_impact_high_likelihood ||
+              reportData?.resume_agent?.dashboard?.checks?.find((c) => c.status === 'warn')?.name ||
+              'ATS Parsing & Keyword Variance'
+            const mitigationPlan =
+              reportData?.risk_heatmap?.mitigation_plan || 'Market Macro Stability & Core Stack Demand'
+
+            return (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4">
+                  <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                    2x2 Risk Quadrant: Likelihood vs Business Impact
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 h-64 border-l-2 border-b-2 border-[var(--border-default)] pl-3 pb-3 text-xs">
+                    <div className="p-3 rounded-xl bg-red-500/5 border border-dashed border-[var(--border-default)] flex flex-col justify-end">
+                      <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">High Impact / Low Likelihood</span>
+                      <span className="text-xs font-semibold text-red-500 mt-1">• {highImpactLowLikelihood}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-red-500/15 border border-red-500/30 flex flex-col justify-between">
+                      <span className="text-[10px] font-mono text-red-600 dark:text-red-400 font-bold uppercase">Critical Risk Zone</span>
+                      <span className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-500/20 px-2 py-1 rounded w-fit">
+                        + {criticalRisk}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-500/5 border border-[var(--border-default)] flex items-end">
+                      <span className="text-xs font-semibold text-[var(--emerald)]">✓ {mitigationPlan}</span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex flex-col justify-center">
+                      <span className="text-[10px] font-mono text-amber-600 dark:text-amber-400 uppercase">Low Impact / High Likelihood</span>
+                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 mt-1">• {lowImpactHighLikelihood}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )
+          })()}
         </div>
       </div>
     </section>
