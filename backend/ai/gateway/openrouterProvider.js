@@ -5,6 +5,7 @@
 
 import { aiConfig } from '../config/aiConfig.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
+import { liteLlmRouter } from './liteLlmRouter.js'
 
 export class OpenRouterProvider {
   constructor(config = aiConfig.openRouter) {
@@ -124,6 +125,16 @@ export class OpenRouterProvider {
           responseFormatSent: details.responseFormatSent,
         })
 
+        const isZdrViolation =
+          (response.status === 404 || response.status === 400 || response.status === 403) &&
+          (errorMsg.toLowerCase().includes('zdr') || errorMsg.toLowerCase().includes('zero data retention'))
+
+        if (isZdrViolation) {
+          code = PROVIDER_ERROR_CODES.DATA_PRIVACY_ERROR
+          // Trip OpenRouter provider circuit for 10 minutes so subsequent calls bypass immediately
+          liteLlmRouter.tripCircuit('openrouter', 10 * 60 * 1000, `ZDR violation: ${errorMsg}`)
+        }
+
         throw new ProviderError({
           code,
           message: `[OpenRouter ${response.status}] ${errorMsg}`,
@@ -131,7 +142,7 @@ export class OpenRouterProvider {
           model,
           statusCode: response.status,
           details,
-          isRetryable: response.status === 429 || response.status >= 500,
+          isRetryable: isZdrViolation ? false : (response.status === 429 || response.status >= 500),
         })
       }
 

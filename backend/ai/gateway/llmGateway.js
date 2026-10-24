@@ -21,12 +21,16 @@ import { liteLlmRouter } from './liteLlmRouter.js'
 
 // Production fallback chain in priority order:
 // 1. Primary: Gemini 3.5 Flash Lite (Google instant fast inference)
-// 2. 1st Fallback: Groq (GPT-OSS 120B / 20B)
-// 3. 2nd Fallback: OpenRouter
-// 4. 3rd Fallback: OpenAI
+// 2. 1st Fallback: Gemini 3.5 Flash
+// 3. 2nd Fallback: Groq (GPT-OSS 120B / 20B)
+// 4. 3rd Fallback: NVIDIA NIM (Nemotron 3 Super 120B)
+// 5. 4th Fallback: OpenRouter
+// 6. 5th Fallback: OpenAI
 export const PRODUCTION_FALLBACK_CHAIN = [
   'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
   'groq',
+  'nvidia',
   'openrouter',
   'openai',
 ]
@@ -42,6 +46,7 @@ export const TRAP_MODELS = new Set([
 
 const PROVIDER_MODEL_FALLBACKS = {
   groq: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+  nvidia: ['nvidia/nemotron-3-super-120b-a12b'],
   openrouter: ['google/gemma-4-26b-a4b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free'],
   openai: ['openai/gpt-oss-120b'],
 }

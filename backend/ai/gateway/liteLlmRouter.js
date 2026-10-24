@@ -63,16 +63,18 @@ export class LiteLLMRouter {
       return { isAvailable: true }
     }
 
+    const effectiveCooldown = circuit.customCooldownMs || this.cooldownMs
     if (circuit.state === CIRCUIT_STATES.OPEN) {
-      if (now - circuit.lastFailureTime > this.cooldownMs) {
+      if (now - circuit.lastFailureTime > effectiveCooldown) {
         // Cooldown passed: allow one canary request in HALF_OPEN state
         circuit.state = CIRCUIT_STATES.HALF_OPEN
+        circuit.customCooldownMs = null
         console.log(`[LiteLLMRouter] Circuit for "${providerKey}" transitioned to HALF_OPEN (probing canary request).`)
         return { isAvailable: true }
       }
       return {
         isAvailable: false,
-        reason: `Circuit for "${providerKey}" is OPEN (${Math.ceil((this.cooldownMs - (now - circuit.lastFailureTime)) / 1000)}s cooldown remaining).`,
+        reason: `Circuit for "${providerKey}" is OPEN (${Math.ceil((effectiveCooldown - (now - circuit.lastFailureTime)) / 1000)}s cooldown remaining).`,
       }
     }
 
@@ -126,6 +128,24 @@ export class LiteLLMRouter {
         `[LiteLLMRouter] Tripped circuit to OPEN for provider "${providerKey}" due to: ${err.message || 'service outage'}. Cooldown: ${this.cooldownMs / 1000}s.`
       )
     }
+  }
+
+  /**
+   * Explicitly trips a provider circuit for a given duration.
+   * Useful for policy/privacy violations (e.g. ZDR restrictions) that shouldn't be retried.
+   * @param {string} providerKey
+   * @param {number} durationMs
+   * @param {string} reason
+   */
+  tripCircuit(providerKey, durationMs = 600000, reason = 'policy violation') {
+    const circuit = this.getCircuit(providerKey)
+    circuit.state = CIRCUIT_STATES.OPEN
+    circuit.lastFailureTime = Date.now()
+    circuit.customCooldownMs = durationMs
+    circuit.tripCount++
+    console.warn(
+      `[LiteLLMRouter] Explicitly tripped circuit to OPEN for "${providerKey}" (${reason}). Cooldown: ${Math.round(durationMs / 1000)}s.`
+    )
   }
 
   /**

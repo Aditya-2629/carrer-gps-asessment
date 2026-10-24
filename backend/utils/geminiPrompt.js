@@ -5,6 +5,88 @@ const safeJson = (data) => {
   return JSON.stringify(data, null, 2).replace(/`/g, "'")
 }
 
+export const compactLinkedInForAtlas = (li) => {
+  if (!li || typeof li !== 'object') return null
+  return {
+    name: li.firstName ? `${li.firstName} ${li.lastName || ''}`.trim() : li.fullName || li.name || '',
+    headline: li.headline || '',
+    about: String(li.about || li.summary || '').slice(0, 1200),
+    location: li.location?.parsed?.text || li.location?.linkedinText || (typeof li.location === 'string' ? li.location : ''),
+    openToWork: Boolean(li.openToWork),
+    connectionsCount: li.connectionsCount || li.connections || 0,
+    followerCount: li.followerCount || li.followers || 0,
+    topSkills: (li.topSkills || (Array.isArray(li.skills) ? li.skills.map((s) => (typeof s === 'string' ? s : s?.name)) : []))
+      .filter(Boolean)
+      .slice(0, 20),
+    experience: (li.experience || li.positions || []).slice(0, 5).map((e) => ({
+      title: e.title || e.position || '',
+      company: e.companyName || e.company || '',
+      duration: e.duration || e.dateRange || '',
+      description: String(e.description || e.text || '').slice(0, 350),
+    })),
+    education: (li.education || []).slice(0, 2).map((ed) => ({
+      school: ed.schoolName || ed.school || '',
+      degree: ed.degreeName || ed.degree || '',
+    })),
+    certificationsCount: (li.certifications || []).length,
+    projectsCount: (li.projects || []).length,
+  }
+}
+
+export const compactResumeForAtlas = (res) => {
+  if (!res || typeof res !== 'object') return null
+
+  // Strip any raw OCR/fullText blobs
+  const { rawText, fullText, markdown, _raw, ...cleanRes } = res
+
+  const summary = String(cleanRes.summary || cleanRes.profile || cleanRes.objective || '').slice(0, 800)
+  const skills = (Array.isArray(cleanRes.skills) ? cleanRes.skills : []).slice(0, 35)
+
+  const rawExp = Array.isArray(cleanRes.experience)
+    ? cleanRes.experience
+    : Array.isArray(cleanRes.experiences)
+    ? cleanRes.experiences
+    : []
+
+  const experience = rawExp.slice(0, 4).map((role) => {
+    const rawBullets = Array.isArray(role.bullets)
+      ? role.bullets.map((b) => (typeof b === 'string' ? b : b?.text || ''))
+      : Array.isArray(role.highlights)
+      ? role.highlights
+      : []
+
+    return {
+      role: role.role || role.title || '',
+      company: role.company || role.employer || '',
+      dates: role.dates || role.duration || '',
+      bullets: rawBullets.slice(0, 5),
+    }
+  })
+
+  const rawProjects = Array.isArray(cleanRes.projects) ? cleanRes.projects : []
+  const projects = rawProjects.slice(0, 3).map((p) => ({
+    name: p.name || p.title || '',
+    technologies: p.technologies || p.tech || [],
+    description: String(p.description || (Array.isArray(p.bullets) ? p.bullets.map((b) => (typeof b === 'string' ? b : b?.text)).join(' ') : '')).slice(0, 300),
+  }))
+
+  const rawEdu = Array.isArray(cleanRes.education) ? cleanRes.education : []
+  const education = rawEdu.slice(0, 2).map((ed) => ({
+    institution: ed.institution || ed.school || '',
+    degree: ed.degree || '',
+    year: ed.year || ed.dates || '',
+  }))
+
+  return {
+    candidate: cleanRes.candidate || cleanRes.name ? { name: cleanRes.candidate?.name || cleanRes.name, targetRole: cleanRes.candidate?.targetRole || cleanRes.targetRole } : undefined,
+    summary,
+    skills,
+    experience,
+    projects,
+    education,
+  }
+}
+
 export default (
   userData,
   resumeData = null,
@@ -14,7 +96,8 @@ export default (
   resumeAgent = null,
   linkedinAgent = null
 ) => {
-  const kbText = dynamicKnowledgeBase || defaultKnowledgeBase
+  const rawKb = dynamicKnowledgeBase || defaultKnowledgeBase
+  const kbText = typeof rawKb === 'string' && rawKb.length > 6000 ? rawKb.slice(0, 6000) : rawKb
 
   return `
     You are "Atlas", a $2000/hour Elite Executive Career Strategist, Senior Technical Recruiter, and ATS Systems Expert who has placed 500+ candidates into FAANG, Fortune 500, and hyper-growth startups.
@@ -177,9 +260,9 @@ export default (
     ${safeJson(userData)}
 
     Candidate's Parsed Resume JSON (if uploaded):
-    ${resumeData ? safeJson(resumeData) : 'No resume uploaded.'}
+    ${resumeData ? safeJson(compactResumeForAtlas(resumeData)) : 'No resume uploaded.'}
 
     Candidate's Scraped LinkedIn Profile JSON (Scraped via Apify cookieless actor harvestapi/linkedin-profile-scraper):
-    ${linkedinData ? safeJson(linkedinData) : 'No LinkedIn profile scraped.'}
+    ${linkedinData ? safeJson(compactLinkedInForAtlas(linkedinData)) : 'No LinkedIn profile scraped.'}
   `
 }

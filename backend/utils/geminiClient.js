@@ -165,6 +165,7 @@ export function parseGeminiQuotaDetails(err) {
  */
 export const DEFAULT_MODELS = [
   process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
 ].filter(Boolean)
 
 /**
@@ -644,38 +645,44 @@ export const generateContentWithFallback = async ({
                 : 'retry',
             })
 
-            // 503 Service Unavailable or 408 timeout: do NOT retry the dead model on the same key. Cooldown model for 5m and cascade immediately.
+            // Check if attempt timed out or service is transiently degraded
             const isTimeoutError = classification.status === 408 || classification.isTimeout || timeoutTriggered
-            if (classification.status === 503 || isTimeoutError) {
-              const cooldownMs = 5 * 60 * 1000 // 5 minutes cooldown
-              projectModelQuotaMap.set(currentModel, Date.now() + cooldownMs)
-              console.warn(
-                `[Gemini] Model "${currentModel}" failed with ${classification.status || 408} (${isTimeoutError ? 'attempt_timeout' : 'high_demand'}). Cooldown set for 5m. Cascading to next candidate immediately.`
-              )
-              modelFailedWithTransient = true
-              breakKeysForModel = true
-              break
-            }
 
             if (!isLastAttempt && remainingAfterAttempt > 500) {
               const retryAfter = parseRetryAfter(err)
-              const backoffMs = calculateBackoffWithJitter(attempt, baseBackoffMs, maxBackoffMs, retryAfter)
+              const backoffMs = classification.status === 503
+                ? Math.min(2500, Math.max(1500, calculateBackoffWithJitter(attempt, 1500, 2500, retryAfter)))
+                : calculateBackoffWithJitter(attempt, baseBackoffMs, maxBackoffMs, retryAfter)
               const safeSleepMs = Math.min(backoffMs, remainingAfterAttempt - 200)
 
               if (safeSleepMs > 0) {
                 console.log(
-                  `[Gemini] Transient error (${classification.status}) on ${currentModel}. Retrying in ${safeSleepMs}ms with same key...`
+                  `[Gemini] Transient error (${classification.status || 408}) on ${currentModel}. Retrying in ${safeSleepMs}ms (attempt ${attempt}/${maxRetries + 1})...`
                 )
                 await waitFn(safeSleepMs, signal)
                 continue // retry next attempt on same key & model
               }
             }
 
-            // Retries exhausted for this model.
-            // 503 is an endpoint/model overload issue, NOT a key issue.
-            // Do NOT rotate keys for 503; break keys loop to cascade to next model/provider.
-            modelFailedWithTransient = true
-            break
+            // If we reached here on this key, retries are exhausted for this key.
+            // If this is the last key available, set a short 30-second model cooldown (NOT 5 minutes!)
+            // and cascade to the next model candidate/provider.
+            const isLastKey = keyIdx >= keysToTry.length - 1
+            if (isLastKey) {
+              const cooldownMs = 30 * 1000 // 30 seconds cooldown for transient 503/timeout
+              projectModelQuotaMap.set(currentModel, Date.now() + cooldownMs)
+              console.warn(
+                `[Gemini] Model "${currentModel}" failed all retries across keys with ${classification.status || 408} (${isTimeoutError ? 'attempt_timeout' : 'high_demand'}). 30s cooldown set. Cascading to next candidate...`
+              )
+              modelFailedWithTransient = true
+              breakKeysForModel = true
+              break
+            } else {
+              console.warn(
+                `[Gemini] Key #${keyIdx + 1} exhausted retries for ${currentModel} (${classification.status || 408}). Rotating to next key...`
+              )
+              break // break attempt loop to try next keyIdx
+            }
           }
 
           // 3. Client error (400, 404, bad request, invalid params):

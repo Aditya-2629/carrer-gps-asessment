@@ -177,7 +177,7 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
       temperature: 0.4,
-      maxTokens: 16000,
+      maxTokens: 4096,
       maxRetries: 2,
       treatLengthAsRetryable: true,
     })
@@ -191,7 +191,7 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
       temperature: 0.4,
-      maxTokens: 16000,
+      maxTokens: 3500,
       treatLengthAsRetryable: true,
       bypassCache: true,
     })
