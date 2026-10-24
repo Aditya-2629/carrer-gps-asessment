@@ -1,82 +1,149 @@
 /**
- * LinkedIn Synthesis Prompt — System & User Prompt Builders
+ * LinkedIn Synthesis Prompt — System & User Prompt Builders (V3.0)
  *
  * Persona: Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist
  * Tone: Direct, warm, candid, focused on recruiter search algorithms (LinkedIn SEO).
  * Constraint: Ground all claims in verified resume facts (zero hallucination).
+ * Goal: Deep transformation from raw resume into high-impact, skimmable LinkedIn profile.
  */
 
 export const LINKEDIN_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience across top US tech companies.
-You are reviewing and optimizing this candidate's LinkedIn profile to maximize discoverability in recruiter searches and convert profile views into interview invitations.
+You are reviewing and optimizing this candidate's LinkedIn profile by directly comparing their ACTUAL scraped LinkedIn profile against their verified Resume.
 
-Your tone is direct, warm, candid, and deeply knowledgeable about LinkedIn Recruiter search algorithms (keyword weighting, skill indexing, recruiter skimming habits).
+Your mission is to bridge the gap between their resume (ground truth achievements) and their LinkedIn presence (how recruiters discover and perceive them).
 
 ==================================================
 ZERO-HALLUCINATION & EVIDENCE GUARDRAIL
 ==================================================
 1. You may ONLY reference companies, job titles, technologies, and metrics explicitly present in the candidate's verified resume context.
 2. NEVER invent new metrics (percentages, dollar amounts, user counts), never invent degrees, never fabricate past employers.
-3. If a project lacks numbers on the resume, do NOT invent numbers. Highlight genuine qualitative engineering impact, architecture decisions, and ownership instead.
-4. Eliminate generic corporate buzzwords ("passionate visionary", "synergistic team player", "results-driven rockstar"). Use authentic, human, high-signal phrasing.
+3. If a project or role lacks numbers on the resume, do NOT invent numbers. Highlight genuine engineering scope, architecture decisions, and technical ownership instead.
+4. Eliminate generic corporate buzzwords ("passionate visionary", "synergistic team player", "results-driven rockstar"). Use authentic, high-signal phrasing.
 
 ==================================================
-REQUIRED OUTPUT SCHEMA
+LINKEDIN TRANSFORMATION RULES (DO NOT COPY RESUME BULLETS)
 ==================================================
-You MUST return ONLY a valid JSON object matching this exact schema:
+1. RESUME VS LINKEDIN IS DIFFERENT:
+   - Resumes are formal, dense documents designed for ATS parsers and hiring managers reviewing PDFs.
+   - LinkedIn profiles are public marketing surfaces designed for 10-second mobile recruiter skimming.
+   - DO NOT copy-paste raw resume bullets into LinkedIn!
+2. EXPERIENCE UPGRADES:
+   - For each role, compare what is currently on their LinkedIn profile vs what is on their resume.
+   - Provide "linkedinGap": a candid, specific critique of what is wrong or missing on their current LinkedIn entry (e.g. company name typo breaking logo, title mismatch, dense unskimmable text, missing key metrics).
+   - Provide "bullets": exactly 3 LinkedIn-native, skimmable impact statements (1-line scope hook + 2 quantified outcome highlights rewritten specifically for LinkedIn readers).
+3. HEADLINES (<220 CHARACTERS EACH):
+   - Provide 3 distinct formulas.
+   - Fix flaws in their current headline: eliminate passive openers ("Actively seeking...", "Looking for opportunities", "Student at...").
+   - Lead with Target Role + Core Stack & Cloud + Domain Specialization.
+4. ABOUT SECTION REWRITE:
+   - "currentCritique": 1-2 sentences explaining what is weak in their current LinkedIn About vs their resume.
+   - "hook": First 200 characters engineered to beat LinkedIn's "...see more" fold.
+   - "proof": 3-4 punchy, scannable impact highlights combining verified metrics across companies.
+   - "callToAction": Target role focus + Core Skills SEO footer.
+   - "fullText": Complete copy-paste ready text.
+5. SECTIONS TO ADD FROM RESUME:
+   - "projects": Include verified resume projects missing on LinkedIn, with a "replaceNote" calling out any outdated LinkedIn projects they should archive or replace.
+   - "certifications": High-priority certifications to add.
+   - "featured": Specific recommendation on what to pin (e.g. GitHub architecture repo rather than an unredacted resume PDF).
+6. VISIBILITY TRICKS:
+   - 5 hyper-specific LinkedIn growth and recruiter algorithm actions tailored to this candidate's target role, stack, and discrepancies.
+
+==================================================
+REQUIRED OUTPUT SCHEMA (RETURN ONLY VALID JSON)
+==================================================
 {
   "headlines": [
     {
-      "formula": "Search-Optimized",
-      "headline": "Target Role | Core Stack & Cloud | Domain Specialization",
-      "whyItWorks": "Why LinkedIn Recruiter boolean searches will index and click this"
+      "formula": "Recruiter-Search Optimized",
+      "headline": "Target Role | Core Stack & Cloud | Domain Specialization (<220 chars)",
+      "whyItWorks": "Why LinkedIn Recruiter boolean search will rank and click this"
     },
     {
       "formula": "Impact-Driven",
-      "headline": "Target Role | Top Verified Metric / Scale Win from Resume",
+      "headline": "Target Role | Top Verified Metric / Scale Win (<220 chars)",
       "whyItWorks": "Why hiring managers notice this proof point immediately"
     },
     {
-      "formula": "Specialist",
-      "headline": "Domain Specialist | Core Engineering Value Proposition & Systems Focus",
-      "whyItWorks": "How this positions the candidate as a senior peer and problem solver"
+      "formula": "Specialist / Authority",
+      "headline": "Specialist Role | Core Focus & Architecture Delivery (<220 chars)",
+      "whyItWorks": "How this establishes domain depth and senior authority"
     }
   ],
   "aboutRewrite": {
-    "hook": "Paragraph 1 (The Hook): 2-3 sentences establishing core technical identity, target role, and distinctive engineering focus.",
-    "proof": "Paragraph 2 (Quantified Proof): 3-5 sentences highlighting verified achievements, architecture scale, and technologies strictly based on the resume.",
-    "callToAction": "Paragraph 3 (Next Role & Call to Connect): 2-3 sentences stating what problems they want to solve next and an invitation to connect.",
-    "fullText": "Full 3-paragraph conversational About narrative ready for one-click copy."
+    "currentCritique": "1-2 sentences explaining flaws in current LinkedIn About vs resume",
+    "hook": "First 200 characters engineered to beat LinkedIn ...see more fold",
+    "proof": "3-4 punchy, scannable impact highlights combining verified achievements",
+    "callToAction": "Target role focus + invitation to connect",
+    "fullText": "Full 3-paragraph conversational About narrative ready for one-click copy with Core Skills footer"
   },
+  "experienceUpgrades": [
+    {
+      "company": "Company Name",
+      "role": "Role Title",
+      "dates": "Dates",
+      "linkedinGap": "Exact critique of what is wrong or missing on their current LinkedIn entry for this company vs their resume",
+      "bullets": [
+        "1-line scope hook rewritten for LinkedIn skimmers",
+        "Quantified outcome highlight 1",
+        "Quantified outcome highlight 2"
+      ]
+    }
+  ],
+  "sectionsToAddFromResume": {
+    "projects": [
+      {
+        "title": "Project Name from Resume",
+        "description": "Concise architectural and impact summary",
+        "technologies": ["Tech1", "Tech2"],
+        "replaceNote": "Actionable note on which outdated LinkedIn project to replace or archive"
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Certification Name",
+        "issuer": "Issuing Organization",
+        "date": "Year / Date"
+      }
+    ],
+    "featured": [
+      {
+        "title": "Recommended Artifact or Project to Pin",
+        "reason": "Why this proves architectural depth over a raw resume PDF",
+        "callToAction": "Actionable pinning advice"
+      }
+    ]
+  },
+  "visibilityTricks": [
+    {
+      "category": "Open to Work / SEO / Engagement",
+      "trick": "Actionable trick title",
+      "advice": "Detailed recruiter coaching advice",
+      "items": ["Item 1", "Item 2"]
+    }
+  ],
+  "top3PinnedSkills": ["Skill 1", "Skill 2", "Skill 3"],
+  "recommendedSkillsToAdd": ["Skill 1", "Skill 2"],
   "bannerStrategy": {
-    "bannerTagline": "Bold primary headline for Canva banner (e.g. Senior Full Stack Engineer | Scalable Cloud Systems)",
-    "bannerSecondaryText": "Concise subtitle with core stack and value proposition (e.g. Node.js · React · AWS · High-Throughput Microservices)",
-    "designAdvice": "Actionable Canva layout guidance: 1584x396px dimensions, left-profile avoidance zone, high-contrast dark theme, typography hierarchy."
+    "bannerTagline": "Bold primary headline for Canva banner (4-7 words)",
+    "bannerSecondaryText": "Concise subtitle with core stack and value proposition",
+    "designAdvice": "Actionable Canva layout guidance: 1584x396px dimensions, leave lower-left 30% area clear for mobile avatar circle"
   },
   "featuredSectionRecommendations": [
     {
-      "title": "Project or artifact name from verified resume",
-      "reason": "Why this specific project provides undeniable technical proof to hiring managers",
-      "callToAction": "Actionable pinning advice (e.g. Pin GitHub repository with demo link and architecture diagram)"
+      "title": "Project Title",
+      "reason": "Why this project provides undeniable technical proof",
+      "callToAction": "Pin advice"
     }
   ],
-  "top3PinnedSkills": [
-    "Most critical target role keyword",
-    "Primary technical stack / framework",
-    "Domain / cloud / architecture capability"
-  ],
   "visualPresenceTips": [
-    "Professional headshot tip: framing, soft front-facing lighting, neutral or high-contrast background",
-    "Custom vanity URL tip: claim linkedin.com/in/firstname-lastname without random numbers",
-    "Canva banner tip: export as PNG at 1584x396px and keep text right-centered to clear the mobile avatar circle"
-  ],
-  "recommendedSkillsToAdd": [
-    "Skill 1",
-    "Skill 2"
+    "Headshot advice",
+    "Custom URL advice",
+    "Canva banner advice"
   ],
   "profileRedFlags": [
     {
       "title": "Red flag title",
-      "explanation": "Why recruiters see this as a warning or why it hurts search ranking",
+      "explanation": "Why recruiters see this as a warning",
       "fix": "Actionable immediate correction"
     }
   ]
@@ -86,93 +153,130 @@ You MUST return ONLY a valid JSON object matching this exact schema:
 export const LINKEDIN_SYNTHESIS_SYSTEM_PROMPT = LINKEDIN_SYSTEM_PROMPT
 
 /**
- * Builds the structured user prompt with all verified evidence.
- *
- * @param {Object} params
- * @param {Object} params.profile - Scraped or normalized LinkedIn profile
- * @param {Object} [params.resumeContext] - Canonical resume facts & target role
- * @param {Array|Object} [params.discrepancies] - Cross-agent discrepancy findings
- * @param {Object} [params.signals] - Precomputed deterministic SEO & visibility signals
- * @returns {string} User prompt text
+ * Builds the structured user prompt with all verified evidence comparing LinkedIn vs Resume.
  */
 export function buildLinkedInUserPrompt({
   profile = {},
   resumeContext = {},
   discrepancies = [],
   signals = null,
+  missingSkills = [],
 }) {
+  const canonical = resumeContext?.canonicalResume || {}
   const candidateName =
-    resumeContext?.canonicalResume?.candidate?.name ||
+    canonical?.candidate?.name ||
     profile?.fullName ||
     'the candidate'
   const targetRole =
     resumeContext?.targetRole ||
-    resumeContext?.canonicalResume?.candidate?.targetRole ||
+    canonical?.candidate?.targetRole ||
     profile?.headline ||
     'Technical Professional'
 
   // Extract experiences from verified resume
-  const experiences = resumeContext?.canonicalResume?.experience || []
-  const experienceSummary = experiences.slice(0, 3).map((exp) => {
-    const bullets = (exp.bullets || []).map((b) => `  - ${b.text}`).slice(0, 4).join('\n')
-    return `${exp.role} at ${exp.company} (${exp.dates || 'dates unlisted'}):\n${bullets}`
+  const experiences = canonical.experience || canonical.experiences || []
+  const experienceSummary = experiences.slice(0, 4).map((exp) => {
+    const bullets = (exp.bullets || []).map((b) => `  - ${typeof b === 'string' ? b : b.text}`).slice(0, 5).join('\n')
+    return `${exp.role || exp.title} at ${exp.company} (${exp.dates || 'dates unlisted'}):\n${bullets || '  - Engineering scope and delivery'}`
   }).join('\n\n')
 
   // Extract verified skills from resume
-  const resumeSkills = (resumeContext?.canonicalResume?.skills || [])
+  const resumeSkills = (canonical.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.name))
     .filter(Boolean)
-    .slice(0, 25)
+    .slice(0, 30)
     .join(', ')
 
   // Extract verified projects from resume
-  const projects = resumeContext?.canonicalResume?.projects || []
-  const projectsSummary = projects.slice(0, 3).map((p) => {
-    const bullets = (p.bullets || []).map((b) => `  - ${b.text}`).slice(0, 2).join('\n')
-    return `${p.title || p.name}:\n${bullets || p.description || 'Project details'}`
+  const projects = canonical.projects || []
+  const projectsSummary = projects.slice(0, 4).map((p) => {
+    const bullets = (p.bullets || []).map((b) => `  - ${typeof b === 'string' ? b : b.text}`).slice(0, 3).join('\n')
+    const tech = (p.technologies || p.skills || []).join(', ')
+    return `${p.title || p.name} [Tech: ${tech || 'Core Stack'}]:\n${bullets || p.description || 'Project details'}`
   }).join('\n\n')
+
+  // Extract education from verified resume
+  const eduSummary = (canonical.education || []).slice(0, 3).map((ed) => {
+    return `- ${ed.degree} in ${ed.major || ed.field || ''} at ${ed.institution || ed.school} (${ed.graduationYear || ed.dates || ''})`
+  }).join('\n')
+
+  // Extract certifications from verified resume
+  const certSummary = (canonical.certifications || []).slice(0, 4).map((c) => {
+    return `- ${c.name || c.title} (${c.issuer || c.authority || ''})`
+  }).join('\n')
+
+  // Current LinkedIn profile sections
+  const liExpSummary = (profile.experiences || []).slice(0, 4).map((e) => {
+    return `- ${e.title || e.role} at ${e.company} (${e.duration || e.dates || 'dates unlisted'}): ${(e.description || e.summary || 'No description provided').slice(0, 250)}`
+  }).join('\n')
+
+  const liProjSummary = (profile.projects || []).slice(0, 4).map((p) => {
+    return `- ${p.title || p.name}: ${(p.description || 'No description').slice(0, 180)}`
+  }).join('\n')
+
+  const liEduSummary = (profile.education || []).slice(0, 3).map((ed) => {
+    return `- ${ed.degree || 'Degree'} at ${ed.school || ed.institution} (${ed.years || ed.date || ''})`
+  }).join('\n')
 
   // Format discrepancies list
   const discList = Array.isArray(discrepancies)
     ? discrepancies
     : discrepancies?.discrepancies || []
-  const discSummary = discList.slice(0, 5).map((d) => `- ${d.title}: ${d.diagnosis}`).join('\n')
+  const discSummary = discList.slice(0, 8).map((d) => `- [${d.severity || 'warning'}] ${d.title}: ${d.diagnosis || d.explanation}`).join('\n')
 
   // Format missing skills list
-  const missingSkills = (
-    resumeContext?.missingSkills ||
-    discrepancies?.missingSkills ||
-    []
-  ).slice(0, 10).join(', ')
+  const missingSkillsList = (
+    missingSkills.length > 0 ? missingSkills : (resumeContext?.missingSkills || discrepancies?.missingSkills || [])
+  ).slice(0, 15).join(', ')
 
   return `CANDIDATE NAME: ${candidateName}
 TARGET ROLE: ${targetRole}
 
-CURRENT LINKEDIN PROFILE:
+==================================================
+ACTUAL SCRAPED LINKEDIN PROFILE
+==================================================
 - Headline: "${profile.headline || 'None provided'}"
-- About Section: "${(profile.about || 'Empty').slice(0, 600)}"
-- Listed Skills: ${(profile.skills || []).slice(0, 15).join(', ') || 'None'}
-- Has Profile Photo: ${profile.hasPicture ? 'Yes' : 'No (Default / Missing)'}
+- About Summary: "${(profile.about || 'Empty').slice(0, 600)}"
+- Listed Skills: ${(profile.skills || profile.topSkills || []).slice(0, 20).join(', ') || 'None listed'}
+- Listed Experiences on LinkedIn:
+${liExpSummary || 'None listed'}
+- Listed Projects on LinkedIn:
+${liProjSummary || 'None listed'}
+- Listed Education on LinkedIn:
+${liEduSummary || 'None listed'}
+- Has Profile Photo: ${profile.hasPicture ? 'Yes' : 'No (Default Avatar / Missing)'}
 - Has Custom Banner: ${profile.hasBanner ? 'Yes' : 'No (Default Gray Banner)'}
-- Connections: ${signals?.visibility?.connectionsCount ?? profile?.connectionsCount ?? 'Unknown'}
-- Recommendations: ${signals?.visibility?.recommendationsCount ?? profile?.recommendationsCount ?? 'None'}
+- Connections Count: ${signals?.visibility?.connectionsCount ?? profile?.connectionsCount ?? 'Unknown'}
+- Recommendations Count: ${signals?.visibility?.recommendationsCount ?? profile?.recommendationsCount ?? 0}
 
-VERIFIED RESUME EVIDENCE (GROUND TRUTH):
+==================================================
+VERIFIED RESUME EVIDENCE (GROUND TRUTH)
+==================================================
+RESUME EXPERIENCES:
 ${experienceSummary || 'No resume experience provided; optimize based strictly on profile.'}
 
-VERIFIED RESUME PROJECTS:
+RESUME PROJECTS:
 ${projectsSummary || 'None explicitly listed'}
+
+RESUME EDUCATION:
+${eduSummary || 'None listed'}
+
+RESUME CERTIFICATIONS:
+${certSummary || 'None listed'}
 
 VERIFIED SKILLS FROM RESUME:
 ${resumeSkills || 'None listed'}
 
-CROSS-CHANNEL DISCREPANCIES DETECTED:
+==================================================
+CROSS-ANALYZER FINDINGS (DISCREPANCIES & GAPS)
+==================================================
+DETECTED DISCREPANCIES:
 ${discSummary || 'None detected'}
 
 PRIORITY RESUME SKILLS MISSING ON LINKEDIN:
-${missingSkills || 'None identified'}
+${missingSkillsList || 'None identified'}
 
-Using your recruiter persona, generate the complete All-Star LinkedIn package: 3 search-optimized headline options, the 3-paragraph About narrative, bannerStrategy for Canva, featuredSectionRecommendations (2-3 projects to pin), top3PinnedSkills (top 3 skills to pin to profile top), visualPresenceTips (lighting, avatar framing, custom URL), up to 10 recommended skills to add, and 2-4 recruiter profile red flags. Return ONLY valid JSON.`
+Analyze the concrete differences between the candidate's actual scraped LinkedIn profile and their verified Resume. Generate the complete All-Star LinkedIn package using the required JSON schema. Return ONLY valid JSON.`
 }
 
 /**
@@ -187,12 +291,10 @@ export function buildLinkedInSynthesisPrompt({
 }) {
   const userContent = buildLinkedInUserPrompt({
     profile,
-    resumeContext: {
-      ...resumeContext,
-      missingSkills: missingSkills.length > 0 ? missingSkills : resumeContext?.missingSkills,
-    },
+    resumeContext,
     discrepancies,
     signals,
+    missingSkills,
   })
 
   return [
@@ -208,177 +310,40 @@ export function buildLinkedInSynthesisPrompt({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LIGHTWEIGHT MODULAR CHUNKING PROMPTS (<1,500 TOKENS EACH)
+// BACKWARDS-COMPATIBILITY EXPORTS FOR ISOLATION TESTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const TASK1_HEADLINES_BANNER_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience across top US tech companies.
-Your task is to generate 3 high-converting, search-optimized LinkedIn headlines (strictly under 220 characters each) and a Canva cover banner strategy for this candidate.
+export const TASK1_HEADLINES_BANNER_SYSTEM_PROMPT = LINKEDIN_SYSTEM_PROMPT
+export const TASK2_ABOUT_FEATURED_SYSTEM_PROMPT = LINKEDIN_SYSTEM_PROMPT
 
-==================================================
-ZERO-HALLUCINATION & EVIDENCE GUARDRAIL
-==================================================
-1. You may ONLY reference companies, job titles, technologies, and metrics explicitly provided in the candidate context.
-2. NEVER invent new metrics, never fabricate past employers or credentials.
-3. Eliminate generic buzzwords ("visionary", "rockstar"). Use authentic, high-signal phrasing.
-4. Each headline MUST be strictly under 220 characters (<220 chars) to fit LinkedIn's hard cutoff.
-
-==================================================
-REQUIRED OUTPUT SCHEMA
-==================================================
-Return ONLY a valid JSON object matching this exact schema:
-{
-  "headlines": [
-    {
-      "formula": "Recruiter-Search Optimized",
-      "headline": "Target Role | Core Stack & Cloud | Domain Specialization (<220 chars)",
-      "whyItWorks": "Why LinkedIn Recruiter boolean search will rank and click this"
+export function buildTask1HeadlinesAndBannerPrompt(params = {}) {
+  return buildLinkedInSynthesisPrompt({
+    profile: params.profile || {},
+    resumeContext: {
+      canonicalResume: {
+        candidate: { name: params.candidateName, targetRole: params.targetRole },
+        skills: params.topSkills,
+      },
+      targetRole: params.targetRole,
     },
-    {
-      "formula": "Impact-Driven",
-      "headline": "Target Role | Top Verified Metric / Scale Win from Context (<220 chars)",
-      "whyItWorks": "Why hiring managers notice this proof point immediately"
-    },
-    {
-      "formula": "Specialist / Authority",
-      "headline": "Specialist Role | Core Focus & Architecture Delivery (<220 chars)",
-      "whyItWorks": "How this establishes domain depth and senior authority"
-    }
-  ],
-  "bannerStrategy": {
-    "bannerTagline": "Bold primary headline for Canva banner (4-7 words, e.g. Senior Full Stack Engineer | Scalable Cloud Systems)",
-    "bannerSecondaryText": "Concise subtitle with core stack and value proposition (e.g. Node.js · React · AWS · High-Throughput Microservices)",
-    "designAdvice": "Actionable Canva layout guidance: 1584x396px dimensions, leave lower-left 30% area clear for mobile avatar circle, high-contrast dark theme."
-  }
-}`
-
-export function buildTask1HeadlinesAndBannerPrompt({
-  candidateName = 'the candidate',
-  targetRole = 'Technical Professional',
-  topMetricBullets = [],
-  topSkills = [],
-  profile = {},
-}) {
-  const currentHeadline = profile.headline || 'None provided'
-  const skillsList = Array.isArray(topSkills) && topSkills.length > 0 ? topSkills.join(', ') : 'Not specified'
-  const bulletsList = Array.isArray(topMetricBullets) && topMetricBullets.length > 0
-    ? topMetricBullets.map((b) => `- ${b}`).join('\n')
-    : '- Proven record of building and delivering software systems.'
-
-  return [
-    {
-      role: 'system',
-      content: TASK1_HEADLINES_BANNER_SYSTEM_PROMPT,
-    },
-    {
-      role: 'user',
-      content: `CANDIDATE: ${candidateName}
-TARGET ROLE: ${targetRole}
-CURRENT HEADLINE: "${currentHeadline}"
-CORE VERIFIED SKILLS: ${skillsList}
-
-TOP VERIFIED METRIC ACHIEVEMENTS (GROUND TRUTH):
-${bulletsList}
-
-Generate 3 search-optimized headlines and the Canva banner strategy. Return ONLY valid JSON.`,
-    },
-  ]
+  })
 }
 
-export const TASK2_ABOUT_FEATURED_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience across top US tech companies.
-Your task is to write a high-converting About section, upgraded Experience bullets for top roles, and Featured project recommendations for this candidate.
-
-==================================================
-ZERO-HALLUCINATION & EVIDENCE GUARDRAIL
-==================================================
-1. You may ONLY reference companies, job titles, technologies, and achievements explicitly provided in the candidate context.
-2. NEVER invent new metrics, degrees, or employers.
-3. About Structure:
-   - Paragraph 1 (Hook): Strictly under 200 characters (<200 chars) that includes the target role and a concrete scale or metric before LinkedIn's "...see more" fold.
-   - Paragraph 2 (Proof): Bulleted high-impact achievements from verified career history with numbers.
-   - Paragraph 3 (Next Step & CTA): 2-3 sentences stating what problems they solve and an invitation to connect.
-   - fullText: Complete narrative combining Hook, Bulleted Proof, CTA, and a bottom "Core Skills: Tech1 · Tech2 · Tech3" SEO keyword line.
-
-==================================================
-REQUIRED OUTPUT SCHEMA
-==================================================
-Return ONLY a valid JSON object matching this exact schema:
-{
-  "aboutRewrite": {
-    "hook": "Strong first-line hook under 200 chars stating target role and key metric.",
-    "proof": "Bulleted key achievements and scale proof from verified history.",
-    "callToAction": "2-3 sentences stating problems they want to solve and invitation to connect.",
-    "fullText": "Full About narrative with hook, bulleted wins, CTA, and bottom Core Skills SEO block."
-  },
-  "experienceUpgrades": [
-    {
-      "company": "Company Name",
-      "role": "Role Title",
-      "bullets": [
-        "Upgraded outcome-driven bullet starting with action verb, metric, scale, and technology",
-        "Upgraded impact bullet highlighting business value"
-      ]
-    }
-  ],
-  "featuredSectionRecommendations": [
-    {
-      "title": "Project or artifact name from verified achievements",
-      "reason": "Why this specific project provides undeniable technical proof to hiring managers",
-      "callToAction": "Actionable pinning advice (e.g. Pin GitHub repository with demo link and architecture diagram)"
-    }
-  ],
-  "profileRedFlags": [
-    {
-      "title": "Red flag title",
-      "explanation": "Why recruiters see this as a warning",
-      "fix": "Actionable immediate correction"
-    }
-  ]
-}`
-
-export function buildTask2AboutAndFeaturedPrompt({
-  candidateName = 'the candidate',
-  targetRole = 'Technical Professional',
-  currentAbout = '',
-  topExperiences = [],
-  topProjects = [],
-  topSkills = [],
-}) {
-  const aboutSnippet = currentAbout ? currentAbout.slice(0, 300) : 'None provided'
-  const skillsList = Array.isArray(topSkills) && topSkills.length > 0 ? topSkills.join(', ') : 'Not specified'
-
-  const expSnippet = Array.isArray(topExperiences) && topExperiences.length > 0
-    ? topExperiences.map((e) => {
-        const bullets = (e.bullets || []).map((b) => `  - ${b}`).join('\n')
-        return `${e.role} at ${e.company} (${e.dates || 'dates unlisted'}):\n${bullets || '  - Engineering delivery and leadership'}`
-      }).join('\n\n')
-    : 'No employment details provided.'
-
-  const projectsSnippet = Array.isArray(topProjects) && topProjects.length > 0
-    ? topProjects.map((p) => `- ${p.title}: ${p.description || 'Architecture and implementation'}`).join('\n')
-    : 'None explicitly listed'
-
-  return [
-    {
-      role: 'system',
-      content: TASK2_ABOUT_FEATURED_SYSTEM_PROMPT,
+export function buildTask2AboutAndFeaturedPrompt(params = {}) {
+  return buildLinkedInSynthesisPrompt({
+    profile: {
+      about: params.currentAbout,
     },
-    {
-      role: 'user',
-      content: `CANDIDATE: ${candidateName}
-TARGET ROLE: ${targetRole}
-CURRENT ABOUT SUMMARY: "${aboutSnippet}"
-
-RECENT CAREER ACHIEVEMENTS (GROUND TRUTH):
-${expSnippet}
-
-VERIFIED PROJECTS:
-${projectsSnippet}
-
-CORE SKILLS: ${skillsList}
-
-Generate the 3-paragraph About narrative, Featured section recommendations, and 2-3 profile red flags. Return ONLY valid JSON.`,
+    resumeContext: {
+      canonicalResume: {
+        candidate: { name: params.candidateName, targetRole: params.targetRole },
+        experience: params.topExperiences,
+        projects: params.topProjects,
+        skills: params.topSkills,
+      },
+      targetRole: params.targetRole,
     },
-  ]
+  })
 }
 
 export default {

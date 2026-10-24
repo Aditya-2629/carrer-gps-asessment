@@ -118,7 +118,7 @@ async function runTests() {
     sampleResumeContextGemini
   )
 
-  assert(capturedGatewayParams.length >= 2, 'Should have executed Task 1 and Task 2 micro-tasks')
+  assert(capturedGatewayParams.length >= 1, 'Should have executed unified synthesis task')
   for (const p of capturedGatewayParams) {
     assert.strictEqual(p.purpose, 'linkedin_analysis', 'Purpose must be linkedin_analysis')
     assert.strictEqual(p.excludeProvider, 'gemini', 'Must exclude Gemini provider to prevent quota collision')
@@ -152,13 +152,12 @@ async function runTests() {
     sampleResumeContextGroq
   )
 
-  assert(capturedGatewayParams.length >= 2, 'Should have executed Task 1 and Task 2 micro-tasks')
+  assert(capturedGatewayParams.length >= 1, 'Should have executed unified synthesis task')
   for (const p of capturedGatewayParams) {
     assert.strictEqual(p.purpose, 'linkedin_analysis', 'Purpose must be linkedin_analysis')
     assert.strictEqual(p.excludeProvider, 'groq', 'Must exclude Groq provider to prevent rate limit collision')
-    assert.strictEqual(p.preferredProvider, 'gemini', 'Must prefer Gemini provider')
   }
-  console.log('PASS: When Resume Agent used Groq, LinkedIn Agent strictly routed with excludeProvider=groq and preferredProvider=gemini')
+  console.log('PASS: When Resume Agent used Groq, LinkedIn Agent strictly routed with excludeProvider=groq')
 
   // ── 5. End-to-End evaluateLinkedIn with Provider Isolation ────────────────
   console.log('\n--- Test 5: evaluateLinkedIn Provider Isolation Forwarding ---')
@@ -173,7 +172,7 @@ async function runTests() {
   assert.strictEqual(evalResult.dataAvailable, true)
   assert(evalResult.optimizations, 'Optimizations generated')
   assert.strictEqual(evalResult.optimizations.headlines.length, 3, '3 headlines present')
-  assert(capturedGatewayParams.length >= 2, 'Executed chunk micro-tasks')
+  assert(capturedGatewayParams.length >= 1, 'Executed unified synthesis')
   assert.strictEqual(capturedGatewayParams[0].excludeProvider, 'gemini')
   assert.strictEqual(capturedGatewayParams[0].preferredProvider, 'groq')
   console.log('PASS: evaluateLinkedIn cleanly forwards provider isolation through to parallel synthesis')

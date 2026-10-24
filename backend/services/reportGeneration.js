@@ -250,8 +250,6 @@ export async function generateReportBundle({
 
   const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
-  const promptText = getGeminiPrompt(user.answers, user.resumeJson, user.linkedinData, dynamicKbContent, effectiveSemanticProfile)
-
   const resumeTargetRole =
     effectiveSemanticProfile?.targetRole ||
     effectiveSemanticProfile?.target_role ||
@@ -259,8 +257,7 @@ export async function generateReportBundle({
     user.resumeJson?.target_role ||
     ''
 
-  // Atlas narrative and the agent orchestrator run in parallel (Phase B).
-  report('agents_running', 'Resume + LinkedIn agents analyzing in parallel with Atlas…')
+  report('agents_running', 'Running Resume and LinkedIn specialized diagnostic agents…')
 
   // If precomputedResumeAgent is already supplied from upload-time execution,
   // skip duplicate ResumeAgent LLM execution and only run LinkedIn agent if needed,
@@ -307,6 +304,48 @@ export async function generateReportBundle({
     })
   }
 
+  // Await agentsPromise before callAtlas: ResumeAgent is precomputed in 0ms and LinkedInAgent
+  // executes in ~2.5s on Groq. Awaiting here gives Atlas the verified agent diagnoses
+  // and freshly scraped LinkedIn data so the report is 100% dynamic.
+  const result = await agentsPromise
+  const activeResumeAgent = result?.resumeAgent || precomputedResumeAgent || null
+  let activeLinkedinAgent = result?.linkedinAgent || null
+  const activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
+  if (!user.linkedinData && activeLinkedinData) {
+    user.linkedinData = activeLinkedinData
+  }
+
+  // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
+  if ((!activeLinkedinAgent || activeLinkedinAgent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl)) {
+    try {
+      console.log('[ReportGeneration] Running safety net evaluateLinkedIn directly...')
+      const directLi = await evaluateLinkedIn({
+        profile: activeLinkedinData,
+        resumeContext: {
+          canonicalResume: effectiveCanonicalResume,
+          targetRole: resumeTargetRole,
+        },
+        runLlm: true,
+        preferredProvider: 'groq',
+      })
+      if (directLi) {
+        activeLinkedinAgent = directLi
+      }
+    } catch (directErr) {
+      console.warn('[ReportGeneration] Safety net evaluateLinkedIn failed:', directErr.message)
+    }
+  }
+
+  const promptText = getGeminiPrompt(
+    user.answers,
+    effectiveCanonicalResume || user.resumeJson,
+    user.linkedinData || activeLinkedinData,
+    dynamicKbContent,
+    effectiveSemanticProfile,
+    activeResumeAgent,
+    activeLinkedinAgent
+  )
+
   // Atlas draft with completeness guard: if the model returns a partial JSON
   // (missing sections), retry ONCE with an explicit completeness instruction
   // and keep whichever draft is more complete.
@@ -332,44 +371,16 @@ export async function generateReportBundle({
   }
 
   // Include structured resume & linkedin json in final report output
-  if (user.resumeJson) {
-    aiReport.resume_json = user.resumeJson
+  if (effectiveCanonicalResume || user.resumeJson) {
+    aiReport.resume_json = effectiveCanonicalResume || user.resumeJson
   }
-  if (user.linkedinData) {
-    aiReport.linkedin_json = user.linkedinData
-  }
-
-  // Attach both agent diagnoses once the orchestrator settles. Either agent
-  // can be null (no data / failed) without breaking the report.
-  const result = await agentsPromise
-  aiReport.resume_agent = result?.resumeAgent || null
-  aiReport.linkedin_agent = result?.linkedinAgent || null
-  if (!aiReport.linkedin_json && (result?.linkedinData || user.linkedinData || precomputedLinkedinData)) {
-    aiReport.linkedin_json = result?.linkedinData || user.linkedinData || precomputedLinkedinData
-    user.linkedinData = aiReport.linkedin_json
+  if (user.linkedinData || activeLinkedinData) {
+    aiReport.linkedin_json = user.linkedinData || activeLinkedinData
   }
 
-  // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
-  const activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
-  if ((!aiReport.linkedin_agent || aiReport.linkedin_agent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl)) {
-    try {
-      console.log('[ReportGeneration] Running safety net evaluateLinkedIn directly...')
-      const directLi = await evaluateLinkedIn({
-        profile: activeLinkedinData,
-        resumeContext: {
-          canonicalResume: effectiveCanonicalResume,
-          targetRole: resumeTargetRole,
-        },
-        runLlm: true,
-        preferredProvider: 'groq',
-      })
-      if (directLi) {
-        aiReport.linkedin_agent = directLi
-      }
-    } catch (directErr) {
-      console.warn('[ReportGeneration] Safety net evaluateLinkedIn failed:', directErr.message)
-    }
-  }
+  // Attach verified agent diagnoses
+  aiReport.resume_agent = activeResumeAgent
+  aiReport.linkedin_agent = activeLinkedinAgent
 
   aiReport.user_answers = user.answers || {}
   aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null

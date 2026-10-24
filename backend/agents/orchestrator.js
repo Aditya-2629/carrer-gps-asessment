@@ -58,6 +58,11 @@ export function computeAnalysisCacheFingerprint({
 async function persistRun(row) {
   if (!MONGO_CONNECTED()) return
   try {
+    if (row.agent === 'linkedin' && row.status === 'SUCCESS') {
+      if (!row.output || !row.output.optimizations || row.output.optimizations.isFallback) {
+        return // Never cache fallback runs as SUCCESS
+      }
+    }
     await AgentRun.create(row)
   } catch (e) {
     console.warn('[Orchestrator] AgentRun persist failed (non-fatal):', e.message)
@@ -80,6 +85,7 @@ async function findCachedRun(agent, inputHash) {
     }
     if (agent === 'linkedin') {
       query['output.dataAvailable'] = true
+      query['output.optimizations.isFallback'] = { $ne: true }
     }
     return await AgentRun.findOne(query).sort({ createdAt: -1 }).lean()
   } catch (_e) {
@@ -331,16 +337,18 @@ export async function runCareerAgents(bundle) {
           onProgress,
         })
 
-        await persistRun({
-          agent: 'linkedin',
-          agentVersion: LINKEDIN_AGENT.version,
-          inputHash,
-          userId,
-          status: 'SUCCESS',
-          output: analysis,
-          latencyMs: Date.now() - startedAt,
-          cached: false,
-        })
+        if (analysis?.optimizations && !analysis.optimizations.isFallback) {
+          await persistRun({
+            agent: 'linkedin',
+            agentVersion: LINKEDIN_AGENT.version,
+            inputHash,
+            userId,
+            status: 'SUCCESS',
+            output: analysis,
+            latencyMs: Date.now() - startedAt,
+            cached: false,
+          })
+        }
         if (onProgress) onProgress({ stage: 'agent_done', agent: 'linkedin', message: 'LinkedIn Agent: complete' })
         return { key: 'linkedinAgent', analysis, linkedinData: activeProfile }
       } catch (err) {

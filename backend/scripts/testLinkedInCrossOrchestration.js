@@ -420,9 +420,9 @@ async function runTests() {
 
     assert(mockReport.resume_agent, 'aiReport.resume_agent cleanly bundled')
     assert(mockReport.linkedin_agent, 'aiReport.linkedin_agent cleanly bundled')
-    assert.strictEqual(mockReport.linkedin_agent.version, '2.0.0')
+    assert.strictEqual(mockReport.linkedin_agent.version, '3.0.0')
     assert(mockReport.linkedin_agent.checks.length > 0)
-    console.log('PASS: aiReport cleanly bundles resume_agent and upgraded linkedin_agent (V2.0.0)')
+    console.log('PASS: aiReport cleanly bundles resume_agent and upgraded linkedin_agent (V3.0.0)')
 
     // ── Test 15: Judge Agent Quality Checks with Upgraded LinkedIn Agent ──────
     console.log('\n--- Test 15: Judge Agent Recognition of Upgraded LinkedIn Agent ---')

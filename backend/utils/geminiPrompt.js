@@ -5,7 +5,15 @@ const safeJson = (data) => {
   return JSON.stringify(data, null, 2).replace(/`/g, "'")
 }
 
-export default (userData, resumeData = null, linkedinData = null, dynamicKnowledgeBase = null, semanticProfile = null) => {
+export default (
+  userData,
+  resumeData = null,
+  linkedinData = null,
+  dynamicKnowledgeBase = null,
+  semanticProfile = null,
+  resumeAgent = null,
+  linkedinAgent = null
+) => {
   const kbText = dynamicKnowledgeBase || defaultKnowledgeBase
 
   return `
@@ -38,88 +46,129 @@ export default (userData, resumeData = null, linkedinData = null, dynamicKnowled
        - Use the machine-readable "CANDIDATE AI-SEMANTIC ASSESSMENT PROFILE" provided below.
        - Each entry defines the exact canonical 'field', 'semanticKey', 'questionIntent', 'answerType', 'unit', 'timeframe', 'interpretationRules', and candidate answer (including normalizedPerWeek and normalizedPerMonth for all quantitative data).
        - Ground all your scoring, bottleneck diagnosis, and roadmap assignments on these explicit semantic definitions.
+    8. GROUNDED IN AGENT FINDINGS:
+       - You have been provided with specialized pre-computed analyses from "ResumeAgent" and "LinkedInAgent" below.
+       - Integrate their verified scores, red flags, ATS readability issues, and profile discrepancies directly into your diagnostic narrative.
+       - NEVER use generic placeholders or copy static example strings from the template.
 
     The JSON object must STRICTLY follow this exact structure, with NO additional text:
     {
-      "career_health_score": 45,
-      "score_label": "Survival Mode",
+      "career_health_score": "<integer 0-100 calculated from resume, linkedin, outreach, and interview subscores>",
+      "score_label": "<Survival Mode / At Risk / Competitive / Elite Positioning based on score>",
       "score_breakdown": {
-        "resume": { "score": 35, "diagnosis": "Reference ACTUAL ATS score, missing keywords, and specific red flags from parsed JSON." },
-        "linkedin": { "score": 50, "diagnosis": "Reference ACTUAL LinkedIn headline, about section, connection count, or activity level." },
-        "outreach": { "score": 20, "diagnosis": "Reference ACTUAL networking strategy from assessment. Use KB networking stats." },
-        "interviews": { "score": 60, "diagnosis": "Reference ACTUAL interview preparation level from assessment." }
+        "resume": { "score": "<integer 0-100>", "diagnosis": "<Reference ACTUAL ATS score, missing keywords, and specific red flags from resumeAgent or parsed resume>" },
+        "linkedin": { "score": "<integer 0-100>", "diagnosis": "<Reference ACTUAL LinkedIn headline, about section, connection count, or activity level from linkedinAgent or scraped profile>" },
+        "outreach": { "score": "<integer 0-100>", "diagnosis": "<Reference ACTUAL networking strategy and weekly outreach from assessment answers>" },
+        "interviews": { "score": "<integer 0-100>", "diagnosis": "<Reference ACTUAL interview preparation and conversion from assessment answers>" }
       },
       "market_reality_check": {
-        "headline": "Scary but true headline personalized to THEIR target role and visa status, using KB stats",
-        "brutal_facts": ["Fact 1 from KB personalized to their situation", "Fact 2 from KB with their specific numbers", "Fact 3 from KB targeting their weak area"],
-        "application_velocity": "Call out their ACTUAL weekly application rate vs KB-recommended 80-100/week. Name Easy Apply trap.",
-        "resume_blackhole": "Explain WHY their specific format/keywords are causing ATS rejection."
+        "headline": "<Compelling, candid market reality headline personalized to candidate's target role, seniority, and work authorization/visa situation using KB stats>",
+        "brutal_facts": [
+          "<Brutal fact 1 citing verified KB statistics personalized to their target role and application funnel>",
+          "<Brutal fact 2 citing KB stats on their specific bottleneck or search velocity>",
+          "<Brutal fact 3 targeting their resume/LinkedIn conversion rate and market competition>"
+        ],
+        "application_velocity": "<Analyze their actual weekly application rate vs KB-recommended benchmark; call out Easy Apply traps if applicable>",
+        "resume_blackhole": "<Explain why their specific resume/LinkedIn gaps are causing ATS silence or recruiter skips>"
       },
       "career_journey": {
-        "current_phase_id": 2,
-        "guide_message": "We're in the Positioning phase. Before we move forward to Visibility, we need to fix your ATS keywords holding you back."
+        "current_phase_id": "<integer 1 for Foundation, 2 for Positioning, 3 for Visibility, 4 for Acceleration>",
+        "guide_message": "<1-2 sentences personalized guidance for where they currently stand and what must be fixed first>"
       },
       "funnel_stages": {
-        "applications_count": 250,
-        "recruiter_calls_count": 5,
-        "interviews_count": 1,
-        "final_rounds_count": 0,
-        "offers_count": 0,
-        "biggest_leak_stage": "Recruiter Calls",
-        "diagnosis_message": "Most candidates drop off... Fix top of funnel..."
+        "applications_count": "<Candidate's actual total estimated applications from assessment answers - DO NOT default to 250>",
+        "recruiter_calls_count": "<Candidate's actual or estimated recruiter screening calls from answers>",
+        "interviews_count": "<Candidate's actual or estimated technical/manager interviews from answers>",
+        "final_rounds_count": "<Candidate's actual final rounds from answers>",
+        "offers_count": "<Candidate's actual offers from answers>",
+        "biggest_leak_stage": "<The specific funnel stage with the steepest drop-off (e.g. 'Applications to Recruiter Screens', 'Recruiter Calls', 'Technical Interviews')>",
+        "diagnosis_message": "<1-2 sentences diagnosing why their funnel is leaking at this exact stage>"
       },
       "rejection_factors": [
-        { "name": "Resume", "pct": 40, "desc": "ATS Parsing & Metrics Lack" },
-        { "name": "Execution", "pct": 30, "desc": "Application Method / Timing" },
-        { "name": "LinkedIn", "pct": 20, "desc": "Profile Incomplete" },
-        { "name": "Interview", "pct": 10, "desc": "Behavioral Structure" }
+        { "name": "<Factor 1 e.g. Resume & ATS / Execution & Velocity / LinkedIn Discoverability / Interviewing>", "pct": "<percentage integer, all 4 must sum to 100 - DO NOT hardcode 40/30/20/10>", "desc": "<Specific flaw from candidate data causing this rejection factor>" },
+        { "name": "<Factor 2>", "pct": "<percentage integer>", "desc": "<Specific flaw from candidate data>" },
+        { "name": "<Factor 3>", "pct": "<percentage integer>", "desc": "<Specific flaw from candidate data>" },
+        { "name": "<Factor 4>", "pct": "<percentage integer>", "desc": "<Specific flaw from candidate data>" }
       ],
-      "rejection_insight": "Explain which rejection factor is hurting them the most and why.",
+      "rejection_insight": "<Explain which rejection factor is hurting them the most and why.>",
       "risk_heatmap": {
-        "critical_risk": "Visa Sponsorship Timeline",
-        "high_impact_low_likelihood": ["Recruiter Ghosting", "Offer Rescinded"],
-        "low_impact_high_likelihood": ["ATS Rejection", "Initial Screen Fail"],
-        "mitigation_plan": "Actionable plan to systematically manage their critical risk."
+        "critical_risk": "<The candidate's single most dangerous career risk based on their visa status, funnel velocity, or resume/LinkedIn gap - NEVER default to Visa Sponsorship if candidate is a US Citizen or Permanent Resident>",
+        "high_impact_low_likelihood": ["<Specific scenario 1 tailored to candidate>", "<Specific scenario 2 tailored to candidate>"],
+        "low_impact_high_likelihood": ["<Specific scenario 1 tailored to candidate>", "<Specific scenario 2 tailored to candidate>"],
+        "mitigation_plan": "<Actionable 2-3 sentence protocol to systematically defuse and manage their critical risk.>"
       },
       "mission_board": {
-        "xp_level": "Level 2: Resume Builder",
-        "xp_current": 350,
+        "xp_level": "<Gamified level based on score, e.g. 'Level 1: Foundation Builder' or 'Level 2: Strategic Positioner'>",
+        "xp_current": "<integer points e.g. 150 to 500>",
         "missions": [
-          { "title": "Rebuild Resume", "xp": "+15 XP", "impact": "High Impact" },
-          { "title": "Optimize LinkedIn", "xp": "+10 XP", "impact": "Medium Impact" },
-          { "title": "Fix ATS Issues", "xp": "+20 XP", "impact": "High Impact" },
-          { "title": "Add Projects", "xp": "+12 XP", "impact": "Medium Impact" },
-          { "title": "Mock Interviews", "xp": "+18 XP", "impact": "High Impact" }
+          { "title": "<High priority mission tailored to their top resume issue or ATS gap>", "xp": "+25 XP", "impact": "High Impact" },
+          { "title": "<Mission tailored to their LinkedIn gap, missing project, or headline SEO>", "xp": "+20 XP", "impact": "High Impact" },
+          { "title": "<Mission tailored to outreach velocity or hiring manager networking>", "xp": "+15 XP", "impact": "Medium Impact" },
+          { "title": "<Mission tailored to portfolio case study or technical architecture proof>", "xp": "+15 XP", "impact": "Medium Impact" },
+          { "title": "<Mission tailored to behavioral storytelling or mock interview practice>", "xp": "+20 XP", "impact": "High Impact" }
         ]
       },
       "critical_issues": [
         {
-          "title": "Punchy 3-5 word title",
-          "severity": "High",
+          "title": "<Punchy 3-5 word title>",
+          "severity": "<High or Critical>",
           "icon_suggestion": "alert-triangle",
-          "diagnosis": "1-2 sentences referencing SPECIFIC data. Name actual numbers, skills, or gaps.",
-          "action_steps": ["Hyper-specific step 1 with tool names", "Step 2 with measurable target"]
+          "diagnosis": "<1-2 sentences referencing SPECIFIC candidate data. Name actual numbers, skills, or gaps.>",
+          "action_steps": ["<Hyper-specific step 1 with tool names>", "<Step 2 with measurable target>"]
         }
       ],
       "roadmap": [
         {
           "week": "Week 1",
           "theme": "Phase 1: Positioning",
-          "goal": "Clear measurable objective tied to their specific situation.",
-          "tasks": ["Specific task with tool name", "Task 2 with deadline", "Task 3 with outcome"]
+          "goal": "<Clear measurable objective tied to their specific situation.>",
+          "tasks": ["<Specific task with tool name>", "<Task 2 with deadline>", "<Task 3 with outcome>"]
         }
       ],
       "recommended_tools": [
-        { "tool_name": "Jobscan", "category": "ATS", "reason": "Why THEY specifically need it." }
+        { "tool_name": "<Specific tool tailored to candidate's stack and bottleneck>", "category": "<ATS / Outreach / Interview Prep / System Design>", "reason": "<Why THIS candidate specifically needs it.>" }
       ],
       "coach_intervention": {
-        "urgency_statement": "Urgency statement using KB time-to-hire or ghosting stats.",
-        "value_prop": "How a human expert would bypass their specific bottleneck.",
+        "urgency_statement": "<Urgency statement using KB time-to-hire or ghosting stats.>",
+        "value_prop": "<How a human expert would bypass their specific bottleneck.>",
         "cta_text": "Book Free Survival Strategy Call"
       }
     }
 
     Ensure exactly 3 critical_issues, exactly 4 weeks in roadmap, exactly 3 recommended_tools, and exactly 3 brutal_facts.
+
+    ### VERIFIED RESUME AGENT DIAGNOSIS (Ground Truth Issues & Strengths):
+    ${resumeAgent ? safeJson({
+      score: resumeAgent.score,
+      grade: resumeAgent.grade,
+      overallReview: resumeAgent.overallReview,
+      strengths: resumeAgent.strengths,
+      issues: (resumeAgent.issues || []).slice(0, 5).map(iss => ({
+        category: iss.category,
+        severity: iss.severity,
+        title: iss.title,
+        problem: iss.problem,
+        recommendation: iss.recommendation
+      })),
+      atsReadability: resumeAgent.atsReadability,
+    }) : 'No precomputed resume agent analysis available.'}
+
+    ### VERIFIED LINKEDIN AGENT DIAGNOSIS (Ground Truth Discrepancies & Profile Gaps):
+    ${linkedinAgent ? safeJson({
+      score: linkedinAgent.score,
+      grade: linkedinAgent.grade,
+      discrepancies: (linkedinAgent.discrepancies || []).slice(0, 6).map(d => ({
+        severity: d.severity,
+        title: d.title,
+        diagnosis: d.diagnosis,
+        fix: d.fix
+      })),
+      missingSkills: (linkedinAgent.missingSkills || []).slice(0, 10),
+      missingSections: linkedinAgent.missingSections,
+      top3PinnedSkills: linkedinAgent.optimizations?.top3PinnedSkills,
+      experienceUpgradesCount: linkedinAgent.optimizations?.experienceUpgrades?.length || 0,
+      visualAudit: linkedinAgent.visualAudit,
+    }) : 'No LinkedIn agent analysis available.'}
 
     ### CANDIDATE AI-SEMANTIC ASSESSMENT PROFILE (Layer-2 Machine-Readable Definitions):
     ${semanticProfile ? safeJson(semanticProfile) : 'No semantic profile provided.'}

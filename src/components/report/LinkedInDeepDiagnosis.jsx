@@ -719,6 +719,16 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                         )}
                       </div>
 
+                      {item.linkedinGap && (
+                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200">
+                          <WarningCircle size={15} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" weight="fill" />
+                          <div>
+                            <span className="font-bold">LinkedIn Gap / Critique: </span>
+                            <span>{safeText(item.linkedinGap)}</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         {bullets.map((b, bIdx) => {
                           const bText = typeof b === 'string' ? b : safeText(b)
@@ -931,6 +941,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                                 </button>
                               </div>
                               <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(proj.description)}</p>
+                              {proj.replaceNote && (
+                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 mt-1.5">
+                                  <ArrowRight size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                  <span><strong className="font-semibold">Action: </strong>{safeText(proj.replaceNote)}</span>
+                                </div>
+                              )}
                             </div>
                             {Array.isArray(proj.technologies) && proj.technologies.length > 0 && (
                               <div className="flex flex-wrap gap-1 pt-1">
