@@ -1053,9 +1053,25 @@ function ReportDashboardContent() {
         {/* SECTION D3: AI LINKEDIN DEEP DIAGNOSIS (SCORECARD + PROFILE FIXES) */}
         <LinkedInDeepDiagnosis linkedinAgent={reportData.linkedin_agent} />
 
-        {/* SECTION E: WHERE YOU ARE LOSING OPPORTUNITIES (PRIORITIZED + RESUME EVIDENCE) */}
+        {/* SECTION E: STRATEGIC PIPELINE & CROSS-CHANNEL BOTTLENECKS */}
         <OpportunitiesList
-          issues={reportData.critical_issues?.length ? reportData.critical_issues : (reportData.resume_agent?.issues || [])}
+          issues={
+            reportData.critical_issues?.length || reportData.linkedin_agent?.discrepancies?.length
+              ? [
+                  ...(reportData.critical_issues || []),
+                  ...(reportData.linkedin_agent?.discrepancies?.slice(0, 2)?.map((d, i) => ({
+                    id: `cross_disc_${i + 1}`,
+                    severity: d.severity || 'high',
+                    category: 'Cross-Channel Alignment',
+                    title: d.title || 'Resume vs LinkedIn Discrepancy',
+                    diagnosis: d.issue || d.description || 'Inconsistency detected between your resume and LinkedIn profile.',
+                    affectedSection: 'Resume & LinkedIn Sync',
+                    whyItMatters: 'Recruiters cross-reference your resume and LinkedIn profile before scheduling screens. Inconsistencies reduce interview invitation rates.',
+                    recommendation: d.recommendation || d.action || 'Synchronize details between both channels.',
+                  })) || []),
+                ]
+              : (reportData.resume_agent?.issues || [])
+          }
           resumeJsonData={reportData.resume_json}
           resumeAgent={reportData.resume_agent}
         />

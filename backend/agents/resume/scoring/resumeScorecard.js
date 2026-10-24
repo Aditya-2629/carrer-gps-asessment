@@ -34,7 +34,10 @@ const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
  */
 export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
   if (!bulletText) return null
-  let clean = bulletText.replace(/^[•\-*▪–—\s]+/, '').trim()
+  let clean = bulletText
+    .replace(/^[•\-*▪–—\s]+/, '')
+    .replace(/^(?:action|task|situation|result|challenge):\s*/i, '')
+    .trim()
   const originalClean = clean
   const openingWord = sig?.openingWord || clean.split(/\s+/)[0] || ''
 
@@ -43,9 +46,13 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
     { pattern: /^(?:responsible for|tasked with|was responsible for)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Architect' : 'Architected' },
     { pattern: /^(?:worked on|working on)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Engineer' : 'Engineered' },
     { pattern: /^(?:helped with|helped to|assisted with|assisted in|participated in|supported)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
+    { pattern: /^(?:partnered with|partnering with|collaborated with)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
     { pattern: /^(?:contributed to decomposing|decomposing)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Decompose' : 'Decomposed' },
     { pattern: /^(?:managing|managed to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Direct' : 'Directed' },
     { pattern: /^(?:using prompt engineering with|using|utilized)\s+/i, verb: isCurrentRole ? 'Deploy' : 'Deployed' },
+    { pattern: /^(?:implemented|implementing)\s+(?:the\s+)?/i, verb: null },
+    { pattern: /^(?:integrated|integrating)\s+(?:the\s+)?/i, verb: null },
+    { pattern: /^(?:developed|built|created|wrote|handled)\s+/i, verb: null },
   ]
 
   let matchedOpener = false
@@ -56,8 +63,24 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
       if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
         const targetVerb = normalizeGerundVerb(firstWord, isCurrentRole)
         clean = clean.replace(new RegExp(`^${firstWord}\\b`, 'i'), targetVerb)
-      } else {
+      } else if (verb) {
         clean = `${verb} ${clean}`
+      } else {
+        // Domain-calibrated power verb replacement
+        let domainVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+        const lower = clean.toLowerCase()
+        if (lower.includes('api') || lower.includes('microservice') || lower.includes('backend') || lower.includes('system') || lower.includes('service')) {
+          domainVerb = isCurrentRole ? 'Architect' : 'Architected'
+        } else if (lower.includes('security') || lower.includes('auth') || lower.includes('jwt') || lower.includes('oauth') || lower.includes('hipaa')) {
+          domainVerb = isCurrentRole ? 'Harden' : 'Hardened'
+        } else if (lower.includes('performance') || lower.includes('latency') || lower.includes('sql') || lower.includes('query') || lower.includes('caching')) {
+          domainVerb = isCurrentRole ? 'Optimize' : 'Optimized'
+        } else if (lower.includes('ui') || lower.includes('component') || lower.includes('frontend') || lower.includes('react') || lower.includes('wcag') || lower.includes('d3')) {
+          domainVerb = isCurrentRole ? 'Modernize' : 'Modernized'
+        } else if (lower.includes('test') || lower.includes('ci/cd') || lower.includes('pipeline') || lower.includes('automation') || lower.includes('jest') || lower.includes('qa')) {
+          domainVerb = isCurrentRole ? 'Automate' : 'Automated'
+        }
+        clean = `${domainVerb} ${clean}`
       }
       matchedOpener = true
       break
@@ -71,8 +94,16 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
   }
 
   // 3. If bullet lacks a quantified metric, append a concrete metric prompt
-  const hasMetric = sig?.hasQuantifier || sig?.hasMetric || /\d+[%xXkKMbB]?|\b\d+\b/.test(clean)
-  if (!hasMetric) {
+  // Note: Version numbers like D3.js, React 19, WCAG 2.1, OAuth 2.0 are not performance metrics
+  const cleanWithoutVersions = clean
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css)\.?\s*\d+(?:\.\d+)?\b/gi, '')
+    .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
+  const hasRealMetric =
+    sig?.hasQuantifier ||
+    sig?.hasMetric ||
+    /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(cleanWithoutVersions)
+
+  if (!hasRealMetric) {
     clean = clean.replace(/[.!?]+$/, '')
     clean = `${clean} — reducing [latency / manual effort / defect rate] by [X]% across [N]+ production workflows`
   }
@@ -83,9 +114,10 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
     clean = `${clean}.`
   }
 
-  // 5. If only a single verb inflection changed and bullet already had a metric, don't show a fake identical rewrite
-  if (hasMetric && !matchedOpener && clean.toLowerCase().replace(/[^a-z]/g, '') === originalClean.toLowerCase().replace(/[^a-z]/g, '')) {
-    return null
+  // 5. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
+  if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+    clean = clean.replace(/[.!?]+$/, '')
+    clean = `${clean} — reducing [latency / manual effort / defect rate] by [X]% across [N]+ production workflows.`
   }
 
   return clean
@@ -545,7 +577,9 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
         } else if (sig && sig.hasQuantifier === false && sig.hasQualitativeOutcome === false && sig.hasOutcomeVerb === false) {
           status = 'warn'
-          reason = 'Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)'
+          const opener = sig.openingWord || 'Bullet'
+          const techMention = sig.technologies?.[0] ? ` for ${sig.technologies[0]}` : ''
+          reason = `'${opener}'${techMention} describes the technical task at ${itemName} but omits the business result — add the CAR outcome (latency gain, workflow hours saved, or adoption scale)`
         } else {
           status = 'pass'
           reason = 'Clear, specific, no defects found'

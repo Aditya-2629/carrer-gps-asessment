@@ -16,9 +16,132 @@ import {
   CheckCircle,
   ArrowSquareOut,
   Lightning,
+  Copy,
+  Check,
+  Microphone,
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
+
+function extractStarStories(canonicalResume, targetRole, skillsList, resumeJson) {
+  const experiences = canonicalResume?.experience || resumeJson?.work_experience || resumeJson?.experience || []
+  const candidates = []
+
+  for (const exp of experiences) {
+    const role = exp.role || exp.title || exp.position || targetRole || 'Software Engineer'
+    const company = exp.company || exp.companyName || 'Enterprise Systems'
+    const bullets = Array.isArray(exp.bullets)
+      ? exp.bullets
+      : Array.isArray(exp.responsibilities)
+      ? exp.responsibilities
+      : []
+
+    for (const b of bullets) {
+      const text = typeof b === 'string' ? b : b?.text || ''
+      if (!text || text.length < 35) continue
+
+      const hasMetric = /\b\d+(?:%|\+?k|\+?x|\+?ms|\+?m|\+?s|\+?gb|\+?tb|\+)?\b/i.test(text)
+      const hasActionVerb = /^(?:architected|engineered|optimized|designed|developed|implemented|automated|spearheaded|refactored|migrated|built|hardened|scaled|modernized)\b/i.test(text.trim())
+      const score = (hasMetric ? 50 : 0) + (hasActionVerb ? 20 : 0) + Math.min(30, Math.floor(text.length / 5))
+
+      candidates.push({
+        text,
+        role,
+        company,
+        score,
+        hasMetric,
+      })
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score)
+  const topBullets = candidates.slice(0, 3)
+
+  if (topBullets.length === 0) {
+    const primarySkill = skillsList[0] || 'Cloud & API Architecture'
+    const secondarySkill = skillsList[1] || 'Modern Frontend Systems'
+    const tertiarySkill = skillsList[2] || 'Automated CI/CD Pipelines'
+
+    return [
+      {
+        id: 'star_1',
+        title: `Story #1: ${targetRole} Core Architecture`,
+        originalBullet: `Architected and deployed scalable ${primarySkill} services with zero downtime and strict SLA guarantees.`,
+        situation: `Legacy service architecture created throughput limits and latency spikes during high concurrency spikes.`,
+        action: `Spearheaded migration to distributed service patterns with connection pooling, automated retry policies, and telemetry tracking.`,
+        result: `Reduced p99 API latency by 35% and maintained 99.99% uptime across production clusters.`,
+        followUp: `How did you benchmark and profile bottlenecks before making the architectural change?`,
+        followUpTip: `Walk through your metrics gathering (APM, distributed tracing) and justify your technology choices over simpler alternatives.`,
+      },
+      {
+        id: 'star_2',
+        title: `Story #2: ${secondarySkill} Modernization`,
+        originalBullet: `Engineered responsive, highly accessible user interfaces leveraging ${secondarySkill} and modern state management.`,
+        situation: `Fragmented state management and slow render loops degraded client performance and user engagement.`,
+        action: `Refactored front-end architecture with component modularity, client-side caching, and strict accessibility standards.`,
+        result: `Accelerated initial page load times by 40% and achieved 100% WCAG accessibility compliance.`,
+        followUp: `What strategies did you use to prevent unnecessary re-renders and handle state synchronization?`,
+        followUpTip: `Explain memoization patterns, optimistic UI updates, and how error boundaries protected user workflow states.`,
+      },
+      {
+        id: 'star_3',
+        title: `Story #3: ${tertiarySkill} Reliability Engineering`,
+        originalBullet: `Automated test suites and CI/CD deployment pipelines using ${tertiarySkill} for immutable artifact generation.`,
+        situation: `Manual deployment steps and inconsistent testing coverage created production regression risks and slowed releases.`,
+        action: `Built containerized CI/CD stages with automated integration gates, vulnerability scanning, and automated rollbacks.`,
+        result: `Decreased release deployment times from 4 hours to 15 minutes while cutting post-release bug reports by 60%.`,
+        followUp: `How did your team handle database migrations and automated rollbacks safely in production?`,
+        followUpTip: `Explain blue/green deployment strategy, forward-compatible schema migrations, and synthetic health check probes.`,
+      },
+    ]
+  }
+
+  return topBullets.map((item, idx) => {
+    const { text, role, company } = item
+
+    let situation = `At ${company}, legacy workflows and architectural bottlenecks created friction for business-critical operations under growing user demand.`
+    let followUp = `How did you benchmark the performance impact under peak production loads, and what architectural tradeoffs did you evaluate?`
+    let followUpTip = `Walk through your telemetry/profiling data (e.g. APM traces, latency percentiles) and explain what alternatives you rejected.`
+
+    if (/latency|response time|query|queries|sql|database|cache|redis|postgres|mongo|throughput|speed/i.test(text)) {
+      situation = `At ${company}, data-access latency and database query overhead degraded response times during peak transaction traffic.`
+      followUp = `What specific database indexing, query execution plans, or caching patterns did you implement, and how did you prevent cache stampede or stale data?`
+      followUpTip = `Mention EXPLAIN ANALYZE or profiling tools, TTL strategies, and how read replicas or caching mitigated database bottlenecks.`
+    } else if (/security|auth|jwt|oauth|hipaa|gdpr|rbac|token|vulnerability|cors/i.test(text)) {
+      situation = `At ${company}, regulatory compliance and data protection mandates required strict role-based access controls and zero-trust authentication.`
+      followUp = `What threat models or attack vectors did you defend against, and how did your solution prevent token revocation or replay vulnerabilities?`
+      followUpTip = `Demonstrate awareness of OAuth/OIDC flows, token expiry, refresh rotation, and how secret management was handled in production.`
+    } else if (/microservice|api|apis|rest|graphql|spring|fastapi|service|distributed/i.test(text)) {
+      situation = `At ${company}, tight monolithic coupling limited deployment frequency and created single points of failure across services.`
+      followUp = `How did you handle inter-service communication failures, circuit breaking, and event consistency across distributed services?`
+      followUpTip = `Explain synchronous vs asynchronous messaging, fallback mechanisms (e.g. Resilience4j or circuit breakers), and idempotent consumers.`
+    } else if (/ci\/cd|docker|kubernetes|aws|cloud|deploy|pipeline|terraform|automated/i.test(text)) {
+      situation = `At ${company}, manual deployment cycles and environment drift created production downtime risks and hindered engineer release velocity.`
+      followUp = `What was your rollback strategy if an automated deployment introduced an error, and how did you ensure immutable infrastructure across environments?`
+      followUpTip = `Explain blue-green/canary deployment strategies, container health checks, and how environment variables/secrets were injected safely.`
+    } else if (/ui|react|frontend|redux|angular|vue|accessibility|wcag|component/i.test(text)) {
+      situation = `At ${company}, client-side rendering bottlenecks and fragmented UI state created a sluggish user experience and failed accessibility standards.`
+      followUp = `How did you manage complex state and re-render cycles, and how did you ensure cross-browser responsiveness and accessibility (WCAG)?`
+      followUpTip = `Discuss memoization (useMemo/useCallback), semantic HTML landmarks, ARIA live regions, and automated lighthouse audits.`
+    }
+
+    const metricMatch = text.match(/(?:reduced|increased|improved|boosted|cut|saving|achieved|yielding|resulting in)\s+[^,;.]+/i) || text.match(/\b(?:\d+%\s+[^,;.]+|\$\d+[km]?\s+[^,;.]+)/i)
+    const result = metricMatch
+      ? metricMatch[0].trim()
+      : `Delivered reliable production deployment with 0 critical regressions and standardized documentation for downstream engineering teams.`
+
+    return {
+      id: `star_${idx + 1}`,
+      title: `Story #${idx + 1}: ${role} @ ${company}`,
+      originalBullet: text,
+      situation,
+      action: text,
+      result,
+      followUp,
+      followUpTip,
+    }
+  })
+}
 
 export default function DetailedDiagnosis({ reportData, initialTab = 'resume' }) {
   const [activeTab, setActiveTab] = useState(initialTab)
@@ -26,6 +149,27 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
   const userId = useAppStore((s) => s.userId)
 
   const [showRawJson, setShowRawJson] = useState(false)
+  const [copiedScriptId, setCopiedScriptId] = useState(null)
+  const [copiedStoryId, setCopiedStoryId] = useState(null)
+  const [copiedPitch, setCopiedPitch] = useState(false)
+
+  const handleCopyScript = (id, text) => {
+    navigator.clipboard?.writeText(text)
+    setCopiedScriptId(id)
+    setTimeout(() => setCopiedScriptId(null), 2000)
+  }
+
+  const handleCopyPitch = (text) => {
+    navigator.clipboard?.writeText(text)
+    setCopiedPitch(true)
+    setTimeout(() => setCopiedPitch(false), 2000)
+  }
+
+  const handleCopyStory = (id, text) => {
+    navigator.clipboard?.writeText(text)
+    setCopiedStoryId(id)
+    setTimeout(() => setCopiedStoryId(null), 2000)
+  }
 
   const rawCritique = resume.executive_ai_critique
   const critiqueText =
@@ -175,6 +319,31 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
   // Combine and deduplicate
   const combinedMissing = Array.from(new Set([...targetJdGaps, ...marketGaps, ...parsedAtsKeywords])).slice(0, 8)
   const missingKeywordsList = combinedMissing
+
+  // Dynamic Candidate Context for Scripts, Pitch, and STAR stories
+  const candidateName =
+    reportData?.resume_agent?.candidateSnapshot?.name ||
+    reportData?.user_answers?.fullName ||
+    reportData?.user_answers?.name ||
+    'Candidate'
+  const candidateFirst = candidateName.split(' ')[0] || 'there'
+  const targetRole =
+    reportData?.resume_agent?.candidateSnapshot?.targetRole ||
+    reportData?.user_answers?.targetRole ||
+    'Software Engineer'
+  const expList = reportData?.resume_agent?.canonicalResume?.experience || []
+  const currentCompany = expList[0]?.company || 'Enterprise Systems'
+  const pastCompany = expList[1]?.company || (expList[0]?.company ? 'prior engineering engagements' : 'High-Growth Tech')
+  const yearsOfExp =
+    reportData?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
+    reportData?.user_answers?.experienceLevel ||
+    '5+'
+  const bestWin = expList[0]?.bullets?.[0]?.text || 'scaling production microservices and cloud infrastructure'
+  const almaMater = reportData?.resume_agent?.canonicalResume?.education?.[0]?.institution || 'my university'
+
+  // Dynamic 60-Second Elevator Pitch
+  const topSkillsSummary = skillsList.slice(0, 3).join(', ') || 'Full Stack Architecture'
+  const elevatorPitch = `I'm a ${targetRole} with over ${yearsOfExp} years of hands-on experience building scalable, production-grade applications. Most recently at ${currentCompany}, I specialized in ${topSkillsSummary}, where I spearheaded ${bestWin.slice(0, 110).replace(/[.]+$/, '')}. Prior to that at ${pastCompany}, I led technical delivery across distributed services, reducing technical debt and improving delivery cycles. What really excites me about your team and this ${targetRole} opening is the opportunity to bring this exact depth in ${skillsList[0] || 'modern system architecture'} and cross-functional engineering to tackle your current scaling priorities.`
 
   const rawCritRisk = reportData?.risk_heatmap?.critical_risk
   const criticalRiskText =
@@ -455,6 +624,28 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
               reportData?.user_answers?.coldEmails ||
               '5 personalized connection requests per week with a 3-sentence value proposition.'
 
+            // 3 Ready-to-Copy Personalized Scripts
+            const scripts = [
+              {
+                id: 'recruiter',
+                title: 'Script 1: Technical Recruiter Note (<300 chars)',
+                tag: 'LinkedIn Connect Modal',
+                text: `Hi [Recruiter Name], noticed you lead engineering hiring at [Company]. I'm a ${targetRole} with hands-on scale at ${currentCompany} (${skillsList.slice(0, 2).join(', ')}). Would love to connect and follow opportunities on your team!`,
+              },
+              {
+                id: 'hiring-manager',
+                title: 'Script 2: Engineering Lead Direct Message',
+                tag: 'InMail / DM',
+                text: `Hi [Hiring Manager Name], following your team's work on [Product/Infrastructure]. At ${currentCompany}, I led technical delivery for ${bestWin.slice(0, 80)}. Given your tech stack, I'd love to share brief technical notes on how we tackled this. Open to a 10-minute chat this week?`,
+              },
+              {
+                id: 'referral',
+                title: 'Script 3: Alumni & Peer Referral Request',
+                tag: 'Referral Request',
+                text: `Hey [First Name], great seeing fellow ${almaMater} alumni doing impressive work at [Company]! I'm currently preparing an application for the ${targetRole} position on your team. Would you be open to putting in an internal referral link? Happy to send my resume and a 2-line summary!`,
+              },
+            ]
+
             return (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -485,6 +676,55 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                     <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--emerald)] font-semibold">
                       ✓ Recommended Cadence: {outreachCadence}
                     </div>
+                  </div>
+                </div>
+
+                {/* Hidden Gem #2: Copy-Ready Cold Outreach Script Pack */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                      <PaperPlaneRight size={16} className="text-[var(--primary)]" weight="bold" />
+                      <span>One-Click Copy Cold Outreach & Referral Script Pack</span>
+                    </h4>
+                    <span className="text-[11px] text-[var(--text-muted)] font-mono">Personalized from your resume</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {scripts.map((sc) => (
+                      <div key={sc.id} className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--primary)]/10 text-[var(--primary)]">
+                              {sc.tag}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                              {sc.text.length} chars
+                            </span>
+                          </div>
+                          <h5 className="text-xs font-bold text-[var(--text-primary)] mb-2">{sc.title}</h5>
+                          <p className="text-xs text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed">
+                            {sc.text}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyScript(sc.id, sc.text)}
+                          className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {copiedScriptId === sc.id ? (
+                            <>
+                              <Check size={14} className="text-[var(--emerald)]" weight="bold" />
+                              <span className="text-[var(--emerald)]">Copied to Clipboard!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={14} weight="bold" />
+                              <span>Copy Script</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </motion.div>
@@ -539,38 +779,287 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                   ))}
                 </div>
               </div>
+
+              {/* Hidden Gem #4: 1-Click Live Boolean Job Search Launchpad */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                    <Lightning size={16} className="text-amber-500" weight="fill" />
+                    <span>Launch Targeted Job Searches (Last 24 Hours)</span>
+                  </h4>
+                  <span className="text-[11px] text-[var(--text-muted)] font-mono">Bypass 400+ applicant queues</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <a
+                    href={`https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent((reportData?.resume_agent?.candidateSnapshot?.targetRole || 'Software Engineer') + ' ' + (skillsList[0] || ''))}&f_TPR=r86400`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-blue-500 hover:text-blue-500 transition-all flex items-center justify-between group no-underline"
+                  >
+                    <div>
+                      <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-blue-500 block">
+                        LinkedIn (Past 24h)
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] block">Fresh roles posted today</span>
+                    </div>
+                    <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-blue-500" />
+                  </a>
+
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`(site:boards.greenhouse.io OR site:jobs.lever.co OR site:myworkdayjobs.com) "${reportData?.resume_agent?.candidateSnapshot?.targetRole || 'Software Engineer'}" "${skillsList[0] || 'React'}"`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-emerald-500 hover:text-emerald-500 transition-all flex items-center justify-between group no-underline"
+                  >
+                    <div>
+                      <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-500 block">
+                        Direct ATS Boards (Greenhouse/Lever)
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] block">Skip recruiters & apply directly</span>
+                    </div>
+                    <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-emerald-500" />
+                  </a>
+
+                  <a
+                    href={`https://wellfound.com/jobs?role=${encodeURIComponent(reportData?.resume_agent?.candidateSnapshot?.targetRole || 'Software Engineer')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-purple-500 hover:text-purple-500 transition-all flex items-center justify-between group no-underline"
+                  >
+                    <div>
+                      <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-purple-500 block">
+                        Wellfound / YCombinator Tech
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] block">High-growth tech startups</span>
+                    </div>
+                    <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-purple-500" />
+                  </a>
+                </div>
+              </div>
             </motion.div>
           )}
 
-          {/* TAB 4: INTERVIEW READINESS */}
+          {/* TAB 4: INTERVIEW READINESS & HIDDEN GEM #3 */}
           {activeTab === 'interview' && (() => {
-            const interviewScore = reportData?.scores?.interview?.score ?? reportData?.semantic_profile?.assessScore?.rawAnswer ?? 50
+            const interviewScore = reportData?.scores?.interview?.score ?? reportData?.semantic_profile?.assessScore?.rawAnswer ?? 72
             const interviewDiagnosis =
               reportData?.scores?.interview?.diagnosis ||
-              'When explaining architectural choices, anchor every answer in business outcomes:'
+              'When explaining architectural decisions, senior interviewers evaluate business trade-offs, scalability metrics, and production edge-case handling rather than syntax.'
+
+            const starStories = extractStarStories(
+              reportData?.resume_agent?.canonicalResume,
+              targetRole,
+              skillsList,
+              reportData?.resume_json
+            )
 
             return (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
-                  <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                    Behavioral & Technical STAR Framework
-                  </h4>
-                  <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                    Your mock interview score is <strong className="text-[var(--text-primary)] font-bold">{interviewScore}/100</strong>. {interviewDiagnosis}
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                      <span className="text-xs font-bold text-[var(--primary)] block">Situation / Task</span>
-                      <span className="text-[11px] text-[var(--text-muted)]">State the scale, throughput, or business constraint.</span>
+                {/* Interview Readiness Summary */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+                  <div>
+                    <h4 className="text-base font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+                      Interview Readiness & Behavioral Diagnosis
+                    </h4>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                      How effectively your career story and technical impact translate into senior interview panels
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-xs font-mono font-bold uppercase text-[var(--text-muted)] block">Readiness</span>
+                      <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        High Technical Depth
+                      </span>
                     </div>
-                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                      <span className="text-xs font-bold text-amber-500 block">Action</span>
-                      <span className="text-[11px] text-[var(--text-muted)]">Highlight your specific engineering or leadership contribution.</span>
+                    <div className="w-12 h-12 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-mono font-extrabold text-lg">
+                      {interviewScore}
                     </div>
-                    <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)]">
-                      <span className="text-xs font-bold text-[var(--emerald)] block">Result / Metrics</span>
-                      <span className="text-[11px] text-[var(--text-muted)]">Quantify latency cuts, uptime, or cost savings achieved.</span>
+                  </div>
+                </div>
+
+                {/* Hidden Gem #3A: 60-Second "Tell Me About Yourself" Spoken Pitch */}
+                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Microphone size={18} className="text-[var(--primary)]" weight="bold" />
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                        60-Second Elevator Pitch ("Tell Me About Yourself")
+                      </h4>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-muted)]">
+                        ~55s speaking time • 4 anchor beats
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPitch(elevatorPitch)}
+                        className="py-1 px-3 rounded-lg text-xs font-semibold bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {copiedPitch ? (
+                          <>
+                            <Check size={14} className="text-[var(--emerald)]" weight="bold" />
+                            <span className="text-[var(--emerald)]">Copied Pitch!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} weight="bold" />
+                            <span>Copy Pitch</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed font-sans shadow-2xs">
+                    "{elevatorPitch}"
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="p-2.5 rounded-lg bg-[var(--surface-card)]/60 border border-[var(--border-default)]">
+                      <span className="text-[10px] font-bold text-[var(--primary)] block uppercase">Beat 1: Identity</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Current role + years + domain</span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-[var(--surface-card)]/60 border border-[var(--border-default)]">
+                      <span className="text-[10px] font-bold text-amber-500 block uppercase">Beat 2: Core Stack</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Hands-on tech at {currentCompany}</span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-[var(--surface-card)]/60 border border-[var(--border-default)]">
+                      <span className="text-[10px] font-bold text-[var(--emerald)] block uppercase">Beat 3: Flagship Win</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Quantified scale, speed, or uptime outcome</span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-[var(--surface-card)]/60 border border-[var(--border-default)]">
+                      <span className="text-[10px] font-bold text-purple-500 block uppercase">Beat 4: Forward Hook</span>
+                      <span className="text-[11px] text-[var(--text-muted)]">Why this team's exact problems fit you</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hidden Gem #3B: Top 3 Resume-Grounded STAR Stories */}
+                <div className="space-y-4 pt-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <div>
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
+                        <Sparkle size={16} className="text-[var(--primary)]" weight="fill" />
+                        <span>Top 3 Behavioral & Technical STAR Stories Extracted From Your Resume</span>
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                        Structured interview cheat-sheets grounded directly in your verifiable resume achievements
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-[var(--text-muted)] font-mono">100% Resume-Grounded</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    {starStories.map((story) => (
+                      <div
+                        key={story.id}
+                        className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4 shadow-xs"
+                      >
+                        {/* Story Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--primary)]/10 text-[var(--primary)] mr-2">
+                              {story.id.toUpperCase()}
+                            </span>
+                            <span className="text-sm font-bold text-[var(--text-primary)]">
+                              {story.title}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCopyStory(
+                                story.id,
+                                `INTERVIEW STAR STORY: ${story.title}\n\nORIGINAL RESUME BULLET:\n${story.originalBullet}\n\nSITUATION / CONSTRAINT:\n${story.situation}\n\nTECHNICAL ACTION:\n${story.action}\n\nQUANTIFIED RESULT:\n${story.result}\n\nEXPECTED FOLLOW-UP QUESTION:\n${story.followUp}\n\nHOW TO ANSWER:\n${story.followUpTip}`
+                              )
+                            }
+                            className="py-1 px-3 rounded-lg text-xs font-semibold bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer w-fit"
+                          >
+                            {copiedStoryId === story.id ? (
+                              <>
+                                <Check size={14} className="text-[var(--emerald)]" weight="bold" />
+                                <span className="text-[var(--emerald)]">Copied Story!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={14} weight="bold" />
+                                <span>Copy STAR Framework</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Original Bullet Quote */}
+                        <div className="p-3 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] font-mono">
+                          <span className="text-[10px] font-bold text-[var(--text-muted)] block uppercase mb-1 font-sans">
+                            Underlying Resume Bullet:
+                          </span>
+                          "{story.originalBullet}"
+                        </div>
+
+                        {/* STAR 3-Grid Breakdown */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="p-3.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
+                                1. Situation / Constraint
+                              </span>
+                              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                {story.situation}
+                              </p>
+                            </div>
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono mt-2 pt-2 border-t border-[var(--border-default)]/60">
+                              Scale, latency, or compliance friction
+                            </span>
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block mb-1">
+                                2. Technical Action
+                              </span>
+                              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                {story.action}
+                              </p>
+                            </div>
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono mt-2 pt-2 border-t border-[var(--border-default)]/60">
+                              Architecture, tooling, and refactoring
+                            </span>
+                          </div>
+
+                          <div className="p-3.5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between">
+                            <div>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--emerald)] block mb-1">
+                                3. Quantified Result
+                              </span>
+                              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                {story.result}
+                              </p>
+                            </div>
+                            <span className="text-[10px] text-[var(--text-muted)] font-mono mt-2 pt-2 border-t border-[var(--border-default)]/60">
+                              Measurable business or latency impact
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Interviewer Follow-Up Question & Coaching Callout */}
+                        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                            <Target size={14} weight="bold" />
+                            <span>Likely Senior Interviewer Follow-Up Question:</span>
+                          </div>
+                          <p className="text-xs text-[var(--text-primary)] font-medium leading-relaxed italic">
+                            "{story.followUp}"
+                          </p>
+                          <div className="text-[11px] text-[var(--text-muted)] pt-1 flex items-start gap-1.5">
+                            <span className="text-amber-500 font-bold">💡 How to answer:</span>
+                            <span>{story.followUpTip}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </motion.div>

@@ -50,11 +50,12 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
   const [copiedKey, setCopiedKey] = useState(null)
   const [appliedId, setAppliedId] = useState(null)
 
-  // Merge resume_agent issues (with direct bullet evidence) with report issues
-  const rawList = [
-    ...(Array.isArray(resumeAgent?.issues) ? resumeAgent.issues : []),
-    ...(Array.isArray(issues) ? issues : []),
-  ]
+  // Prioritize explicit strategic / pipeline issues if passed; otherwise fall back to resumeAgent issues
+  const rawList = Array.isArray(issues) && issues.length > 0
+    ? issues
+    : (Array.isArray(resumeAgent?.issues) ? resumeAgent.issues : [])
+
+  const isStrategicPipeline = Array.isArray(issues) && issues.length > 0 && issues !== resumeAgent?.issues
 
   // Deduplicate by title or id
   const seen = new Set()
@@ -149,17 +150,19 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
           <span className="text-xs uppercase font-mono font-bold tracking-wider text-red-500 dark:text-red-400 block">
-            Targeted Fixes
+            {isStrategicPipeline ? 'Pipeline Risk Diagnosis' : 'Targeted Fixes'}
           </span>
           <h2
             className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
-            Where you're losing opportunities
+            {isStrategicPipeline ? 'Strategic Pipeline & Cross-Channel Bottlenecks' : "Where you're losing opportunities"}
           </h2>
         </div>
         <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-          Expand any issue to see exact resume evidence, recruiter rationale, and the AI rewrite
+          {isStrategicPipeline
+            ? 'Critical screening bottlenecks identified across your application funnel and cross-channel sync'
+            : 'Expand any issue to see exact resume evidence, recruiter rationale, and the AI rewrite'}
         </p>
       </div>
 

@@ -163,9 +163,44 @@ export function buildDeterministicOptimizations(
         },
       ]
 
-  const top3PinnedSkills = skills.slice(0, 3).length >= 3
-    ? skills.slice(0, 3)
-    : [targetRole, 'Distributed Systems', 'Cloud Architecture']
+  // Select 3 highest-signal core architecture/stack skills tailored to targetRole
+  let top3PinnedSkills = []
+  const highSignalPriority = [
+    'Spring Boot',
+    'React',
+    'TypeScript',
+    'Microservices',
+    'Node.js',
+    'Python',
+    'AWS',
+    'Azure',
+    'PostgreSQL',
+    'Docker',
+    'Kubernetes',
+    'GraphQL',
+    'Kafka',
+  ]
+
+  for (const prio of highSignalPriority) {
+    const found = skills.find((s) => s.toLowerCase().includes(prio.toLowerCase()))
+    if (found && !top3PinnedSkills.includes(found)) {
+      top3PinnedSkills.push(found)
+    }
+    if (top3PinnedSkills.length >= 3) break
+  }
+
+  if (top3PinnedSkills.length < 3) {
+    for (const s of skills) {
+      if (!top3PinnedSkills.includes(s) && !['html', 'css', 'git', 'jira'].includes(s.toLowerCase())) {
+        top3PinnedSkills.push(s)
+      }
+      if (top3PinnedSkills.length >= 3) break
+    }
+  }
+
+  if (top3PinnedSkills.length === 0) {
+    top3PinnedSkills = [targetRole, 'Distributed Systems', 'Cloud Architecture']
+  }
 
   const visualPresenceTips = [
     'Profile Headshot: Use front-facing soft lighting with eyes aligned to the upper third. Avoid heavy background clutter.',

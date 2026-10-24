@@ -323,19 +323,22 @@ export function buildTask1HeadlinesAndBannerPrompt(params = {}) {
 }
 
 export function buildTask2AboutAndFeaturedPrompt(params = {}) {
+  const experiences = Array.isArray(params.topExperiences) ? params.topExperiences.slice(0, 4) : []
   return buildLinkedInSynthesisPrompt({
     profile: {
       about: params.currentAbout,
+      experiences: experiences,
     },
     resumeContext: {
       canonicalResume: {
         candidate: { name: params.candidateName, targetRole: params.targetRole },
-        experience: params.topExperiences,
-        projects: params.topProjects,
+        experience: experiences,
+        projects: Array.isArray(params.topProjects) ? params.topProjects.slice(0, 3) : [],
         skills: params.topSkills,
       },
       targetRole: params.targetRole,
     },
+    discrepancies: params.discrepancies || [],
   })
 }
 
