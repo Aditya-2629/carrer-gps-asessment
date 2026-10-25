@@ -18,6 +18,7 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
+import { evaluateAssessmentPersona } from '../agents/assessment/assessmentAgent.js'
 import AgentRun from '../models/AgentRun.js'
 import { jsonrepair } from 'jsonrepair'
 
@@ -257,6 +258,16 @@ export async function generateReportBundle({
     user.resumeJson?.target_role ||
     ''
 
+  // Evaluate rich assessment intelligence & directives across all agents
+  const assessmentPersona = evaluateAssessmentPersona({
+    answers: user.answers || {},
+    semanticProfile: effectiveSemanticProfile || {},
+    resumeContext: {
+      canonicalResume: effectiveCanonicalResume,
+      targetRole: resumeTargetRole,
+    },
+  })
+
   report('agents_running', 'Running Resume and LinkedIn specialized diagnostic agents…')
 
   // If precomputedResumeAgent is already supplied from upload-time execution,
@@ -274,6 +285,7 @@ export async function generateReportBundle({
         linkedinUrl: effectiveLinkedinUrl,
         linkedinData: user.linkedinData || precomputedLinkedinData || null,
         userId: user._id,
+        assessmentPersona,
         skipResumeSynthesis: true,
         onProgress: (e) => {
           if (e.agent !== 'resume') {
@@ -297,6 +309,7 @@ export async function generateReportBundle({
       linkedinUrl: effectiveLinkedinUrl,
       linkedinData: user.linkedinData || precomputedLinkedinData || null,
       userId: user._id,
+      assessmentPersona,
       onProgress: (e) => {
         const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
         report(st, e.message)
@@ -343,7 +356,8 @@ export async function generateReportBundle({
     dynamicKbContent,
     effectiveSemanticProfile,
     activeResumeAgent,
-    activeLinkedinAgent
+    activeLinkedinAgent,
+    assessmentPersona
   )
 
   // Atlas draft with completeness guard: if the model returns a partial JSON
@@ -381,6 +395,7 @@ export async function generateReportBundle({
   // Attach verified agent diagnoses
   aiReport.resume_agent = activeResumeAgent
   aiReport.linkedin_agent = activeLinkedinAgent
+  aiReport.assessment_agent = assessmentPersona
 
   aiReport.user_answers = user.answers || {}
   aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null
@@ -397,7 +412,7 @@ export async function generateReportBundle({
       let regenerated = false
 
       const keepAgentBundle = (source, target) => {
-        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'dashboard', 'user_answers', 'semantic_profile']) {
+        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile']) {
           if (source[key] !== undefined) target[key] = source[key]
         }
         return target

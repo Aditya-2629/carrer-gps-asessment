@@ -284,6 +284,7 @@ export function buildHybridPrompt({
   targetRole,
   targetJobDescription,
   marketContext,
+  assessmentDirectives = null,
 }) {
   return [
     {
@@ -512,7 +513,12 @@ DETERMINISTIC PRE-AUDIT DOSSIER (Ground Truth):
 - Target JD Gaps (NOT_EVIDENCED_IN_RESUME): ${dossier.targetJdOverlap.unverifiedSkills.join(', ') || 'None'}
 - Sampled Market Gaps: ${dossier.marketEvidenceGaps.map((g) => `${g.skill} (${g.frequency})`).join(', ') || 'None'}
 - Market Bucket: ${marketContext?.bucketKey || 'general'} (Sample Size: ${marketContext?.marketSampleSize || 5})
-
+${assessmentDirectives ? `
+==================================================
+CANDIDATE ASSESSMENT & JOB-HUNT CONTEXT (PERSONALIZATION DIRECTIVES)
+==================================================
+${assessmentDirectives}
+` : ''}
 Synthesize the final report now using this dossier as factual foundation. Return ONLY valid JSON.`,
     },
   ]
@@ -577,12 +583,18 @@ export async function executeModeC({
   const policy = resolveTaskPolicy('final_synthesis', effectivePolicies)
 
   // 3. Build focused messages & compute deterministic content hash for caching
+  const assessmentDirectives =
+    state?.assessmentDirectives ||
+    state?.assessmentPersona?.agentDirectives?.forResumeAgent ||
+    null
+
   let messages = buildHybridPrompt({
     compactResume,
     dossier,
     targetRole: effectiveRole,
     targetJobDescription: effectiveJd,
     marketContext,
+    assessmentDirectives,
   })
 
   const contentHash = crypto

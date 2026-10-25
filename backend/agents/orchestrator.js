@@ -21,6 +21,7 @@ import { LINKEDIN_AGENT } from './core/agentContract.js'
 import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
+import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
@@ -126,7 +127,23 @@ export async function runCareerAgents(bundle) {
     onProgress = null,
     cacheMode = 'default',
     skipResumeSynthesis = false,
+    assessmentPersona = null,
+    answers = null,
+    semanticProfile = null,
   } = bundle
+
+  let effectiveAssessmentPersona = assessmentPersona || null
+  if (!effectiveAssessmentPersona && (answers || bundle.answers || bundle.userAnswers)) {
+    try {
+      effectiveAssessmentPersona = evaluateAssessmentPersona({
+        answers: answers || bundle.answers || bundle.userAnswers || {},
+        semanticProfile: semanticProfile || bundle.semanticProfile || {},
+        resumeContext: resumeContextOverride || null,
+      })
+    } catch (_apErr) {
+      // non-fatal
+    }
+  }
 
   // ── Stage 0 (Background Apify Scraping Pipeline) ───────────────────────────
   // When linkedinUrl is provided, start scrapeLinkedInProfile immediately in the background and hold the promise.
@@ -229,6 +246,7 @@ export async function runCareerAgents(bundle) {
           linkedinUrl: effectiveLinkedinUrl,
           documentOverride: resumeContext?.parsedDoc || null,
           canonicalResumeOverride: resumeContext?.canonicalResume || null,
+          assessmentPersona: effectiveAssessmentPersona,
         })
 
         await persistRun({
@@ -330,6 +348,8 @@ export async function runCareerAgents(bundle) {
             extractedFacts: verifiedFacts,
             targetRole: effectiveTargetRole,
             provider: resumeProvider,
+            assessmentPersona: effectiveAssessmentPersona,
+            agentDirectives: effectiveAssessmentPersona?.agentDirectives,
           },
           runLlm: true,
           preferredProvider: 'groq',
@@ -383,6 +403,7 @@ export async function runCareerAgents(bundle) {
     resumeAgent: resumeSettled?.analysis || null,
     linkedinAgent: linkedinSettled?.analysis || null,
     linkedinData: linkedinSettled?.linkedinData || null,
+    assessmentPersona: effectiveAssessmentPersona,
   }
 }
 

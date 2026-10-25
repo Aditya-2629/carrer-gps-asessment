@@ -13,6 +13,7 @@ import {
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
@@ -22,7 +23,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   const { formData, resumeAnalysis, setResumeAnalysis } = useAppStore()
 
   const startBackgroundAnalysis = useCallback(
-    async (file) => {
+    async (file, fastLinkedIn = '') => {
       if (!file) return
 
       // Abort any ongoing request for a previous file
@@ -63,10 +64,12 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           })
 
           // Dynamically populate LinkedIn and candidate info into assessment questions
-          const detectedLinkedin =
+          const detectedLinkedin = normalizeLinkedInUrl(
             result.canonicalResume?.candidate?.contact?.linkedin ||
             result.analysis?.candidateSnapshot?.linkedinUrl ||
+            fastLinkedIn ||
             ''
+          )
           const detectedName =
             result.canonicalResume?.candidate?.name ||
             result.analysis?.candidateSnapshot?.name ||
@@ -79,6 +82,17 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           const bulkUpdates = {}
           if (detectedLinkedin) {
             bulkUpdates.linkedin = detectedLinkedin
+            if (typeof window !== 'undefined' && !window.__linkedinScrapePromise) {
+              window.__linkedinScrapePromise = api.scrapeLinkedInProfile(detectedLinkedin).then((res) => {
+                if (res?.profile) {
+                  useAppStore.getState().setFormData('linkedinData', res.profile)
+                  try {
+                    sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+                  } catch (_e) {}
+                }
+                return res?.profile || null
+              }).catch(() => null)
+            }
           }
           if (detectedName && !formData.name && !formData.fullName) {
             bulkUpdates.name = detectedName
@@ -122,7 +136,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   )
 
   const validateAndSet = useCallback(
-    (file) => {
+    async (file) => {
       if (!file) return
       const maxBytes = (step?.maxSizeMB || 5) * 1024 * 1024
       if (file.size > maxBytes) {
@@ -155,7 +169,44 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       if (typeof window !== 'undefined') {
         window.__uploadedResumeFile = file
       }
-      startBackgroundAnalysis(file)
+
+      // 1. IMMEDIATELY clear previous LinkedIn URL & scraped data on new upload
+      useAppStore.getState().setBulkFormData({ linkedin: '', linkedinData: null })
+
+      // 2. Instant client-side binary/text scan (<50ms) for embedded hyperlinks or plain URLs
+      let fastLinkedIn = ''
+      try {
+        const buf = await file.arrayBuffer()
+        const text = new TextDecoder('latin1').decode(buf)
+
+        // PDF embedded URI link annotations: /URI (https://www.linkedin.com/in/...)
+        const pdfUriMatch = text.match(/\/URI\s*\(([^)]*linkedin\.com\/in\/[^)]*)\)/i)
+        // DOCX XML hyperlink target relationships: Target="https://www.linkedin.com/in/..."
+        const docxTargetMatch = text.match(/Target="([^"]*linkedin\.com\/in\/[^"]*)"/i)
+        // Plain text / bare url match: linkedin.com/in/...
+        const plainMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
+
+        const candidateRaw = pdfUriMatch?.[1] || docxTargetMatch?.[1] || plainMatch?.[0] || ''
+        fastLinkedIn = normalizeLinkedInUrl(candidateRaw)
+        if (fastLinkedIn) {
+          useAppStore.getState().setFormData('linkedin', fastLinkedIn)
+          if (typeof window !== 'undefined') {
+            window.__linkedinScrapePromise = api.scrapeLinkedInProfile(fastLinkedIn).then((res) => {
+              if (res?.profile) {
+                useAppStore.getState().setFormData('linkedinData', res.profile)
+                try {
+                  sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+                } catch (_e) {}
+              }
+              return res?.profile || null
+            }).catch(() => null)
+          }
+        }
+      } catch (scanErr) {
+        console.warn('[FileUpload] Fast client scan error:', scanErr.message)
+      }
+
+      startBackgroundAnalysis(file, fastLinkedIn)
     },
     [step, onChange, startBackgroundAnalysis]
   )

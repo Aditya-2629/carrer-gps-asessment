@@ -5,6 +5,7 @@
  */
 
 import { detectCertifications } from './signals/certificationDetector.js'
+import { normalizeLinkedInUrl } from '../../utils/linkedinUrlUtils.js'
 
 // Broad role keywords matching all modern technical, management, product, data, design, and operations titles
 export const ROLE_KEYWORDS_REGEX = /\b(engineer|developer|architect|manager|lead|director|analyst|scientist|consultant|specialist|designer|intern|administrator|coordinator|programmer|officer|head|vp|president|founder|cto|ceo|cpo|coo|cso|fellow|associate|technician|representative|trainee|apprentice|practitioner|researcher|operator|advisor|strategist|auditor|recruiter|tester|qa|sde|swe|devops|sre|scrum\s+master|product\s+owner|instructor|professor|assistant|writer|marketer|producer|supervisor)\b/i
@@ -384,14 +385,10 @@ export class ResumeNormalizer {
         const m = line.match(phoneRegex)
         if (m) phone = m[0]
       }
-      if (!linkedin && linkedinRegex.test(line)) {
-        const m = line.match(linkedinRegex)
-        if (m) {
-          let u = m[0].trim()
-          if (!u.startsWith('http://') && !u.startsWith('https://')) {
-            u = 'https://' + (u.startsWith('www.') ? u : 'www.' + u)
-          }
-          linkedin = u
+      if (!linkedin) {
+        const norm = normalizeLinkedInUrl(line)
+        if (norm) {
+          linkedin = norm
         }
       }
       if (!github && githubRegex.test(line)) {
@@ -413,13 +410,9 @@ export class ResumeNormalizer {
 
     // 2. Global fallback scan on raw text for LinkedIn / Email if missed in header
     if (!linkedin && rawText) {
-      const match = rawText.match(linkedinRegex)
-      if (match) {
-        let u = match[0].trim()
-        if (!u.startsWith('http://') && !u.startsWith('https://')) {
-          u = 'https://' + (u.startsWith('www.') ? u : 'www.' + u)
-        }
-        linkedin = u
+      const norm = normalizeLinkedInUrl(rawText)
+      if (norm) {
+        linkedin = norm
       }
     }
     if (!email && rawText) {

@@ -205,6 +205,8 @@ export class ResumeAgent {
     useV3Pipeline = true,
     canonicalResumeOverride = null,
     documentOverride = null,
+    assessmentPersona = null,
+    assessmentDirectives = null,
     temperature = 0.2,
     topP = 0.9,
     signal = null,
@@ -285,6 +287,8 @@ export class ResumeAgent {
         })
         setCanonicalResume(state, canonicalResume)
         state.compactResume = compactText
+        state.assessmentPersona = assessmentPersona
+        state.assessmentDirectives = assessmentDirectives || assessmentPersona?.agentDirectives?.forResumeAgent || null
 
         // Step 3: Extract Resume Facts (deterministic)
         const rawFacts = extractResumeFacts(canonicalResume)

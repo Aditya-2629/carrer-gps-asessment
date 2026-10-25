@@ -104,6 +104,10 @@ export function getRandomAnswerForStep(step) {
       return 'Looking for competitive engineering roles with H-1B sponsorship flexibility and fast growth.'
     }
 
+    case 'location': {
+      return SAMPLE_LOCATIONS[Math.floor(Math.random() * SAMPLE_LOCATIONS.length)]
+    }
+
     case 'input':
     default: {
       if (step.name === 'location') {

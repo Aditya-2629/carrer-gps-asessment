@@ -31,7 +31,16 @@ export function buildCompactCandidateContext({
   discrepancies = [],
   missingSkills = [],
   signals = null,
+  assessmentPersona = null,
+  assessmentDirectives = null,
 } = {}) {
+  const effectiveDirectives =
+    assessmentDirectives ||
+    assessmentPersona?.agentDirectives?.forLinkedInAgent ||
+    resumeContext?.assessmentPersona?.agentDirectives?.forLinkedInAgent ||
+    resumeContext?.agentDirectives?.forLinkedInAgent ||
+    null
+
   const canonical = resumeContext?.canonicalResume || {}
   const candidateName =
     canonical?.candidate?.name ||
@@ -125,7 +134,12 @@ DETECTED DISCREPANCIES:
 ${discSummary}
 
 VERIFIED RESUME SKILLS MISSING ON LINKEDIN:
-${effectiveMissingSkills}`
+${effectiveMissingSkills}${effectiveDirectives ? `
+
+==================================================
+CANDIDATE ASSESSMENT & RECRUITER VISIBILITY CONTEXT
+==================================================
+${effectiveDirectives}` : ''}`
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

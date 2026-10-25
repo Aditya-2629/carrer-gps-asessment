@@ -13,6 +13,8 @@ import FileUpload from '../ui/FileUpload'
 import NumberNAInput from '../ui/NumberNAInput'
 import QuantitativeInput from '../ui/QuantitativeInput'
 import { getRandomAnswerForStep } from '../../lib/randomQuizFiller'
+import { STEPS } from '../../lib/assessmentSteps'
+import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
   const { formData, setFormData } = useAppStore()
@@ -54,8 +56,10 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
   }, [step, handleValue])
 
   const validate = useCallback(() => {
-    if (!step.required) return true
     const val = formData[step.name]
+    if (step.required === false && (val === undefined || val === null || String(val).trim() === '')) {
+      return true
+    }
     if (val === undefined || val === null || val === '') {
       triggerError('This field is required.')
       return false
@@ -83,21 +87,38 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         return false
       }
     }
-    if (step.type === 'input' && step.inputType === 'url') {
-      try { new URL(val) } catch {
-        triggerError('Please enter a valid URL (e.g. https://linkedin.com/in/...).')
+    if (step.name === 'linkedin' || (step.type === 'input' && step.inputType === 'url')) {
+      if (val && String(val).trim()) {
+        const normalized = normalizeLinkedInUrl(String(val))
+        if (normalized) {
+          setFormData(step.name, normalized)
+          return true
+        }
+        if (step.name !== 'linkedin') {
+          try {
+            new URL(String(val))
+            return true
+          } catch {
+            try {
+              new URL(`https://${String(val).trim()}`)
+              setFormData(step.name, `https://${String(val).trim()}`)
+              return true
+            } catch {}
+          }
+        }
+        triggerError('Please enter a valid LinkedIn URL (e.g. linkedin.com/in/username).')
         return false
       }
     }
     return true
-  }, [formData, step, triggerError])
+  }, [formData, step, triggerError, setFormData])
 
   const handleNext = useCallback(() => {
     if (!validate()) return
 
-    // Step 11 background scrape trigger: non-blocking LinkedIn scrape
+    // Step background scrape trigger: non-blocking LinkedIn scrape
     if (step.name === 'linkedin' && typeof formData.linkedin === 'string' && formData.linkedin.trim()) {
-      const url = formData.linkedin.trim()
+      const url = normalizeLinkedInUrl(formData.linkedin.trim()) || formData.linkedin.trim()
       window.__linkedinScrapePromise = api.scrapeLinkedInProfile(url).then((res) => {
         if (res?.success && res?.profile) {
           useAppStore.getState().setFormData('linkedinData', res.profile)
@@ -140,9 +161,9 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
           {/* Step badge */}
           <div
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)]"
-            aria-label={`Question ${step.id} of 31`}
+            aria-label={`Question ${step.id} of ${STEPS.length}`}
           >
-            Question {step.id} / 31
+            Question {step.id} / {STEPS.length}
           </div>
 
           {/* Quick Random Choice */}

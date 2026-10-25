@@ -348,6 +348,16 @@ export const chatResume = async (req, res) => {
       }
     }
 
+    // Assessment Personalization Agent context brief
+    const assessAgent = r.assessment_agent
+    if (assessAgent?.agentDirectives?.forChatbotAgent) {
+      contextParts.push(
+        `ASSESSMENT PERSONA & CONTEXT BRIEF:\n` +
+        `Persona: ${assessAgent.candidatePersona?.archetype || 'Candidate'} - ${assessAgent.candidatePersona?.summary || ''}\n` +
+        `Brief: ${assessAgent.agentDirectives.forChatbotAgent}`
+      )
+    }
+
     const resumeContext = contextParts.join('\n\n')
 
     // RAG context using the question + user profile as query

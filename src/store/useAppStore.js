@@ -55,6 +55,7 @@ function loadInitialState() {
     const rawForm = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
     if (rawForm) {
       formData = JSON.parse(rawForm)
+      delete formData.resume
     }
   } catch (e) {
     console.warn('[Store] Failed to parse stored auth/formData:', e)
@@ -67,18 +68,8 @@ function persistFormData(data) {
   if (typeof window === 'undefined') return
   try {
     const clean = { ...data }
-    // Sanitize resume if it's a File/FileList to avoid serialization exceptions
-    if (clean.resume) {
-      if (clean.resume instanceof File) {
-        clean.resume = { name: clean.resume.name, size: clean.resume.size, type: clean.resume.type }
-      } else if (clean.resume instanceof FileList && clean.resume.length > 0) {
-        clean.resume = { name: clean.resume[0].name, size: clean.resume[0].size, type: clean.resume[0].type }
-      } else if (Array.isArray(clean.resume) && clean.resume.length > 0 && clean.resume[0] instanceof File) {
-        clean.resume = { name: clean.resume[0].name, size: clean.resume[0].size, type: clean.resume[0].type }
-      } else if (typeof clean.resume !== 'object' || clean.resume === null) {
-        delete clean.resume
-      }
-    }
+    // Never save resume file/placeholder to localStorage
+    delete clean.resume
     localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(clean))
   } catch (e) {
     console.warn('[Store] Failed to persist formData:', e)
@@ -91,7 +82,17 @@ const useAppStore = create((set) => ({
   // Phase control
   phase: PHASES.ASSESSMENT,
   gateStep: GATE_STEPS.EMAIL,
-  setPhase: (phase) => set({ phase }),
+  setPhase: (phase) => {
+    if (phase === PHASES.ASSESSMENT) {
+      clearResumeFileFromStorage().catch(() => {})
+      if (typeof window !== 'undefined') {
+        window.__uploadedResumeFile = null
+      }
+      set({ phase, resumeFile: null })
+    } else {
+      set({ phase })
+    }
+  },
   setGateStep: (gateStep) => set({ gateStep }),
 
   // Auth
@@ -249,13 +250,19 @@ const useAppStore = create((set) => ({
 
 if (typeof window !== 'undefined') {
   window.__useAppStore = useAppStore
-  // Hydrate raw resume File from IndexedDB if memory state was cleared by refresh
-  getResumeFileFromStorage().then((storedFile) => {
-    if (storedFile && !useAppStore.getState().resumeFile) {
-      window.__uploadedResumeFile = storedFile
-      useAppStore.setState({ resumeFile: storedFile })
-    }
-  }).catch(() => {})
+  // Never hydrate resume in ASSESSMENT phase — always show fresh empty dropzone
+  if (useAppStore.getState().phase === PHASES.ASSESSMENT) {
+    clearResumeFileFromStorage().catch(() => {})
+    window.__uploadedResumeFile = null
+    useAppStore.setState({ resumeFile: null })
+  } else {
+    getResumeFileFromStorage().then((storedFile) => {
+      if (storedFile && !useAppStore.getState().resumeFile) {
+        window.__uploadedResumeFile = storedFile
+        useAppStore.setState({ resumeFile: storedFile })
+      }
+    }).catch(() => {})
+  }
 }
 
 export default useAppStore

@@ -61,6 +61,44 @@ export class PDFParser {
         })
       }
 
+      // Scan buffer for embedded PDF /URI hyperlink annotations (e.g. clickable "LinkedIn" or "GitHub" links)
+      try {
+        const rawPdfString = buffer.toString('latin1')
+        const discoveredLinks = new Set()
+
+        // 1. Literal /URI (...) strings
+        const uriLiteralMatches = rawPdfString.matchAll(/\/URI\s*\(([^)]+)\)/gi)
+        for (const match of uriLiteralMatches) {
+          const rawUrl = match[1]?.trim()
+          if (rawUrl && (/linkedin\.com\/in\//i.test(rawUrl) || /github\.com\//i.test(rawUrl))) {
+            discoveredLinks.add(rawUrl)
+          }
+        }
+
+        // 2. Hex-encoded /URI <...> strings
+        const uriHexMatches = rawPdfString.matchAll(/\/URI\s*<([0-9a-fA-F\s]+)>/gi)
+        for (const match of uriHexMatches) {
+          try {
+            const cleanHex = match[1].replace(/\s+/g, '')
+            if (cleanHex.length % 2 === 0) {
+              const decodedUrl = Buffer.from(cleanHex, 'hex').toString('utf8').trim()
+              if (decodedUrl && (/linkedin\.com\/in\//i.test(decodedUrl) || /github\.com\//i.test(decodedUrl))) {
+                discoveredLinks.add(decodedUrl)
+              }
+            }
+          } catch {
+            // ignore hex decode error
+          }
+        }
+
+        if (discoveredLinks.size > 0) {
+          const linksFooter = `\n\n[Extracted Document Links: ${Array.from(discoveredLinks).join(', ')}]\n`
+          aggregatedText += linksFooter
+        }
+      } catch (_linkErr) {
+        // non-blocking link extraction
+      }
+
       // Evaluate quality and warnings
       const evaluation = TextNormalizer.evaluateExtraction(aggregatedText, pageCount)
 

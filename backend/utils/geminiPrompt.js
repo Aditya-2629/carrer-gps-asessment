@@ -94,7 +94,8 @@ export default (
   dynamicKnowledgeBase = null,
   semanticProfile = null,
   resumeAgent = null,
-  linkedinAgent = null
+  linkedinAgent = null,
+  assessmentPersona = null
 ) => {
   const rawKb = dynamicKnowledgeBase || defaultKnowledgeBase
   const kbText = typeof rawKb === 'string' && rawKb.length > 6000 ? rawKb.slice(0, 6000) : rawKb
@@ -260,6 +261,15 @@ export default (
       experienceUpgradesCount: linkedinAgent.optimizations?.experienceUpgrades?.length || 0,
       visualAudit: linkedinAgent.visualAudit,
     }) : 'No LinkedIn agent analysis available.'}
+
+    ### VERIFIED ASSESSMENT PERSONALIZATION AGENT INTELLIGENCE:
+    ${assessmentPersona ? safeJson({
+      candidatePersona: assessmentPersona.candidatePersona,
+      workAuthContext: assessmentPersona.workAuthContext,
+      funnelMetrics: assessmentPersona.funnelMetrics,
+      interviewBottlenecks: assessmentPersona.interviewBottlenecks,
+      sprintBandwidth: assessmentPersona.sprintBandwidth,
+    }) : 'No assessment persona intelligence available.'}
 
     ### CANDIDATE AI-SEMANTIC ASSESSMENT PROFILE (Layer-2 Machine-Readable Definitions):
     ${semanticProfile ? safeJson(semanticProfile) : 'No semantic profile provided.'}

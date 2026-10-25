@@ -26,35 +26,19 @@ const slideVariants = {
 
 const SAMPLE_TEST_DATA = {
   phone: '555-019-2834',
-  visa: 'STEM OPT',
-  relocate: 'Yes',
-  location: 'New York, San Francisco, Remote',
+  visa: 'STEM OPT (24-Month Runway — Hunting E-Verify Sponsors 🚀)',
+  location: 'SF Bay Area / Silicon Valley 🌉, Remote Only 🌐',
   linkedin: 'https://www.linkedin.com/in/satyanadella',
-  resumeVersions: '3',
-  atsScore: '85%',
-  customizeResume: 'Yes',
-  employmentGap: 'No',
-  metrics: 'Yes',
-  linkedinOpt: 'Yes',
-  linkedinCon: { raw: '25', period: 'week', per_week: 25, per_month: 108, formatted: '25 per week', is_na: false },
-  coldEmails: { raw: '20', period: 'week', per_week: 20, per_month: 87, formatted: '20 per week', is_na: false },
-  consultancy: 'No (Doing it all by myself — 100% Solo)',
   appsWeek: { raw: '30', period: 'week', per_week: 30, per_month: 130, formatted: '30 per week', is_na: false },
-  easyApply: { raw: '5', period: 'week', per_week: 5, per_month: 22, formatted: '5 per week', is_na: false },
-  aiScreen: { raw: '2', period: 'month', per_week: 0.5, per_month: 2, formatted: '2 per month', is_na: false },
-  humanScreen: { raw: '3', period: 'month', per_week: 0.7, per_month: 3, formatted: '3 per month', is_na: false },
-  assessments: { raw: '2', period: 'month', per_week: 0.5, per_month: 2, formatted: '2 per month', is_na: false },
-  assessScore: '85%',
-  assessType: ['Technical Assessment (Coding, SQL, System Design, Cloud, Cybersecurity)'],
-  mockInterviews: 'Yes',
-  codeInterviews: 'No',
-  feedback: ['Rarely receive rejection emails or feedback'],
+  searchStyle: 'The Customizer 🛠️ — Tailoring resume keywords for almost every job description',
+  coldEmails: { raw: '15', period: 'week', per_week: 15, per_month: 65, formatted: '15 per week', is_na: false },
+  consultancy: 'No (Doing it all by myself — 100% Solo)',
+  humanScreen: { raw: '2', period: 'month', per_week: 0.5, per_month: 2, formatted: '2 per month', is_na: false },
+  feedback: [
+    'The ATS Black Hole 🕳️ — Ghosted before a single human ever talks to me',
+    'The Coding Gauntlet 💻 — Freezing up on timed LeetCode / HackerRank / Live Coding rounds',
+  ],
   hoursWeek: { raw: '20', period: 'week', per_week: 20, per_month: 87, formatted: '20 hours per week', is_na: false },
-  biggestChallenge: 'Passing technical coding and recruiter ghosting',
-  triedImprove: 'Rewrote resume with ATS keywords',
-  aiTools: ['ATS Resume Keyword Matching Tool', 'AI Mock Interview Platform'],
-  strategies: ['Resume customized for every Job Description', 'LinkedIn Profile Optimization'],
-  investGuidance: 'Yes',
 }
 
 export default function AssessmentShell() {
@@ -121,7 +105,7 @@ export default function AssessmentShell() {
             <button
               onClick={handleRandomFill}
               className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Fill all 31 questions with realistic randomized options and jump to end"
+              title="Fill all 12 questions with realistic randomized options and jump to end"
             >
               <DiceThree size={15} weight="bold" />
               <span className="hidden sm:inline">Random Fill</span>
