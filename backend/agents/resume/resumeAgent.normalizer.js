@@ -495,18 +495,34 @@ export class ResumeNormalizer {
     const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
     const urlRegex = /(?:https?:\/\/|www\.|linkedin\.com|github\.com|gitlab\.com|portfolio|twitter\.com|x\.com)/i
 
+    // 1. Always return true if line contains email, phone, or online portfolio/social URLs (unless long narrative > 220 chars)
     if (emailRegex.test(clean) || phoneRegex.test(clean) || urlRegex.test(clean)) {
-      if (clean.length < 150 || /[|•·/]/.test(clean)) {
+      if (clean.length < 220) {
         return true
       }
     }
 
+    // 2. Location line (City, ST or City, ST 12345)
     const locationRegex = /^[A-Z][a-zA-Z\s]+,\s*([A-Z]{2}|[A-Za-z\s]+)(\s+\d{5}(-\d{4})?)?$/
-    if (locationRegex.test(clean) && clean.length < 60) {
+    if (locationRegex.test(clean) && clean.length < 80) {
       return true
     }
 
-    if (/[|•·]/.test(clean) && clean.length < 100) {
+    // 3. Delimited contact or role banner lines with | • · /
+    if (/[|•·]/.test(clean) && clean.length < 140 && !/[.!?]$/.test(clean)) {
+      return true
+    }
+
+    // 4. Role keywords and banner detection
+    const ROLE_KEYWORDS_REGEX = /\b(SOFTWARE|ENGINEER|DEVELOPER|ARCHITECT|FULL\s*STACK|FRONTEND|BACKEND|DATA|DEVOPS|CLOUD|ANALYST|CONSULTANT|SPECIALIST|LEAD|MANAGER|DIRECTOR|TECHNOLOGY|TECHNOLOGIES|PROGRAMMER)\b/i
+
+    // ALL-CAPS role/stack banner: e.g. "SENIOR FULL STACK SOFTWARE DEVELOPER - REACT / NODE.JS / JAVA / SPRING"
+    if (clean === clean.toUpperCase() && ROLE_KEYWORDS_REGEX.test(clean) && clean.length < 140 && !/[.!?]$/.test(clean)) {
+      return true
+    }
+
+    // Role title separated by -, |, /, or • without ending in a period (.)
+    if (ROLE_KEYWORDS_REGEX.test(clean) && /[-|/•·]/.test(clean) && clean.length < 140 && !/[.!?]$/.test(clean)) {
       return true
     }
 
@@ -569,6 +585,14 @@ export class ResumeNormalizer {
           currentSection = 'summary'
           sections.summary.push(cleanLine)
         }
+      } else if (currentSection === 'summary') {
+        // Even AFTER currentSection has switched to 'summary', if a line matches isContactOrHeaderLine,
+        // push to header instead of contaminating summary!
+        if (this.isContactOrHeaderLine(cleanLine)) {
+          sections.header.push(cleanLine)
+        } else {
+          sections.summary.push(cleanLine)
+        }
       } else {
         sections[currentSection].push(cleanLine)
       }
@@ -581,7 +605,30 @@ export class ResumeNormalizer {
    * Parses summary section
    */
   static parseSummary(lines) {
-    const text = lines.join(' ').trim()
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g
+    const urlRegex = /(?:https?:\/\/[^\s]+|www\.[^\s]+|(?:linkedin|github)\.com\/[^\s]+)/gi
+
+    let filteredLines = lines.filter((l) => {
+      const trimmed = l.trim()
+      if (this.isContactOrHeaderLine(trimmed)) {
+        const withoutContact = trimmed.replace(emailRegex, '').replace(phoneRegex, '').replace(urlRegex, '').replace(/[|•·\-,]/g, '').trim()
+        if (withoutContact.length < 25) return false
+      }
+      return true
+    })
+
+    let text = filteredLines.join(' ').trim()
+
+    // Strip leading contact info, social URLs, or role banners from the start of summary string
+    text = text
+      .replace(emailRegex, '')
+      .replace(phoneRegex, '')
+      .replace(urlRegex, '')
+      .replace(/^[|•·\-\s,]+/, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+
     return {
       text,
       source: { page: 1 },
@@ -1069,26 +1116,98 @@ export class ResumeNormalizer {
     const education = []
     let eduCounter = 1
 
-    for (const line of lines) {
-      if (line.length > 5) {
-        const parts = line.split(/[|•·]|(?:\s+-\s+)/).map((s) => s.trim()).filter(Boolean)
-        let degree = parts[0] || line
-        let institution = parts[1] || ''
-        let year = parts[2] || ''
+    const isInstitutionPart = (text) =>
+      /\b(university|institute|college|school|academy|polytechnic|iit|nit|bits|kit|stevens)\b/i.test(text)
+    const isDegreePart = (text) =>
+      /\b(master|bachelor|b\.?tech|m\.?tech|m\.?s\.?|b\.?s\.?|b\.?e\.?|ph\.?d|mba|diploma|associate|science|engineering|technology|computer)\b/i.test(text)
 
-        if (/\b(?:19|20)\d{2}\b/.test(institution) && !year) {
-          year = institution
-          institution = ''
+    const stripLocation = (text) => {
+      if (!text) return ''
+      return text
+        .replace(/,\s*[A-Z]{2}\b/g, '') // e.g. Hoboken, NJ -> Hoboken
+        .replace(/\b(?:Hoboken|Kolhapur|New York|Boston|Chicago|San Francisco|Seattle|Austin|Maharashtra|India|USA|United States)\b/gi, '')
+        .replace(/[,\s]+$/, '')
+        .replace(/^[,\s]+/, '')
+        .trim()
+    }
+
+    const extractDate = (text) => {
+      const match = text.match(/\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+)?(?:\d{4})\s*(?:-|–|—|to)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+)?(?:\d{4})|present|current|expected)\b|\b(?:19|20)\d{2}\b/i)
+      return match ? match[0] : ''
+    }
+
+    // Group lines into distinct education entries
+    let currentEntry = null
+
+    for (const rawLine of lines) {
+      const line = (rawLine || '').trim()
+      if (line.length < 4) continue
+
+      const parts = line.split(/[|•·]|(?:\s+-\s+)/).map((s) => s.trim()).filter(Boolean)
+
+      let lineInst = ''
+      let lineDegree = ''
+      let lineYear = ''
+
+      for (const part of parts) {
+        const d = extractDate(part)
+        if (d && !lineYear) {
+          lineYear = d
         }
-
-        education.push({
-          id: `edu_${String(eduCounter).padStart(3, '0')}`,
-          degree,
-          institution,
-          year,
-        })
-        eduCounter++
+        if (isInstitutionPart(part)) {
+          lineInst = stripLocation(part)
+        } else if (isDegreePart(part)) {
+          lineDegree = part
+        } else if (!d && !lineInst && !lineDegree) {
+          // If part looks like a location token
+          if (/\b(?:NJ|NY|CA|TX|MA|USA|India)\b/i.test(part) || /^[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}$/i.test(part)) {
+            // Location token, ignore
+          } else if (lineDegree) {
+            lineInst = stripLocation(part)
+          } else {
+            lineDegree = part
+          }
+        }
       }
+
+      // Check if this line starts a new education entry or augments the current one
+      if (currentEntry) {
+        // If current entry has institution and degree, and line also has institution, start new entry
+        const startsNew = (lineInst && currentEntry.institution) || (lineDegree && currentEntry.degree && !currentEntry.institution)
+        if (startsNew) {
+          education.push({
+            id: `edu_${String(eduCounter++).padStart(3, '0')}`,
+            degree: currentEntry.degree || 'Degree',
+            institution: currentEntry.institution || 'University',
+            year: currentEntry.year || '',
+          })
+          currentEntry = {
+            institution: lineInst,
+            degree: lineDegree,
+            year: lineYear,
+          }
+        } else {
+          // Augment current entry
+          if (lineInst && !currentEntry.institution) currentEntry.institution = lineInst
+          if (lineDegree && !currentEntry.degree) currentEntry.degree = lineDegree
+          if (lineYear && !currentEntry.year) currentEntry.year = lineYear
+        }
+      } else {
+        currentEntry = {
+          institution: lineInst,
+          degree: lineDegree,
+          year: lineYear,
+        }
+      }
+    }
+
+    if (currentEntry && (currentEntry.institution || currentEntry.degree)) {
+      education.push({
+        id: `edu_${String(eduCounter++).padStart(3, '0')}`,
+        degree: currentEntry.degree || 'Degree',
+        institution: currentEntry.institution || 'University',
+        year: currentEntry.year || '',
+      })
     }
 
     return education

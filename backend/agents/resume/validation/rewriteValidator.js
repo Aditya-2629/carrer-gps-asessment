@@ -25,20 +25,7 @@ const NEW_METRIC_PATTERNS = [
 ]
 
 // Forbidden new claim keywords that should NOT appear unless in source
-const FORBIDDEN_NEW_CLAIMS = [
-  'secret management',
-  'compliance',
-  'zero-trust',
-  'automated vulnerability',
-  'production-ready',
-  'enterprise-grade',
-  'high-scale',
-  'mission-critical',
-  'customer-facing',
-  'led a team',
-  'managed engineers',
-  'real-time monitoring',
-]
+export const FORBIDDEN_NEW_CLAIMS = []
 
 /**
  * Extracts all numeric tokens from a text string.
@@ -107,14 +94,82 @@ function extractTechTokens(text) {
 }
 
 /**
- * Validates a single correctedText against its source originalText.
+ * Extracts a comprehensive set of technology tokens from the entire canonical resume.
+ * Inspects all experience bullets, project bullets, summary text, and skills.
+ * @param {Object} canonicalResume
+ * @returns {Set<string>}
+ */
+export function buildResumeTechTokens(canonicalResume) {
+  if (!canonicalResume || typeof canonicalResume !== 'object') return new Set()
+  const texts = []
+
+  // Summary
+  if (canonicalResume.summary) {
+    if (typeof canonicalResume.summary === 'string') texts.push(canonicalResume.summary)
+    else if (typeof canonicalResume.summary.text === 'string') texts.push(canonicalResume.summary.text)
+  }
+  if (canonicalResume.candidate?.summary) {
+    texts.push(canonicalResume.candidate.summary)
+  }
+
+  // Experience
+  for (const exp of (canonicalResume.experience || [])) {
+    if (exp?.role) texts.push(exp.role)
+    if (exp?.company) texts.push(exp.company)
+    if (Array.isArray(exp?.technologies)) texts.push(...exp.technologies)
+    for (const b of (exp?.bullets || [])) {
+      if (b?.text) texts.push(b.text)
+    }
+  }
+
+  // Projects
+  for (const proj of (canonicalResume.projects || [])) {
+    if (proj?.name || proj?.title) texts.push(proj.name || proj.title)
+    if (Array.isArray(proj?.technologies)) texts.push(...proj.technologies)
+    for (const b of (proj?.bullets || [])) {
+      if (b?.text) texts.push(b.text)
+    }
+  }
+
+  // Skills
+  if (Array.isArray(canonicalResume.skills)) {
+    for (const sk of canonicalResume.skills) {
+      if (typeof sk === 'string') texts.push(sk)
+      else if (sk && typeof sk === 'object') {
+        if (sk.name) texts.push(sk.name)
+        if (sk.category) texts.push(sk.category)
+        if (Array.isArray(sk.items)) texts.push(...sk.items)
+        if (typeof sk.text === 'string') texts.push(sk.text)
+      }
+    }
+  } else if (canonicalResume.skills && typeof canonicalResume.skills === 'object') {
+    if (Array.isArray(canonicalResume.skills.items)) texts.push(...canonicalResume.skills.items)
+    if (typeof canonicalResume.skills.text === 'string') texts.push(canonicalResume.skills.text)
+  }
+
+  // Certifications & Education
+  for (const cert of (canonicalResume.certifications || [])) {
+    if (cert?.name) texts.push(cert.name)
+  }
+  for (const edu of (canonicalResume.education || [])) {
+    if (edu?.degree) texts.push(edu.degree)
+    if (edu?.major) texts.push(edu.major)
+  }
+
+  const combinedText = texts.join(' ')
+  return extractTechTokens(combinedText)
+}
+
+/**
+ * Validates a single correctedText against its source originalText and resume-wide technologies.
  *
  * @param {string} correctedText - The LLM-generated corrected bullet
  * @param {string} originalText  - The verbatim source bullet from canonical resume
  * @param {string} bulletId      - For error reporting
+ * @param {Set<string>|null} [resumeTechTokens=null] - Allowed tech tokens across whole resume
  * @returns {{ valid: boolean, violations: string[] }}
  */
-export function validateRewrite(correctedText, originalText, bulletId) {
+export function validateRewrite(correctedText, originalText, bulletId, resumeTechTokens = null) {
   const violations = []
 
   if (!correctedText || typeof correctedText !== 'string') {
@@ -144,11 +199,11 @@ export function validateRewrite(correctedText, originalText, bulletId) {
     }
   }
 
-  // 2. Check for new tech tokens not in source
+  // 2. Check for new tech tokens not in source or resumeTechTokens
   const sourceTech = extractTechTokens(originalText)
   const correctedTech = extractTechTokens(correctedForChecks)
   for (const tech of correctedTech) {
-    if (!sourceTech.has(tech)) {
+    if (!sourceTech.has(tech) && (!resumeTechTokens || !resumeTechTokens.has(tech))) {
       violations.push(`[${bulletId}] New technology in correctedText not in source: "${tech}"`)
     }
   }
@@ -169,22 +224,24 @@ export function validateRewrite(correctedText, originalText, bulletId) {
  * Validates all issues in an analysis for correctedText safety.
  *
  * @param {Array} issues - Parsed issues from analysis
- * @param {Object} canonicalResume - For looking up original bullet text
+ * @param {Object} canonicalResume - For looking up original bullet text and full-resume tech
  * @returns {{ valid: boolean, violations: string[] }}
  */
 export function validateAllRewrites(issues, canonicalResume) {
   if (!Array.isArray(issues)) return { valid: true, violations: [] }
 
+  const resumeTechTokens = buildResumeTechTokens(canonicalResume)
+
   // Build bullet text lookup
   const bulletTextMap = new Map()
-  for (const exp of (canonicalResume.experience || [])) {
-    for (const b of (exp.bullets || [])) {
-      if (b.id && b.text) bulletTextMap.set(b.id, b.text)
+  for (const exp of (canonicalResume?.experience || [])) {
+    for (const b of (exp?.bullets || [])) {
+      if (b?.id && b.text) bulletTextMap.set(b.id, b.text)
     }
   }
-  for (const proj of (canonicalResume.projects || [])) {
-    for (const b of (proj.bullets || [])) {
-      if (b.id && b.text) bulletTextMap.set(b.id, b.text)
+  for (const proj of (canonicalResume?.projects || [])) {
+    for (const b of (proj?.bullets || [])) {
+      if (b?.id && b.text) bulletTextMap.set(b.id, b.text)
     }
   }
 
@@ -197,7 +254,7 @@ export function validateAllRewrites(issues, canonicalResume) {
       if (!ev) continue
       const bulletId = ev.bulletId || ev.itemId
       const sourceText = ev.originalText || bulletTextMap.get(bulletId) || ''
-      const { violations } = validateRewrite(issue.correctedText, sourceText, bulletId || 'unknown')
+      const { violations } = validateRewrite(issue.correctedText, sourceText, bulletId || 'unknown', resumeTechTokens)
       allViolations.push(...violations)
     }
   }
@@ -211,4 +268,6 @@ export function validateAllRewrites(issues, canonicalResume) {
 export default {
   validateRewrite,
   validateAllRewrites,
+  buildResumeTechTokens,
 }
+

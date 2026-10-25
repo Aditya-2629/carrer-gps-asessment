@@ -1109,6 +1109,7 @@ function ReportDashboardContent() {
         {/* SECTION I: FINAL NEXT ACTION */}
         <FinalNextAction
           coachData={reportData.coach_intervention}
+          reportData={reportData}
           onBookCall={handleBookCall}
         />
       </main>

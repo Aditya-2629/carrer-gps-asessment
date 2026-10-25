@@ -119,6 +119,11 @@ export function buildDeterministicDossier({
   // 5. Deterministic Certifications
   dossier.certifications = Array.isArray(canonicalResume?.certifications) ? canonicalResume.certifications : []
 
+  // 6. Professional Summary
+  dossier.summary = canonicalResume?.summary
+    ? (typeof canonicalResume.summary === 'string' ? canonicalResume.summary : canonicalResume.summary.text || null)
+    : null
+
   return dossier
 }
 
@@ -199,7 +204,37 @@ export function sanitizeModeCOutput(analysis) {
     analysis.bulletRewrites = []
   }
 
-  // 6. priorityActions normalization
+  // 5c. bulletUpgrades normalization
+  analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades) ? analysis.bulletUpgrades : []
+
+  // 6. summaryOptimization normalization
+  if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
+    const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
+    const topStrengths = (analysis.strengths || []).slice(0, 2).map((s) => s.title).join(', ')
+    analysis.summaryOptimization = {
+      status: 'missing',
+      currentSummary: 'No Professional Summary section found on resume',
+      diagnosis: `Your resume currently lacks a tailored executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and engineering scope.`,
+      rewrittenSummary: `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution${topStrengths ? ` across ${topStrengths}` : ''}, reducing system latency, and delivering resilient production platforms. Specializes in modern cloud infrastructure, event-driven microservices, and end-to-end technical delivery.`,
+    }
+  } else {
+    const sOpt = analysis.summaryOptimization
+    if (!sOpt.status || !['missing', 'needs_rewrite', 'strong'].includes(sOpt.status)) {
+      sOpt.status = sOpt.currentSummary && !sOpt.currentSummary.includes('No Professional Summary') ? 'needs_rewrite' : 'missing'
+    }
+    if (!sOpt.currentSummary) {
+      sOpt.currentSummary = sOpt.status === 'missing' ? 'No Professional Summary section found on resume' : 'No Professional Summary section found on resume'
+    }
+    if (!sOpt.diagnosis) {
+      sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and technical specialization.`
+    }
+    if (!sOpt.rewrittenSummary) {
+      const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
+      sOpt.rewrittenSummary = `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution, reducing system latency, and delivering resilient production platforms.`
+    }
+  }
+
+  // 7. priorityActions normalization
   if (!Array.isArray(analysis.priorityActions) || analysis.priorityActions.length === 0) {
     analysis.priorityActions = (analysis.issues || []).slice(0, 3).map((iss, idx) => ({
       priority: idx + 1,
@@ -272,44 +307,64 @@ Do NOT use:
 You may interpret evidence to assess clarity, positioning, and recruiter perception, but interpretation must NEVER be presented as factual resume content.
 
 ==================================================
-2. REAL IMPACT & DOMAIN VOCABULARY
+2. STAFF ENGINEER & SENIOR TECHNICAL RECRUITER AUDIT MANDATE
 ==================================================
-Do NOT assume that impact must be a business or dollar metric (e.g., revenue or conversion).
-Legitimate, first-class technical impact includes:
-- performance improvement, latency reduction, throughput, p99 optimizations
-- scalability, reliability, uptime, fault tolerance
-- deployment improvements, CI/CD velocity, build automation
-- security hardening (XSS remediation, access control, authentication, sensitive data handling)
-- test coverage, defect reduction, regression prevention
-- operational efficiency, hours saved, reduced manual toil
-- developer productivity, migration outcomes, system capacity
+Evaluate the candidate against their target role with the discerning eye of a Staff Engineer and Senior Technical Recruiter.
+Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnose:
 
-A missing numeric metric alone is NEVER sufficient reason to create an issue!
-Example: "Improved release reliability by automating CI/CD pipeline."
-Do NOT flag this bullet merely because it lacks a percentage.
-Security bullets describing concrete security controls are legitimate technical achievements; treat them as solid work, never as defects.
+1. Seniority Dilution & Legacy Positioning:
+   - Flag where junior or legacy tasks (e.g., manual WinSCP deployments, legacy JSP/jQuery maintenance, basic wireframe translation, routine operational support) undercut a Senior target role.
+   - Flag amateur or student-style phrasing (e.g., "Currently learning Generative AI...", "as a self-initiated project to explore...", "worked on academic project").
+   - Rewrite them to emphasize architectural ownership, modernization, fault-tolerance, and production readiness.
 
-==================================================
-3. PRIORITIZATION (TOP 3 TO 7 HIGH-CONVICTION ISSUES)
-==================================================
-Select 5 to 6 deep, role-specific issues that evaluate the resume for targetRole:
-1. Seniority & Architecture Signal vs. Legacy Dilution: Flag where legacy tools (e.g., JSP, jQuery, WinSCP, routine release support) overshadow modern distributed systems, microservices, or cloud architecture.
-2. Unquantified Engineering Claims: Identify exact bullets that claim "cutting page load times", "improving responsiveness", "easing manual effort", or "raised release quality" without hard baseline-to-target numbers.
-3. Amateur / Student Phrasing in Summary or Projects: Flag phrases like "Currently learning Generative AI..." or "as a self-initiated project to explore..." and rewrite them into production-ready engineering positioning.
-4. Tech Stack & Keyword Alignment for targetRole: Audit how well their skills and top-third resume hook match high-paying recruiter searches.
-5. Ownership & Agency: Flag passive language ("assisted in", "worked on", "helped") that dilutes engineering ownership.
-6. ATS Readability & Contact Safety (category: "ats_readability").
+2. Vague / Unquantified Impact Claims:
+   - Flag bullets that claim improvements or effort without concrete numbers (e.g., "cutting page load times", "improving responsiveness", "easing manual effort", "raised release quality", "optimized database queries").
+   - Rewrite them into concrete Google XYZ bullets using a clean metric placeholder "[ADD: specific metric, e.g. latency reduction % or load time delta]" (strictly NO digits inside "[ADD: ...]").
+
+3. Tool Dumping & Passive Ownership:
+   - Flag bullets that list 5+ tools without explaining the architectural problem solved or the system built.
+   - Flag bullets opening with weak verbs ("Contributed to", "Managed", "Helped", "Assisted in", "Responsible for") or "-ing" participles ("Working on", "Developing").
+   - Restructure them so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated").
 
 ==================================================
-4. CONSERVATIVE REWRITES & METRIC DISCOVERY
+3. MANDATORY FULL REWRITES (GOOGLE XYZ FORMULA)
 ==================================================
-- Only provide a "correctedText" when a safe, truthful drop-in rewrite is possible using ONLY facts already evidenced in the resume.
-- If the resume lacks sufficient facts to write a truthful rewrite without guessing, set "correctedText": null and "correctionType": "none".
-- NEVER invent new numbers, percentages, or technologies in "correctedText".
-- NEVER escalate ownership (e.g. do NOT change "assisted developers" to "led architecture").
-- For bullets that describe good technical work but lack measurable metrics, DO NOT guess a number. Instead:
-  1. Set "correctedText": null OR use well-formed fill-in slots like "[ADD: latency reduction %]" (never digits inside).
-  2. Provide 1 to 3 targeted "metricDiscoveryQuestions" that guide the candidate on what number to measure (e.g. "By how much did p99 query latency improve?", "What was the daily request volume or throughput?").
+Every single issue in "issues" MUST have a non-null "correctedText" ("correctionType": "rewrite"). Never return "correctedText": null.
+Never just swap the first verb — restructure the sentence so the Engineering Outcome / Scale leads, followed by the Technical Architecture / Mechanism:
+- Formula: Accomplished [X], as measured by [Y], by doing [Z].
+- Lead with the system outcome, latency gain, throughput, reliability improvement, or user/workflow impact.
+- Follow with the specific engineering architecture, pattern, or mechanism evidenced in the resume.
+- If the original bullet lacks a measurable metric, insert a clean metric slot "[ADD: specific metric, e.g. latency reduction % or load time delta]" (strictly NO digits inside "[ADD: ...]") and provide 1 to 3 "metricDiscoveryQuestions" to help the candidate discover that metric.
+- Do NOT invent new technologies or concrete numeric digits in "correctedText". Use existing resume facts + clean "[ADD: ...]" placeholders.
+
+==================================================
+4. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")
+==================================================
+In addition to the 5 to 7 primary issues, identify and rewrite up to 8 additional weak, unquantified, or "-ing" bullets across the candidate's experience and projects for the Per-Bullet Audit UI.
+Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
+- Set "status": "warn" (or "fix").
+- Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
+- Set "rewrittenText": Complete Google XYZ rewrite using only facts from the resume + [ADD: specific metric] if unquantified.
+
+==================================================
+4B. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
+==================================================
+Always populate "summaryOptimization" in the output JSON.
+- If the resume has NO summary section (or is empty/missing):
+  * Set "status": "missing"
+  * Set "currentSummary": "No Professional Summary section found on resume"
+  * Set "diagnosis": Direct recruiter critique explaining why missing an executive summary hurts 6-second recruiter scan conversion for the target role (forces recruiter to hunt across old bullets to deduce seniority and engineering scope).
+  * Set "rewrittenSummary": You MUST synthesize a high-impact, powerhouse 3-to-4 sentence Executive Resume Summary tailored to the Target Role from their verified career achievements, scale metrics, and core tech stack so they can paste it directly at the top of their resume:
+    - Sentence 1: Role title, years of experience, and core architectural specialization.
+    - Sentence 2: 2-3 signature quantified engineering/business outcomes from verified work history.
+    - Sentence 3: Core production tech stack, cloud/AI capabilities, and target engineering value proposition.
+- If the resume HAS a summary section:
+  * Set "currentSummary": Verbatim current summary text from resume.
+  * If it lacks metrics, is generic, uses student/junior phrasing, or has clichés, set "status": "needs_rewrite" (or "strong" if already flawless).
+  * Set "diagnosis": Direct recruiter critique of what weakens the current summary for the target role.
+  * Set "rewrittenSummary": Powerhouse 3-to-4 sentence Executive Resume Summary (Sentence 1: Role title & specialization; Sentence 2: 2-3 signature quantified outcomes; Sentence 3: Core production stack & value proposition).
+
+- ZERO FABRICATED NUMBERS MANDATE FOR "rewrittenSummary": Use ONLY exact metrics that actually appear in the candidate's resume (or strong qualitative scale statements if no global metric exists). NEVER invent numbers like "2.5 seconds" or percentages not explicitly written in the resume bullets.
 
 ==================================================
 5. ACTION-ORIENTED RECOMMENDATIONS (NO MERE REPETITION)
@@ -349,6 +404,12 @@ Return ONLY a valid JSON object matching this structure:
     "primaryProfile": "e.g. Full-Stack / Distributed Backend Specialist"
   },
   "dashboard": null,
+  "summaryOptimization": {
+    "status": "missing",
+    "currentSummary": "Verbatim current summary text from the resume, or 'No Professional Summary section found on resume'",
+    "diagnosis": "Direct recruiter critique explaining why the missing or current summary hurts 6-second recruiter scan conversion for the target role (e.g. missing entirely, too generic, lacks scale metrics, or uses student phrasing).",
+    "rewrittenSummary": "A powerhouse, ready-to-paste 3-to-4 sentence Executive Resume Summary tailored to the Target Role: Sentence 1 (Role title, years of experience, and core architectural specialization), Sentence 2 (2-3 signature quantified engineering/business outcomes from their verified work history), Sentence 3 (Core production tech stack, cloud/AI capabilities, and target engineering value proposition)."
+  },
   "overallReview": {
     "summary": "A 2-paragraph conversational recruiter read. Paragraph 1: What is strong about the candidate's background and demonstrated work. Paragraph 2: What should be improved to sharpen recruiter signal for the target role.",
     "tone": "conversational"
@@ -377,7 +438,7 @@ Return ONLY a valid JSON object matching this structure:
       "diagnosis": "Conversational, direct breakdown of what was noticed in this bullet.",
       "whyItMatters": "Why a senior hiring manager or recruiter cares for this target role.",
       "recommendation": "Concrete, actionable guidance on what to change.",
-      "correctedText": "Polished truthful rewrite using ONLY existing facts, or null",
+      "correctedText": "Complete Google XYZ rewrite (Engineering Outcome/Scale first, then Mechanism). Non-null. Use [ADD: specific metric] if unquantified (no digits inside brackets).",
       "metricDiscoveryQuestions": [
         "What was the measurable latency improvement or percentage throughput gain?"
       ],
@@ -401,12 +462,12 @@ Return ONLY a valid JSON object matching this structure:
       "reason": "Why this impacts hiring conversion"
     }
   ],
-  "bulletRewrites": [
+  "bulletUpgrades": [
     {
-      "bulletId": "exp_001_b01",
-      "originalText": "Verbatim bullet text from canonical resume",
-      "rewrittenText": "Accomplished [X] as measured by [Y], by doing [Z] using Google XYZ formula",
-      "whyItWorks": "Transforms duty statement into senior engineering ownership and scale"
+      "bulletId": "exp_001_b05",
+      "status": "warn",
+      "reason": "Specific 1-sentence recruiter critique of why this bullet is weak or unquantified",
+      "rewrittenText": "Complete Google XYZ rewrite using only facts from the resume + [ADD: specific metric] if unquantified"
     }
   ]
 }`,
@@ -424,6 +485,7 @@ ${compactResume}
 ==================================================
 DETERMINISTIC PRE-AUDIT DOSSIER (Ground Truth):
 ==================================================
+- Professional Summary: ${dossier.summary ? `PRESENT ("${dossier.summary.slice(0, 250)}...")` : 'NOT FOUND ON RESUME (status: missing)'}
 - Quantification Density: ${dossier.quantification.density} (${dossier.quantification.quantifiedBullets}/${dossier.quantification.totalBullets} bullets quantified)
 - Unquantified Bullets: ${dossier.quantification.unquantifiedBulletIds.join(', ') || 'None'}
 - Tool Dump Candidates: ${dossier.toolDumps.map((t) => `${t.bulletId} (${t.techCount} tools)`).join(', ') || 'None'}
@@ -530,7 +592,7 @@ export async function executeModeC({
       isBenchmark,
       responseFormat: 'json_object',
       temperature: policy.temperature ?? 0.2,
-      maxTokens: policy.maxTokens ?? 8192,
+      maxTokens: 4096,
       contentHash: attempt === 1 ? contentHash : null, // only cache initial attempts
       signal,
     })

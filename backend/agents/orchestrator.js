@@ -210,7 +210,7 @@ export async function runCareerAgents(bundle) {
         const resumeHash = crypto.createHash('sha256').update(resumePayload).digest('hex')
         const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
         const inputHash = sha256(
-          `resume:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}`
+          `resume_v7:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}`
         )
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null
@@ -312,7 +312,7 @@ export async function runCareerAgents(bundle) {
           effectiveTargetRole ||
           'none'
 
-        const inputHash = sha256(`linkedin:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:v:${LINKEDIN_AGENT.version}`)
+        const inputHash = sha256(`linkedin_v7:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:v:${LINKEDIN_AGENT.version}`)
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('linkedin', inputHash) : null
         if (cached && cached.output) {

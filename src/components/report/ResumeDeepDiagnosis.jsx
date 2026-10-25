@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Sparkle,
   ListChecks,
@@ -8,6 +8,9 @@ import {
   ArrowSquareOut,
   User,
   ShieldCheck,
+  Copy,
+  Check,
+  FileText,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -74,6 +77,70 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
   const snapshot = resumeAgent.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
+
+  const summaryOptimization = resumeAgent.summaryOptimization || null
+  const [copiedSummary, setCopiedSummary] = useState(false)
+
+  const handleCopySummary = () => {
+    if (!summaryOptimization?.rewrittenSummary) return
+    navigator.clipboard.writeText(summaryOptimization.rewrittenSummary)
+    setCopiedSummary(true)
+    setTimeout(() => setCopiedSummary(false), 2000)
+  }
+
+  // Filter out issues that are already rendered inline on bullet cards in ResumeBulletAudit
+  const sectionLevelIssues = useMemo(() => {
+    const auditedBulletIds = new Set(
+      (dashboard?.bulletAudit || []).map((b) => b.bulletId).filter(Boolean)
+    )
+    const auditedTexts = new Set(
+      (dashboard?.bulletAudit || [])
+        .map((b) => (b.text || '').trim().toLowerCase())
+        .filter((t) => t.length > 15)
+    )
+
+    if (!auditedBulletIds.size) return issues
+
+    return issues.filter((iss) => {
+      // 1. Direct bulletId match
+      if (iss.bulletId && auditedBulletIds.has(iss.bulletId)) return false
+
+      // 2. Evidence match
+      const evList = Array.isArray(iss.evidence)
+        ? iss.evidence
+        : iss.evidence
+        ? [iss.evidence]
+        : []
+
+      const hasAuditedEvidence = evList.some((ev) => {
+        if (typeof ev === 'string') {
+          const evLower = ev.trim().toLowerCase()
+          return (
+            auditedBulletIds.has(ev) ||
+            Array.from(auditedTexts).some((t) => evLower.includes(t) || t.includes(evLower))
+          )
+        }
+        if (ev?.bulletId && auditedBulletIds.has(ev.bulletId)) return true
+        if (ev?.text) {
+          const evTextLower = ev.text.trim().toLowerCase()
+          return Array.from(auditedTexts).some((t) => evTextLower.includes(t) || t.includes(evTextLower))
+        }
+        return false
+      })
+
+      if (hasAuditedEvidence) return false
+
+      // 3. Original text match
+      if (iss.originalText) {
+        const origLower = iss.originalText.trim().toLowerCase()
+        if (Array.from(auditedTexts).some((t) => origLower.includes(t) || t.includes(origLower))) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [issues, dashboard?.bulletAudit])
 
   const handleOpenPrintReport = () => {
     try {
@@ -206,6 +273,92 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
         )}
       </div>
 
+      {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
+      {summaryOptimization && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 space-y-5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
+                <FileText size={18} weight="bold" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
+                  Professional Summary Audit & Ready-to-Paste Rewrite
+                </h3>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Senior recruiter critique and a tailored executive hook engineered for 6-second recruiter scans.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              {summaryOptimization.status === 'missing' && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/25">
+                  Missing on Resume
+                </span>
+              )}
+              {summaryOptimization.status === 'needs_rewrite' && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                  Needs Upgrade
+                </span>
+              )}
+              {summaryOptimization.status === 'strong' && (
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                  Strong
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Current Summary */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                Current Summary on Resume
+              </span>
+              <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl p-3.5 text-xs text-[var(--text-secondary)] leading-relaxed italic min-h-[85px] flex items-center">
+                {summaryOptimization.currentSummary || 'No Professional Summary section found on resume'}
+              </div>
+            </div>
+
+            {/* Recruiter Diagnosis */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider flex items-center gap-1">
+                <WarningCircle size={13} weight="fill" /> Recruiter Diagnosis (6-Second Scan)
+              </span>
+              <div className="bg-amber-500/5 dark:bg-amber-950/20 border border-amber-500/20 rounded-xl p-3.5 text-xs text-[var(--text-primary)] leading-relaxed min-h-[85px] flex items-center">
+                {summaryOptimization.diagnosis}
+              </div>
+            </div>
+          </div>
+
+          {/* Ready-to-Paste Executive Summary Rewrite */}
+          {summaryOptimization.rewrittenSummary && (
+            <div className="bg-gradient-to-r from-indigo-500/5 via-sky-500/5 to-emerald-500/5 border border-indigo-500/30 dark:border-indigo-400/30 rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkle size={14} weight="fill" /> Ready-to-Paste Executive Summary Rewrite
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleCopySummary}
+                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  title="Click to copy executive summary"
+                >
+                  {copiedSummary ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
+                  <span>{copiedSummary ? 'Copied to Clipboard!' : 'Copy Summary'}</span>
+                </button>
+              </div>
+
+              <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed bg-[var(--surface-card)]/80 p-3.5 rounded-lg border border-[var(--border-default)]">
+                {summaryOptimization.rewrittenSummary}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
       {dashboard?.bulletAudit?.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
@@ -213,17 +366,17 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
         </div>
       )}
 
-      {/* Deep issues */}
-      {issues.length > 0 && (
+      {/* Deep issues (only section-level / positioning issues not already rendered in bullet audit) */}
+      {sectionLevelIssues.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
-              <WarningCircle size={15} className="text-amber-400" /> Deep ATS & Recruiter Diagnosis ({issues.length} Issues)
+              <WarningCircle size={15} className="text-amber-400" /> Deep ATS & Recruiter Diagnosis ({sectionLevelIssues.length} {sectionLevelIssues.length === 1 ? 'Issue' : 'Issues'})
             </h3>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {issues.map((iss, i) => {
+            {sectionLevelIssues.map((iss, i) => {
               const qs = Array.isArray(iss.metricDiscoveryQuestions) ? iss.metricDiscoveryQuestions : []
               return (
                 <div

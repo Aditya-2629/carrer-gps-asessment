@@ -39,7 +39,7 @@ function extractFactTokens(text) {
  * @param {Object} canonicalResume
  * @returns {Set<string>}
  */
-function buildSourceFactTokens(canonicalResume) {
+export function buildSourceFactTokens(canonicalResume) {
   const tokens = new Set()
   const addText = (text) => {
     if (text) extractFactTokens(String(text)).forEach((t) => tokens.add(t))
@@ -153,4 +153,5 @@ export function validateClaims(parsedAnalysis, canonicalResume) {
 
 export default {
   validateClaims,
+  buildSourceFactTokens,
 }

@@ -46,7 +46,7 @@ import { analyzeEvidence, filterGroundedObservations } from './analyzers/evidenc
 import { buildSynthesisMessages, SYNTHESIS_PROMPT_VERSION } from './synthesis/resumeSynthesis.js'
 import { validateAllRewrites } from './validation/rewriteValidator.js'
 import { detectUnsupportedAssumptions } from './validation/assumptionValidator.js'
-import { validateClaims } from './validation/claimValidator.js'
+import { validateClaims, buildSourceFactTokens } from './validation/claimValidator.js'
 import { validateRecommendations } from './validation/recommendationValidator.js'
 import { classifyAllEvidence, resolveEvidenceConsistency } from './classification/index.js'
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
@@ -67,6 +67,52 @@ import { runOrchestratedSynthesis } from './orchestration/orchestrationRunner.js
 // Phase A (kernel): the synthesis prompt lives in the registry so every run
 // is traceable to exact prompt text via hash.
 registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PROMPT)
+
+/**
+ * Strips unverified numeric tokens (numbers, percentages, currencies) not present
+ * in sourceTokens and replaces them with [ADD: measurable metric], keeping 100% of the
+ * LLM's rewritten sentence structure intact.
+ */
+export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, canonicalResume) {
+  if (!correctedText || typeof correctedText !== 'string') return correctedText
+
+  // Protect existing well-formed [ADD: ...] slots
+  const slots = []
+  let protectedText = correctedText.replace(/\[ADD:[^\]]*\]/gi, (match) => {
+    slots.push(match)
+    return `__SLOT_PLACEHOLDER_${slots.length - 1}__`
+  })
+
+  // Match currency, percentage, multiplier, and plain numbers
+  const numericPattern = /(\$\s*\d+(?:[.,]\d+)?(?:\s*(?:k|m|b|million|billion))?|\b\d+(?:\.\d+)?%|\b\d+(?:\.\d+)?x\b|\b\d{1,}(?:,\d{3})*(?:\.\d+)?\+?\b)/gi
+
+  protectedText = protectedText.replace(numericPattern, (match) => {
+    const token = match.replace(/\s+/g, '').toLowerCase()
+    // If it's a 4-digit calendar year present in resume, allow it
+    if (/^(?:19|20)\d{2}$/.test(token) && canonicalResume) {
+      const resumeStr = JSON.stringify(canonicalResume)
+      if (resumeStr.includes(token)) return match
+    }
+    // Check if token exists in sourceTokens
+    if (sourceTokens && sourceTokens.has(token)) {
+      return match
+    }
+    // Also check if bare digits exist in sourceTokens
+    const digits = token.replace(/[^0-9.]/g, '')
+    if (digits && sourceTokens && sourceTokens.has(digits)) {
+      return match
+    }
+    return '[ADD: measurable metric]'
+  })
+
+  // Restore protected slots
+  let restored = protectedText.replace(/__SLOT_PLACEHOLDER_(\d+)__/g, (_, idx) => slots[Number(idx)] || '')
+
+  // Clean up any duplicate slots like "[ADD: measurable metric] [ADD: measurable metric]"
+  restored = restored.replace(/(\[ADD:\s*measurable metric\]\s*)+/gi, '[ADD: measurable metric]')
+
+  return restored
+}
 
 export class ResumeAgent {
   /**
@@ -692,6 +738,8 @@ export class ResumeAgent {
 
         // If claim violations were detected, attempt safe recovery
         if (v3Violations.length > 0) {
+          const sourceTokens = buildSourceFactTokens(canonicalResume)
+
           // 1. Sanitize recommendations that contain hypothetical metric examples in parentheses e.g. (e.g. 35%)
           for (const iss of parsedAnalysis.issues || []) {
             if (iss.recommendation && /\(e\.g\.?[^)]*\d+[^)]*\)/i.test(iss.recommendation)) {
@@ -700,8 +748,7 @@ export class ResumeAgent {
             if (iss.correctedText) {
               const textViolations = validateClaims({ issues: [{ ...iss, diagnosis: '', recommendation: '' }] }, canonicalResume)
               if (textViolations.violations && textViolations.violations.length > 0) {
-                const evText = ResumeAgentValidator.getEvidenceText(iss.evidence)
-                iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(evText || iss.title)
+                iss.correctedText = replaceUnverifiedNumericTokens(iss.correctedText, sourceTokens, canonicalResume)
                 iss.correctionType = 'rewrite'
               }
             }

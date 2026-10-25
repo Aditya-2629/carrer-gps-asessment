@@ -140,11 +140,14 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
       ? 'Target high-growth startups and Tier-1 engineering organizations where citizenship clears clearance and federal contracting tracks.'
       : 'Target employers with verified e-Verify certification and explicit H-1B sponsorship history to prevent late-stage interview dropouts.')
 
-  const topSkills =
+  const rawSkills =
     storeReport?.resume_agent?.canonicalResume?.skills ||
     storeReport?.resume_json?.top_skills ||
     storeReport?.resume_json?.skills ||
     []
+  const topSkills = rawSkills
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+    .filter(Boolean)
   const nicheSkillText = topSkills.length >= 2 ? `${topSkills.slice(0, 2).join(' + ')} with Cloud Architecture` : 'Modern Cloud & GenAI Stack'
 
   const RADAR_ITEMS = [

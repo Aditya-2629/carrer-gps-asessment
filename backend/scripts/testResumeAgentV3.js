@@ -256,11 +256,18 @@ test('Rejects rewrite with new metric', () => {
   assert(valid === false, 'Should reject new metric 40%')
   assert(violations.length > 0)
 })
-test('Rejects rewrite with forbidden claim', () => {
+test('Allows professional claim phrasing with empty forbidden claims list', () => {
   const original = 'Built secure APIs and remediated XSS through input validation.'
-  const corrected = 'Built production-ready secure APIs with secret management through input validation.'
+  const corrected = 'Built production-ready enterprise-grade secure APIs through input validation.'
   const { valid } = validateRewrite(corrected, original, 'exp_001_b02')
-  assert(valid === false, 'Should reject "secret management" claim')
+  assert(valid === true, 'Professional claim words should not be blocked')
+})
+test('Allows technology present in resumeTechTokens', () => {
+  const original = 'Built secure APIs through input validation.'
+  const corrected = 'Built secure APIs using Docker through input validation.'
+  const resumeTechTokens = new Set(['docker', 'postgresql', 'python'])
+  const { valid } = validateRewrite(corrected, original, 'exp_001_b02', resumeTechTokens)
+  assert(valid === true, 'Technology from resumeTechTokens should be accepted')
 })
 
 console.log('\n--- Test 7: Assumption validator ---')

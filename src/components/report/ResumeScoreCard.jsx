@@ -68,7 +68,12 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
   if (!dashboard || typeof dashboard.score !== 'number') return null
   const light = variant === 'light'
   const { score, grade, gradeLabel, grades, checks, summary } = dashboard
-  const entries = Object.entries(grades || {})
+  const seenLabels = new Set()
+  const entries = Object.entries(grades || {}).filter(([, g]) => {
+    if (!g?.label || seenLabels.has(g.label)) return false
+    seenLabels.add(g.label)
+    return true
+  })
 
   const cardBg = light ? 'bg-white border-slate-200' : 'bg-[#0f172a] border-gray-800/90'
   const headingText = light ? 'text-slate-900' : 'text-white'
@@ -115,7 +120,9 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
       {/* Checklist */}
       <div className="p-5 print:break-inside-avoid">
         <div className="flex items-center justify-between mb-3">
-          <h4 className={`text-xs font-bold uppercase tracking-wider ${labelColor}`}>Resume Checklist</h4>
+          <h4 className={`text-xs font-bold uppercase tracking-wider ${labelColor}`}>
+            {scoreWord?.toLowerCase().includes('linkedin') ? 'LinkedIn Checklist' : 'Resume Checklist'}
+          </h4>
           <span className={`text-[11px] font-mono ${subText}`}>
             {summary?.checksPassed ?? checks?.filter((c) => c.status === 'pass').length}/{checks?.length ?? 0} passed
           </span>

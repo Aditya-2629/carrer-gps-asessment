@@ -119,15 +119,15 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
   }
 
   const getSeverityBadge = (sev) => {
-    const s = sev.toLowerCase()
-    if (s === 'high') {
+    const s = (sev || '').toLowerCase()
+    if (s === 'critical' || s === 'high' || s === 'fix') {
       return {
-        label: 'High Priority',
+        label: s === 'critical' ? 'Critical Priority' : 'High Priority',
         icon: '🔴',
         class: 'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20',
       }
     }
-    if (s === 'medium') {
+    if (s === 'medium' || s === 'warn' || s === 'warning') {
       return {
         label: 'Medium Priority',
         icon: '🟠',

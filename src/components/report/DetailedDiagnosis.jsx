@@ -316,8 +316,25 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     .map((kw) => (typeof kw === 'string' ? kw : kw?.name || kw?.keyword || ''))
     .filter((kw) => kw && !isPlaceholder(kw))
 
-  // Combine and deduplicate
-  const combinedMissing = Array.from(new Set([...targetJdGaps, ...marketGaps, ...parsedAtsKeywords])).slice(0, 8)
+  // Root & token matching helper to prevent contradicting extractedCoreSkills
+  const isSkillCovered = (missingKw) => {
+    if (!missingKw) return false
+    const mClean = missingKw.trim().toLowerCase()
+    return skillsList.some((existing) => {
+      const eClean = existing.trim().toLowerCase()
+      if (eClean === mClean) return true
+      // Substring root matching (e.g. "AWS" in "AWS (EC2, S3, Lambda)" or "React" in "React.js")
+      if (eClean.includes(mClean) || mClean.includes(eClean)) return true
+      // Word token matching: "AWS" in ["AWS", "EC2", "S3"]
+      const eTokens = eClean.split(/[^a-z0-9+#.]+/).filter(Boolean)
+      return eTokens.includes(mClean)
+    })
+  }
+
+  // Combine and deduplicate, strictly filtering out any keyword already present in skillsList
+  const combinedMissing = Array.from(new Set([...targetJdGaps, ...marketGaps, ...parsedAtsKeywords]))
+    .filter((kw) => !isSkillCovered(kw))
+    .slice(0, 8)
   const missingKeywordsList = combinedMissing
 
   // Dynamic Candidate Context for Scripts, Pitch, and STAR stories

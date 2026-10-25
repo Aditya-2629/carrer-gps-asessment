@@ -9,7 +9,8 @@ function normalizeName(str) {
 }
 
 function normalizeSkill(str) {
-  return (str || '')
+  const val = typeof str === 'string' ? str : str?.name || str?.skill || ''
+  return String(val)
     .toLowerCase()
     .replace(/\.js$/i, '')
     .replace(/js$/i, '')
@@ -46,35 +47,105 @@ function levenshtein(a, b) {
   return matrix[b.length][a.length]
 }
 
-function getCompanySegments(comp) {
+export function getCompanySegments(comp) {
   if (!comp) return []
   const norm = normalizeName(comp)
   const parts = String(comp)
-    .split(/[/|\\]/)
+    .split(/[/|\\—–-]/)
     .map(normalizeName)
     .filter(Boolean)
   return Array.from(new Set([norm, ...parts]))
 }
 
-function matchCompany(rComp, lComp) {
+function getAcronym(str) {
+  if (!str) return []
+  const clean = String(str).toLowerCase().replace(/['’]/g, '')
+  const words = clean.split(/[^a-z0-9]+/).filter(Boolean)
+  if (words.length === 0) return []
+
+  const acronyms = new Set()
+  // 1. First letter of all words (e.g. "KIT's College of Engineering Kolhapur" -> "kcoek")
+  acronyms.add(words.map((w) => w[0]).join(''))
+
+  // 2. Significant words only (no of, and, the, in, at, for, to, a, an) -> "kcek"
+  const stopWords = new Set(['of', 'and', 'the', 'in', 'at', 'for', 'to', 'a', 'an'])
+  const sigWords = words.filter((w) => !stopWords.has(w))
+  if (sigWords.length > 0) {
+    acronyms.add(sigWords.map((w) => w[0]).join(''))
+  }
+
+  // 3. First word preserved (e.g., 'kits' -> 'kit') + remaining initials -> "kitcoek" or "kitcek"
+  const firstWord = words[0].replace(/s$/, '')
+  if (words.length > 1) {
+    const restInitials = words.slice(1).map((w) => w[0]).join('')
+    acronyms.add(firstWord + restInitials)
+    const restSigInitials = sigWords.filter((_, idx) => idx > 0).map((w) => w[0]).join('')
+    acronyms.add(firstWord + restSigInitials)
+  }
+
+  return Array.from(acronyms).filter((a) => a.length >= 2)
+}
+
+function checkAcronymMatch(a, b) {
+  if (!a || !b) return false
+  const normA = normalizeName(a).replace(/\s+/g, '')
+  const normB = normalizeName(b).replace(/\s+/g, '')
+  if (!normA || !normB) return false
+  if (normA === normB) return true
+
+  const acrsA = getAcronym(a)
+  const acrsB = getAcronym(b)
+
+  // Check if either normalized name matches any generated acronyms
+  if (acrsB.includes(normA) || acrsA.includes(normB)) return true
+  if (acrsA.some((acr) => acrsB.includes(acr))) return true
+
+  // Substring check between normalized strings if long enough (>= 4 chars)
+  if (normA.length >= 4 && normB.includes(normA)) return true
+  if (normB.length >= 4 && normA.includes(normB)) return true
+
+  return false
+}
+
+export function matchCompany(rComp, lComp) {
   if (!rComp || !lComp) return null
   const rNorm = normalizeName(rComp)
   const lNorm = normalizeName(lComp)
   if (!rNorm || !lNorm) return null
 
-  // 1. Exact or substring match
-  if (rNorm === lNorm || rNorm.includes(lNorm) || lNorm.includes(rNorm)) {
-    return { matched: true, exact: rNorm === lNorm, diff: 0 }
-  }
-
-  // 2. Segment match (e.g. "It America / Abbott Laboratories" vs "Abbot Laboratories")
+  const hasVendorClientSeparator = /[/|\\—–]/.test(String(rComp)) || /[/|\\—–]/.test(String(lComp)) || String(rComp).includes(' - ') || String(lComp).includes(' - ')
   const rSegs = getCompanySegments(rComp)
   const lSegs = getCompanySegments(lComp)
+  const isMultiSegment = hasVendorClientSeparator || rSegs.length > 1 || lSegs.length > 1
+
+  // 1. Exact match
+  if (rNorm === lNorm) {
+    return { matched: true, exact: true, diff: 0, isVendorClientMatch: false }
+  }
+
+  // 2. Substring match with vendor/client check
+  if (rNorm.includes(lNorm) || lNorm.includes(rNorm)) {
+    return { matched: true, exact: false, diff: 0, isVendorClientMatch: isMultiSegment }
+  }
+
+  // 3. Acronym match (e.g. "Kitcoek" vs "KIT's College of Engineering Kolhapur")
+  if (checkAcronymMatch(rComp, lComp)) {
+    return { matched: true, exact: false, diff: 0, isVendorClientMatch: false }
+  }
+
+  // 4. Segment match (e.g. "Collabera / Bank of America" vs "Bank of America" or "It America / Abbott Laboratories" vs "Abbot Laboratories")
+
   for (const rs of rSegs) {
     for (const ls of lSegs) {
       if (rs === ls || rs.includes(ls) || ls.includes(rs)) {
-        return { matched: true, exact: rs === ls, diff: 0 }
+        return { matched: true, exact: rs === ls, diff: 0, isVendorClientMatch: isMultiSegment }
       }
+      // Overall segment Levenshtein (e.g. "abbott laboratories" vs "abbot laboratories")
+      const segDist = levenshtein(rs, ls)
+      if (segDist > 0 && segDist <= 2 && Math.max(rs.length, ls.length) >= 8) {
+        return { matched: true, exact: false, diff: segDist, isVendorClientMatch: isMultiSegment }
+      }
+
       // Check word level Levenshtein
       const rWords = rs.split(' ').filter((w) => w.length >= 4)
       const lWords = ls.split(' ').filter((w) => w.length >= 4)
@@ -82,7 +153,7 @@ function matchCompany(rComp, lComp) {
         for (const lw of lWords) {
           const dist = levenshtein(rw, lw)
           if (dist > 0 && dist <= 2 && Math.max(rw.length, lw.length) >= 5) {
-            return { matched: true, exact: false, diff: dist, rWord: rw, lWord: lw }
+            return { matched: true, exact: false, diff: dist, rWord: rw, lWord: lw, isVendorClientMatch: isMultiSegment }
           }
         }
       }
@@ -126,7 +197,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     ? rawOrNormalizedProfile
     : normalizeLinkedInProfile(rawOrNormalizedProfile)
 
-  const canonicalResume = resumeContext?.canonicalResume || null
+  const canonicalResume = resumeContext?.canonicalResume || resumeContext || null
   const extractedFacts = resumeContext?.extractedFacts?.facts || []
   const targetRole = (
     resumeContext?.targetRole ||
@@ -141,6 +212,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
   const discrepancies = []
   const missingSkills = []
   const missingSections = []
+  const linkedInEdu = Array.isArray(profile.education) ? profile.education : []
 
   // ── 0. Visual & Trust Presence Audit ─────────────────────────────────────
   const hasPhoto = Boolean(profile.hasPicture && profile.pictureUrl)
@@ -345,6 +417,20 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     }
 
     if (!matchedExp) {
+      // Check if resume company matches LinkedIn education institutions (campus, student, research roles)
+      const isEduMatch =
+        linkedInEdu.length > 0 &&
+        linkedInEdu.some((edu) => {
+          if (!edu?.school) return false
+          return (
+            matchCompany(rExp.company, edu.school)?.matched ||
+            checkAcronymMatch(rExp.company, edu.school)
+          )
+        })
+      if (isEduMatch) {
+        continue
+      }
+
       // Role present on resume but omitted on LinkedIn
       if (rExp.isCurrent || (rExp.bullets && rExp.bullets.length >= 2)) {
         const omission = {
@@ -366,9 +452,9 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
     const lExp = matchedExp
 
-    // Red Flag 1: Company Name Typo & Missing Logo
-    const hasSpellingMismatch = matchMeta?.diff > 0
-    const hasNullLogo = lExp.companyLogo === null
+    // Red Flag 1: Company Name Typo & Missing Logo (Bypass if Vendor/Client pair matched)
+    const hasSpellingMismatch = matchMeta?.diff > 0 && !matchMeta?.isVendorClientMatch
+    const hasNullLogo = lExp.companyLogo === null && !matchMeta?.isVendorClientMatch
     if (hasSpellingMismatch || hasNullLogo) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
@@ -383,6 +469,19 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       }
       timelineMismatches.push(typoObs)
       discrepancies.push(typoObs)
+    } else if (matchMeta?.isVendorClientMatch) {
+      const vendorObs = {
+        id: `vendor_client_${timelineMismatches.length + 1}`,
+        type: 'vendor_client_alignment',
+        severity: 'low',
+        title: `Vendor / Client Framing Alignment ("${rExp.company}")`,
+        company: rExp.company,
+        resumeClaim: rExp.company,
+        linkedinClaim: lExp.company,
+        diagnosis: `Your resume lists this position as "${rExp.company}" while LinkedIn displays "${lExp.company}". During automated employer background checks, staffing vendor vs. end-client representations must be synchronized to prevent verification delays.`,
+        recommendation: `Ensure consistent Vendor/Client framing ("${rExp.company.replace(/\s*\/\s*/, ' — Client: ')}") during background checks, and upgrade your bullet descriptions with the quantified metrics below.`,
+      }
+      discrepancies.push(vendorObs)
     }
 
     // Red Flag 2: Check Title Drift at this company
@@ -524,16 +623,27 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
   if (missingSkills.length >= 3) {
     const topMissingPreview = missingSkills.slice(0, 5).join(', ')
+    const isAtCap = linkedInSkills.length >= 45
+    const title = isAtCap
+      ? `Optimize Your ${linkedInSkills.length}/50 LinkedIn Skill Slots (Swap Legacy Tags for High-Value Keywords)`
+      : `${missingSkills.length} Verified Resume Skills Missing from LinkedIn`
+    const diagnosis = isAtCap
+      ? `Your LinkedIn is at or near the 50-skill maximum limit (${linkedInSkills.length}/50), but high-priority resume skills (${topMissingPreview}) are missing. Recruiter search algorithms prioritize exact matches for modern stack keywords.`
+      : `Your resume demonstrates proficiency in core technologies (${topMissingPreview}) that are not in your LinkedIn Skills bank. Recruiter search algorithms rank candidates directly by exact skills matches.`
+    const recommendation = isAtCap
+      ? `Remove 5 generic or legacy skills from LinkedIn and replace them with these high-converting recruiter search terms (${topMissingPreview}).`
+      : `Add the top missing skills (${topMissingPreview}) to your LinkedIn Skills section and pin the top 3 relevant to ${targetRole || 'your target role'}.`
+
     const skillGapObs = {
       id: `skill_gap_${skillGaps.length + 1}`,
       type: 'skill_gap',
       severity: missingSkills.length >= 6 ? 'high' : 'medium',
-      title: `${missingSkills.length} Verified Resume Skills Missing from LinkedIn`,
+      title,
       company: 'Skills Bank',
       resumeClaim: `${resumeSkills.length} verified technical skills`,
-      linkedinClaim: `${linkedInSkills.length} listed LinkedIn skills`,
-      diagnosis: `Your resume demonstrates proficiency in core technologies (${topMissingPreview}) that are not in your LinkedIn Skills bank. Recruiter search algorithms rank candidates directly by exact skills matches.`,
-      recommendation: `Add the top missing skills (${topMissingPreview}) to your LinkedIn Skills section and pin the top 3 relevant to ${targetRole || 'your target role'}.`,
+      linkedinClaim: `${linkedInSkills.length} listed LinkedIn skills (Cap: 50)`,
+      diagnosis,
+      recommendation,
     }
     skillGaps.push(skillGapObs)
     discrepancies.push(skillGapObs)
@@ -576,28 +686,54 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       }
       const omissionType = linkedInProjects.length === 0 ? 'missing_projects' : 'missing_modern_projects'
       missingSections.push({ ...projectOmission, type: omissionType })
-      discrepancies.push(projectOmission)
     }
   }
 
   // Red Flag 4 & 5: Education Discrepancies
   const resumeEdu = Array.isArray(canonicalResume.education) ? canonicalResume.education : []
-  const linkedInEdu = Array.isArray(profile.education) ? profile.education : []
+  const fullResumeText = JSON.stringify(canonicalResume || {}).toLowerCase()
 
   if (linkedInEdu.length > 0 && resumeEdu.length > 0) {
     for (const lEdu of linkedInEdu) {
       const lSchoolNorm = normalizeName(lEdu.school)
       if (!lSchoolNorm) continue
 
-      const matchedResumeEdu = resumeEdu.find((re) => {
+      let matchedResumeEdu = resumeEdu.find((re) => {
         const rSchoolNorm = normalizeName(re.institution || re.school || re.degree)
+        const rInstNorm = normalizeName(re.institution || re.school)
+        const rDegNorm = normalizeName(re.degree)
         return (
-          rSchoolNorm &&
-          (rSchoolNorm.includes(lSchoolNorm) ||
-            lSchoolNorm.includes(rSchoolNorm) ||
-            rSchoolNorm.split(' ')[0] === lSchoolNorm.split(' ')[0])
+          (rSchoolNorm &&
+            (rSchoolNorm.includes(lSchoolNorm) ||
+              lSchoolNorm.includes(rSchoolNorm) ||
+              rSchoolNorm.split(' ')[0] === lSchoolNorm.split(' ')[0])) ||
+          (rInstNorm && (rInstNorm.includes(lSchoolNorm) || lSchoolNorm.includes(rInstNorm))) ||
+          (rDegNorm && (rDegNorm.includes(lSchoolNorm) || lSchoolNorm.includes(rDegNorm))) ||
+          checkAcronymMatch(re.institution || re.school, lEdu.school) ||
+          checkAcronymMatch(re.degree, lEdu.school)
         )
       })
+
+      // Substring & distinctive word check against full serialized resume
+      if (!matchedResumeEdu) {
+        const genericEduWords = new Set([
+          'university', 'institute', 'college', 'school', 'technology',
+          'polytechnic', 'academy', 'state', 'national', 'engineering',
+          'sciences', 'science', 'of', 'and', 'the', 'in', 'at'
+        ])
+        const distinctiveWords = lSchoolNorm
+          .split(/\s+/)
+          .filter((w) => w.length >= 3 && !genericEduWords.has(w))
+
+        const appearsInResume =
+          (lSchoolNorm.length >= 4 && fullResumeText.includes(lSchoolNorm)) ||
+          distinctiveWords.some((w) => fullResumeText.includes(w))
+
+        if (appearsInResume) {
+          // Found in resume text (e.g. "stevens", "kolhapur", etc.)
+          matchedResumeEdu = resumeEdu[0] || { institution: lEdu.school, degree: lEdu.degree || 'Degree' }
+        }
+      }
 
       if (!matchedResumeEdu) {
         // Red Flag 4: Unlisted LinkedIn Degree Missing from Resume
@@ -615,7 +751,6 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
           recommendation: `Align your academic timeline across both documents. If this is an active degree program, state it consistently or provide context on your full-time availability.`,
         }
         missingSections.push(unlistedEduObs)
-        discrepancies.push(unlistedEduObs)
       } else {
         // Red Flag 5: Incomplete Education Metadata on LinkedIn — Missing fieldOfStudy
         const hasFieldOfStudy = Boolean(lEdu.fieldOfStudy && lEdu.fieldOfStudy.trim())
@@ -633,7 +768,6 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
             recommendation: `Edit the education entry for ${lEdu.school} on LinkedIn to explicitly set the Field of Study.`,
           }
           missingSections.push(missingFieldObs)
-          discrepancies.push(missingFieldObs)
         }
       }
     }
@@ -652,7 +786,6 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       recommendation: `Add your complete education background (${institutions || 'University'}) to your LinkedIn profile.`,
     }
     missingSections.push(eduOmission)
-    discrepancies.push(eduOmission)
   }
 
   // Certifications
@@ -683,17 +816,22 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         recommendation: `Add ${certNames} to your LinkedIn Licenses & Certifications section with issuing authorities and credential URLs.`,
       }
       missingSections.push(certOmission)
-      discrepancies.push(certOmission)
     }
   }
+
+  // Deduplicate discrepancies so section omissions never duplicate
+  const missingSectionIds = new Set(missingSections.map((s) => s.id || s.title))
+  const cleanDiscrepancies = discrepancies.filter(
+    (d) => !missingSectionIds.has(d.id) && !missingSectionIds.has(d.title)
+  )
 
   const timelineWarnings = [...timelineMismatches]
 
   const summary = {
-    total: discrepancies.length + droppedImpact.length,
-    high: discrepancies.filter((d) => d.severity === 'high').length,
-    medium: discrepancies.filter((d) => d.severity === 'medium').length,
-    low: discrepancies.filter((d) => d.severity === 'low').length,
+    total: cleanDiscrepancies.length + droppedImpact.length + missingSections.length,
+    high: [...cleanDiscrepancies, ...missingSections].filter((d) => d.severity === 'high').length,
+    medium: [...cleanDiscrepancies, ...missingSections].filter((d) => d.severity === 'medium').length,
+    low: [...cleanDiscrepancies, ...missingSections].filter((d) => d.severity === 'low').length,
     timelineMismatchesCount: timelineMismatches.length,
     timelineWarningsCount: timelineWarnings.length,
     titleDriftCount: titleDrift.length,
@@ -712,7 +850,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     droppedImpact,
     missingSections,
     visualAudit,
-    discrepancies,
+    discrepancies: cleanDiscrepancies,
     missingSkills: missingSkills.slice(0, 10),
     summary,
   }

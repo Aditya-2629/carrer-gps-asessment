@@ -96,10 +96,25 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     /ci\/cd automation/i,
     /kubernetes orchestration/i,
   ]
+  const allExtractedSkills = [
+    ...(Array.isArray(parsed.skills) ? parsed.skills : []),
+    ...(Array.isArray(parsed.top_skills) ? parsed.top_skills : [])
+  ].map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+
   if (Array.isArray(parsed.missing_ats_keywords)) {
     parsed.missing_ats_keywords = parsed.missing_ats_keywords
       .map((kw) => (typeof kw === 'string' ? kw.trim() : ''))
-      .filter((kw) => kw && !placeholderPatterns.some((p) => p.test(kw)))
+      .filter((kw) => {
+        if (!kw || placeholderPatterns.some((p) => p.test(kw))) return false
+        const kwLower = kw.toLowerCase()
+        const isAlreadyPresent = allExtractedSkills.some((s) => {
+          const sLower = s.toLowerCase()
+          if (sLower === kwLower || sLower.includes(kwLower) || kwLower.includes(sLower)) return true
+          const tokens = sLower.split(/[^a-z0-9+#.]+/).filter(Boolean)
+          return tokens.includes(kwLower)
+        })
+        return !isAlreadyPresent
+      })
   } else {
     parsed.missing_ats_keywords = []
   }

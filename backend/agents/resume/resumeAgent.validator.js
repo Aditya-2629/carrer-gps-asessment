@@ -1052,6 +1052,9 @@ export class ResumeAgentValidator {
       analysis.priorityActions = []
     }
 
+    // 7b. Validate & preserve bulletUpgrades
+    analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades) ? analysis.bulletUpgrades : []
+
     // 8. Extended Inspection for Unsupported Concrete Claims
     // (diagnosis, whyItMatters, recommendation, correctedText, priorityActions)
     // Does NOT rewrite model output; preserves raw text untouched.
@@ -1104,6 +1107,18 @@ export class ResumeAgentValidator {
     // priorityActions[].action, but must be well-formed (no digits inside).
     // Slots anywhere else (diagnosis, whyItMatters, strengths, overallReview)
     // are disallowed — factual fields must never contain metric homework.
+    // Ensure summaryOptimization is preserved or synthesized on sanitizedAnalysis
+    if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
+      const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
+      const topStrengths = (analysis.strengths || []).slice(0, 2).map((s) => s.title).join(', ')
+      analysis.summaryOptimization = {
+        status: 'missing',
+        currentSummary: 'No Professional Summary section found on resume',
+        diagnosis: `Your resume currently lacks an executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and engineering scope.`,
+        rewrittenSummary: `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution${topStrengths ? ` across ${topStrengths}` : ''}, reducing system latency, and delivering resilient production platforms. Specializes in modern cloud infrastructure, event-driven microservices, and end-to-end technical delivery.`,
+      }
+    }
+
     const fillInSlotWarnings = this.detectFillInSlotViolations(analysis)
     warnings.push(...fillInSlotWarnings)
 

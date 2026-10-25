@@ -14,6 +14,7 @@
 
 import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../ai/gateway/llmGateway.js'
+import { matchCompany } from './linkedinCrossAnalyzer.js'
 import {
   buildLinkedInSynthesisPrompt,
   buildTask1HeadlinesAndBannerPrompt,
@@ -62,14 +63,13 @@ export function buildDeterministicOptimizations(
     ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems driving ${metricMatch[0]} performance gains in production.`
     : `${targetRole} specializing in ${topStack}. Architecting mission-critical cloud solutions, high-throughput microservices, and reliable engineering platforms.`
 
-  const bulletWins = exp.slice(0, 3).map((e) => {
-    const b = e.bullets?.[0]?.text || (typeof e.bullets?.[0] === 'string' ? e.bullets[0] : '')
-    return b ? `• ${e.role} at ${e.company}: ${b}` : null
-  }).filter(Boolean)
+  const pillar1 = `▸ System Architecture & Scale: Architecting resilient microservices and distributed event-driven systems that eliminate performance bottlenecks.`
+  const pillar2 = `▸ Cloud & Production Engineering: Deploying high-throughput workloads across modern cloud infrastructure using ${topStack}.`
+  const pillar3 = metricMatch
+    ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including verified ${metricMatch[0]} performance improvements.`
+    : `▸ Engineering Excellence & Mentorship: Establishing robust CI/CD, test automation, and engineering standards for mission-critical deliverables.`
 
-  const proof = bulletWins.length > 0
-    ? `Selected Engineering Wins:\n${bulletWins.join('\n')}\n\nCore Architecture Toolkit: ${skills.slice(0, 6).join(', ') || topStack}.`
-    : `Throughout my career at companies like ${topCompany}, I have engineered scalable products with clean architecture and reliable delivery.`
+  const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 
   const callToAction = `Currently exploring ${targetRole} opportunities where I can drive measurable technical scale. Always open to discussing distributed systems architecture, team mentorship, and high-impact technical initiatives—let's connect!`
   const coreSkillsLine = `Core Skills: ${skills.slice(0, 10).join(' · ') || topStack}`
@@ -93,23 +93,31 @@ export function buildDeterministicOptimizations(
       ? e.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean)
       : []
 
-    // Find corresponding LinkedIn role
-    const matchedLi = liExp.find(
-      (le) => (le.company && e.company && le.company.toLowerCase().includes(e.company.toLowerCase().slice(0, 5)))
-    )
+    // Find corresponding LinkedIn role using multi-segment vendor/client matching
+    const matchedLi = liExp.find((le) => {
+      if (!le.company || !e.company) return false
+      const match = matchCompany(e.company, le.company)
+      return Boolean(match?.matched)
+    })
+
+    const compMatch = matchedLi ? matchCompany(e.company, matchedLi.company) : null
 
     let linkedinGap = 'Missing quantified production outcome metrics and modern stack proof present on your resume.'
     if (!matchedLi) {
       linkedinGap = `Role at "${e.company}" is missing or unlinked on your LinkedIn profile, dropping critical recruiter tenure points.`
+    } else if (compMatch?.isVendorClientMatch) {
+      linkedinGap = `Ensure consistent Vendor/Client framing ('${e.company}') during background checks, and upgrade your bullet descriptions with the quantified metrics below.`
     } else if (matchedLi.title && e.role && matchedLi.title.toLowerCase() !== e.role.toLowerCase()) {
       linkedinGap = `Job title mismatch on LinkedIn ("${matchedLi.title}") vs Resume ("${e.role}") causes confusion in recruiter verification.`
     }
 
     const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
+    const b0Clean = rawBullets[0] ? rawBullets[0].replace(/^[•\-*▪–—\s]+/, '') : ''
+    const b1Clean = rawBullets[1] ? rawBullets[1].replace(/^[•\-*▪–—\s]+/, '') : ''
     const upgraded = [
-      `Role Mandate: Led technical delivery for ${e.role} systems at ${e.company}, specializing in ${topStack}.`,
-      rawBullets[0] ? `Architected and optimized core features: ${rawBullets[0].replace(/^[•\-*▪–—\s]+/, '')}` : `Engineered high-throughput backend services using ${topStack}, improving reliability and latency.`,
-      rawBullets[1] ? `Scaled system performance: ${rawBullets[1].replace(/^[•\-*▪–—\s]+/, '')}` : `Collaborated across cross-functional engineering teams to deploy production microservices with zero critical defects.`,
+      `Role Mandate: Spearheaded engineering architecture and product delivery for ${e.role} systems at ${e.company}, scaling ${topStack} capabilities.`,
+      b0Clean ? `Distributed Architecture: Overcame performance constraints by re-architecting workflows (${b0Clean.slice(0, 110)}), unlocking higher throughput.` : `Distributed Architecture: Engineered resilient microservices using ${topStack}, slashing API response times.`,
+      b1Clean ? `Engineering Impact: Streamlined deployment velocity and reliability across cross-functional sprints (${b1Clean.slice(0, 110)}).` : `Operational Scalability: Instituted automated testing and observability pipelines, sustaining 99.9% uptime.`,
     ]
 
     return {
@@ -128,10 +136,27 @@ export function buildDeterministicOptimizations(
     projects: rawProjects.slice(0, 3).map((p) => {
       const pTitle = p.title || p.name || 'Core Project'
       const isMissingOnLi = !liProjects.some((lp) => (lp.title || lp.name || '').toLowerCase().includes(pTitle.toLowerCase().slice(0, 6)))
+      const pTech = Array.isArray(p.technologies) && p.technologies.length > 0
+        ? p.technologies
+        : Array.isArray(p.skills) && p.skills.length > 0
+        ? p.skills
+        : []
+      const pTechStr = pTech.slice(0, 5).join(', ')
+
+      const rawBullet = p.bullets?.[0]?.text || (typeof p.bullets?.[0] === 'string' ? p.bullets[0] : '') || p.description || ''
+      const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
+
+      let pitch = ''
+      if (cleanBullet && cleanBullet.length >= 25) {
+        pitch = `${cleanBullet.slice(0, 160).replace(/[.]+$/, '')}. Engineered for high availability and measurable production reliability${pTechStr ? ` using ${pTechStr}` : ''}.`
+      } else {
+        pitch = `Production engineering project${pTechStr ? ` architected in ${pTechStr}` : ''}. Solves core system reliability and performance bottlenecks with scalable architecture.`
+      }
+
       return {
         title: pTitle,
-        description: (Array.isArray(p.bullets) ? p.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).join('; ') : p.description) || 'Production project showcasing technical architecture and impact.',
-        technologies: p.technologies || p.skills || [],
+        description: pitch,
+        technologies: pTech,
         replaceNote: isMissingOnLi && liProjects.length > 0
           ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern architecture showcase.`
           : 'Feature this modern project prominently on LinkedIn to prove hands-on architecture competency.',
@@ -342,77 +367,105 @@ export async function runLinkedInSynthesis(
   options = {}
 ) {
   const fallback = buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
+  if (options?.bypassAI) {
+    return fallback
+  }
 
   const resumeProvider = resumeContext?.provider || options?.resumeProvider || null
   const excludeProvider = options?.excludeProvider || (resumeProvider === 'gemini' ? 'gemini' : (resumeProvider === 'groq' ? 'groq' : null))
   const preferredProvider = options?.preferredProvider || (excludeProvider === 'gemini' ? 'groq' : (excludeProvider === 'groq' ? 'gemini' : 'groq'))
 
-  const messages = buildLinkedInSynthesisPrompt({
+  const task1Messages = buildTask1HeadlinesAndBannerPrompt({
     profile,
     resumeContext,
     discrepancies,
-    signals,
     missingSkills,
+    signals,
   })
 
-  try {
-    const response = await llmGateway.generate({
-      purpose: 'linkedin_analysis',
-      messages,
-      temperature: 0.25,
-      maxTokens: 3500,
-      responseFormat: { type: 'json_object' },
-      excludeProvider,
-      preferredProvider,
-    })
+  const task2Messages = buildTask2AboutAndFeaturedPrompt({
+    profile,
+    resumeContext,
+    discrepancies,
+    missingSkills,
+    signals,
+  })
 
-    let parsed = tryParseJson(response?.text)
+  async function executeTask(taskName, messages, maxTokens) {
+    try {
+      const response = await llmGateway.generate({
+        purpose: 'linkedin_analysis',
+        messages,
+        temperature: 0.25,
+        maxTokens,
+        responseFormat: { type: 'json_object' },
+        excludeProvider,
+        preferredProvider,
+      })
 
-    // Retry once if invalid JSON
-    if (!parsed && response?.text) {
-      console.warn('[LinkedInSynthesis] Output not valid JSON — retrying once')
-      try {
-        const retryResponse = await llmGateway.generate({
-          purpose: 'linkedin_analysis',
-          messages: [
-            ...messages,
-            { role: 'assistant', content: response.text },
-            {
-              role: 'user',
-              content: 'Your previous response was not valid JSON. Return ONLY the complete corrected JSON object now with no markdown formatting or extra text.',
-            },
-          ],
-          temperature: 0.1,
-          maxTokens: 3500,
-          responseFormat: { type: 'json_object' },
-          excludeProvider,
-          preferredProvider,
-        })
-        parsed = tryParseJson(retryResponse?.text)
-      } catch (_retryErr) {
-        // Fall back gracefully
+      let parsed = tryParseJson(response?.text)
+
+      // Retry once if invalid JSON
+      if (!parsed && response?.text) {
+        console.warn(`[LinkedInSynthesis] ${taskName} output not valid JSON — retrying once`)
+        try {
+          const retryResponse = await llmGateway.generate({
+            purpose: 'linkedin_analysis',
+            messages: [
+              ...messages,
+              { role: 'assistant', content: response.text },
+              {
+                role: 'user',
+                content: 'Your previous response was not valid JSON. Return ONLY the complete corrected JSON object now with no markdown formatting or extra text.',
+              },
+            ],
+            temperature: 0.1,
+            maxTokens,
+            responseFormat: { type: 'json_object' },
+            excludeProvider,
+            preferredProvider,
+          })
+          parsed = tryParseJson(retryResponse?.text)
+        } catch (_retryErr) {
+          // Fall back gracefully
+        }
       }
+      return parsed
+    } catch (err) {
+      console.warn(`[LinkedInSynthesis] ${taskName} execution failed:`, err.message)
+      return null
     }
+  }
 
-    if (!parsed || typeof parsed !== 'object') {
-      console.warn('[LinkedInSynthesis] Parsing failed after retry, using deterministic fallback')
+  try {
+    // Run Task 1 (maxTokens: 2048) and Task 2 (maxTokens: 2200) in parallel via Promise.all
+    const [task1Result, task2Result] = await Promise.all([
+      executeTask('Task 1 (Headlines & About)', task1Messages, 2048),
+      executeTask('Task 2 (Experience & Tricks)', task2Messages, 2200),
+    ])
+
+    if (!task1Result && !task2Result) {
+      console.warn('[LinkedInSynthesis] Both chunked tasks failed, using deterministic fallback')
       return fallback
     }
 
-    // Headlines
+    // Merge outputs from Task 1 and Task 2
+    // Headlines (Task 1)
     let headlines = fallback.headlines
-    if (Array.isArray(parsed.headlines) && parsed.headlines.length >= 2) {
-      headlines = parsed.headlines.slice(0, 3).map((h, i) => ({
+    const rawHeadlines = task1Result?.headlines || task2Result?.headlines
+    if (Array.isArray(rawHeadlines) && rawHeadlines.length >= 2) {
+      headlines = rawHeadlines.slice(0, 3).map((h, i) => ({
         formula: h.formula || fallback.headlines[i]?.formula || `Option ${i + 1}`,
         headline: (h.headline || h.text || fallback.headlines[i]?.headline || '').slice(0, 220),
         whyItWorks: h.whyItWorks || fallback.headlines[i]?.whyItWorks || 'Recruiter search ranking optimization.',
       }))
     }
 
-    // About rewrite
+    // About rewrite (Task 1)
     let aboutRewrite = fallback.aboutRewrite
-    if (parsed.aboutRewrite && typeof parsed.aboutRewrite === 'object') {
-      const { currentCritique, hook, proof, callToAction, fullText } = parsed.aboutRewrite
+    const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
+    if (rawAbout && typeof rawAbout === 'object') {
+      const { currentCritique, hook, proof, callToAction, fullText } = rawAbout
       const combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
       aboutRewrite = {
         currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
@@ -423,10 +476,25 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // Experience Upgrades with linkedinGap
+    // Top 3 pinned skills (Task 1)
+    let top3PinnedSkills = fallback.top3PinnedSkills
+    const rawPinned = task1Result?.top3PinnedSkills || task2Result?.top3PinnedSkills
+    if (Array.isArray(rawPinned) && rawPinned.length > 0) {
+      top3PinnedSkills = rawPinned.slice(0, 3)
+    }
+
+    // Profile red flags (Task 1)
+    let profileRedFlags = fallback.profileRedFlags
+    const rawFlags = task1Result?.profileRedFlags || task2Result?.profileRedFlags
+    if (Array.isArray(rawFlags) && rawFlags.length > 0) {
+      profileRedFlags = rawFlags.slice(0, 4)
+    }
+
+    // Experience Upgrades (Task 2)
     let experienceUpgrades = fallback.experienceUpgrades
-    if (Array.isArray(parsed.experienceUpgrades) && parsed.experienceUpgrades.length > 0) {
-      experienceUpgrades = parsed.experienceUpgrades.slice(0, 4).map((eu, idx) => ({
+    const rawExp = task2Result?.experienceUpgrades || task1Result?.experienceUpgrades
+    if (Array.isArray(rawExp) && rawExp.length > 0) {
+      experienceUpgrades = rawExp.slice(0, 4).map((eu, idx) => ({
         company: eu.company || fallback.experienceUpgrades[idx]?.company || 'Company',
         role: eu.role || fallback.experienceUpgrades[idx]?.role || 'Role',
         dates: eu.dates || fallback.experienceUpgrades[idx]?.dates || '',
@@ -437,73 +505,83 @@ export async function runLinkedInSynthesis(
       }))
     }
 
-    // Sections to add from resume with replaceNote
-    let sectionsToAddFromResume = (parsed.sectionsToAddFromResume && typeof parsed.sectionsToAddFromResume === 'object' && ((Array.isArray(parsed.sectionsToAddFromResume.projects) && parsed.sectionsToAddFromResume.projects.length > 0) || (Array.isArray(parsed.sectionsToAddFromResume.certifications) && parsed.sectionsToAddFromResume.certifications.length > 0)))
-      ? {
-          projects: Array.isArray(parsed.sectionsToAddFromResume.projects) && parsed.sectionsToAddFromResume.projects.length > 0
-            ? parsed.sectionsToAddFromResume.projects.slice(0, 4).map((pr, idx) => ({
-                title: pr.title || fallback.sectionsToAddFromResume.projects[idx]?.title || 'Core Project',
-                description: pr.description || fallback.sectionsToAddFromResume.projects[idx]?.description || '',
-                technologies: pr.technologies || fallback.sectionsToAddFromResume.projects[idx]?.technologies || [],
-                replaceNote: pr.replaceNote || fallback.sectionsToAddFromResume.projects[idx]?.replaceNote || '',
-              }))
-            : fallback.sectionsToAddFromResume.projects,
-          certifications: Array.isArray(parsed.sectionsToAddFromResume.certifications) && parsed.sectionsToAddFromResume.certifications.length > 0
-            ? parsed.sectionsToAddFromResume.certifications.slice(0, 5)
-            : fallback.sectionsToAddFromResume.certifications,
-          featured: Array.isArray(parsed.sectionsToAddFromResume.featured) && parsed.sectionsToAddFromResume.featured.length > 0
-            ? parsed.sectionsToAddFromResume.featured.slice(0, 3)
-            : fallback.sectionsToAddFromResume.featured,
-        }
-      : fallback.sectionsToAddFromResume
-
-    // Visibility Tricks
-    let visibilityTricks = (Array.isArray(parsed.visibilityTricks) && parsed.visibilityTricks.length > 0)
-      ? parsed.visibilityTricks.slice(0, 5).map((vt, idx) => ({
-          category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
-          trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
-          advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
-          items: Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || []),
-        }))
-      : fallback.visibilityTricks
-
-    // Top 3 pinned skills
-    let top3PinnedSkills = (Array.isArray(parsed.top3PinnedSkills) && parsed.top3PinnedSkills.length > 0)
-      ? parsed.top3PinnedSkills.slice(0, 3)
-      : fallback.top3PinnedSkills
-
-    // Recommended skills to add
-    let recommendedSkillsToAdd = fallback.recommendedSkillsToAdd
-    if (Array.isArray(parsed.recommendedSkillsToAdd) && parsed.recommendedSkillsToAdd.length > 0) {
-      recommendedSkillsToAdd = parsed.recommendedSkillsToAdd.slice(0, 12)
+    // Featured section recommendations (Task 2)
+    let featuredSectionRecommendations = fallback.featuredSectionRecommendations
+    const rawFeatured = task2Result?.featuredSectionRecommendations || task1Result?.featuredSectionRecommendations
+    if (Array.isArray(rawFeatured) && rawFeatured.length > 0) {
+      featuredSectionRecommendations = rawFeatured.slice(0, 3)
     }
 
-    // Banner Strategy
-    let bannerStrategy = fallback.bannerStrategy
-    if (parsed.bannerStrategy && typeof parsed.bannerStrategy === 'object') {
-      bannerStrategy = {
-        bannerTagline: parsed.bannerStrategy.bannerTagline || fallback.bannerStrategy.bannerTagline,
-        bannerSecondaryText: parsed.bannerStrategy.bannerSecondaryText || fallback.bannerStrategy.bannerSecondaryText,
-        designAdvice: parsed.bannerStrategy.designAdvice || fallback.bannerStrategy.designAdvice,
+    // Sections to add from resume (Task 2: Projects, Certifications, Featured)
+    let sectionsToAddFromResume = fallback.sectionsToAddFromResume
+    const rawSections = task2Result?.sectionsToAddFromResume || task1Result?.sectionsToAddFromResume
+    const projectShowcases = Array.isArray(task2Result?.projectShowcases) && task2Result.projectShowcases.length > 0
+      ? task2Result.projectShowcases
+      : (Array.isArray(task1Result?.projectShowcases) && task1Result.projectShowcases.length > 0
+          ? task1Result.projectShowcases
+          : null)
+
+    const rawProjectList = projectShowcases || (Array.isArray(rawSections?.projects) ? rawSections.projects : null)
+
+    if (rawProjectList && rawProjectList.length > 0) {
+      sectionsToAddFromResume = {
+        ...sectionsToAddFromResume,
+        projects: rawProjectList.slice(0, 4).map((pr, idx) => ({
+          title: pr.title || fallback.sectionsToAddFromResume.projects[idx]?.title || 'Core Project',
+          description: pr.rewrittenPitch || pr.description || fallback.sectionsToAddFromResume.projects[idx]?.description || '',
+          technologies: Array.isArray(pr.technologies) ? pr.technologies : (fallback.sectionsToAddFromResume.projects[idx]?.technologies || []),
+          replaceNote: pr.actionAdvice || pr.replaceNote || fallback.sectionsToAddFromResume.projects[idx]?.replaceNote || '',
+        })),
       }
     }
 
-    // Featured section recommendations
-    let featuredSectionRecommendations = fallback.featuredSectionRecommendations
-    if (Array.isArray(parsed.featuredSectionRecommendations) && parsed.featuredSectionRecommendations.length > 0) {
-      featuredSectionRecommendations = parsed.featuredSectionRecommendations.slice(0, 3)
+    if (rawSections && typeof rawSections === 'object') {
+      sectionsToAddFromResume = {
+        ...sectionsToAddFromResume,
+        certifications: Array.isArray(rawSections.certifications) && rawSections.certifications.length > 0
+          ? rawSections.certifications.slice(0, 5)
+          : fallback.sectionsToAddFromResume.certifications,
+        featured: Array.isArray(rawSections.featured) && rawSections.featured.length > 0
+          ? rawSections.featured.slice(0, 3)
+          : fallback.sectionsToAddFromResume.featured,
+      }
+    }
+
+    // Visibility Tricks (Task 2)
+    let visibilityTricks = fallback.visibilityTricks
+    const rawTricks = task2Result?.visibilityTricks || task1Result?.visibilityTricks
+    if (Array.isArray(rawTricks) && rawTricks.length > 0) {
+      visibilityTricks = rawTricks.slice(0, 5).map((vt, idx) => ({
+        category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
+        trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
+        advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
+        items: Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || []),
+      }))
+    }
+
+    // Recommended skills to add
+    let recommendedSkillsToAdd = fallback.recommendedSkillsToAdd
+    const rawSkills = task1Result?.recommendedSkillsToAdd || task2Result?.recommendedSkillsToAdd
+    if (Array.isArray(rawSkills) && rawSkills.length > 0) {
+      recommendedSkillsToAdd = rawSkills.slice(0, 12)
+    }
+
+    // Banner Strategy (Task 1 or fallback)
+    let bannerStrategy = fallback.bannerStrategy
+    const rawBanner = task1Result?.bannerStrategy || task2Result?.bannerStrategy
+    if (rawBanner && typeof rawBanner === 'object') {
+      bannerStrategy = {
+        bannerTagline: rawBanner.bannerTagline || fallback.bannerStrategy.bannerTagline,
+        bannerSecondaryText: rawBanner.bannerSecondaryText || fallback.bannerStrategy.bannerSecondaryText,
+        designAdvice: rawBanner.designAdvice || fallback.bannerStrategy.designAdvice,
+      }
     }
 
     // Visual presence tips
     let visualPresenceTips = fallback.visualPresenceTips
-    if (Array.isArray(parsed.visualPresenceTips) && parsed.visualPresenceTips.length > 0) {
-      visualPresenceTips = parsed.visualPresenceTips.slice(0, 4)
-    }
-
-    // Profile red flags
-    let profileRedFlags = fallback.profileRedFlags
-    if (Array.isArray(parsed.profileRedFlags) && parsed.profileRedFlags.length > 0) {
-      profileRedFlags = parsed.profileRedFlags.slice(0, 4)
+    const rawTips = task1Result?.visualPresenceTips || task2Result?.visualPresenceTips
+    if (Array.isArray(rawTips) && rawTips.length > 0) {
+      visualPresenceTips = rawTips.slice(0, 4)
     }
 
     return {

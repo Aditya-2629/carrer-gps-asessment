@@ -215,7 +215,7 @@ export function computeContactMergeSignal(summaryText = '') {
 
   const detectedCount =
     (emailDetected ? 1 : 0) + (phoneDetected ? 1 : 0) + (urlDetected ? 1 : 0)
-  const isContactMerged = detectedCount >= 2
+  const isContactMerged = detectedCount >= 2 && text.length > 50
 
   return {
     section: 'summary',

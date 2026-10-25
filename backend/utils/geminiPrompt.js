@@ -133,6 +133,9 @@ export default (
        - You have been provided with specialized pre-computed analyses from "ResumeAgent" and "LinkedInAgent" below.
        - Integrate their verified scores, red flags, ATS readability issues, and profile discrepancies directly into your diagnostic narrative.
        - NEVER use generic placeholders or copy static example strings from the template.
+    9. CRITICAL GROUNDING RULE (NO SKILL CONTRADICTIONS):
+       - Never claim a candidate's resume is missing a skill (like TypeScript, React, Python, or FastAPI) if that skill is already present in their Parsed Resume Skills, canonicalResume.skills, or VERIFIED RESUME AGENT DIAGNOSIS!
+       - Only cite skills as "Missing from Resume" if they are truly absent from the entire resume.
 
     The JSON object must STRICTLY follow this exact structure, with NO additional text:
     {
@@ -212,9 +215,9 @@ export default (
         { "tool_name": "<Specific tool tailored to candidate's stack and bottleneck>", "category": "<ATS / Outreach / Interview Prep / System Design>", "reason": "<Why THIS candidate specifically needs it.>" }
       ],
       "coach_intervention": {
-        "urgency_statement": "<Urgency statement using KB time-to-hire or ghosting stats.>",
-        "value_prop": "<How a human expert would bypass their specific bottleneck.>",
-        "cta_text": "Book Free Survival Strategy Call"
+        "urgency_statement": "<Urgency statement explaining why resume and LinkedIn copy rewrites alone cannot fix cold portal drop-offs, interview round drop-offs, or visa/background check friction.>",
+        "value_prop": "<Specific value proposition for the 1-on-1 strategy call focusing on targeted referral outreach, direct hiring manager pipeline, recruiter screen negotiation, and mock interview preparation.>",
+        "cta_text": "Book Free 1-on-1 Strategy Call"
       }
     }
 
@@ -226,6 +229,8 @@ export default (
       grade: resumeAgent.grade,
       overallReview: resumeAgent.overallReview,
       strengths: resumeAgent.strengths,
+      verifiedSkills: resumeAgent.verifiedSkills || resumeAgent.dashboard?.keywordAlignment?.matchedInExperience || resumeAgent.canonicalResume?.skills || [],
+      missingTargetKeywords: resumeAgent.missingTargetKeywords || resumeAgent.dashboard?.keywordAlignment?.missingFromResume || [],
       issues: (resumeAgent.issues || []).slice(0, 5).map(iss => ({
         category: iss.category,
         severity: iss.severity,

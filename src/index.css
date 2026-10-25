@@ -596,7 +596,7 @@ h1, h2, h3, h4, h5, h6 {
     print-color-adjust: exact !important;
   }
   .no-print,
-  button,
+  button:not(.print-keep),
   .filter-tabs,
   .collapse-toggle,
   .experience-dropdown-chevron,

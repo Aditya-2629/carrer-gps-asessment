@@ -10,17 +10,12 @@ import {
   Tag,
   Briefcase,
   CalendarBlank,
-  TrendDown,
   Plus,
   TextT,
-  Camera,
-  Image,
   PushPin,
   CheckCircle,
-  Palette,
   Certificate,
   FolderSimple,
-  Lightbulb,
   Globe,
   Star,
 } from '@phosphor-icons/react'
@@ -29,9 +24,9 @@ import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 
 const severityChip = {
-  high: 'bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-950/80 dark:border-rose-700/60 dark:text-rose-300',
-  medium: 'bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300',
-  low: 'bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-950/80 dark:border-sky-700/60 dark:text-sky-300',
+  high: 'bg-red-500/10 text-red-600 border border-red-500/20',
+  medium: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+  low: 'bg-sky-500/10 text-sky-600 border border-sky-500/20',
 }
 
 const HEADLINE_FORMULA_LABELS = {
@@ -64,54 +59,51 @@ const safeText = (val) => {
 
 export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
   const theme = useAppStore((s) => s.theme)
+  const variant = theme === 'dark' ? 'dark' : 'light'
   const [copiedId, setCopiedId] = useState(null)
 
   if (!linkedinAgent || linkedinAgent.dataAvailable === false) {
     return null
   }
 
-  const variant = theme === 'dark' ? 'dark' : 'light'
-  const issues = (linkedinAgent.issues || []).filter(Boolean)
   const isVisualItem = (item) => {
     if (!item) return false
     const str = [item.id, item.type, item.section, item.title, item.name, item.diagnosis].filter(Boolean).join(' ').toLowerCase()
     return /visual_photo|visual_banner|profile photo|cover banner|headshot|avatar zone/i.test(str)
   }
-  const discrepancies = (linkedinAgent.discrepancies || []).filter(Boolean).filter((d) => !isVisualItem(d))
+
+  const missingSections = (linkedinAgent.missingSections || []).filter(Boolean).filter((s) => !isVisualItem(s))
+  
+  // Track keys from missingSections to avoid duplicating in discrepancies
+  const missingSectionKeys = new Set(
+    missingSections.flatMap((s) => [s.title?.toLowerCase().trim(), s.id?.toLowerCase().trim()]).filter(Boolean)
+  )
+
+  const discrepancies = (linkedinAgent.discrepancies || [])
+    .filter(Boolean)
+    .filter((d) => !isVisualItem(d))
+    .filter((d) => {
+      const titleKey = d.title?.toLowerCase().trim()
+      const idKey = d.id?.toLowerCase().trim()
+      if (titleKey && missingSectionKeys.has(titleKey)) return false
+      if (idKey && missingSectionKeys.has(idKey)) return false
+      return true
+    })
+
   const droppedImpact = (linkedinAgent.droppedImpact || []).filter(Boolean)
   const missingSkills = (linkedinAgent.missingSkills || []).filter(Boolean)
-  const missingSections = (linkedinAgent.missingSections || []).filter(Boolean).filter((s) => !isVisualItem(s))
   const optimizations = linkedinAgent.optimizations || linkedinAgent.aiOptimizations || null
 
-  const visualAudit = linkedinAgent.visualAudit || {
-    hasPicture: Boolean(linkedinAgent.hasPicture || linkedinAgent.pictureUrl),
-    hasBanner: Boolean(linkedinAgent.hasBanner || linkedinAgent.bannerUrl),
-    pictureUrl: linkedinAgent.pictureUrl || null,
-    bannerUrl: linkedinAgent.bannerUrl || null,
-    issues: [],
-  }
-
-  const hasPhoto = Boolean(visualAudit.hasPicture && (visualAudit.pictureUrl || visualAudit.hasPicture !== false))
-  const hasBanner = Boolean(visualAudit.hasBanner && (visualAudit.bannerUrl || visualAudit.hasBanner !== false))
-
-  const bannerStrategy = optimizations?.bannerStrategy || {
-    bannerTagline: safeText(optimizations?.headlines?.[0]?.headline) || 'Senior Full Stack Engineer | Distributed Systems & Cloud',
-    bannerSecondaryText: 'Core Architecture · Scalable Microservices · Production High-Impact Delivery',
-    designAdvice: 'Design a clean 1584x396px canvas in Canva. Keep key text in the center-right to avoid the circular profile avatar on mobile. Use dark background with bold typography.',
-  }
-
-  const featuredWork = (optimizations?.featuredSectionRecommendations || []).filter(Boolean)
   const experienceUpgrades = (optimizations?.experienceUpgrades || []).filter(Boolean)
   const sectionsToAdd = optimizations?.sectionsToAddFromResume || null
   const visibilityTricks = (optimizations?.visibilityTricks || []).filter(Boolean)
+  const featuredWork = (optimizations?.featuredSectionRecommendations || []).filter(Boolean)
 
   const top3PinnedSkills = (
     optimizations?.top3PinnedSkills?.length
       ? optimizations.top3PinnedSkills
       : missingSkills.slice(0, 3)
   ).filter(Boolean)
-
-  const visualPresenceTips = (optimizations?.visualPresenceTips || []).filter(Boolean)
 
   const recommendedSkills = (
     optimizations?.recommendedSkillsToAdd?.length
@@ -130,8 +122,103 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
     }, 2000)
   }
 
-  const hasCrossDiscrepancies =
-    discrepancies.length > 0 || droppedImpact.length > 0 || missingSkills.length > 0 || missingSections.length > 0
+  // ── Combine & Cap Cross-Platform Discrepancies to Top 4 ────────────────
+  const allDiscrepancyCandidates = [
+    ...missingSections.map((sec) => ({
+      id: sec.id || `ms_${sec.title}`,
+      title: sec.title,
+      type: sec.type || 'missing_section',
+      badge: 'Missing Section',
+      severity: 'high',
+      resumeClaim: sec.resumeClaim || 'Present on verified resume',
+      linkedinClaim: sec.linkedinClaim || 'Not Listed on LinkedIn',
+      diagnosis: sec.diagnosis,
+      recommendation: sec.recommendation,
+    })),
+    ...discrepancies.map((disc) => ({
+      id: disc.id || `disc_${disc.title}`,
+      title: disc.title,
+      type: disc.type || 'discrepancy',
+      badge: disc.type === 'timeline_drift' ? 'Timeline Drift' : disc.type === 'title_drift' ? 'Title Drift' : 'Discrepancy',
+      severity: disc.severity || 'medium',
+      resumeClaim: disc.resumeClaim || 'Resume Record',
+      linkedinClaim: disc.linkedinClaim || 'LinkedIn Record',
+      diagnosis: disc.diagnosis,
+      recommendation: disc.recommendation,
+    })),
+    ...droppedImpact.map((drop, idx) => ({
+      id: drop.id || `drop_${idx}`,
+      title: `Omitted Achievement: ${drop.company || 'Experience'}`,
+      type: 'dropped_impact',
+      badge: 'Omitted Achievement',
+      severity: 'medium',
+      resumeClaim: drop.sampleResumeProof,
+      linkedinClaim: 'Omitted from profile',
+      diagnosis: drop.diagnosis,
+      recommendation: drop.recommendation,
+    })),
+  ]
+
+  const seenDiscTitles = new Set()
+  const topDiscrepancies = []
+  for (const item of allDiscrepancyCandidates) {
+    const key = (item.title || item.id || '').toLowerCase().trim()
+    if (!key || seenDiscTitles.has(key)) continue
+    seenDiscTitles.add(key)
+    topDiscrepancies.push(item)
+    if (topDiscrepancies.length === 4) break
+  }
+
+  // ── Consolidated Featured & Projects Showcase (Single Source of Truth) ─
+  const projectShowcaseMap = new Map()
+
+  if (Array.isArray(sectionsToAdd?.projects)) {
+    sectionsToAdd.projects.forEach((proj) => {
+      const key = (proj.title || '').toLowerCase().trim()
+      if (!key) return
+      projectShowcaseMap.set(key, {
+        title: proj.title,
+        description: proj.description,
+        technologies: Array.isArray(proj.technologies) ? proj.technologies : [],
+        actionNote: proj.replaceNote || 'Pin to Featured section & add under LinkedIn Projects',
+      })
+    })
+  }
+
+  if (Array.isArray(featuredWork)) {
+    featuredWork.forEach((fw) => {
+      const key = (fw.title || '').toLowerCase().trim()
+      if (!key) return
+      if (projectShowcaseMap.has(key)) {
+        const existing = projectShowcaseMap.get(key)
+        if (!existing.description && fw.reason) existing.description = fw.reason
+        if (fw.callToAction && !existing.actionNote) existing.actionNote = fw.callToAction
+      } else {
+        projectShowcaseMap.set(key, {
+          title: fw.title,
+          description: fw.reason,
+          technologies: [],
+          actionNote: fw.callToAction || 'Pin to Featured section on LinkedIn',
+        })
+      }
+    })
+  }
+
+  const consolidatedProjects = Array.from(projectShowcaseMap.values())
+  const hasCertifications = Array.isArray(sectionsToAdd?.certifications) && sectionsToAdd.certifications.length > 0
+
+  // ── Track Seen Titles for Bottom Issues Deduplication ───────────────────
+  const seenDiagnosisTitles = new Set([
+    ...missingSections.map((s) => s.title?.toLowerCase().trim()).filter(Boolean),
+    ...discrepancies.map((d) => d.title?.toLowerCase().trim()).filter(Boolean),
+    ...topDiscrepancies.map((d) => d.title?.toLowerCase().trim()).filter(Boolean),
+  ])
+
+  const remainingIssues = (linkedinAgent.issues || []).filter(Boolean).filter((iss) => {
+    const titleKey = (iss.title || iss.name || '').toLowerCase().trim()
+    if (!titleKey || seenDiagnosisTitles.has(titleKey)) return false
+    return true
+  })
 
   // Calculate About section statistics safely
   const rawAbout = optimizations?.aboutRewrite || null
@@ -171,8 +258,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
         scoreWord="LinkedIn profile"
       />
 
-      {/* ── 4. Resume-vs-LinkedIn Missing Sections & Discrepancy Alert ────── */}
-      {hasCrossDiscrepancies && (
+      {/* ── 2. Resume-vs-LinkedIn Missing Sections & Discrepancies (Top 4 Compact Grid) ── */}
+      {topDiscrepancies.length > 0 && (
         <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex items-start gap-3.5 border-b border-[var(--border-default)] pb-4">
             <span className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0 mt-0.5">
@@ -183,8 +270,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                 <h3 className="text-sm font-bold text-[var(--text-primary)]">
                   Missing Sections & Cross-Platform Discrepancies
                 </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
-                  Recruiter Screening Alert
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/20">
+                  Top Recruiter Screening Flags
                 </span>
               </div>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -193,125 +280,68 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
-            {/* Missing Sections Cards */}
-            {missingSections.map((sec, idx) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {topDiscrepancies.map((item, idx) => (
               <div
-                key={sec.id || `missing_sec_${idx}`}
-                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
+                key={item.id || idx}
+                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-3 text-xs shadow-2xs flex flex-col justify-between"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                    {sec.type === 'missing_certifications' ? (
-                      <Certificate size={15} className="text-rose-600 dark:text-rose-400" />
-                    ) : sec.type === 'missing_projects' ? (
-                      <FolderSimple size={15} className="text-rose-600 dark:text-rose-400" />
-                    ) : (
-                      <WarningCircle size={15} className="text-rose-600 dark:text-rose-400" />
-                    )}
-                    {safeText(sec.title)}
-                  </span>
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800">
-                    Missing Section
-                  </span>
-                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5 truncate">
+                      {item.type === 'timeline_drift' ? (
+                        <CalendarBlank size={15} className="text-[#0a66c2] shrink-0" />
+                      ) : item.type === 'title_drift' ? (
+                        <Briefcase size={15} className="text-[#0a66c2] shrink-0" />
+                      ) : item.type === 'missing_section' ? (
+                        <FolderSimple size={15} className="text-amber-500 shrink-0" />
+                      ) : (
+                        <WarningCircle size={15} className="text-amber-500 shrink-0" />
+                      )}
+                      <span className="truncate">{safeText(item.title)}</span>
+                    </span>
+                    <span
+                      className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md shrink-0 border ${
+                        item.severity === 'high'
+                          ? 'bg-red-500/10 text-red-600 border-red-500/20'
+                          : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  </div>
 
-                <div className="space-y-1.5 bg-[var(--surface-card)] rounded-lg p-2.5 font-mono text-[11px] border border-[var(--border-default)]">
-                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                  {/* Clean 1-Line Comparison Pill */}
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--surface-card)] border border-[var(--border-default)] text-xs overflow-hidden">
                     <span className="font-semibold text-[var(--text-primary)] shrink-0">Resume:</span>
-                    <span className="truncate">{safeText(sec.resumeClaim)}</span>
-                  </div>
-                  <div className="flex gap-2 text-[var(--text-secondary)]">
+                    <span className="truncate text-[var(--text-secondary)]">{safeText(item.resumeClaim)}</span>
+                    <span className="text-[var(--text-muted)] shrink-0 font-medium">vs.</span>
                     <span className="font-semibold text-rose-600 dark:text-rose-400 shrink-0">LinkedIn:</span>
-                    <span className="truncate text-rose-600 dark:text-rose-400 font-semibold">{safeText(sec.linkedinClaim)}</span>
+                    <span className="truncate text-rose-600 dark:text-rose-400 font-medium">{safeText(item.linkedinClaim)}</span>
                   </div>
+
+                  {item.diagnosis && (
+                    <p className="text-[var(--text-secondary)] leading-relaxed pt-0.5">{safeText(item.diagnosis)}</p>
+                  )}
                 </div>
 
-                {sec.diagnosis && (
-                  <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(sec.diagnosis)}</p>
-                )}
-                {sec.recommendation && (
-                  <p className="text-xs text-[var(--text-primary)] font-medium pt-1.5 border-t border-[var(--border-default)]">
+                {item.recommendation && (
+                  <p className="text-xs text-[var(--text-primary)] font-medium pt-2 border-t border-[var(--border-default)]">
                     <ArrowRight size={12} className="inline mr-1 text-[var(--primary)]" />
-                    {safeText(sec.recommendation)}
+                    {safeText(item.recommendation)}
                   </p>
                 )}
-              </div>
-            ))}
-
-            {/* Cross-Discrepancies Cards */}
-            {discrepancies.map((disc, idx) => (
-              <div
-                key={disc.id || idx}
-                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 text-xs shadow-2xs"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                    {disc.type === 'timeline_drift' ? (
-                      <CalendarBlank size={15} className="text-[#0a66c2]" />
-                    ) : disc.type === 'title_drift' ? (
-                      <Briefcase size={15} className="text-[#0a66c2]" />
-                    ) : (
-                      <WarningCircle size={15} className="text-rose-600 dark:text-rose-400" />
-                    )}
-                    {safeText(disc.title)}
-                  </span>
-                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
-                    disc.severity === 'high'
-                      ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
-                      : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                  }`}>
-                    {safeText(disc.severity) || 'warning'}
-                  </span>
-                </div>
-
-                <div className="space-y-1.5 bg-[var(--surface-card)] rounded-lg p-2.5 font-mono text-[11px] border border-[var(--border-default)]">
-                  <div className="flex gap-2 text-[var(--text-secondary)]">
-                    <span className="font-semibold text-[var(--text-primary)] shrink-0">Resume:</span>
-                    <span className="truncate">{safeText(disc.resumeClaim)}</span>
-                  </div>
-                  <div className="flex gap-2 text-[var(--text-secondary)]">
-                    <span className="font-semibold text-rose-600 dark:text-rose-400 shrink-0">LinkedIn:</span>
-                    <span className="truncate text-rose-600 dark:text-rose-400 font-semibold">{safeText(disc.linkedinClaim)}</span>
-                  </div>
-                </div>
-
-                {disc.diagnosis && (
-                  <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(disc.diagnosis)}</p>
-                )}
-                {disc.recommendation && (
-                  <p className="text-xs text-[var(--text-primary)] font-medium pt-1.5 border-t border-[var(--border-default)]">
-                    <ArrowRight size={12} className="inline mr-1 text-[var(--primary)]" />
-                    {safeText(disc.recommendation)}
-                  </p>
-                )}
-              </div>
-            ))}
-
-            {droppedImpact.map((drop, idx) => (
-              <div
-                key={drop.id || idx}
-                className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2 text-xs shadow-2xs"
-              >
-                <div className="flex items-center gap-1.5 font-bold text-[var(--text-primary)]">
-                  <TrendDown size={15} className="text-[#0a66c2]" />
-                  Omitted Resume Achievement ({safeText(drop.company) || 'Experience'})
-                </div>
-                <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-2.5 text-emerald-700 dark:text-emerald-400 italic text-[11px]">
-                  "{safeText(drop.sampleResumeProof)}"
-                </div>
-                <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(drop.diagnosis)}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── 5. AI Optimization Suite ───────────────────────────────────────── */}
+      {/* ── 3. AI Optimization Suite ───────────────────────────────────────── */}
       {optimizations && (
         <div className="space-y-6">
           <div className="flex items-center gap-2">
-            <span className="p-1 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <span className="p-1 rounded-md bg-[var(--primary-light)] text-[var(--primary)]">
               <Sparkle size={18} weight="fill" />
             </span>
             <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
@@ -324,7 +354,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <TextT size={14} className="text-sky-500" />
+                  <TextT size={14} className="text-[var(--primary)]" />
                   Targeted Headline Selector (One-Click Copy)
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">
@@ -346,11 +376,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                   return (
                     <div
                       key={idx}
-                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-sky-500/50 hover:shadow-sm transition-all"
+                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-all"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
                             {label}
                           </span>
                         </div>
@@ -371,7 +401,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                         className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           isCopied
                             ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-sky-50 hover:bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:hover:bg-sky-900/60 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60'
+                            : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'
                         }`}
                       >
                         {isCopied ? (
@@ -393,7 +423,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
 
           {/* Story-Driven About Section Card */}
           {rawAbout && (
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-7 space-y-4 shadow-xs">
+            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -437,7 +467,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                   <>
                     {hookText && (
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-[#0a66c2]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--primary)]">
                           Paragraph 1: The Hook (Technical Identity & Domain)
                         </span>
                         <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap">
@@ -457,7 +487,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                     )}
                     {ctaText && (
                       <div className="space-y-1 pt-2 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-primary)]">
                           Paragraph 3: Next Role Focus & Call to Connect
                         </span>
                         <p className="text-[var(--text-secondary)] italic whitespace-pre-wrap">
@@ -482,14 +512,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <Briefcase size={15} className="text-sky-500" />
+                    <Briefcase size={15} className="text-[var(--primary)]" />
                     High-Impact Experience Bullet Rewrites ({experienceUpgrades.length} Roles)
                   </span>
                   <p className="text-xs text-[var(--text-secondary)]">
                     Pre-engineered with hard metrics, action verbs, and verified technical scope from your resume.
                   </p>
                 </div>
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full">
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
                   Ready to Paste
                 </span>
               </div>
@@ -508,7 +538,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="p-1 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                          <span className="p-1 rounded-md bg-[var(--primary-light)] text-[var(--primary)]">
                             <Briefcase size={14} />
                           </span>
                           <span className="text-sm font-bold text-[var(--text-primary)]">
@@ -523,7 +553,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                             className={`py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                               isRoleCopied
                                 ? 'bg-emerald-600 text-white'
-                                : 'bg-[var(--surface-card)] hover:bg-sky-50 dark:hover:bg-sky-950/50 text-[var(--text-primary)] border border-[var(--border-default)]'
+                                : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
                             }`}
                           >
                             {isRoleCopied ? (
@@ -540,18 +570,21 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       </div>
 
                       {item.linkedinGap && (
-                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-800 dark:text-rose-200">
-                          <WarningCircle size={15} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" weight="fill" />
+                        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-[var(--surface-card)] border border-amber-500/30 text-xs text-[var(--text-primary)]">
+                          <WarningCircle size={15} className="text-amber-500 shrink-0 mt-0.5" weight="fill" />
                           <div>
-                            <span className="font-bold">LinkedIn Gap / Critique: </span>
-                            <span>{safeText(item.linkedinGap)}</span>
+                            <span className="font-semibold text-amber-600 dark:text-amber-400">LinkedIn Gap / Alignment: </span>
+                            <span className="text-[var(--text-secondary)]">{safeText(item.linkedinGap)}</span>
                           </div>
                         </div>
                       )}
 
                       <div className="space-y-2">
                         {bullets.map((b, bIdx) => {
-                          const bText = typeof b === 'string' ? b : safeText(b)
+                          const rawText = typeof b === 'string' ? b : safeText(b)
+                          const cleanText = rawText.replace(/\*\*/g, '')
+                          const isMandate = /^Role Mandate:\s*/i.test(cleanText)
+                          const mandateRemainder = isMandate ? cleanText.replace(/^Role Mandate:\s*/i, '') : cleanText
                           const copyBulletKey = `bullet_${idx}_${bIdx}`
                           const isBulletCopied = copiedId === copyBulletKey
 
@@ -562,14 +595,23 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                             >
                               <div className="flex items-start gap-2">
                                 <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" weight="fill" />
-                                <span>{bText}</span>
+                                <span>
+                                  {isMandate ? (
+                                    <>
+                                      <strong className="font-bold text-[var(--text-primary)]">Role Mandate: </strong>
+                                      {mandateRemainder}
+                                    </>
+                                  ) : (
+                                    cleanText
+                                  )}
+                                </span>
                               </div>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(bText, copyBulletKey)}
+                                onClick={() => handleCopy(cleanText, copyBulletKey)}
                                 className={`shrink-0 p-1 rounded-md transition-colors ${
                                   isBulletCopied
-                                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60'
+                                    ? 'text-emerald-600 bg-emerald-500/10'
                                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]'
                                 }`}
                                 title="Copy bullet"
@@ -610,10 +652,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       key={idx}
                       type="button"
                       onClick={() => handleCopy(skillName, copyKey)}
-                      className={`p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
+                      className={`print-keep p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
                         isCopied
                           ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'border-[var(--primary)]/25 bg-[var(--primary-light)] hover:bg-[var(--primary-light)]/80 text-[var(--text-primary)]'
+                          : 'border-[var(--primary)]/20 bg-[var(--primary-light)] hover:bg-[var(--primary-light)]/80 text-[var(--text-primary)]'
                       }`}
                       title="Click to copy pinned skill"
                     >
@@ -634,8 +676,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <Tag size={14} className="text-sky-500" />
-                  Missing Skills to Add ({recommendedSkills.length} Verified Resume Skills)
+                  <Tag size={14} className="text-[var(--primary)]" />
+                  Recommended Skills to Add ({recommendedSkills.length} Verified Resume Skills)
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">
                   Click any chip to copy into LinkedIn skills bank
@@ -652,17 +694,17 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       key={idx}
                       type="button"
                       onClick={() => handleCopy(skillName, copyKey)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      className={`print-keep px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                         isCopied
                           ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-[var(--surface-sunken)] hover:bg-sky-50 dark:hover:bg-sky-950/60 text-[var(--text-primary)] border border-[var(--border-default)] hover:border-sky-300 dark:hover:border-sky-700'
+                          : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'
                       }`}
                       title="Click to copy skill name"
                     >
                       {isCopied ? (
                         <Check size={13} weight="bold" />
                       ) : (
-                        <Plus size={13} weight="bold" className="text-sky-600 dark:text-sky-400" />
+                        <Plus size={13} weight="bold" className="text-[var(--primary)]" />
                       )}
                       <span>{skillName}</span>
                     </button>
@@ -672,179 +714,146 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
             </div>
           )}
 
-          {/* ── Featured Work Recommendations ──────────────────────────────── */}
-          {featuredWork.length > 0 && (
-            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3.5 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <Star size={16} weight="fill" className="text-amber-500" />
-                  Featured Section Blueprint (Pin to Profile Top)
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  Projects that provide instant architectural credibility
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {featuredWork.map((proj, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 text-xs flex flex-col justify-between"
-                  >
-                    <div className="space-y-1.5">
-                      <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                        <FolderSimple size={15} className="text-[#0a66c2]" />
-                        {safeText(proj.title)}
-                      </span>
-                      <p className="text-[var(--text-secondary)] leading-relaxed">
-                        {safeText(proj.reason)}
-                      </p>
-                    </div>
-                    {proj.callToAction && (
-                      <p className="text-[11px] text-[var(--primary)] font-medium pt-2 border-t border-[var(--border-default)]">
-                        <ArrowRight size={11} className="inline mr-1" />
-                        {safeText(proj.callToAction)}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Sections to Add From Resume (Projects, Certifications, Featured) ── */}
-          {sectionsToAdd && (sectionsToAdd.projects?.length > 0 || sectionsToAdd.certifications?.length > 0 || sectionsToAdd.featured?.length > 0) && (
+          {/* ── Single Consolidated: Featured & Projects Showcase (Add to LinkedIn) ── */}
+          {(consolidatedProjects.length > 0 || hasCertifications) && (
             <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <FolderSimple size={15} className="text-emerald-500" />
-                    Verified Resume Sections to Add to LinkedIn
+                    <Star size={16} weight="fill" className="text-amber-500" />
+                    Featured & Projects Showcase (Add to LinkedIn)
                   </span>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    These verified achievements from your resume were not found on your LinkedIn profile. Add them to rank higher for recruiter keyword searches.
+                    Verified projects from your resume to pin to the top of your profile and add to your LinkedIn Projects section for recruiter visibility.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Projects */}
-                {Array.isArray(sectionsToAdd.projects) && sectionsToAdd.projects.length > 0 && (
-                  <div className="space-y-3">
-                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                      <FolderSimple size={14} className="text-sky-500" />
-                      Projects Section ({sectionsToAdd.projects.length})
-                    </span>
-                    <div className="space-y-2.5">
-                      {sectionsToAdd.projects.map((proj, pIdx) => {
-                        const copyProjKey = `add_proj_${pIdx}`
-                        const isCopied = copiedId === copyProjKey
-                        const projText = `${safeText(proj.title)}\n${safeText(proj.description)}${proj.technologies?.length ? `\nSkills: ${proj.technologies.join(', ')}` : ''}`
+              {consolidatedProjects.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {consolidatedProjects.map((proj, pIdx) => {
+                    const copyProjKey = `showcase_proj_${pIdx}`
+                    const isCopied = copiedId === copyProjKey
+                    const projCopyText = `${safeText(proj.title)}\n${safeText(proj.description)}${proj.technologies?.length ? `\nSkills: ${proj.technologies.join(', ')}` : ''}`
 
-                        return (
-                          <div
-                            key={pIdx}
-                            className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 text-xs flex flex-col justify-between"
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-bold text-[var(--text-primary)]">{safeText(proj.title)}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopy(projText, copyProjKey)}
-                                  className={`text-[11px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
-                                    isCopied ? 'bg-emerald-600 text-white' : 'bg-[var(--surface-card)] text-sky-600 dark:text-sky-400 border border-[var(--border-default)]'
-                                  }`}
-                                >
-                                  {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} />}
-                                  {isCopied ? 'Copied' : 'Copy'}
-                                </button>
-                              </div>
-                              <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(proj.description)}</p>
-                              {proj.replaceNote && (
-                                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-sky-500/10 border border-sky-500/20 text-[11px] text-sky-800 dark:text-sky-300 mt-1.5">
-                                  <ArrowRight size={13} className="text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-                                  <span><strong className="font-semibold">Action: </strong>{safeText(proj.replaceNote)}</span>
-                                </div>
-                              )}
-                            </div>
-                            {Array.isArray(proj.technologies) && proj.technologies.length > 0 && (
-                              <div className="flex flex-wrap gap-1 pt-1">
-                                {proj.technologies.map((t, tIdx) => (
-                                  <span key={tIdx} className="text-[10px] px-2 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
-                                    {safeText(t)}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Certifications */}
-                {Array.isArray(sectionsToAdd.certifications) && sectionsToAdd.certifications.length > 0 && (
-                  <div className="space-y-3">
-                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                      <Certificate size={14} className="text-amber-500" />
-                      Licenses & Certifications ({sectionsToAdd.certifications.length})
-                    </span>
-                    <div className="space-y-2.5">
-                      {sectionsToAdd.certifications.map((cert, cIdx) => {
-                        const copyCertKey = `add_cert_${cIdx}`
-                        const isCopied = copiedId === copyCertKey
-                        const certText = `${safeText(cert.name)} - ${safeText(cert.issuer || cert.authority)}${cert.date ? ` (${safeText(cert.date)})` : ''}`
-
-                        return (
-                          <div
-                            key={cIdx}
-                            className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1.5 text-xs flex items-center justify-between gap-3"
-                          >
-                            <div className="space-y-0.5">
-                              <span className="font-bold text-[var(--text-primary)]">{safeText(cert.name)}</span>
-                              <p className="text-[var(--text-secondary)]">
-                                {safeText(cert.issuer || cert.authority)} {cert.date ? `· ${safeText(cert.date)}` : ''}
-                              </p>
-                            </div>
+                    return (
+                      <div
+                        key={pIdx}
+                        className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 text-xs flex flex-col justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-sm text-[var(--text-primary)] flex items-center gap-1.5">
+                              <FolderSimple size={15} className="text-[#0a66c2] shrink-0" />
+                              {safeText(proj.title)}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => handleCopy(certText, copyCertKey)}
-                              className={`shrink-0 text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded transition-colors ${
-                                isCopied ? 'bg-emerald-600 text-white' : 'bg-[var(--surface-card)] text-amber-700 dark:text-amber-400 border border-[var(--border-default)]'
+                              onClick={() => handleCopy(projCopyText, copyProjKey)}
+                              className={`print-keep text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors ${
+                                isCopied
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
                               }`}
                             >
                               {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} />}
                               {isCopied ? 'Copied' : 'Copy'}
                             </button>
                           </div>
-                        )
-                      })}
-                    </div>
+
+                          <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(proj.description)}</p>
+
+                          {proj.actionNote && (
+                            <div className="flex items-start gap-1.5 p-2 rounded-lg bg-[var(--primary-light)] border border-[var(--primary)]/20 text-[11px] text-[var(--text-primary)]">
+                              <ArrowRight size={13} className="text-[var(--primary)] shrink-0 mt-0.5" />
+                              <span>
+                                <strong className="font-semibold text-[var(--primary)]">Action: </strong>
+                                {safeText(proj.actionNote)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {Array.isArray(proj.technologies) && proj.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1 border-t border-[var(--border-default)]">
+                            {proj.technologies.map((t, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-card)] text-[var(--text-secondary)] border border-[var(--border-default)]"
+                              >
+                                {safeText(t)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Verified Licenses & Certifications (if present) */}
+              {hasCertifications && (
+                <div className="pt-4 border-t border-[var(--border-default)] space-y-3">
+                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <Certificate size={15} className="text-amber-500" />
+                    Verified Licenses & Certifications to Add ({sectionsToAdd.certifications.length})
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {sectionsToAdd.certifications.map((cert, cIdx) => {
+                      const copyCertKey = `add_cert_${cIdx}`
+                      const isCopied = copiedId === copyCertKey
+                      const certText = `${safeText(cert.name)} - ${safeText(cert.issuer || cert.authority)}${cert.date ? ` (${safeText(cert.date)})` : ''}`
+
+                      return (
+                        <div
+                          key={cIdx}
+                          className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs flex items-center justify-between gap-3"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <span className="font-bold text-[var(--text-primary)] truncate block">{safeText(cert.name)}</span>
+                            <p className="text-[var(--text-secondary)] text-[11px] truncate">
+                              {safeText(cert.issuer || cert.authority)} {cert.date ? `· ${safeText(cert.date)}` : ''}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(certText, copyCertKey)}
+                            className={`print-keep shrink-0 text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors ${
+                              isCopied
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+                            }`}
+                          >
+                            {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} />}
+                            {isCopied ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ── Recruiter Visibility & Search Ranking Playbook ─────────────────── */}
+          {/* ── Recruiter Visibility & Search Ranking Playbook (2x2 Grid) ────── */}
           {visibilityTricks.length > 0 && (
             <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
                 <div className="space-y-0.5">
                   <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                    <Globe size={15} className="text-sky-500" />
+                    <Globe size={15} className="text-[var(--primary)]" />
                     Recruiter Visibility & Search Ranking Playbook
                   </span>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Specific settings and search algorithm triggers that boost your profile to the top 5% of candidate queries.
+                    Targeted configuration and search algorithm triggers that boost your profile to the top 5% of candidate queries.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {visibilityTricks.map((trick, idx) => (
+                {visibilityTricks.slice(0, 4).map((trick, idx) => (
                   <div
                     key={idx}
                     className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2.5 text-xs flex flex-col justify-between"
@@ -853,7 +862,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-[var(--text-primary)]">{safeText(trick.trick || trick.category)}</span>
                         {trick.category && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
                             {safeText(trick.category)}
                           </span>
                         )}
@@ -861,32 +870,42 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                       <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(trick.advice)}</p>
                     </div>
 
-                    {Array.isArray(trick.items) && trick.items.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-[var(--border-default)]">
-                        {trick.items.map((it, itIdx) => {
-                          const itemText = safeText(it)
-                          const copyTrickKey = `trick_${idx}_${itIdx}`
-                          const isCopied = copiedId === copyTrickKey
+                    {(() => {
+                      const trickItems = Array.isArray(trick.items)
+                        ? trick.items
+                        : Array.isArray(trick.examples)
+                        ? trick.examples
+                        : trick.query
+                        ? [trick.query]
+                        : []
 
-                          return (
-                            <button
-                              key={itIdx}
-                              type="button"
-                              onClick={() => handleCopy(itemText, copyTrickKey)}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
-                                isCopied
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-[var(--surface-card)] hover:bg-sky-50 dark:hover:bg-sky-950/60 text-[var(--text-primary)] border border-[var(--border-default)]'
-                              }`}
-                              title="Click to copy"
-                            >
-                              {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} className="opacity-60" />}
-                              <span>{itemText}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
+                      return trickItems.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-[var(--border-default)]">
+                          {trickItems.map((it, itIdx) => {
+                            const itemText = safeText(it)
+                            const copyTrickKey = `trick_${idx}_${itIdx}`
+                            const isCopied = copiedId === copyTrickKey
+
+                            return (
+                              <button
+                                key={itIdx}
+                                type="button"
+                                onClick={() => handleCopy(itemText, copyTrickKey)}
+                                className={`print-keep px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                  isCopied
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+                                }`}
+                                title="Click to copy"
+                              >
+                                {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} className="opacity-60" />}
+                                <span>{itemText}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : null
+                    })()}
                   </div>
                 ))}
               </div>
@@ -895,16 +914,16 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
         </div>
       )}
 
-      {/* ── 6. Profile Fixes & Recommendations ─────────────────────────────── */}
-      {issues.length > 0 && (
-        <div className="space-y-4">
+      {/* ── 4. Profile Fixes & Recommendations (Only shown if any unique unhandled items exist) ── */}
+      {remainingIssues.length > 0 && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
           <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
-            <WarningCircle size={15} className="text-amber-500" /> Profile Fixes & Recommendations ({issues.length})
+            <WarningCircle size={15} className="text-amber-500" /> Profile Fixes & Recommendations ({remainingIssues.length})
           </h3>
-          {issues.map((iss, i) => (
+          {remainingIssues.map((iss, i) => (
             <div
               key={iss.id || i}
-              className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-2.5 shadow-xs"
+              className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 shadow-xs"
             >
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${severityChip[iss.severity] || severityChip.low}`}>
@@ -917,7 +936,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
               </div>
               {iss.diagnosis && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{safeText(iss.diagnosis)}</p>}
               {iss.recommendation && (
-                <p className="text-xs text-[var(--text-primary)] leading-relaxed bg-[var(--primary-light)] border border-[var(--border-default)] rounded-xl p-3.5">
+                <p className="text-xs text-[var(--text-primary)] leading-relaxed bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-3">
                   <ArrowRight size={12} className="inline mr-1.5 -mt-0.5 text-[var(--primary)]" />
                   {safeText(iss.recommendation)}
                 </p>
