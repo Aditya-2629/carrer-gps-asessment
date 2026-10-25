@@ -39,11 +39,11 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
   return (
     <section id="next-action" className="pt-4 pb-12 print-keep print-card break-inside-avoid page-break-inside-avoid">
-      <div className="p-7 sm:p-10 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-7 print-card break-inside-avoid page-break-inside-avoid print:p-6 print:space-y-4">
+      <div className="p-7 sm:p-10 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-7 print-card break-inside-avoid page-break-inside-avoid print:p-5 print:space-y-3">
         {/* Soft Primary Gradient Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 max-w-3xl mx-auto space-y-6 text-center">
+        <div className="relative z-10 max-w-3xl mx-auto space-y-6 print:space-y-3 text-center">
           {/* Header Tag */}
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/25">
             <Sparkle size={14} weight="fill" />
@@ -51,16 +51,16 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
           </div>
 
           {/* Core Headline */}
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 print:space-y-1">
             <h2
-              className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight"
+              className="text-2xl sm:text-3xl md:text-4xl print:text-xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight"
               style={{ fontFamily: 'var(--font-head)' }}
             >
               We've fixed your Resume & LinkedIn copy above.
               <br />
               <span className="text-[var(--primary)]">Now let's fix your Interview & Offer Pipeline.</span>
             </h2>
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium max-w-2xl mx-auto leading-relaxed">
+            <p className="text-xs sm:text-sm print:text-xs text-[var(--text-secondary)] font-medium max-w-2xl mx-auto leading-relaxed">
               Polished bullet points and optimized headlines alone won't solve cold application drop-offs, recruiter screening filters, or live interview conversion. Bypassing cold portals requires targeted referral execution.
             </p>
           </div>
@@ -84,11 +84,11 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
           </div>
 
           {/* 3 Concrete Outcomes Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:gap-3 text-left pt-2 print:pt-1">
             {/* Outcome 1 */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 flex flex-col justify-between shadow-2xs">
-              <div className="space-y-1.5">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 flex items-center justify-center font-bold text-sm">
+            <div className="p-4 sm:p-5 print:p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 print:space-y-1 flex flex-col justify-between shadow-2xs break-inside-avoid">
+              <div className="space-y-1.5 print:space-y-1">
+                <div className="w-8 h-8 print:w-6 print:h-6 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 flex items-center justify-center font-bold text-sm print:text-xs">
                   1
                 </div>
                 <h3 className="text-xs font-bold text-[var(--text-primary)] leading-snug">
@@ -105,9 +105,9 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             </div>
 
             {/* Outcome 2 */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 flex flex-col justify-between shadow-2xs">
-              <div className="space-y-1.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold text-sm">
+            <div className="p-4 sm:p-5 print:p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 print:space-y-1 flex flex-col justify-between shadow-2xs break-inside-avoid">
+              <div className="space-y-1.5 print:space-y-1">
+                <div className="w-8 h-8 print:w-6 print:h-6 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold text-sm print:text-xs">
                   2
                 </div>
                 <h3 className="text-xs font-bold text-[var(--text-primary)] leading-snug">
@@ -124,9 +124,9 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             </div>
 
             {/* Outcome 3 */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 flex flex-col justify-between shadow-2xs">
-              <div className="space-y-1.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center font-bold text-sm">
+            <div className="p-4 sm:p-5 print:p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 print:space-y-1 flex flex-col justify-between shadow-2xs break-inside-avoid">
+              <div className="space-y-1.5 print:space-y-1">
+                <div className="w-8 h-8 print:w-6 print:h-6 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center font-bold text-sm print:text-xs">
                   3
                 </div>
                 <h3 className="text-xs font-bold text-[var(--text-primary)] leading-snug">
@@ -150,7 +150,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={onBookCall}
-              className="btn-primary text-sm sm:text-base px-8 py-3.5 no-underline inline-flex items-center gap-2.5 shadow-md hover:scale-[1.02] transition-transform cursor-pointer"
+              className="btn-primary text-sm sm:text-base print:py-2.5 print:px-6 print:text-xs no-underline inline-flex items-center gap-2.5 shadow-md hover:scale-[1.02] transition-transform cursor-pointer"
             >
               <CalendarBlank size={20} weight="bold" />
               <span>{ctaText}</span>
@@ -159,7 +159,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+              className="print:hidden px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
             >
               <Printer size={16} />
               <span>Print / Save PDF</span>

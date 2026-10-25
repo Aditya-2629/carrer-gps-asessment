@@ -582,6 +582,20 @@ export function buildSemanticAssessmentPayload(formData = {}) {
       }
 
       if (qObj) {
+        if (!qObj.is_na) {
+          const rawNum = parseFloat(String(qObj.raw ?? 0).replace(/[^0-9.]/g, '')) || 0
+          let pW = typeof qObj.per_week === 'number'
+            ? qObj.per_week
+            : (qObj.period === 'month' ? Math.round(rawNum / 4.33) : Math.round(rawNum))
+          let pM = typeof qObj.per_month === 'number'
+            ? qObj.per_month
+            : (qObj.period === 'month' ? Math.round(rawNum) : Math.round(rawNum * 4.33))
+          pW = Math.min(Math.max(0, pW), 250)
+          pM = Math.min(Math.max(0, pM), 1000)
+          qObj.per_week = pW
+          qObj.per_month = pM
+        }
+
         profile[step.name] = {
           field: semantics.field || step.name,
           semanticKey: semantics.semanticKey || step.name,

@@ -18,17 +18,48 @@ export function evaluateAssessmentPersona({
 
   // Helper: parse numbers from strings or quantitative objects
   const parseQty = (val, defaultVal = 0) => {
-    if (val === null || val === undefined) return { raw: '0', perWeek: defaultVal, perMonth: Math.round(defaultVal * 4.33) }
-    if (typeof val === 'number') {
-      return { raw: String(val), perWeek: val, perMonth: Math.round(val * 4.33) }
+    if (val === null || val === undefined) {
+      return { raw: '0', perWeek: Math.min(defaultVal, 250), perMonth: Math.min(Math.round(defaultVal * 4.33), 1000) }
     }
+    if (typeof val === 'object' && val !== null && val.is_na) {
+      return { raw: 'N/A', perWeek: 0, perMonth: 0, isNA: true }
+    }
+
+    let perWeek = 0
+    let perMonth = 0
+    let rawStr = ''
+
     if (typeof val === 'object' && val !== null) {
-      const perW = typeof val.per_week === 'number' ? val.per_week : parseFloat(String(val.raw || 0).replace(/[^0-9.]/g, '')) || defaultVal
-      const perM = typeof val.per_month === 'number' ? val.per_month : Math.round(perW * 4.33)
-      return { raw: String(val.raw || perW), perWeek: perW, perMonth: perM }
+      rawStr = String(val.raw ?? '')
+      const rawNum = parseFloat(rawStr.replace(/[^0-9.]/g, '')) || 0
+      const period = val.period || (val.per_month !== undefined && val.per_week === undefined ? 'month' : 'week')
+
+      if (typeof val.per_week === 'number' && typeof val.per_month === 'number') {
+        perWeek = Math.round(val.per_week)
+        perMonth = Math.round(val.per_month)
+      } else if (period === 'month') {
+        perMonth = Math.round(rawNum)
+        perWeek = Math.round(rawNum / 4.33)
+      } else {
+        perWeek = Math.round(rawNum)
+        perMonth = Math.round(rawNum * 4.33)
+      }
+    } else if (typeof val === 'number') {
+      rawStr = String(val)
+      perWeek = Math.round(val)
+      perMonth = Math.round(val * 4.33)
+    } else {
+      rawStr = String(val)
+      const rawNum = parseFloat(rawStr.replace(/[^0-9.]/g, '')) || defaultVal
+      perWeek = Math.round(rawNum)
+      perMonth = Math.round(rawNum * 4.33)
     }
-    const cleanNum = parseFloat(String(val).replace(/[^0-9.]/g, '')) || defaultVal
-    return { raw: String(val), perWeek: cleanNum, perMonth: Math.round(cleanNum * 4.33) }
+
+    // Sanity-cap perWeek <= 250 and perMonth <= 1000
+    perWeek = Math.min(Math.max(0, perWeek), 250)
+    perMonth = Math.min(Math.max(0, perMonth), 1000)
+
+    return { raw: rawStr || String(perWeek), perWeek, perMonth }
   }
 
   // 1. Work Authorization & Immigration Context

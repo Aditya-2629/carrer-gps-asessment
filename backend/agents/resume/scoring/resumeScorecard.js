@@ -29,12 +29,30 @@ const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
 export function sanitizeSingleAddPlaceholder(text) {
   if (!text || typeof text !== 'string') return text
-  let count = 0
-  return text
-    .replace(/\[ADD:[^\]]*\]/gi, (match) => {
-      count++
-      return count === 1 ? match : ''
+  let cleaned = text
+
+  // 1. If sentence contains two [ADD: ...] placeholders (e.g. "by accomplishing [ADD: ...] as measured by [ADD: ...]"),
+  // strip the second " as measured by [ADD: ...]" clause completely
+  if (/\[ADD:[^\]]*\].*?(?:as measured by|measured by|by accomplishing)\s*\[ADD:[^\]]*\]/i.test(cleaned)) {
+    cleaned = cleaned.replace(/(?:,\s*)?(?:as measured by|measured by|by accomplishing)\s*\[ADD:[^\]]*\]/gi, (match, offset) => {
+      const before = cleaned.slice(0, offset)
+      if (/\[ADD:[^\]]*\]/i.test(before)) {
+        return ''
+      }
+      return match
     })
+  }
+
+  // 2. If there are still any other multiple [ADD: ...] brackets, keep only the first
+  let count = 0
+  cleaned = cleaned.replace(/\[ADD:[^\]]*\]/gi, (match) => {
+    count++
+    return count === 1 ? match : ''
+  })
+
+  // 3. Clean up dangling prepositions, double spaces, and punctuation
+  return cleaned
+    .replace(/\s+(?:as measured by|measured by|by accomplishing)\s*([.,;]|$)/gi, '$1')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([.,])/g, '$1')
     .trim()
@@ -90,9 +108,9 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
   if (collabToVerbMatch) {
     const [, partners, rawVerb, rest] = collabToVerbMatch
     const promotedVerb = isCurrentRole ? (rawVerb.charAt(0).toUpperCase() + rawVerb.slice(1).toLowerCase()) : toPastTense(rawVerb)
-    clean = `${promotedVerb} ${rest.trim()} in close partnership with ${partners.trim()}`
+    clean = `${promotedVerb} ${rest.trim().replace(/[.]+$/, '')} in close partnership with ${partners.trim()}`
     matchedOpener = true
-  } else if (/^(?:collaborated with|collaborating with)\s+(?:the\s+)?/i.test(clean)) {
+  } else if (/^(?:collaborated with|collaborating with)\b/i.test(clean)) {
     const partnerVerb = isCurrentRole ? 'Partner with' : 'Partnered with'
     clean = clean.replace(/^(?:collaborated with|collaborating with)\s+(?:the\s+)?/i, `${partnerVerb} `)
     matchedOpener = true
@@ -103,13 +121,13 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
     const weakOpeners = [
       { pattern: /^(?:responsible for|tasked with|was responsible for)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Architect' : 'Architected' },
       { pattern: /^(?:worked on|working on)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Engineer' : 'Engineered' },
-      { pattern: /^(?:helped with|helped to|assisted with|assisted in|participated in|helped)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
+      { pattern: /^(?:helped with|helped to|assisted with|assisted in|participated in|helped)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Lead' : 'Led' },
       { pattern: /^(?:supported|supporting)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Deliver and maintain' : 'Delivered and maintained' },
       { pattern: /^(?:contributed to decomposing|decomposing)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Decompose' : 'Decomposed' },
-      { pattern: /^(?:contributed to|contributed in|contributing to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
+      { pattern: /^(?:contributed to|contributed in|contributing to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Lead' : 'Led' },
       { pattern: /^(?:partnered with|partnering with)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Partner with' : 'Partnered with' },
       { pattern: /^(?:managing|managed to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Direct' : 'Directed' },
-      { pattern: /^(?:using|utilized)\s+/i, verb: isCurrentRole ? 'Deploy' : 'Deployed' },
+      { pattern: /^(?:using|utilized)\s+/i, verb: isCurrentRole ? 'Apply' : 'Applied' },
       { pattern: /^(?:implemented|implementing)\s+(?:the\s+)?/i, verb: null },
       { pattern: /^(?:integrated|integrating)\s+(?:the\s+)?/i, verb: null },
       { pattern: /^(?:developed|built|created|wrote|handled)\s+/i, verb: null },
@@ -149,7 +167,10 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
 
   // 3. If starts with gerund (-ing) participle
   if (!matchedOpener && /^[a-zA-Z]+ing$/i.test(openingWord)) {
-    const targetVerb = normalizeGerundVerb(openingWord, isCurrentRole)
+    let targetVerb = normalizeGerundVerb(openingWord, isCurrentRole)
+    if (/^using$/i.test(openingWord)) {
+      targetVerb = isCurrentRole ? 'Apply' : 'Applied'
+    }
     clean = clean.replace(new RegExp(`^${openingWord}\\b`, 'i'), targetVerb)
   }
 
@@ -164,7 +185,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
 
   if (!hasRealMetric && !clean.includes('[ADD:')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean} [ADD: measurable impact, e.g., latency reduction or scale]`
+    clean = `${clean}, achieving [ADD: measurable outcome, e.g., latency reduction, test coverage %, or engineering hours saved].`
   }
 
   // 5. Clean punctuation and whitespace
@@ -176,7 +197,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
   // 6. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
   if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean} [ADD: measurable impact, e.g., latency reduction or scale].`
+    clean = `${clean}, achieving [ADD: measurable outcome, e.g., latency reduction, test coverage %, or engineering hours saved].`
   }
 
   return sanitizeSingleAddPlaceholder(clean)
@@ -654,7 +675,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           status = 'warn'
           const opener = sig?.openingWord || 'Bullet'
           const techMention = sig?.technologies?.[0] ? ` for ${sig.technologies[0]}` : ''
-          const locationPhrase = section.key === 'projects' ? `in your ${itemName} project` : `at ${itemName}`
+          const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
+          const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
           reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
           rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
         } else if (sig?.isToolDumpCandidate) {

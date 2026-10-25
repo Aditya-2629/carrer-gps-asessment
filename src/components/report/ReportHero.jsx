@@ -177,9 +177,9 @@ export default function ReportHero({ reportData }) {
       <div className="absolute top-10 right-0 w-80 h-80 bg-[var(--emerald)]/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Hero Card Container */}
-      <div className="rounded-3xl p-6 sm:p-9 bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm relative overflow-hidden">
+      <div className="rounded-3xl p-6 sm:p-9 print:p-5 bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid print-card">
         {/* Top Badges Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-6 border-b border-[var(--border-default)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-6 print:pb-3 border-b border-[var(--border-default)]">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-[var(--primary-light)] border border-[var(--primary)]/25 flex items-center justify-center text-[var(--primary)]">
               <Compass size={18} weight="fill" />
@@ -206,9 +206,9 @@ export default function ReportHero({ reportData }) {
         </div>
 
         {/* Hero Body Grid: Greeting + Diagnosis on Left, Circular Score on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 print:grid-cols-12 gap-8 print:gap-4 items-center pt-6 print:pt-3 break-inside-avoid page-break-inside-avoid">
           {/* Left Column: Personalized Greeting & Narrative */}
-          <div className="lg:col-span-8 space-y-4">
+          <div className="lg:col-span-8 print:col-span-8 space-y-4 print:space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold text-[var(--primary)] border border-[var(--primary)]/20">
               <Robot size={15} weight="fill" />
               <span>Personal Career Coach Report</span>
@@ -291,8 +291,8 @@ export default function ReportHero({ reportData }) {
           </div>
 
           {/* Right Column: Circular Progress Visualization */}
-          <div className="lg:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-center relative">
-            <div className="relative w-44 h-44 flex items-center justify-center">
+          <div className="lg:col-span-4 print:col-span-4 flex flex-col items-center justify-center p-6 print:p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-center relative break-inside-avoid">
+            <div className="relative w-44 h-44 print:w-32 print:h-32 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 110 110">
                 {/* Background Ring Track */}
                 <circle
@@ -324,7 +324,7 @@ export default function ReportHero({ reportData }) {
               {/* Inside Score Text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span
-                  className="text-5xl font-black text-[var(--text-primary)] tabular-nums tracking-tight"
+                  className="text-5xl print:text-4xl font-black text-[var(--text-primary)] tabular-nums tracking-tight"
                   style={{ fontFamily: 'var(--font-head)' }}
                 >
                   {displayedScore}

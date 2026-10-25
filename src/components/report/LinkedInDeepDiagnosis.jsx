@@ -59,8 +59,15 @@ const safeText = (val) => {
 
 export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
   const theme = useAppStore((s) => s.theme)
+  const storeResumeAnalysis = useAppStore((s) => s.storeResumeAnalysis)
   const variant = theme === 'dark' ? 'dark' : 'light'
   const [copiedId, setCopiedId] = useState(null)
+
+  const targetRole =
+    linkedinAgent?.targetRole ||
+    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
+    storeResumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
+    'Software Engineer'
 
   if (!linkedinAgent || linkedinAgent.dataAvailable === false) {
     return null
@@ -758,7 +765,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                     return (
                       <div
                         key={pIdx}
-                        className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 text-xs flex flex-col justify-between"
+                        className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 text-xs flex flex-col justify-between break-inside-avoid print-card"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
@@ -771,8 +778,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                               onClick={() => handleCopy(projCopyText, copyProjKey)}
                               className={`print-keep text-[11px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors ${
                                 isCopied
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
                               }`}
                             >
                               {isCopied ? <Check size={11} weight="bold" /> : <Copy size={11} />}
@@ -783,7 +790,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                           <p className="text-[var(--text-secondary)] leading-relaxed">{safeText(proj.description)}</p>
 
                           {proj.actionNote && (
-                            <div className="flex items-start gap-1.5 p-2 rounded-lg bg-[var(--primary-light)] border border-[var(--primary)]/20 text-[11px] text-[var(--text-primary)]">
+                            <div className="flex items-start gap-1.5 p-2 rounded-lg bg-[var(--primary-light)] border border-[var(--primary)]/20 text-[11px] text-[var(--text-primary)] break-inside-avoid">
                               <ArrowRight size={13} className="text-[var(--primary)] shrink-0 mt-0.5" />
                               <span>
                                 <strong className="font-semibold text-[var(--primary)]">Action: </strong>
@@ -890,13 +897,28 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                     </div>
 
                     {(() => {
-                      const trickItems = Array.isArray(trick.items)
+                      const rawTrickItems = Array.isArray(trick.items)
                         ? trick.items
                         : Array.isArray(trick.examples)
                         ? trick.examples
                         : trick.query
                         ? [trick.query]
                         : []
+
+                      const isOtW = /open\s+to\s+work/i.test(trick.category || trick.trick || '')
+                      let trickItems = []
+                      if (isOtW) {
+                        const coreRole = String(targetRole || 'Software Engineer').replace(/^(?:Senior|Lead|Staff|Principal|Junior)\s+/i, '').trim()
+                        trickItems = Array.from(new Set([
+                          `Senior ${coreRole}`,
+                          `Lead ${coreRole}`,
+                          `Staff ${coreRole}`,
+                          coreRole,
+                          `Senior Full Stack Software Engineer`,
+                        ]))
+                      } else {
+                        trickItems = Array.from(new Set(rawTrickItems.map((it) => safeText(it)).filter(Boolean)))
+                      }
 
                       return trickItems.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1.5 border-t border-[var(--border-default)]">

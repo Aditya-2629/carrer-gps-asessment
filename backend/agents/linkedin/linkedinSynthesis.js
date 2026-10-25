@@ -146,19 +146,15 @@ export function buildDeterministicOptimizations(
         ? p.skills
         : []
       const mergedTech = Array.from(new Set([...pTech, ...techFromTitle]))
-      const pTechStr = mergedTech.slice(0, 5).join(', ')
 
       const bulletList = Array.isArray(p.bullets) ? p.bullets : []
       const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
       const rawBullet = joinedBullets || p.description || ''
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
 
-      let pitch = ''
-      if (cleanBullet && cleanBullet.length >= 25) {
-        pitch = cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.'
-      } else {
-        pitch = `Production engineering project${pTechStr ? ` built with ${pTechStr}` : ''}. Solves core architecture requirements with scalable, high-reliability design.`
-      }
+      const pitch = cleanBullet
+        ? (cleanBullet.length > 240 ? cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
+        : (p.description ? p.description.trim() : pTitle)
 
       return {
         title: pTitle,
@@ -175,7 +171,7 @@ export function buildDeterministicOptimizations(
       date: c.date || c.year || '',
     })),
     featured: rawProjects.slice(0, 2).map((p) => ({
-      title: p.title || p.name || 'Featured Architecture Project',
+      title: String(p.title || p.name || 'Featured Architecture Project').split('|')[0].trim(),
       reason: 'Proves practical system design depth directly at the top of your profile without exposing contact info.',
       callToAction: 'Pin GitHub repository link, architecture diagrams, and a live deployment demo rather than a raw resume PDF.',
     })),
@@ -183,7 +179,7 @@ export function buildDeterministicOptimizations(
 
   const featuredSectionRecommendations = rawProjects.length > 0
     ? rawProjects.slice(0, 3).map((p) => ({
-        title: p.title || p.name || 'Core Project',
+        title: String(p.title || p.name || 'Core Project').split('|')[0].trim(),
         reason: 'Showcases end-to-end technical implementation and architecture proof directly at the profile top.',
         callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
       }))
@@ -240,14 +236,14 @@ export function buildDeterministicOptimizations(
     'Canva Banner: Use 1584x396px resolution, high-contrast dark theme, and leave the lower-left 30% area clear for mobile avatar overlap.',
   ]
 
-  const baseRole = String(targetRole || 'Software Engineer').replace(/^(?:Senior|Lead|Staff|Principal|Junior)\s+/i, '').trim()
-  const openToWorkTitles = [
-    `Senior ${baseRole}`,
-    `Lead ${baseRole}`,
-    `Staff ${baseRole}`,
-    baseRole,
-    `${baseRole.replace(/Developer/i, 'Engineer') !== baseRole ? `Senior ${baseRole.replace(/Developer/i, 'Engineer')}` : `Principal ${baseRole}`}`,
-  ]
+  const coreRole = String(targetRole || 'Software Engineer').replace(/^(?:Senior|Lead|Staff|Principal|Junior)\s+/i, '').trim()
+  const openToWorkTitles = Array.from(new Set([
+    `Senior ${coreRole}`,
+    `Lead ${coreRole}`,
+    `Staff ${coreRole}`,
+    coreRole,
+    `Senior Full Stack Software Engineer`,
+  ]))
 
   const visibilityTricks = [
     {

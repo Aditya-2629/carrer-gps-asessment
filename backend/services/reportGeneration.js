@@ -56,30 +56,47 @@ function parseAtlasJson(text) {
   }
 }
 
-export { parseAtlasJson, atlasCompleteness }
+export { parseAtlasJson, atlasCompleteness, deriveFunnelFromAnswers }
 
 function deriveFunnelFromAnswers(answers = {}) {
-  const parseNum = (val, defaultVal = 0) => {
-    if (typeof val === 'number') return val
-    if (!val) return defaultVal
-    const match = String(val).match(/\d+/)
-    return match ? parseInt(match[0], 10) : defaultVal
+  const parseMonthlyNum = (val, defaultVal = 0) => {
+    if (val === null || val === undefined) return defaultVal
+    if (typeof val === 'number') return !isNaN(val) ? Math.round(val) : defaultVal
+
+    if (typeof val === 'object') {
+      if (val.is_na) return 0
+      if (typeof val.per_month === 'number' && !isNaN(val.per_month)) {
+        return Math.round(val.per_month)
+      }
+      if (typeof val.per_week === 'number' && !isNaN(val.per_week)) {
+        return Math.round(val.per_week * 4.33)
+      }
+      if (val.raw !== undefined) {
+        const match = String(val.raw).match(/\d+(?:\.\d+)?/)
+        const n = match ? parseFloat(match[0]) : defaultVal
+        return val.period === 'week' ? Math.round(n * 4.33) : Math.round(n)
+      }
+      return defaultVal
+    }
+
+    const str = String(val).trim()
+    if (str === '50+' || str === '50-100') return Math.round(60 * 4.33)
+    if (str === '25-50') return Math.round(35 * 4.33)
+    if (str === '10-25') return Math.round(20 * 4.33)
+    if (str === '5-10') return Math.round(8 * 4.33)
+    if (str === '1-5') return Math.round(3 * 4.33)
+
+    const match = str.match(/\d+(?:\.\d+)?/)
+    return match ? Math.round(parseFloat(match[0])) : defaultVal
   }
 
-  let apps = 0
   const appsVal = answers.appsWeek || answers.applications_count || answers.applications
-  if (typeof appsVal === 'number') apps = appsVal
-  else if (appsVal === '50+' || appsVal === '50-100') apps = 60
-  else if (appsVal === '25-50') apps = 35
-  else if (appsVal === '10-25') apps = 20
-  else if (appsVal === '5-10') apps = 8
-  else if (appsVal === '1-5') apps = 3
-  else apps = parseNum(appsVal, 40)
+  const apps = parseMonthlyNum(appsVal, 40)
 
-  const calls = parseNum(answers.humanScreen || answers.recruiter_calls_count || answers.calls, Math.max(1, Math.round(apps * 0.05)))
-  const interviews = parseNum(answers.aiScreen || answers.assessments || answers.interviews_count || answers.interviews, Math.max(0, Math.round(calls * 0.5)))
-  const finals = parseNum(answers.finalRounds || answers.final_rounds_count, Math.max(0, Math.round(interviews * 0.4)))
-  const offers = parseNum(answers.offers || answers.offers_count, 0)
+  const calls = parseMonthlyNum(answers.humanScreen || answers.recruiter_calls_count || answers.calls, Math.max(1, Math.round(apps * 0.05)))
+  const interviews = parseMonthlyNum(answers.aiScreen || answers.assessments || answers.interviews_count || answers.interviews, Math.max(0, Math.round(calls * 0.5)))
+  const finals = parseMonthlyNum(answers.finalRounds || answers.final_rounds_count, Math.max(0, Math.round(interviews * 0.4)))
+  const offers = parseMonthlyNum(answers.offers || answers.offers_count, 0)
 
   let biggest_leak = 'Application to Recruiter Screen'
   if (apps > 0 && (calls / apps) < 0.1) {
