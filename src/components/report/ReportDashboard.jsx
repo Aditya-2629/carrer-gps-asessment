@@ -21,16 +21,11 @@ import ReportHero from './ReportHero'
 import StickyReportNav from './StickyReportNav'
 import CareerHealthSnapshot from './CareerHealthSnapshot'
 import PrimaryBottleneck from './PrimaryBottleneck'
-import WhatIsWorking from './WhatIsWorking'
-import OpportunitiesList from './OpportunitiesList'
 import FunnelAndConversionSection from './FunnelAndConversionSection'
-import TopPriorities from './TopPriorities'
-import RoadmapTimeline from './RoadmapTimeline'
-import DetailedDiagnosis from './DetailedDiagnosis'
-import FinalNextAction from './FinalNextAction'
 import ResumeDeepDiagnosis from './ResumeDeepDiagnosis'
 import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
-import AgentScoreboard from './AgentScoreboard'
+import RoadmapTimeline from './RoadmapTimeline'
+import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
@@ -906,10 +901,13 @@ function ReportDashboardContent() {
 
   // Cross-component smooth navigation
   const handleNavigateSection = (sectionId, tabId = null) => {
-    if (tabId) {
-      setActiveDiagnosisTab(tabId)
+    let targetId = sectionId
+    if (targetId === 'opportunities' || targetId === 'priorities' || targetId === 'diagnosis' || targetId === 'strengths') {
+      if (tabId === 'linkedin' || targetId === 'linkedin') targetId = 'linkedin-ai'
+      else if (tabId === 'interview' || targetId === 'funnel') targetId = 'funnel-risks'
+      else targetId = 'resume-ai'
     }
-    const element = document.getElementById(sectionId)
+    const element = document.getElementById(targetId)
     if (element) {
       const navOffset = 90
       const elementPosition = element.getBoundingClientRect().top + window.scrollY
@@ -1019,13 +1017,9 @@ function ReportDashboardContent() {
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-12">
-        {/* SECTION A: REPORT HERO */}
+        {/* ACT 1: Executive Diagnosis & Job-Search Funnel Reality (Assessment Agent) */}
         <ReportHero reportData={reportData} />
 
-        {/* SECTION A2: MULTI-AGENT SCOREBOARD (ATLAS + RESUME + LINKEDIN) */}
-        <AgentScoreboard reportData={reportData} />
-
-        {/* SECTION B: CAREER HEALTH SNAPSHOT */}
         <CareerHealthSnapshot
           scores={reportData.scores || reportData.score_breakdown}
           resumeAgent={reportData.resume_agent}
@@ -1034,49 +1028,11 @@ function ReportDashboardContent() {
           onNavigateSection={handleNavigateSection}
         />
 
-        {/* SECTION C: PRIMARY BOTTLENECK (MOST IMPORTANT SECTION) */}
         <PrimaryBottleneck
           reportData={reportData}
           onNavigateSection={handleNavigateSection}
         />
 
-        {/* SECTION D: WHAT IS WORKING (COMPACT STRENGTHS) */}
-        <WhatIsWorking
-          resumeJsonData={reportData.resume_json}
-          resumeAgent={reportData.resume_agent}
-          reportData={reportData}
-        />
-
-        {/* SECTION D2: AI RESUME DEEP DIAGNOSIS (V3.1 SCORECARD + BULLET AUDIT) */}
-        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
-
-        {/* SECTION D3: AI LINKEDIN DEEP DIAGNOSIS (SCORECARD + PROFILE FIXES) */}
-        <LinkedInDeepDiagnosis linkedinAgent={reportData.linkedin_agent} />
-
-        {/* SECTION E: STRATEGIC PIPELINE & CROSS-CHANNEL BOTTLENECKS */}
-        <OpportunitiesList
-          issues={
-            reportData.critical_issues?.length || reportData.linkedin_agent?.discrepancies?.length
-              ? [
-                  ...(reportData.critical_issues || []),
-                  ...(reportData.linkedin_agent?.discrepancies?.slice(0, 2)?.map((d, i) => ({
-                    id: `cross_disc_${i + 1}`,
-                    severity: d.severity || 'high',
-                    category: 'Cross-Channel Alignment',
-                    title: d.title || 'Resume vs LinkedIn Discrepancy',
-                    diagnosis: d.issue || d.description || 'Inconsistency detected between your resume and LinkedIn profile.',
-                    affectedSection: 'Resume & LinkedIn Sync',
-                    whyItMatters: 'Recruiters cross-reference your resume and LinkedIn profile before scheduling screens. Inconsistencies reduce interview invitation rates.',
-                    recommendation: d.recommendation || d.action || 'Synchronize details between both channels.',
-                  })) || []),
-                ]
-              : (reportData.resume_agent?.issues || [])
-          }
-          resumeJsonData={reportData.resume_json}
-          resumeAgent={reportData.resume_agent}
-        />
-
-        {/* FUNNEL JOURNEY + WHY AREN'T INTERVIEWS CONVERTING + RISK RADAR */}
         <FunnelAndConversionSection
           funnelData={reportData.funnel_stages}
           rejectionData={{
@@ -1086,27 +1042,18 @@ function ReportDashboardContent() {
           riskData={reportData.risk_heatmap}
         />
 
-        {/* SECTION F: TOP PRIORITIES (WHAT TO FIX FIRST) */}
-        <TopPriorities
-          missionBoardData={reportData.mission_board}
-          resumeAgent={reportData.resume_agent}
-          reportData={reportData}
-          onNavigateSection={handleNavigateSection}
-        />
+        {/* ACT 2: AI Resume Deep Diagnosis & Rewrites (Resume Agent) */}
+        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
 
-        {/* SECTION G: 30 / 60 / 90 DAY ROADMAP */}
+        {/* ACT 3: AI LinkedIn Profile Diagnosis & Optimizer (LinkedIn Agent) */}
+        <LinkedInDeepDiagnosis linkedinAgent={reportData.linkedin_agent} />
+
+        {/* ACT 4: 30/60/90-Day Execution Roadmap & 1-on-1 Strategy Call Bridge */}
         <RoadmapTimeline
           roadmapData={reportData.roadmap}
           currentPhaseId={reportData.career_journey?.current_phase_id}
         />
 
-        {/* SECTION H: DETAILED DIAGNOSIS (EXPANDABLE TABS) */}
-        <DetailedDiagnosis
-          reportData={reportData}
-          initialTab={activeDiagnosisTab}
-        />
-
-        {/* SECTION I: FINAL NEXT ACTION */}
         <FinalNextAction
           coachData={reportData.coach_intervention}
           reportData={reportData}

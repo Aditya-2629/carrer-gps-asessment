@@ -366,8 +366,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
         </div>
       )}
 
-      {/* Deep issues (only section-level / positioning issues not already rendered in bullet audit) */}
-      {sectionLevelIssues.length > 0 && (
+      {/* Deep issues (only shown when bullet audit is not available) */}
+      {!dashboard?.bulletAudit?.length && sectionLevelIssues.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
@@ -432,8 +432,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
         </div>
       )}
 
-      {/* Priority actions */}
-      {priorityActions.length > 0 && (
+      {/* Priority actions (only shown when bullet audit is not available) */}
+      {!dashboard?.bulletAudit?.length && priorityActions.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6">
           <h3 className="text-xs font-bold text-[var(--primary)] uppercase tracking-wider flex items-center gap-2 mb-4">
             <ListChecks size={15} /> Priority Action Items — Do These First

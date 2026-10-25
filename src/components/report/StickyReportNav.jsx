@@ -3,28 +3,20 @@ import {
   Compass,
   Gauge,
   Warning,
-  Sparkle,
-  TrendDown,
-  ListChecks,
-  Path,
-  Article,
   ChartBar,
   FileText,
   LinkedinLogo,
+  Path,
 } from '@phosphor-icons/react'
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: Compass },
   { id: 'snapshot', label: 'Snapshot', icon: Gauge },
   { id: 'bottleneck', label: 'Bottleneck', icon: Warning, highlight: true },
-  { id: 'strengths', label: 'Strengths', icon: Sparkle },
+  { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
   { id: 'resume-ai', label: 'Resume AI', icon: FileText },
   { id: 'linkedin-ai', label: 'LinkedIn AI', icon: LinkedinLogo },
-  { id: 'opportunities', label: 'Opportunities', icon: TrendDown },
-  { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
-  { id: 'priorities', label: 'Priorities', icon: ListChecks },
   { id: 'roadmap', label: 'Roadmap', icon: Path },
-  { id: 'diagnosis', label: 'Deep Dive', icon: Article },
 ]
 
 export default function StickyReportNav({ candidateName, targetRole, showResumeAi = false, showLinkedinAi = false }) {

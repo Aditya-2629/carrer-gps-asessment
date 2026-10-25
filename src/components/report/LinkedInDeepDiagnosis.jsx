@@ -234,18 +234,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
   const consolidatedProjects = Array.from(projectShowcaseMap.values())
   const hasCertifications = Array.isArray(sectionsToAdd?.certifications) && sectionsToAdd.certifications.length > 0
 
-  // ── Track Seen Titles for Bottom Issues Deduplication ───────────────────
-  const seenDiagnosisTitles = new Set([
-    ...missingSections.map((s) => s.title?.toLowerCase().trim()).filter(Boolean),
-    ...discrepancies.map((d) => d.title?.toLowerCase().trim()).filter(Boolean),
-    ...topDiscrepancies.map((d) => d.title?.toLowerCase().trim()).filter(Boolean),
-  ])
-
-  const remainingIssues = (linkedinAgent.issues || []).filter(Boolean).filter((iss) => {
-    const titleKey = (iss.title || iss.name || '').toLowerCase().trim()
-    if (!titleKey || seenDiagnosisTitles.has(titleKey)) return false
-    return true
-  })
 
   // Calculate About section statistics safely
   const rawAbout = optimizations?.aboutRewrite || null
@@ -945,37 +933,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
         </div>
       )}
 
-      {/* ── 4. Profile Fixes & Recommendations (Only shown if any unique unhandled items exist) ── */}
-      {remainingIssues.length > 0 && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
-          <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
-            <WarningCircle size={15} className="text-amber-500" /> Profile Fixes & Recommendations ({remainingIssues.length})
-          </h3>
-          {remainingIssues.map((iss, i) => (
-            <div
-              key={iss.id || i}
-              className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-2.5 shadow-xs"
-            >
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${severityChip[iss.severity] || severityChip.low}`}>
-                  {safeText(iss.severity)} · {String(safeText(iss.category) || '').replace(/_/g, ' ')}
-                </span>
-                <span className="text-sm font-bold text-[var(--text-primary)]">{safeText(iss.title)}</span>
-                <span className="ml-auto">
-                  <FeedbackThumbs agent="linkedin" findingId={iss.id || `li_issue_${i}`} />
-                </span>
-              </div>
-              {iss.diagnosis && <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{safeText(iss.diagnosis)}</p>}
-              {iss.recommendation && (
-                <p className="text-xs text-[var(--text-primary)] leading-relaxed bg-[var(--surface-card)] border border-[var(--border-default)] rounded-lg p-3">
-                  <ArrowRight size={12} className="inline mr-1.5 -mt-0.5 text-[var(--primary)]" />
-                  {safeText(iss.recommendation)}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </section>
   )
 }

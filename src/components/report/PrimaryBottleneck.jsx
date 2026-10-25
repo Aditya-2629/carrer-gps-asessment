@@ -178,8 +178,8 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
               <button
                 type="button"
                 onClick={() => {
-                  if (onNavigateSection) onNavigateSection('opportunities')
-                  else document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' })
+                  if (onNavigateSection) onNavigateSection('resume-ai')
+                  else document.getElementById('resume-ai')?.scrollIntoView({ behavior: 'smooth' })
                 }}
                 className="pt-3 text-xs font-bold text-[var(--primary)] hover:underline inline-flex items-center gap-1.5 cursor-pointer mt-2"
               >
