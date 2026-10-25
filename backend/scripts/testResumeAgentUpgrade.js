@@ -233,10 +233,10 @@ test('buildBulletAudit wires bulletUpgrades into audit', () => {
   assert(projB01.rewrite.includes('Automated cloud migration'), 'proj_001_b01 must use upgrade.rewrittenText')
   assert(projB01.reason === 'Lacks quantitative outcome', 'Must use upgrade reason')
 
-  // 3. Gerund opening bullet sets quickPolishNote and rewrite = null (no 1-word before/after box!)
+  // 3. Gerund opening bullet sets quickPolishNote and provides full non-null rewrite
   const b02 = audit.find((b) => b.bulletId === 'exp_001_b02')
   assert(b02.quickPolishNote && b02.quickPolishNote.includes("Change 'Optimizing' to 'Optimized'"), 'Must set quickPolishNote')
-  assert(b02.rewrite === null, `b02 rewrite MUST be null, got: ${b02.rewrite}`)
+  assert(b02.rewrite !== null && typeof b02.rewrite === 'string', `b02 rewrite must be non-null, got: ${b02.rewrite}`)
 })
 
 // ── Test 5: orchestrator inputHash prefix ─────────────────────────────────────

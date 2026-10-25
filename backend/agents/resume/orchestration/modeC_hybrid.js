@@ -23,6 +23,7 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
+import { sanitizeSingleAddPlaceholder } from '../scoring/resumeScorecard.js'
 
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
@@ -190,6 +191,9 @@ export function sanitizeModeCOutput(analysis) {
       if (iss && !Array.isArray(iss.metricDiscoveryQuestions)) {
         iss.metricDiscoveryQuestions = []
       }
+      if (iss?.correctedText) {
+        iss.correctedText = sanitizeSingleAddPlaceholder(iss.correctedText)
+      }
     })
   } else {
     analysis.issues = []
@@ -197,15 +201,23 @@ export function sanitizeModeCOutput(analysis) {
 
   // 5b. bulletRewrites normalization
   if (Array.isArray(analysis.bulletRewrites)) {
-    analysis.bulletRewrites = analysis.bulletRewrites.filter(
-      (rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && rw.rewrittenText
-    )
+    analysis.bulletRewrites = analysis.bulletRewrites
+      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && rw.rewrittenText)
+      .map((rw) => ({
+        ...rw,
+        rewrittenText: sanitizeSingleAddPlaceholder(rw.rewrittenText),
+      }))
   } else {
     analysis.bulletRewrites = []
   }
 
   // 5c. bulletUpgrades normalization
-  analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades) ? analysis.bulletUpgrades : []
+  analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
+    ? analysis.bulletUpgrades.map((upg) => ({
+        ...upg,
+        rewrittenText: sanitizeSingleAddPlaceholder(upg.rewrittenText),
+      }))
+    : []
 
   // 6. summaryOptimization normalization
   if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
@@ -336,6 +348,7 @@ Never just swap the first verb — restructure the sentence so the Engineering O
 - Follow with the specific engineering architecture, pattern, or mechanism evidenced in the resume.
 - If the original bullet lacks a measurable metric, insert a clean metric slot "[ADD: specific metric, e.g. latency reduction % or load time delta]" (strictly NO digits inside "[ADD: ...]") and provide 1 to 3 "metricDiscoveryQuestions" to help the candidate discover that metric.
 - Do NOT invent new technologies or concrete numeric digits in "correctedText". Use existing resume facts + clean "[ADD: ...]" placeholders.
+- Enforce at most ONE "[ADD: ...]" placeholder per rewritten bullet (never include multiple placeholders like "[ADD: metric] as measured by [ADD: secondary metric]").
 
 ==================================================
 4. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")

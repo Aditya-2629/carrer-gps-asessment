@@ -333,6 +333,7 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
       ],
     }
   }
+  grades.consistency = grades.alignment
 
   const checks = [
     {

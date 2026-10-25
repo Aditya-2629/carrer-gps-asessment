@@ -172,34 +172,61 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
   // ── Consolidated Featured & Projects Showcase (Single Source of Truth) ─
   const projectShowcaseMap = new Map()
 
+  const parseProjectItem = (proj, defaultAction) => {
+    const rawTitle = safeText(proj.title || proj.name || 'Core Project')
+    const titleParts = rawTitle.split('|')
+    const cleanTitle = titleParts[0].trim()
+    const techFromTitle = titleParts.length > 1
+      ? titleParts[1].split(/[,/]+/).map((t) => t.trim()).filter(Boolean)
+      : []
+
+    const existingTech = Array.isArray(proj.technologies)
+      ? proj.technologies
+      : Array.isArray(proj.skills)
+      ? proj.skills
+      : []
+    const mergedTech = Array.from(new Set([...existingTech, ...techFromTitle]))
+
+    let description = safeText(proj.description || proj.rewrittenPitch || proj.reason || '')
+    if (!description && Array.isArray(proj.bullets) && proj.bullets.length > 0) {
+      description = proj.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+    }
+    // Clean any broken legacy templates
+    description = description
+      .replace(/platform leveraging .*? to solve core distributed workflow bottlenecks/gi, 'engineered with high-reliability distributed architecture.')
+      .trim()
+
+    return {
+      title: cleanTitle,
+      description,
+      technologies: mergedTech,
+      actionNote: proj.replaceNote || proj.actionAdvice || proj.callToAction || defaultAction,
+    }
+  }
+
   if (Array.isArray(sectionsToAdd?.projects)) {
     sectionsToAdd.projects.forEach((proj) => {
-      const key = (proj.title || '').toLowerCase().trim()
+      const parsed = parseProjectItem(proj, 'Pin to Featured section & add under LinkedIn Projects')
+      const key = parsed.title.toLowerCase().trim()
       if (!key) return
-      projectShowcaseMap.set(key, {
-        title: proj.title,
-        description: proj.description,
-        technologies: Array.isArray(proj.technologies) ? proj.technologies : [],
-        actionNote: proj.replaceNote || 'Pin to Featured section & add under LinkedIn Projects',
-      })
+      projectShowcaseMap.set(key, parsed)
     })
   }
 
   if (Array.isArray(featuredWork)) {
     featuredWork.forEach((fw) => {
-      const key = (fw.title || '').toLowerCase().trim()
+      const parsed = parseProjectItem(fw, 'Pin to Featured section on LinkedIn')
+      const key = parsed.title.toLowerCase().trim()
       if (!key) return
       if (projectShowcaseMap.has(key)) {
         const existing = projectShowcaseMap.get(key)
-        if (!existing.description && fw.reason) existing.description = fw.reason
-        if (fw.callToAction && !existing.actionNote) existing.actionNote = fw.callToAction
+        if (!existing.description && parsed.description) existing.description = parsed.description
+        if (parsed.actionNote && !existing.actionNote) existing.actionNote = parsed.actionNote
+        if (parsed.technologies.length > 0) {
+          existing.technologies = Array.from(new Set([...existing.technologies, ...parsed.technologies]))
+        }
       } else {
-        projectShowcaseMap.set(key, {
-          title: fw.title,
-          description: fw.reason,
-          technologies: [],
-          actionNote: fw.callToAction || 'Pin to Featured section on LinkedIn',
-        })
+        projectShowcaseMap.set(key, parsed)
       }
     })
   }
@@ -574,7 +601,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent }) {
                           <WarningCircle size={15} className="text-amber-500 shrink-0 mt-0.5" weight="fill" />
                           <div>
                             <span className="font-semibold text-amber-600 dark:text-amber-400">LinkedIn Gap / Alignment: </span>
-                            <span className="text-[var(--text-secondary)]">{safeText(item.linkedinGap)}</span>
+                            <span className="text-[var(--text-secondary)]">
+                              {safeText(item.linkedinGap).includes('is missing or unlinked on your LinkedIn profile')
+                                ? `LinkedIn Optimization Focus: Align vendor/client naming ('${safeText(item.company)}') with your LinkedIn experience entry and replace task-heavy descriptions with the quantified executive bullets below.`
+                                : safeText(item.linkedinGap)}
+                            </span>
                           </div>
                         </div>
                       )}

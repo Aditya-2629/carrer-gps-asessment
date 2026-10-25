@@ -603,8 +603,8 @@ h1, h2, h3, h4, h5, h6 {
   .experience-dropdown-controls {
     display: none !important;
   }
-  /* Never allow scrollbars or clipped containers in print */
-  * {
+  /* Never allow scrollbars or clipped containers in print (preserve line-clamps when specified) */
+  *:not(.line-clamp-1):not(.line-clamp-2):not(.line-clamp-3):not(.truncate) {
     overflow: visible !important;
     max-height: none !important;
   }

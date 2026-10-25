@@ -136,6 +136,9 @@ export default (
     9. CRITICAL GROUNDING RULE (NO SKILL CONTRADICTIONS):
        - Never claim a candidate's resume is missing a skill (like TypeScript, React, Python, or FastAPI) if that skill is already present in their Parsed Resume Skills, canonicalResume.skills, or VERIFIED RESUME AGENT DIAGNOSIS!
        - Only cite skills as "Missing from Resume" if they are truly absent from the entire resume.
+     10. EMPLOYER NAMING & VENDOR/CLIENT ACCURACY:
+        - When a resume lists dual employer entries (e.g. 'It America / Abbott Laboratories' or 'Collabera / Bank of America'), recognize this as standard Staffing Vendor / End Client convention.
+        - NEVER call 'It America / Abbott Laboratories' or similar resume entries a "resume typo" or "formatting error". If there is a typo (such as 'Abbot Laboratories' missing a 't'), it is on LinkedIn, not the resume!
 
     The JSON object must STRICTLY follow this exact structure, with NO additional text:
     {

@@ -94,21 +94,19 @@ export function buildDeterministicOptimizations(
       : []
 
     // Find corresponding LinkedIn role using multi-segment vendor/client matching
+    const compParts = String(e.company || '').split(/[/|\\—–-]/).map((p) => p.trim()).filter(Boolean)
     const matchedLi = liExp.find((le) => {
-      if (!le.company || !e.company) return false
-      const match = matchCompany(e.company, le.company)
-      return Boolean(match?.matched)
+      const liComp = le.company || le.companyName || le.organization || ''
+      if (!liComp || !e.company) return false
+      if (matchCompany(e.company, liComp)?.matched) return true
+      return compParts.some((part) => matchCompany(part, liComp)?.matched)
     })
 
-    const compMatch = matchedLi ? matchCompany(e.company, matchedLi.company) : null
+    const compMatch = matchedLi ? matchCompany(e.company, matchedLi.company || matchedLi.companyName) : null
 
-    let linkedinGap = 'Missing quantified production outcome metrics and modern stack proof present on your resume.'
-    if (!matchedLi) {
-      linkedinGap = `Role at "${e.company}" is missing or unlinked on your LinkedIn profile, dropping critical recruiter tenure points.`
-    } else if (compMatch?.isVendorClientMatch) {
-      linkedinGap = `Ensure consistent Vendor/Client framing ('${e.company}') during background checks, and upgrade your bullet descriptions with the quantified metrics below.`
-    } else if (matchedLi.title && e.role && matchedLi.title.toLowerCase() !== e.role.toLowerCase()) {
-      linkedinGap = `Job title mismatch on LinkedIn ("${matchedLi.title}") vs Resume ("${e.role}") causes confusion in recruiter verification.`
+    let linkedinGap = `LinkedIn Optimization Focus: Align vendor/client naming ('${e.company}') with your LinkedIn experience entry and replace task-heavy descriptions with the quantified executive bullets below.`
+    if (matchedLi && matchedLi.title && e.role && matchedLi.title.toLowerCase() !== e.role.toLowerCase()) {
+      linkedinGap = `Job title alignment: Your LinkedIn profile lists "${matchedLi.title}" while your resume positions you as "${e.role}". Standardize to "${e.role}" to maintain unified recruiter indexing.`
     }
 
     const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
@@ -131,32 +129,41 @@ export function buildDeterministicOptimizations(
     }
   })
 
-  // Projects to add from resume with replaceNote
+  // Projects to add from resume with clean title splitting and actual resume bullets
   const sectionsToAddFromResume = {
     projects: rawProjects.slice(0, 3).map((p) => {
-      const pTitle = p.title || p.name || 'Core Project'
+      const rawTitle = p.title || p.name || 'Core Project'
+      const titleParts = String(rawTitle).split('|')
+      const pTitle = titleParts[0].trim()
+      const techFromTitle = titleParts.length > 1
+        ? titleParts[1].split(/[,/]+/).map((t) => t.trim()).filter(Boolean)
+        : []
+
       const isMissingOnLi = !liProjects.some((lp) => (lp.title || lp.name || '').toLowerCase().includes(pTitle.toLowerCase().slice(0, 6)))
       const pTech = Array.isArray(p.technologies) && p.technologies.length > 0
         ? p.technologies
         : Array.isArray(p.skills) && p.skills.length > 0
         ? p.skills
         : []
-      const pTechStr = pTech.slice(0, 5).join(', ')
+      const mergedTech = Array.from(new Set([...pTech, ...techFromTitle]))
+      const pTechStr = mergedTech.slice(0, 5).join(', ')
 
-      const rawBullet = p.bullets?.[0]?.text || (typeof p.bullets?.[0] === 'string' ? p.bullets[0] : '') || p.description || ''
+      const bulletList = Array.isArray(p.bullets) ? p.bullets : []
+      const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+      const rawBullet = joinedBullets || p.description || ''
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
 
       let pitch = ''
       if (cleanBullet && cleanBullet.length >= 25) {
-        pitch = `${cleanBullet.slice(0, 160).replace(/[.]+$/, '')}. Engineered for high availability and measurable production reliability${pTechStr ? ` using ${pTechStr}` : ''}.`
+        pitch = cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.'
       } else {
-        pitch = `Production engineering project${pTechStr ? ` architected in ${pTechStr}` : ''}. Solves core system reliability and performance bottlenecks with scalable architecture.`
+        pitch = `Production engineering project${pTechStr ? ` built with ${pTechStr}` : ''}. Solves core architecture requirements with scalable, high-reliability design.`
       }
 
       return {
         title: pTitle,
         description: pitch,
-        technologies: pTech,
+        technologies: mergedTech,
         replaceNote: isMissingOnLi && liProjects.length > 0
           ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern architecture showcase.`
           : 'Feature this modern project prominently on LinkedIn to prove hands-on architecture competency.',
@@ -233,18 +240,21 @@ export function buildDeterministicOptimizations(
     'Canva Banner: Use 1584x396px resolution, high-contrast dark theme, and leave the lower-left 30% area clear for mobile avatar overlap.',
   ]
 
+  const baseRole = String(targetRole || 'Software Engineer').replace(/^(?:Senior|Lead|Staff|Principal|Junior)\s+/i, '').trim()
+  const openToWorkTitles = [
+    `Senior ${baseRole}`,
+    `Lead ${baseRole}`,
+    `Staff ${baseRole}`,
+    baseRole,
+    `${baseRole.replace(/Developer/i, 'Engineer') !== baseRole ? `Senior ${baseRole.replace(/Developer/i, 'Engineer')}` : `Principal ${baseRole}`}`,
+  ]
+
   const visibilityTricks = [
     {
       category: 'Open to Work Titles',
       trick: '1. Set 5 Exact Job Titles in "Open to Work"',
       advice: 'LinkedIn Recruiter search filters match candidate "Job Titles" strictly. Add these 5 exact titles to your private Open to Work preferences:',
-      items: [
-        targetRole,
-        `Senior ${targetRole.replace(/^Senior\s+/i, '')}`,
-        `Lead ${targetRole.replace(/^Senior\s+|^Lead\s+/i, '')}`,
-        `${targetRole.replace(/^Senior\s+|^Lead\s+/i, '')} Specialist`,
-        `Staff ${targetRole.replace(/^Senior\s+|^Lead\s+/i, '')}`,
-      ],
+      items: openToWorkTitles,
     },
     {
       category: 'Top 3 Pinned Skills',
@@ -551,12 +561,19 @@ export async function runLinkedInSynthesis(
     let visibilityTricks = fallback.visibilityTricks
     const rawTricks = task2Result?.visibilityTricks || task1Result?.visibilityTricks
     if (Array.isArray(rawTricks) && rawTricks.length > 0) {
-      visibilityTricks = rawTricks.slice(0, 5).map((vt, idx) => ({
-        category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
-        trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
-        advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
-        items: Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || []),
-      }))
+      visibilityTricks = rawTricks.slice(0, 5).map((vt, idx) => {
+        let items = Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || [])
+        if (/open\s+to\s+work/i.test(vt.category || vt.trick || '')) {
+          const uniqueItems = Array.from(new Set(items.filter(Boolean)))
+          items = uniqueItems.length >= 4 ? uniqueItems.slice(0, 5) : fallback.visibilityTricks[0].items
+        }
+        return {
+          category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
+          trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
+          advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
+          items,
+        }
+      })
     }
 
     // Recommended skills to add

@@ -147,7 +147,7 @@ export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, 
               key={m.id}
               whileHover={{ y: -3, transition: { duration: 0.2 } }}
               onClick={() => handleClick(m)}
-              className="group p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+              className="group p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between print:h-auto"
             >
               <div className="space-y-3">
                 {/* Card Top: Icon & Status Badge */}
@@ -191,7 +191,7 @@ export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, 
                 </div>
 
                 {/* One-Line Explanation */}
-                <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed line-clamp-2">
+                <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed line-clamp-2 print:line-clamp-none print:mb-2">
                   {m.explanation}
                 </p>
               </div>

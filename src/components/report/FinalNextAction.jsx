@@ -38,8 +38,8 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
   const ctaText = safeText(coachData?.cta_text, 'Book Free 1-on-1 Career Strategy Call')
 
   return (
-    <section id="next-action" className="pt-4 pb-12 print-keep">
-      <div className="p-7 sm:p-10 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-7">
+    <section id="next-action" className="pt-4 pb-12 print-keep print-card break-inside-avoid page-break-inside-avoid">
+      <div className="p-7 sm:p-10 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-7 print-card break-inside-avoid page-break-inside-avoid print:p-6 print:space-y-4">
         {/* Soft Primary Gradient Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none" />
 

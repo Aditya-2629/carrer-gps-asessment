@@ -452,9 +452,9 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
     const lExp = matchedExp
 
-    // Red Flag 1: Company Name Typo & Missing Logo (Bypass if Vendor/Client pair matched)
-    const hasSpellingMismatch = matchMeta?.diff > 0 && !matchMeta?.isVendorClientMatch
-    const hasNullLogo = lExp.companyLogo === null && !matchMeta?.isVendorClientMatch
+    // Red Flag 1: Company Name Typo & Missing Logo (flag if diff > 0 or unlinked logo)
+    const hasSpellingMismatch = matchMeta?.diff > 0
+    const hasNullLogo = lExp.companyLogo === null && (!matchMeta?.isVendorClientMatch || matchMeta?.diff > 0)
     if (hasSpellingMismatch || hasNullLogo) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
@@ -464,8 +464,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         company: rExp.company,
         resumeClaim: rExp.company,
         linkedinClaim: `${lExp.company}${hasNullLogo ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
-        diagnosis: `Misspelling the employer name on LinkedIn ("${lExp.company}" vs "${rExp.company}") prevents LinkedIn from binding the official company page entity and leaves a generic placeholder logo, immediately raising authenticity flags during recruiter screening.`,
-        recommendation: `Fix the spelling to match the official LinkedIn Company Page ("${rExp.company}") and select the verified organization from the dropdown so the official logo renders.`,
+        diagnosis: `Your LinkedIn profile spells the employer as '${lExp.company}'${matchMeta?.diff > 0 ? ' (minor typo)' : ''}, which breaks official LinkedIn company logo binding, whereas your resume lists '${rExp.company}' (${matchMeta?.isVendorClientMatch ? 'Staffing Vendor / End Client' : 'Verified Employer Name'}).`,
+        recommendation: `Fix the spelling on LinkedIn to match the official LinkedIn Company Page ("${rExp.company.split(/[/|\\—–-]/)[1]?.trim() || rExp.company}") and select the verified organization from the dropdown so the official logo renders.`,
       }
       timelineMismatches.push(typoObs)
       discrepancies.push(typoObs)
@@ -622,17 +622,15 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
   })
 
   if (missingSkills.length >= 3) {
-    const topMissingPreview = missingSkills.slice(0, 5).join(', ')
+    const topMissing = missingSkills.slice(0, 10)
+    const topMissing5 = topMissing.slice(0, 5).join(', ')
+    const topMissing6 = topMissing.slice(0, 6).join(', ')
     const isAtCap = linkedInSkills.length >= 45
     const title = isAtCap
       ? `Optimize Your ${linkedInSkills.length}/50 LinkedIn Skill Slots (Swap Legacy Tags for High-Value Keywords)`
-      : `${missingSkills.length} Verified Resume Skills Missing from LinkedIn`
-    const diagnosis = isAtCap
-      ? `Your LinkedIn is at or near the 50-skill maximum limit (${linkedInSkills.length}/50), but high-priority resume skills (${topMissingPreview}) are missing. Recruiter search algorithms prioritize exact matches for modern stack keywords.`
-      : `Your resume demonstrates proficiency in core technologies (${topMissingPreview}) that are not in your LinkedIn Skills bank. Recruiter search algorithms rank candidates directly by exact skills matches.`
-    const recommendation = isAtCap
-      ? `Remove 5 generic or legacy skills from LinkedIn and replace them with these high-converting recruiter search terms (${topMissingPreview}).`
-      : `Add the top missing skills (${topMissingPreview}) to your LinkedIn Skills section and pin the top 3 relevant to ${targetRole || 'your target role'}.`
+      : `High-Impact Resume Skills Missing from LinkedIn (${topMissing5})`
+    const diagnosis = `Your LinkedIn profile lists ${linkedInSkills.length}/50 skills, but omits high-value recruiter filter keywords proven on your resume (${topMissing6}). Swap out generic legacy tags on LinkedIn to make room for these core stack keywords.`
+    const recommendation = `Remove 5 generic or legacy skills from LinkedIn and replace them with these high-converting recruiter search terms (${topMissing5}). Pin the top 3 relevant to ${targetRole || 'your target role'}.`
 
     const skillGapObs = {
       id: `skill_gap_${skillGaps.length + 1}`,
@@ -685,7 +683,9 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         recommendation: `Add your top modern resume projects (${projectNames}) to your LinkedIn Projects and Featured sections with GitHub links and architecture overviews.`,
       }
       const omissionType = linkedInProjects.length === 0 ? 'missing_projects' : 'missing_modern_projects'
-      missingSections.push({ ...projectOmission, type: omissionType })
+      const finalProjectObs = { ...projectOmission, type: omissionType }
+      missingSections.push(finalProjectObs)
+      discrepancies.push(finalProjectObs)
     }
   }
 
@@ -751,6 +751,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
           recommendation: `Align your academic timeline across both documents. If this is an active degree program, state it consistently or provide context on your full-time availability.`,
         }
         missingSections.push(unlistedEduObs)
+        discrepancies.push(unlistedEduObs)
       } else {
         // Red Flag 5: Incomplete Education Metadata on LinkedIn — Missing fieldOfStudy
         const hasFieldOfStudy = Boolean(lEdu.fieldOfStudy && lEdu.fieldOfStudy.trim())
@@ -768,6 +769,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
             recommendation: `Edit the education entry for ${lEdu.school} on LinkedIn to explicitly set the Field of Study.`,
           }
           missingSections.push(missingFieldObs)
+          discrepancies.push(missingFieldObs)
         }
       }
     }
@@ -786,6 +788,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       recommendation: `Add your complete education background (${institutions || 'University'}) to your LinkedIn profile.`,
     }
     missingSections.push(eduOmission)
+    discrepancies.push(eduOmission)
   }
 
   // Certifications
@@ -816,14 +819,20 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         recommendation: `Add ${certNames} to your LinkedIn Licenses & Certifications section with issuing authorities and credential URLs.`,
       }
       missingSections.push(certOmission)
+      discrepancies.push(certOmission)
     }
   }
 
-  // Deduplicate discrepancies so section omissions never duplicate
-  const missingSectionIds = new Set(missingSections.map((s) => s.id || s.title))
-  const cleanDiscrepancies = discrepancies.filter(
-    (d) => !missingSectionIds.has(d.id) && !missingSectionIds.has(d.title)
-  )
+  // Deduplicate discrepancies by ID/title so items never duplicate
+  const seenDiscKeys = new Set()
+  const cleanDiscrepancies = []
+  for (const d of discrepancies) {
+    const key = d.id || d.title
+    if (!seenDiscKeys.has(key)) {
+      seenDiscKeys.add(key)
+      cleanDiscrepancies.push(d)
+    }
+  }
 
   const timelineWarnings = [...timelineMismatches]
 
@@ -837,7 +846,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     titleDriftCount: titleDrift.length,
     skillGapsCount: skillGaps.length,
     droppedImpactCount: droppedImpact.length,
-    missingSkillsCount: missingSkills.length,
+    missingSkillsCount: Math.min(missingSkills.length, 10),
     missingSectionsCount: missingSections.length,
   }
 
