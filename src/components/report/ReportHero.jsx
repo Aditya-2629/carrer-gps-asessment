@@ -176,14 +176,27 @@ export default function ReportHero({ reportData }) {
 
   const cleanBottleneck = String(rawBottleneck || 'Application & Targeting Alignment').replace(/\.+$/, '').trim()
 
+  // Detection of corporate experience extraction gaps (e.g. PwC, Shure listed without bullets)
+  const experiences = candidate?.experiences || candidate?.experience || resumeAgent?.canonicalResume?.experiences || []
+  const totalWorkBullets = experiences.reduce(
+    (sum, exp) => sum + (Array.isArray(exp.bullets) ? exp.bullets.length : (exp.bullet ? 1 : 0)),
+    0
+  )
+  const missingCompanyNames = experiences
+    .map((e) => e.company || e.role)
+    .filter(Boolean)
+    .slice(0, 3)
+  const formattedCompanyNames = missingCompanyNames.length > 0 ? missingCompanyNames.join(' and ') : 'corporate'
+  const hasExtractedExperienceGaps = experiences.length > 0 && totalWorkBullets === 0
+
   return (
     <section id="overview" className="relative pt-2 pb-6 print:pt-0 print:pb-2">
       {/* Soft Ambient Glow */}
       <div className="absolute -top-12 -left-12 w-80 h-80 bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none print:hidden" />
       <div className="absolute top-10 right-0 w-80 h-80 bg-[var(--emerald)]/5 rounded-full blur-3xl pointer-events-none print:hidden" />
 
-      {/* Main Hero Card Container */}
-      <div className="rounded-3xl p-6 sm:p-9 print:p-5 bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm relative overflow-hidden print:border-none print:shadow-none">
+      {/* Main Hero Card Container (Page 1) */}
+      <div className="rounded-3xl p-6 sm:p-9 print:p-5 bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm relative overflow-hidden print:border-none print:shadow-none break-inside-avoid page-break-inside-avoid">
         {/* Top Badges Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-6 print:pb-3 border-b border-[var(--border-default)]">
           <div className="flex items-center gap-2">
@@ -260,27 +273,39 @@ export default function ReportHero({ reportData }) {
             </div>
 
             {/* Coach One-Line Key Diagnosis Card */}
-            {(cleanAdvantage || cleanBottleneck) && (
+            {(cleanAdvantage || cleanBottleneck || hasExtractedExperienceGaps) && (
               <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2.5 break-inside-avoid page-break-inside-avoid">
                 <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
                   <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
                   <span>Coach Executive Diagnosis</span>
                 </div>
                 <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
-                  &ldquo;Your strongest advantage is your proven track record of{' '}
-                  <strong className="text-[var(--emerald)] font-bold">{cleanAdvantage}</strong>
-                  {cleanCompany ? ` at ${cleanCompany}` : ''}. Your primary bottleneck right now is{' '}
-                  <strong className="text-red-500 dark:text-red-400 font-bold">
-                    {cleanBottleneck}
-                  </strong>
-                  .&rdquo;
+                  {hasExtractedExperienceGaps ? (
+                    <>
+                      &ldquo;Your primary bottleneck right now is that your{' '}
+                      <strong className="text-red-500 dark:text-red-400 font-bold">
+                        {formattedCompanyNames} work bullets failed ATS extraction due to non-standard layout formatting
+                      </strong>
+                      {' '}— convert to standard single-column reverse-chronological format to restore recruiter visibility.&rdquo;
+                    </>
+                  ) : (
+                    <>
+                      &ldquo;Your strongest advantage is your proven track record of{' '}
+                      <strong className="text-[var(--emerald)] font-bold">{cleanAdvantage}</strong>
+                      {cleanCompany ? ` at ${cleanCompany}` : ''}. Your primary bottleneck right now is{' '}
+                      <strong className="text-red-500 dark:text-red-400 font-bold">
+                        {cleanBottleneck}
+                      </strong>
+                      .&rdquo;
+                    </>
+                  )}
                 </p>
 
                 {/* Hidden Gem #1: 6-Second Human Recruiter Scan Verdict */}
                 <div className="mt-3 pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-start gap-2 bg-[var(--surface-card)] p-3 rounded-xl">
                   <span className="text-amber-500 font-bold shrink-0">⏱️ 6-Second Recruiter Verdict:</span>
                   <span>
-                    A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {(skillsList || []).slice(0, 2).join(' and ') || 'modern stacks'}; however, recruiter conversion risks stalling due to {reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'missing keyword alignment with target boolean searches'}.
+                    A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {(skillsList || []).slice(0, 2).join(' and ') || 'modern stacks'}; however, recruiter conversion risks stalling due to {hasExtractedExperienceGaps ? 'missing extracted bullets under verified employer roles' : (reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'missing keyword alignment with target boolean searches')}.
                   </span>
                 </div>
               </div>
@@ -346,79 +371,79 @@ export default function ReportHero({ reportData }) {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* GPS Diagnostic Summary Bar (Section 16 Table) */}
-        <div className="mt-6 pt-6 border-t border-[var(--border-default)] break-before-page page-break-before-always break-inside-avoid page-break-inside-avoid print:mt-4 print:pt-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)]">
-              Executive GPS Diagnostic Summary
+      {/* Standalone Executive GPS Diagnostic Summary (Enclosed to start cleanly on Page 2) */}
+      <div className="mt-6 p-6 print:p-4 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] print:border-none shadow-sm break-before-page page-break-before-always break-inside-avoid page-break-inside-avoid print:mt-2">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)]">
+            Executive GPS Diagnostic Summary
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Current Phase */}
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
+              Current Phase
             </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-[var(--text-primary)]">
+                Phase {reportData?.phase?.id ?? 1}: {reportData?.phase?.shortName || reportData?.phase?.name || 'Top of Funnel'}
+              </span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${reportData?.phase?.isProvisional ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
+                {reportData?.phase?.isProvisional ? 'Provisional' : (reportData?.phase?.confidence || 'High')}
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {/* Current Phase */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
-                Current Phase
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-bold text-[var(--text-primary)]">
-                  Phase {reportData?.phase?.id ?? 1}: {reportData?.phase?.shortName || reportData?.phase?.name || 'Top of Funnel'}
-                </span>
-                <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${reportData?.phase?.isProvisional ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-                  {reportData?.phase?.isProvisional ? 'Provisional' : (reportData?.phase?.confidence || 'High')}
-                </span>
-              </div>
-            </div>
+          {/* Primary Problem */}
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 block mb-1">
+              Primary Root Cause
+            </span>
+            <p
+              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
+              title={cleanBottleneck}
+            >
+              {cleanBottleneck}
+            </p>
+          </div>
 
-            {/* Primary Problem */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 block mb-1">
-                Primary Root Cause
-              </span>
-              <p
-                className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-                title={cleanBottleneck}
-              >
-                {cleanBottleneck}
-              </p>
-            </div>
+          {/* Secondary Problem */}
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block mb-1">
+              Secondary Root Cause
+            </span>
+            <p
+              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
+              title={reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
+            >
+              {reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
+            </p>
+          </div>
 
-            {/* Secondary Problem */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block mb-1">
-                Secondary Root Cause
-              </span>
-              <p
-                className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-                title={reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
-              >
-                {reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
-              </p>
-            </div>
+          {/* Strongest Area */}
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block mb-1">
+              Strongest Area
+            </span>
+            <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2">
+              {reportData?.strongest_area || 'Resume / Documents (18/25)'}
+            </p>
+          </div>
 
-            {/* Strongest Area */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block mb-1">
-                Strongest Area
-              </span>
-              <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2">
-                {reportData?.strongest_area || 'Resume / Documents (18/25)'}
-              </p>
-            </div>
-
-            {/* Next Best Action */}
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
-                Next Best Action
-              </span>
-              <p
-                className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-                title={reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
-              >
-                {reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
-              </p>
-            </div>
+          {/* Next Best Action */}
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
+              Next Best Action
+            </span>
+            <p
+              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
+              title={reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
+            >
+              {reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
+            </p>
           </div>
         </div>
       </div>

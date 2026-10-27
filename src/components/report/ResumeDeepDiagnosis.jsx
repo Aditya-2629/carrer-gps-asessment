@@ -264,7 +264,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
 
         {/* What's Working Strengths */}
         {strengths.length > 0 && (
-          <div className="bg-[var(--surface-card)] border border-emerald-500/30 rounded-2xl p-6 space-y-3">
+          <div className="bg-[var(--surface-card)] border border-emerald-500/30 rounded-2xl p-6 space-y-3 break-inside-avoid page-break-inside-avoid print-card">
             <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider flex items-center gap-2">
               <CheckCircle size={16} weight="fill" /> What's Working on Your Resume ({strengths.length})
             </h3>
@@ -275,7 +275,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
                 const desc = isObj ? (str.description || str.text || '') : String(str || '')
 
                 return (
-                  <li key={isObj ? str.id || i : i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2.5 leading-relaxed">
+                  <li key={isObj ? str.id || i : i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2.5 leading-relaxed break-inside-avoid page-break-inside-avoid">
                     <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
                     <div className="min-w-0">
                       {title && (

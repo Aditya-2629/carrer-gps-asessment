@@ -371,17 +371,18 @@ export function detectHiringPhase({ answers = {}, resumeAgent = null, linkedinAg
 
   // 1. Funnel Metric Normalization (30-Day Pace & 90-Day Totals)
   const apps30d = extractQuantMetric(ans.apps30d ?? (ans.appsWeek ? ans.appsWeek * 4.33 : null), 0, 'month').rawNum
-  const recruiterScreens = Number(ans.funnel90d?.recruiterScreens ?? ans.funnel90d?.screens ?? ans.interviews ?? ans.humanScreen ?? 0)
-  const assessments = Number(ans.funnel90d?.assessments ?? 0)
-  const aiInterviews = Number(ans.funnel90d?.aiInterviews ?? 0)
+  const recruiterScreens = Number(ans.funnel90d?.recruiterScreens ?? ans.funnel90d?.screens ?? ans.recruiterScreens ?? ans.screens ?? ans.interviews ?? ans.humanScreen ?? 0)
+  const assessments = Number(ans.funnel90d?.assessments ?? ans.assessments ?? ans.oas ?? ans.oa ?? 0)
+  const aiInterviews = Number(ans.funnel90d?.aiInterviews ?? ans.aiInterviews ?? 0)
 
-  const screens90d = recruiterScreens + assessments + aiInterviews
-  const screens30d = Math.round(screens90d / 3)
+  const totalScreens = recruiterScreens + assessments + aiInterviews
+  const screens90d = totalScreens
+  const screens30d = Math.max(Math.round(screens90d / 3), Number(ans.screens30d || 0))
 
-  const techs90d = Number(ans.funnel90d?.technicalRounds ?? ans.technicalRounds ?? ans.technical ?? ans.funnel90d?.assessments ?? ans.assessments ?? 0)
+  const techs90d = Number(ans.funnel90d?.technicalRounds ?? ans.funnel90d?.technicals ?? ans.funnel90d?.techs ?? ans.technicalRounds ?? ans.technical ?? 0)
   const techs30d = Math.max(Math.round(techs90d / 3), Number(ans.technicalRounds30d ?? ans.techs30d ?? 0))
 
-  const finals90d = Number(ans.funnel90d?.finalRounds ?? ans.finalRounds ?? ans.finals ?? ans.funnel90d?.finals ?? 0)
+  const finals90d = Number(ans.funnel90d?.finalRounds ?? ans.funnel90d?.finals ?? ans.finalRounds ?? ans.finals ?? 0)
   const finals30d = Math.max(Math.round(finals90d / 3), Number(ans.finalRounds30d ?? ans.finals30d ?? 0))
 
   const offers90d = Number(ans.funnel90d?.offers ?? ans.offers ?? 0)
@@ -395,35 +396,38 @@ export function detectHiringPhase({ answers = {}, resumeAgent = null, linkedinAg
   let detectedPhaseId = 1
   let detectionSource = 'observed_funnel'
 
-  // 2. Opportunity-Gated Exact Phase Evaluation
+  // 2. Detection Priority Rule:
+  // Gate 1: Offer / Onboarding Gate (Phase 5)
   if (offers90d >= 1 && (joiningStatus.toLowerCase().includes('delayed') || joiningStatus.toLowerCase().includes('blocked') || selfReportedPhase === 5 || dropOffStage.includes('joining'))) {
     detectedPhaseId = 5
-  } else if (((finals90d >= 3 || finals30d >= 3) || (finals90d >= 2 && (selfReportedPhase === 4 || dropOffStage.includes('onsite')))) && offers90d === 0) {
+  }
+  // Gate 2: Final Round -> Offer (Phase 4): If finalRounds >= 1 and offers === 0
+  else if ((finals90d >= 1 || finals30d >= 1) && offers90d === 0) {
     detectedPhaseId = 4
-  } else if (finals90d >= 1 || finals30d >= 1) {
-    // Candidate reached final round(s)! Never force into Phase 1.
-    if (selfReportedPhase === 4 || finals90d >= 2) {
-      detectedPhaseId = 4
-    } else {
-      detectedPhaseId = 3 // Technical -> Final Round
-    }
-  } else if (techs90d >= 1 || techs30d >= 1) {
-    // Candidate reached live technical round(s)! Never force into Phase 1.
-    if (techs90d >= 2 || selfReportedPhase === 3) {
-      detectedPhaseId = 3
-    } else {
-      detectedPhaseId = 2 // Screening -> Technical
-    }
-  } else if ((screens90d >= 5 || screens30d >= PHASE_THRESHOLDS.phase2MinScreens30d) && techs30d < PHASE_THRESHOLDS.phase2MaxTechRounds30d && (screens90d === 0 || (techs90d / screens90d) < 0.45)) {
+  }
+  // Gate 3: Technical -> Final Round (Phase 3): If technicalRounds >= 1 and finalRounds === 0
+  else if (techs90d >= 1 || techs30d >= 1) {
+    detectedPhaseId = 3
+  }
+  // Gate 4: Screening -> Technical Round (Phase 2): If totalScreens >= 3 and technicalRounds < 1
+  else if (totalScreens >= 3 || screens30d >= 2) {
     detectedPhaseId = 2
-  } else if (apps30d < PHASE_THRESHOLDS.minApps30dForActiveSearch || (resumeScore < PHASE_THRESHOLDS.minResumeScoreForReadiness && screens90d === 0) || selfReportedPhase === 6 || dropOffStage.includes('readiness')) {
-    detectedPhaseId = 6
-  } else if (apps30d >= PHASE_THRESHOLDS.minApps30dForActiveSearch && screens30d < PHASE_THRESHOLDS.phase1MaxScreens30d) {
+  }
+  // Gate 5: Application -> Screening (Phase 1): Only if totalScreens < 3 and apps >= 10
+  else if (apps30d >= 10 && totalScreens < 3) {
     detectedPhaseId = 1
-  } else if (selfReportedPhase) {
-    // Priority 3: Self-Reported Stuck Stage fallback
+  }
+  // Gate 6: Resume -> Application Readiness (Phase 6): Low applications (<10) & 0 screens
+  else if (apps30d < 10 && totalScreens === 0) {
+    detectedPhaseId = 6
+  }
+  // Fallback to Self-Reported Phase if observed funnel had no volume
+  else if (selfReportedPhase) {
     detectionSource = 'self_reported'
     detectedPhaseId = selfReportedPhase
+  }
+  else {
+    detectedPhaseId = 1
   }
 
   // 3. Provisional & Confidence Logic
@@ -522,8 +526,10 @@ export function synthesizeRootCauseAndActions({
 
   const rawApps30 = parseNum(ans.apps30d) || (parseNum(ans.appsWeek) * 4) || 0
   const rawApps90 = parseNum(ans.applications90d) || parseNum(ans.funnel90d?.applications90d) || (rawApps30 * 3) || 0
-  const rawScreens90 = parseNum(ans.recruiterScreens) || parseNum(ans.funnel90d?.recruiterScreens) || parseNum(ans.interviews) || 0
-  const isHighVolumeLowCallback = (rawApps90 >= 250 || rawApps30 >= 70) && (rawScreens90 <= 3 || (rawScreens90 / Math.max(1, rawApps90)) < 0.01)
+  const rawScreens90 = (parseNum(ans.recruiterScreens) || parseNum(ans.funnel90d?.recruiterScreens) || 0) +
+                       (parseNum(ans.assessments) || parseNum(ans.funnel90d?.assessments) || 0) +
+                       (parseNum(ans.aiInterviews) || parseNum(ans.funnel90d?.aiInterviews) || 0) || parseNum(ans.interviews) || 0
+  const isHighVolumeLowCallback = phase.id === 1 && (rawApps90 >= 250 || rawApps30 >= 70) && (rawScreens90 <= 3 || (rawScreens90 / Math.max(1, rawApps90)) < 0.01)
 
   if (isHighVolumeLowCallback) {
     primary_bottleneck = {
@@ -623,14 +629,42 @@ export function synthesizeRootCauseAndActions({
     {
       title: phase.id === 6
         ? 'Calibrate Core Resume & Build Daily Rhythm'
-        : (phase.id === 1 ? 'Quantify Top 5 Resume Bullets' : (phase.id === 2 ? 'Script 60-Second Recruiter Pitch' : 'Master Live Technical Architecture Walkthrough')),
-      category: phase.id === 6 ? 'Asset Preparation' : (phase.id === 1 ? 'Resume Optimization' : (phase.id === 2 ? 'Screening Pitch' : 'Technical Prep')),
+        : (phase.id === 1
+          ? 'Quantify Top 5 Resume Bullets'
+          : (phase.id === 2
+            ? 'Script 60-Second Recruiter Pitch'
+            : (phase.id === 3
+              ? 'Master Live Technical Architecture Walkthrough'
+              : (phase.id === 4
+                ? 'Executive Alignment & Final Round Closing Strategy'
+                : 'Pre-compile Onboarding Verification Documents')))),
+      category: phase.id === 6
+        ? 'Asset Preparation'
+        : (phase.id === 1
+          ? 'Resume Optimization'
+          : (phase.id === 2
+            ? 'Screening Pitch'
+            : (phase.id === 3
+              ? 'Technical Prep'
+              : (phase.id === 4
+                ? 'Closing Strategy'
+                : 'Offer Verification')))),
       whyItMatters: primary_bottleneck.whyItMatters,
       whatToDo: next_best_action,
-      resourceTool: phase.id === 1 || phase.id === 6 ? 'Crafture STAR Bullet Builder' : (phase.id === 2 ? 'Recruiter Scripting Framework' : 'System Design Primer & LeetCode'),
-      duration: '3–5 hours',
-      successMetric: phase.id === 1 || phase.id === 6 ? '100% of top role bullets include quantified metrics' : 'Scheduled recruiter calls convert at >50%',
-      followUp: 'Track response rate over next 10 targeted applications.',
+      resourceTool: phase.id === 1 || phase.id === 6
+        ? 'Crafture STAR Bullet Builder'
+        : (phase.id === 2
+          ? 'Recruiter Scripting Framework'
+          : (phase.id === 4
+            ? 'Executive Alignment Matrix & Closing Playbook'
+            : 'System Design Primer & LeetCode')),
+      duration: phase.id === 4 ? '2–3 hours' : '3–5 hours',
+      successMetric: phase.id === 1 || phase.id === 6
+        ? '100% of top role bullets include quantified metrics'
+        : (phase.id === 4
+          ? 'Formal written offer received within 30 days'
+          : 'Scheduled recruiter calls convert at >50%'),
+      followUp: phase.id === 4 ? 'Conduct debrief on past final interview questions.' : 'Track response rate over next 10 targeted applications.',
     },
     {
       title: 'Implement 5-to-1 Targeted Outbound System',

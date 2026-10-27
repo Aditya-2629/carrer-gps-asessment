@@ -229,7 +229,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
       </div>
 
       {/* Top 3 Prioritized Actions Section */}
-      <div className="space-y-3 pt-2 break-inside-avoid page-break-inside-avoid">
+      <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Flag size={18} weight="fill" className="text-[var(--primary)]" />

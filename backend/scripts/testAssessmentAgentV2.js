@@ -88,12 +88,23 @@ const phase2 = detectHiringPhase({
 console.log(`   [Scenario B] 50 apps, 6 screens, 0 tech -> Phase ${phase2.id}: ${phase2.name} (Confidence: ${phase2.confidence})`)
 if (phase2.id !== 2) throw new Error(`Expected Phase 2, got Phase ${phase2.id}`)
 
-// Scenario C: Phase 3 (Spec Example: 100 apps, 8 screens, 5 techs, 1 final, 0 offers)
+// Scenario C: Phase 3 (100 apps, 8 screens, 4 techs, 0 finals, 0 offers)
 const phase3 = detectHiringPhase({
-  answers: { ...mockAnswers, apps30d: '100', funnel90d: { screens: 8, assessments: 5, finals: 1, offers: 0 } },
+  answers: { ...mockAnswers, apps30d: '100', funnel90d: { screens: 8, technicalRounds: 4, finalRounds: 0, offers: 0 } },
 })
-console.log(`   [Scenario C] 100 apps, 8 screens, 5 techs, 1 final -> Phase ${phase3.id}: ${phase3.name} (Confidence: ${phase3.confidence})`)
+console.log(`   [Scenario C] 100 apps, 8 screens, 4 techs, 0 finals -> Phase ${phase3.id}: ${phase3.name} (Confidence: ${phase3.confidence})`)
 if (phase3.id !== 3) throw new Error(`Expected Phase 3, got Phase ${phase3.id}`)
+
+// Scenario User: Candidate with 2 recruiter screens, 3 OAs, 2 tech rounds, 1 final round, 0 offers -> Phase 4!
+const userCandidatePhase = detectHiringPhase({
+  answers: {
+    ...mockAnswers,
+    apps30d: '90',
+    funnel90d: { recruiterScreens: 2, assessments: 3, technicalRounds: 2, finalRounds: 1, offers: 0 },
+  },
+})
+console.log(`   [Scenario User] 2 screens, 3 OAs (5 total), 2 tech, 1 final, 0 offers -> Phase ${userCandidatePhase.id}: ${userCandidatePhase.name}`)
+if (userCandidatePhase.id !== 4) throw new Error(`Expected Phase 4, got Phase ${userCandidatePhase.id}`)
 
 // Scenario D: Phase 4 (60 apps, 6 screens, 4 techs, 3 finals, 0 offers)
 const phase4 = detectHiringPhase({
@@ -145,18 +156,18 @@ if (highVolResult.primary_bottleneck.title !== 'High-Volume Portal Black Hole (A
 }
 
 // Scenario H: Haswanth / Deepanjan late-stage funnel (200 apps, 2 tech rounds, 1 final round)
-// Even with 200 apps and low screens, candidate completed technical and final rounds -> MUST detect Phase 3 (never Phase 1)!
+// Candidate completed technical and final rounds -> MUST detect Phase 4: Final Round → Offer!
 const lateStagePhase = detectHiringPhase({
   answers: {
     ...mockAnswers,
     apps30d: '70',
     funnel90d: { applications90d: 200, recruiterScreens: 3, technicalRounds: 2, finalRounds: 1, offers: 0 },
-    DropOffStage: 'Phase 3: Technical → Final Round',
+    DropOffStage: 'Phase 4: Final Round → Offer',
   },
 })
 console.log(`   [Scenario H] Haswanth/Deepanjan (200 apps, 2 tech, 1 final) -> Phase ${lateStagePhase.id}: ${lateStagePhase.name}`)
-if (lateStagePhase.id !== 3) {
-  throw new Error(`Expected Phase 3 for late-stage interview candidate, got Phase ${lateStagePhase.id}`)
+if (lateStagePhase.id !== 4) {
+  throw new Error(`Expected Phase 4 for late-stage interview candidate with final round, got Phase ${lateStagePhase.id}`)
 }
 
 // Scenario I: Candidate with valid LinkedIn URL -> Never assigned Blank LinkedIn bottleneck

@@ -1102,7 +1102,7 @@ function ReportDashboardContent() {
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
-      <main className="max-w-6xl mx-auto px-4 pt-6 pb-4 space-y-10 print:px-0 print:py-0 print:space-y-3">
+      <main className="max-w-6xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
         {/* SECTION 1: HERO & SCORECARD */}
         <ReportHero reportData={reportData} />
 
@@ -1156,7 +1156,7 @@ function ReportDashboardContent() {
         />
 
         {/* ─── Footer (Anchored with FinalNextAction to avoid trailing blank page) ─── */}
-        <footer className="border-t border-[var(--border-default)] mt-4 pt-3 pb-2 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-3 print:pt-2 print:pb-1">
+        <footer className="border-t border-[var(--border-default)] mt-4 pt-3 pb-2 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
           <p className="font-medium">
             Crafture Career GPS AI • Confidential Candidate Career Intelligence
           </p>
