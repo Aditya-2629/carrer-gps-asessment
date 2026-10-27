@@ -39,6 +39,20 @@ const STATUS_STYLES = {
   },
 }
 
+export function balanceParentheses(str) {
+  if (!str || typeof str !== 'string') return str
+  const openCount = (str.match(/\(/g) || []).length
+  const closeCount = (str.match(/\)/g) || []).length
+  if (openCount > closeCount) {
+    const diff = openCount - closeCount
+    if (/\.\s*$/.test(str)) {
+      return str.replace(/\.\s*$/, ')'.repeat(diff) + '.')
+    }
+    return str + ')'.repeat(diff)
+  }
+  return str
+}
+
 function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
   let count = 0
@@ -50,7 +64,7 @@ function cleanRewriteText(text) {
   cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
   cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
   cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
-  return cleaned
+  return balanceParentheses(cleaned)
 }
 
 function ActionableBulletCard({ bullet, matchedIssue, light }) {
@@ -60,14 +74,15 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
     : 'bg-amber-50 border-amber-200 text-amber-700 font-bold'
   const badgeLabel = isFix ? 'FIX' : 'IMPROVE'
 
-  const issueTitle =
+  const issueTitle = balanceParentheses(
     matchedIssue?.title ||
     bullet.reasonTitle ||
     bullet.reason ||
     (isFix ? 'Critical Phrasing Issue' : 'Phrasing Improvement')
+  )
 
-  const diagnosis = matchedIssue?.diagnosis || bullet.reason
-  const whyItMatters = matchedIssue?.whyItMatters || null
+  const diagnosis = balanceParentheses(matchedIssue?.diagnosis || bullet.reason)
+  const whyItMatters = balanceParentheses(matchedIssue?.whyItMatters || null)
   const rawRewrite =
     bullet.rewrite ||
     matchedIssue?.correctedText ||
@@ -353,11 +368,15 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
   // State to toggle between compact 4-bullet executive view vs full 30-bullet audit
   const [showAllAuditedBullets, setShowAllAuditedBullets] = useState(false)
 
-  // Top 4 critical bullets (prioritize fix, then warn)
-  const topCriticalBullets = useMemo(() => {
+  // Top critical bullets (prioritize fix, then warn)
+  const displayedBullets = useMemo(() => {
     const critical = bulletAudit.filter((b) => b.status === 'fix' || b.status === 'warn')
     return critical.length > 0 ? critical.slice(0, 4) : bulletAudit.slice(0, 4)
   }, [bulletAudit])
+  const topCriticalBullets = displayedBullets
+
+  const totalBullets = totalNeedsAction > 0 ? totalNeedsAction : bulletAudit.length
+  const totalCount = Math.max(displayedBullets.length, totalBullets || 0)
 
   const labelColor = light ? 'text-slate-400' : 'text-gray-400'
   const groupName = light ? 'text-slate-900' : 'text-white'
@@ -398,15 +417,15 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
         </div>
       </div>
 
-      {/* Top 4 Critical Bullets Expanded by Default */}
+      {/* Top Priority Bullets Expanded by Default */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-rose-500 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkle size={14} weight="fill" />
-            Top 4 Priority Bullet Rewrites (Expanded)
+            TOP {displayedBullets.length} PRIORITY BULLET REWRITES (EXPANDED)
           </span>
           <span className="text-[11px] text-slate-500 font-mono">
-            4 of {bulletAudit.length} bullets
+            {displayedBullets.length} of {totalCount} priority bullets
           </span>
         </div>
 

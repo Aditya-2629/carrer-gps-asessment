@@ -27,6 +27,20 @@ export const SCORECARD_VERSION = 'resume-scorecard-v1'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
+export function balanceParentheses(str) {
+  if (!str || typeof str !== 'string') return str
+  const openCount = (str.match(/\(/g) || []).length
+  const closeCount = (str.match(/\)/g) || []).length
+  if (openCount > closeCount) {
+    const diff = openCount - closeCount
+    if (/\.\s*$/.test(str)) {
+      return str.replace(/\.\s*$/, ')'.repeat(diff) + '.')
+    }
+    return str + ')'.repeat(diff)
+  }
+  return str
+}
+
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
   let count = 0
@@ -42,7 +56,7 @@ export function cleanRewriteText(text) {
   cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
   // 4. Normalize multiple spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
-  return cleaned
+  return balanceParentheses(cleaned)
 }
 
 export function sanitizeSingleAddPlaceholder(text) {
@@ -676,6 +690,10 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           status = upgrade.status || 'warn'
           reason = upgrade.reason || 'Bullet upgraded for stronger recruiter signal'
           rewrite = upgrade.rewrittenText || null
+        } else if (hasWeakOpener) {
+          status = 'warn'
+          reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.tenseIssue === 'gerund_opening') {
           const targetVerb = normalizeGerundVerb(sig.openingWord, isCurrentRole)
           quickPolishNote = `Change '${sig.openingWord}' to '${targetVerb}' for direct action tense`
@@ -685,24 +703,9 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
             rewrite = null
           } else {
             status = 'warn'
-            reason = `Starts with an '-ing' participle ('${sig.openingWord}') — use direct action tense`
+            reason = `Starts with an '-ing' participle ('${sig.openingWord}') — recommend ${isCurrentRole ? 'present-tense verb' : 'past-tense verb'} for direct action tense`
             rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
           }
-        } else if (hasWeakOpener) {
-          status = 'warn'
-          reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
-        } else if (lacksOutcome) {
-          const opener = sig?.openingWord || 'Bullet'
-          const techMention = sig?.technologies?.[0] ? ` for ${sig.technologies[0]}` : ''
-          const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
-          const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
-          reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
-        } else if (sig?.isToolDumpCandidate) {
-          status = 'warn'
-          reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
@@ -714,6 +717,18 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         } else if (sig?.buzzwordIssue) {
           status = 'warn'
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+        } else if (sig?.isToolDumpCandidate) {
+          status = 'warn'
+          reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+        } else if (lacksOutcome) {
+          status = 'warn'
+          const opener = sig?.openingWord || 'Bullet'
+          const techMention = sig?.technologies?.[0] ? ` for ${sig.technologies[0]}` : ''
+          const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
+          const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
+          reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
           rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else {
           status = 'pass'
@@ -741,7 +756,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           itemName,
           text: b.text,
           status,
-          reason,
+          reason: balanceParentheses(reason),
           quickPolishNote,
           rewrite,
           issueId: issue?.id || null,

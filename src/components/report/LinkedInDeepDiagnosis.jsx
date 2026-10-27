@@ -200,10 +200,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     reportData?.resume_json?.target_role ||
     'Data Analyst'
 
-  const yoe =
-    reportData?.resume_agent?.candidateSnapshot?.yearsExperience ||
-    reportData?.resume_json?.years_of_experience ||
-    '8+'
+  const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
+  const rawYoe = candidateSnap.experienceYears ||
+                 candidateSnap.yearsExperience ||
+                 reportData?.resume_json?.years_of_experience ||
+                 reportData?.user_answers?.experience ||
+                 ''
+  const parsedYears = String(rawYoe).match(/\d+/)
+  const yoe = parsedYears ? parsedYears[0] : (candidateSnap.experienceLevel ? candidateSnap.experienceLevel.replace(/[^0-9+]/g, '') : '3+')
 
   const rawCandidateSkills =
     reportData?.resume_agent?.candidateSnapshot?.coreSkills ||
@@ -214,8 +218,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const coreSkillList = cleanCandidateSkills.length >= 3 ? cleanCandidateSkills.slice(0, 3) : ['SQL', 'Python', 'Power BI']
   const skillsStr = coreSkillList.join(', ')
 
-  const fallbackHeadline = `${targetRole} | ${skillsStr} | Healthcare & Enterprise Analytics`
-  const fallbackAbout = `${targetRole} with ${yoe} years of experience transforming complex healthcare and operational data into scalable enterprise reporting pipelines. Proven track record of reducing reporting turnaround times by 40% and deploying self-service BI dashboards. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`
+  const fallbackHeadline = `${targetRole} | ${skillsStr} | Enterprise Analytics & Decision Systems`
+  const fallbackAbout = `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines. Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`
 
   const headline = linkedinAgent?.optimizations?.headlines?.[0]?.headline || fallbackHeadline
   const aboutText = linkedinAgent?.optimizations?.aboutRewrite?.fullText ||
@@ -285,8 +289,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const optimizations = rawOptimizations || {
     headlines: fallbackHeadlinesList,
     aboutRewrite: {
-      hook: `${targetRole} with ${yoe} years of experience transforming complex healthcare and operational data into scalable enterprise reporting pipelines.`,
-      proof: `Proven track record of reducing reporting turnaround times by 40% and deploying self-service BI dashboards. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`,
+      hook: `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines.`,
+      proof: `Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`,
       callToAction: `Open to connecting with engineering leaders, analytics directors, and talent acquisition teams regarding ${targetRole} opportunities.`,
       fullText: fallbackAbout,
     },
@@ -312,15 +316,27 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
   const finalTop3PinnedSkills = top3PinnedSkills.length >= 3 ? top3PinnedSkills : pinnedSkills
 
-  const recommendedSkills = (
-    optimizations?.recommendedSkillsToAdd?.length
-      ? optimizations.recommendedSkillsToAdd
-      : (cleanCandidateSkills.length > 0 ? cleanCandidateSkills : missingSkills)
-  )
+  const pinnedLowerSet = new Set((finalTop3PinnedSkills || []).map((s) => s.toLowerCase().trim()))
+  const rawRec = optimizations?.recommendedSkillsToAdd?.length
+    ? optimizations.recommendedSkillsToAdd
+    : (cleanCandidateSkills.length > 0 ? cleanCandidateSkills : missingSkills)
+
+  const deduplicatedRecommended = (rawRec || [])
     .filter(Boolean)
     .filter(isValidSkill)
     .map(formatSkillName)
-    .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
+    .filter((s) => !pinnedLowerSet.has(s.toLowerCase().trim()))
+
+  // If deduplication leaves fewer than 3 skills, backfill with high-demand role skills not in pinned list:
+  const roleBackfill = ['Tableau', 'Snowflake', 'BigQuery', 'Excel', 'Data Modeling', 'dbt']
+  for (const skill of roleBackfill) {
+    if (deduplicatedRecommended.length >= 5) break
+    if (!pinnedLowerSet.has(skill.toLowerCase()) && !deduplicatedRecommended.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+      deduplicatedRecommended.push(skill)
+    }
+  }
+
+  const recommendedSkills = deduplicatedRecommended.sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
 
   const handleCopy = (text, id) => {
     if (!text) return

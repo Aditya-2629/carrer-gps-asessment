@@ -14,4 +14,5 @@ trigger: always_on
      2. Stage all changed files: `git add .`
      3. Create a concise, descriptive commit message summarizing the changes made: `git commit -m "feat/fix: <short summary of what changed>"`
      4. Push the commit to the remote tracking branch: `git push origin v2-dev`
+3. Whenever you finish an iteration or commit on v2-dev, automatically run: git diff main..v2-dev > v2_changes.patch
    - In your final response to the user, report the commit message and confirm that the latest code has been pushed to `origin v2-dev`.

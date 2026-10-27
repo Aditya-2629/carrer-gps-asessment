@@ -53,17 +53,19 @@ export const MARKET_ROLE_KEYWORD_PACKS = {
   'data-analyst': [
     'SQL',
     'Python',
-    'Tableau',
     'Power BI',
+    'Tableau',
     'Excel',
-    'PostgreSQL',
-    'Snowflake',
-    'BigQuery',
     'Data Modeling',
     'ETL',
+    'Snowflake',
+    'BigQuery',
     'Looker',
+    'KPI Reporting',
+    'Statistical Analysis',
+    'Requirements Gathering (BRD/FRD)',
     'Git',
-    'Reporting',
+    'PostgreSQL',
   ],
   'devops-engineer': [
     'AWS',
@@ -298,6 +300,36 @@ export const KEYWORD_SYNONYMS = {
     'pyspark',
     'data ingestion',
   ],
+  'requirements gathering (brd/frd)': [
+    'requirements gathering (brd/frd)',
+    'requirements gathering',
+    'brd',
+    'frd',
+    'business requirements',
+    'functional requirements',
+    'user stories',
+    'business requirements document',
+    'functional requirements document',
+  ],
+  'kpi reporting': [
+    'kpi reporting',
+    'kpi',
+    'kpis',
+    'dashboards',
+    'dashboard',
+    'reporting metrics',
+    'business metrics',
+    'executive dashboards',
+    'reporting',
+  ],
+  'statistical analysis': [
+    'statistical analysis',
+    'statistics',
+    'hypothesis testing',
+    'a/b testing',
+    'regression',
+    'statistical modeling',
+  ],
 }
 
 function testTermInText(term, text) {
@@ -431,10 +463,10 @@ export function computeKeywordAlignment({
   if (targetKeywords.length < 6) {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'
-    if (/ai|ml|machine\s*learning|deep\s*learning/i.test(roleLower)) packKey = 'ai-ml-engineer'
-    else if (/data\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
+    if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
+    else if (/data\s*(&|\+|and|\/)?\s*(business\s*)?analyst|business\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
     else if (/devops|sre|cloud|platform|infrastructure/i.test(roleLower)) packKey = 'devops-engineer'
-    else if (/data\s*engineer|big\s*data/i.test(roleLower)) packKey = 'data-engineer'
+    else if (/data\s*engineer|big\s*data|data\s*platform/i.test(roleLower)) packKey = 'data-engineer'
     else if (/qa|sdet|test/i.test(roleLower)) packKey = 'qa-engineer'
     else if (/security|cyber/i.test(roleLower)) packKey = 'security-engineer'
 

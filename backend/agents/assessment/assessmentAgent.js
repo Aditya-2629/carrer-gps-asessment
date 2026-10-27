@@ -529,7 +529,9 @@ export function synthesizeRootCauseAndActions({
   const rawScreens90 = (parseNum(ans.recruiterScreens) || parseNum(ans.funnel90d?.recruiterScreens) || 0) +
                        (parseNum(ans.assessments) || parseNum(ans.funnel90d?.assessments) || 0) +
                        (parseNum(ans.aiInterviews) || parseNum(ans.funnel90d?.aiInterviews) || 0) || parseNum(ans.interviews) || 0
-  const isHighVolumeLowCallback = phase.id === 1 && (rawApps90 >= 250 || rawApps30 >= 70) && (rawScreens90 <= 3 || (rawScreens90 / Math.max(1, rawApps90)) < 0.01)
+  const rawFinals90 = parseNum(ans.finalRounds) || parseNum(ans.funnel90d?.finalRounds) || parseNum(ans.finals) || parseNum(ans.funnel90d?.finals) || 0
+  const rawTechs90 = parseNum(ans.technicalRounds) || parseNum(ans.funnel90d?.technicalRounds) || parseNum(ans.technical) || 0
+  const isHighVolumeLowCallback = phase.id === 1 && rawFinals90 === 0 && rawTechs90 === 0 && (rawApps90 >= 250 || rawApps30 >= 70) && (rawScreens90 <= 3 || (rawScreens90 / Math.max(1, rawApps90)) < 0.01)
 
   if (isHighVolumeLowCallback) {
     primary_bottleneck = {
@@ -598,10 +600,10 @@ export function synthesizeRootCauseAndActions({
     next_best_action = 'Conduct 3 live timed mock technical interviews focusing on system design trade-offs and live coding.'
   } else if (phase.id === 4) {
     primary_bottleneck = {
-      title: 'Weak Behavioral & Executive Value Alignment in Final Rounds',
-      category: 'final_round_closing',
-      whyItMatters: 'Reaching final onsite panels confirms your technical competence; losing offers at the finish line means other candidates articulated stronger business value and leadership culture fit.',
-      evidence: 'Multiple final round appearances with zero offers indicates closing and differentiation gaps.',
+      title: 'Final-Round Executive Alignment & Offer Conversion',
+      category: 'closing_conversion',
+      whyItMatters: 'Reaching final rounds confirms strong technical and resume signals. Dropping at the final stage points to behavioral alignment, cross-functional vision, or compensation expectations.',
+      evidence: ans.biggestChallenge || 'Multiple final round appearances with zero formal offers indicates closing and differentiation gaps.',
     }
     secondary_problem = {
       title: 'Salary, Work Authorization, or Cultural Fit Friction at Decision Gate',

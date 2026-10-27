@@ -73,7 +73,9 @@ export const CONTROLLED_ROLES = [
     roleKey: 'data-analyst',
     roleName: 'Data Analyst & BI Specialist',
     synonyms: [
-      'data analyst', 'business intelligence analyst', 'bi analyst', 'analytics engineer', 'reporting analyst'
+      'data analyst', 'business intelligence analyst', 'bi analyst', 'analytics engineer', 'reporting analyst',
+      'data & business analyst', 'business & data analyst', 'business analyst', 'data and business analyst',
+      'data analyst / business analyst', 'insights analyst'
     ],
     specializations: {
       bi: ['tableau', 'power bi', 'looker', 'dashboard'],

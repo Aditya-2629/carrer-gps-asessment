@@ -12,6 +12,21 @@ import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
+// Helper to balance unclosed opening parentheses before a final period
+export function balanceParentheses(str) {
+  if (!str || typeof str !== 'string') return str
+  const openCount = (str.match(/\(/g) || []).length
+  const closeCount = (str.match(/\)/g) || []).length
+  if (openCount > closeCount) {
+    const diff = openCount - closeCount
+    if (/\.\s*$/.test(str)) {
+      return str.replace(/\.\s*$/, ')'.repeat(diff) + '.')
+    }
+    return str + ')'.repeat(diff)
+  }
+  return str
+}
+
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   if (!fileBuffer || fileBuffer.length === 0) {
@@ -23,6 +38,8 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     Analyze the attached resume document and convert it into a structured JSON object.
     
     CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks \`\`\`json, NO surrounding text).
+    
+    CRITICAL: Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
     
     Use this exact schema:
     {
@@ -118,6 +135,30 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
       })
   } else {
     parsed.missing_ats_keywords = []
+  }
+
+  if (parsed.executive_ai_critique) {
+    parsed.executive_ai_critique = balanceParentheses(parsed.executive_ai_critique)
+  }
+  if (Array.isArray(parsed.experiences)) {
+    parsed.experiences.forEach((exp) => {
+      if (Array.isArray(exp.bullets)) {
+        exp.bullets = exp.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(b) : b))
+      }
+    })
+  }
+  if (Array.isArray(parsed.projects)) {
+    parsed.projects.forEach((proj) => {
+      if (Array.isArray(proj.bullets)) {
+        proj.bullets = proj.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(b) : b))
+      }
+    })
+  }
+  if (Array.isArray(parsed.strengths)) {
+    parsed.strengths = parsed.strengths.map((s) => (typeof s === 'string' ? balanceParentheses(s) : s))
+  }
+  if (Array.isArray(parsed.red_flags)) {
+    parsed.red_flags = parsed.red_flags.map((rf) => (typeof rf === 'string' ? balanceParentheses(rf) : rf))
   }
 
   return parsed

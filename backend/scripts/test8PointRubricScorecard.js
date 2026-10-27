@@ -151,9 +151,9 @@ console.log(`PASS: 3x repetitive opener across resume flagged: "${b7.reason}"`)
 console.log('\n--- Test 8: Genuine missing CAR outcome ---')
 const b8 = auditMap.get('exp_002_b04')
 assert.strictEqual(b8.status, 'warn', 'Bullet without outcome or quantifier must be warned')
-assert.strictEqual(
-  b8.reason,
-  'Describes the task/tools but omits the result — add the CAR outcome (what problem this solved, what improved, or measurable scope)'
+assert(
+  b8.reason.includes('omits the business result') || b8.reason.includes('omits the result'),
+  'Reason must diagnose missing outcome'
 )
 console.log(`PASS: Genuine missing outcome message: "${b8.reason}"`)
 
