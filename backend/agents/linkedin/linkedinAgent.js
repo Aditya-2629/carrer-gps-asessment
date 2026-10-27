@@ -192,11 +192,13 @@ export async function evaluateLinkedIn({
   linkedinData = null,
   profile = null,
   resumeContext = {},
+  answers = null,
   runLlm = true,
   onProgress = null,
   excludeProvider = null,
   preferredProvider = null,
 }) {
+  const effectiveAnswers = answers || resumeContext?.answers || null
   const rawData = linkedinData || profile || null
   let normalized = normalizeLinkedInProfile(rawData)
 
@@ -248,6 +250,7 @@ export async function evaluateLinkedIn({
         {
           excludeProvider: excludeProvider || resumeContext?.excludeProvider,
           preferredProvider: preferredProvider || resumeContext?.preferredProvider,
+          answers: effectiveAnswers,
         }
       )
     } catch (synthErr) {

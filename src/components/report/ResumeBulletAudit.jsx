@@ -39,6 +39,20 @@ const STATUS_STYLES = {
   },
 }
 
+function cleanRewriteText(text) {
+  if (!text || typeof text !== 'string') return text
+  let count = 0
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
+    count += 1
+    if (count === 1) return match
+    return ''
+  })
+  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
+  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  return cleaned
+}
+
 function ActionableBulletCard({ bullet, matchedIssue, light }) {
   const isFix = bullet.status === 'fix'
   const badgeStyle = isFix
@@ -54,11 +68,12 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
 
   const diagnosis = matchedIssue?.diagnosis || bullet.reason
   const whyItMatters = matchedIssue?.whyItMatters || null
-  const rewriteText =
+  const rawRewrite =
     bullet.rewrite ||
     matchedIssue?.correctedText ||
     matchedIssue?.rewrite ||
     null
+  const rewriteText = cleanRewriteText(rawRewrite)
 
   const questions = Array.isArray(matchedIssue?.metricDiscoveryQuestions)
     ? matchedIssue.metricDiscoveryQuestions
@@ -335,6 +350,15 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
   }
   const totalNeedsAction = counts.fix + counts.warn
 
+  // State to toggle between compact 4-bullet executive view vs full 30-bullet audit
+  const [showAllAuditedBullets, setShowAllAuditedBullets] = useState(false)
+
+  // Top 4 critical bullets (prioritize fix, then warn)
+  const topCriticalBullets = useMemo(() => {
+    const critical = bulletAudit.filter((b) => b.status === 'fix' || b.status === 'warn')
+    return critical.length > 0 ? critical.slice(0, 4) : bulletAudit.slice(0, 4)
+  }, [bulletAudit])
+
   const labelColor = light ? 'text-slate-400' : 'text-gray-400'
   const groupName = light ? 'text-slate-900' : 'text-white'
   const badgeBg = light
@@ -345,15 +369,15 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
     : 'bg-[#0f172a] border-gray-800/80'
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3">
         <div>
           <h3 className={`text-xs font-bold uppercase tracking-wider ${labelColor}`}>
-            Experience & Project Bullet Audit ({groups.length} Entries)
+            Top Critical Bullet Rewrites & Audit
           </h3>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            Every bullet evaluated for measurable impact, seniority positioning, and active outcome verbs.
+            Focusing on the highest-priority lines requiring hard quantified metrics and active verbs.
           </div>
         </div>
 
@@ -371,73 +395,104 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
               {counts.pass} strong
             </span>
           </div>
-
-          <div className="experience-dropdown-controls no-print flex items-center gap-1.5 ml-2 border-l border-slate-200 pl-3">
-            <button
-              type="button"
-              onClick={allExpanded ? collapseAll : expandAll}
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
-                light
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                  : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700'
-              }`}
-            >
-              {allExpanded ? 'Collapse All' : 'Expand All'}
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Filter Tabs on Web (.no-print) */}
-      <div className="no-print filter-tabs flex flex-wrap items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setActiveFilter('all')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-            activeFilter === 'all'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-              : light
-              ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
-              : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
-          }`}
-        >
-          All Bullets ({bulletAudit.length})
-        </button>
+      {/* Top 4 Critical Bullets Expanded by Default */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Sparkle size={14} weight="fill" />
+            Top 4 Priority Bullet Rewrites (Expanded)
+          </span>
+          <span className="text-[11px] text-slate-500 font-mono">
+            4 of {bulletAudit.length} bullets
+          </span>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter('needs_action')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-            activeFilter === 'needs_action'
-              ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-              : light
-              ? 'bg-white hover:bg-rose-50 text-rose-700 border-slate-200'
-              : 'bg-slate-900 hover:bg-rose-950/50 text-rose-400 border-slate-800'
-          }`}
-        >
-          Needs Action: Fix & Improve ({totalNeedsAction})
-        </button>
+        <div className="space-y-3">
+          {topCriticalBullets.map((bullet, idx) => (
+            <ActionableBulletCard
+              key={bullet.bulletId || idx}
+              bullet={bullet}
+              matchedIssue={issueMap.get(bullet.bulletId)}
+              light={light}
+            />
+          ))}
+        </div>
+      </div>
 
+      {/* Toggle Button to Expand / Collapse Remaining Bullets (Hidden from PDF when collapsed) */}
+      <div className="pt-2 text-center print:hidden">
         <button
           type="button"
-          onClick={() => setActiveFilter('good')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-            activeFilter === 'good'
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-              : light
-              ? 'bg-white hover:bg-emerald-50 text-emerald-700 border-slate-200'
-              : 'bg-slate-900 hover:bg-emerald-950/50 text-emerald-400 border-slate-800'
+          onClick={() => setShowAllAuditedBullets((prev) => !prev)}
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 ${
+            showAllAuditedBullets
+              ? 'bg-slate-900 text-white border-slate-900'
+              : 'border-[var(--primary)] bg-[var(--primary-light)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white'
           }`}
         >
-          Strong Bullets ({counts.pass})
+          {showAllAuditedBullets ? (
+            <span>– Collapse Full Bullet Breakdown</span>
+          ) : (
+            <span>+ View All {bulletAudit.length} Audited Bullets ({counts.pass} Strong / Passed)</span>
+          )}
         </button>
       </div>
 
-      {/* Accordion / List of Experience Groups */}
-      <div className="space-y-3.5">
-        {groups.map((g, gi) => {
-          const isExpanded = Boolean(expandedGroups[g.itemName])
-          const isProject = g.section?.toLowerCase().includes('project')
+      {/* Full Audited Bullets (Collapsed by default on Web and hidden from PDF when collapsed) */}
+      <div className={showAllAuditedBullets ? 'space-y-4 pt-3 border-t border-slate-200/60' : 'hidden print:hidden'}>
+        {/* Filter Tabs on Web */}
+        <div className="no-print filter-tabs flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeFilter === 'all'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : light
+                ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
+            }`}
+          >
+            All Bullets ({bulletAudit.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('needs_action')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeFilter === 'needs_action'
+                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                : light
+                ? 'bg-white hover:bg-rose-50 text-rose-700 border-slate-200'
+                : 'bg-slate-900 hover:bg-rose-950/50 text-rose-400 border-slate-800'
+            }`}
+          >
+            Needs Action: Fix & Improve ({totalNeedsAction})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('good')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              activeFilter === 'good'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                : light
+                ? 'bg-white hover:bg-emerald-50 text-emerald-700 border-slate-200'
+                : 'bg-slate-900 hover:bg-emerald-950/50 text-emerald-400 border-slate-800'
+            }`}
+          >
+            Strong Bullets ({counts.pass})
+          </button>
+        </div>
+
+        {/* Accordion / List of Experience Groups */}
+        <div className="space-y-3.5">
+          {groups.map((g, gi) => {
+            const isExpanded = Boolean(expandedGroups[g.itemName])
+            const isProject = g.section?.toLowerCase().includes('project')
 
           // Filter bullets for interactive display on screen; print CSS forces all visible
           const visibleBullets = g.bullets.filter((b) => {
@@ -547,6 +602,7 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

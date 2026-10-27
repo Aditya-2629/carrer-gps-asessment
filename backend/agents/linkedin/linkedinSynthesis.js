@@ -14,12 +14,56 @@
 
 import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../ai/gateway/llmGateway.js'
-import { matchCompany } from './linkedinCrossAnalyzer.js'
+import { matchCompany, isConcreteTechSkill, formatSkillName, isValidSkill } from './linkedinCrossAnalyzer.js'
 import {
   buildLinkedInSynthesisPrompt,
   buildTask1HeadlinesAndBannerPrompt,
   buildTask2AboutAndFeaturedPrompt,
 } from './linkedinSynthesis.prompt.js'
+
+/**
+ * Dynamically derives 5 Open-to-Work titles based on the candidate's actual target role.
+ * Never defaults or hardcodes Software Engineer for non-SWE roles.
+ */
+export function deriveOpenToWorkTitles(targetRole) {
+  const coreRole = String(targetRole || 'Software Engineer')
+    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate)\s+/i, '')
+    .trim()
+
+  if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(coreRole)) {
+    return [
+      'Data Analyst',
+      'Senior Data Analyst',
+      'Business Intelligence Analyst',
+      'Healthcare / Enterprise Data Analyst',
+      'Lead Analytics Specialist',
+    ]
+  } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(coreRole)) {
+    return [
+      coreRole,
+      `Senior ${coreRole}`,
+      'Applied AI / ML Engineer',
+      'Lead Data Scientist',
+      `Staff ${coreRole}`,
+    ]
+  } else if (/data\s+engineer/i.test(coreRole)) {
+    return [
+      'Data Engineer',
+      'Senior Data Engineer',
+      'Lead Data Engineer',
+      'Analytics & BigQuery Data Engineer',
+      'Cloud Data Architect',
+    ]
+  } else {
+    return [
+      `Senior ${coreRole}`,
+      `Lead ${coreRole}`,
+      `Staff ${coreRole}`,
+      coreRole,
+      `Principal ${coreRole}`,
+    ]
+  }
+}
 
 /**
  * Builds deterministic fallback optimizations if LLM calls fail or are unavailable.
@@ -44,10 +88,18 @@ export function buildDeterministicOptimizations(
     'Senior Software Engineer'
   const exp = canonical.experience || canonical.experiences || []
   const topCompany = exp[0]?.company || 'Enterprise Tech'
-  const skills = (canonical.skills || [])
+  const rawSkills = (canonical.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.name))
     .filter(Boolean)
-  const topStack = skills.slice(0, 3).join(' | ') || 'Distributed Systems'
+  const skills = rawSkills
+    .filter(isValidSkill)
+    .map(formatSkillName)
+    .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
+  const concreteSkills = skills.filter((s) => isConcreteTechSkill(s))
+  const topConcrete = concreteSkills.length > 0 ? concreteSkills : skills
+  const topStack = topConcrete.slice(0, 3).join(' | ') || (
+    /data|analyst|analytics|bi\b/i.test(targetRole) ? 'SQL | Python | Power BI' : 'Distributed Systems'
+  )
 
   const topBullet = exp[0]?.bullets?.[0]?.text || (typeof exp[0]?.bullets?.[0] === 'string' ? exp[0].bullets[0] : '') || ''
   const metricMatch = topBullet.match(/\b\d+[%xXkKMbB]?\b/)
@@ -72,10 +124,14 @@ export function buildDeterministicOptimizations(
   const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 
   const callToAction = `Currently exploring ${targetRole} opportunities where I can drive measurable technical scale. Always open to discussing distributed systems architecture, team mentorship, and high-impact technical initiatives—let's connect!`
-  const coreSkillsLine = `Core Skills: ${skills.slice(0, 10).join(' · ') || topStack}`
+  const coreSkillsLine = `Core Skills: ${topConcrete.slice(0, 10).join(' · ') || topStack}`
   const fullText = `${hook}\n\n${proof}\n\n${callToAction}\n\n${coreSkillsLine}`
 
-  const skillsToAdd = missingSkills.length > 0 ? missingSkills.slice(0, 10) : skills.slice(5, 15)
+  const skillsToAdd = (missingSkills.length > 0 ? missingSkills : skills.slice(3, 15))
+    .filter(isValidSkill)
+    .map(formatSkillName)
+    .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
+    .slice(0, 10)
 
   const bannerStrategy = {
     bannerTagline: `${targetRole} | Scalable Systems & High-Impact Architecture`,
@@ -152,9 +208,12 @@ export function buildDeterministicOptimizations(
       const rawBullet = joinedBullets || p.description || ''
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
 
+      const synthPitch = mergedTech.length > 0
+        ? `Production-grade ${pTitle} engineered with ${mergedTech.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
+        : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
       const pitch = cleanBullet
         ? (cleanBullet.length > 240 ? cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-        : (p.description ? p.description.trim() : pTitle)
+        : (p.description ? p.description.trim() : synthPitch)
 
       return {
         title: pTitle,
@@ -170,19 +229,42 @@ export function buildDeterministicOptimizations(
       issuer: c.issuer || c.authority || '',
       date: c.date || c.year || '',
     })),
-    featured: rawProjects.slice(0, 2).map((p) => ({
-      title: String(p.title || p.name || 'Featured Architecture Project').split('|')[0].trim(),
-      reason: 'Proves practical system design depth directly at the top of your profile without exposing contact info.',
-      callToAction: 'Pin GitHub repository link, architecture diagrams, and a live deployment demo rather than a raw resume PDF.',
-    })),
+    featured: rawProjects.slice(0, 2).map((p) => {
+      const bulletList = Array.isArray(p.bullets) ? p.bullets : []
+      const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+      const rawBullet = joinedBullets || p.description || ''
+      const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
+      const pitch = cleanBullet
+        ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
+        : 'Proves practical system design depth directly at the top of your profile without exposing contact info.'
+      return {
+        title: String(p.title || p.name || 'Featured Architecture Project').split('|')[0].trim(),
+        reason: pitch,
+        callToAction: 'Pin GitHub repository link, architecture diagrams, and a live deployment demo rather than a raw resume PDF.',
+      }
+    }),
   }
 
   const featuredSectionRecommendations = rawProjects.length > 0
-    ? rawProjects.slice(0, 3).map((p) => ({
-        title: String(p.title || p.name || 'Core Project').split('|')[0].trim(),
-        reason: 'Showcases end-to-end technical implementation and architecture proof directly at the profile top.',
-        callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
-      }))
+    ? rawProjects.slice(0, 3).map((p) => {
+        const bulletList = Array.isArray(p.bullets) ? p.bullets : []
+        const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+        const rawBullet = joinedBullets || p.description || ''
+        const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
+        const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
+        const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
+        const synthPitch = techArr.length > 0
+          ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
+          : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+        const pitch = cleanBullet
+          ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
+          : (p.description ? p.description.trim() : synthPitch)
+        return {
+          title: pTitle,
+          reason: pitch,
+          callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+        }
+      })
     : [
         {
           title: `${topCompany} Architecture Showcase`,
@@ -194,6 +276,7 @@ export function buildDeterministicOptimizations(
   // Select 3 highest-signal core architecture/stack skills tailored to targetRole
   let top3PinnedSkills = []
   const highSignalPriority = [
+    // Core SWE & Cloud
     'Spring Boot',
     'React',
     'TypeScript',
@@ -207,10 +290,20 @@ export function buildDeterministicOptimizations(
     'Kubernetes',
     'GraphQL',
     'Kafka',
+    // Data, Analytics & BI
+    'SQL',
+    'Power BI',
+    'Tableau',
+    'Snowflake',
+    'BigQuery',
+    'Looker Studio',
+    'dbt',
+    'Databricks',
+    'Excel',
   ]
 
   for (const prio of highSignalPriority) {
-    const found = skills.find((s) => s.toLowerCase().includes(prio.toLowerCase()))
+    const found = skills.find((s) => s.toLowerCase() === prio.toLowerCase() || s.toLowerCase().includes(prio.toLowerCase()))
     if (found && !top3PinnedSkills.includes(found)) {
       top3PinnedSkills.push(found)
     }
@@ -227,7 +320,9 @@ export function buildDeterministicOptimizations(
   }
 
   if (top3PinnedSkills.length === 0) {
-    top3PinnedSkills = [targetRole, 'Distributed Systems', 'Cloud Architecture']
+    top3PinnedSkills = /data|analyst|analytics|bi\b/i.test(targetRole)
+      ? ['SQL', 'Python', 'Power BI']
+      : (topConcrete.length >= 3 ? topConcrete.slice(0, 3) : [targetRole, 'System Architecture', 'Production Engineering'])
   }
 
   const visualPresenceTips = [
@@ -236,14 +331,8 @@ export function buildDeterministicOptimizations(
     'Canva Banner: Use 1584x396px resolution, high-contrast dark theme, and leave the lower-left 30% area clear for mobile avatar overlap.',
   ]
 
-  const coreRole = String(targetRole || 'Software Engineer').replace(/^(?:Senior|Lead|Staff|Principal|Junior)\s+/i, '').trim()
-  const openToWorkTitles = Array.from(new Set([
-    `Senior ${coreRole}`,
-    `Lead ${coreRole}`,
-    `Staff ${coreRole}`,
-    coreRole,
-    `Senior Full Stack Software Engineer`,
-  ]))
+  const openToWorkTitles = deriveOpenToWorkTitles(targetRole)
+  const top3Tools = top3PinnedSkills.length >= 3 ? top3PinnedSkills.slice(0, 3) : topConcrete.slice(0, 3)
 
   const visibilityTricks = [
     {
@@ -262,13 +351,13 @@ export function buildDeterministicOptimizations(
       category: 'Recruiter Boolean String',
       trick: '3. Optimize for Recruiter Boolean Search Strings',
       advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
-      items: [`("${targetRole}") AND (${skills.slice(0, 4).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
+      items: [`("${targetRole}") AND (${(topConcrete.slice(0, 4).length > 0 ? topConcrete.slice(0, 4) : skills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
     },
     {
       category: 'Featured Media Architecture',
       trick: '4. Showcase High-Scale Technical Artifacts',
       advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
-      items: [skills.slice(0, 3).join(' + ') + ' Architecture Repo', 'Live Demo URL'],
+      items: [`${top3Tools.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
     },
     {
       category: 'Featured Section Asset',
@@ -381,12 +470,15 @@ export async function runLinkedInSynthesis(
   const excludeProvider = options?.excludeProvider || (resumeProvider === 'gemini' ? 'gemini' : (resumeProvider === 'groq' ? 'groq' : null))
   const preferredProvider = options?.preferredProvider || (excludeProvider === 'gemini' ? 'groq' : (excludeProvider === 'groq' ? 'gemini' : 'groq'))
 
+  const effectiveAnswers = options?.answers || resumeContext?.answers || null
+
   const task1Messages = buildTask1HeadlinesAndBannerPrompt({
     profile,
     resumeContext,
     discrepancies,
     missingSkills,
     signals,
+    answers: effectiveAnswers,
   })
 
   const task2Messages = buildTask2AboutAndFeaturedPrompt({
@@ -395,6 +487,7 @@ export async function runLinkedInSynthesis(
     discrepancies,
     missingSkills,
     signals,
+    answers: effectiveAnswers,
   })
 
   async function executeTask(taskName, messages, maxTokens) {
@@ -486,7 +579,11 @@ export async function runLinkedInSynthesis(
     let top3PinnedSkills = fallback.top3PinnedSkills
     const rawPinned = task1Result?.top3PinnedSkills || task2Result?.top3PinnedSkills
     if (Array.isArray(rawPinned) && rawPinned.length > 0) {
-      top3PinnedSkills = rawPinned.slice(0, 3)
+      const validPinned = rawPinned
+        .filter(isValidSkill)
+        .map(formatSkillName)
+        .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
+      top3PinnedSkills = validPinned.length >= 3 ? validPinned.slice(0, 3) : fallback.top3PinnedSkills
     }
 
     // Profile red flags (Task 1)
@@ -515,7 +612,32 @@ export async function runLinkedInSynthesis(
     let featuredSectionRecommendations = fallback.featuredSectionRecommendations
     const rawFeatured = task2Result?.featuredSectionRecommendations || task1Result?.featuredSectionRecommendations
     if (Array.isArray(rawFeatured) && rawFeatured.length > 0) {
-      featuredSectionRecommendations = rawFeatured.slice(0, 3)
+      featuredSectionRecommendations = rawFeatured.slice(0, 3).map((f, idx) => {
+        const fallbackItem = fallback.featuredSectionRecommendations[idx]
+        const fallbackReason = fallbackItem?.reason || ''
+        let customReason = f.reason || f.description || f.summary || f.details || ''
+        if (!customReason || customReason.includes('Showcases end-to-end technical implementation')) {
+          customReason = fallbackReason
+        }
+        if (!customReason) {
+          const matchCanonical = (resumeContext?.canonicalResume?.projects || []).find(
+            (cp) => (cp.title || cp.name || '').toLowerCase().includes((f.title || '').toLowerCase().slice(0, 8))
+          )
+          const joinedBullets = (matchCanonical?.bullets || [])
+            .map((b) => (typeof b === 'string' ? b : b.text || ''))
+            .filter(Boolean)
+            .join(' ')
+          customReason = joinedBullets
+            ? (joinedBullets.length > 240 ? joinedBullets.slice(0, 240).replace(/[.]+$/, '') + '.' : joinedBullets)
+            : `Proves practical technical execution and system architecture delivery for ${f.title || 'Core Project'}.`
+        }
+
+        return {
+          title: f.title || fallbackItem?.title || 'Core Project',
+          reason: customReason,
+          callToAction: f.callToAction || fallbackItem?.callToAction || 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+        }
+      })
     }
 
     // Sections to add from resume (Task 2: Projects, Certifications, Featured)
@@ -532,12 +654,36 @@ export async function runLinkedInSynthesis(
     if (rawProjectList && rawProjectList.length > 0) {
       sectionsToAddFromResume = {
         ...sectionsToAddFromResume,
-        projects: rawProjectList.slice(0, 4).map((pr, idx) => ({
-          title: pr.title || fallback.sectionsToAddFromResume.projects[idx]?.title || 'Core Project',
-          description: pr.rewrittenPitch || pr.description || fallback.sectionsToAddFromResume.projects[idx]?.description || '',
-          technologies: Array.isArray(pr.technologies) ? pr.technologies : (fallback.sectionsToAddFromResume.projects[idx]?.technologies || []),
-          replaceNote: pr.actionAdvice || pr.replaceNote || fallback.sectionsToAddFromResume.projects[idx]?.replaceNote || '',
-        })),
+        projects: rawProjectList.slice(0, 4).map((pr, idx) => {
+          const fallbackProj = fallback.sectionsToAddFromResume.projects[idx]
+          let description = pr.rewrittenPitch || pr.description || pr.summary || pr.details
+          if (!description || description.includes('Showcases end-to-end technical implementation')) {
+            description = fallbackProj?.description || ''
+          }
+          if (!description) {
+            const matchCanonical = (resumeContext?.canonicalResume?.projects || []).find(
+              (cp) => (cp.title || cp.name || '').toLowerCase().includes((pr.title || '').toLowerCase().slice(0, 8))
+            )
+            const joinedBullets = (matchCanonical?.bullets || [])
+              .map((b) => (typeof b === 'string' ? b : b.text || ''))
+              .filter(Boolean)
+              .join(' ')
+            if (joinedBullets) {
+              description = joinedBullets.length > 240 ? joinedBullets.slice(0, 240).replace(/[.]+$/, '') + '.' : joinedBullets
+            } else {
+              const tech = Array.isArray(pr.technologies) ? pr.technologies : []
+              description = tech.length > 0
+                ? `Production-grade ${pr.title || 'project'} engineered with ${tech.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
+                : `Production-grade ${pr.title || 'project'} engineered to deliver verified technical and operational impact.`
+            }
+          }
+          return {
+            title: pr.title || fallbackProj?.title || 'Core Project',
+            description,
+            technologies: Array.isArray(pr.technologies) && pr.technologies.length > 0 ? pr.technologies : (fallbackProj?.technologies || []),
+            replaceNote: pr.actionAdvice || pr.replaceNote || fallbackProj?.replaceNote || '',
+          }
+        }),
       }
     }
 
@@ -553,31 +699,70 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // Visibility Tricks (Task 2)
-    let visibilityTricks = fallback.visibilityTricks
-    const rawTricks = task2Result?.visibilityTricks || task1Result?.visibilityTricks
-    if (Array.isArray(rawTricks) && rawTricks.length > 0) {
-      visibilityTricks = rawTricks.slice(0, 5).map((vt, idx) => {
-        let items = Array.isArray(vt.items) ? vt.items : (fallback.visibilityTricks[idx]?.items || [])
-        if (/open\s+to\s+work/i.test(vt.category || vt.trick || '')) {
-          const uniqueItems = Array.from(new Set(items.filter(Boolean)))
-          items = uniqueItems.length >= 4 ? uniqueItems.slice(0, 5) : fallback.visibilityTricks[0].items
-        }
-        return {
-          category: vt.category || fallback.visibilityTricks[idx]?.category || 'Optimization',
-          trick: vt.trick || fallback.visibilityTricks[idx]?.trick || `Trick #${idx + 1}`,
-          advice: vt.advice || fallback.visibilityTricks[idx]?.advice || '',
-          items,
-        }
-      })
-    }
-
     // Recommended skills to add
     let recommendedSkillsToAdd = fallback.recommendedSkillsToAdd
     const rawSkills = task1Result?.recommendedSkillsToAdd || task2Result?.recommendedSkillsToAdd
     if (Array.isArray(rawSkills) && rawSkills.length > 0) {
-      recommendedSkillsToAdd = rawSkills.slice(0, 12)
+      recommendedSkillsToAdd = rawSkills
+        .filter(isValidSkill)
+        .map(formatSkillName)
+        .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
+        .slice(0, 12)
     }
+
+    // Visibility Tricks — deterministically enforce 100% role-alignment and consistency with top3PinnedSkills
+    const otwTitles = deriveOpenToWorkTitles(targetRole)
+    const topHardSkills = (top3PinnedSkills.length >= 3 ? top3PinnedSkills : fallback.top3PinnedSkills)
+      .filter(isValidSkill)
+      .map(formatSkillName)
+      .slice(0, 3)
+
+    const candidateHardSkills = Array.from(new Set([
+      ...topHardSkills,
+      ...recommendedSkillsToAdd.filter(isConcreteTechSkill),
+      ...topConcrete,
+    ])).filter(isValidSkill).filter(isConcreteTechSkill).slice(0, 4)
+
+    const booleanRolePart = /data\s+analyst/i.test(targetRole)
+      ? '("Data Analyst" OR "Business Intelligence Analyst")'
+      : `("${targetRole}")`
+    const booleanSkillsPart = candidateHardSkills.length > 0
+      ? `(${candidateHardSkills.map((s) => `"${s}"`).join(' OR ')})`
+      : '("Technical Architecture")'
+    const booleanQuery = `${booleanRolePart} AND ${booleanSkillsPart}`
+
+    const visibilityTricks = [
+      {
+        category: 'Open to Work Titles',
+        trick: '1. Set 5 Exact Job Titles in "Open to Work"',
+        advice: 'LinkedIn Recruiter search filters match candidate "Job Titles" strictly. Add these 5 exact titles to your private Open to Work preferences:',
+        items: otwTitles,
+      },
+      {
+        category: 'Top 3 Pinned Skills',
+        trick: '2. Pin Your Top 3 Skills to the Top of Skills Section',
+        advice: 'Recruiters see the first 3 pinned skills immediately on mobile and search cards. Pin these 3 core skills to maximize recruiter match score:',
+        items: topHardSkills,
+      },
+      {
+        category: 'Recruiter Boolean String',
+        trick: '3. Optimize for Recruiter Boolean Search Strings',
+        advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
+        items: [booleanQuery],
+      },
+      {
+        category: 'Featured Media Architecture',
+        trick: '4. Showcase High-Scale Technical Artifacts',
+        advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
+        items: [`${topHardSkills.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
+      },
+      {
+        category: 'Featured Section Asset',
+        trick: '5. Pin Live Case Study Over Raw Resume PDF',
+        advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a GitHub architecture repo with a live deployed demo.',
+        items: ['Pin top architecture case study to Featured section'],
+      },
+    ]
 
     // Banner Strategy (Task 1 or fallback)
     let bannerStrategy = fallback.bannerStrategy

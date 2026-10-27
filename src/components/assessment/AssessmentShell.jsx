@@ -25,20 +25,33 @@ const slideVariants = {
 }
 
 const SAMPLE_TEST_DATA = {
-  phone: '555-019-2834',
-  visa: 'STEM OPT (24-Month Runway — Hunting E-Verify Sponsors 🚀)',
-  location: 'SF Bay Area / Silicon Valley 🌉, Remote Only 🌐',
-  linkedin: 'https://www.linkedin.com/in/satyanadella',
-  appsWeek: { raw: '30', period: 'week', per_week: 30, per_month: 130, formatted: '30 per week', is_na: false },
-  searchStyle: 'The Customizer 🛠️ — Tailoring resume keywords for almost every job description',
-  coldEmails: { raw: '15', period: 'week', per_week: 15, per_month: 65, formatted: '15 per week', is_na: false },
-  consultancy: 'No (Doing it all by myself — 100% Solo)',
-  humanScreen: { raw: '2', period: 'month', per_week: 0.5, per_month: 2, formatted: '2 per month', is_na: false },
-  feedback: [
-    'The ATS Black Hole 🕳️ — Ghosted before a single human ever talks to me',
-    'The Coding Gauntlet 💻 — Freezing up on timed LeetCode / HackerRank / Live Coding rounds',
+  opportunityType: 'Full-Time W2 Role 🏢',
+  targetRole: 'Senior Full Stack Software Engineer',
+  experience: '5–8 yrs (Senior)',
+  apps30d: '60',
+  appsWeek: 14,
+  targetedMatchPct: '80%–100% (Highly Targeted 🎯)',
+  searchMethods: [
+    'Company Career Pages (Direct ATS)',
+    'Direct Recruiter / Hiring Manager Outreach',
+    'Employee Referrals & Warm Introductions',
   ],
-  hoursWeek: { raw: '20', period: 'week', per_week: 20, per_month: 87, formatted: '20 hours per week', is_na: false },
+  searchStyle: 'The Customizer 🛠️ — Tailoring resume keywords for almost every job description',
+  outreach: '15',
+  referralsMonth: '4–10',
+  funnel90d: { screens: 4, assessments: 2, finals: 1, offers: 0 },
+  interviews: 4,
+  humanScreen: 4,
+  DropOffStage: 'Phase 3: Technical → Final Round (Pass screens, stuck in technicals)',
+  biggestChallenge: 'Passing live coding / system design / case assessments',
+  alreadyTried: [
+    'Rewrote my resume',
+    'Updated LinkedIn profile',
+    'Messaged recruiters on LinkedIn',
+    'Practiced mock interviews / LeetCode',
+  ],
+  frustration: 'I freeze or underperform in technical/final interviews',
+  linkedin: 'https://www.linkedin.com/in/satyanadella',
 }
 
 export default function AssessmentShell() {

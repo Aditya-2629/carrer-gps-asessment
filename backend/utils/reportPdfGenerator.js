@@ -5,35 +5,47 @@
 
 import PDFDocument from 'pdfkit'
 
-// Helper to format answers cleanly without [object Object]
-export function formatAssessmentAnswer(key, val, semanticProfile = null) {
-  if (val === null || val === undefined) return 'Not Provided'
+export const VALID_FORM_KEYS = new Set([
+  'opportunityType', 'targetRole', 'apps30d', 'appsWeek', 'targetedMatchPct',
+  'searchMethods', 'searchStyle', 'externalHelp', 'outreach', 'referralsMonth', 'funnel90d',
+  'applications90d', 'recruiterScreens', 'assessments', 'aiInterviews', 'technicalRounds', 'finalRounds', 'offers', 'joiningStatus',
+  'interviews', 'humanScreen', 'DropOffStage', 'biggestChallenge', 'alreadyTried', 'frustration',
+  'helpNeed', 'visa', 'location', 'experience', 'profileStage',
+  'name', 'email', 'phone', 'linkedin', 'linkedinData',
+  'searchDuration', 'prepLevel', 'SwitchReason',
+])
+
+// Helper to format answers cleanly without literal "per" or [object Object]
+export function formatAssessmentAnswer(keyOrVal, valIfKey, semanticProfile = null) {
+  let key = typeof keyOrVal === 'string' && valIfKey !== undefined ? keyOrVal : ''
+  let val = valIfKey !== undefined ? valIfKey : keyOrVal
+  if (val == null) return ''
 
   // If semanticProfile provides normalized strings
-  if (semanticProfile && semanticProfile[key]?.displayValue) {
-    return String(semanticProfile[key].displayValue)
+  if (semanticProfile && key && semanticProfile[key]?.displayValue) {
+    const sVal = String(semanticProfile[key].displayValue).trim()
+    if (sVal && sVal !== 'per') return sVal
   }
 
-  // Handle quantitative structured objects: { raw, period, per_week, per_month, formatted }
-  if (typeof val === 'object' && !Array.isArray(val)) {
-    if (val.formatted) return String(val.formatted)
-    if (val.raw !== undefined && val.period) {
-      const pw = val.per_week ?? val.perWeek
-      const pm = val.per_month ?? val.perMonth
-      return `${val.raw} per ${val.period}${pw !== undefined ? ` (~${pw}/wk, ~${pm}/mo)` : ''}`
-    }
-    // Return empty for internal blobs
-    if (key === 'linkedinData' || key === 'resume' || key === 'precomputedResumeJson') {
-      return null
-    }
-    return JSON.stringify(val)
-  }
-
+  // Handle arrays
   if (Array.isArray(val)) {
     return val.filter(Boolean).join(', ')
   }
 
-  return String(val)
+  // Handle quantitative structured objects: { raw, period, per_week, per_month, formatted }
+  if (typeof val === 'object') {
+    if (val.formatted && typeof val.formatted === 'string' && val.formatted.trim() !== 'per') {
+      return val.formatted.trim()
+    }
+    const raw = String(val.raw ?? val.value ?? '').trim()
+    const period = String(val.period ?? '').trim()
+    if (!raw) return ''
+    return period ? `${raw} per ${period}` : raw
+  }
+
+  const str = String(val).trim()
+  if (str === 'per' || str === 'undefined' || str === 'null') return ''
+  return str
 }
 
 function ensureSpace(doc, neededHeight) {
@@ -115,9 +127,12 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('1. 4-DIMENSION HEALTH SNAPSHOT')
       doc.moveDown(0.3)
 
+      const resumeScore = aiReport?.resume_agent?.dashboard?.score ?? aiReport?.score_breakdown?.resume?.score ?? resumeAgent?.score ?? 0
+      const resumeGrade = aiReport?.resume_agent?.dashboard?.grade ?? (resumeScore >= 85 ? 'A' : resumeScore >= 70 ? 'B' : resumeScore >= 55 ? 'C' : 'D')
+
       const cardW = (pageWidth - 18) / 4
       const dimensions = [
-        { title: 'Resume Impact', score: resumeAgent?.score ?? aiReport.score_breakdown?.resume?.score ?? 60, grade: resumeAgent?.grade || 'C' },
+        { title: 'Resume Impact', score: resumeScore, grade: resumeGrade },
         { title: 'LinkedIn Presence', score: linkedinAgent?.score ?? aiReport.score_breakdown?.linkedin?.score ?? 55, grade: linkedinAgent?.grade || 'C' },
         { title: 'Outreach Velocity', score: aiReport.score_breakdown?.outreach?.score ?? 50, grade: 'C' },
         { title: 'Interview Readiness', score: aiReport.score_breakdown?.interviews?.score ?? 55, grade: 'C' },
@@ -279,21 +294,22 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       }
 
       // ==========================================
-      // SECTION 5: COMPLETE 31-QUESTION ASSESSMENT ANSWERS
+      // SECTION 5: CANDIDATE ASSESSMENT PROFILE & VERIFIED ANSWERS
       // ==========================================
-      doc.addPage() // Dedicated clean page for full candidate answers
-      doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('5. COMPLETE CANDIDATE ASSESSMENT PROFILE & RAW ANSWERS')
+      doc.addPage() // Dedicated clean page for candidate answers
+      doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('5. CANDIDATE ASSESSMENT PROFILE & VERIFIED ANSWERS')
       doc.fillColor('#64748b').fontSize(7.5).font('Helvetica').text('Recorded assessment responses used for career health scoring and recruiter bottleneck diagnosis.')
       doc.moveDown(0.4)
 
-      const answerEntries = Object.entries(answers).filter(([key]) => {
-        return !['linkedinData', 'resume', 'precomputedResumeJson', 'resumeJson', 'file'].includes(key)
-      })
+      const answerEntries = Object.entries(answers)
+        .filter(([key]) => VALID_FORM_KEYS.has(key) && !['linkedinData', 'resume', 'precomputedResumeJson', 'resumeJson', 'file'].includes(key))
+        .map(([key, val]) => [key, formatAssessmentAnswer(key, val, semanticProfile)])
+        .filter(([_, formattedVal]) => Boolean(formattedVal && formattedVal !== 'per'))
 
       const halfW = (pageWidth - 8) / 2
       let qY = doc.y
 
-      answerEntries.forEach(([key, val], idx) => {
+      answerEntries.forEach(([key, formattedVal], idx) => {
         ensureSpace(doc, 26)
         qY = doc.y
         const col = idx % 2 === 0 ? 0 : 1
@@ -303,7 +319,6 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
           .replace(/([A-Z])/g, ' $1')
           .replace(/_/g, ' ')
           .replace(/\b\w/g, (c) => c.toUpperCase())
-        const formattedVal = formatAssessmentAnswer(key, val, semanticProfile) || 'Not Provided'
 
         doc.rect(x, qY, halfW, 22).fillAndStroke('#f8fafc', '#e2e8f0')
         doc.fillColor('#475569').fontSize(6.5).font('Helvetica-Bold').text(formattedKey.slice(0, 32), x + 6, qY + 4, { width: halfW - 12 })

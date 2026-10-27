@@ -23,8 +23,9 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText } from '../scoring/resumeScorecard.js'
 
+export { cleanRewriteText }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
 /**
@@ -192,7 +193,10 @@ export function sanitizeModeCOutput(analysis) {
         iss.metricDiscoveryQuestions = []
       }
       if (iss?.correctedText) {
-        iss.correctedText = sanitizeSingleAddPlaceholder(iss.correctedText)
+        iss.correctedText = cleanRewriteText(iss.correctedText)
+      }
+      if (iss?.rewrite) {
+        iss.rewrite = cleanRewriteText(iss.rewrite)
       }
     })
   } else {
@@ -205,7 +209,7 @@ export function sanitizeModeCOutput(analysis) {
       .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && rw.rewrittenText)
       .map((rw) => ({
         ...rw,
-        rewrittenText: sanitizeSingleAddPlaceholder(rw.rewrittenText),
+        rewrittenText: cleanRewriteText(rw.rewrittenText),
       }))
   } else {
     analysis.bulletRewrites = []
@@ -215,7 +219,7 @@ export function sanitizeModeCOutput(analysis) {
   analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
     ? analysis.bulletUpgrades.map((upg) => ({
         ...upg,
-        rewrittenText: sanitizeSingleAddPlaceholder(upg.rewrittenText),
+        rewrittenText: cleanRewriteText(upg.rewrittenText),
       }))
     : []
 
@@ -285,7 +289,24 @@ export function buildHybridPrompt({
   targetJobDescription,
   marketContext,
   assessmentDirectives = null,
+  answers = {},
 }) {
+  const candidateContext = answers && Object.keys(answers).length > 0 ? `
+==================================================
+CANDIDATE ASSESSMENT CONTEXT (Use this to personalize your critique, summary rewrite, and bullet rewrites):
+- Target Role: ${answers.targetRole || targetRole || 'Not specified'}
+- Opportunity Type: ${answers.opportunityType || 'Full-Time W2'}
+- Experience Level: ${answers.experience || 'Mid-Level'}
+- Work Authorization / Visa: ${answers.visa || 'Not specified'}
+- Applications Submitted (30d): ${answers.apps30d || answers.appsWeek?.raw || 'Not specified'}
+- Active Drop-Off Stage: ${answers.DropOffStage || 'Phase 1'}
+- Key Hiring Challenge: ${answers.biggestChallenge || 'Not specified'}
+- Candidate's Core Frustration: ${answers.frustration || 'Not specified'}
+- What Candidate Already Tried: ${Array.isArray(answers.alreadyTried) ? answers.alreadyTried.join(', ') : (answers.alreadyTried || 'None')}
+
+CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrites specifically for a candidate at this experience level (${answers.experience || 'Mid-Level'}) and target role (${answers.targetRole || targetRole}), addressing their specific hiring challenge ("${answers.biggestChallenge || 'conversion'}"). Never provide generic text.
+` : ''
+
   return [
     {
       role: 'system',
@@ -513,6 +534,7 @@ DETERMINISTIC PRE-AUDIT DOSSIER (Ground Truth):
 - Target JD Gaps (NOT_EVIDENCED_IN_RESUME): ${dossier.targetJdOverlap.unverifiedSkills.join(', ') || 'None'}
 - Sampled Market Gaps: ${dossier.marketEvidenceGaps.map((g) => `${g.skill} (${g.frequency})`).join(', ') || 'None'}
 - Market Bucket: ${marketContext?.bucketKey || 'general'} (Sample Size: ${marketContext?.marketSampleSize || 5})
+${candidateContext}
 ${assessmentDirectives ? `
 ==================================================
 CANDIDATE ASSESSMENT & JOB-HUNT CONTEXT (PERSONALIZATION DIRECTIVES)
@@ -546,6 +568,7 @@ export async function executeModeC({
   model = null,
   isBenchmark = false,
   signal = null,
+  answers = {},
 }) {
   const startTime = Date.now()
   const llmCalls = []
@@ -558,6 +581,7 @@ export async function executeModeC({
   const resumeFacts = state?.resumeFacts || {}
   const signals = state?.signals || {}
   const precomputedSignals = state?.precomputedSignals || {}
+  const candidateAnswers = answers && Object.keys(answers).length > 0 ? answers : (state?.answers || {})
 
   // 1. Build deterministic pre-audit dossier in code (0ms, 0 tokens)
   const dossier = buildDeterministicDossier({
@@ -595,6 +619,7 @@ export async function executeModeC({
     targetJobDescription: effectiveJd,
     marketContext,
     assessmentDirectives,
+    answers: candidateAnswers,
   })
 
   const contentHash = crypto
@@ -733,5 +758,6 @@ export default {
   buildDeterministicDossier,
   sanitizeModeCOutput,
   buildHybridPrompt,
+  cleanRewriteText,
 }
 

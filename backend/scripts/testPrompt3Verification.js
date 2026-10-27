@@ -337,8 +337,8 @@ assert.ok(
 
 console.log('PASS: Keyword synonym matching and skills capping verified.\n')
 
-// ── TEST 5: Elimination of [ADD: ...] Brackets from Rewrites ─────────────
-console.log('--- TEST 5: Elimination of [ADD: ...] Brackets from Rewrites ---')
+// ── TEST 5: Domain-Aware Rewrites & [ADD: ...] Metrics ─────────────
+console.log('--- TEST 5: Domain-Aware Rewrites & [ADD: ...] Metrics ---')
 
 const sampleSig = {
   hasQuantifier: false,
@@ -350,16 +350,40 @@ const rewrite = generateDeterministicRewrite(
   sampleSig,
   true
 )
-console.log('Generated Rewrite:', rewrite)
+console.log('Generated SWE Rewrite:', rewrite)
+assert.ok(
+  rewrite.includes('[ADD: measurable outcome, e.g., latency reduction %, system scale, or engineering hours saved]'),
+  'Deterministic SWE rewrite must contain role-appropriate [ADD: ...] metric placeholder'
+)
 
-assert.strictEqual(
-  rewrite.includes('[ADD:'),
+// Data Analyst target role rewrite
+const daRewrite = generateDeterministicRewrite(
+  'Analyze complex business questions with SQL.',
+  sampleSig,
   false,
-  'Deterministic rewrite must NEVER contain [ADD: ...] brackets'
+  'Data Analyst'
+)
+console.log('Generated Data Analyst Past Role Rewrite:', daRewrite)
+assert.ok(
+  daRewrite.startsWith('Synthesized complex business questions with SQL and delivered executive briefings'),
+  'Must upgrade past-role "Analyze complex business questions" to "Synthesized..."'
 )
 assert.ok(
-  rewrite.endsWith('.'),
-  'Deterministic rewrite must be a complete, punctuated sentence'
+  daRewrite.includes('[ADD: measurable business outcome, e.g., decision turnaround time saved, reporting adoption %, or cost/revenue impact]'),
+  'Data Analyst rewrite must contain domain-calibrated [ADD: ...] placeholder'
+)
+
+// Data Analyst current role rewrite
+const daCurrentRewrite = generateDeterministicRewrite(
+  'Analyze complex business questions with SQL.',
+  sampleSig,
+  true,
+  'Data Analyst'
+)
+console.log('Generated Data Analyst Current Role Rewrite:', daCurrentRewrite)
+assert.ok(
+  daCurrentRewrite.startsWith('Translate complex business questions into SQL-backed executive briefings'),
+  'Must upgrade current-role "Analyze complex business questions" to "Translate..."'
 )
 
 const googleRewrite = ResumeAgentValidator.buildGoogleXYZRewrite(
@@ -372,7 +396,7 @@ assert.strictEqual(
   'Validator Google XYZ rewrite must NEVER contain [ADD: ...] brackets'
 )
 
-console.log('PASS: [ADD: ...] brackets eliminated from rewrites.\n')
+console.log('PASS: Domain-aware rewrites & [ADD: ...] metric placeholders verified.\n')
 
 console.log('================================================================')
 console.log('ALL MASTER PROMPT 3 VERIFICATION TESTS PASSED PERFECTLY!')

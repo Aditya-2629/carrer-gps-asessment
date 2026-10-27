@@ -13,9 +13,9 @@ const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: Compass },
   { id: 'snapshot', label: 'Snapshot', icon: Gauge },
   { id: 'bottleneck', label: 'Bottleneck', icon: Warning, highlight: true },
-  { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
   { id: 'resume-ai', label: 'Resume AI', icon: FileText },
   { id: 'linkedin-ai', label: 'LinkedIn AI', icon: LinkedinLogo },
+  { id: 'funnel-risks', label: 'Funnel & Risks', icon: ChartBar },
   { id: 'roadmap', label: 'Roadmap', icon: Path },
 ]
 
@@ -66,7 +66,7 @@ export default function StickyReportNav({ candidateName, targetRole, showResumeA
   }
 
   return (
-    <div className="sticky top-0 z-40 bg-[var(--surface-base)]/90 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs">
+    <div className="sticky top-0 z-40 bg-[var(--surface-base)]/90 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs print:hidden">
       <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
         {/* Candidate Context Pill (Desktop only) */}
         {safeName && (

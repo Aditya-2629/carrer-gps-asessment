@@ -27,35 +27,26 @@ export const SCORECARD_VERSION = 'resume-scorecard-v1'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
-export function sanitizeSingleAddPlaceholder(text) {
+export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
-  let cleaned = text
-
-  // 1. If sentence contains two [ADD: ...] placeholders (e.g. "by accomplishing [ADD: ...] as measured by [ADD: ...]"),
-  // strip the second " as measured by [ADD: ...]" clause completely
-  if (/\[ADD:[^\]]*\].*?(?:as measured by|measured by|by accomplishing)\s*\[ADD:[^\]]*\]/i.test(cleaned)) {
-    cleaned = cleaned.replace(/(?:,\s*)?(?:as measured by|measured by|by accomplishing)\s*\[ADD:[^\]]*\]/gi, (match, offset) => {
-      const before = cleaned.slice(0, offset)
-      if (/\[ADD:[^\]]*\]/i.test(before)) {
-        return ''
-      }
-      return match
-    })
-  }
-
-  // 2. If there are still any other multiple [ADD: ...] brackets, keep only the first
   let count = 0
-  cleaned = cleaned.replace(/\[ADD:[^\]]*\]/gi, (match) => {
-    count++
-    return count === 1 ? match : ''
+  // 1. Keep only the first [ADD: ...] placeholder; when removing subsequent ones, also remove any immediately preceding preposition (by, to, of, across, for, with, at, in, from)
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
+    count += 1
+    if (count === 1) return match // keep the first placeholder intact
+    return '' // strip 2nd+ placeholder along with its leading preposition
   })
-
-  // 3. Clean up dangling prepositions, double spaces, and punctuation
+  // 2. Ensure a space after closing bracket if followed immediately by a word character: "]audit" -> "] audit"
+  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
+  // 3. Remove any dangling prepositions right before a period or comma (e.g. "time by." -> "time.")
+  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+  // 4. Normalize multiple spaces
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
   return cleaned
-    .replace(/\s+(?:as measured by|measured by|by accomplishing)\s*([.,;]|$)/gi, '$1')
-    .replace(/\s{2,}/g, ' ')
-    .replace(/\s+([.,])/g, '$1')
-    .trim()
+}
+
+export function sanitizeSingleAddPlaceholder(text) {
+  return cleanRewriteText(text)
 }
 
 function toPastTense(verb) {
@@ -87,7 +78,7 @@ function toPastTense(verb) {
  * Normalizes opening gerund participles (-ing) into direct action verbs and
  * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
  */
-export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
+export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, targetRole = '') {
   if (!bulletText) return null
   let clean = bulletText
     .replace(/^[•\-*▪–—\s]+/, '')
@@ -102,15 +93,28 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
     return sanitizeSingleAddPlaceholder(copilotRewrite)
   }
 
-  // 1. Handle "Collaborated with <noun> to <verb>" or "Partnered with <noun> to <verb>"
   let matchedOpener = false
+
+  // Special case: "Analyze complex business questions..." or weak/present-tense opening verbs
+  if (/^analyze\s+complex\s+business\s+questions\b/i.test(clean)) {
+    if (isCurrentRole) {
+      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Translate complex business questions into SQL-backed executive briefings')
+    } else {
+      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Synthesized complex business questions with SQL and delivered executive briefings')
+    }
+    matchedOpener = true
+  } else if (!isCurrentRole && /^analyze\b/i.test(clean)) {
+    clean = clean.replace(/^analyze\b/i, 'Analyzed')
+  }
+
+  // 1. Handle "Collaborated with <noun> to <verb>" or "Partnered with <noun> to <verb>"
   const collabToVerbMatch = clean.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+(.*)$/i)
   if (collabToVerbMatch) {
     const [, partners, rawVerb, rest] = collabToVerbMatch
     const promotedVerb = isCurrentRole ? (rawVerb.charAt(0).toUpperCase() + rawVerb.slice(1).toLowerCase()) : toPastTense(rawVerb)
     clean = `${promotedVerb} ${rest.trim().replace(/[.]+$/, '')} in close partnership with ${partners.trim()}`
     matchedOpener = true
-  } else if (/^(?:collaborated with|collaborating with)\b/i.test(clean)) {
+  } else if (!matchedOpener && /^(?:collaborated with|collaborating with)\b/i.test(clean)) {
     const partnerVerb = isCurrentRole ? 'Partner with' : 'Partnered with'
     clean = clean.replace(/^(?:collaborated with|collaborating with)\s+(?:the\s+)?/i, `${partnerVerb} `)
     matchedOpener = true
@@ -124,7 +128,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
       { pattern: /^(?:helped with|helped to|assisted with|assisted in|participated in|helped)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Lead' : 'Led' },
       { pattern: /^(?:supported|supporting)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Deliver and maintain' : 'Delivered and maintained' },
       { pattern: /^(?:contributed to decomposing|decomposing)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Decompose' : 'Decomposed' },
-      { pattern: /^(?:contributed to|contributed in|contributing to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Lead' : 'Led' },
+      { pattern: /^(?:contributed to|contributed in|contributing to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Spearhead' : 'Spearheaded' },
       { pattern: /^(?:partnered with|partnering with)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Partner with' : 'Partnered with' },
       { pattern: /^(?:managing|managed to)\s+(?:the\s+)?/i, verb: isCurrentRole ? 'Direct' : 'Directed' },
       { pattern: /^(?:using|utilized)\s+/i, verb: isCurrentRole ? 'Apply' : 'Applied' },
@@ -183,9 +187,13 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
     sig?.hasMetric ||
     /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(cleanWithoutVersions)
 
+  const addMetricPlaceholder = /data|analyst|analytics|bi\b|business\s+intelligence/i.test(targetRole)
+    ? '[ADD: measurable business outcome, e.g., decision turnaround time saved, reporting adoption %, or cost/revenue impact]'
+    : '[ADD: measurable outcome, e.g., latency reduction %, system scale, or engineering hours saved]'
+
   if (!hasRealMetric && !clean.includes('[ADD:')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, achieving [ADD: measurable outcome, e.g., latency reduction, test coverage %, or engineering hours saved].`
+    clean = `${clean}, achieving ${addMetricPlaceholder}.`
   }
 
   // 5. Clean punctuation and whitespace
@@ -197,7 +205,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole) {
   // 6. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
   if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, achieving [ADD: measurable outcome, e.g., latency reduction, test coverage %, or engineering hours saved].`
+    clean = `${clean}, achieving ${addMetricPlaceholder}.`
   }
 
   return sanitizeSingleAddPlaceholder(clean)
@@ -366,7 +374,13 @@ export function computeScorecard({
   const checks = buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, len, pageCount, canonicalResume })
 
   // ── 4. Bullet audit ────────────────────────────────────────────────────────
-  const bulletAudit = buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites: analysis?.bulletRewrites || analysis?.llmBulletRewrites || [] })
+  const bulletAudit = buildBulletAudit({
+    analysis,
+    canonicalResume,
+    bulletSignalsList,
+    llmBulletRewrites: analysis?.bulletRewrites || analysis?.llmBulletRewrites || [],
+    targetRole: targetRole || analysis?.candidateSnapshot?.targetRole || canonicalResume?.candidate?.targetRole || canonicalResume?.targetRole || '',
+  })
 
   return {
     version: SCORECARD_VERSION,
@@ -571,7 +585,14 @@ function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, le
  * Builds the per-bullet audit: every experience/project bullet gets a status,
  * a one-line reason, and the before→after rewrite when an issue cites it.
  */
-function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [] }) {
+function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [], targetRole = '' }) {
+  const roleTarget =
+    targetRole ||
+    analysis?.candidateSnapshot?.targetRole ||
+    canonicalResume?.candidate?.targetRole ||
+    canonicalResume?.targetRole ||
+    ''
+
   // Index LLM bullet rewrites by bulletId or roleIndex/bulletIndex
   const llmRewriteMap = new Map()
   if (Array.isArray(llmBulletRewrites)) {
@@ -665,36 +686,35 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           } else {
             status = 'warn'
             reason = `Starts with an '-ing' participle ('${sig.openingWord}') — use direct action tense`
-            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
           }
         } else if (hasWeakOpener) {
           status = 'warn'
           reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (lacksOutcome) {
-          status = 'warn'
           const opener = sig?.openingWord || 'Bullet'
           const techMention = sig?.technologies?.[0] ? ` for ${sig.technologies[0]}` : ''
           const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
           const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
           reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.isToolDumpCandidate) {
           status = 'warn'
           reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.repetitiveVerbIssue) {
           status = 'warn'
           reason = `Repeats opening verb '${sig.openingWord}' (used ${sig.openingVerbCount}x) — vary your action verbs to keep each bullet distinct`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.buzzwordIssue) {
           status = 'warn'
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else {
           status = 'pass'
           reason = 'Clear, specific, no defects found'
@@ -708,7 +728,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
         // Safety guarantee: EVERY bullet marked 'warn' or 'fix' MUST have a non-null rewrite!
         if ((status === 'warn' || status === 'fix') && !rewrite) {
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         }
 
         if (rewrite) {

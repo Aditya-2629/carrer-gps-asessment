@@ -20,6 +20,20 @@ function safeString(val, fallback = '') {
   return fallback
 }
 
+function cleanRewriteText(text) {
+  if (!text || typeof text !== 'string') return text
+  let count = 0
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
+    count += 1
+    if (count === 1) return match
+    return ''
+  })
+  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
+  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  return cleaned
+}
+
 function normalizeEvidence(ev, fallback) {
   if (!ev) return fallback
   if (typeof ev === 'string') {
@@ -98,7 +112,7 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
             whyItMatters: safeString(iss?.whyItMatters, 'Optimizing this directly increases recruiter conversion and ATS pass rates.'),
             evidence: normEv,
             recommendation: safeString(iss?.recommendation || iss?.action_steps?.[0] || iss?.action, 'Apply the recommended recruiter rewrite or clarification.'),
-            correctedText: iss?.correctedText ? safeString(iss.correctedText, null) : null,
+            correctedText: iss?.correctedText ? cleanRewriteText(safeString(iss.correctedText, null)) : null,
           }
         })
       : []

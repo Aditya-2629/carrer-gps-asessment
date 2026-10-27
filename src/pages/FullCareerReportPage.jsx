@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import useAppStore from '../store/useAppStore'
+import useAppStore, { VALID_FORM_KEYS } from '../store/useAppStore'
 import {
   FileText,
   Printer,
@@ -106,49 +106,77 @@ export default function FullCareerReportPage() {
               </p>
             </div>
             <div className="bg-slate-800 border border-slate-700 px-4 py-3 rounded-lg text-right">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Overall Health Score</span>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Career GPS Score</span>
               <span className="text-2xl font-extrabold text-emerald-400">
-                {report.career_health_score ?? 65}/100
+                {report.career_health_score ?? report.gps_score ?? 65}/100
               </span>
-              <span className="text-xs text-slate-300 block font-medium">{report.score_label ?? 'Competitive'}</span>
+              <span className="text-xs text-slate-300 block font-medium">
+                {report.phase?.name ? `Phase ${report.phase.id}: ${report.phase.name}` : (report.score_label ?? 'Competitive')}
+              </span>
+              {report.phase?.isProvisional && (
+                <span className="inline-block mt-1 text-[10px] font-bold text-amber-300 bg-amber-900/60 px-1.5 py-0.5 rounded border border-amber-500/40">
+                  Provisional Diagnosis
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        {/* 1. 4-Dimension Snapshot */}
+        {/* 1. 6-Area Weighted Scorecard */}
         <section className="mb-8 break-inside-avoid">
-          <h2 className="text-base font-bold uppercase tracking-wider text-slate-800 border-b border-slate-200 pb-2 mb-4 flex items-center gap-2">
-            <Target size={18} className="text-emerald-600" weight="bold" />
-            <span>1. 4-Dimension Career Health Snapshot</span>
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-            <div className="border border-slate-200 bg-slate-50 p-4 rounded-lg">
-              <span className="text-xs text-slate-500 font-bold uppercase block">Resume Impact</span>
-              <span className="text-xl font-bold text-slate-900">
-                {resumeAgent?.score ?? report.score_breakdown?.resume?.score ?? 60}/100
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2 mb-4">
+            <h2 className="text-base font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+              <Target size={18} className="text-emerald-600" weight="bold" />
+              <span>1. 6-Dimension Career Health Snapshot (100-Point Rubric)</span>
+            </h2>
+            {report.phase && (
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                Detected: Phase {report.phase.id} ({report.phase.confidence || 'Active'} Confidence)
               </span>
-              <span className="text-xs text-slate-600 block mt-1">Grade: {resumeAgent?.grade || 'C'}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Resume</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.resume?.score ?? 18}/25
+              </span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.resume?.grade || 'B'}</span>
             </div>
-            <div className="border border-slate-200 bg-slate-50 p-4 rounded-lg">
-              <span className="text-xs text-slate-500 font-bold uppercase block">LinkedIn Presence</span>
-              <span className="text-xl font-bold text-slate-900">
-                {linkedinAgent?.score ?? report.score_breakdown?.linkedin?.score ?? 55}/100
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">LinkedIn</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.linkedin?.score ?? 10}/15
               </span>
-              <span className="text-xs text-slate-600 block mt-1">Grade: {linkedinAgent?.grade || 'C'}</span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.linkedin?.grade || 'B'}</span>
             </div>
-            <div className="border border-slate-200 bg-slate-50 p-4 rounded-lg">
-              <span className="text-xs text-slate-500 font-bold uppercase block">Job Search Velocity</span>
-              <span className="text-xl font-bold text-slate-900">
-                {report.score_breakdown?.outreach?.score ?? 50}/100
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Job Search</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.jobSearch?.score ?? 14}/20
               </span>
-              <span className="text-xs text-slate-600 block mt-1">Pace: Active</span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.jobSearch?.grade || 'B'}</span>
             </div>
-            <div className="border border-slate-200 bg-slate-50 p-4 rounded-lg">
-              <span className="text-xs text-slate-500 font-bold uppercase block">Interview Readiness</span>
-              <span className="text-xl font-bold text-slate-900">
-                {report.score_breakdown?.interviews?.score ?? 55}/100
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Networking</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.networking?.score ?? 8}/15
               </span>
-              <span className="text-xs text-slate-600 block mt-1">Screening: Warm</span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.networking?.grade || 'C'}</span>
+            </div>
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Hiring Funnel</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.hiringFunnel?.score ?? 12}/20
+              </span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.hiringFunnel?.grade || 'C'}</span>
+            </div>
+            <div className="border border-slate-200 bg-slate-50 p-3 rounded-lg text-center">
+              <span className="text-[10px] text-slate-500 font-bold uppercase block">Readiness</span>
+              <span className="text-lg font-bold text-slate-900">
+                {report.scores?.careerReadiness?.score ?? 4}/5
+              </span>
+              <span className="text-[11px] text-slate-600 block mt-0.5">Grade: {report.scores?.careerReadiness?.grade || 'A'}</span>
             </div>
           </div>
 
@@ -285,16 +313,32 @@ export default function FullCareerReportPage() {
             <span>5. Candidate Assessment Profile & Verified Answers</span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {Object.entries(report.user_answers || {}).filter(([k]) => !['linkedinData', 'resume', 'precomputedResumeJson'].includes(k)).map(([k, v], idx) => {
-              const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-              const formattedVal = typeof v === 'object' && v !== null ? (v.formatted || `${v.raw ?? ''} per ${v.period ?? ''}`) : String(v || 'Not Provided')
-              return (
-                <div key={idx} className="border border-slate-200 bg-slate-50 px-3 py-2 rounded text-xs flex justify-between items-center gap-2">
-                  <span className="font-semibold text-slate-700">{formattedKey}:</span>
-                  <span className="text-slate-900 font-medium truncate max-w-[220px]">{formattedVal}</span>
-                </div>
-              )
-            })}
+            {Object.entries(report.user_answers || {})
+              .filter(([k]) => VALID_FORM_KEYS.has(k) && !['linkedinData', 'resume', 'precomputedResumeJson'].includes(k))
+              .map(([k, v]) => {
+                let formattedVal = ''
+                if (v == null) formattedVal = ''
+                else if (Array.isArray(v)) formattedVal = v.filter(Boolean).join(', ')
+                else if (typeof v === 'object') {
+                  const raw = String(v.raw ?? v.value ?? '').trim()
+                  const period = String(v.period ?? '').trim()
+                  formattedVal = raw ? (period ? `${raw} per ${period}` : raw) : (v.formatted || '')
+                } else {
+                  formattedVal = String(v).trim()
+                }
+                if (formattedVal === 'per' || formattedVal === 'undefined' || formattedVal === 'null') formattedVal = ''
+                return [k, formattedVal]
+              })
+              .filter(([_, formattedVal]) => Boolean(formattedVal))
+              .map(([k, formattedVal], idx) => {
+                const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                return (
+                  <div key={idx} className="border border-slate-200 bg-slate-50 px-3 py-2 rounded text-xs flex justify-between items-center gap-2">
+                    <span className="font-semibold text-slate-700">{formattedKey}:</span>
+                    <span className="text-slate-900 font-medium truncate max-w-[220px]">{formattedVal}</span>
+                  </div>
+                )
+              })}
           </div>
         </section>
 

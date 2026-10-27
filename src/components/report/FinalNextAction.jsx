@@ -21,13 +21,17 @@ function safeText(val, fallback = '') {
 
 export default function FinalNextAction({ coachData, reportData, onBookCall }) {
   const targetRole =
+    reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
+    reportData?.formData?.targetRole ||
     reportData?.resume_agent?.candidateSnapshot?.targetRole ||
-    'Senior Engineering Role'
+    reportData?.resume_json?.target_role ||
+    'Target Role'
 
   const visaStatus =
     reportData?.user_answers?.visaStatus ||
     reportData?.user_answers?.workAuthorization ||
+    reportData?.user_answers?.visa ||
     null
 
   const criticalRisk =
@@ -38,8 +42,8 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
   const ctaText = safeText(coachData?.cta_text, 'Book Free 1-on-1 Career Strategy Call')
 
   return (
-    <section id="next-action" className="pt-4 pb-12 print-keep print-card break-inside-avoid page-break-inside-avoid">
-      <div className="p-7 sm:p-10 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-7 print-card break-inside-avoid page-break-inside-avoid print:p-5 print:space-y-3">
+    <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 print-keep print-card break-inside-avoid page-break-inside-avoid">
+      <div className="p-6 sm:p-8 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-5 print-card break-inside-avoid page-break-inside-avoid print:p-4 print:space-y-2">
         {/* Soft Primary Gradient Background Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none" />
 
@@ -56,9 +60,19 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
               className="text-2xl sm:text-3xl md:text-4xl print:text-xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight"
               style={{ fontFamily: 'var(--font-head)' }}
             >
-              We've fixed your Resume & LinkedIn copy above.
-              <br />
-              <span className="text-[var(--primary)]">Now let's fix your Interview & Offer Pipeline.</span>
+              {reportData?.phase?.name && reportData?.primary_bottleneck?.title ? (
+                <>
+                  You're stuck in <span className="text-[var(--primary)]">{reportData.phase.name}</span> due to {reportData.primary_bottleneck.title}.
+                  <br />
+                  <span className="text-[var(--primary)]">Let's fix it live in a 1-on-1 Strategy Session.</span>
+                </>
+              ) : (
+                <>
+                  We've fixed your Resume & LinkedIn copy above.
+                  <br />
+                  <span className="text-[var(--primary)]">Now let's fix your Interview & Offer Pipeline.</span>
+                </>
+              )}
             </h2>
             <p className="text-xs sm:text-sm print:text-xs text-[var(--text-secondary)] font-medium max-w-2xl mx-auto leading-relaxed">
               Polished bullet points and optimized headlines alone won't solve cold application drop-offs, recruiter screening filters, or live interview conversion. Bypassing cold portals requires targeted referral execution.
@@ -69,7 +83,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1 text-[11px] font-semibold text-[var(--text-secondary)]">
             <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center gap-1">
               <Briefcase size={13} className="text-[var(--primary)]" />
-              Target: {targetRole}
+              Target: {targetRole} Direct Referral Pipeline Protocol
             </span>
             {visaStatus && (
               <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center gap-1">
@@ -77,10 +91,6 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                 Auth: {visaStatus}
               </span>
             )}
-            <span className="px-2.5 py-1 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center gap-1">
-              <Users size={13} className="text-emerald-500" />
-              Direct Referral Pipeline Protocol
-            </span>
           </div>
 
           {/* 3 Concrete Outcomes Grid */}

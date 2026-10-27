@@ -56,60 +56,118 @@ function parseAtlasJson(text) {
   }
 }
 
-export { parseAtlasJson, atlasCompleteness, deriveFunnelFromAnswers }
+export { parseAtlasJson, atlasCompleteness }
 
-function deriveFunnelFromAnswers(answers = {}) {
-  const parseMonthlyNum = (val, defaultVal = 0) => {
-    if (val === null || val === undefined) return defaultVal
-    if (typeof val === 'number') return !isNaN(val) ? Math.round(val) : defaultVal
-
-    if (typeof val === 'object') {
-      if (val.is_na) return 0
-      if (typeof val.per_month === 'number' && !isNaN(val.per_month)) {
-        return Math.round(val.per_month)
-      }
-      if (typeof val.per_week === 'number' && !isNaN(val.per_week)) {
-        return Math.round(val.per_week * 4.33)
-      }
-      if (val.raw !== undefined) {
-        const match = String(val.raw).match(/\d+(?:\.\d+)?/)
-        const n = match ? parseFloat(match[0]) : defaultVal
-        return val.period === 'week' ? Math.round(n * 4.33) : Math.round(n)
-      }
-      return defaultVal
+export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month') {
+  if (val === null || val === undefined) {
+    return { rawNum: fallbackNum, period: defaultPeriod, perWeek: Math.round(fallbackNum / 4.33), perMonth: fallbackNum, label: `${fallbackNum}` }
+  }
+  if (typeof val === 'number') {
+    return { rawNum: val, period: defaultPeriod, perWeek: defaultPeriod === 'week' ? val : Math.round(val / 4.33), perMonth: defaultPeriod === 'month' ? val : Math.round(val * 4.33), label: `${val} / ${defaultPeriod}` }
+  }
+  if (typeof val === 'object') {
+    if (val.is_na || val.isNA || val.raw === 'N/A' || val.rawAnswer === 'N/A') {
+      return { rawNum: 0, period: val.period || val.selectedPeriod || defaultPeriod, perWeek: 0, perMonth: 0, label: '0' }
     }
+    const rawVal = val.raw ?? val.rawAnswer ?? val.value ?? val.normalizedPerMonth ?? val.normalizedPerWeek ?? ''
+    const rawStr = String(rawVal).replace(/[^0-9.]/g, '')
+    const num = rawStr !== '' ? Number(rawStr) : fallbackNum
+    const period = val.period === 'week' || val.period === 'month'
+      ? val.period
+      : val.selectedPeriod === 'week' || val.selectedPeriod === 'month'
+      ? val.selectedPeriod
+      : defaultPeriod
+    const perWeek = val.per_week != null ? Number(val.per_week) : val.normalizedPerWeek != null ? Number(val.normalizedPerWeek) : (period === 'week' ? num : Math.round((num / 4.33) * 10) / 10)
+    const perMonth = val.per_month != null ? Number(val.per_month) : val.normalizedPerMonth != null ? Number(val.normalizedPerMonth) : (period === 'month' ? num : Math.round(num * 4.33))
+    return {
+      rawNum: isNaN(num) ? fallbackNum : num,
+      period,
+      perWeek: isNaN(perWeek) ? 0 : perWeek,
+      perMonth: isNaN(perMonth) ? 0 : perMonth,
+      label: `${isNaN(num) ? fallbackNum : num} per ${period}`,
+    }
+  }
+  const match = String(val).match(/\d+(\.\d+)?/)
+  const parsed = match ? Number(match[0]) : fallbackNum
+  const period = /week/i.test(String(val)) ? 'week' : /month/i.test(String(val)) ? 'month' : defaultPeriod
+  return {
+    rawNum: parsed,
+    period,
+    perWeek: period === 'week' ? parsed : Math.round((parsed / 4.33) * 10) / 10,
+    perMonth: period === 'month' ? parsed : Math.round(parsed * 4.33),
+    label: `${parsed} per ${period}`,
+  }
+}
 
-    const str = String(val).trim()
-    if (str === '50+' || str === '50-100') return Math.round(60 * 4.33)
-    if (str === '25-50') return Math.round(35 * 4.33)
-    if (str === '10-25') return Math.round(20 * 4.33)
-    if (str === '5-10') return Math.round(8 * 4.33)
-    if (str === '1-5') return Math.round(3 * 4.33)
+export function deriveFunnelFromAnswers(answers = {}) {
+  const appsMetric = extractQuantMetric(answers.appsWeek ?? answers.applications_count ?? answers.applications, 0, 'week')
+  const outreachMetric = extractQuantMetric(answers.outreach ?? answers.recruiter_outreach_count ?? answers.coldEmails, 0, appsMetric.period)
+  const responsesMetric = extractQuantMetric(answers.interviews ?? answers.humanScreen ?? answers.responses ?? answers.recruiter_calls_count, 0, appsMetric.period)
 
-    const match = str.match(/\d+(?:\.\d+)?/)
-    return match ? Math.round(parseFloat(match[0])) : defaultVal
+  const apps = appsMetric.rawNum
+  const outreach = outreachMetric.rawNum
+  let calls = responsesMetric.rawNum
+
+  // Derive downstream stages based on responsesMetric and DropOffStage / feedback
+  const dropOffStr = String(answers.DropOffStage || answers.feedback || '').toLowerCase()
+  let interviews = 0
+  let finals = 0
+  let offers = 0
+
+  if (calls > 0) {
+    if (dropOffStr.includes('final round') || dropOffStr.includes('finish line')) {
+      interviews = Math.min(calls, Math.max(1, Math.round(calls * 0.75)))
+      finals = Math.min(interviews, Math.max(1, Math.round(interviews * 0.6)))
+      offers = 0
+    } else if (dropOffStr.includes('coding') || dropOffStr.includes('system design') || dropOffStr.includes('technical')) {
+      interviews = Math.min(calls, Math.max(1, Math.round(calls * 0.6)))
+      finals = 0
+      offers = 0
+    } else if (dropOffStr.includes('post-interview') || dropOffStr.includes('ghosting') || dropOffStr.includes('recruiter') || dropOffStr.includes('black hole') || dropOffStr.includes('visa')) {
+      interviews = Math.min(calls, Math.max(0, Math.round(calls * 0.5)))
+      finals = 0
+      offers = 0
+    } else {
+      interviews = Math.min(calls, Math.max(0, Math.round(calls * 0.5)))
+      finals = Math.min(interviews, Math.max(0, Math.round(interviews * 0.4)))
+      offers = Math.min(finals, Math.max(0, Math.round(finals * 0.2)))
+    }
   }
 
-  const appsVal = answers.appsWeek || answers.applications_count || answers.applications
-  const apps = parseMonthlyNum(appsVal, 40)
-
-  const calls = parseMonthlyNum(answers.humanScreen || answers.recruiter_calls_count || answers.calls, Math.max(1, Math.round(apps * 0.05)))
-  const interviews = parseMonthlyNum(answers.aiScreen || answers.assessments || answers.interviews_count || answers.interviews, Math.max(0, Math.round(calls * 0.5)))
-  const finals = parseMonthlyNum(answers.finalRounds || answers.final_rounds_count, Math.max(0, Math.round(interviews * 0.4)))
-  const offers = parseMonthlyNum(answers.offers || answers.offers_count, 0)
+  // Also respect explicit answers if provided and valid
+  if (answers.aiScreen || answers.assessments) {
+    const rawAi = extractQuantMetric(answers.aiScreen || answers.assessments, interviews, appsMetric.period).rawNum
+    if (rawAi > 0) interviews = Math.min(calls, rawAi)
+  }
+  if (answers.finalRounds || answers.final_rounds_count) {
+    const rawFin = extractQuantMetric(answers.finalRounds || answers.final_rounds_count, finals, appsMetric.period).rawNum
+    if (rawFin > 0) finals = Math.min(interviews, rawFin)
+  }
+  if (answers.offers || answers.offers_count) {
+    const rawOff = extractQuantMetric(answers.offers || answers.offers_count, offers, appsMetric.period).rawNum
+    offers = Math.min(finals, rawOff)
+  }
 
   let biggest_leak = 'Application to Recruiter Screen'
-  if (apps > 0 && (calls / apps) < 0.1) {
+  if (apps >= 30 && (calls / apps) < 0.05) {
+    biggest_leak = `High-Volume Application Black Hole (${((calls / apps) * 100).toFixed(1)}% Response Rate)`
+  } else if (apps > 0 && (calls / apps) < 0.1) {
     biggest_leak = 'Application to Recruiter Screen'
   } else if (calls > 0 && (interviews / calls) < 0.3) {
     biggest_leak = 'Recruiter Screen to Technical Interview'
   } else if (interviews > 0 && (finals / interviews) < 0.4) {
     biggest_leak = 'Technical Assessment to Final Round'
+  } else if (apps > 0 && calls / apps > 0.25) {
+    biggest_leak = `Recruiter Screens (${calls}) to Final Offers (${offers})`
   }
 
   return {
     applications_count: apps,
+    applications_period: appsMetric.period,
+    outreach_count: outreach,
+    outreach_period: outreachMetric.period,
     recruiter_calls_count: calls,
+    responses_period: responsesMetric.period,
     interviews_count: interviews,
     final_rounds_count: finals,
     offers_count: offers,
@@ -139,17 +197,50 @@ function normalizeAtlasShapes(report, answers = {}) {
   if (!report.funnel_stages || Array.isArray(report.funnel_stages) || typeof report.funnel_stages !== 'object') {
     report.funnel_stages = {
       ...userFunnel,
-      diagnosis_message: 'High application drop-off detected at early recruiter screening.',
+      diagnosis_message: userFunnel.applications_count >= 30 && (userFunnel.recruiter_calls_count / userFunnel.applications_count) < 0.05
+        ? `You submitted ${userFunnel.applications_count} applications and ${userFunnel.outreach_count} direct recruiter outreach messages, yielding only ${userFunnel.recruiter_calls_count} responses (${((userFunnel.recruiter_calls_count / userFunnel.applications_count) * 100).toFixed(1)}% conversion rate).`
+        : (userFunnel.recruiter_calls_count / (userFunnel.applications_count || 1)) > 0.25
+        ? `Solid recruiter callback rate (${userFunnel.recruiter_calls_count} screens from ${userFunnel.applications_count} applications), but pipeline experiences steep drop-off between Recruiter Screens (${userFunnel.recruiter_calls_count}) and Final Offers (${userFunnel.offers_count}).`
+        : 'High application drop-off detected at early recruiter screening.',
     }
   } else {
-    if (answers && (answers.appsWeek || answers.humanScreen || answers.aiScreen || answers.applications_count)) {
-      report.funnel_stages.applications_count = userFunnel.applications_count || report.funnel_stages.applications_count
-      report.funnel_stages.recruiter_calls_count = userFunnel.recruiter_calls_count ?? report.funnel_stages.recruiter_calls_count
-      report.funnel_stages.interviews_count = userFunnel.interviews_count ?? report.funnel_stages.interviews_count
-      report.funnel_stages.final_rounds_count = userFunnel.final_rounds_count ?? report.funnel_stages.final_rounds_count
-      report.funnel_stages.offers_count = userFunnel.offers_count ?? report.funnel_stages.offers_count
-      if (!report.funnel_stages.biggest_leak_stage) {
-        report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
+    report.funnel_stages.applications_count = userFunnel.applications_count !== undefined ? userFunnel.applications_count : report.funnel_stages.applications_count
+    report.funnel_stages.applications_period = userFunnel.applications_period || report.funnel_stages.applications_period || 'month'
+    report.funnel_stages.outreach_count = userFunnel.outreach_count !== undefined ? userFunnel.outreach_count : (report.funnel_stages.outreach_count ?? 0)
+    report.funnel_stages.outreach_period = userFunnel.outreach_period || report.funnel_stages.outreach_period || userFunnel.applications_period
+    report.funnel_stages.recruiter_calls_count = userFunnel.recruiter_calls_count !== undefined ? userFunnel.recruiter_calls_count : report.funnel_stages.recruiter_calls_count
+    report.funnel_stages.responses_period = userFunnel.responses_period || report.funnel_stages.responses_period || userFunnel.applications_period
+    report.funnel_stages.interviews_count = userFunnel.interviews_count !== undefined ? userFunnel.interviews_count : report.funnel_stages.interviews_count
+    report.funnel_stages.final_rounds_count = userFunnel.final_rounds_count !== undefined ? userFunnel.final_rounds_count : report.funnel_stages.final_rounds_count
+    report.funnel_stages.offers_count = userFunnel.offers_count !== undefined ? userFunnel.offers_count : report.funnel_stages.offers_count
+    if (!report.funnel_stages.biggest_leak_stage) {
+      report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
+    }
+  }
+
+  // Enforce monotonic constraints without wiping raw applications_count
+  if (report.funnel_stages && typeof report.funnel_stages === 'object') {
+    let fApps = Number(report.funnel_stages.applications_count) || 0
+    let fCalls = Math.min(Math.max(0, Number(report.funnel_stages.recruiter_calls_count) || 0), fApps > 0 ? fApps : 9999)
+    let fInterviews = Math.min(Math.max(0, Number(report.funnel_stages.interviews_count) || 0), fCalls)
+    let fFinals = Math.min(Math.max(0, Number(report.funnel_stages.final_rounds_count) || 0), fInterviews)
+    let fOffers = Math.min(Math.max(0, Number(report.funnel_stages.offers_count) || 0), fFinals)
+
+    report.funnel_stages.applications_count = fApps
+    report.funnel_stages.recruiter_calls_count = fCalls
+    report.funnel_stages.interviews_count = fInterviews
+    report.funnel_stages.final_rounds_count = fFinals
+    report.funnel_stages.offers_count = fOffers
+
+    if (fApps >= 30 && (fCalls / fApps) < 0.05) {
+      report.funnel_stages.biggest_leak_stage = `High-Volume Application Black Hole (${((fCalls / fApps) * 100).toFixed(1)}% Response Rate)`
+      report.funnel_stages.diagnosis_message = `You submitted ${fApps} applications and ${report.funnel_stages.outreach_count || 0} direct recruiter outreach messages, yielding only ${fCalls} responses (${((fCalls / fApps) * 100).toFixed(1)}% conversion rate).`
+    } else if (fApps > 0 && fCalls / fApps > 0.25) {
+      if (!report.funnel_stages.biggest_leak_stage || report.funnel_stages.biggest_leak_stage.toLowerCase().includes('application')) {
+        report.funnel_stages.biggest_leak_stage = `Recruiter Screens (${fCalls}) to Final Offers (${fOffers})`
+      }
+      if (!report.funnel_stages.diagnosis_message || report.funnel_stages.diagnosis_message.toLowerCase().includes('black-hole') || report.funnel_stages.diagnosis_message.toLowerCase().includes('early recruiter')) {
+        report.funnel_stages.diagnosis_message = `Solid recruiter callback rate (${fCalls} screens from ${fApps} applications), but pipeline experiences steep drop-off between Recruiter Screens (${fCalls}) and Final Offers (${fOffers}).`
       }
     }
   }
@@ -299,6 +390,7 @@ export async function generateReportBundle({
         resumeName: user.resumeName || '',
         canonicalResume: effectiveCanonicalResume,
         resumeTargetRole,
+        answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
         linkedinUrl: effectiveLinkedinUrl,
         linkedinData: user.linkedinData || precomputedLinkedinData || null,
         userId: user._id,
@@ -323,6 +415,7 @@ export async function generateReportBundle({
       resumeName: user.resumeName || '',
       canonicalResume: effectiveCanonicalResume,
       resumeTargetRole,
+      answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
       linkedinUrl: effectiveLinkedinUrl,
       linkedinData: user.linkedinData || precomputedLinkedinData || null,
       userId: user._id,
@@ -355,6 +448,7 @@ export async function generateReportBundle({
           canonicalResume: effectiveCanonicalResume,
           targetRole: resumeTargetRole,
         },
+        answers: user.answers || {},
         runLlm: true,
         preferredProvider: 'groq',
       })
@@ -409,10 +503,55 @@ export async function generateReportBundle({
     aiReport.linkedin_json = user.linkedinData || activeLinkedinData
   }
 
-  // Attach verified agent diagnoses
+  // Re-evaluate assessmentPersona with resolved agents
+  let effectiveAssessmentAgent = assessmentPersona
+  try {
+    effectiveAssessmentAgent = evaluateAssessmentPersona({
+      answers: user.answers || {},
+      semanticProfile: user.semanticProfile || effectiveSemanticProfile || {},
+      resumeAgent: activeResumeAgent,
+      linkedinAgent: activeLinkedinAgent,
+    })
+  } catch (_e) {
+    // fallback to existing
+  }
+
+  // Attach verified agent diagnoses and V2 Career GPS metrics
   aiReport.resume_agent = activeResumeAgent
   aiReport.linkedin_agent = activeLinkedinAgent
-  aiReport.assessment_agent = assessmentPersona
+  aiReport.assessment_agent = effectiveAssessmentAgent
+
+  const v2Score = effectiveAssessmentAgent?.gpsScore ?? aiReport.career_health_score ?? 68
+  aiReport.gps_score = v2Score
+  aiReport.career_health_score = v2Score
+  aiReport.score_label = effectiveAssessmentAgent?.gradeLabel || aiReport.score_label || 'Good'
+  aiReport.phase = effectiveAssessmentAgent?.phase ?? { id: 1, name: 'Resume → Screening Call', confidence: 'Medium' }
+  aiReport.primary_bottleneck = effectiveAssessmentAgent?.primary_bottleneck ?? null
+  aiReport.secondary_problem = effectiveAssessmentAgent?.secondary_problem ?? null
+  aiReport.strongest_area = effectiveAssessmentAgent?.strongest_area ?? null
+  aiReport.next_best_action = effectiveAssessmentAgent?.next_best_action ?? null
+  aiReport.top_actions = effectiveAssessmentAgent?.top_actions ?? []
+  aiReport.gps_scores = effectiveAssessmentAgent?.scores ?? null
+  aiReport.external_context = effectiveAssessmentAgent?.external_context ?? null
+
+  // Synchronize score_breakdown.resume with the Resume Agent scorecard
+  if (activeResumeAgent?.dashboard?.score !== undefined) {
+    if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
+    if (!aiReport.score_breakdown.resume) aiReport.score_breakdown.resume = {}
+    aiReport.score_breakdown.resume.score = activeResumeAgent.dashboard.score
+    aiReport.score_breakdown.resume.grade = activeResumeAgent.dashboard.grade || (activeResumeAgent.dashboard.score >= 85 ? 'A' : activeResumeAgent.dashboard.score >= 70 ? 'B' : activeResumeAgent.dashboard.score >= 55 ? 'C' : 'D')
+  }
+
+  // Synchronize score_breakdown.linkedin with the LinkedIn Agent
+  const liScore = activeLinkedinAgent?.score ?? aiReport.score_breakdown?.linkedin?.score ?? 55
+  const topLiIssue = activeLinkedinAgent?.discrepancies?.[0]?.title || activeLinkedinAgent?.topRecommendations?.[0] || 'missing featured project case studies and peer recommendations'
+  if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
+  if (!aiReport.score_breakdown.linkedin) aiReport.score_breakdown.linkedin = {}
+  aiReport.score_breakdown.linkedin.score = liScore
+  aiReport.score_breakdown.linkedin.grade = activeLinkedinAgent?.grade || (liScore >= 85 ? 'A' : liScore >= 70 ? 'B' : liScore >= 55 ? 'C' : 'D')
+  if (!aiReport.score_breakdown.linkedin.diagnosis || aiReport.score_breakdown.linkedin.diagnosis.length < 120) {
+    aiReport.score_breakdown.linkedin.diagnosis = `Your LinkedIn profile scores ${liScore}/100 with strong role descriptions and network reach, but recruiter trust and inbound search visibility are held back by ${topLiIssue.toLowerCase()}.`
+  }
 
   aiReport.user_answers = user.answers || {}
   aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null
@@ -429,7 +568,13 @@ export async function generateReportBundle({
       let regenerated = false
 
       const keepAgentBundle = (source, target) => {
-        for (const key of ['resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent', 'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile']) {
+        for (const key of [
+          'resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent',
+          'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile',
+          'gps_score', 'career_health_score', 'phase', 'primary_bottleneck',
+          'secondary_problem', 'strongest_area', 'next_best_action', 'top_actions',
+          'gps_scores', 'external_context'
+        ]) {
           if (source[key] !== undefined) target[key] = source[key]
         }
         return target

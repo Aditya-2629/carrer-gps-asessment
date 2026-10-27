@@ -18,6 +18,21 @@ function normalizeSkill(str) {
     .trim()
 }
 
+function formatSkillCase(s) {
+  if (!s) return ''
+  const trimmed = String(s).trim()
+  const ACRONYMS = new Set(['sql', 'etl', 'elt', 'aws', 'gcp', 'api', 'apis', 'rest', 'ci/cd', 'bi', 'r', 'ml', 'ai', 'nlp', 'llm', 'llms', 'c2c', 'w2', 'ats', 'roi', 'c++', 'c#'])
+  return trimmed.split(/\s+/).map((word) => {
+    const wLow = word.toLowerCase()
+    if (ACRONYMS.has(wLow)) return word.toUpperCase()
+    if (wLow === 'powerbi' || wLow === 'power bi') return 'Power BI'
+    if (wLow === 'bigquery') return 'BigQuery'
+    if (wLow === 'postgresql') return 'PostgreSQL'
+    if (wLow === 'mongodb') return 'MongoDB'
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  }).join(' ')
+}
+
 function extractYears(dateStr) {
   if (!dateStr) return []
   const matches = String(dateStr).match(/\b(19\d\d|20\d\d)\b/g)
@@ -163,7 +178,7 @@ export function matchCompany(rComp, lComp) {
   return null
 }
 
-const PRIORITY_TECH = [
+export const PRIORITY_TECH = [
   'LangGraph',
   'LangChain',
   'RAG',
@@ -182,7 +197,158 @@ const PRIORITY_TECH = [
   'MongoDB',
   'Microservices',
   'REST APIs',
+  // Data, Analytics & BI Priority Tools
+  'SQL',
+  'Python',
+  'Power BI',
+  'Tableau',
+  'Snowflake',
+  'BigQuery',
+  'Looker Studio',
+  'dbt',
+  'Databricks',
+  'Excel',
 ]
+
+/**
+ * Checks if a skill is a concise tool, platform, framework, or language rather than a prose methodology phrase.
+ */
+export function isConcreteTechSkill(skill) {
+  if (!skill || typeof skill !== 'string') return false
+  const trimmed = skill.trim()
+  if (trimmed.length === 0 || trimmed.length > 26) return false
+  if (/\s+and\s+/i.test(trimmed)) return false
+
+  const words = trimmed.split(/\s+/)
+  if (words.length > 3) return false
+
+  const KNOWN_TOOLS = new Set([
+    'sql', 'python', 'r', 'power bi', 'tableau', 'snowflake', 'bigquery', 'looker', 'looker studio',
+    'dbt', 'databricks', 'excel', 'postgresql', 'postgres', 'mysql', 'oracle', 'aws', 'azure', 'gcp',
+    'docker', 'kubernetes', 'git', 'java', 'c++', 'c#', 'go', 'golang', 'typescript', 'javascript',
+    'react', 'node.js', 'nodejs', 'kafka', 'spark', 'pyspark', 'hadoop', 'airflow', 'pandas', 'numpy',
+    'scikit-learn', 'tensorflow', 'pytorch', 'redshift', 'mongodb', 'redis', 'graphql', 'rest apis',
+    'fastapi', 'spring boot', 'langchain', 'langgraph', 'rag', 'chromadb', 'jira', 'confluence', 'linux',
+    'salesforce', 'alteryx', 'ssis', 'ssrs', 'ssas', 'sap', 'teradata', 'spark sql', 'etl', 'elt'
+  ])
+
+  const lower = trimmed.toLowerCase()
+  if (KNOWN_TOOLS.has(lower)) return true
+
+  // Check known tool patterns
+  if (/^(sql|python|power\s+bi|tableau|snowflake|bigquery|looker|dbt|databricks|aws|azure|gcp|react|node|docker|kubernetes|kafka|spark|airflow|excel)/i.test(trimmed)) {
+    return true
+  }
+
+  // Reject generic methodology / prose phrases
+  if (/analysis|investigation|reporting|management|strategy|methodology|definition|modelling|modeling|gathering/i.test(lower)) {
+    return false
+  }
+
+  return words.length <= 2
+}
+
+/**
+ * Formats any skill in proper Title Case while preserving standard acronyms (SQL, KPI, BI, AWS, etc.)
+ * and canonical tech casing (LangGraph, LangChain, FastAPI, Next.js, ChromaDB, etc.).
+ */
+export function formatSkillName(skill) {
+  if (!skill || typeof skill !== 'string') return ''
+  const trimmed = skill.trim()
+
+  const prioMatch = PRIORITY_TECH.find((pt) => pt.toLowerCase() === trimmed.toLowerCase())
+  if (prioMatch) return prioMatch
+
+  const CANONICAL_CASING = {
+    langgraph: 'LangGraph',
+    langchain: 'LangChain',
+    fastapi: 'FastAPI',
+    chromadb: 'ChromaDB',
+    'spring ai': 'Spring AI',
+    'spring boot': 'Spring Boot',
+    'next.js': 'Next.js',
+    'power bi': 'Power BI',
+    bigquery: 'BigQuery',
+    'looker studio': 'Looker Studio',
+    postgresql: 'PostgreSQL',
+    mongodb: 'MongoDB',
+    graphql: 'GraphQL',
+    'rest apis': 'REST APIs',
+    typescript: 'TypeScript',
+    javascript: 'JavaScript',
+    sql: 'SQL',
+    kpi: 'KPI',
+    kpis: 'KPIs',
+    bi: 'BI',
+    aws: 'AWS',
+    gcp: 'GCP',
+    etl: 'ETL',
+    elt: 'ELT',
+    ai: 'AI',
+    ml: 'ML',
+    api: 'API',
+    apis: 'APIs',
+    rag: 'RAG',
+    llm: 'LLM',
+    llms: 'LLMs',
+    db: 'DB',
+    r: 'R',
+    ui: 'UI',
+    ux: 'UX',
+    dbt: 'dbt',
+  }
+
+  const exactCanon = CANONICAL_CASING[trimmed.toLowerCase()]
+  if (exactCanon) return exactCanon
+
+  if (/[a-z][A-Z]/.test(trimmed)) {
+    return trimmed
+  }
+
+  const ACRONYMS = {
+    sql: 'SQL',
+    kpi: 'KPI',
+    kpis: 'KPIs',
+    bi: 'BI',
+    aws: 'AWS',
+    gcp: 'GCP',
+    etl: 'ETL',
+    elt: 'ELT',
+    ai: 'AI',
+    ml: 'ML',
+    api: 'API',
+    apis: 'APIs',
+    rag: 'RAG',
+    llm: 'LLM',
+    llms: 'LLMs',
+    db: 'DB',
+    r: 'R',
+    ui: 'UI',
+    ux: 'UX',
+    dbt: 'dbt',
+  }
+
+  return trimmed
+    .split(/\s+/)
+    .map((word) => {
+      const lower = word.toLowerCase()
+      if (ACRONYMS[lower]) return ACRONYMS[lower]
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
+/**
+ * Filters out 4+ word prose phrases containing " and ".
+ */
+export function isValidSkill(skill) {
+  if (!skill || typeof skill !== 'string') return false
+  const trimmed = skill.trim()
+  if (trimmed.length === 0 || trimmed.length > 35) return false
+  const words = trimmed.split(/\s+/)
+  if (words.length >= 4 && /\s+and\s+/i.test(trimmed)) return false
+  return true
+}
 
 /**
  * Cross-analyzes a LinkedIn profile with the candidate's canonical resume.
@@ -274,8 +440,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       title: '0 Recommendations Despite Established Enterprise Career',
       resumeClaim: `${rawResumeExperiences.length} verified enterprise roles`,
       linkedinClaim: `${connCount ? `${connCount}+` : '500+'} connections, 0 recommendations`,
-      diagnosis: 'Your profile has strong connections and multiple engineering positions but zero recommendations. Public social proof from engineering managers or tech leads acts as a decisive trust signal for recruiters.',
-      recommendation: 'Request 2-3 brief recommendations from former engineering managers or senior colleagues highlighting your technical delivery and team collaboration.',
+      diagnosis: 'Your profile has strong connections and multiple positions but zero recommendations. Public social proof from former managers, team leads, or senior stakeholders acts as a decisive trust signal for recruiters.',
+      recommendation: 'Request 2-3 brief recommendations from former managers, team leads, or senior stakeholders highlighting your core delivery and team collaboration.',
     }
     visualIssues.push(zeroRecObs)
     discrepancies.push(zeroRecObs)
@@ -452,10 +618,13 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
     const lExp = matchedExp
 
-    // Red Flag 1: Company Name Typo & Missing Logo (flag if diff > 0 or unlinked logo)
-    const hasSpellingMismatch = matchMeta?.diff > 0
-    const hasNullLogo = lExp.companyLogo === null && (!matchMeta?.isVendorClientMatch || matchMeta?.diff > 0)
-    if (hasSpellingMismatch || hasNullLogo) {
+    // Red Flag 1: Company Name Typo & Missing Logo
+    const normL = normalizeName(lExp.company)
+    const normR = normalizeName(rExp.company)
+    const isSameOrSubstring = normL === normR || (normL.length >= 4 && normR.includes(normL)) || (normR.length >= 4 && normL.includes(normR))
+    const hasSpellingMismatch = Boolean(matchMeta?.diff > 0 && !isSameOrSubstring)
+
+    if (hasSpellingMismatch && rExp.company.trim().toLowerCase() !== lExp.company.trim().toLowerCase() && normL !== normR) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
         type: 'company_typo_unlinked_logo',
@@ -463,7 +632,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         title: 'Company Name Typo & Missing Official Logo on LinkedIn',
         company: rExp.company,
         resumeClaim: rExp.company,
-        linkedinClaim: `${lExp.company}${hasNullLogo ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
+        linkedinClaim: `${lExp.company}${lExp.companyLogo === null ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
         diagnosis: `Your LinkedIn profile spells the employer as '${lExp.company}'${matchMeta?.diff > 0 ? ' (minor typo)' : ''}, which breaks official LinkedIn company logo binding, whereas your resume lists '${rExp.company}' (${matchMeta?.isVendorClientMatch ? 'Staffing Vendor / End Client' : 'Verified Employer Name'}).`,
         recommendation: `Fix the spelling on LinkedIn to match the official LinkedIn Company Page ("${rExp.company.split(/[/|\\—–-]/)[1]?.trim() || rExp.company}") and select the verified organization from the dropdown so the official logo renders.`,
       }
@@ -565,22 +734,31 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
   // ── 4. Skill Coverage Gap Check & Prioritized Tech (Red Flag 6) ────────────
   const resumeSkills = []
+  const addResumeSkill = (raw) => {
+    if (!raw || typeof raw !== 'string') return
+    if (!isValidSkill(raw)) return
+    const formatted = formatSkillName(raw)
+    if (formatted && !resumeSkills.includes(formatted)) {
+      resumeSkills.push(formatted)
+    }
+  }
+
   if (Array.isArray(canonicalResume.skills)) {
     for (const s of canonicalResume.skills) {
       const name = typeof s === 'string' ? s : s?.name
-      if (name && !resumeSkills.includes(name)) resumeSkills.push(name)
+      addResumeSkill(name)
     }
   }
   for (const fact of extractedFacts) {
     if (fact.factType === 'TECHNOLOGY' && fact.value) {
-      if (!resumeSkills.includes(fact.value)) resumeSkills.push(fact.value)
+      addResumeSkill(fact.value)
     }
   }
 
   // Also scan projects and experiences for priority technologies
   for (const p of canonicalResume.projects || []) {
     for (const t of p.technologies || p.skills || []) {
-      if (!resumeSkills.includes(t)) resumeSkills.push(t)
+      addResumeSkill(t)
     }
     for (const b of p.bullets || []) {
       const text = typeof b === 'string' ? b : b.text || ''
@@ -614,15 +792,19 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     }
   }
 
-  // Sort missing skills so modern in-demand technologies are at the top
+  // Sort missing skills so concrete tools and modern in-demand technologies are at the top
   missingSkills.sort((a, b) => {
+    const aConcrete = isConcreteTechSkill(a) ? 1 : 0
+    const bConcrete = isConcreteTechSkill(b) ? 1 : 0
+    if (aConcrete !== bConcrete) return bConcrete - aConcrete
+
     const aPri = PRIORITY_TECH.some((pt) => pt.toLowerCase() === a.toLowerCase()) ? 1 : 0
     const bPri = PRIORITY_TECH.some((pt) => pt.toLowerCase() === b.toLowerCase()) ? 1 : 0
     return bPri - aPri
   })
 
   if (missingSkills.length >= 3) {
-    const topMissing = missingSkills.slice(0, 10)
+    const topMissing = missingSkills.slice(0, 10).map(formatSkillCase)
     const topMissing5 = topMissing.slice(0, 5).join(', ')
     const topMissing6 = topMissing.slice(0, 6).join(', ')
     const isAtCap = linkedInSkills.length >= 45
@@ -679,8 +861,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
           ? `Only older / legacy projects listed (${linkedInProjects.map((p) => p.title || p.name).slice(0, 3).join(', ')})`
           : 'No matching projects found on LinkedIn profile',
         diagnosis:
-          'Recruiters checking LinkedIn only see outdated academic/legacy projects while your strongest modern engineering projects from the resume are completely absent from your LinkedIn Projects and Featured sections.',
-        recommendation: `Add your top modern resume projects (${projectNames}) to your LinkedIn Projects and Featured sections with GitHub links and architecture overviews.`,
+          'Recruiters checking LinkedIn only see outdated academic/legacy projects while your key portfolio projects from the resume are completely absent from your LinkedIn Projects and Featured sections.',
+        recommendation: `Add your key portfolio projects (${projectNames}) to your LinkedIn Projects and Featured sections with live demos or code links and architecture overviews.`,
       }
       const omissionType = linkedInProjects.length === 0 ? 'missing_projects' : 'missing_modern_projects'
       const finalProjectObs = { ...projectOmission, type: omissionType }
@@ -850,6 +1032,13 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     missingSectionsCount: missingSections.length,
   }
 
+  const consistencyTier = classifyConsistencyTier({
+    summary,
+    discrepancies: cleanDiscrepancies,
+    timelineMismatches,
+    titleDrift,
+  })
+
   return {
     hasResumeContext: true,
     timelineMismatches,
@@ -862,8 +1051,58 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     discrepancies: cleanDiscrepancies,
     missingSkills: missingSkills.slice(0, 10),
     summary,
+    consistencyTier,
   }
 }
 
-export default { analyzeCrossAgentDiscrepancies }
+export function classifyConsistencyTier({ summary = {}, discrepancies = [], timelineMismatches = [], titleDrift = [] } = {}) {
+  const highSev = summary.high ?? discrepancies.filter((d) => d.severity === 'high').length
+  const medSev = summary.medium ?? discrepancies.filter((d) => d.severity === 'medium').length
+  const timelineCount = summary.timelineMismatchesCount ?? timelineMismatches.length
+
+  const hasMaterialEmployerMismatch = discrepancies.some((d) =>
+    d.category === 'employer_mismatch' || (d.severity === 'high' && /employer|company/i.test(d.title || d.diagnosis))
+  )
+  const hasSignificantTimelineGap = timelineMismatches.some((m) => (m.gapMonths || m.monthsDiff || 0) > 3)
+
+  if (hasMaterialEmployerMismatch || hasSignificantTimelineGap || highSev >= 2) {
+    return {
+      tier: 'Major Inconsistency',
+      points: 0,
+      maxPoints: 2,
+      badge: 'Major Inconsistency',
+      description: 'Material differences in employers, timelines (>3 months), or identity detected that could create recruiter concern.',
+    }
+  }
+
+  if (highSev === 1 || medSev >= 2 || timelineCount >= 1) {
+    return {
+      tier: 'Potential Inconsistency',
+      points: 1,
+      maxPoints: 2,
+      badge: 'Potential Inconsistency',
+      description: 'Moderate differences in role details or minor timeline variance between resume and LinkedIn.',
+    }
+  }
+
+  if (medSev === 1 || (summary.low ?? 0) > 0 || (titleDrift && titleDrift.length > 0)) {
+    return {
+      tier: 'Minor Differences',
+      points: 1.5,
+      maxPoints: 2,
+      badge: 'Minor Differences',
+      description: 'Normal title variations or equivalent wording (e.g. Senior Data Analyst vs Data Analyst, Full Stack vs Software Engineer).',
+    }
+  }
+
+  return {
+    tier: 'Strong Match',
+    points: 2,
+    maxPoints: 2,
+    badge: 'Strong Match',
+    description: 'High alignment across career history, job titles, and timeline between resume and LinkedIn profile.',
+  }
+}
+
+export default { analyzeCrossAgentDiscrepancies, classifyConsistencyTier }
 

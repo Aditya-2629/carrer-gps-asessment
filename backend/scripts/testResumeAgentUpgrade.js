@@ -180,7 +180,7 @@ console.log('\n--- Requirement 4: Wire bulletUpgrades & eliminate fake 1-word re
 test('generateDeterministicRewrite uses strong verbs and clean [ADD: ...] slot', () => {
   const rw1 = generateDeterministicRewrite('Responsible for microservices architecture.', { weakVerbIssue: true }, false)
   assert(rw1.startsWith('Architected'), `Should lead with Architected, got: ${rw1}`)
-  assert(rw1.includes('[ADD: measurable impact, e.g., latency reduction or scale]'), 'Should append clean ADD slot')
+  assert(rw1.includes('[ADD: measurable outcome, e.g., latency reduction %, system scale, or engineering hours saved]'), 'Should append clean ADD slot')
 
   const rw2 = generateDeterministicRewrite('Worked on database indexing.', { weakVerbIssue: true }, false)
   assert(rw2.startsWith('Engineered'), `Should lead with Engineered, got: ${rw2}`)

@@ -1,307 +1,225 @@
-// ─── Career GPS Experience & Assessment Steps (12-Step Streamlined Edition) ───
-// High-signal, gamified 12-step interactive assessment across 4 chapters.
-// Every question feeds verified personalization signals into downstream AI agents.
+// ─── Career GPS Experience & Assessment Steps (V2 12-Question Schema) ───
+// Architecture:
+// 1. Initial Setup: Resume Upload + LinkedIn URL
+// 2. 12 Exact V2 Questions incorporating Yash's 6-Phase Framework & 8-Stage 90-Day Funnel.
 
 export const CHAPTERS = [
-  { id: 1, number: '01', title: 'Drop Your Gear & Coordinates', icon: '🎒', subtitle: 'Resume & Eligibility', range: [1, 4] },
-  { id: 2, number: '02', title: 'Your Search Engine & Velocity', icon: '⚡', subtitle: 'Applications & Outreach', range: [5, 8] },
-  { id: 3, number: '03', title: 'Inside the Hiring Arena', icon: '🏟️', subtitle: 'Screens & Dropoffs', range: [9, 10] },
-  { id: 4, number: '04', title: 'Sprint Bandwidth & Game Plan', icon: '🚀', subtitle: 'Commitment & Dispatch', range: [11, 12] },
+  { id: 1, number: '00', title: 'Setup & Digital Coordinates', icon: '🎒', subtitle: 'Resume & LinkedIn', range: [1, 2] },
+  { id: 2, number: '01', title: 'Work Authorization & Target Role', icon: '🎯', subtitle: 'Perimeter & Seniority', range: [3, 4] },
+  { id: 3, number: '02', title: 'Search Engine, Sourcing & Support', icon: '⚡', subtitle: 'Volume, Channels & Consultancy', range: [5, 9] },
+  { id: 4, number: '03', title: 'Inside the Hiring Funnel', icon: '🏟️', subtitle: '90-Day Conversion & Stuck Stage', range: [10, 12] },
+  { id: 5, number: '04', title: 'Remediation & Root Cause', icon: '🚀', subtitle: 'Past Attempts & Core Problem', range: [13, 14] },
 ]
 
 export const EXPERIENCE = {
+  // Setup 1
   1: {
     scene: 'career-suitcase',
-    sceneTitle: 'ATS Document Inspection',
-    chapter: 'Drop Your Gear & Coordinates',
-    kicker: 'DROP YOUR GEAR',
+    sceneTitle: 'Resume Inspection',
+    chapter: 'Setup & Digital Coordinates',
+    kicker: 'INITIAL SETUP',
     title: "First things first — drop the resume you're currently taking into battle.",
-    helper: 'Our AI scans your stack and extracts your LinkedIn link in milliseconds while you breeze through the next 11 quick cards.',
+    helper: 'Our AI scans your tech stack, quantifiable bullets, and contact links in milliseconds.',
     visual: 'resume-scanner',
     icon: '📄',
     reaction: {
-      default: 'Resume uploaded · Background deep-scan initialized 📄',
+      default: 'Resume uploaded · Background extraction initialized 📄',
     },
   },
+  // Setup 2
   2: {
     scene: 'linkedin-signal',
-    sceneTitle: 'Digital Recruiter Beacon',
-    chapter: 'Drop Your Gear & Coordinates',
-    kicker: 'RECRUITER BEACON',
-    title: 'Where do recruiters stalk you before sending a calendar invite?',
-    helper: 'Auto-detected from your resume if present — or paste your linkedin.com/in/username (with or without https://).',
+    sceneTitle: 'Recruiter Beacon',
+    chapter: 'Setup & Digital Coordinates',
+    kicker: 'INITIAL SETUP',
+    title: 'Where do recruiters find you? Enter your LinkedIn profile URL.',
+    helper: 'Auto-detected from your resume if present — or paste your linkedin.com/in/username.',
     visual: 'linkedin-signal',
     icon: '🔗',
     reaction: {
       default: 'Recruiter beacon verified · Digital cross-analysis enabled 🔗',
     },
   },
+  // Question 1
   3: {
+    questionNumber: 1,
     scene: 'border-checkpoint',
-    sceneTitle: 'U.S. Work Authorization Checkpoint',
-    chapter: 'Drop Your Gear & Coordinates',
-    kicker: 'WORK AUTH',
-    title: "What's your U.S. work authorization superpower (or plot twist)?",
-    helper: 'This calibrates the exact immigration-safe routes, sponsorship filters, and target employer tiers.',
+    sceneTitle: 'Authorization & Perimeter',
+    chapter: 'Work Authorization & Target Role',
+    kicker: 'QUESTION 1 OF 12',
+    title: 'What is your current work authorization and search perimeter?',
+    helper: 'Used strictly to calibrate recruiter visibility filters and market cycles — never penalizes your GPS score.',
     visual: 'us-border',
     icon: '🛂',
-    reaction: {
-      'CPT (F-1 Student — Building & studying in parallel 🎓)': 'Student CPT route initialized · Curricular runway noted 🎓',
-      'Initial OPT (12-Month Clock is Ticking ⏳)': 'Initial OPT runway registered · Action timeline prioritized ⏳',
-      'STEM OPT (24-Month Runway — Hunting E-Verify Sponsors 🚀)': 'Extended 24-month STEM runway detected · High-growth tech pathways unlocked 🚀',
-      'H-1B Visa (Looking for a clean H-1B Transfer 💼)': 'H-1B transfer route mapped · Specialized specialty occupation tier activated 💼',
-      'H-4 / L-2 EAD (Open Work Permit — Zero Lottery Drama ✨)': 'Open employment authorization logged · Rapid placement trajectory enabled ✨',
-      'Green Card (Permanent Resident — Every Door Open 🗽)': 'Permanent residency confirmed · Unrestricted corporate & defense pathways open 🗽',
-      'U.S. Citizen (Zero Sponsorship Friction 🇺🇸)': 'U.S. Citizen verified · Zero sponsorship roadblock detected 🇺🇸',
-      'Other Visa / Exploring Global Routes 🌐': 'Specialized visa classification recorded · Custom legal perimeter set 🌐',
-    },
   },
+  // Question 2
   4: {
+    questionNumber: 2,
     scene: 'map-search',
-    sceneTitle: 'Nationwide Radar & Clusters',
-    chapter: 'Drop Your Gear & Coordinates',
-    kicker: 'TARGET RADAR',
-    title: 'Where should your Career GPS lock its radar?',
-    helper: "Pick your target city, metro hub, or Remote 🌐 — we'll calibrate salary bands & local hiring clusters.",
+    sceneTitle: 'Target Role & Level',
+    chapter: 'Work Authorization & Target Role',
+    kicker: 'QUESTION 2 OF 12',
+    title: 'What is your target role / job title?',
+    helper: 'Pre-filled from your resume if detected. Adjust your target title and total tech experience level.',
     visual: 'map-pins',
-    icon: '📍',
-    suggestions: [
-      'Open to Relocate Anywhere in US ✈️',
-      'Remote Only 🌐',
-      'New York / NJ 🗽',
-      'SF Bay Area / Silicon Valley 🌉',
-      'Seattle, WA 🌲',
-      'Austin / Dallas, TX 🤠',
-      'Chicago, IL 🏙️',
-    ],
+    icon: '🎯',
     reaction: {
-      default: 'Target radar locked · Regional salary calibration active 📍',
+      default: 'Target coordinates and experience level calibrated 🎯',
     },
   },
+  // Question 3
   5: {
+    questionNumber: 3,
     scene: 'apps',
-    sceneTitle: 'Application Velocity',
-    chapter: 'Your Search Engine & Velocity',
-    kicker: 'OUTBOUND PACE',
-    title: 'Be honest: how many job applications are you firing off right now?',
-    helper: 'Pick per week or per month — no judgment, we need your real top-of-funnel pace.',
+    sceneTitle: '30-Day Outbound Pace',
+    chapter: 'Search Engine, Sourcing & Support',
+    kicker: 'QUESTION 3 OF 12',
+    title: 'How many job applications have you submitted in the last 30 days?',
+    helper: 'Pick a preset or enter your estimated count to assess top-of-funnel outbound momentum.',
     visual: 'apps',
     icon: '🚀',
-    presets: {
-      week: ['5', '15', '30', '60', '100+'],
-      month: ['20', '60', '120', '250+'],
-    },
+    presets: ['0–5', '10–25', '30–60', '60–120', '150+'],
   },
+  // Question 4
   6: {
-    scene: 'split-road',
-    sceneTitle: 'Application Strategy & Style',
-    chapter: 'Your Search Engine & Velocity',
-    kicker: 'SEARCH STRATEGY',
-    title: 'What does your typical job-application session actually look like?',
-    helper: 'Different application playbooks produce wildly different ATS pass rates and callback numbers.',
+    questionNumber: 4,
+    scene: 'target-scope',
+    sceneTitle: 'Targeting Precision',
+    chapter: 'Search Engine, Sourcing & Support',
+    kicker: 'QUESTION 4 OF 12',
+    title: 'Approximately what percentage of those applications closely match your target role and experience?',
+    helper: 'High-volume applying to mismatched roles triggers automated ATS filters and skews your conversion signal.',
     visual: 'split-road',
     icon: '🎯',
     reaction: {
-      "Speed-Clicker ⚡ — 80%+ LinkedIn 'Easy Apply' & one-click blasts": 'High-speed volume blast mode detected · Easy-Apply filter risk ⚡',
-      'Portal Sniper 🎯 — Applying on direct company career portals with one master resume': 'Direct enterprise portal targeting registered 🎯',
-      'The Customizer 🛠️ — Tailoring resume keywords for almost every job description': 'High-touch tailoring detected · 65% higher callback ceiling 🛠️',
-      'Referral Hunter 🤝 — DMing hiring managers, engineers & alumni before applying': 'Warm referral strategy locked · Highest offer conversion rate 🤝',
+      '80%–100% (Highly Targeted 🎯)': 'Precision sniper targeting · Highest ATS pass probability 🎯',
+      '50%–79% (Moderately Targeted ⚖️)': 'Balanced targeting with moderate market breadth ⚖️',
+      '20%–49% (Broad / Mixed 🌧️)': 'Mixed targeting · Risk of automated ATS keyword drop-off 🌧️',
+      'Under 20% (Applying Everywhere 🎲)': 'Spray & pray pattern detected · High automated rejection risk 🎲',
     },
   },
+  // Question 5
   7: {
-    scene: 'outreach',
-    sceneTitle: 'Direct Outreach Volume',
-    chapter: 'Your Search Engine & Velocity',
-    kicker: 'DIRECT OUTREACH',
-    title: 'How often are you sliding into recruiter or hiring manager DMs/inboxes?',
-    helper: 'Direct cold emails, LinkedIn connection notes, or referral asks sent per week or month.',
-    visual: 'outreach',
-    icon: '📬',
-    presets: {
-      week: ['0', '5', '15', '35+'],
-      month: ['0', '20', '60', '150+'],
-    },
+    questionNumber: 5,
+    scene: 'search-methods',
+    sceneTitle: 'Sourcing Channels',
+    chapter: 'Search Engine, Sourcing & Support',
+    kicker: 'QUESTION 5 OF 12',
+    title: 'Which methods are you currently using to find opportunities? (Select all that apply)',
+    helper: 'Select all channels currently in your job hunt pipeline.',
+    visual: 'split-road',
+    icon: '🔍',
   },
+  // Question 6
   8: {
+    questionNumber: 6,
     scene: 'support-team',
-    sceneTitle: 'Career Representation',
-    chapter: 'Your Search Engine & Velocity',
-    kicker: 'CORNER SQUAD',
-    title: "Who's currently in your corner for this job hunt?",
-    helper: 'Knowing your representation model allows us to tailor enterprise ownership and vendor framing.',
+    sceneTitle: 'External Help & Consultancies',
+    chapter: 'Search Engine, Sourcing & Support',
+    kicker: 'QUESTION 6 OF 12',
+    title: 'Are you currently using any consultancy, staffing agency, or external help in your job search?',
+    helper: 'Identifies whether your pipeline relies on third-party marketing, vendor cuts, or solo outreach.',
     visual: 'support-team',
-    icon: '🛡️',
+    icon: '🏢',
     reaction: {
-      'No (Doing it all by myself — 100% Solo)': 'Independent solo navigator route mapped · 100% autonomy 🚶',
-      'C2C (Free Upfront) — Takes up to 20% cut while you work': 'C2C corporate pathway logged · Vendor-client positioning active 🏢',
-      'W2 Fulltime — Upfront fee + % of your annual package': 'W2 placement agency track recorded · Direct enterprise positioning enabled 💼',
+      'No — 100% Solo (Applying & networking on my own) 🚶': '100% Solo job search · Full ownership of compensation & direct ATS pipeline 🚶',
+      'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢': 'C2C Consultancy / Bench Marketing pipeline enabled 🏢',
+      'Yes — W2 Staffing / Placement Agency 💼': 'W2 Staffing & agency placement track active 💼',
+      'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯': 'External coaching & prep tools active 🎯',
     },
   },
+  // Question 7
   9: {
-    scene: 'phone-screen',
-    sceneTitle: 'Recruiter Screening Call Volume',
-    chapter: 'Inside the Hiring Arena',
-    kicker: 'PHONE SCREENS',
-    title: 'Out of all your applications, how many real human recruiters called you in the last 30 days?',
-    helper: '1-on-1 phone or video screening calls with a real talent partner (not automated AI bots).',
-    visual: 'phone-screen',
-    icon: '📞',
-    presets: {
-      week: ['0', '1', '2', '4+'],
-      month: ['0', '2', '5', '10+'],
-    },
+    questionNumber: 7,
+    scene: 'outreach',
+    sceneTitle: 'Networking & Referral Velocity',
+    chapter: 'Search Engine, Sourcing & Support',
+    kicker: 'QUESTION 7 OF 12',
+    title: 'How many personalized messages and referral requests do you send?',
+    helper: 'Weekly direct outreach to recruiters/managers + monthly internal employee referral asks.',
+    visual: 'outreach',
+    icon: '🤝',
   },
+  // Question 8
   10: {
+    questionNumber: 8,
+    scene: 'phone-screen',
+    sceneTitle: '90-Day 8-Stage Funnel',
+    chapter: 'Inside the Hiring Funnel',
+    kicker: 'QUESTION 8 OF 12',
+    title: 'In the last 90 days, approximately how many times did you reach each stage?',
+    helper: 'Tap presets or type counts across all 8 stages from screens to offers and onboarding.',
+    visual: 'phone-screen',
+    icon: '📊',
+  },
+  // Question 9
+  11: {
+    questionNumber: 9,
     scene: 'rejection-inbox',
-    sceneTitle: 'Funnel Drop-Off Points',
-    chapter: 'Inside the Hiring Arena',
-    kicker: 'BOTTLENECK AUDIT',
-    title: 'Where does the trail usually go cold when an opportunity dies?',
-    helper: "Pick every plot twist you've experienced in the last 60 days.",
+    sceneTitle: 'Primary Stuck Stage',
+    chapter: 'Inside the Hiring Funnel',
+    kicker: 'QUESTION 9 OF 12',
+    title: 'Where do you feel you usually get stuck in the hiring journey?',
+    helper: 'Select the exact phase where opportunities consistently stall or go cold.',
     visual: 'rejection-inbox',
     icon: '🛑',
-  },
-  11: {
-    scene: 'time-bank',
-    sceneTitle: 'Dedicated Sprint Bandwidth',
-    chapter: 'Sprint Bandwidth & Game Plan',
-    kicker: 'SPRINT BANDWIDTH',
-    title: 'How many hours a week can you realistically lock in to fix this pipeline?',
-    helper: 'This calibrates the daily workload in your 30/60/90-day execution roadmap.',
-    visual: 'time-bank',
-    icon: '⏱️',
-    presets: {
-      week: ['5', '10', '20', '35+'],
-      month: ['20', '40', '80', '140+'],
+    reaction: {
+      'Phase 6: Resume / Readiness — Haven’t started applying consistently yet': 'Phase 6: Core documents & daily application readiness prep 📄',
+      'Phase 1: Application → Screening — Applying, but getting almost no calls': 'Phase 1 bottleneck: Resume ATS visibility & recruiter hook 🛑',
+      'Phase 2: Screening → Technical — Getting recruiter calls/assessments, but not reaching technical rounds': 'Phase 2 bottleneck: Recruiter screen pitch & OA passing rate 📞',
+      'Phase 3: Technical → Final Round — Reaching technical rounds, but failing to reach final rounds': 'Phase 3 bottleneck: Live coding, system design & technical depth 💻',
+      'Phase 4: Final Round → Offer — Reaching final rounds, but not getting offers': 'Phase 4 bottleneck: Executive buy-in & value differentiation 🎯',
+      'Phase 5: Offer → Joining — Got an offer, but joining/onboarding/background check got stuck': 'Phase 5 bottleneck: Background clearance & onboarding execution 🤝',
     },
   },
+  // Question 10
   12: {
+    questionNumber: 10,
+    scene: 'border-checkpoint',
+    sceneTitle: 'Primary Hiring Friction',
+    chapter: 'Inside the Hiring Funnel',
+    kicker: 'QUESTION 10 OF 12',
+    title: 'What is the biggest challenge you face during interviews or screenings?',
+    helper: 'Pinpoint the single most painful friction point in your current job hunt.',
+    visual: 'us-border',
+    icon: '⚠️',
+  },
+  // Question 11
+  13: {
+    questionNumber: 11,
+    scene: 'time-bank',
+    sceneTitle: 'Past Optimization Attempts',
+    chapter: 'Remediation & Root Cause',
+    kicker: 'QUESTION 11 OF 12',
+    title: 'What have you already tried to improve your career/job search?',
+    helper: 'Select everything you have tested so we avoid recommending tactics you have already exhausted.',
+    visual: 'time-bank',
+    icon: '🛠️',
+  },
+  // Question 12
+  14: {
+    questionNumber: 12,
     scene: 'phone-compass',
-    sceneTitle: 'Dispatch & Strategy Key',
-    chapter: 'Sprint Bandwidth & Game Plan',
-    kicker: 'DISPATCH',
-    title: 'Final checkpoint! Where should we dispatch your Career GPS Report & Strategy Key?',
-    helper: 'Enter your 10-digit mobile / WhatsApp number to unlock your complete multi-agent diagnosis.',
+    sceneTitle: 'Top Priority Goal',
+    chapter: 'Remediation & Root Cause',
+    kicker: 'QUESTION 12 OF 12',
+    title: 'What do you believe is your #1 career/job-search problem to solve right now?',
+    helper: 'Pick the option that resonates most — and feel free to add a brief custom note below.',
     visual: 'phone-compass',
     icon: '🧭',
     reaction: {
-      default: 'Dispatch coordinates confirmed · Multi-agent analysis starting 🚀',
+      default: 'Assessment complete! Generating your personalized Career GPS 🚀',
     },
   },
 }
 
-// ─── Layer 2: AI Semantic Definitions ───
-export const SEMANTIC_REGISTRY = {
-  resume: {
-    field: 'resume',
-    semanticKey: 'candidate_resume_document',
-    questionIntent: 'Capture source resume document for automated ATS extraction, bullet signal computation, and recruiter impression critique.',
-    answerType: 'document_file',
-  },
-  linkedin: {
-    field: 'linkedin',
-    semanticKey: 'linkedin_profile_url',
-    questionIntent: 'Candidate public LinkedIn profile URL for digital presence verification, recruiter searchability audit, and automated scraping.',
-    answerType: 'url',
-  },
-  visa: {
-    field: 'visa',
-    semanticKey: 'work_authorization_status',
-    questionIntent: 'Determine candidate legal United States employment authorization to filter viable employer tiers, sponsorship constraints, and compliance deadlines.',
-    answerType: 'category',
-    possibleValues: ['CPT', 'POST OPT (Initial OPT)', 'STEM OPT', 'H1', 'H4 EAD', 'GC', 'USC', 'Other'],
-    interpretationRules: 'F-1 (CPT/OPT/STEM OPT) requires employers open to future H-1B lottery sponsorship. GC and USC have unrestricted access.'
-  },
-  location: {
-    field: 'location',
-    semanticKey: 'target_geographic_markets',
-    questionIntent: 'Identify primary metropolitan target markets or remote preference to calibrate regional salary bands and local industry clusters.',
-    answerType: 'location_list',
-  },
-  appsWeek: {
-    field: 'appsWeek',
-    semanticKey: 'application_submission_velocity',
-    questionIntent: 'Quantify top-of-funnel application submission pace to compute funnel conversion rates and automated rejection ratios.',
-    answerType: 'frequency',
-    unit: 'applications',
-    timeframe: 'weekly_or_monthly',
-  },
-  searchStyle: {
-    field: 'searchStyle',
-    semanticKey: 'job_search_execution_style',
-    questionIntent: 'Determine candidate core search playbook: Easy Apply blast, career portal sniper, resume customizer, or proactive referral hunter.',
-    answerType: 'category',
-  },
-  coldEmails: {
-    field: 'coldEmails',
-    semanticKey: 'direct_outreach_frequency',
-    questionIntent: 'Measure proactive recruiter, hiring manager, or professional outreach volume sent per week or month.',
-    answerType: 'frequency',
-    unit: 'messages',
-    timeframe: 'weekly_or_monthly',
-  },
-  consultancy: {
-    field: 'consultancy',
-    semanticKey: 'third_party_representation_status',
-    questionIntent: 'Detect if candidate works through staffing consultancies, C2C vendor networks, W2 agencies, or operates 100% independently.',
-    answerType: 'category',
-  },
-  humanScreen: {
-    field: 'humanScreen',
-    semanticKey: 'recruiter_screen_invitation_frequency',
-    questionIntent: 'Count verified initial recruiter phone screens received per period to compute actual top-of-funnel callback conversion.',
-    answerType: 'frequency',
-    unit: 'screens',
-    timeframe: 'weekly_or_monthly',
-  },
-  feedback: {
-    field: 'feedback',
-    semanticKey: 'hiring_funnel_friction_dropoffs',
-    questionIntent: 'Identify explicit failure stages: ATS black hole, visa drop-off, live coding gauntlet, system design grill, or post-screen ghosting.',
-    answerType: 'multi_select',
-  },
-  hoursWeek: {
-    field: 'hoursWeek',
-    semanticKey: 'job_search_bandwidth_capacity',
-    questionIntent: 'Measure available candidate weekly hours to calibrate recommended execution cadence in 30/60/90 day roadmap.',
-    answerType: 'frequency',
-    unit: 'hours',
-    timeframe: 'weekly_or_monthly',
-  },
-  phone: {
-    field: 'phone',
-    semanticKey: 'contact_phone_number',
-    questionIntent: 'Direct candidate contact channel used for delivery of the personalized Career GPS report and recruiter strategy follow-ups.',
-    answerType: 'contact',
-  },
-  // Legacy keys for backward compatibility
-  relocate: { field: 'relocate', semanticKey: 'geographic_mobility', answerType: 'boolean' },
-  resumeVersions: { field: 'resumeVersions', semanticKey: 'resume_version_arsenal_count', answerType: 'count' },
-  atsScore: { field: 'atsScore', semanticKey: 'self_reported_ats_score', answerType: 'percentage_or_unknown' },
-  customizeResume: { field: 'customizeResume', semanticKey: 'resume_tailoring_frequency', answerType: 'boolean' },
-  employmentGap: { field: 'employmentGap', semanticKey: 'career_gap_presence', answerType: 'boolean' },
-  metrics: { field: 'metrics', semanticKey: 'quantified_impact_presence', answerType: 'boolean' },
-  linkedinOpt: { field: 'linkedinOpt', semanticKey: 'linkedin_allstar_optimization_status', answerType: 'category' },
-  linkedinCon: { field: 'linkedinCon', semanticKey: 'linkedin_networking_velocity', answerType: 'frequency' },
-  easyApply: { field: 'easyApply', semanticKey: 'easy_apply_submission_rate', answerType: 'frequency' },
-  aiScreen: { field: 'aiScreen', semanticKey: 'automated_screening_frequency', answerType: 'frequency' },
-  assessments: { field: 'assessments', semanticKey: 'technical_assessment_frequency', answerType: 'frequency' },
-  assessScore: { field: 'assessScore', semanticKey: 'assessment_average_score', answerType: 'percentage_or_unknown' },
-  assessType: { field: 'assessType', semanticKey: 'assessment_format_types', answerType: 'multi_select' },
-  mockInterviews: { field: 'mockInterviews', semanticKey: 'mock_interview_practice_presence', answerType: 'boolean' },
-  codeInterviews: { field: 'codeInterviews', semanticKey: 'live_coding_anxiety_indicator', answerType: 'category' },
-  biggestChallenge: { field: 'biggestChallenge', semanticKey: 'candidate_primary_obstacle_narrative', answerType: 'free_text' },
-  triedImprove: { field: 'triedImprove', semanticKey: 'previous_remediation_efforts', answerType: 'free_text' },
-  aiTools: { field: 'aiTools', semanticKey: 'active_ai_automation_stack', answerType: 'multi_select' },
-  strategies: { field: 'strategies', semanticKey: 'active_search_strategy_loadout', answerType: 'multi_select' },
-  investGuidance: { field: 'investGuidance', semanticKey: 'accelerated_mentorship_intent', answerType: 'boolean' },
-}
-
-const RAW_STEPS = [
+export const RAW_STEPS = [
+  // Setup 1: Resume
   {
     id: 1,
     name: 'resume',
     type: 'file',
+    isSetup: true,
     label: EXPERIENCE[1].title,
     sublabel: EXPERIENCE[1].helper,
     maxSizeMB: 5,
@@ -314,11 +232,13 @@ const RAW_STEPS = [
     icon: EXPERIENCE[1].icon,
     reaction: EXPERIENCE[1].reaction,
   },
+  // Setup 2: LinkedIn
   {
     id: 2,
     name: 'linkedin',
     type: 'input',
     inputType: 'url',
+    isSetup: true,
     label: EXPERIENCE[2].title,
     sublabel: EXPERIENCE[2].helper,
     placeholder: 'https://www.linkedin.com/in/username',
@@ -331,49 +251,30 @@ const RAW_STEPS = [
     icon: EXPERIENCE[2].icon,
     reaction: EXPERIENCE[2].reaction,
   },
+  // Q1: visa & location
   {
     id: 3,
+    questionNumber: 1,
     name: 'visa',
-    type: 'radio',
+    type: 'visa-location',
     label: EXPERIENCE[3].title,
     sublabel: EXPERIENCE[3].helper,
-    options: [
-      'CPT (F-1 Student — Building & studying in parallel 🎓)',
-      'Initial OPT (12-Month Clock is Ticking ⏳)',
-      'STEM OPT (24-Month Runway — Hunting E-Verify Sponsors 🚀)',
-      'H-1B Visa (Looking for a clean H-1B Transfer 💼)',
-      'H-4 / L-2 EAD (Open Work Permit — Zero Lottery Drama ✨)',
-      'Green Card (Permanent Resident — Every Door Open 🗽)',
-      'U.S. Citizen (Zero Sponsorship Friction 🇺🇸)',
-      'Other Visa / Exploring Global Routes 🌐',
-    ],
-    optionIcons: {
-      'CPT (F-1 Student — Building & studying in parallel 🎓)': '🎓',
-      'Initial OPT (12-Month Clock is Ticking ⏳)': '⏳',
-      'STEM OPT (24-Month Runway — Hunting E-Verify Sponsors 🚀)': '🚀',
-      'H-1B Visa (Looking for a clean H-1B Transfer 💼)': '💼',
-      'H-4 / L-2 EAD (Open Work Permit — Zero Lottery Drama ✨)': '✨',
-      'Green Card (Permanent Resident — Every Door Open 🗽)': '🗽',
-      'U.S. Citizen (Zero Sponsorship Friction 🇺🇸)': '🇺🇸',
-      'Other Visa / Exploring Global Routes 🌐': '🌐',
-    },
     required: true,
-    autoAdvance: false,
     chapter: EXPERIENCE[3].chapter,
     scene: EXPERIENCE[3].scene,
     sceneTitle: EXPERIENCE[3].sceneTitle,
     kicker: EXPERIENCE[3].kicker,
     visual: EXPERIENCE[3].visual,
     icon: EXPERIENCE[3].icon,
-    reaction: EXPERIENCE[3].reaction,
   },
+  // Q2: targetRole & experience
   {
     id: 4,
-    name: 'location',
-    type: 'location',
+    questionNumber: 2,
+    name: 'targetRole',
+    type: 'targetRole',
     label: EXPERIENCE[4].title,
     sublabel: EXPERIENCE[4].helper,
-    placeholder: 'Search target city, metro, or Remote...',
     required: true,
     chapter: EXPERIENCE[4].chapter,
     scene: EXPERIENCE[4].scene,
@@ -381,15 +282,17 @@ const RAW_STEPS = [
     kicker: EXPERIENCE[4].kicker,
     visual: EXPERIENCE[4].visual,
     icon: EXPERIENCE[4].icon,
-    suggestions: EXPERIENCE[4].suggestions,
     reaction: EXPERIENCE[4].reaction,
   },
+  // Q3: apps30d
   {
     id: 5,
-    name: 'appsWeek',
-    type: 'quantitative',
+    questionNumber: 3,
+    name: 'apps30d',
+    type: 'preset-or-number',
     label: EXPERIENCE[5].title,
     sublabel: EXPERIENCE[5].helper,
+    presets: EXPERIENCE[5].presets,
     required: true,
     chapter: EXPERIENCE[5].chapter,
     scene: EXPERIENCE[5].scene,
@@ -397,25 +300,26 @@ const RAW_STEPS = [
     kicker: EXPERIENCE[5].kicker,
     visual: EXPERIENCE[5].visual,
     icon: EXPERIENCE[5].icon,
-    presets: EXPERIENCE[5].presets,
   },
+  // Q4: targetedMatchPct
   {
     id: 6,
-    name: 'searchStyle',
+    questionNumber: 4,
+    name: 'targetedMatchPct',
     type: 'radio',
     label: EXPERIENCE[6].title,
     sublabel: EXPERIENCE[6].helper,
     options: [
-      "Speed-Clicker ⚡ — 80%+ LinkedIn 'Easy Apply' & one-click blasts",
-      'Portal Sniper 🎯 — Applying on direct company career portals with one master resume',
-      'The Customizer 🛠️ — Tailoring resume keywords for almost every job description',
-      'Referral Hunter 🤝 — DMing hiring managers, engineers & alumni before applying',
+      '80%–100% (Highly Targeted 🎯)',
+      '50%–79% (Moderately Targeted ⚖️)',
+      '20%–49% (Broad / Mixed 🌧️)',
+      'Under 20% (Applying Everywhere 🎲)',
     ],
     optionIcons: {
-      "Speed-Clicker ⚡ — 80%+ LinkedIn 'Easy Apply' & one-click blasts": '⚡',
-      'Portal Sniper 🎯 — Applying on direct company career portals with one master resume': '🎯',
-      'The Customizer 🛠️ — Tailoring resume keywords for almost every job description': '🛠️',
-      'Referral Hunter 🤝 — DMing hiring managers, engineers & alumni before applying': '🤝',
+      '80%–100% (Highly Targeted 🎯)': '🎯',
+      '50%–79% (Moderately Targeted ⚖️)': '⚖️',
+      '20%–49% (Broad / Mixed 🌧️)': '🌧️',
+      'Under 20% (Applying Everywhere 🎲)': '🎲',
     },
     required: true,
     autoAdvance: false,
@@ -427,12 +331,30 @@ const RAW_STEPS = [
     icon: EXPERIENCE[6].icon,
     reaction: EXPERIENCE[6].reaction,
   },
+  // Q5: searchMethods
   {
     id: 7,
-    name: 'coldEmails',
-    type: 'quantitative',
+    questionNumber: 5,
+    name: 'searchMethods',
+    type: 'checkbox',
     label: EXPERIENCE[7].title,
     sublabel: EXPERIENCE[7].helper,
+    options: [
+      'LinkedIn Easy Apply',
+      'Company Career Portals (Direct ATS)',
+      'Job Boards (Dice, Monster, Indeed, CareerBuilder)',
+      'Direct Recruiter / Hiring Manager Outreach',
+      'Employee Referrals & Warm Introductions',
+      'Vendors / Staffing Agencies',
+    ],
+    optionIcons: {
+      'LinkedIn Easy Apply': '⚡',
+      'Company Career Portals (Direct ATS)': '🏢',
+      'Job Boards (Dice, Monster, Indeed, CareerBuilder)': '📋',
+      'Direct Recruiter / Hiring Manager Outreach': '📬',
+      'Employee Referrals & Warm Introductions': '🤝',
+      'Vendors / Staffing Agencies': '💼',
+    },
     required: true,
     chapter: EXPERIENCE[7].chapter,
     scene: EXPERIENCE[7].scene,
@@ -440,23 +362,26 @@ const RAW_STEPS = [
     kicker: EXPERIENCE[7].kicker,
     visual: EXPERIENCE[7].visual,
     icon: EXPERIENCE[7].icon,
-    presets: EXPERIENCE[7].presets,
   },
+  // Q6: externalHelp (Consultancies & External Support)
   {
     id: 8,
-    name: 'consultancy',
+    questionNumber: 6,
+    name: 'externalHelp',
     type: 'radio',
     label: EXPERIENCE[8].title,
     sublabel: EXPERIENCE[8].helper,
     options: [
-      'No (Doing it all by myself — 100% Solo)',
-      'C2C (Free Upfront) — Takes up to 20% cut while you work',
-      'W2 Fulltime — Upfront fee + % of your annual package',
+      'No — 100% Solo (Applying & networking on my own) 🚶',
+      'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢',
+      'Yes — W2 Staffing / Placement Agency 💼',
+      'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯',
     ],
     optionIcons: {
-      'No (Doing it all by myself — 100% Solo)': '🚶',
-      'C2C (Free Upfront) — Takes up to 20% cut while you work': '🏢',
-      'W2 Fulltime — Upfront fee + % of your annual package': '💼',
+      'No — 100% Solo (Applying & networking on my own) 🚶': '🚶',
+      'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢': '🏢',
+      'Yes — W2 Staffing / Placement Agency 💼': '💼',
+      'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯': '🎯',
     },
     required: true,
     autoAdvance: false,
@@ -468,10 +393,12 @@ const RAW_STEPS = [
     icon: EXPERIENCE[8].icon,
     reaction: EXPERIENCE[8].reaction,
   },
+  // Q7: outreach & referralsMonth
   {
     id: 9,
-    name: 'humanScreen',
-    type: 'quantitative',
+    questionNumber: 7,
+    name: 'outreach',
+    type: 'outreach-referral',
     label: EXPERIENCE[9].title,
     sublabel: EXPERIENCE[9].helper,
     required: true,
@@ -481,30 +408,15 @@ const RAW_STEPS = [
     kicker: EXPERIENCE[9].kicker,
     visual: EXPERIENCE[9].visual,
     icon: EXPERIENCE[9].icon,
-    presets: EXPERIENCE[9].presets,
   },
+  // Q8: funnel90d (8-Stage Funnel Grid)
   {
     id: 10,
-    name: 'feedback',
-    type: 'checkbox',
+    questionNumber: 8,
+    name: 'funnel90d',
+    type: 'funnel-grid',
     label: EXPERIENCE[10].title,
     sublabel: EXPERIENCE[10].helper,
-    options: [
-      'The ATS Black Hole 🕳️ — Ghosted before a single human ever talks to me',
-      'The Visa Wall 🛂 — Everything goes great until I mention OPT / H-1B sponsorship',
-      'The Coding Gauntlet 💻 — Freezing up on timed LeetCode / HackerRank / Live Coding rounds',
-      'The System Design Grill 🏗️ — Deep architecture & scaling questions catch me off guard',
-      'Post-Interview Ghosting 👻 — I crush the recruiter/HM call, they smile, and then vanish',
-      'Final Round Heartbreak 💔 — Reaching the finish line, but losing to \'another candidate\'',
-    ],
-    optionIcons: {
-      'The ATS Black Hole 🕳️ — Ghosted before a single human ever talks to me': '🕳️',
-      'The Visa Wall 🛂 — Everything goes great until I mention OPT / H-1B sponsorship': '🛂',
-      'The Coding Gauntlet 💻 — Freezing up on timed LeetCode / HackerRank / Live Coding rounds': '💻',
-      'The System Design Grill 🏗️ — Deep architecture & scaling questions catch me off guard': '🏗️',
-      'Post-Interview Ghosting 👻 — I crush the recruiter/HM call, they smile, and then vanish': '👻',
-      'Final Round Heartbreak 💔 — Reaching the finish line, but losing to \'another candidate\'': '💔',
-    },
     required: true,
     chapter: EXPERIENCE[10].chapter,
     scene: EXPERIENCE[10].scene,
@@ -513,115 +425,171 @@ const RAW_STEPS = [
     visual: EXPERIENCE[10].visual,
     icon: EXPERIENCE[10].icon,
   },
+  // Q9: DropOffStage (6 Phases)
   {
     id: 11,
-    name: 'hoursWeek',
-    type: 'quantitative',
-    unit: 'hours',
+    questionNumber: 9,
+    name: 'DropOffStage',
+    type: 'radio',
     label: EXPERIENCE[11].title,
     sublabel: EXPERIENCE[11].helper,
+    options: [
+      'Phase 6: Resume / Readiness — Haven’t started applying consistently yet',
+      'Phase 1: Application → Screening — Applying, but getting almost no calls',
+      'Phase 2: Screening → Technical — Getting recruiter calls/assessments, but not reaching technical rounds',
+      'Phase 3: Technical → Final Round — Reaching technical rounds, but failing to reach final rounds',
+      'Phase 4: Final Round → Offer — Reaching final rounds, but not getting offers',
+      'Phase 5: Offer → Joining — Got an offer, but joining/onboarding/background check got stuck',
+    ],
+    optionIcons: {
+      'Phase 6: Resume / Readiness — Haven’t started applying consistently yet': '📄',
+      'Phase 1: Application → Screening — Applying, but getting almost no calls': '🛑',
+      'Phase 2: Screening → Technical — Getting recruiter calls/assessments, but not reaching technical rounds': '📞',
+      'Phase 3: Technical → Final Round — Reaching technical rounds, but failing to reach final rounds': '💻',
+      'Phase 4: Final Round → Offer — Reaching final rounds, but not getting offers': '🏆',
+      'Phase 5: Offer → Joining — Got an offer, but joining/onboarding/background check got stuck': '🤝',
+    },
     required: true,
+    autoAdvance: false,
     chapter: EXPERIENCE[11].chapter,
     scene: EXPERIENCE[11].scene,
     sceneTitle: EXPERIENCE[11].sceneTitle,
     kicker: EXPERIENCE[11].kicker,
     visual: EXPERIENCE[11].visual,
     icon: EXPERIENCE[11].icon,
-    presets: EXPERIENCE[11].presets,
+    reaction: EXPERIENCE[11].reaction,
   },
+  // Q10: biggestChallenge
   {
     id: 12,
-    name: 'phone',
-    type: 'phone',
-    isSubmitStep: true,
+    questionNumber: 10,
+    name: 'biggestChallenge',
+    type: 'radio',
     label: EXPERIENCE[12].title,
     sublabel: EXPERIENCE[12].helper,
-    prefix: '+1',
-    placeholder: '(555) 000-0000',
+    options: [
+      'Getting ghosted before talking to any human recruiter',
+      'Struggling to pitch my background or explain projects clearly on screening calls',
+      'Failing online coding tests, live technical problem-solving, or system design',
+      'Relying on external/proxy support or lacking confidence & setup clarity',
+      'Stalling in HR/final rounds over salary, visa sponsorship, or behavioral questions',
+    ],
+    optionIcons: {
+      'Getting ghosted before talking to any human recruiter': '👻',
+      'Struggling to pitch my background or explain projects clearly on screening calls': '🗣️',
+      'Failing online coding tests, live technical problem-solving, or system design': '💻',
+      'Relying on external/proxy support or lacking confidence & setup clarity': '🛡️',
+      'Stalling in HR/final rounds over salary, visa sponsorship, or behavioral questions': '🛂',
+    },
     required: true,
+    autoAdvance: false,
     chapter: EXPERIENCE[12].chapter,
     scene: EXPERIENCE[12].scene,
     sceneTitle: EXPERIENCE[12].sceneTitle,
     kicker: EXPERIENCE[12].kicker,
     visual: EXPERIENCE[12].visual,
     icon: EXPERIENCE[12].icon,
-    reaction: EXPERIENCE[12].reaction,
+  },
+  // Q11: alreadyTried
+  {
+    id: 13,
+    questionNumber: 11,
+    name: 'alreadyTried',
+    type: 'checkbox',
+    label: EXPERIENCE[13].title,
+    sublabel: EXPERIENCE[13].helper,
+    options: [
+      'Rewrote resume for ATS',
+      'Optimized LinkedIn profile',
+      'Increased application volume',
+      'Reached out to recruiters/vendors',
+      'Practiced mock technical/HR interviews',
+      'Nothing structured yet',
+    ],
+    optionIcons: {
+      'Rewrote resume for ATS': '📄',
+      'Optimized LinkedIn profile': '🔗',
+      'Increased application volume': '📈',
+      'Reached out to recruiters/vendors': '💬',
+      'Practiced mock technical/HR interviews': '💻',
+      'Nothing structured yet': '🌱',
+    },
+    required: true,
+    chapter: EXPERIENCE[13].chapter,
+    scene: EXPERIENCE[13].scene,
+    sceneTitle: EXPERIENCE[13].sceneTitle,
+    kicker: EXPERIENCE[13].kicker,
+    visual: EXPERIENCE[13].visual,
+    icon: EXPERIENCE[13].icon,
+  },
+  // Q12: frustration & helpNeed
+  {
+    id: 14,
+    questionNumber: 12,
+    name: 'frustration',
+    type: 'frustration-custom',
+    isSubmitStep: true,
+    label: EXPERIENCE[14].title,
+    sublabel: EXPERIENCE[14].helper,
+    options: [
+      'My resume/LinkedIn is not getting noticed',
+      'I get calls but fail to convert them into interviews',
+      'I freeze or underperform in technical/final interviews',
+      'I do not have a structured daily system or mentor',
+    ],
+    optionIcons: {
+      'My resume/LinkedIn is not getting noticed': '🕳️',
+      'I get calls but fail to convert them into interviews': '📞',
+      'I freeze or underperform in technical/final interviews': '🧊',
+      'I do not have a structured daily system or mentor': '🧭',
+    },
+    required: true,
+    chapter: EXPERIENCE[14].chapter,
+    scene: EXPERIENCE[14].scene,
+    sceneTitle: EXPERIENCE[14].sceneTitle,
+    kicker: EXPERIENCE[14].kicker,
+    visual: EXPERIENCE[14].visual,
+    icon: EXPERIENCE[14].icon,
+    reaction: EXPERIENCE[14].reaction,
   },
 ]
 
 export const STEPS = RAW_STEPS.map((step) => ({
   ...step,
-  aiSemantics: SEMANTIC_REGISTRY[step.name] || {},
-  unit: step.unit || SEMANTIC_REGISTRY[step.name]?.unit || null,
+  questionNumber: step.questionNumber || null,
 }))
 
-/**
- * Builds an explicit, machine-readable semantic payload for downstream AI analysis.
- * Couples each candidate answer with its canonical field, semanticKey, question intent,
- * answer type, unit, timeframe, and normalized values.
- */
+export const SEMANTIC_REGISTRY = {
+  resume: { field: 'resume', semanticKey: 'candidate_resume_document', answerType: 'document_file' },
+  linkedin: { field: 'linkedin', semanticKey: 'linkedin_profile_url', answerType: 'url' },
+  visa: { field: 'visa', semanticKey: 'work_authorization_status', answerType: 'category' },
+  location: { field: 'location', semanticKey: 'search_perimeter_location', answerType: 'category' },
+  targetRole: { field: 'targetRole', semanticKey: 'target_job_title', answerType: 'text' },
+  experience: { field: 'experience', semanticKey: 'candidate_experience_tier', answerType: 'category' },
+  apps30d: { field: 'apps30d', semanticKey: 'applications_submitted_30_days', answerType: 'count' },
+  targetedMatchPct: { field: 'targetedMatchPct', semanticKey: 'targeted_application_percentage', answerType: 'category' },
+  searchMethods: { field: 'searchMethods', semanticKey: 'job_search_channels', answerType: 'multi_select' },
+  externalHelp: { field: 'externalHelp', semanticKey: 'external_consultancy_support', answerType: 'category' },
+  outreach: { field: 'outreach', semanticKey: 'personalized_messages_per_week', answerType: 'frequency' },
+  referralsMonth: { field: 'referralsMonth', semanticKey: 'referral_requests_per_month', answerType: 'frequency' },
+  funnel90d: { field: 'funnel90d', semanticKey: 'funnel_stages_reached_90_days', answerType: 'object' },
+  DropOffStage: { field: 'DropOffStage', semanticKey: 'primary_pipeline_dropoff_stage', answerType: 'category' },
+  biggestChallenge: { field: 'biggestChallenge', semanticKey: 'primary_process_obstacle', answerType: 'category' },
+  alreadyTried: { field: 'alreadyTried', semanticKey: 'past_remediation_actions', answerType: 'multi_select' },
+  frustration: { field: 'frustration', semanticKey: 'biggest_perceived_problem', answerType: 'text' },
+}
+
 export function buildSemanticAssessmentPayload(formData = {}) {
   const profile = {}
   STEPS.forEach((step) => {
     const rawVal = formData[step.name]
-    const semantics = step.aiSemantics || SEMANTIC_REGISTRY[step.name] || {}
-
-    if (step.type === 'quantitative') {
-      let qObj = typeof rawVal === 'object' && rawVal !== null ? rawVal : null
-      if (!qObj && (typeof rawVal === 'string' || typeof rawVal === 'number')) {
-        const num = parseFloat(String(rawVal).replace(/[^0-9.]/g, '')) || 0
-        const unitSuffix = step.unit || semantics.unit ? ` ${step.unit || semantics.unit}` : ''
-        qObj = {
-          raw: rawVal,
-          period: 'week',
-          per_week: num,
-          per_month: Math.round(num * 4.33),
-          formatted: `${num}${unitSuffix} per week`,
-          is_na: false,
-        }
-      }
-
-      if (qObj) {
-        if (!qObj.is_na) {
-          const rawNum = parseFloat(String(qObj.raw ?? 0).replace(/[^0-9.]/g, '')) || 0
-          let pW = typeof qObj.per_week === 'number'
-            ? qObj.per_week
-            : (qObj.period === 'month' ? Math.round(rawNum / 4.33) : Math.round(rawNum))
-          let pM = typeof qObj.per_month === 'number'
-            ? qObj.per_month
-            : (qObj.period === 'month' ? Math.round(rawNum) : Math.round(rawNum * 4.33))
-          pW = Math.min(Math.max(0, pW), 250)
-          pM = Math.min(Math.max(0, pM), 1000)
-          qObj.per_week = pW
-          qObj.per_month = pM
-        }
-
-        profile[step.name] = {
-          field: semantics.field || step.name,
-          semanticKey: semantics.semanticKey || step.name,
-          questionIntent: semantics.questionIntent || '',
-          answerType: semantics.answerType || 'frequency',
-          unit: semantics.unit || null,
-          timeframe: semantics.timeframe || null,
-          interpretationRules: semantics.interpretationRules || null,
-          possibleValues: semantics.possibleValues || null,
-          rawAnswer: qObj.raw !== undefined ? qObj.raw : '',
-          selectedPeriod: qObj.period || 'week',
-          normalizedPerWeek: qObj.per_week !== undefined ? qObj.per_week : null,
-          normalizedPerMonth: qObj.per_month !== undefined ? qObj.per_month : null,
-          formattedAnswer: qObj.formatted || '',
-          isNA: !!qObj.is_na,
-        }
-        return
-      }
-    }
+    const semantics = SEMANTIC_REGISTRY[step.name] || {}
 
     if (rawVal instanceof File) {
       profile[step.name] = {
-        field: semantics.field || step.name,
+        field: step.name,
         semanticKey: semantics.semanticKey || step.name,
-        questionIntent: semantics.questionIntent || '',
-        answerType: semantics.answerType || 'document_file',
+        answerType: 'document_file',
         rawAnswer: rawVal.name,
         fileMetadata: {
           name: rawVal.name,
@@ -631,17 +599,21 @@ export function buildSemanticAssessmentPayload(formData = {}) {
       }
     } else {
       profile[step.name] = {
-        field: semantics.field || step.name,
+        field: step.name,
         semanticKey: semantics.semanticKey || step.name,
-        questionIntent: semantics.questionIntent || '',
         answerType: semantics.answerType || 'text',
-        unit: semantics.unit || null,
-        timeframe: semantics.timeframe || null,
-        possibleValues: semantics.possibleValues || null,
-        interpretationRules: semantics.interpretationRules || null,
         rawAnswer: rawVal !== undefined ? rawVal : null,
       }
     }
   })
   return profile
+}
+
+export default {
+  CHAPTERS,
+  EXPERIENCE,
+  RAW_STEPS,
+  STEPS,
+  SEMANTIC_REGISTRY,
+  buildSemanticAssessmentPayload,
 }

@@ -207,6 +207,7 @@ export class ResumeAgent {
     documentOverride = null,
     assessmentPersona = null,
     assessmentDirectives = null,
+    answers = null,
     temperature = 0.2,
     topP = 0.9,
     signal = null,
@@ -289,6 +290,7 @@ export class ResumeAgent {
         state.compactResume = compactText
         state.assessmentPersona = assessmentPersona
         state.assessmentDirectives = assessmentDirectives || assessmentPersona?.agentDirectives?.forResumeAgent || null
+        state.answers = answers || {}
 
         // Step 3: Extract Resume Facts (deterministic)
         const rawFacts = extractResumeFacts(canonicalResume)
@@ -490,6 +492,7 @@ export class ResumeAgent {
           model,
           isBenchmark,
           signal,
+          answers: answers || {},
         })
         if (!orchResult.success && orchResult.finishReason === 'error') {
           const providerErr = new Error(orchResult.validation?.errors?.[0] || 'Orchestration LLM call failed')

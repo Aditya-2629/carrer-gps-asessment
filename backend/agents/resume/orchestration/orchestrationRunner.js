@@ -45,6 +45,7 @@ export async function runOrchestratedSynthesis({
   model = null,
   isBenchmark = false,
   signal = null,
+  answers = {},
 }) {
   const selectedMode = SUPPORTED_ORCHESTRATION_MODES.includes(mode)
     ? mode
@@ -61,6 +62,7 @@ export async function runOrchestratedSynthesis({
         model,
         isBenchmark,
         signal,
+        answers,
       })
 
     case MODE_B_NAME:
@@ -73,6 +75,7 @@ export async function runOrchestratedSynthesis({
         model,
         isBenchmark,
         signal,
+        answers,
       })
 
     case MODE_C_NAME:
@@ -85,6 +88,7 @@ export async function runOrchestratedSynthesis({
         model,
         isBenchmark,
         signal,
+        answers,
       })
 
     case MODE_A_NAME:

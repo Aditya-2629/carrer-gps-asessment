@@ -648,6 +648,16 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: none !important;
     border-color: #cbd5e1 !important;
   }
+  .page-break-before-always,
+  .break-before-page {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+  .page-break-inside-avoid,
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
   a {
     text-decoration: none !important;
     color: inherit !important;

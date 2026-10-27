@@ -1,120 +1,179 @@
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText,
   Target,
   ShareNetwork,
-  UserCheck,
-  ArrowRight,
+  UsersThree,
+  Funnel,
+  RocketLaunch,
+  CaretDown,
+  CaretUp,
+  CheckCircle,
+  WarningCircle,
+  ShieldCheck,
 } from '@phosphor-icons/react'
+import { computeCareerGpsScore } from '../../../backend/agents/assessment/assessmentAgent'
 
-function safeText(val, fallback = '') {
-  if (!val) return fallback
-  if (typeof val === 'string') return val
-  if (typeof val === 'number') return String(val)
-  if (typeof val === 'object') return val.text || val.diagnosis || val.summary || fallback
-  return fallback
-}
+export default function CareerHealthSnapshot({ reportData, onNavigateSection }) {
+  const [expandedArea, setExpandedArea] = useState(null)
 
-export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, reportData, onNavigateSection }) {
-  // Extract or compute the 4 core dimensions
-  // 1. Impact (Resume / Projects)
-  const dynResume = Number(
-    resumeAgent?.dashboard?.score ??
-    scores?.resume?.score ??
-    resumeJson?.ats_score ??
-    reportData?.resume_agent?.dashboard?.score ??
-    reportData?.resume_json?.ats_score
-  )
-  const resumeScore = !isNaN(dynResume) && dynResume > 0 ? dynResume : 55
-  const resumeDiag = safeText(
-    scores?.resume?.diagnosis ||
-    resumeAgent?.overallReview?.summary ||
-    resumeAgent?.issues?.[0]?.title ||
-    resumeAgent?.dashboard?.summary,
-    'Lacks quantified metrics and business ROI figures.'
-  )
+  // Resolve V2 6-Area Weighted Scores
+  const computedScores = reportData?.gps_scores?.areas || (() => {
+    try {
+      const res = computeCareerGpsScore({
+        answers: reportData?.user_answers || {},
+        resumeAgent: reportData?.resume_agent,
+        linkedinAgent: reportData?.linkedin_agent,
+      })
+      return res.areas
+    } catch (_e) {
+      return null
+    }
+  })()
 
-  // 2. Positioning (LinkedIn & Positioning)
-  const liAgent = reportData?.linkedin_agent
-  const dynLinkedin = Number(
-    liAgent?.score ??
-    scores?.linkedin?.score ??
-    scores?.linkedin ??
-    scores?.positioning?.score
-  )
-  const linkedinScore = !isNaN(dynLinkedin) && dynLinkedin > 0 ? dynLinkedin : 50
-  const linkedinDiag = safeText(
-    liAgent?.issues?.[0]?.title ||
-    liAgent?.issues?.[0]?.diagnosis ||
-    scores?.linkedin?.diagnosis,
-    'Profile completeness is good but keyword breadth can be enhanced.'
-  )
+  const resumeArea = computedScores?.resume || {
+    points: Math.round(((reportData?.resume_agent?.dashboard?.score || 70) / 100) * 25),
+    maxPoints: 25,
+    title: 'Resume / Career Documents',
+    percentage: 70,
+    checks: [],
+  }
 
-  // 3. Job Search (Outreach & Application Velocity)
-  const outreachScore = Number(scores?.outreach?.score ?? scores?.outreach ?? reportData?.scores?.outreach?.score) || 45
-  const outreachDiag = safeText(scores?.outreach?.diagnosis, 'Outreach volume is low, relying mostly on standard Easy Apply.')
+  const rawTier =
+    reportData?.linkedin_agent?.consistencyTier ||
+    reportData?.assessment_agent?.scores?.linkedin?.consistencyTier ||
+    reportData?.gps_scores?.linkedin?.consistencyTier ||
+    computedScores?.linkedin?.consistencyTier ||
+    'Strong Match'
 
-  // 4. Interview Readiness
-  const interviewScore = Number(scores?.interview?.score ?? scores?.interviews?.score ?? reportData?.scores?.interview?.score) || 50
-  const interviewDiag = safeText(scores?.interview?.diagnosis || scores?.interviews?.diagnosis, 'Good technical answers, needs STAR behavioral structure.')
+  const consistencyTier = typeof rawTier === 'object' ? (rawTier?.badge || rawTier?.tier || 'Strong Match') : String(rawTier || 'Strong Match')
 
-  const hasLiData = Boolean(liAgent?.dataAvailable || liAgent?.score || reportData?.linkedin_json)
+  const linkedinArea = computedScores?.linkedin || {
+    points: Math.round(((reportData?.linkedin_agent?.score || 65) / 100) * 15),
+    maxPoints: 15,
+    title: 'LinkedIn / Professional Brand',
+    percentage: 65,
+    consistencyTier,
+    checks: [],
+  }
 
-  const METRICS = [
+  const jobSearchArea = computedScores?.jobSearch || {
+    points: 14,
+    maxPoints: 20,
+    title: 'Job Search & Application Strategy',
+    percentage: 70,
+    checks: [],
+  }
+
+  const networkingArea = computedScores?.networking || {
+    points: 9,
+    maxPoints: 15,
+    title: 'Networking & Referral Velocity',
+    percentage: 60,
+    checks: [],
+  }
+
+  const hiringFunnelArea = computedScores?.hiringFunnel || {
+    points: 13,
+    maxPoints: 20,
+    title: 'Interview & Hiring Funnel',
+    percentage: 65,
+    checks: [],
+  }
+
+  const careerReadinessArea = computedScores?.careerReadiness || {
+    points: 4,
+    maxPoints: 5,
+    title: 'Career Readiness & Execution',
+    percentage: 80,
+    checks: [],
+  }
+
+  const AREA_CARDS = [
     {
-      id: 'impact',
-      label: 'Resume Impact',
-      score: resumeScore,
+      id: 'resume',
+      title: 'Resume / Career Documents',
+      points: resumeArea.points,
+      maxPoints: 25,
+      percentage: Math.round((resumeArea.points / 25) * 100),
       icon: FileText,
-      explanation: resumeDiag,
+      color: resumeArea.points >= 18 ? 'var(--emerald)' : resumeArea.points >= 13 ? '#f59e0b' : '#ef4444',
+      badgeClass: resumeArea.points >= 18 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      explanation: 'Evaluates target-role keyword alignment, Google XYZ impact quantification, ATS readability, and section completeness.',
       targetSection: 'resume-ai',
-      color: resumeScore >= 60 ? 'emerald' : resumeScore >= 40 ? 'amber' : 'rose',
+      checks: resumeArea.checks || [],
     },
     {
-      id: 'positioning',
-      label: 'LinkedIn & Positioning',
-      score: linkedinScore,
+      id: 'linkedin',
+      title: 'LinkedIn / Professional Brand',
+      points: linkedinArea.points,
+      maxPoints: 15,
+      percentage: Math.round((linkedinArea.points / 15) * 100),
       icon: Target,
-      explanation: linkedinDiag,
-      targetSection: hasLiData ? 'linkedin-ai' : 'snapshot',
-      tab: 'linkedin',
-      color: linkedinScore >= 60 ? 'emerald' : linkedinScore >= 40 ? 'amber' : 'rose',
+      color: linkedinArea.points >= 11 ? 'var(--emerald)' : linkedinArea.points >= 8 ? '#f59e0b' : '#ef4444',
+      badgeClass: linkedinArea.points >= 11 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      consistencyTier,
+      explanation: 'Evaluates headline keyword searchability, proof of work, recruiter indexing, and cross-document timeline consistency.',
+      targetSection: 'linkedin-ai',
+      checks: linkedinArea.checks || [],
     },
     {
-      id: 'job-search',
-      label: 'Job Search Velocity',
-      score: outreachScore,
+      id: 'jobSearch',
+      title: 'Job Search & Application Strategy',
+      points: jobSearchArea.points,
+      maxPoints: 20,
+      percentage: Math.round((jobSearchArea.points / 20) * 100),
       icon: ShareNetwork,
-      explanation: outreachDiag,
+      color: jobSearchArea.points >= 15 ? 'var(--emerald)' : jobSearchArea.points >= 10 ? '#f59e0b' : '#ef4444',
+      badgeClass: jobSearchArea.points >= 15 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      explanation: 'Evaluates application match percentage, multi-channel sourcing, company research, and sustainable outbound pace.',
       targetSection: 'funnel-risks',
-      color: outreachScore >= 60 ? 'emerald' : outreachScore >= 40 ? 'amber' : 'rose',
+      checks: jobSearchArea.checks || [],
     },
     {
-      id: 'interview',
-      label: 'Interview Readiness',
-      score: interviewScore,
-      icon: UserCheck,
-      explanation: interviewDiag,
+      id: 'networking',
+      title: 'Networking & Referral Velocity',
+      points: networkingArea.points,
+      maxPoints: 15,
+      percentage: Math.round((networkingArea.points / 15) * 100),
+      icon: UsersThree,
+      color: networkingArea.points >= 11 ? 'var(--emerald)' : networkingArea.points >= 7 ? '#f59e0b' : '#ef4444',
+      badgeClass: networkingArea.points >= 11 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      explanation: 'Evaluates proactive recruiter outreach, warm referral requests, and regular hiring manager follow-up habits.',
       targetSection: 'funnel-risks',
-      tab: 'interview',
-      color: interviewScore >= 60 ? 'emerald' : interviewScore >= 40 ? 'amber' : 'rose',
+      checks: networkingArea.checks || [],
+    },
+    {
+      id: 'hiringFunnel',
+      title: 'Interview & Hiring Funnel',
+      points: hiringFunnelArea.points,
+      maxPoints: 20,
+      percentage: Math.round((hiringFunnelArea.points / 20) * 100),
+      icon: Funnel,
+      color: hiringFunnelArea.points >= 15 ? 'var(--emerald)' : hiringFunnelArea.points >= 10 ? '#f59e0b' : '#ef4444',
+      badgeClass: hiringFunnelArea.points >= 15 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      explanation: 'Measures conversion rates across Application → Screen, Screen → Technical, and Technical → Final Offer stages.',
+      targetSection: 'funnel-risks',
+      checks: hiringFunnelArea.checks || [],
+    },
+    {
+      id: 'careerReadiness',
+      title: 'Career Readiness & Execution',
+      points: careerReadinessArea.points,
+      maxPoints: 5,
+      percentage: Math.round((careerReadinessArea.points / 5) * 100),
+      icon: RocketLaunch,
+      color: careerReadinessArea.points >= 4 ? 'var(--emerald)' : careerReadinessArea.points >= 3 ? '#f59e0b' : '#ef4444',
+      badgeClass: careerReadinessArea.points >= 4 ? 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+      explanation: 'Assesses career target clarity, interview rehearsal commitment, and proactive strategy adaptability.',
+      targetSection: 'roadmap',
+      checks: careerReadinessArea.checks || [],
     },
   ]
 
-  const getStatusBadge = (score) => {
-    if (score >= 70) return { label: 'Strong', class: 'bg-emerald-500/10 text-[var(--emerald)] border-emerald-500/20' }
-    if (score >= 50) return { label: 'Fair', class: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' }
-    if (score >= 35) return { label: 'Needs Work', class: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' }
-    return { label: 'Critical Gap', class: 'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20' }
-  }
-
-  const handleClick = (metric) => {
-    if (onNavigateSection) {
-      onNavigateSection(metric.targetSection, metric.tab)
-    } else {
-      const el = document.getElementById(metric.targetSection)
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
-    }
+  const toggleExpand = (id) => {
+    setExpandedArea((prev) => (prev === id ? null : id))
   }
 
   return (
@@ -122,86 +181,130 @@ export default function CareerHealthSnapshot({ scores, resumeAgent, resumeJson, 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
           <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
-            Health Snapshot
+            100-Point Weighted Scoring Rubric
           </span>
           <h2
             className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
-            Career Health Diagnostics
+            6 Weighted Career GPS Areas
           </h2>
         </div>
         <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-          4 calibrated dimensions evaluated across your resume & activity
+          Deterministic point allocation across your documents, sourcing channels, and interview conversion
         </p>
       </div>
 
-      {/* 4-Metric Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {METRICS.map((m) => {
-          const Icon = m.icon
-          const status = getStatusBadge(m.score)
+      {/* 6-Card Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {AREA_CARDS.map((card) => {
+          const Icon = card.icon
+          const isExpanded = expandedArea === card.id
+          const hasChecks = Array.isArray(card.checks) && card.checks.length > 0
 
           return (
-            <motion.div
-              key={m.id}
-              whileHover={{ y: -3, transition: { duration: 0.2 } }}
-              onClick={() => handleClick(m)}
-              className="group p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] hover:shadow-md transition-all cursor-pointer flex flex-col justify-between print:h-auto"
+            <div
+              key={card.id}
+              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between shadow-xs break-inside-avoid page-break-inside-avoid"
             >
-              <div className="space-y-3">
-                {/* Card Top: Icon & Status Badge */}
-                <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-center text-[var(--text-primary)] group-hover:text-[var(--primary)] transition-colors">
-                    <Icon size={20} weight="bold" />
+              <div>
+                {/* Header Row */}
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border border-[var(--border-default)]"
+                      style={{ backgroundColor: `${card.color}15`, color: card.color }}
+                    >
+                      <Icon size={18} weight="bold" />
+                    </div>
+                    <span className="text-xs font-bold font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                      Area Scorecard
+                    </span>
                   </div>
-                  <span
-                    className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${status.class}`}
-                  >
-                    {status.label}
+
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${card.badgeClass}`}>
+                    {card.percentage}%
                   </span>
                 </div>
 
-                {/* Dimension Title & Score */}
-                <div className="flex items-baseline justify-between pt-1">
-                  <h3
-                    className="text-base font-bold text-[var(--text-primary)] tracking-tight"
-                    style={{ fontFamily: 'var(--font-head)' }}
-                  >
-                    {m.label}
+                {/* Title & Points */}
+                <div className="flex items-baseline justify-between mb-2">
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-snug">
+                    {card.title}
                   </h3>
-                  <span className="font-mono text-sm font-extrabold text-[var(--text-primary)]">
-                    {m.score}
-                    <span className="text-[10px] text-[var(--text-muted)] font-medium">/100</span>
-                  </span>
+                  <div className="flex items-baseline gap-1 shrink-0 ml-2">
+                    <span className="text-lg font-black text-[var(--text-primary)] font-mono">
+                      {card.points}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-[var(--text-muted)]">
+                      /{card.maxPoints} pts
+                    </span>
+                  </div>
                 </div>
 
-                {/* Mini Progress Bar */}
-                <div className="w-full h-1.5 bg-[var(--surface-sunken)] rounded-full overflow-hidden border border-[var(--border-default)]/60">
+                {/* 4-Tier Consistency Badge for LinkedIn */}
+                {card.id === 'linkedin' && (
+                  <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <ShieldCheck size={14} weight="fill" className="text-blue-600 dark:text-blue-400" />
+                    <span className="font-semibold text-xs text-blue-600 dark:text-blue-400">Consistency: {card.consistencyTier || 'Strong Match'}</span>
+                  </div>
+                )}
+
+                {/* Progress bar */}
+                <div className="w-full h-1.5 bg-[var(--surface-sunken)] rounded-full overflow-hidden mb-3 border border-[var(--border-subtle)]">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${
-                      m.score >= 60
-                        ? 'bg-[var(--emerald)]'
-                        : m.score >= 40
-                        ? 'bg-amber-500'
-                        : 'bg-red-500'
-                    }`}
-                    style={{ width: `${Math.max(m.score, 6)}%` }}
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, Math.max(5, card.percentage))}%`,
+                      backgroundColor: card.color,
+                    }}
                   />
                 </div>
 
-                {/* One-Line Explanation */}
-                <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed line-clamp-2 print:line-clamp-none print:mb-2">
-                  {m.explanation}
+                {/* Plain-English Explanation */}
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">
+                  {card.explanation}
                 </p>
               </div>
 
-              {/* Action Hint */}
-              <div className="pt-3 mt-3 border-t border-[var(--border-default)] flex items-center justify-between text-[11px] text-[var(--text-muted)] group-hover:text-[var(--primary)] font-semibold transition-colors">
-                <span>View diagnosis</span>
-                <ArrowRight size={13} weight="bold" className="group-hover:translate-x-0.5 transition-transform" />
+              {/* Sub-check Accordion Toggle */}
+              <div className="pt-3 border-t border-[var(--border-subtle)] mt-2">
+                {hasChecks && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(card.id)}
+                    className="w-full flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors py-1 cursor-pointer"
+                  >
+                    <span>{isExpanded ? 'Hide sub-checks' : `View ${card.checks.length} sub-checks`}</span>
+                    {isExpanded ? <CaretUp size={14} weight="bold" /> : <CaretDown size={14} weight="bold" />}
+                  </button>
+                )}
+
+                <AnimatePresence>
+                  {isExpanded && hasChecks && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-1.5 pt-2 text-[11px] overflow-hidden"
+                    >
+                      {card.checks.map((chk, cIdx) => (
+                        <div
+                          key={cIdx}
+                          className="flex items-center justify-between py-1 px-2 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-subtle)] text-[var(--text-secondary)]"
+                        >
+                          <span className="truncate mr-2">{chk.name}</span>
+                          <span className="font-mono font-bold shrink-0 text-[var(--text-primary)]">
+                            {chk.points}/{chk.max} pt
+                          </span>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
+            </div>
           )
         })}
       </div>

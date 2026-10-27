@@ -18,7 +18,7 @@ const getTransporter = () => {
   })
 }
 
-import { generateStandardReportPdf, formatAssessmentAnswer } from './reportPdfGenerator.js'
+import { generateStandardReportPdf, formatAssessmentAnswer, VALID_FORM_KEYS } from './reportPdfGenerator.js'
 
 const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
 
@@ -36,14 +36,16 @@ export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {
     answersHtml += "<tr style='background:#10b981; color:white;'><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Question</th><th style='padding:10px; border:1px solid #ddd; text-align:left;'>Answer</th></tr>"
     
     for (const [key, value] of Object.entries(answers)) {
-      if (['linkedinData', 'resume', 'precomputedResumeJson', 'resumeJson', 'file'].includes(key)) continue
+      if (!VALID_FORM_KEYS.has(key) || ['linkedinData', 'resume', 'precomputedResumeJson', 'resumeJson', 'file'].includes(key)) continue
+      const displayValue = formatAssessmentAnswer(key, value, aiReport?.semantic_profile)
+      if (!displayValue || displayValue === 'per') continue
       const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-      const displayValue = formatAssessmentAnswer(key, value, aiReport?.semantic_profile) || 'N/A'
       answersHtml += `<tr><td style='padding:8px; border:1px solid #ddd; font-weight: bold; color: #374151;'>${formattedKey}</td><td style='padding:8px; border:1px solid #ddd; color: #1f2937;'>${displayValue}</td></tr>`
     }
     answersHtml += '</table>'
 
     // AI Report Summary HTML
+    const resumeScoreVal = aiReport.resume_agent?.dashboard?.score ?? aiReport.resume_agent?.score ?? aiReport.score_breakdown?.resume?.score ?? 'N/A'
     let reportHtml = `
       <div style="background:#f9fafb; padding:20px; border:1px solid #e5e7eb; border-radius:12px; margin-top:20px; font-family: sans-serif;">
         <h3 style="color:#10b981; margin-top:0; border-bottom: 2px solid #10b981; padding-bottom: 8px;">AI Career GPS Report</h3>
@@ -51,7 +53,7 @@ export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {
         <table style="width:100%; border-collapse:collapse; margin: 15px 0;">
           <tr>
             <td style="padding: 6px 0; color: #4b5563;"><strong>Resume Score:</strong></td>
-            <td style="padding: 6px 0;">${aiReport.resume_agent?.score ?? aiReport.score_breakdown?.resume?.score ?? 'N/A'}</td>
+            <td style="padding: 6px 0;">${resumeScoreVal}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #4b5563;"><strong>LinkedIn Score:</strong></td>

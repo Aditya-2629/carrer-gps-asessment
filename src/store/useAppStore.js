@@ -22,6 +22,27 @@ export const STORAGE_KEYS = {
   IS_VERIFIED: 'career_gps_is_verified',
 }
 
+export const VALID_FORM_KEYS = new Set([
+  'opportunityType', 'targetRole', 'apps30d', 'appsWeek', 'targetedMatchPct',
+  'searchMethods', 'searchStyle', 'externalHelp', 'outreach', 'referralsMonth', 'funnel90d',
+  'applications90d', 'recruiterScreens', 'assessments', 'aiInterviews', 'technicalRounds', 'finalRounds', 'offers', 'joiningStatus',
+  'interviews', 'humanScreen', 'DropOffStage', 'biggestChallenge', 'alreadyTried', 'frustration',
+  'helpNeed', 'visa', 'location', 'experience', 'profileStage',
+  'name', 'email', 'phone', 'linkedin', 'linkedinData',
+  'searchDuration', 'prepLevel', 'SwitchReason',
+])
+
+export function sanitizeFormData(data) {
+  if (!data || typeof data !== 'object') return {}
+  const clean = {}
+  for (const key of Object.keys(data)) {
+    if (VALID_FORM_KEYS.has(key)) {
+      clean[key] = data[key]
+    }
+  }
+  return clean
+}
+
 function loadInitialState() {
   if (typeof window === 'undefined') {
     return {
@@ -54,8 +75,11 @@ function loadInitialState() {
     isVerified = localStorage.getItem(STORAGE_KEYS.IS_VERIFIED) === 'true'
     const rawForm = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
     if (rawForm) {
-      formData = JSON.parse(rawForm)
-      delete formData.resume
+      const parsed = JSON.parse(rawForm)
+      delete parsed.resume
+      formData = sanitizeFormData(parsed)
+      // Permanently purge stale legacy keys from localStorage
+      localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
     }
   } catch (e) {
     console.warn('[Store] Failed to parse stored auth/formData:', e)
@@ -67,9 +91,7 @@ function loadInitialState() {
 function persistFormData(data) {
   if (typeof window === 'undefined') return
   try {
-    const clean = { ...data }
-    // Never save resume file/placeholder to localStorage
-    delete clean.resume
+    const clean = sanitizeFormData(data)
     localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(clean))
   } catch (e) {
     console.warn('[Store] Failed to persist formData:', e)

@@ -76,11 +76,47 @@ export function getRandomAnswerForStep(step) {
           is_na: true,
         }
       }
-      const period = Math.random() < 0.5 ? 'week' : 'month'
-      let num = Math.floor(2 + Math.random() * 25)
-      if (period === 'month') num = num * 4
-      const perWeek = period === 'week' ? num : Math.round((num / 4.33) * 10) / 10
-      const perMonth = period === 'week' ? Math.round(num * 4.33) : num
+      let period = 'week'
+      let num = 15
+      let perWeek = 15
+      let perMonth = Math.round(15 * 4.33)
+
+      if (step.name === 'appsWeek') {
+        perWeek = Math.floor(12 + Math.random() * (35 - 12 + 1))
+        period = 'week'
+        num = perWeek
+        perMonth = Math.round(perWeek * 4.33)
+      } else if (step.name === 'coldEmails' || step.name === 'linkedinCon') {
+        perWeek = Math.floor(5 + Math.random() * (15 - 5 + 1))
+        period = 'week'
+        num = perWeek
+        perMonth = Math.round(perWeek * 4.33)
+      } else if (step.name === 'humanScreen') {
+        perMonth = Math.floor(1 + Math.random() * (4 - 1 + 1))
+        period = 'month'
+        num = perMonth
+        perWeek = Math.round((perMonth / 4.33) * 10) / 10
+      } else if (step.name === 'aiScreen' || step.name === 'assessments') {
+        perMonth = Math.floor(1 + Math.random() * (3 - 1 + 1))
+        period = 'month'
+        num = perMonth
+        perWeek = Math.round((perMonth / 4.33) * 10) / 10
+      } else if (step.name === 'hoursWeek') {
+        perWeek = Math.floor(10 + Math.random() * (25 - 10 + 1))
+        period = 'week'
+        num = perWeek
+        perMonth = Math.round(perWeek * 4.33)
+      } else {
+        period = Math.random() < 0.5 ? 'week' : 'month'
+        num = Math.floor(2 + Math.random() * 15)
+        if (period === 'month') {
+          perMonth = num
+          perWeek = Math.round((num / 4.33) * 10) / 10
+        } else {
+          perWeek = num
+          perMonth = Math.round(num * 4.33)
+        }
+      }
 
       return {
         raw: String(num),
@@ -98,6 +134,47 @@ export function getRandomAnswerForStep(step) {
         'Alex_Chen_Candidate_Resume.pdf',
         { type: 'application/pdf' }
       )
+    }
+
+    case 'targetRole': {
+      return SAMPLE_ROLES[Math.floor(Math.random() * SAMPLE_ROLES.length)]
+    }
+
+    case 'preset-or-number': {
+      const presets = step.presets || ['10', '30', '60']
+      return presets[Math.floor(Math.random() * presets.length)]
+    }
+
+    case 'visa-location': {
+      return {
+        visa: 'H-1B (Transfer / Cap)',
+        location: 'Nationwide (Open to Relocate Anywhere in US) ✈️',
+      }
+    }
+
+    case 'outreach-referral': {
+      return {
+        outreach: '6–15',
+        referralsMonth: '1–3',
+      }
+    }
+
+    case 'funnel-grid': {
+      return {
+        applications90d: 90,
+        recruiterScreens: Math.floor(1 + Math.random() * 4),
+        assessments: Math.floor(1 + Math.random() * 3),
+        aiInterviews: Math.floor(Math.random() * 2),
+        technicalRounds: Math.floor(1 + Math.random() * 3),
+        finalRounds: Math.floor(Math.random() * 2),
+        offers: Math.floor(Math.random() * 2),
+        joiningStatus: 'No Offer Yet',
+      }
+    }
+
+    case 'frustration-custom': {
+      const opts = step.options || ['My resume/LinkedIn is not getting noticed']
+      return opts[Math.floor(Math.random() * opts.length)]
     }
 
     case 'textarea': {

@@ -27,6 +27,8 @@ import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
 import RoadmapTimeline from './RoadmapTimeline'
 import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
+import CareerGpsReadyModal from './CareerGpsReadyModal'
+import { Sparkle } from '@phosphor-icons/react'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
@@ -734,6 +736,58 @@ const MOCK_REPORT = {
     value_prop: 'Consulting with a senior talent partner eliminates ATS blind spots and matches you to unlisted direct channels.',
     cta_text: 'Book Free 1-on-1 Strategy Call',
   },
+  gps_score: 78,
+  career_health_score: 78,
+  score_label: 'Good',
+  phase: {
+    id: 2,
+    name: 'Screening → Technical Round',
+    shortName: 'Screening Stage',
+    stuckDescription: 'Getting screening calls, but struggling to convert calls into technical rounds.',
+    metricGoal: 'Convert >50% of recruiter screens into hiring manager/tech rounds.',
+    confidence: 'High',
+  },
+  primary_bottleneck: {
+    title: 'Recruiter Screening Pitch & Behavioral Story Framing',
+    category: 'screening_delivery',
+    whyItMatters: 'Recruiter screens verify communication, technical summary clarity, and compensation alignment. Live elevator pitch needs sharper business metrics.',
+    evidence: 'Candidate reports getting calls but stalling before advancing to technical panel interviews.',
+  },
+  secondary_problem: {
+    title: 'Resume Achievement Metrics & STAR Structure Gaps',
+    description: 'Achievement bullets describe routine tasks rather than quantifiable business impact and scale.',
+  },
+  strongest_area: 'Resume / Documents (20/25)',
+  next_best_action: 'Script and rehearse a crisp 90-second "Tell me about yourself" narrative focused on technical ownership.',
+  top_actions: [
+    {
+      title: 'Script 90-Second Recruiter Pitch',
+      category: 'Screening Pitch',
+      whyItMatters: 'Recruiter screens verify communication and ownership within 15 minutes.',
+      whatToDo: 'Script and practice a crisp 90-second "Tell me about yourself" narrative focused on technical ownership.',
+      resourceTool: 'Recruiter Scripting Framework',
+      duration: '2 hours',
+      successMetric: 'Scheduled recruiter calls convert at >50%',
+    },
+    {
+      title: 'Quantify Top 5 Resume Bullets',
+      category: 'Resume Optimization',
+      whyItMatters: 'Recruiters screen for business ROI and verifiable scale metrics within 6 seconds.',
+      whatToDo: 'Rewrite top 5 resume bullets using STAR/Google XYZ impact formula with hard numbers.',
+      resourceTool: 'Crafture STAR Bullet Builder',
+      duration: '3 hours',
+      successMetric: '100% of top role bullets include verified metrics',
+    },
+    {
+      title: 'Direct Hiring Manager Outreach',
+      category: 'Networking & Strategy',
+      whyItMatters: 'Direct messages to hiring managers achieve 4x higher response rates than Easy Apply.',
+      whatToDo: 'Identify 5 verified hiring managers weekly at target firms; send personalized 50-word notes.',
+      resourceTool: 'LinkedIn InMail Templates',
+      duration: '45 mins / day',
+      successMetric: 'At least 2 warm replies weekly',
+    },
+  ],
 }
 
 import ReportErrorBoundary from './ReportErrorBoundary'
@@ -791,6 +845,10 @@ function ReportDashboardContent() {
   }, [storeReportData, userId, email, isMockPreview, setReportData])
 
   const [activeDiagnosisTab, setActiveDiagnosisTab] = useState('resume')
+  const [showReadyModal, setShowReadyModal] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !sessionStorage.getItem('crafture_gps_ready_dismissed')
+  })
 
   // Case 1: Fetching persisted report from backend for verified user
   if (isRecovering) {
@@ -849,12 +907,20 @@ function ReportDashboardContent() {
   const reportData = storeReportData || (isMockPreview ? MOCK_REPORT : null)
   if (!reportData) return null
 
-  // Gracefully merge background resume agent analysis if not already attached on reportData
-  if (!reportData.resume_agent && storeResumeAnalysis?.data?.analysis) {
-    reportData.resume_agent = storeResumeAnalysis.data.analysis
+  // Gracefully merge background resume and linkedin agent analyses if not already attached on reportData
+  if (!reportData.resume_agent) {
+    if (reportData.resumeAgent) reportData.resume_agent = reportData.resumeAgent
+    else if (storeResumeAnalysis?.data?.analysis) reportData.resume_agent = storeResumeAnalysis.data.analysis
+    else if (isMockPreview) reportData.resume_agent = MOCK_REPORT.resume_agent
   }
-  if (!reportData.resume_json && storeResumeAnalysis?.data?.canonicalResume) {
-    reportData.resume_json = storeResumeAnalysis.data.canonicalResume
+  if (!reportData.resume_json) {
+    if (reportData.resumeJson) reportData.resume_json = reportData.resumeJson
+    else if (storeResumeAnalysis?.data?.canonicalResume) reportData.resume_json = storeResumeAnalysis.data.canonicalResume
+    else if (isMockPreview) reportData.resume_json = MOCK_REPORT.resume_json
+  }
+  if (!reportData.linkedin_agent) {
+    if (reportData.linkedinAgent) reportData.linkedin_agent = reportData.linkedinAgent
+    else if (isMockPreview) reportData.linkedin_agent = MOCK_REPORT.linkedin_agent
   }
 
   // Resolve Candidate Name dynamically from all possible resume & assessment sources
@@ -919,7 +985,19 @@ function ReportDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150">
+    <div className="bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150">
+      {/* ─── Screen Popup: Your Career GPS is Ready (Section 22) ─── */}
+      <CareerGpsReadyModal
+        isOpen={showReadyModal}
+        onClose={() => {
+          setShowReadyModal(false)
+          try {
+            sessionStorage.setItem('crafture_gps_ready_dismissed', 'true')
+          } catch (_e) {}
+        }}
+        reportData={reportData}
+      />
+
       {/* ─── Top Brand Header ─── */}
       <header
         role="banner"
@@ -946,6 +1024,14 @@ function ReportDashboardContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowReadyModal(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary-light)] border border-[var(--primary)]/20 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Open Executive GPS Summary"
+            >
+              <Sparkle size={13} weight="fill" />
+              <span className="hidden sm:inline">Executive Summary</span>
+            </button>
             <button
               onClick={async () => {
                 try {
@@ -1012,12 +1098,12 @@ function ReportDashboardContent() {
         candidateName={candidateName}
         targetRole={targetRole}
         showResumeAi={Boolean(reportData.resume_agent)}
-        showLinkedinAi={Boolean(reportData.linkedin_agent && reportData.linkedin_agent.dataAvailable !== false)}
+        showLinkedinAi={true}
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
-      <main className="max-w-6xl mx-auto px-4 py-8 space-y-12">
-        {/* ACT 1: Executive Diagnosis & Job-Search Funnel Reality (Assessment Agent) */}
+      <main className="max-w-6xl mx-auto px-4 pt-6 pb-4 space-y-10 print:px-0 print:py-0 print:space-y-3">
+        {/* SECTION 1: HERO & SCORECARD */}
         <ReportHero reportData={reportData} />
 
         <CareerHealthSnapshot
@@ -1028,11 +1114,24 @@ function ReportDashboardContent() {
           onNavigateSection={handleNavigateSection}
         />
 
+        {/* SECTION 2: WHERE & WHY YOU ARE STUCK (6-PHASE ROOT CAUSE) */}
         <PrimaryBottleneck
           reportData={reportData}
           onNavigateSection={handleNavigateSection}
         />
 
+        {/* SECTION 3: AI RESUME DEEP DIAGNOSIS & REWRITES (MUST BE VISIBLE!) */}
+        {reportData.resume_agent && (
+          <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
+        )}
+
+        {/* SECTION 4: AI LINKEDIN PROFILE DIAGNOSIS & REWRITES (MUST BE VISIBLE!) */}
+        <LinkedInDeepDiagnosis
+          linkedinAgent={reportData.linkedin_agent}
+          reportData={reportData}
+        />
+
+        {/* SECTION 5: 90-DAY FUNNEL & CONVERSION VELOCITY */}
         <FunnelAndConversionSection
           funnelData={reportData.funnel_stages}
           rejectionData={{
@@ -1042,37 +1141,33 @@ function ReportDashboardContent() {
           riskData={reportData.risk_heatmap}
         />
 
-        {/* ACT 2: AI Resume Deep Diagnosis & Rewrites (Resume Agent) */}
-        <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
-
-        {/* ACT 3: AI LinkedIn Profile Diagnosis & Optimizer (LinkedIn Agent) */}
-        <LinkedInDeepDiagnosis linkedinAgent={reportData.linkedin_agent} />
-
-        {/* ACT 4: 30/60/90-Day Execution Roadmap & 1-on-1 Strategy Call Bridge */}
+        {/* SECTION 6: 7-DAY ACTION PLAN & 30/60/90 ROADMAP */}
         <RoadmapTimeline
           roadmapData={reportData.roadmap}
           currentPhaseId={reportData.career_journey?.current_phase_id}
+          reportData={reportData}
         />
 
+        {/* SECTION 7: FINAL EXECUTION BRIDGE & CALL BOOKING */}
         <FinalNextAction
           coachData={reportData.coach_intervention}
           reportData={reportData}
           onBookCall={handleBookCall}
         />
+
+        {/* ─── Footer (Anchored with FinalNextAction to avoid trailing blank page) ─── */}
+        <footer className="border-t border-[var(--border-default)] mt-4 pt-3 pb-2 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-3 print:pt-2 print:pb-1">
+          <p className="font-medium">
+            Crafture Career GPS AI • Confidential Candidate Career Intelligence
+          </p>
+          <p className="text-[11px]">
+            Proprietary scoring and ATS diagnostic algorithms. &copy; {new Date().getFullYear()} Crafture Inc. All rights reserved.
+          </p>
+        </footer>
       </main>
 
       {/* Floating agent chat (Atlas) */}
       <ReportChatbot />
-
-      {/* ─── Footer ─── */}
-      <footer className="border-t border-[var(--border-default)] py-8 text-center text-xs text-[var(--text-muted)] space-y-2">
-        <p className="font-medium">
-          Crafture Career GPS AI • Confidential Candidate Career Intelligence
-        </p>
-        <p className="text-[11px]">
-          Proprietary scoring and ATS diagnostic algorithms. &copy; {new Date().getFullYear()} Crafture Inc. All rights reserved.
-        </p>
-      </footer>
     </div>
   )
 }

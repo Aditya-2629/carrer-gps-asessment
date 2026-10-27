@@ -132,11 +132,12 @@ export async function runCareerAgents(bundle) {
     semanticProfile = null,
   } = bundle
 
+  const effectiveAnswers = answers || bundle.answers || bundle.userAnswers || {}
   let effectiveAssessmentPersona = assessmentPersona || null
   if (!effectiveAssessmentPersona && (answers || bundle.answers || bundle.userAnswers)) {
     try {
       effectiveAssessmentPersona = evaluateAssessmentPersona({
-        answers: answers || bundle.answers || bundle.userAnswers || {},
+        answers: effectiveAnswers,
         semanticProfile: semanticProfile || bundle.semanticProfile || {},
         resumeContext: resumeContextOverride || null,
       })
@@ -247,6 +248,7 @@ export async function runCareerAgents(bundle) {
           documentOverride: resumeContext?.parsedDoc || null,
           canonicalResumeOverride: resumeContext?.canonicalResume || null,
           assessmentPersona: effectiveAssessmentPersona,
+          answers: effectiveAnswers,
         })
 
         await persistRun({
@@ -350,7 +352,9 @@ export async function runCareerAgents(bundle) {
             provider: resumeProvider,
             assessmentPersona: effectiveAssessmentPersona,
             agentDirectives: effectiveAssessmentPersona?.agentDirectives,
+            answers: effectiveAnswers,
           },
+          answers: effectiveAnswers,
           runLlm: true,
           preferredProvider: 'groq',
           excludeProvider: resumeProvider,
@@ -399,9 +403,25 @@ export async function runCareerAgents(bundle) {
     linkedinJobPromise || Promise.resolve(null),
   ])
 
+  const activeResumeAgent = resumeSettled?.analysis || null
+  const activeLinkedinAgent = linkedinSettled?.analysis || null
+
+  // Re-run evaluation with resolved agents to compute exact 100-Point Career GPS Score and 5-Phase Root Cause
+  try {
+    effectiveAssessmentPersona = evaluateAssessmentPersona({
+      answers: answers || bundle.answers || bundle.userAnswers || {},
+      semanticProfile: semanticProfile || bundle.semanticProfile || {},
+      resumeContext: resumeContext || resumeContextOverride || null,
+      resumeAgent: activeResumeAgent,
+      linkedinAgent: activeLinkedinAgent,
+    })
+  } catch (_e) {
+    // non-fatal
+  }
+
   return {
-    resumeAgent: resumeSettled?.analysis || null,
-    linkedinAgent: linkedinSettled?.analysis || null,
+    resumeAgent: activeResumeAgent,
+    linkedinAgent: activeLinkedinAgent,
     linkedinData: linkedinSettled?.linkedinData || null,
     assessmentPersona: effectiveAssessmentPersona,
   }

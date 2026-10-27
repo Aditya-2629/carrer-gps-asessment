@@ -196,6 +196,22 @@ export function buildSynthesisMessages(state) {
     userPrompt += `\n\nTARGET ROLE: ${targetRole}`
   }
 
+  const answers = state.answers || {}
+  if (answers && Object.keys(answers).length > 0) {
+    userPrompt += `\n\n### CANDIDATE ASSESSMENT CONTEXT (Use this to personalize your critique, summary rewrite, and bullet rewrites):
+- Target Role: ${answers.targetRole || targetRole || 'Not specified'}
+- Opportunity Type: ${answers.opportunityType || 'Full-Time W2'}
+- Experience Level: ${answers.experience || 'Mid-Level'}
+- Work Authorization / Visa: ${answers.visa || 'Not specified'}
+- Applications Submitted (30d): ${answers.apps30d || answers.appsWeek?.raw || 'Not specified'}
+- Active Drop-Off Stage: ${answers.DropOffStage || 'Phase 1'}
+- Key Hiring Challenge: ${answers.biggestChallenge || 'Not specified'}
+- Candidate's Core Frustration: ${answers.frustration || 'Not specified'}
+- What Candidate Already Tried: ${Array.isArray(answers.alreadyTried) ? answers.alreadyTried.join(', ') : (answers.alreadyTried || 'None')}
+
+CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrites specifically for a candidate at this experience level (${answers.experience || 'Mid-Level'}) and target role (${answers.targetRole || targetRole}), addressing their specific hiring challenge ("${answers.biggestChallenge || 'conversion'}"). Never provide generic text.`
+  }
+
   // Target Job Description (Primary Benchmark — Section 15 priority)
   if (state.targetJobDescription && state.targetJobDescription.trim()) {
     userPrompt += `\n\nTARGET JOB DESCRIPTION (Primary Priority Goal):\n${state.targetJobDescription.trim().slice(0, 2500)}`

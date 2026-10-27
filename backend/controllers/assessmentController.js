@@ -9,7 +9,8 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
-import { generateStandardReportPdf } from '../utils/reportPdfGenerator.js'
+import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
+import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
@@ -164,8 +165,14 @@ export const saveAnswers = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized. Email not verified.' })
     }
 
-    // Save answers & AI-semantic profile
-    user.answers = answers
+    // Save answers & AI-semantic profile (sanitized to valid 12-step form keys)
+    const sanitizedAnswers = {}
+    for (const [k, v] of Object.entries(answers || {})) {
+      if (VALID_FORM_KEYS.has(k)) {
+        sanitizedAnswers[k] = v
+      }
+    }
+    user.answers = sanitizedAnswers
     if (semanticProfile) {
       user.semanticProfile = semanticProfile
     }
@@ -282,22 +289,68 @@ export const generateReport = async (req, res) => {
 // classifies the question, loads ONLY the relevant agent's findings, and the
 // reply carries deep-links to the report sections it references.
 
-const CHAT_INTENTS = [
-  { id: 'resume', section: 'resume-ai', label: 'Resume diagnosis', match: /\b(resume|bullet|rewrite|quantif|ats|score (on )?my resume|cover letter|achievement)\b/i },
-  { id: 'linkedin', section: 'linkedin-ai', label: 'LinkedIn audit', match: /\b(linkedin|headline|profile pic|connection|network(ing)?|recommendation)\b/i },
-  { id: 'roadmap', section: 'priorities', label: 'Action plan', match: /\b(plan|roadmap|this week|first|priorit|next step|what (should|do) i do|30|60|90)\b/i },
-  { id: 'assessment', section: 'snapshot', label: 'Career health', match: /\b(health|score|bottleneck|funnel|conversion|stat|overall|summary)\b/i },
+export const CHAT_INTENTS = [
+  {
+    id: 'resume',
+    section: 'resume-ai',
+    label: 'AI Resume Diagnosis',
+    match: /\b(resume|cv|bullet|rewrite|quantif|ats|summary|keyword|skill|project|experience|achievement)\b/i,
+  },
+  {
+    id: 'linkedin',
+    section: 'linkedin-ai',
+    label: 'LinkedIn Profile Audit',
+    match: /\b(linkedin|headline|about|banner|connection|profile|endorsement|recommendation|boolean|open to work)\b/i,
+  },
+  {
+    id: 'outreach',
+    section: 'funnel-risks',
+    label: 'Conversion & Outreach Strategy',
+    match: /\b(dm|message|cold|outreach|referral|recruiter|network|ghost|response|apply|application|portal|funnel|rate)\b/i,
+  },
+  {
+    id: 'interview',
+    section: 'roadmap',
+    label: 'Interview & Execution Plan',
+    match: /\b(interview|mock|prep|question|star|technical|round|offer|salary|negotiat|behavioral)\b/i,
+  },
+  {
+    id: 'roadmap',
+    section: 'roadmap',
+    label: '30/60/90 Day Roadmap',
+    match: /\b(plan|roadmap|week|day|first|priorit|next step|what (should|do) i do|30|60|90|checklist|action)\b/i,
+  },
+  {
+    id: 'assessment',
+    section: 'snapshot',
+    label: 'Career Health Snapshot',
+    match: /\b(health|score|bottleneck|conversion|stat|overall|diagnos|stuck|barrier)\b/i,
+  },
 ]
 
-function classifyChatIntent(question) {
+export function classifyChatIntent(question = '') {
   for (const intent of CHAT_INTENTS) {
     if (intent.match.test(question)) return intent
   }
-  return { id: 'general', section: 'agent-team', label: 'Full report' }
+  return { id: 'general', section: 'overview', label: 'Executive Overview' }
 }
 
+export function formatQuantAnswer(val, unitLabel = '') {
+  if (val == null) return 'Not specified'
+  if (typeof val === 'number') return `${val} ${unitLabel}`.trim()
+  if (typeof val === 'object') {
+    if (val.is_na || val.raw === 'N/A') return '0'
+    const raw = String(val.raw ?? val.value ?? '').trim()
+    const period = String(val.period ?? 'month').trim()
+    if (!raw) return '0'
+    return `${raw}${unitLabel ? ` ${unitLabel}` : ''} per ${period}`
+  }
+  return String(val)
+}
+
+
 export const chatResume = async (req, res) => {
-  const { userId, question } = req.body
+  const { userId, question, history = [] } = req.body
 
   if (!userId || !question) {
     return res.status(400).json({ message: 'userId and question are required.' })
@@ -310,97 +363,187 @@ export const chatResume = async (req, res) => {
     }
 
     const intent = classifyChatIntent(question)
-
-    // Phase F: route context by intent — the agent whose findings the question
-    // is about, plus a compact shared base. Nothing else.
     const r = user.aiReport || {}
-    const contextParts = [`CANDIDATE: ${user.resumeJson?.candidate_name || user.email} | target: ${r.resume_json?.target_role || 'unknown'}`]
+    const ans = user.answers || {}
 
-    if (intent.id === 'resume' || intent.id === 'general') {
-      const ra = r.resume_agent
-      if (ra) {
-        contextParts.push(
-          `RESUME AGENT DIAGNOSIS (score ${ra.dashboard?.score ?? '?'}/${ra.dashboard?.grade ?? '?'}):\n` +
-          `checklist: ${(ra.checks || []).map((c) => `${c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗'} ${c.label}`).join(' | ')}\n` +
-          `issues: ${(ra.issues || []).slice(0, 5).map((i) => `- [${i.severity}/${i.category}] ${i.title} → ${String(i.recommendation || '').slice(0, 120)}`).join('\n')}\n` +
-          `overall: ${String(ra.overallReview?.summary || '').slice(0, 400)}`
-        )
-      }
-    }
-    if (intent.id === 'linkedin' || intent.id === 'general') {
-      const la = r.linkedin_agent
-      if (la?.dataAvailable) {
-        contextParts.push(
-          `LINKEDIN AGENT DIAGNOSIS (score ${la.score}/${la.grade}):\n` +
-          `checklist: ${(la.checks || []).map((c) => `${c.status === 'pass' ? '✓' : c.status === 'warn' ? '⚠' : '✗'} ${c.label}`).join(' | ')}\n` +
-          `fixes: ${(la.issues || []).slice(0, 5).map((i) => `- [${i.severity}] ${i.title} → ${String(i.recommendation || '').slice(0, 120)}`).join('\n')}`
-        )
-      }
-    }
-    if (intent.id === 'roadmap' || intent.id === 'assessment' || intent.id === 'general') {
-      if (r.career_health_score) {
-        contextParts.push(
-          `ASSESSMENT SNAPSHOT: career health ${r.career_health_score}/100 (${r.score_label || '—'})\n` +
-          `scores: ${JSON.stringify(r.scores || {})}\n` +
-          `critical issues: ${(r.critical_issues || []).slice(0, 3).map((i) => `- ${i.title}`).join('\n')}\n` +
-          `top priorities: ${(r.mission_board || []).slice(0, 3).map((m) => `- ${m.title || m.mission || JSON.stringify(m).slice(0, 80)}`).join('\n')}`
-        )
-      }
-    }
+    // 1. Assessment Agent & Funnel Context (Always Included)
+    const candidateName =
+      r?.resume_agent?.canonicalResume?.contact?.name ||
+      user.resumeJson?.candidate_name ||
+      ans?.name ||
+      'Candidate'
+    const firstName = candidateName.trim().split(/\s+/)[0]
+    const targetRole =
+      r?.assessment_agent?.candidateProfile?.targetRole ||
+      ans?.targetRole ||
+      r?.resume_json?.target_role ||
+      'Target Role'
+    const careerHealthScore = `${r?.career_health_score ?? 65}/100 (${r?.score_label || 'Needs Work'})`
+    const primaryBottleneck = `${r?.assessment_agent?.primaryBottleneck?.title || r?.critical_issues?.[0]?.title || 'Conversion Bottleneck'} — ${r?.assessment_agent?.primaryBottleneck?.whyItMatters || r?.critical_issues?.[0]?.diagnosis || ''}`
 
-    // Assessment Personalization Agent context brief
-    const assessAgent = r.assessment_agent
-    if (assessAgent?.agentDirectives?.forChatbotAgent) {
-      contextParts.push(
-        `ASSESSMENT PERSONA & CONTEXT BRIEF:\n` +
-        `Persona: ${assessAgent.candidatePersona?.archetype || 'Candidate'} - ${assessAgent.candidatePersona?.summary || ''}\n` +
-        `Brief: ${assessAgent.agentDirectives.forChatbotAgent}`
+    const questionnaireContext = [
+      `- Candidate Name: ${candidateName} (First Name: ${firstName})`,
+      `- Target Role: ${targetRole}`,
+      `- Overall Career Health Score: ${careerHealthScore}`,
+      `- Detected Hiring Phase: ${r?.phase?.name ? `Phase ${r.phase.id}: ${r.phase.name}` : `Phase ${r?.career_journey?.current_phase_id || '?'}`} (${r?.phase?.confidence || 'Active'} Confidence${r?.phase?.isProvisional ? ', Provisional Diagnosis' : ''})`,
+      `- Primary Bottleneck: ${primaryBottleneck}`,
+      `- Work Authorization / Visa: ${ans?.visa || ans?.visaStatus || 'US Citizen / Green Card'}`,
+      `- External Support / Consultancy: ${ans?.externalHelp || '100% Solo'}`,
+      `- 30-Day Applications: ${ans?.apps30d || formatQuantAnswer(ans?.appsWeek, 'applications')}`,
+      `- 90-Day 8-Stage Funnel: Apps (90d): ${ans?.applications90d || 'N/A'}, Recruiter Screens: ${ans?.recruiterScreens || '0'}, Online Assessments: ${ans?.assessments || '0'}, AI Interviews: ${ans?.aiInterviews || '0'}, Technical Rounds: ${ans?.technicalRounds || '0'}, Final Rounds: ${ans?.finalRounds || '0'}, Offers: ${ans?.offers || '0'}, Joining Status: ${ans?.joiningStatus || 'No Offer Yet'}`,
+      `- Primary Drop-Off Stage: ${ans?.DropOffStage || 'Application Black Hole'}`,
+      `- Primary Interview Challenge: ${ans?.biggestChallenge || 'N/A'}`,
+      `- Biggest Frustration: ${ans?.frustration || 'Low response rate'}`,
+      `- Help Needed: ${Array.isArray(ans?.helpNeed) ? ans.helpNeed.join(', ') : (ans?.helpNeed || 'End-to-end strategy')}`,
+      r?.assessment_agent?.chatbotContext ? `- Assessment Agent Coach Summary: ${r.assessment_agent.chatbotContext}` : '',
+    ].filter(Boolean).join('\n')
+
+    // 2. Resume Agent Intelligence
+    const ra = r?.resume_agent
+    const resumeScore = `${ra?.dashboard?.score ?? r?.score_breakdown?.resume?.score ?? '?'}/100 (Grade: ${ra?.dashboard?.grade || 'B'})`
+    const summaryRewrite = ra?.summaryOptimization?.rewrittenSummary || ra?.overallReview?.summary || ''
+    const verifiedKeywords = (ra?.keywordAlignment?.verifiedKeywords || []).map((k) => k.keyword || k).slice(0, 10).join(', ')
+    const missingKeywords = (ra?.keywordAlignment?.missingKeywords || []).map((k) => k.keyword || k).join(', ')
+    const skillsOnlyKeywords = (ra?.keywordAlignment?.skillsOnlyKeywords || []).map((k) => k.keyword || k).join(', ')
+
+    const weakBullets = (ra?.bulletAudit || [])
+      .filter((b) => b && (b.tag === 'fix' || b.tag === 'improve' || b.status === 'fix' || b.status === 'warn'))
+      .slice(0, 5)
+      .map(
+        (b, idx) =>
+          `  ${idx + 1}. [${b.company || b.section || b.itemName || 'Role'} - ${b.role || ''}] Original: "${b.originalText || b.text || ''}" | Issue: ${b.issue || b.diagnosis || b.reason || ''} | Ready Rewrite: "${b.rewriteOption || b.rewrite || b.suggestedRewrite || ''}"`
       )
-    }
+      .join('\n')
 
-    const resumeContext = contextParts.join('\n\n')
+    const resumeContext = [
+      `Score: ${resumeScore}`,
+      summaryRewrite ? `Executive Summary Rewrite: "${summaryRewrite}"` : '',
+      verifiedKeywords ? `Verified Skills: ${verifiedKeywords}` : '',
+      missingKeywords ? `Missing Target Keywords: ${missingKeywords}` : '',
+      skillsOnlyKeywords ? `Skills-Only (Unproven in Bullets): ${skillsOnlyKeywords}` : '',
+      weakBullets ? `Weak Bullets to Fix:\n${weakBullets}` : '',
+    ].filter(Boolean).join('\n')
 
-    // RAG context using the question + user profile as query
+    // 3. LinkedIn Agent Intelligence
+    const la = r?.linkedin_agent
+    const linkedinScore = `${la?.score ?? r?.score_breakdown?.linkedin?.score ?? '?'}/100 (Grade: ${la?.grade || 'B'})`
+    const currentHeadline = la?.headline ? `"${la.headline}"` : '""'
+    const recommendedHeadline = la?.optimizations?.headlines?.[0]?.headline ? `"${la.optimizations.headlines[0].headline}"` : '""'
+    const top3PinnedSkills = (la?.optimizations?.top3PinnedSkills || []).join(', ')
+    const keyDiscrepancies = (la?.discrepancies || la?.issues || [])
+      .slice(0, 4)
+      .map((d) => `${d.title} (${d.recommendation || d.diagnosis || ''})`)
+      .join(' | ')
+
+    const linkedinContext = [
+      `Score: ${linkedinScore}`,
+      `Current Headline: ${currentHeadline}`,
+      `Recommended Headline #1: ${recommendedHeadline}`,
+      top3PinnedSkills ? `Top 3 Pinned Skills: ${top3PinnedSkills}` : '',
+      keyDiscrepancies ? `Key Discrepancies / Fixes: ${keyDiscrepancies}` : '',
+    ].filter(Boolean).join('\n')
+
+    // 4. Roadmap & Mission Board (Safely unwrapping r.mission_board)
+    const rawMissions = Array.isArray(r?.mission_board)
+      ? r.mission_board
+      : Array.isArray(r?.mission_board?.missions)
+      ? r.mission_board.missions
+      : []
+    const topMissions = rawMissions.slice(0, 4).map((m) => m.title || m.mission || '').filter(Boolean).join(' | ')
+
+    // Multi-turn conversation history
+    const recentHistory = Array.isArray(history)
+      ? history
+          .slice(-6)
+          .map((m) => `${m.role === 'user' ? 'CANDIDATE' : 'ATLAS'}:${String(m.text || '').slice(0, 600)}`)
+          .join('\n')
+      : ''
+
+    // RAG context using question + candidate profile as query
     let ragKnowledgeContext = ''
     try {
-      const ragQuery = `${question} ${user.resumeJson?.target_role || ''} ${user.resumeJson?.top_skills?.join(' ') || ''}`
+      const ragQuery = `${question} ${targetRole} ${verifiedKeywords || ''}`
       ragKnowledgeContext = await buildRAGContext(ragQuery)
     } catch (_ragErr) {
       // non-fatal, continue without RAG
     }
 
-    const prompt = `
-      You are "Atlas", a $2000/hour Elite Executive Career Strategist, Senior Technical Recruiter, and ATS Expert who has placed 500+ candidates into FAANG and Fortune 500 companies.
+    const systemPrompt = `You are "Atlas", a sharp, warm $2,000/hr Executive Career Coach and Senior Technical Recruiter with 10+ years of engineering hiring experience.
+You are advising ${firstName} in real time.
 
-      You are having a REAL-TIME conversation with a candidate who has completed a career assessment run by a team of specialist AI agents (Resume Agent, LinkedIn Agent, Assessment Agent). Their findings are below.
+CORE DIRECTIVES:
+1. Address the candidate by their first name (${firstName}) and speak like a sharp, warm $2,000/hr Executive Career Coach.
+2. Cite their exact companies, metrics, missing keywords, and questionnaire numbers (appsWeek: ${formatQuantAnswer(ans?.appsWeek, 'apps')}, outreach: ${formatQuantAnswer(ans?.outreach, 'messages')}, interviews: ${formatQuantAnswer(ans?.interviews, 'responses')}, DropOffStage: ${ans?.DropOffStage || 'Application Black Hole'}).
+3. Whenever the candidate asks for a bullet rewrite, LinkedIn headline/about, cold DM, or interview answer, wrap the ready-to-paste copy inside triple backticks (\`\`\`text ... \`\`\`) so the UI renders a 1-click Copy card for them.
+4. Keep explanations concise (100–170 words max) using clean "- " bullet points and "**bold**" key terms.`
 
-      CRITICAL PERSONA RULES:
-      - You are NOT a generic chatbot. You are a fierce, authoritative career coach who speaks with extreme specificity.
-      - EVERY answer MUST reference specific data points from the candidate's diagnosis below (checklist items, issue titles, scores).
-      - Name their actual skills, roles, scores, and gaps. Never say generic things like "your resume needs work" — say exactly WHAT needs fixing and HOW.
-      - Be direct, punchy, and brutally honest but constructive. Use concrete numbers, percentages, and actionable tactics.
-      - Answer in 3-5 impactful sentences. Longer if the question demands depth.
-      - Use bullet points for action items when appropriate.
+    const userPrompt = `CANDIDATE INTELLIGENCE & AGENT FINDINGS:
+[1. Assessment Agent & Funnel Context]
+${questionnaireContext}
 
-      ### KNOWLEDGE BASE (Verified Career Intelligence):
-      ${ragKnowledgeContext}
+[2. Resume Agent Intelligence]
+${resumeContext || 'Resume analysis pending'}
 
-      ### AGENT FINDINGS (routed for this question — intent: ${intent.label}):
+[3. LinkedIn Agent Intelligence]
+${linkedinContext || 'LinkedIn analysis pending'}
 
-      ${resumeContext}
+${topMissions ? `[4. Top Action Missions]\n${topMissions}\n\n` : ''}${ragKnowledgeContext ? `VERIFIED CAREER KNOWLEDGE BASE:\n${ragKnowledgeContext}\n\n` : ''}${recentHistory ? `CONVERSATION HISTORY:\n${recentHistory}\n\n` : ''}CURRENT CANDIDATE QUESTION:
+"${question}"
 
-      Candidate Question: "${question}"
-    `
+Provide your expert coaching answer following the directives above.`
 
-    const { text: replyText } = await generateContentWithFallback({
-      contents: prompt,
-      modelName: 'gemini-3.5-flash-lite',
-    })
+    let replyText = ''
+    try {
+      const { text: responseText } = await llmGateway.generate({
+        purpose: 'assessment_report',
+        task: 'report_chatbot',
+        model: 'gemini-3.5-flash-lite',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        responseFormat: 'text',
+        temperature: 0.3,
+        maxTokens: 1024,
+        maxRetries: 2,
+      })
+      replyText = responseText
+    } catch (err) {
+      console.warn('[AssessmentController] Chatbot primary model failed, falling back to Groq:', err.message)
+      const { text: fallbackText } = await llmGateway.generate({
+        purpose: 'assessment_report',
+        task: 'report_chatbot',
+        model: 'openai/gpt-oss-120b',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        responseFormat: 'text',
+        temperature: 0.3,
+        maxTokens: 1024,
+        bypassCache: true,
+      })
+      replyText = fallbackText
+    }
+
+    let cleanAnswer = (replyText || '').trim()
+    if (cleanAnswer.startsWith('{') && cleanAnswer.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(cleanAnswer)
+        if (parsed.answer) cleanAnswer = parsed.answer
+      } catch (_) {}
+    }
+
+    const shouldSuggestCall =
+      ['outreach', 'interview', 'assessment', 'roadmap'].includes(intent.id) ||
+      /\b(call|help|coach|stuck|reject|ghost|interview|offer|salary|strategy)\b/i.test(question) ||
+      (Array.isArray(history) && history.filter((m) => m.role === 'user').length >= 2)
 
     return res.status(200).json({
-      answer: replyText.trim(),
+      answer: cleanAnswer.trim(),
       routedIntent: intent.label,
       sectionLink: `#${intent.section}`,
+      suggestCall: shouldSuggestCall,
     })
   } catch (error) {
     console.error('Error in chatResume controller:', error)

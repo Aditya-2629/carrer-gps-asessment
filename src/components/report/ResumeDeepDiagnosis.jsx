@@ -32,6 +32,20 @@ import useAppStore from '../../store/useAppStore'
  * - Direct link to open the print-first dedicated report (/resume-report)
  */
 
+function cleanRewriteText(text) {
+  if (!text || typeof text !== 'string') return text
+  let count = 0
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
+    count += 1
+    if (count === 1) return match
+    return ''
+  })
+  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
+  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  return cleaned
+}
+
 const severityChip = {
   high: 'bg-red-500/10 text-[var(--red)] border-red-500/25',
   medium: 'bg-amber-500/10 text-amber-600 border-amber-500/25',
@@ -78,7 +92,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
 
-  const summaryOptimization = resumeAgent.summaryOptimization || null
+  const rawSummaryOpt = resumeAgent.summaryOptimization || null
+  const summaryOptimization = rawSummaryOpt
+    ? {
+        ...rawSummaryOpt,
+        rewrittenSummary: cleanRewriteText(rawSummaryOpt.rewrittenSummary),
+      }
+    : null
   const [copiedSummary, setCopiedSummary] = useState(false)
 
   const handleCopySummary = () => {

@@ -33,7 +33,9 @@ export function buildCompactCandidateContext({
   signals = null,
   assessmentPersona = null,
   assessmentDirectives = null,
+  answers = null,
 } = {}) {
+  const effectiveAnswers = answers || resumeContext?.answers || null
   const effectiveDirectives =
     assessmentDirectives ||
     assessmentPersona?.agentDirectives?.forLinkedInAgent ||
@@ -134,7 +136,22 @@ DETECTED DISCREPANCIES:
 ${discSummary}
 
 VERIFIED RESUME SKILLS MISSING ON LINKEDIN:
-${effectiveMissingSkills}${effectiveDirectives ? `
+${effectiveMissingSkills}${effectiveAnswers && Object.keys(effectiveAnswers).length > 0 ? `
+
+==================================================
+CANDIDATE ASSESSMENT & SEARCH CONTEXT (QUESTIONNAIRE ANSWERS)
+==================================================
+- Target Role: ${effectiveAnswers.targetRole || targetRole || 'Not specified'}
+- Opportunity Type: ${effectiveAnswers.opportunityType || 'Full-Time W2'}
+- Experience Level: ${effectiveAnswers.experience || 'Mid-Level'}
+- Work Authorization / Visa: ${effectiveAnswers.visa || 'Not specified'}
+- Applications Submitted (30d): ${effectiveAnswers.apps30d || effectiveAnswers.appsWeek?.raw || 'Not specified'}
+- Active Drop-Off Stage: ${effectiveAnswers.DropOffStage || 'Phase 1'}
+- Key Hiring Challenge: ${effectiveAnswers.biggestChallenge || 'Not specified'}
+- Candidate's Core Frustration: ${effectiveAnswers.frustration || 'Not specified'}
+- What Candidate Already Tried: ${Array.isArray(effectiveAnswers.alreadyTried) ? effectiveAnswers.alreadyTried.join(', ') : (effectiveAnswers.alreadyTried || 'None')}
+
+CRITICAL INSTRUCTION: Personalize the 3 Headline options, Story-Driven About section rewrite, and Featured Projects specifically for a candidate at this experience level (${effectiveAnswers.experience || 'Mid-Level'}) and target role (${effectiveAnswers.targetRole || targetRole}), addressing their specific hiring challenge ("${effectiveAnswers.biggestChallenge || 'conversion'}"). Ensure all copy is 100% aligned with their target market.` : ''}${effectiveDirectives ? `
 
 ==================================================
 CANDIDATE ASSESSMENT & RECRUITER VISIBILITY CONTEXT
@@ -251,6 +268,7 @@ export function buildTask1HeadlinesAndBannerPrompt(params = {}) {
     discrepancies,
     missingSkills,
     signals,
+    answers: params.answers || resumeContext?.answers || null,
   })
 
   const userContent = `${contextText}
@@ -426,6 +444,7 @@ export function buildTask2AboutAndFeaturedPrompt(params = {}) {
     discrepancies,
     missingSkills,
     signals,
+    answers: params.answers || resumeContext?.answers || null,
   })
 
   const userContent = `${contextText}

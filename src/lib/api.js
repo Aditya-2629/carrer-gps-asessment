@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { buildSemanticAssessmentPayload } from './assessmentSteps'
 import { getResumeFileFromStorage } from './resumeStorage'
+import { sanitizeFormData } from '../store/useAppStore'
 
 // Reads VITE_API_URL from environment at build time.
 // In development: falls back to localhost:5000
@@ -75,7 +76,8 @@ export const api = {
   // stream progress via SSE instead of holding one request open.
   startReportJob: async ({ userId, formData }) => {
     try {
-      const semanticProfile = buildSemanticAssessmentPayload(formData)
+      const cleanFormData = sanitizeFormData(formData)
+      const semanticProfile = buildSemanticAssessmentPayload(cleanFormData)
       let resumeAnalysis = typeof window !== 'undefined' ? window.__useAppStore?.getState()?.resumeAnalysis?.data : null
       if (!resumeAnalysis && typeof sessionStorage !== 'undefined') {
         try {
@@ -91,10 +93,10 @@ export const api = {
         } catch (_e) {}
       }
 
-      const allAnswers = { ...formData }
+      const allAnswers = { ...cleanFormData }
 
       // Retrieve pre-scraped LinkedIn profile from formData, sessionStorage, or in-flight promise
-      let preScrapedLinkedin = formData.linkedinData || null
+      let preScrapedLinkedin = cleanFormData.linkedinData || null
       if (!preScrapedLinkedin && typeof sessionStorage !== 'undefined') {
         try {
           const cached = sessionStorage.getItem('craftureLinkedinScrape')

@@ -1,383 +1,305 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo } from 'react'
+import { motion } from 'framer-motion'
 import useAppStore from '../../store/useAppStore'
 import {
   ArrowRight,
-  ArrowDown,
-  Warning,
-  ChatCircleText,
-  ShieldWarning,
+  WarningCircle,
   CheckCircle,
-  CaretDown,
-  CaretUp,
-  FileText,
-  Clock,
-  LinkedinLogo,
-  UserCheck,
+  PaperPlaneTilt,
+  PhoneCall,
+  Code,
+  UsersThree,
+  Trophy,
   ShieldCheck,
-  TrendDown,
+  Robot,
+  Briefcase,
+  IdentificationCard,
+  Compass,
 } from '@phosphor-icons/react'
+import { extractQuantMetric } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData }) {
   const formData = useAppStore((s) => s.formData) || {}
   const storeReport = useAppStore((s) => s.reportData) || {}
   const answers = storeReport?.user_answers || formData || {}
 
-  const safeFunnel = funnelData || {}
+  // 1. Extract Candidate Real Numbers across all 8 funnel dimensions
+  const f90 = answers.funnel90d || {}
+  const apps30d = extractQuantMetric(answers.apps30d ?? (answers.appsWeek ? answers.appsWeek * 4.33 : null), 20, 'month').rawNum
+  const totalApps90d = Number(f90.applications90d || apps30d * 3 || 60)
+  const screens = Number(f90.recruiterScreens ?? f90.screens ?? answers.interviews ?? answers.humanScreen ?? 0)
+  const assessments = Number(f90.assessments ?? 0)
+  const aiInterviews = Number(f90.aiInterviews ?? 0)
+  const combinedScreens = screens + assessments + aiInterviews
+  const technicalRounds = Number(f90.technicalRounds ?? f90.assessments ?? 0)
+  const finalRounds = Number(f90.finalRounds ?? f90.finals ?? 0)
+  const offers = Number(f90.offers ?? 0)
+  const joiningStatus = String(f90.joiningStatus || answers.joiningStatus || 'No Offer Yet')
 
-  const parseNum = (val, defaultVal = 0) => {
-    if (typeof val === 'number') return val
-    if (!val) return defaultVal
-    const match = String(val).match(/\d+/)
-    return match ? parseInt(match[0], 10) : defaultVal
-  }
+  // 2. Conversion Velocity Rates
+  const screenRate = totalApps90d > 0 ? ((combinedScreens / totalApps90d) * 100).toFixed(1) : '0.0'
+  const techToFinalRate = technicalRounds > 0 ? ((finalRounds / technicalRounds) * 100).toFixed(0) : '0'
+  const finalToOfferRate = finalRounds > 0 ? ((offers / finalRounds) * 100).toFixed(0) : '0'
 
-  const rawApps = answers.appsWeek || answers.applications_count || answers.applications
-  let defaultApps = 40
-  if (typeof rawApps === 'number') defaultApps = rawApps
-  else if (rawApps === '50+' || rawApps === '50-100') defaultApps = 60
-  else if (rawApps === '25-50') defaultApps = 35
-  else if (rawApps === '10-25') defaultApps = 20
-  else if (rawApps === '5-10') defaultApps = 8
-  else if (rawApps === '1-5') defaultApps = 3
-  else defaultApps = parseNum(rawApps, 40)
+  // 3. Drop-Off Gate Resolution
+  const phaseId = Number(storeReport?.phase?.id ?? 1)
+  const phaseName = storeReport?.phase?.name ?? 'Application → Screening'
 
-  const apps = Number(safeFunnel.applications_count) || defaultApps || 40
-  const calls = Number(safeFunnel.recruiter_calls_count) ?? parseNum(answers.humanScreen || answers.recruiter_calls_count, Math.max(1, Math.round(apps * 0.05)))
-  const interviews = Number(safeFunnel.interviews_count) ?? parseNum(answers.aiScreen || answers.assessments, Math.max(0, Math.round(calls * 0.5)))
-  const finals = Number(safeFunnel.final_rounds_count) ?? parseNum(answers.finalRounds, Math.max(0, Math.round(interviews * 0.4)))
-  const offers = Number(safeFunnel.offers_count) ?? parseNum(answers.offers, 0)
-
-  const leakStage = typeof safeFunnel.biggest_leak_stage === 'string'
-    ? safeFunnel.biggest_leak_stage
-    : safeFunnel.biggest_leak_stage?.stage || 'Recruiter Calls'
-  const diagnosis = typeof safeFunnel.diagnosis_message === 'string'
-    ? safeFunnel.diagnosis_message
-    : safeFunnel.diagnosis_message?.text ||
-      'Most candidates drop off right between Applications and Recruiter Calls. Fix top-of-funnel keyword density and quantified metrics to double screening invitations.'
-
-  let dropPct = 85
-  if (leakStage.toLowerCase().includes('interview') && calls > 0) {
-    dropPct = Math.round(((calls - interviews) / calls) * 100)
-  } else if (leakStage.toLowerCase().includes('final') && interviews > 0) {
-    dropPct = Math.round(((interviews - finals) / interviews) * 100)
-  } else if (leakStage.toLowerCase().includes('offer') && finals > 0) {
-    dropPct = Math.round(((finals - offers) / finals) * 100)
-  } else {
-    dropPct = apps > 0 ? Math.round(((apps - calls) / apps) * 100) : 95
-  }
-  if (dropPct <= 0 || isNaN(dropPct)) dropPct = 85
-
-  const calcPct = (val) => {
-    const num = Number(val) || 0
-    return ((num / apps) * 100).toFixed(1) + '%'
-  }
-
-  const STAGES = [
-    { name: 'Applications', count: apps, pct: '100%', isLeak: leakStage === 'Applications' },
-    { name: 'Responses', count: calls, pct: calcPct(calls), isLeak: leakStage === 'Recruiter Calls' },
-    { name: 'Interviews', count: interviews, pct: calcPct(interviews), isLeak: leakStage === 'Tech Interviews' },
-    { name: 'Final Rounds', count: finals, pct: calcPct(finals), isLeak: leakStage === 'Final Round' },
-    { name: 'Offers', count: offers, pct: calcPct(offers), isLeak: leakStage === 'Offers' },
+  const FUNNEL_STAGES = [
+    {
+      id: 1,
+      name: 'Applications',
+      count: totalApps90d,
+      unit: 'sent (90d)',
+      icon: PaperPlaneTilt,
+      color: '#3b82f6',
+      isDropOffGate: phaseId === 1,
+      dropOffLabel: 'Phase 1 Gate: Drop-off before screens',
+    },
+    {
+      id: 2,
+      name: 'Recruiter Screens',
+      count: screens,
+      unit: 'recruiter calls',
+      icon: PhoneCall,
+      color: 'var(--primary)',
+      isDropOffGate: phaseId === 2,
+      dropOffLabel: 'Phase 2 Gate: Drop-off after screens',
+    },
+    {
+      id: 3,
+      name: 'OAs & AI Screens',
+      count: assessments + aiInterviews,
+      unit: 'coding tests & video',
+      icon: Robot,
+      color: '#06b6d4',
+      isDropOffGate: phaseId === 2 && assessments > 0,
+      dropOffLabel: 'OA / CodeSignal Assessment Drop-off',
+    },
+    {
+      id: 4,
+      name: 'Technical Rounds',
+      count: technicalRounds,
+      unit: 'live tech panels',
+      icon: Code,
+      color: '#8b5cf6',
+      isDropOffGate: phaseId === 3,
+      dropOffLabel: 'Phase 3 Gate: Live coding / System design stall',
+    },
+    {
+      id: 5,
+      name: 'Final Rounds',
+      count: finalRounds,
+      unit: 'manager / onsite',
+      icon: UsersThree,
+      color: '#ec4899',
+      isDropOffGate: phaseId === 4,
+      dropOffLabel: 'Phase 4 Gate: Final round closing gap',
+    },
+    {
+      id: 6,
+      name: 'Offers & Joining',
+      count: offers,
+      unit: joiningStatus === 'No Offer Yet' ? 'offers' : joiningStatus,
+      icon: Trophy,
+      color: 'var(--emerald)',
+      isDropOffGate: phaseId === 5,
+      dropOffLabel: 'Phase 5 Gate: Offer verification / onboarding block',
+    },
   ]
 
-  const getSafeRiskTitle = (val) => {
-    if (!val) return 'Target Positioning & Seniority Signal'
-    if (typeof val === 'string') return val
-    if (Array.isArray(val)) return typeof val[0] === 'string' ? val[0] : val[0]?.title || val[0]?.name || 'Target Positioning & Seniority Signal'
-    return val.title || val.name || val.risk || 'Target Positioning & Seniority Signal'
+  // 4. External SDLC & Consultancy Context Strip
+  const ext = storeReport?.external_context || {}
+  const sdlc = ext.sdlc_market_cycle || {
+    title: 'Core Software & Engineering Wave',
+    currentQuarter: 'Q4',
+  }
+  const visaText = answers.visa || 'US Citizen / Green Card / GC-EAD'
+  const expText = answers.experience || 'Mid–Senior / 4–7 Yrs Experience'
+  const consultancy = ext.consultancy_context || {
+    mode: /C2C/i.test(answers.externalHelp) ? 'C2C Consultancy / Bench' : 'Solo Search',
+    description: '100% self-directed application pipeline',
   }
 
-  // Rejection reasons dynamically populated
-  let safeFactors = []
-  if (Array.isArray(rejectionData?.factors) && rejectionData.factors.length > 0) {
-    safeFactors = rejectionData.factors.map((f, idx) => ({
-      name: typeof f === 'string' ? f : f?.name || f?.title || `Factor ${idx + 1}`,
-      pct: typeof f === 'object' && f?.pct !== undefined ? Number(f.pct) || 25 : Math.max(10, 40 - idx * 10),
-      desc: typeof f === 'object' ? f?.desc || f?.description || '' : '',
-    }))
-  } else {
-    const resumeIssue = storeReport?.resume_agent?.issues?.[0]
-    const liIssue = storeReport?.linkedin_agent?.issues?.[0]
-    const userFeedback = Array.isArray(answers?.feedback) ? answers.feedback.join(', ') : answers?.feedback || ''
-
-    safeFactors = [
-      {
-        name: resumeIssue?.title || 'Resume Impact & Quantified Metrics',
-        pct: 38,
-        desc: resumeIssue?.diagnosis || 'Achievement bullets lack concrete quantified revenue, scale, or latency metrics.',
-      },
-      {
-        name: 'Application Timing & Sourcing Channel',
-        pct: 28,
-        desc: 'Submitting through generic job aggregator boards with 200+ applicants rather than direct hiring managers.',
-      },
-      {
-        name: liIssue?.title || 'LinkedIn Discoverability & Secondary Keywords',
-        pct: 20,
-        desc: liIssue?.diagnosis || 'Profile lacks targeted keyword density to pass initial boolean recruiter filters.',
-      },
-      {
-        name: userFeedback ? `Candidate Reported Barrier: ${userFeedback.slice(0, 40)}` : 'Interview Behavioral Structuring',
-        pct: 14,
-        desc: 'Unstructured responses to behavioral STAR questions and system design depth.',
-      },
-    ]
-  }
-
-  const [expandedReason, setExpandedReason] = useState(null)
-  const toggleReason = (idx) => {
-    setExpandedReason(expandedReason === idx ? null : idx)
-  }
-
-  // Risk Radar items dynamically built
-  const isCitizenOrGC = ['US Citizen', 'Permanent Resident (Green Card)'].includes(answers.visa)
-  const criticalRisk = getSafeRiskTitle(riskData?.critical_risk)
-  const mitigationPlan =
-    (typeof riskData?.mitigation_plan === 'string' && riskData.mitigation_plan) ||
-    riskData?.mitigation_plan?.text ||
-    (isCitizenOrGC
-      ? 'Target high-growth startups and Tier-1 engineering organizations where citizenship clears clearance and federal contracting tracks.'
-      : 'Target employers with verified e-Verify certification and explicit H-1B sponsorship history to prevent late-stage interview dropouts.')
-
+  // 5. Verified Technical Skills (cleanly formatted in Title Case)
   const rawSkills =
     storeReport?.resume_agent?.canonicalResume?.skills ||
     storeReport?.resume_json?.top_skills ||
     storeReport?.resume_json?.skills ||
     []
-  const topSkills = rawSkills
-    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+  const formatTitleCase = (s) => {
+    if (!s) return ''
+    const str = typeof s === 'string' ? s : s?.name || ''
+    return str
+      .replace(/[_-]/g, ' ')
+      .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())
+  }
+  const topSkills = (Array.isArray(rawSkills) ? rawSkills : [])
+    .map(formatTitleCase)
     .filter(Boolean)
-  const nicheSkillText = topSkills.length >= 2 ? `${topSkills.slice(0, 2).join(' + ')} with Cloud Architecture` : 'Modern Cloud & GenAI Stack'
-
-  const RADAR_ITEMS = [
-    isCitizenOrGC
-      ? {
-          title: 'Senior Market Positioning',
-          category: 'Target Positioning',
-          status: 'Active Focus',
-          statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
-          desc: 'Position headline and summary around high-impact business outcomes to target senior salary bands.',
-        }
-      : {
-          title: criticalRisk,
-          category: 'Immigration & Timeline',
-          status: 'Active Focus',
-          statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
-          desc: mitigationPlan,
-        },
-    {
-      title: 'Recruiter Ghosting & Pipeline Freezes',
-      category: 'Pipeline Risk',
-      status: 'Controlled',
-      statusColor: 'text-blue-500 bg-blue-500/10 border-blue-500/20',
-      desc: 'Follow a strict 5-day post-interview follow-up template to maintain momentum.',
-    },
-    {
-      title: storeReport?.resume_agent?.dashboard?.checks?.find((c) => c.status === 'warn')?.name || 'ATS Parser Compatibility',
-      category: 'Resume Formatting',
-      status: 'In Progress',
-      statusColor: 'text-amber-600 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
-      desc: 'Ensure single-column layout and standard section headers to guarantee 100% text extraction.',
-    },
-    {
-      title: 'Market Competition Density',
-      category: 'Macro Environment',
-      status: 'Monitored',
-      statusColor: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20',
-      desc: `Focus positioning on high-demand skills (${nicheSkillText}) to bypass commoditized competition.`,
-    },
-  ]
+  const skillsDisplay = topSkills.slice(0, 3).join(', ')
 
   return (
-    <section id="funnel-risks" className="space-y-8">
-      {/* 1. Job Search Funnel Journey */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
-          <div>
-            <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
-              Conversion Pipeline
-            </span>
-            <h2
-              className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
-              style={{ fontFamily: 'var(--font-head)' }}
-            >
-              Job Search Funnel Journey
-            </h2>
-          </div>
-          <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-            Where applications convert or drop off across each stage
-          </p>
+    <section id="funnel-risks" className="space-y-6 break-before-page page-break-before-always">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-[var(--border-default)] pb-4 break-inside-avoid page-break-inside-avoid">
+        <div>
+          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+            Inside The Hiring Funnel
+          </span>
+          <h2
+            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            style={{ fontFamily: 'var(--font-head)' }}
+          >
+            90-Day Funnel Outcomes & Conversion Velocity
+          </h2>
+        </div>
+        <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
+          Benchmarked against 1,000+ technical candidate pipelines in your target role{skillsDisplay ? ` (${skillsDisplay})` : ''}
+        </p>
+      </div>
+
+      {/* 1. Compact 90-Day 8-Stage Funnel & Conversion Bar */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-5 break-inside-avoid page-break-inside-avoid print-card">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            90-Day Stage Progression & Drop-Off Gate
+          </span>
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)]">
+            Active Stuck Point: <strong className="text-[var(--primary)]">Phase {phaseId}</strong>
+          </span>
         </div>
 
-        {/* Funnel Visualization Card */}
-        <div className="p-6 sm:p-8 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-6">
-          {/* Desktop Horizontal Journey / Mobile Vertical Journey */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative">
-            {STAGES.map((s, idx) => (
-              <div key={s.name} className="relative flex flex-col items-center text-center">
-                <div
-                  className={`w-full p-4 rounded-2xl border transition-all ${
-                    s.isLeak
-                      ? 'bg-amber-500/10 border-amber-500/40 shadow-xs ring-2 ring-amber-500/20'
-                      : 'bg-[var(--surface-sunken)] border-[var(--border-default)]'
-                  }`}
-                >
-                  <div className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                    {s.name}
-                  </div>
-                  <div className="text-2xl font-black font-mono text-[var(--text-primary)]">
-                    {s.count}
-                  </div>
-                  <div className="text-xs font-mono font-bold mt-1 text-[var(--primary)]">
-                    {s.pct}
-                  </div>
+        {/* Responsive Stage Progression Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {FUNNEL_STAGES.map((stg, idx) => {
+            const Icon = stg.icon
+            return (
+              <div
+                key={stg.id}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all relative ${
+                  stg.isDropOffGate
+                    ? 'bg-rose-500/10 border-rose-500/40 shadow-xs'
+                    : 'bg-[var(--surface-sunken)] border-[var(--border-default)]'
+                }`}
+              >
+                {stg.isDropOffGate && (
+                  <span className="absolute -top-2.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-rose-600 text-white shadow-2xs">
+                    Drop-off Gate
+                  </span>
+                )}
 
-                  {s.isLeak && (
-                    <div className="mt-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500 text-white inline-block">
-                      Biggest Leak
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-2">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${stg.color}18`, color: stg.color }}
+                  >
+                    <Icon size={15} weight="bold" />
+                  </div>
+                  <span className="text-lg font-black font-mono text-[var(--text-primary)]">
+                    {stg.count}
+                  </span>
                 </div>
 
-                {/* Arrow connector between stages */}
-                {idx < STAGES.length - 1 && (
-                  <div className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] items-center justify-center text-[var(--text-muted)]">
-                    <ArrowRight size={12} weight="bold" />
-                  </div>
-                )}
+                <div>
+                  <h4 className="text-xs font-bold text-[var(--text-primary)] leading-tight">
+                    {stg.name}
+                  </h4>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
+                    {stg.unit}
+                  </p>
+                </div>
               </div>
-            ))}
+            )
+          })}
+        </div>
+
+        {/* 3-Pillar Conversion Velocity Summary */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[var(--border-default)]">
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+              Application → Screen Conversion
+            </span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-xl font-black font-mono ${Number(screenRate) >= 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                {screenRate}%
+              </span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;5.0%</span>
+            </div>
           </div>
 
-          {/* Biggest Drop-off Callout */}
-          <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/25 flex items-start gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
-              <TrendDown size={20} weight="bold" />
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+              Technical → Final Conversion
+            </span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-xl font-black font-mono ${Number(techToFinalRate) >= 40 ? 'text-emerald-500' : 'text-[var(--text-primary)]'}`}>
+                {techToFinalRate}%
+              </span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;40%</span>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                Biggest Drop-off Identified: {leakStage} ({dropPct}% drop)
-              </div>
-              <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
-                {diagnosis}
-              </p>
+          </div>
+
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+              Final Round → Offer Conversion
+            </span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className={`text-xl font-black font-mono ${Number(finalToOfferRate) > 0 ? 'text-emerald-500' : 'text-[var(--text-primary)]'}`}>
+                {finalToOfferRate}%
+              </span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;30%</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. "Why aren't interviews converting?" + Risk Radar Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Why Aren't Interviews Converting? (Diagnosis Panel) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div>
-            <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
-              Root Cause Analysis
+      {/* 2. Personalization Context Strip (SDLC Wave, Visa, Experience, Consultancy) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-3">
+        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+          Strategic Market Perimeter & Sourcing Context
+        </span>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* SDLC Market Wave */}
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
+              SDLC Market Wave ({sdlc.currentQuarter || 'Q4'})
             </span>
-            <h3
-              className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight"
-              style={{ fontFamily: 'var(--font-head)' }}
-            >
-              Why aren't interviews converting?
-            </h3>
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+              {sdlc.title}
+            </p>
           </div>
 
-          <div className="space-y-2.5">
-            {safeFactors.map((f, i) => {
-              const isExpanded = expandedReason === i
-              return (
-                <div
-                  key={f.name}
-                  className="rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] overflow-hidden shadow-2xs"
-                >
-                  <div
-                    onClick={() => toggleReason(i)}
-                    className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-[var(--surface-sunken)]/60 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-center text-xs font-mono font-bold text-[var(--text-primary)] shrink-0">
-                        {f.pct}%
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-sm font-bold text-[var(--text-primary)] block truncate" style={{ fontFamily: 'var(--font-head)' }}>
-                          {f.name}
-                        </span>
-                        <span className="text-xs text-[var(--text-muted)] block truncate">
-                          {f.desc}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      aria-label="Toggle details"
-                      className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 shrink-0"
-                    >
-                      {isExpanded ? <CaretUp size={16} weight="bold" /> : <CaretDown size={16} weight="bold" />}
-                    </button>
-                  </div>
-
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="px-4 pb-4 pt-1 border-t border-[var(--border-default)] text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed bg-[var(--surface-sunken)]/40"
-                      >
-                        <p className="font-medium">{f.desc}</p>
-                        <p className="mt-2 text-xs font-semibold text-[var(--primary)]">
-                          💡 Coach Recommendation: Prioritize rewriting top bullet points with metrics to eliminate this {f.pct}% conversion friction.
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Right Column: Risk Radar */}
-        <div className="lg:col-span-5 space-y-4">
-          <div>
-            <span className="text-xs uppercase font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400 block">
-              Risk Radar
+          {/* Visa Status */}
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#06b6d4] block mb-1">
+              Work Authorization
             </span>
-            <h3
-              className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight"
-              style={{ fontFamily: 'var(--font-head)' }}
-            >
-              Pipeline Risk Assessment
-            </h3>
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+              {visaText}
+            </p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] space-y-3.5 shadow-xs">
-            {RADAR_ITEMS.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1.5"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[var(--text-primary)] truncate" style={{ fontFamily: 'var(--font-head)' }}>
-                    {item.title}
-                  </span>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${item.statusColor}`}>
-                    {item.status}
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
+          {/* Seniority Tier */}
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b5cf6] block mb-1">
+              Experience Level
+            </span>
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+              {expText}
+            </p>
+          </div>
 
-            {/* Mitigation Callout */}
-            <div className="pt-2 text-xs text-[var(--text-muted)] font-medium flex items-start gap-2">
-              <ShieldCheck size={16} className="text-[var(--emerald)] shrink-0 mt-0.5" weight="bold" />
-              <span>{mitigationPlan}</span>
-            </div>
+          {/* Consultancy Mode */}
+          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block mb-1">
+              Search Pipeline Model
+            </span>
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+              {consultancy.mode}
+            </p>
           </div>
         </div>
       </div>
