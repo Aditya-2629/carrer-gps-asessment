@@ -46,10 +46,35 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
     confidence: 'High',
   }
 
-  const primaryBottleneck = reportData?.primary_bottleneck ?? {
+  let primaryBottleneck = reportData?.primary_bottleneck ?? {
     title: reportData?.critical_issues?.[0]?.title || 'Top-of-Page ATS Filtering & Lack of Quantified Impact',
     whyItMatters: reportData?.critical_issues?.[0]?.whyItMatters || 'Recruiters scan applications in under 10 seconds. Generic task bullets without hard numbers trigger automated filtering.',
     evidence: reportData?.critical_issues?.[0]?.diagnosis || 'Achievement bullets lack hard numbers and Google XYZ outcome structure.',
+  }
+
+  const answers = reportData?.user_answers || reportData?.answers || {}
+  const hasValidLinkedin = Boolean(
+    (answers.linkedin && typeof answers.linkedin === 'string' && answers.linkedin.trim().length > 3) ||
+    (answers.linkedinUrl && typeof answers.linkedinUrl === 'string' && answers.linkedinUrl.trim().length > 3) ||
+    (typeof answers.contact?.linkedin === 'string' && answers.contact.linkedin.trim().length > 3) ||
+    (reportData?.linkedin_json && Object.keys(reportData.linkedin_json).length > 0) ||
+    (reportData?.linkedin_agent?.dataAvailable === true)
+  )
+  const isPhase3Or4 = Number(phase?.id) >= 3
+
+  const bottleneckTitle = safeText(primaryBottleneck.title || primaryBottleneck)
+  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile/i.test(bottleneckTitle)) {
+    primaryBottleneck = isPhase3Or4 ? {
+      title: 'Technical Case-Study Depth & Architectural Tradeoff Articulation',
+      category: 'technical_evaluation',
+      whyItMatters: 'Later-stage rounds evaluate how you justify design tradeoffs and diagnose failure modes under ambiguity.',
+      evidence: 'Candidate reaches technical/final rounds but experiences conversion friction during deep architectural probes.',
+    } : {
+      title: 'Top-of-Page ATS Keyword Alignment & Metric Gaps',
+      category: 'ats_readability',
+      whyItMatters: 'Recruiters scan applications in under 10 seconds. Missing metrics and generic task bullets cause automated screening drops before humans review.',
+      evidence: reportData?.resume_agent?.issues?.[0]?.diagnosis || 'Resume bullets lack quantified metrics and Google XYZ achievement structure.',
+    }
   }
 
   const secondaryProblem = reportData?.secondary_problem ?? {

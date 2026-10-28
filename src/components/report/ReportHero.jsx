@@ -26,6 +26,7 @@ function getScoreBadgeClass(score) {
 }
 
 import useAppStore from '../../store/useAppStore'
+import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function ReportHero({ reportData }) {
   const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
@@ -47,11 +48,11 @@ export default function ReportHero({ reportData }) {
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.name ||
     (email ? email.split('@')[0] : '')
 
-  const firstName = (typeof rawName === 'string' && rawName.trim())
+  const firstName = decodeHtmlEntities((typeof rawName === 'string' && rawName.trim())
     ? rawName.trim().split(' ')[0]
-    : ''
+    : '')
 
-  const targetRole =
+  const targetRole = decodeHtmlEntities(
     resumeAgent?.candidateSnapshot?.targetRole ||
     candidate?.candidate?.targetRole ||
     candidate?.target_role ||
@@ -63,8 +64,9 @@ export default function ReportHero({ reportData }) {
     storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
     ''
+  )
 
-  const visaStatus =
+  const visaStatus = decodeHtmlEntities(
     candidate?.candidate?.visaStatus ||
     candidate?.visa_status ||
     reportData?.visa_status ||
@@ -73,27 +75,38 @@ export default function ReportHero({ reportData }) {
     formData?.workAuthorization ||
     formData?.work_authorization ||
     ''
+  )
 
-  const presentRole =
+  const presentRole = decodeHtmlEntities(
     resumeAgent?.candidateSnapshot?.presentRole ||
     candidate?.candidate?.presentRole ||
     storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentRole ||
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentRole ||
     ''
+  )
 
-  const presentCompany =
+  const presentCompany = decodeHtmlEntities(
     resumeAgent?.candidateSnapshot?.presentCompany ||
     candidate?.candidate?.presentCompany ||
     storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentCompany ||
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentCompany ||
     ''
+  )
 
-  const pastRoles =
+  const rawPastRoles =
     resumeAgent?.candidateSnapshot?.pastRoles ||
     candidate?.candidate?.pastRoles ||
     storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.pastRoles ||
     storeResumeAnalysis?.data?.canonicalResume?.candidate?.pastRoles ||
     []
+
+  const pastRoles = Array.isArray(rawPastRoles)
+    ? rawPastRoles.map((pr) => ({
+        ...pr,
+        role: decodeHtmlEntities(pr.role || ''),
+        company: decodeHtmlEntities(pr.company || ''),
+      }))
+    : []
 
   const rawSkills = Array.isArray(candidate?.top_skills) && candidate.top_skills.length > 0
     ? candidate.top_skills
@@ -104,9 +117,9 @@ export default function ReportHero({ reportData }) {
     : []
 
   const skillsList = rawSkills.map((s) => {
-    if (typeof s === 'string') return s
-    if (typeof s === 'object' && s) return s.name || s.skill || ''
-    return String(s || '')
+    if (typeof s === 'string') return decodeHtmlEntities(s)
+    if (typeof s === 'object' && s) return decodeHtmlEntities(s.name || s.skill || '')
+    return decodeHtmlEntities(String(s || ''))
   }).filter(Boolean)
 
   const healthScore = Math.max(
@@ -160,8 +173,8 @@ export default function ReportHero({ reportData }) {
       ? rawStrength.title
       : rawStrength?.description || rawStrength?.signal || 'verified engineering delivery'
 
-  const cleanAdvantage = String(advantageText || '').replace(/\.+$/, '').trim()
-  const cleanCompany = String(presentCompany || pastRoles[0]?.company || '').replace(/\.+$/, '').trim()
+  const cleanAdvantage = decodeHtmlEntities(String(advantageText || '').replace(/\.+$/, '').trim())
+  const cleanCompany = decodeHtmlEntities(String(presentCompany || pastRoles[0]?.company || '').replace(/\.+$/, '').trim())
 
   const primaryIssue =
     reportData?.primary_bottleneck ||
@@ -169,12 +182,28 @@ export default function ReportHero({ reportData }) {
     resumeAgent?.issues?.[0] ||
     reportData?.issues?.[0]
 
-  const rawBottleneck =
+  let rawBottleneck =
     typeof primaryIssue === 'string'
       ? primaryIssue
       : primaryIssue?.title || primaryIssue?.diagnosis || null
 
-  const cleanBottleneck = String(rawBottleneck || 'Application & Targeting Alignment').replace(/\.+$/, '').trim()
+  const answers = reportData?.user_answers || reportData?.answers || formData || {}
+  const hasValidLinkedin = Boolean(
+    (answers.linkedin && typeof answers.linkedin === 'string' && answers.linkedin.trim().length > 3) ||
+    (answers.linkedinUrl && typeof answers.linkedinUrl === 'string' && answers.linkedinUrl.trim().length > 3) ||
+    (typeof answers.contact?.linkedin === 'string' && answers.contact.linkedin.trim().length > 3) ||
+    (reportData?.linkedin_json && Object.keys(reportData.linkedin_json).length > 0) ||
+    (reportData?.linkedin_agent?.dataAvailable === true)
+  )
+  const isPhase3Or4 = Number(reportData?.phase?.id) >= 3
+
+  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile/i.test(String(rawBottleneck || ''))) {
+    rawBottleneck = isPhase3Or4
+      ? 'Technical Case-Study Depth & Architectural Tradeoff Articulation'
+      : 'Top-of-Page ATS Keyword Alignment & Metric Gaps'
+  }
+
+  const cleanBottleneck = decodeHtmlEntities(String(rawBottleneck || 'Application & Targeting Alignment').replace(/\.+$/, '').trim())
 
   // Detection of corporate experience extraction gaps (e.g. PwC, Shure listed without bullets)
   const experiences = candidate?.experiences || candidate?.experience || resumeAgent?.canonicalResume?.experiences || []
@@ -302,12 +331,29 @@ export default function ReportHero({ reportData }) {
                 </p>
 
                 {/* Hidden Gem #1: 6-Second Human Recruiter Scan Verdict */}
-                <div className="mt-3 pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-start gap-2 bg-[var(--surface-card)] p-3 rounded-xl">
-                  <span className="text-amber-500 font-bold shrink-0">⏱️ 6-Second Recruiter Verdict:</span>
-                  <span>
-                    A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {(skillsList || []).slice(0, 2).join(' and ') || 'modern stacks'}; however, recruiter conversion risks stalling due to {hasExtractedExperienceGaps ? 'missing extracted bullets under verified employer roles' : (reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'missing keyword alignment with target boolean searches')}.
-                  </span>
-                </div>
+                {(() => {
+                  const concreteTechSkills = (skillsList || [])
+                    .map(decodeHtmlEntities)
+                    .filter((s) => {
+                      if (!s || typeof s !== 'string') return false
+                      const trimmed = s.trim()
+                      if (trimmed.length > 25 || trimmed.split(/\s+/).length > 2) return false
+                      if (/analysis|methodology|collaboration|management|waterfall|agile|scrum|leadership|communication|problem solving|process automation/i.test(trimmed)) return false
+                      return true
+                    })
+                  const topTwoSkills = concreteTechSkills.length >= 2
+                    ? concreteTechSkills.slice(0, 2).join(' and ')
+                    : (skillsList.slice(0, 2).map(decodeHtmlEntities).join(' and ') || 'SQL and Python')
+
+                  return (
+                    <div className="mt-3 pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-start gap-2 bg-[var(--surface-card)] p-3 rounded-xl">
+                      <span className="text-amber-500 font-bold shrink-0">⏱️ 6-Second Recruiter Verdict:</span>
+                      <span>
+                        A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {topTwoSkills}; however, recruiter conversion risks stalling due to {hasExtractedExperienceGaps ? 'missing extracted bullets under verified employer roles' : (reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'missing keyword alignment with target boolean searches')}.
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
             )}
           </div>

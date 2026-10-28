@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import useAppStore from '../../store/useAppStore'
+import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 import {
   PhoneCall,
   Code,
@@ -87,7 +88,7 @@ export default function FunnelGridInput({ value, onChange, error }) {
   const { formData } = useAppStore()
 
   // Calculate default applications90d based on apps30d if available
-  const apps30dNum = parseInt(String(formData.apps30d || '').replace(/[^0-9]/g, ''), 10) || 20
+  const apps30dNum = parseRangeOrNumber(formData.apps30d, 20)
   const default90dApps = apps30dNum * 3
 
   const currentObj = typeof value === 'object' && value !== null ? value : {}

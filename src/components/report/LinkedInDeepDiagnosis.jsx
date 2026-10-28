@@ -201,13 +201,25 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     'Data Analyst'
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
-  const rawYoe = candidateSnap.experienceYears ||
+  const rawYoe = candidateSnap.experienceLevel ||
+                 candidateSnap.experienceYears ||
                  candidateSnap.yearsExperience ||
                  reportData?.resume_json?.years_of_experience ||
                  reportData?.user_answers?.experience ||
                  ''
-  const parsedYears = String(rawYoe).match(/\d+/)
-  const yoe = parsedYears ? parsedYears[0] : (candidateSnap.experienceLevel ? candidateSnap.experienceLevel.replace(/[^0-9+]/g, '') : '3+')
+
+  let yoeNum = '3'
+  const yoeStr = String(rawYoe).trim()
+  const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
+  if (rangeMatch) {
+    yoeNum = rangeMatch[2]
+  } else {
+    const singleMatch = yoeStr.match(/(\d+)/)
+    if (singleMatch) {
+      yoeNum = singleMatch[1]
+    }
+  }
+  const yoe = String(yoeNum).replace(/\++$/, '') || '3'
 
   const rawCandidateSkills =
     reportData?.resume_agent?.candidateSnapshot?.coreSkills ||
@@ -598,15 +610,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         grade: reportData?.score_breakdown?.linkedin?.grade || 'C',
         gradeLabel: 'Developing',
         grades: {
-          headline: { grade: 'D', label: 'Headline SEO' },
-          about: { grade: 'D', label: 'About Story' },
-          skills: { grade: 'C', label: 'Pinned Skills' },
-          network: { grade: 'C', label: 'Social Reach' },
+          headline: { score: 45, grade: 'D', label: 'Headline SEO' },
+          about: { score: 40, grade: 'D', label: 'About Story' },
+          skills: { score: 65, grade: 'C', label: 'Pinned Skills' },
+          network: { score: 60, grade: 'C', label: 'Social Reach' },
         },
         checks: [
-          { name: 'Headline Keyword Density', status: 'warn' },
-          { name: 'Story-Driven About Section', status: 'fail' },
-          { name: 'Top 3 Pinned Technical Skills', status: 'fail' },
+          { id: 'li_headline', label: 'Headline Keyword Density', detail: 'Needs target role title + top 3 technical tools', status: 'warn' },
+          { id: 'li_about', label: 'Story-Driven About Section', detail: 'Missing quantified hook and core stack keywords', status: 'fail' },
+          { id: 'li_skills', label: 'Top 3 Pinned Technical Skills', detail: 'Pin SQL, Python, and Power BI to top of skills list', status: 'fail' },
         ],
         summary: 'Profile is unlinked or blank, missing critical recruiter search indexing keywords and social proof.',
       }

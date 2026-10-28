@@ -192,6 +192,13 @@ export function sanitizeModeCOutput(analysis) {
       if (iss && !Array.isArray(iss.metricDiscoveryQuestions)) {
         iss.metricDiscoveryQuestions = []
       }
+      if (iss?.diagnosis && /participle\s*\(['"][^'"]+['"]\)/i.test(iss.diagnosis)) {
+        const bulletText = iss.evidence?.[0]?.originalText || iss.originalText || ''
+        const matchIng = bulletText.trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
+        if (matchIng) {
+          iss.diagnosis = iss.diagnosis.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
+        }
+      }
       if (iss?.correctedText) {
         iss.correctedText = cleanRewriteText(iss.correctedText)
       }
@@ -217,10 +224,20 @@ export function sanitizeModeCOutput(analysis) {
 
   // 5c. bulletUpgrades normalization
   analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
-    ? analysis.bulletUpgrades.map((upg) => ({
-        ...upg,
-        rewrittenText: cleanRewriteText(upg.rewrittenText),
-      }))
+    ? analysis.bulletUpgrades.map((upg) => {
+        let reason = upg.reason
+        if (reason && /participle\s*\(['"][^'"]+['"]\)/i.test(reason)) {
+          const matchIng = (upg.originalText || '').trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
+          if (matchIng) {
+            reason = reason.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
+          }
+        }
+        return {
+          ...upg,
+          reason,
+          rewrittenText: cleanRewriteText(upg.rewrittenText),
+        }
+      })
     : []
 
   // 6. summaryOptimization normalization

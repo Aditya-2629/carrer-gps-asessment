@@ -18,7 +18,7 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
-import { evaluateAssessmentPersona } from '../agents/assessment/assessmentAgent.js'
+import { evaluateAssessmentPersona, parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import AgentRun from '../models/AgentRun.js'
 import { jsonrepair } from 'jsonrepair'
 
@@ -70,8 +70,7 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
       return { rawNum: 0, period: val.period || val.selectedPeriod || defaultPeriod, perWeek: 0, perMonth: 0, label: '0' }
     }
     const rawVal = val.raw ?? val.rawAnswer ?? val.value ?? val.normalizedPerMonth ?? val.normalizedPerWeek ?? ''
-    const rawStr = String(rawVal).replace(/[^0-9.]/g, '')
-    const num = rawStr !== '' ? Number(rawStr) : fallbackNum
+    const num = parseRangeOrNumber(rawVal, fallbackNum)
     const period = val.period === 'week' || val.period === 'month'
       ? val.period
       : val.selectedPeriod === 'week' || val.selectedPeriod === 'month'
@@ -87,8 +86,7 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
       label: `${isNaN(num) ? fallbackNum : num} per ${period}`,
     }
   }
-  const match = String(val).match(/\d+(\.\d+)?/)
-  const parsed = match ? Number(match[0]) : fallbackNum
+  const parsed = parseRangeOrNumber(val, fallbackNum)
   const period = /week/i.test(String(val)) ? 'week' : /month/i.test(String(val)) ? 'month' : defaultPeriod
   return {
     rawNum: parsed,
@@ -513,7 +511,7 @@ export async function generateReportBundle({
       linkedinAgent: activeLinkedinAgent,
     })
   } catch (_e) {
-    // fallback to existing
+    console.warn('[reportGeneration] evaluateAssessmentPersona error:', _e.message || _e)
   }
 
   // Attach verified agent diagnoses and V2 Career GPS metrics

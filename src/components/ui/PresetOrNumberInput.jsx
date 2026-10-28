@@ -19,6 +19,9 @@ export default function PresetOrNumberInput({ value, onChange, presets = [], uni
     onChange(text)
   }
 
+  const isRangePreset = /[–—-]/.test(val)
+  const customInputValue = isRangePreset ? '' : val.replace(/[^0-9]/g, '')
+
   return (
     <div className="space-y-4">
       {/* Preset Chips */}
@@ -57,7 +60,7 @@ export default function PresetOrNumberInput({ value, onChange, presets = [], uni
             type="number"
             min="0"
             max="10000"
-            value={val.replace(/[^0-9]/g, '')}
+            value={customInputValue}
             onChange={(e) => handleCustomInput(e.target.value)}
             placeholder={placeholder}
             className="w-full px-4 py-2.5 rounded-xl bg-[var(--surface-base)] border border-[var(--border-default)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-[var(--primary)] focus:outline-none text-sm font-semibold transition-all shadow-xs"

@@ -21,6 +21,7 @@ import OutreachReferralInput from '../ui/OutreachReferralInput'
 import { getRandomAnswerForStep } from '../../lib/randomQuizFiller'
 import { STEPS } from '../../lib/assessmentSteps'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
+import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
   const { formData, setFormData } = useAppStore()
@@ -61,7 +62,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         setFormData('joiningStatus', value.joiningStatus || 'No Offer Yet')
         setFormData('applications90d', value.applications90d ?? 60)
       } else if (step.name === 'apps30d') {
-        const rawNum = parseInt(String(value).replace(/[^0-9]/g, ''), 10) || 0
+        const rawNum = parseRangeOrNumber(value, 0)
         const weekly = Math.round(rawNum / 4.33)
         setFormData('appsWeek', weekly)
       } else if (step.name === 'visa' && typeof value === 'object' && value !== null) {

@@ -65,7 +65,7 @@ export function sanitizeSingleAddPlaceholder(text) {
 
 function toPastTense(verb) {
   if (!verb) return verb
-  const v = verb.toLowerCase()
+  const v = verb.toLowerCase().trim()
   const irregulars = {
     build: 'Built',
     run: 'Ran',
@@ -80,11 +80,14 @@ function toPastTense(verb) {
     cut: 'Cut',
     meet: 'Met',
     hold: 'Held',
+    analyze: 'Analyzed',
+    analyse: 'Analysed',
   }
   if (irregulars[v]) return irregulars[v]
-  if (v.endsWith('e')) return verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase() + 'd'
-  if (v.endsWith('y') && !/[aeiou]y$/i.test(v)) return verb.charAt(0).toUpperCase() + verb.slice(1, -1).toLowerCase() + 'ied'
-  return verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase() + 'ed'
+  if (v.endsWith('yze') || v.endsWith('ise')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
+  if (v.endsWith('e')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
+  if (v.endsWith('y') && !/[aeiou]y$/i.test(v)) return v.charAt(0).toUpperCase() + v.slice(1, -1) + 'ied'
+  return v.charAt(0).toUpperCase() + v.slice(1) + 'ed'
 }
 
 /**
@@ -654,7 +657,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
   ]
 
   for (const section of sections) {
-    for (const item of section.items) {
+    for (let itemIndex = 0; itemIndex < (section.items || []).length; itemIndex++) {
+      const item = section.items[itemIndex]
       let itemName = section.label
       for (const field of section.nameFields) {
         if (item?.[field] && !isDateLike(item[field])) {
@@ -665,7 +669,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       if (typeof itemName === 'string' && itemName.includes('|')) {
         itemName = itemName.split('|')[0].trim()
       }
-      const isCurrentRole = item?.isCurrent === true || /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '')
+      const hasPresentDate = /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '')
+      const isCurrentRole = section.key === 'experience' && itemIndex === 0 && (item?.isCurrent === true || hasPresentDate)
 
       for (const b of item.bullets || []) {
         if (!b?.id || !b?.text) continue

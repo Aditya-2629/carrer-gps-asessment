@@ -12,6 +12,33 @@
 
 import { classifyConsistencyTier } from '../linkedin/linkedinCrossAnalyzer.js'
 
+// Shared range-safe numeric parser that prevents concatenating range digits (e.g. "30–60" -> 45, never 3060)
+export function parseRangeOrNumber(val, fallback = 0) {
+  if (val === null || val === undefined) return fallback
+  if (typeof val === 'number') return isNaN(val) ? fallback : val
+  const str = String(val).trim()
+  // Handle range strings like "30–60", "10-25", "0–5" by taking the midpoint, NEVER concatenating digits!
+  const rangeMatch = str.match(/(\d+)\s*[–—-]\s*(\d+)/)
+  if (rangeMatch) {
+    const low = parseInt(rangeMatch[1], 10)
+    const high = parseInt(rangeMatch[2], 10)
+    return Math.round((low + high) / 2)
+  }
+  const singleMatch = str.match(/(\d+(?:\.\d+)?)/)
+  return singleMatch ? Number(singleMatch[1]) : fallback
+}
+
+// Decode HTML entities (handles &amp;, &Amp;, &lt;, &gt;, &quot;, &#39;, &apos;)
+export function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return str
+  return str
+    .replace(/&(?:amp|Amp);?/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+}
+
 // Helper: parse numbers from strings or quantitative objects
 export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month') {
   if (val === null || val === undefined) {
@@ -25,8 +52,7 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
       return { rawNum: 0, period: val.period || val.selectedPeriod || defaultPeriod, perWeek: 0, perMonth: 0, label: '0' }
     }
     const rawVal = val.raw ?? val.rawAnswer ?? val.value ?? val.normalizedPerMonth ?? val.normalizedPerWeek ?? ''
-    const rawStr = String(rawVal).replace(/[^0-9.]/g, '')
-    const num = rawStr !== '' ? Number(rawStr) : fallbackNum
+    const num = parseRangeOrNumber(rawVal, fallbackNum)
     const period = val.period === 'week' || val.period === 'month'
       ? val.period
       : val.selectedPeriod === 'week' || val.selectedPeriod === 'month'
@@ -42,8 +68,7 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
       label: `${isNaN(num) ? fallbackNum : num} per ${period}`,
     }
   }
-  const match = String(val).match(/\d+(\.\d+)?/)
-  const parsed = match ? Number(match[0]) : fallbackNum
+  const parsed = parseRangeOrNumber(val, fallbackNum)
   const period = /week/i.test(String(val)) ? 'week' : /month/i.test(String(val)) ? 'month' : defaultPeriod
   return {
     rawNum: parsed,
@@ -963,5 +988,7 @@ export default {
   getExternalContext,
   evaluateAssessmentPersona,
   extractQuantMetric,
+  parseRangeOrNumber,
+  decodeHtmlEntities,
   HIRING_PHASES,
 }

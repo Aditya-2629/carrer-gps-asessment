@@ -29,6 +29,7 @@ import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
 import CareerGpsReadyModal from './CareerGpsReadyModal'
 import { Sparkle } from '@phosphor-icons/react'
+import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
@@ -921,6 +922,31 @@ function ReportDashboardContent() {
   if (!reportData.linkedin_agent) {
     if (reportData.linkedinAgent) reportData.linkedin_agent = reportData.linkedinAgent
     else if (isMockPreview) reportData.linkedin_agent = MOCK_REPORT.linkedin_agent
+  }
+
+  // Dynamic client-side backfill if assessment metrics or bottlenecks are missing
+  if (!reportData.primary_bottleneck || !reportData.phase?.shortName || !reportData.gps_scores) {
+    try {
+      const liveAssessment = evaluateAssessmentPersona({
+        answers: reportData.user_answers || formData || {},
+        resumeAgent: reportData.resume_agent,
+        linkedinAgent: reportData.linkedin_agent,
+      })
+      if (liveAssessment) {
+        if (!reportData.phase?.shortName) reportData.phase = liveAssessment.phase
+        if (!reportData.primary_bottleneck) reportData.primary_bottleneck = liveAssessment.primary_bottleneck
+        if (!reportData.secondary_problem) reportData.secondary_problem = liveAssessment.secondary_problem
+        if (!reportData.strongest_area) reportData.strongest_area = liveAssessment.strongest_area
+        if (!reportData.next_best_action) reportData.next_best_action = liveAssessment.next_best_action
+        if (!reportData.top_actions || reportData.top_actions.length === 0) reportData.top_actions = liveAssessment.top_actions
+        if (!reportData.gps_scores) reportData.gps_scores = liveAssessment.scores
+        if (!reportData.external_context) reportData.external_context = liveAssessment.external_context
+        if (!reportData.assessment_agent) reportData.assessment_agent = liveAssessment
+        if (!reportData.gps_score) reportData.gps_score = liveAssessment.gpsScore
+      }
+    } catch (evalErr) {
+      console.warn('[ReportDashboard] Failed to backfill live assessment persona:', evalErr)
+    }
   }
 
   // Resolve Candidate Name dynamically from all possible resume & assessment sources

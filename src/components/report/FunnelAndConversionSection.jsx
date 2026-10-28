@@ -16,7 +16,7 @@ import {
   IdentificationCard,
   Compass,
 } from '@phosphor-icons/react'
-import { extractQuantMetric } from '../../../backend/agents/assessment/assessmentAgent'
+import { extractQuantMetric, decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData }) {
   const formData = useAppStore((s) => s.formData) || {}
@@ -114,8 +114,8 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     title: 'Core Software & Engineering Wave',
     currentQuarter: 'Q4',
   }
-  const visaText = answers.visa || 'US Citizen / Green Card / GC-EAD'
-  const expText = answers.experience || 'Mid–Senior / 4–7 Yrs Experience'
+  const visaText = decodeHtmlEntities(answers.visa || 'US Citizen / Green Card / GC-EAD')
+  const expText = decodeHtmlEntities(answers.experience || 'Mid–Senior / 4–7 Yrs Experience')
   const consultancy = ext.consultancy_context || {
     mode: /C2C/i.test(answers.externalHelp) ? 'C2C Consultancy / Bench' : 'Solo Search',
     description: '100% self-directed application pipeline',
@@ -130,7 +130,8 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
   const formatTitleCase = (s) => {
     if (!s) return ''
     const str = typeof s === 'string' ? s : s?.name || ''
-    return str
+    const decoded = decodeHtmlEntities(str)
+    return decoded
       .replace(/[_-]/g, ' ')
       .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())
   }

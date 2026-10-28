@@ -11,6 +11,8 @@ import {
   CheckCircle,
 } from '@phosphor-icons/react'
 
+import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
+
 function safeText(val, fallback = '') {
   if (!val) return fallback
   if (typeof val === 'string') return val
@@ -20,19 +22,21 @@ function safeText(val, fallback = '') {
 }
 
 export default function FinalNextAction({ coachData, reportData, onBookCall }) {
-  const targetRole =
+  const rawTargetRole =
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
     reportData?.formData?.targetRole ||
     reportData?.resume_agent?.candidateSnapshot?.targetRole ||
     reportData?.resume_json?.target_role ||
     'Target Role'
+  const targetRole = decodeHtmlEntities(rawTargetRole)
 
-  const visaStatus =
+  const rawVisa =
     reportData?.user_answers?.visaStatus ||
     reportData?.user_answers?.workAuthorization ||
     reportData?.user_answers?.visa ||
     null
+  const visaStatus = rawVisa ? decodeHtmlEntities(rawVisa) : null
 
   const criticalRisk =
     typeof reportData?.risk_heatmap?.critical_risk === 'string'

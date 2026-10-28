@@ -379,6 +379,27 @@ export function keywordMatchesText(keyword, text) {
   return testTermInText(lowerKw, text)
 }
 
+export function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return str
+  return str
+    .replace(/&(?:amp|Amp);?/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+}
+
+function isConcreteTechSkillChip(skill) {
+  if (!skill || typeof skill !== 'string') return false
+  const s = decodeHtmlEntities(skill).trim()
+  if (s.length < 2 || s.length > 35) return false
+  if (/&(?:amp|Amp);?/i.test(s)) return false
+  const wordCount = s.split(/\s+/).length
+  if (wordCount > 3) return false
+  if (/^(?:stakeholder collaboration|cross-functional collaboration|communication|team player|leadership|problem solving|process automation)$/i.test(s)) return false
+  return true
+}
+
 /**
  * Computes deterministic Keyword & JD Alignment
  *
@@ -418,12 +439,13 @@ export function computeKeywordAlignment({
   for (const s of rawSkillsArray) {
     const rawName = typeof s === 'string' ? s : s.name || s.text || ''
     if (!rawName) continue
+    const decodedName = decodeHtmlEntities(rawName)
     // Handle category prefixes like "Backend & Cloud: ..."
-    const content = rawName.includes(':') ? rawName.split(':').slice(1).join(':') : rawName
+    const content = decodedName.includes(':') ? decodedName.split(':').slice(1).join(':') : decodedName
     // Split on commas, semicolons, or pipe, but handle parenthetical blocks safely
     const tokens = content.split(/[,;|]/)
     for (let token of tokens) {
-      token = token.trim().replace(/^[-•*▪]\s*/, '').replace(/[.]+$/, '')
+      token = decodeHtmlEntities(token.trim().replace(/^[-•*▪]\s*/, '').replace(/[.]+$/, ''))
       if (!token || token.length < 2) continue
 
       // Ignore noise tokens or fragments
@@ -524,7 +546,12 @@ export function computeKeywordAlignment({
     ...additionalUnverified.slice(0, 6),
   ]
   const uniqueSkillsOnly = Array.from(
-    new Set(rawSkillsOnly.filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())))
+    new Set(
+      rawSkillsOnly
+        .map(decodeHtmlEntities)
+        .filter(isConcreteTechSkillChip)
+        .filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase()))
+    )
   ).slice(0, 8)
 
   const uniqueMissing = Array.from(

@@ -40,12 +40,15 @@ export default function CareerHealthSnapshot({ reportData, onNavigateSection }) 
     checks: [],
   }
 
-  const rawTier =
-    reportData?.linkedin_agent?.consistencyTier ||
-    reportData?.assessment_agent?.scores?.linkedin?.consistencyTier ||
-    reportData?.gps_scores?.linkedin?.consistencyTier ||
-    computedScores?.linkedin?.consistencyTier ||
-    'Strong Match'
+  const isLinkedInUnlinked = !reportData?.linkedin_agent || reportData?.linkedin_agent?.dataAvailable === false
+
+  const rawTier = isLinkedInUnlinked
+    ? 'Unverified (Unlinked)'
+    : (reportData?.linkedin_agent?.consistencyTier ||
+       reportData?.assessment_agent?.scores?.linkedin?.consistencyTier ||
+       reportData?.gps_scores?.linkedin?.consistencyTier ||
+       computedScores?.linkedin?.consistencyTier ||
+       'Strong Match')
 
   const consistencyTier = typeof rawTier === 'object' ? (rawTier?.badge || rawTier?.tier || 'Strong Match') : String(rawTier || 'Strong Match')
 
@@ -244,9 +247,13 @@ export default function CareerHealthSnapshot({ reportData, onNavigateSection }) 
 
                 {/* 4-Tier Consistency Badge for LinkedIn */}
                 {card.id === 'linkedin' && (
-                  <div className="mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <ShieldCheck size={14} weight="fill" className="text-blue-600 dark:text-blue-400" />
-                    <span className="font-semibold text-xs text-blue-600 dark:text-blue-400">Consistency: {card.consistencyTier || 'Strong Match'}</span>
+                  <div className={`mb-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${
+                    card.consistencyTier?.includes('Unverified')
+                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400'
+                      : 'bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400'
+                  }`}>
+                    <ShieldCheck size={14} weight="fill" />
+                    <span className="font-semibold text-xs">Consistency: {card.consistencyTier || 'Strong Match'}</span>
                   </div>
                 )}
 

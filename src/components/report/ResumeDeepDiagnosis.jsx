@@ -17,6 +17,7 @@ import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
+import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
 /**
  * ResumeDeepDiagnosis — the Resume Specialist Agent's section inside the MAIN
@@ -194,15 +195,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
               <User size={16} weight="bold" />
             </div>
             <div className="flex flex-wrap items-center gap-y-1">
-              <span className="font-bold text-[var(--text-primary)]">{snapshot.name || 'Candidate'}</span>
+              <span className="font-bold text-[var(--text-primary)]">{decodeHtmlEntities(snapshot.name || 'Candidate')}</span>
               {snapshot.targetRole && (
-                <span className="text-[var(--text-muted)] ml-2">· Target: <strong className="text-[var(--text-secondary)]">{snapshot.targetRole}</strong></span>
+                <span className="text-[var(--text-muted)] ml-2">· Target: <strong className="text-[var(--text-secondary)]">{decodeHtmlEntities(snapshot.targetRole)}</strong></span>
               )}
               {snapshot.presentRole && (
-                <span className="text-[var(--text-muted)] ml-2">· Current: <strong className="text-emerald-600 dark:text-emerald-400">{snapshot.presentRole}{snapshot.presentCompany ? ` @ ${snapshot.presentCompany}` : ''}</strong></span>
+                <span className="text-[var(--text-muted)] ml-2">· Current: <strong className="text-emerald-600 dark:text-emerald-400">{decodeHtmlEntities(snapshot.presentRole)}{snapshot.presentCompany ? ` @ ${decodeHtmlEntities(snapshot.presentCompany)}` : ''}</strong></span>
               )}
               {snapshot.pastRoles && snapshot.pastRoles.length > 0 && snapshot.pastRoles[0]?.role && (
-                <span className="text-[var(--text-muted)] ml-2">· Prev: <span className="text-[var(--text-secondary)]">{snapshot.pastRoles[0].role}{snapshot.pastRoles[0].company ? ` @ ${snapshot.pastRoles[0].company}` : ''}</span></span>
+                <span className="text-[var(--text-muted)] ml-2">· Prev: <span className="text-[var(--text-secondary)]">{decodeHtmlEntities(snapshot.pastRoles[0].role)}{snapshot.pastRoles[0].company ? ` @ ${decodeHtmlEntities(snapshot.pastRoles[0].company)}` : ''}</span></span>
               )}
             </div>
           </div>

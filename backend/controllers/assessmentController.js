@@ -27,6 +27,16 @@ export function balanceParentheses(str) {
   return str
 }
 
+export function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return str
+  return str
+    .replace(/&(?:amp|Amp);?/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+}
+
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
 const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   if (!fileBuffer || fileBuffer.length === 0) {
@@ -137,28 +147,36 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     parsed.missing_ats_keywords = []
   }
 
+  if (parsed.candidate_name) parsed.candidate_name = decodeHtmlEntities(parsed.candidate_name)
+  if (parsed.target_role) parsed.target_role = decodeHtmlEntities(parsed.target_role)
+  if (Array.isArray(parsed.skills)) parsed.skills = parsed.skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
+  if (Array.isArray(parsed.top_skills)) parsed.top_skills = parsed.top_skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
+
   if (parsed.executive_ai_critique) {
-    parsed.executive_ai_critique = balanceParentheses(parsed.executive_ai_critique)
+    parsed.executive_ai_critique = balanceParentheses(decodeHtmlEntities(parsed.executive_ai_critique))
   }
   if (Array.isArray(parsed.experiences)) {
     parsed.experiences.forEach((exp) => {
+      if (exp.role) exp.role = decodeHtmlEntities(exp.role)
+      if (exp.company) exp.company = decodeHtmlEntities(exp.company)
       if (Array.isArray(exp.bullets)) {
-        exp.bullets = exp.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(b) : b))
+        exp.bullets = exp.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(decodeHtmlEntities(b)) : b))
       }
     })
   }
   if (Array.isArray(parsed.projects)) {
     parsed.projects.forEach((proj) => {
+      if (proj.title) proj.title = decodeHtmlEntities(proj.title)
       if (Array.isArray(proj.bullets)) {
-        proj.bullets = proj.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(b) : b))
+        proj.bullets = proj.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(decodeHtmlEntities(b)) : b))
       }
     })
   }
   if (Array.isArray(parsed.strengths)) {
-    parsed.strengths = parsed.strengths.map((s) => (typeof s === 'string' ? balanceParentheses(s) : s))
+    parsed.strengths = parsed.strengths.map((s) => (typeof s === 'string' ? balanceParentheses(decodeHtmlEntities(s)) : s))
   }
   if (Array.isArray(parsed.red_flags)) {
-    parsed.red_flags = parsed.red_flags.map((rf) => (typeof rf === 'string' ? balanceParentheses(rf) : rf))
+    parsed.red_flags = parsed.red_flags.map((rf) => (typeof rf === 'string' ? balanceParentheses(decodeHtmlEntities(rf)) : rf))
   }
 
   return parsed
