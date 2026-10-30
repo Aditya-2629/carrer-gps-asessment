@@ -148,11 +148,13 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     const auditMap = new Map()
     if (Array.isArray(tailoredBullets)) {
       tailoredBullets.forEach((b) => {
-        const rewrite = b.rewrite || b.rewrittenText || b.text || b.correctedText
+        const rewrite = b.rewrite || b.rewrittenText || b.correctedText || (b.originalText ? b.text : null)
+        if (!rewrite) return
         if (b.bulletId) auditMap.set(b.bulletId, rewrite)
         if (b.id) auditMap.set(b.id, rewrite)
-        if (b.originalText) {
-          auditMap.set(cleanBulletText(b.originalText).toLowerCase().slice(0, 40), rewrite)
+        const orig = b.originalText || (b.text !== rewrite ? b.text : null)
+        if (orig && typeof orig === 'string') {
+          auditMap.set(cleanBulletText(orig).toLowerCase().slice(0, 40), rewrite)
         }
       })
     }

@@ -796,11 +796,14 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     const rawAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
-    const issueRewrites = (ra.issues || []).filter((iss) => iss?.correctedText).map((iss) => ({
-      bulletId: iss.bulletId || iss.evidence?.[0]?.bulletId,
-      originalText: iss.originalText || iss.evidence?.[0]?.originalText,
-      rewrite: iss.correctedText,
-    }))
+    const issueRewrites = (ra.issues || []).map((iss) => {
+      const rw = iss?.correctedText || iss?.suggestedRewrite || iss?.rewrite || iss?.suggestion
+      return {
+        bulletId: iss.bulletId || iss.evidence?.[0]?.bulletId,
+        originalText: iss.originalText || iss.evidence?.[0]?.originalText,
+        rewrite: typeof rw === 'string' ? rw : null,
+      }
+    }).filter((iss) => iss.rewrite)
     const tailoredBullets = [...rawAudit, ...issueRewrites]
     const docxBuffer = await buildAtsTailoredDocx(canonical, tailoredBullets)
 
@@ -808,9 +811,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       canonical.candidate_name ||
       canonical.name ||
       user.resumeJson?.candidate_name ||
-      user.resumeJson?.name ||
       ra.candidateName ||
-      ra.candidate_name ||
       'Candidate'
     ).replace(/\s+/g, '_')
 
