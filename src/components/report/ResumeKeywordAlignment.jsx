@@ -37,10 +37,12 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  const cleanMissing = (missingFromResume || [])
-    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
-    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
+  // 1. Clean, trim and deduplicate missing keywords
+  const cleanMissing = (Array.isArray(missingFromResume) ? missingFromResume : [])
+    .map((k) => (typeof k === 'string' ? decodeHtmlEntities(k).trim() : (k?.keyword || k?.name || '')))
+    .filter((k) => k && k.length > 0 && k.split(/\s+/).length <= 4 && !/&(?:amp|lt|gt|quot|#39);/i.test(k) && !/&amp;/i.test(k))
 
+  const uniqueMissing = Array.from(new Set(cleanMissing))
   const cleanMatched = (matchedInExperience || [])
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
@@ -48,8 +50,8 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
   const displayedSkillsOnly = cleanSkillsOnly.slice(0, MAX_SKILLS_SHOWN)
   const remainingSkillsOnly = cleanSkillsOnly.length - displayedSkillsOnly.length
 
-  const displayedMissing = cleanMissing.slice(0, MAX_SKILLS_SHOWN)
-  const remainingMissing = cleanMissing.length - displayedMissing.length
+  const displayedMissing = uniqueMissing.slice(0, MAX_SKILLS_SHOWN)
+  const remainingMissing = uniqueMissing.length - displayedMissing.length
 
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
@@ -200,7 +202,7 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
         {/* Row 3: Missing Target Keywords (Rose Pills or 100% Banner) */}
         <div
           className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${
-            cleanMissing.length === 0
+            uniqueMissing.length === 0
               ? light
                 ? 'bg-emerald-50/40 border-emerald-200/80'
                 : 'bg-emerald-950/20 border-emerald-900/30'
@@ -212,30 +214,30 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span
               className={`flex items-center gap-1.5 text-xs font-bold ${
-                cleanMissing.length === 0
+                uniqueMissing.length === 0
                   ? 'text-emerald-800 dark:text-emerald-300'
                   : 'text-rose-800 dark:text-rose-300'
               }`}
             >
-              {cleanMissing.length === 0 ? (
+              {uniqueMissing.length === 0 ? (
                 <CheckCircle size={15} weight="fill" className="text-emerald-600" />
               ) : (
                 <XCircle size={15} weight="fill" className="text-rose-500" />
               )}
-              {cleanMissing.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
+              {uniqueMissing.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
             </span>
             <span
               className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                cleanMissing.length === 0
+                uniqueMissing.length === 0
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
                   : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
               }`}
             >
-              {cleanMissing.length === 0 ? '100% Covered' : `${cleanMissing.length} missing`}
+              {uniqueMissing.length === 0 ? '100% Covered' : `${uniqueMissing.length} missing`}
             </span>
           </div>
 
-          {cleanMissing.length === 0 ? (
+          {uniqueMissing.length === 0 ? (
             <div
               className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${
                 light

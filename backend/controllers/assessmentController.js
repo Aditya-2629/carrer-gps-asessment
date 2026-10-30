@@ -11,6 +11,7 @@ import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
+import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper to balance unclosed opening parentheses before a final period
@@ -50,11 +51,12 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     
     CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks, NO surrounding text).
     
-    CRITICAL PARSING RULES:
-    1. STRICTLY SEPARATE EXPERIENCES: A company name, job title, location, or employment date range must NEVER be placed inside the "bullets" array of any experience.
-    2. If you see a line containing a new company name (e.g. "Recibo Technologies Bengaluru, India"), treat it as the START of a new work experience object, NOT as a bullet point of the previous experience.
-    3. Every bullet point MUST be an actual accomplishment or responsibility starting with an action verb.
-    4. Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
+    CRITICAL PARSING & BOUNDARY RULES:
+    1. STRICT EXPERIENCE SEPARATION: A company name, employment date range, or location header must NEVER be placed inside the "bullets" array of any experience block.
+    2. If you encounter a line with a new company name (e.g. "Recibo Technologies Bengaluru, India"), treat it as the START of a completely new experience object.
+    3. Every item in the "bullets" array MUST be an actual accomplishment, project description, or responsibility that begins with an active action verb.
+    4. Clean all bullets of leading dashes, bullet symbols (•, -, *), and ensure no nested objects exist in bullets.
+    5. Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
     
     Use this exact schema:
     {
@@ -767,69 +769,52 @@ export const downloadAtsResumeDocx = async (req, res) => {
     const cleanUserId = (rawUserId && rawUserId !== 'undefined' && rawUserId !== 'null') ? String(rawUserId).trim() : null
     const cleanEmail = (rawEmail && rawEmail !== 'undefined' && rawEmail !== 'null') ? String(rawEmail).toLowerCase().trim() : null
 
-    let query = null
+    let user = null
     if (cleanUserId && mongoose.Types.ObjectId.isValid(cleanUserId)) {
-      query = { _id: cleanUserId }
-    } else if (cleanUserId && cleanUserId.includes('@')) {
-      query = { email: cleanUserId.toLowerCase() }
-    } else if (cleanEmail) {
-      query = { email: cleanEmail }
-    } else if (cleanUserId) {
-      query = { _id: cleanUserId }
+      user = await User.findById(cleanUserId)
+    }
+    if (!user && cleanUserId && cleanUserId.includes('@')) {
+      user = await User.findOne({ email: cleanUserId.toLowerCase() })
+    }
+    if (!user && cleanEmail) {
+      user = await User.findOne({ email: cleanEmail })
+    }
+    if (!user && cleanUserId) {
+      user = await User.findOne({ _id: cleanUserId })
     }
 
-    if (!query) {
-      return res.status(400).json({ message: 'User ID or Email is required.' })
-    }
-
-    const user = await User.findOne(query)
     if (!user) {
-      return res.status(404).json({ message: 'User not found' })
+      return res.status(404).json({ message: 'User assessment not found.' })
     }
 
     const aiReport = user.aiReport || {}
     const ra = aiReport.resume_agent || {}
-    const canonical = ra.canonicalResume || user.resumeJson || {}
+    const canonical = ra.canonicalResume || user.resumeJson || {
+      candidate_name: user.name || 'Candidate',
+      target_role: user.targetRole || user.answers?.targetRole || 'Professional',
+      skills: user.skills || [],
+    }
 
-    // Synchronize bullet audits with corporate experiences so rewritten bullets are embedded
     const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
-    const auditMap = new Map(bulletAudit.map((b) => [b.bulletId, b.rewrite || b.text]))
+    const docxBuffer = await buildAtsTailoredDocx(canonical, bulletAudit)
 
-    const mergedExperiences = (canonical.experience || canonical.experiences || []).map((exp) => ({
-      ...exp,
-      bullets: (exp.bullets || []).map((b) => {
-        const bId = typeof b === 'object' ? b.id : null
-        return auditMap.get(bId) || (typeof b === 'object' ? b.text : b)
-      }),
-    }))
-
-    const candidateName =
+    const candidateName = (
+      canonical.candidate_name ||
+      canonical.name ||
       canonical.candidate?.name ||
-      user.resumeJson?.candidate_name ||
-      user.answers?.name ||
       user.name ||
       'Candidate'
+    ).replace(/\s+/g, '_')
 
-    const buffer = await generateAtsResumeDocx({
-      candidateName,
-      targetRole: canonical.candidate?.targetRole || user.answers?.targetRole || 'Professional',
-      contact: canonical.candidate?.contact || canonical.contact || user.answers || {},
-      summaryText: ra.summaryOptimization?.rewrittenSummary || ra.overallReview?.summary || '',
-      experiences: mergedExperiences,
-      projects: canonical.projects || [],
-      skills: (ra.keywordAlignment?.verifiedKeywords || []).map((k) => k.keyword || k).concat(canonical.skills || []),
-      education: canonical.education || [],
-      certifications: canonical.certifications || [],
-    })
-
-    const sanitizedFilename = `${candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')}_Tailored_ATS_Resume.docx`
+    const filename = `${candidateName}_Tailored_ATS_Resume.docx`
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(sanitizedFilename)}"`)
-    return res.send(buffer)
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
+    res.setHeader('Content-Length', docxBuffer.length)
+    return res.end(docxBuffer)
   } catch (err) {
-    console.error('[DownloadDocx Error]:', err)
-    return res.status(500).json({ message: 'Failed to generate tailored resume document', error: err.message })
+    console.error('Error generating ATS docx resume:', err)
+    return res.status(500).json({ message: 'Failed to generate tailored Word document.', error: err.message })
   }
 }
 

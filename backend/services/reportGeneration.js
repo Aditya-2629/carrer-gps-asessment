@@ -98,78 +98,37 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
 }
 
 export function deriveFunnelFromAnswers(answers = {}) {
-  const appsMetric = extractQuantMetric(answers.appsWeek ?? answers.applications_count ?? answers.applications, 0, 'week')
-  const outreachMetric = extractQuantMetric(answers.outreach ?? answers.recruiter_outreach_count ?? answers.coldEmails, 0, appsMetric.period)
-  const responsesMetric = extractQuantMetric(answers.interviews ?? answers.humanScreen ?? answers.responses ?? answers.recruiter_calls_count, 0, appsMetric.period)
-
-  const apps = appsMetric.rawNum
-  const outreach = outreachMetric.rawNum
-  let calls = responsesMetric.rawNum
-
-  // Derive downstream stages based on responsesMetric and DropOffStage / feedback
-  const dropOffStr = String(answers.DropOffStage || answers.feedback || '').toLowerCase()
-  let interviews = 0
-  let finals = 0
-  let offers = 0
-
-  if (calls > 0) {
-    if (dropOffStr.includes('final round') || dropOffStr.includes('finish line')) {
-      interviews = Math.min(calls, Math.max(1, Math.round(calls * 0.75)))
-      finals = Math.min(interviews, Math.max(1, Math.round(interviews * 0.6)))
-      offers = 0
-    } else if (dropOffStr.includes('coding') || dropOffStr.includes('system design') || dropOffStr.includes('technical')) {
-      interviews = Math.min(calls, Math.max(1, Math.round(calls * 0.6)))
-      finals = 0
-      offers = 0
-    } else if (dropOffStr.includes('post-interview') || dropOffStr.includes('ghosting') || dropOffStr.includes('recruiter') || dropOffStr.includes('black hole') || dropOffStr.includes('visa')) {
-      interviews = Math.min(calls, Math.max(0, Math.round(calls * 0.5)))
-      finals = 0
-      offers = 0
-    } else {
-      interviews = Math.min(calls, Math.max(0, Math.round(calls * 0.5)))
-      finals = Math.min(interviews, Math.max(0, Math.round(interviews * 0.4)))
-      offers = Math.min(finals, Math.max(0, Math.round(finals * 0.2)))
-    }
+  const parseNum = (val, defaultVal = 0) => {
+    if (typeof val === 'number' && !isNaN(val)) return val
+    if (!val) return defaultVal
+    const cleaned = String(val).replace(/[^0-9]/g, '')
+    const num = parseInt(cleaned, 10)
+    return isNaN(num) ? defaultVal : num
   }
 
-  // Also respect explicit answers if provided and valid
-  if (answers.aiScreen || answers.assessments) {
-    const rawAi = extractQuantMetric(answers.aiScreen || answers.assessments, interviews, appsMetric.period).rawNum
-    if (rawAi > 0) interviews = Math.min(calls, rawAi)
-  }
-  if (answers.finalRounds || answers.final_rounds_count) {
-    const rawFin = extractQuantMetric(answers.finalRounds || answers.final_rounds_count, finals, appsMetric.period).rawNum
-    if (rawFin > 0) finals = Math.min(interviews, rawFin)
-  }
-  if (answers.offers || answers.offers_count) {
-    const rawOff = extractQuantMetric(answers.offers || answers.offers_count, offers, appsMetric.period).rawNum
-    offers = Math.min(finals, rawOff)
+  let apps = parseNum(answers.applications_count || answers.appsWeek, 60)
+  // Sanity check: single candidate 90-day applications over 1000 is an input anomaly/concatenation
+  if (apps > 1000) {
+    apps = Math.min(Math.round(apps / 100), 250)
   }
 
-  let biggest_leak = 'Application to Recruiter Screen'
-  if (apps >= 30 && (calls / apps) < 0.05) {
-    biggest_leak = `High-Volume Application Black Hole (${((calls / apps) * 100).toFixed(1)}% Response Rate)`
-  } else if (apps > 0 && (calls / apps) < 0.1) {
-    biggest_leak = 'Application to Recruiter Screen'
-  } else if (calls > 0 && (interviews / calls) < 0.3) {
-    biggest_leak = 'Recruiter Screen to Technical Interview'
-  } else if (interviews > 0 && (finals / interviews) < 0.4) {
-    biggest_leak = 'Technical Assessment to Final Round'
-  } else if (apps > 0 && calls / apps > 0.25) {
-    biggest_leak = `Recruiter Screens (${calls}) to Final Offers (${offers})`
-  }
+  const calls = Math.min(parseNum(answers.recruiter_calls_count || answers.humanScreen, 5), apps)
+  const interviews = Math.min(parseNum(answers.interviews_count || answers.aiScreen, 2), calls)
+  const finals = Math.min(parseNum(answers.final_rounds_count, 1), interviews)
+  const offers = Math.min(parseNum(answers.offers_count, 0), finals)
+  const outreach = parseNum(answers.outreach || answers.recruiter_outreach_count || answers.coldEmails, 0)
 
   return {
     applications_count: apps,
-    applications_period: appsMetric.period,
+    applications_period: 'month',
     outreach_count: outreach,
-    outreach_period: outreachMetric.period,
+    outreach_period: 'month',
     recruiter_calls_count: calls,
-    responses_period: responsesMetric.period,
+    responses_period: 'month',
     interviews_count: interviews,
     final_rounds_count: finals,
     offers_count: offers,
-    biggest_leak_stage: biggest_leak,
+    biggest_leak_stage: calls === 0 ? 'top_of_funnel' : 'technical_round',
   }
 }
 
@@ -219,6 +178,9 @@ function normalizeAtlasShapes(report, answers = {}) {
   // Enforce monotonic constraints without wiping raw applications_count
   if (report.funnel_stages && typeof report.funnel_stages === 'object') {
     let fApps = Number(report.funnel_stages.applications_count) || 0
+    if (fApps > 1000) {
+      fApps = Math.min(Math.round(fApps / 100), 250)
+    }
     let fCalls = Math.min(Math.max(0, Number(report.funnel_stages.recruiter_calls_count) || 0), fApps > 0 ? fApps : 9999)
     let fInterviews = Math.min(Math.max(0, Number(report.funnel_stages.interviews_count) || 0), fCalls)
     let fFinals = Math.min(Math.max(0, Number(report.funnel_stages.final_rounds_count) || 0), fInterviews)

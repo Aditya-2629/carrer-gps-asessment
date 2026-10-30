@@ -84,22 +84,84 @@ export function buildDeterministicOptimizations(
   const targetRole =
     resumeContext?.targetRole ||
     canonical?.candidate?.targetRole ||
+    canonical?.target_role ||
+    canonical?.targetRole ||
     profile?.headline ||
-    'Senior Software Engineer'
+    'Software Engineer'
+
+  const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web/i.test(targetRole)
+  const isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)
+  const isDevopsRole = /devops|cloud|sre|infrastructure/i.test(targetRole)
+
   const exp = canonical.experience || canonical.experiences || []
-  const topCompany = exp[0]?.company || 'Enterprise Tech'
-  const rawSkills = (canonical.skills || [])
+  const topCompany = exp[0]?.company || 'Tech'
+
+  // Extract candidate verified skills
+  const candidateSkills = (canonical.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.name))
     .filter(Boolean)
-  const skills = rawSkills
     .filter(isValidSkill)
     .map(formatSkillName)
+    .filter((s) => {
+      if (isSoftwareRole && /^(power\s*bi|tableau|snowflake|bigquery|looker|dbt)$/i.test(s)) return false
+      return true
+    })
     .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
-  const concreteSkills = skills.filter((s) => isConcreteTechSkill(s))
-  const topConcrete = concreteSkills.length > 0 ? concreteSkills : skills
-  const topStack = topConcrete.slice(0, 3).join(' | ') || (
-    /data|analyst|analytics|bi\b/i.test(targetRole) ? 'SQL | Python | Power BI' : 'Distributed Systems'
-  )
+
+  // Role-appropriate stacks
+  const defaultStack = isSoftwareRole
+    ? ['Python', 'React', 'Node.js', 'AWS', 'Docker']
+    : isDataRole
+      ? ['SQL', 'Python', 'Power BI', 'Tableau', 'PostgreSQL']
+      : isDevopsRole
+        ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD']
+        : ['Product Strategy', 'Agile Methodologies', 'User Research', 'Roadmapping']
+
+  const effectiveSkills = candidateSkills.length >= 3 ? candidateSkills : defaultStack
+  const topStack = effectiveSkills.slice(0, 3).join(' | ')
+
+  // Dynamic Headline options
+  const fallbackHeadlines = [
+    {
+      formula: 'Search-Optimized',
+      headline: `${targetRole} | ${topStack} | Scalable Production Systems`.slice(0, 220),
+      whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
+    },
+    {
+      formula: 'Impact-Driven',
+      headline: `${targetRole} @ Scale | Delivering High-Throughput Architecture & Clean Code Delivery`.slice(0, 220),
+      whyItWorks: 'Anchors on measurable engineering velocity and architectural outcomes to differentiate from generic applicant pool.',
+    },
+    {
+      formula: 'Specialist',
+      headline: isDataRole
+        ? `Specialist in Data Architecture, Analytics Pipelines & System Performance`.slice(0, 220)
+        : `Specialist in Cloud Architecture, Distributed Services & System Performance`.slice(0, 220),
+      whyItWorks: 'Appeals to specialized hiring managers seeking deep domain expertise and reliable production execution.',
+    },
+  ]
+
+  const top3PinnedSkills = effectiveSkills.slice(0, 3)
+
+  const recommendedSkillsToAdd = isSoftwareRole
+    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture']
+    : isDataRole
+      ? ['BigQuery', 'Tableau', 'Snowflake', 'dbt', 'Data Modeling']
+      : isDevopsRole
+        ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD Pipelines']
+        : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards']
+
+  const filteredMissing = (Array.isArray(missingSkills) ? missingSkills : [])
+    .filter(isValidSkill)
+    .map(formatSkillName)
+    .filter((s) => {
+      if (isSoftwareRole && /^(power\s*bi|tableau|snowflake|bigquery|looker|dbt)$/i.test(s)) return false
+      return true
+    })
+
+  const finalSkillsToAdd = filteredMissing.length > 0
+    ? Array.from(new Set([...filteredMissing, ...recommendedSkillsToAdd])).slice(0, 10)
+    : recommendedSkillsToAdd
 
   const topBullet = exp[0]?.bullets?.[0]?.text || (typeof exp[0]?.bullets?.[0] === 'string' ? exp[0].bullets[0] : '') || ''
   const metricMatch = topBullet.match(/\b\d+[%xXkKMbB]?\b/)
@@ -115,27 +177,25 @@ export function buildDeterministicOptimizations(
     ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems driving ${metricMatch[0]} performance gains in production.`
     : `${targetRole} specializing in ${topStack}. Architecting mission-critical cloud solutions, high-throughput microservices, and reliable engineering platforms.`
 
-  const pillar1 = `▸ System Architecture & Scale: Architecting resilient microservices and distributed event-driven systems that eliminate performance bottlenecks.`
-  const pillar2 = `▸ Cloud & Production Engineering: Deploying high-throughput workloads across modern cloud infrastructure using ${topStack}.`
+  const pillar1 = isDataRole
+    ? `▸ Data Modeling & Analytics: Architecting scalable data models and BI pipelines that eliminate reporting bottlenecks.`
+    : `▸ System Architecture & Scale: Architecting resilient microservices and distributed event-driven systems that eliminate performance bottlenecks.`
+  const pillar2 = isDataRole
+    ? `▸ Enterprise Intelligence & Pipelines: Deploying automated analytics workflows across modern cloud data infrastructure using ${topStack}.`
+    : `▸ Cloud & Production Engineering: Deploying high-throughput workloads across modern cloud infrastructure using ${topStack}.`
   const pillar3 = metricMatch
     ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including verified ${metricMatch[0]} performance improvements.`
     : `▸ Engineering Excellence & Mentorship: Establishing robust CI/CD, test automation, and engineering standards for mission-critical deliverables.`
 
   const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 
-  const callToAction = `Currently exploring ${targetRole} opportunities where I can drive measurable technical scale. Always open to discussing distributed systems architecture, team mentorship, and high-impact technical initiatives—let's connect!`
-  const coreSkillsLine = `Core Skills: ${topConcrete.slice(0, 10).join(' · ') || topStack}`
+  const callToAction = `Currently exploring ${targetRole} opportunities where I can drive measurable technical scale. Always open to discussing systems architecture, team mentorship, and high-impact technical initiatives—let's connect!`
+  const coreSkillsLine = `Core Skills: ${effectiveSkills.slice(0, 10).join(' · ')}`
   const fullText = `${hook}\n\n${proof}\n\n${callToAction}\n\n${coreSkillsLine}`
 
-  const skillsToAdd = (missingSkills.length > 0 ? missingSkills : skills.slice(3, 15))
-    .filter(isValidSkill)
-    .map(formatSkillName)
-    .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
-    .slice(0, 10)
-
   const bannerStrategy = {
-    bannerTagline: `${targetRole} | Scalable Systems & High-Impact Architecture`,
-    bannerSecondaryText: `${topStack} · Distributed Microservices · Clean Code Delivery`,
+    bannerTagline: `${targetRole} | ${isDataRole ? 'Data Architecture & Analytics' : 'Scalable Systems & High-Impact Architecture'}`,
+    bannerSecondaryText: `${topStack} · ${isDataRole ? 'Scalable Pipelines · Business Intelligence' : 'Distributed Microservices · Clean Code Delivery'}`,
     designAdvice: 'Design a clean 1584x396px canvas in Canva. Keep key text in the center-right to avoid the circular profile avatar on mobile. Use dark background with bold typography.',
   }
 
@@ -273,58 +333,6 @@ export function buildDeterministicOptimizations(
         },
       ]
 
-  // Select 3 highest-signal core architecture/stack skills tailored to targetRole
-  let top3PinnedSkills = []
-  const highSignalPriority = [
-    // Core SWE & Cloud
-    'Spring Boot',
-    'React',
-    'TypeScript',
-    'Microservices',
-    'Node.js',
-    'Python',
-    'AWS',
-    'Azure',
-    'PostgreSQL',
-    'Docker',
-    'Kubernetes',
-    'GraphQL',
-    'Kafka',
-    // Data, Analytics & BI
-    'SQL',
-    'Power BI',
-    'Tableau',
-    'Snowflake',
-    'BigQuery',
-    'Looker Studio',
-    'dbt',
-    'Databricks',
-    'Excel',
-  ]
-
-  for (const prio of highSignalPriority) {
-    const found = skills.find((s) => s.toLowerCase() === prio.toLowerCase() || s.toLowerCase().includes(prio.toLowerCase()))
-    if (found && !top3PinnedSkills.includes(found)) {
-      top3PinnedSkills.push(found)
-    }
-    if (top3PinnedSkills.length >= 3) break
-  }
-
-  if (top3PinnedSkills.length < 3) {
-    for (const s of skills) {
-      if (!top3PinnedSkills.includes(s) && !['html', 'css', 'git', 'jira'].includes(s.toLowerCase())) {
-        top3PinnedSkills.push(s)
-      }
-      if (top3PinnedSkills.length >= 3) break
-    }
-  }
-
-  if (top3PinnedSkills.length === 0) {
-    top3PinnedSkills = /data|analyst|analytics|bi\b/i.test(targetRole)
-      ? ['SQL', 'Python', 'Power BI']
-      : (topConcrete.length >= 3 ? topConcrete.slice(0, 3) : [targetRole, 'System Architecture', 'Production Engineering'])
-  }
-
   const visualPresenceTips = [
     'Profile Headshot: Use front-facing soft lighting with eyes aligned to the upper third. Avoid heavy background clutter.',
     'Custom Vanity URL: Ensure your profile URL is customized to linkedin.com/in/yourname instead of the auto-generated numeric suffix.',
@@ -332,7 +340,7 @@ export function buildDeterministicOptimizations(
   ]
 
   const openToWorkTitles = deriveOpenToWorkTitles(targetRole)
-  const top3Tools = top3PinnedSkills.length >= 3 ? top3PinnedSkills.slice(0, 3) : topConcrete.slice(0, 3)
+  const top3Tools = top3PinnedSkills
 
   const visibilityTricks = [
     {
@@ -351,7 +359,7 @@ export function buildDeterministicOptimizations(
       category: 'Recruiter Boolean String',
       trick: '3. Optimize for Recruiter Boolean Search Strings',
       advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
-      items: [`("${targetRole}") AND (${(topConcrete.slice(0, 4).length > 0 ? topConcrete.slice(0, 4) : skills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
+      items: [`("${targetRole}") AND (${(effectiveSkills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
     },
     {
       category: 'Featured Media Architecture',
@@ -368,23 +376,7 @@ export function buildDeterministicOptimizations(
   ]
 
   return {
-    headlines: [
-      {
-        formula: 'Recruiter-Search Optimized',
-        headline: `${targetRole} | ${topStack} | Cloud & Scalable Systems`.slice(0, 220),
-        whyItWorks: 'Directly mirrors the keywords recruiters search for in LinkedIn Recruiter.',
-      },
-      {
-        formula: 'Impact-Driven',
-        headline: `${targetRole} at ${topCompany} | ${metricSnippet}`.slice(0, 220),
-        whyItWorks: 'Anchors your value proposition in concrete, verified achievements.',
-      },
-      {
-        formula: 'Specialist / Authority',
-        headline: `${targetRole} | Specializing in ${topStack} & Systems Delivery`.slice(0, 220),
-        whyItWorks: 'Positions you as a senior practitioner with deep domain ownership.',
-      },
-    ],
+    headlines: fallbackHeadlines,
     aboutRewrite: {
       currentCritique,
       hook,
@@ -399,8 +391,8 @@ export function buildDeterministicOptimizations(
     featuredSectionRecommendations,
     top3PinnedSkills,
     visualPresenceTips,
-    recommendedSkillsToAdd: skillsToAdd,
-    recommendedSkills: skillsToAdd.map((skill) => ({
+    recommendedSkillsToAdd: finalSkillsToAdd,
+    recommendedSkills: finalSkillsToAdd.map((skill) => ({
       skill,
       reason: 'Verified on your resume; adding to LinkedIn broadens recruiter search visibility.',
     })),
