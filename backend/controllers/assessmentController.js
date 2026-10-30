@@ -795,14 +795,22 @@ export const downloadAtsResumeDocx = async (req, res) => {
       skills: user.skills || [],
     }
 
-    const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
-    const docxBuffer = await buildAtsTailoredDocx(canonical, bulletAudit)
+    const rawAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
+    const issueRewrites = (ra.issues || []).filter((iss) => iss?.correctedText).map((iss) => ({
+      bulletId: iss.bulletId || iss.evidence?.[0]?.bulletId,
+      originalText: iss.originalText || iss.evidence?.[0]?.originalText,
+      rewrite: iss.correctedText,
+    }))
+    const tailoredBullets = [...rawAudit, ...issueRewrites]
+    const docxBuffer = await buildAtsTailoredDocx(canonical, tailoredBullets)
 
     const candidateName = (
       canonical.candidate_name ||
       canonical.name ||
-      canonical.candidate?.name ||
-      user.name ||
+      user.resumeJson?.candidate_name ||
+      user.resumeJson?.name ||
+      ra.candidateName ||
+      ra.candidate_name ||
       'Candidate'
     ).replace(/\s+/g, '_')
 
@@ -810,6 +818,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition')
     res.setHeader('Content-Length', docxBuffer.length)
     return res.end(docxBuffer)
   } catch (err) {

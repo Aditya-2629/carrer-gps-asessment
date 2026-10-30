@@ -237,8 +237,28 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = downloadUrl
-      const candidateName = reportData?.candidate_name || reportData?.user_answers?.name || snapshot.name || 'Tailored'
-      a.download = `${candidateName.replace(/\s+/g, '_')}_Tailored_ATS_Resume.docx`
+
+      const disposition = response.headers.get('content-disposition') || ''
+      let filename = ''
+      if (disposition) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (match && match[1]) {
+          filename = decodeURIComponent(match[1].replace(/['"]/g, '').trim())
+        }
+      }
+
+      if (!filename) {
+        const fallbackName = (
+          reportData?.resume_agent?.canonicalResume?.candidate_name ||
+          reportData?.resumeAgent?.canonicalResume?.candidate_name ||
+          reportData?.resumeAgent?.candidateName ||
+          reportData?.resume_agent?.candidateName ||
+          'Tailored'
+        ).replace(/\s+/g, '_')
+        filename = `${fallbackName}_Tailored_ATS_Resume.docx`
+      }
+
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(downloadUrl)
