@@ -788,7 +788,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     const aiReport = user.aiReport || {}
-    const ra = aiReport.resume_agent || {}
+    const ra = aiReport.resume_agent || user.resume_agent || {}
     const canonical = ra.canonicalResume || user.resumeJson || {
       candidate_name: user.name || 'Candidate',
       target_role: user.targetRole || user.answers?.targetRole || 'Professional',

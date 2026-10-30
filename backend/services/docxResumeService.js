@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 
-export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets = []) {
+export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets = []) {
   const candidateName =
     canonicalResume.candidate_name ||
     canonicalResume.name ||
@@ -12,7 +12,7 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
     canonicalResume.candidate?.targetRole ||
     'Software Engineer'
   const contact = canonicalResume.contact || canonicalResume.candidate?.contact || {}
-  const contactLine = [contact.email, contact.phone, contact.location, contact.linkedin]
+  const contactLine = [contact.email, contact.phone, contact.location, contact.linkedin, contact.github]
     .filter(Boolean)
     .join('  |  ')
 
@@ -28,28 +28,23 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
 
   const children = []
 
-  // Header: Name & Contact
+  // Header: Name (18pt Bold) & Contact (10pt)
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 80 },
+      spacing: { after: 60 },
       children: [
-        new TextRun({
-          text: candidateName.toUpperCase(),
-          bold: true,
-          size: 32, // 16pt
-          font: 'Calibri',
-        }),
+        new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 36, font: 'Calibri' }),
       ],
     }),
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { after: 180 },
+      spacing: { after: 140 },
       children: [
         new TextRun({
           text: contactLine || 'Email | Phone | Location | LinkedIn',
-          size: 20, // 10pt
-          color: '555555',
+          size: 20,
+          color: '4B5563',
           font: 'Calibri',
         }),
       ],
@@ -61,16 +56,14 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 140, after: 60 },
+        spacing: { before: 120, after: 60 },
         children: [
-          new TextRun({ text: 'PROFESSIONAL SUMMARY', bold: true, size: 22, color: '1A365D', font: 'Calibri' }),
+          new TextRun({ text: 'PROFESSIONAL SUMMARY', bold: true, size: 22, color: '111827', font: 'Calibri' }),
         ],
       }),
       new Paragraph({
-        spacing: { after: 140 },
-        children: [
-          new TextRun({ text: summary, size: 21, font: 'Calibri' }),
-        ],
+        spacing: { after: 120 },
+        children: [new TextRun({ text: summary, size: 21, font: 'Calibri' })],
       })
     )
   }
@@ -80,17 +73,17 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 140, after: 60 },
+        spacing: { before: 120, after: 60 },
         children: [
-          new TextRun({ text: 'PROFESSIONAL EXPERIENCE', bold: true, size: 22, color: '1A365D', font: 'Calibri' }),
+          new TextRun({ text: 'WORK EXPERIENCE', bold: true, size: 22, color: '111827', font: 'Calibri' }),
         ],
       })
     )
 
-    // Build audit lookup map if improvedBullets provided
+    // Build audit lookup map if tailoredBullets / improvedBullets provided
     const auditMap = new Map()
-    if (Array.isArray(improvedBullets) && improvedBullets.length > 0) {
-      for (const b of improvedBullets) {
+    if (Array.isArray(tailoredBullets) && tailoredBullets.length > 0) {
+      for (const b of tailoredBullets) {
         if (b && (b.bulletId || b.id)) {
           auditMap.set(b.bulletId || b.id, b.rewrite || b.text)
         }
@@ -105,11 +98,16 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
 
       children.push(
         new Paragraph({
-          spacing: { before: 100, after: 40 },
+          spacing: { before: 80, after: 40 },
           children: [
             new TextRun({ text: `${roleTitle} `, bold: true, size: 22, font: 'Calibri' }),
             new TextRun({ text: `— ${company}`, italics: true, size: 22, font: 'Calibri' }),
-            new TextRun({ text: dates ? `  (${dates}${location ? ` | ${location}` : ''})` : '', size: 20, color: '666666', font: 'Calibri' }),
+            new TextRun({
+              text: dates ? `  (${dates}${location ? ` | ${location}` : ''})` : '',
+              size: 20,
+              color: '6B7280',
+              font: 'Calibri',
+            }),
           ],
         })
       )
@@ -135,18 +133,18 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
     })
   }
 
-  // Core Technical Skills
+  // Technical Skills (Grouped & Cleaned)
   if (skills.length > 0) {
     children.push(
       new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 140, after: 60 },
+        spacing: { before: 120, after: 60 },
         children: [
-          new TextRun({ text: 'TECHNICAL SKILLS', bold: true, size: 22, color: '1A365D', font: 'Calibri' }),
+          new TextRun({ text: 'TECHNICAL SKILLS', bold: true, size: 22, color: '111827', font: 'Calibri' }),
         ],
       }),
       new Paragraph({
-        spacing: { after: 140 },
+        spacing: { after: 120 },
         children: [
           new TextRun({ text: skills.join('  •  '), size: 21, font: 'Calibri' }),
         ],
@@ -158,7 +156,7 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, improvedBullets
     sections: [{
       properties: {
         page: {
-          margin: { top: 720, bottom: 720, left: 720, right: 720 }, // 0.5 inch margins
+          margin: { top: 720, bottom: 720, left: 720, right: 720 }, // 0.5-inch margins
         },
       },
       children,

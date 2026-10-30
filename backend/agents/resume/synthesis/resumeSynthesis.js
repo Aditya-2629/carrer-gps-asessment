@@ -12,7 +12,7 @@
  * - Maintains full V2.2 output contract for frontend compatibility.
  */
 
-import { SYNTHESIS_SYSTEM_PROMPT, SYNTHESIS_PROMPT_VERSION } from './resumeSynthesis.prompt.js'
+import { SYNTHESIS_SYSTEM_PROMPT, SYNTHESIS_PROMPT_VERSION, RESUME_SYNTHESIS_PROMPT } from './resumeSynthesis.prompt.js'
 import { formatCompactSignalSummary } from '../signals/signalEngine.js'
 import { formatCompactFactsSummary } from '../facts/resumeFactExtractor.js'
 import { filterGroundedObservations } from '../analyzers/evidenceAnalyzer.js'
@@ -22,7 +22,7 @@ import { formatDomainContextForPrompt } from '../market/domainClassifier.js'
 import { formatUsMarketSignalsForPrompt } from '../market/usMarketSignals.js'
 import { formatMarketProfileForPrompt } from '../market/marketProfileBuilder.js'
 
-export { SYNTHESIS_PROMPT_VERSION }
+export { SYNTHESIS_PROMPT_VERSION, RESUME_SYNTHESIS_PROMPT }
 
 // ─── Observation Formatter ────────────────────────────────────────────────────
 
