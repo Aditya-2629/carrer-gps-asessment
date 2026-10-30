@@ -130,15 +130,44 @@ export function parseGeminiQuotaDetails(err) {
 
 
 /**
+ * Active Production Verified Models in priority order:
+ */
+export const VERIFIED_GEMINI_MODELS = [
+  'gemini-2.0-flash', // Fast, highly capable current generation
+  'gemini-1.5-flash-latest', // Ultra-reliable fallback
+  'gemini-1.5-pro-latest', // Deep reasoning for complex recruiter diagnosis
+  'gemini-1.5-flash',
+]
+
+export const DEPRECATED_TRAP_MODELS = new Set([
+  'gemini-1.0-pro',
+  'gemini-1.0-pro-001',
+  'gemini-1.5-pro-001',
+  'gemini-1.5-flash-001',
+  'gemini-2.5-flash', // Note: returns 404 in standard Google AI Studio endpoint
+  'gemini-3.8-flash',
+  'gemini-3.8',
+  'gemini-3.7-flash',
+  'gemini-3.7',
+])
+
+export function getCleanModelName(requestedModel) {
+  if (!requestedModel || DEPRECATED_TRAP_MODELS.has(requestedModel)) {
+    return process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+  }
+  return requestedModel
+}
+
+/**
  * Model priority chain — verified active Gemini flash models.
- * Prioritizes configured GEMINI_MODEL (default gemini-3.6-flash),
- * followed by verified stable fallbacks (e.g. gemini-3.8-flash).
- * gemini-2.5-flash is removed because it returns 404 on production credentials.
+ * Prioritizes configured GEMINI_MODEL (default gemini-2.0-flash),
+ * followed by verified stable fallbacks.
  */
 export const DEFAULT_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
-  'gemini-3.5-flash',
-].filter(Boolean)
+  process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  ...VERIFIED_GEMINI_MODELS,
+  'gemini-3.5-flash-lite',
+].filter((m, idx, arr) => m && arr.indexOf(m) === idx && !DEPRECATED_TRAP_MODELS.has(m))
 
 /**
  * Classifies errors into key-level quota/auth, transient service/model, or client errors.
@@ -360,12 +389,11 @@ export const generateContentWithFallback = async ({
   const makeGenAI = _clientFactory || ((k) => new GoogleGenerativeAI(k))
   const waitFn = _sleepFn || sleep
 
-  const resolveAlias = (m) => {
-    if (m === 'gemini-3.1-pro') return 'gemini-3.1-pro-preview'
-    return m
-  }
-  const resolvedModelName = resolveAlias(modelName)
-  const resolvedFallbacks = (fallbackModels || []).map(resolveAlias)
+  const cleanRequestedModel = getCleanModelName(modelName)
+  const resolvedModelName = resolveAlias(cleanRequestedModel)
+  const resolvedFallbacks = (fallbackModels || [])
+    .map(resolveAlias)
+    .filter((m) => !DEPRECATED_TRAP_MODELS.has(m))
 
   // Build model try list starting with the requested modelName, filtering out slow/hanging models unless forced
   const rawCandidates = Array.from(new Set([resolvedModelName, ...resolvedFallbacks].filter(Boolean)))
@@ -376,15 +404,15 @@ export const generateContentWithFallback = async ({
       .filter(Boolean)
   )
   const isCustomFallback = Boolean(fallbackModels && fallbackModels !== DEFAULT_MODELS)
-  const TRAP_MODELS = new Set(['gemini-3.8-flash', 'gemini-3.8', 'gemini-3.7-flash', 'gemini-3.7'])
   const candidateModels = rawCandidates.filter((m) => {
-    if (!isCustomFallback && (TRAP_MODELS.has(m) || m === 'gemini-3.6-flash') && !explicitAllowed.has(m) && modelName !== m) {
+    if (DEPRECATED_TRAP_MODELS.has(m)) return false
+    if (!isCustomFallback && m === 'gemini-3.6-flash' && !explicitAllowed.has(m) && cleanRequestedModel !== m) {
       return false
     }
     return true
   })
   if (candidateModels.length === 0) {
-    candidateModels.push('gemini-3.5-flash-lite')
+    candidateModels.push(process.env.GEMINI_MODEL || 'gemini-2.0-flash')
   }
   const modelsToTry = candidateModels.filter((m) => !isModelPermanentlyUnavailable(m))
   let lastModelError = null

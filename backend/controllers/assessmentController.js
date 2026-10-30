@@ -348,6 +348,49 @@ export const generateReport = async (req, res) => {
   }
 }
 
+// Live Server-Sent Events (SSE) Report Stream
+export const generateReportStream = async (req, res) => {
+  const { userId } = req.query
+
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: 'Valid User ID required.' })
+  }
+
+  // Set SSE Headers
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache, no-transform')
+  res.setHeader('Connection', 'keep-alive')
+  res.flushHeaders?.()
+
+  const sendProgress = (percent, message) => {
+    res.write(`data: ${JSON.stringify({ percent, message, timestamp: Date.now() })}\n\n`)
+  }
+
+  try {
+    sendProgress(10, 'Initializing knowledge context & market baselines...')
+
+    const { user, aiReport } = await generateReportBundle({
+      userId,
+      onProgress: ({ stage, message }) => {
+        let percent = 30
+        if (stage === 'preparing') percent = 20
+        if (stage === 'agents_running') percent = 50
+        if (stage === 'agent_resume_agent_done') percent = 70
+        if (stage === 'persisting') percent = 90
+        sendProgress(percent, message)
+      },
+    })
+
+    sendProgress(100, 'Assessment complete! Rendering dashboard...')
+    res.write(`data: ${JSON.stringify({ complete: true, report: aiReport })}\n\n`)
+    res.end()
+  } catch (err) {
+    console.error('SSE Report Stream Error:', err)
+    res.write(`data: ${JSON.stringify({ error: err.message || 'Generation failed' })}\n\n`)
+    res.end()
+  }
+}
+
 // Chat / Ask questions about resume & LinkedIn to AI — NOW WITH RAG KNOWLEDGE BASE
 // Phase F: this is now a ROUTER agent (Anthropic routing pattern) — it
 // classifies the question, loads ONLY the relevant agent's findings, and the

@@ -12,6 +12,7 @@ import adminRoutes from './routes/adminRoutes.js'
 import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
 import resumeAgentTestRoutes from './routes/resumeAgentTestRoutes.js'
+import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
 dotenv.config()
@@ -79,6 +80,9 @@ const startServer = async () => {
     const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/career-gps'
     await mongoose.connect(mongoUri)
     console.log('Successfully connected to MongoDB database.')
+
+    // Initialize automated weekly JD refresh scheduler
+    initMarketAutoScheduler()
 
     app.listen(PORT, () => {
       console.log(`Server is currently listening on port ${PORT}`)

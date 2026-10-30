@@ -346,13 +346,25 @@ export async function generateReportBundle({
 
   report('preparing', 'Building knowledge context and orchestrating agents…')
 
-  // RAG-enhanced Knowledge Base context (baseline + uploaded documents)
-  let dynamicKbContent = null
-  try {
-    const smartQuery = buildSmartQuery(user.answers, user.resumeJson)
-    dynamicKbContent = await buildRAGContext(smartQuery)
-  } catch (kbErr) {
-    console.error('Error building RAG context, using default fallback:', kbErr)
+  // Run RAG context preparation and LinkedIn live scrape in parallel
+  const smartQuery = buildSmartQuery(user.answers, user.resumeJson)
+  const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && !user.linkedinData && !precomputedLinkedinData)
+
+  const [dynamicKbContent, liveLinkedinData] = await Promise.all([
+    buildRAGContext(smartQuery).catch((err) => {
+      console.warn('[ReportGen] RAG context fallback:', err.message)
+      return null
+    }),
+    shouldScrapeLinkedin
+      ? scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
+          console.warn('[ReportGen] LinkedIn scrape fallback to resume data:', err.message)
+          return null
+        })
+      : Promise.resolve(null),
+  ])
+
+  if (liveLinkedinData && !user.linkedinData) {
+    user.linkedinData = liveLinkedinData
   }
 
   const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
