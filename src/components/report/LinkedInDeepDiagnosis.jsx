@@ -189,7 +189,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const variant = theme === 'dark' ? 'dark' : 'light'
   const [copiedId, setCopiedId] = useState(null)
 
-  const isBlankProfile = !linkedinAgent || linkedinAgent.dataAvailable === false
+  const hasUserLinkedinUrl = Boolean(
+    reportData?.user_answers?.linkedin ||
+    reportData?.user_answers?.linkedinUrl ||
+    reportData?.user_answers?.['linkedin-url'] ||
+    reportData?.linkedin_json?.url ||
+    linkedinAgent?.url
+  )
+  const isBlankProfile = !hasUserLinkedinUrl && !linkedinAgent?.dataAvailable && !linkedinAgent?.inferredFromResume
 
   const targetRole =
     linkedinAgent?.targetRole ||
@@ -201,6 +208,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     'Data Analyst'
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
+  // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
   const rawYoe = candidateSnap.experienceLevel ||
                  candidateSnap.experienceYears ||
                  candidateSnap.yearsExperience ||
@@ -212,7 +220,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const yoeStr = String(rawYoe).trim()
   const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
   if (rangeMatch) {
-    yoeNum = rangeMatch[2]
+    yoeNum = rangeMatch[2] // Take upper number of the range (e.g. "1–3" -> 3)
   } else {
     const singleMatch = yoeStr.match(/(\d+)/)
     if (singleMatch) {
@@ -601,27 +609,61 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     : 0
   const aboutCharCount = fullAboutText.length
 
-  const effectiveScorecard = (linkedinAgent && typeof linkedinAgent.score === 'number' && linkedinAgent.dashboard)
+  const rawScorecard = (linkedinAgent && typeof linkedinAgent.score === 'number' && linkedinAgent.dashboard)
     ? linkedinAgent.dashboard
     : (linkedinAgent && typeof linkedinAgent.score === 'number')
     ? linkedinAgent
-    : {
-        score: reportData?.score_breakdown?.linkedin?.score || 55,
-        grade: reportData?.score_breakdown?.linkedin?.grade || 'C',
-        gradeLabel: 'Developing',
-        grades: {
-          headline: { score: 45, grade: 'D', label: 'Headline SEO' },
-          about: { score: 40, grade: 'D', label: 'About Story' },
-          skills: { score: 65, grade: 'C', label: 'Pinned Skills' },
-          network: { score: 60, grade: 'C', label: 'Social Reach' },
-        },
-        checks: [
-          { id: 'li_headline', label: 'Headline Keyword Density', detail: 'Needs target role title + top 3 technical tools', status: 'warn' },
-          { id: 'li_about', label: 'Story-Driven About Section', detail: 'Missing quantified hook and core stack keywords', status: 'fail' },
-          { id: 'li_skills', label: 'Top 3 Pinned Technical Skills', detail: 'Pin SQL, Python, and Power BI to top of skills list', status: 'fail' },
-        ],
-        summary: 'Profile is unlinked or blank, missing critical recruiter search indexing keywords and social proof.',
+    : null
+
+  const fallbackScorecard = {
+    score: reportData?.score_breakdown?.linkedin?.score || 68,
+    grade: reportData?.score_breakdown?.linkedin?.grade || 'C',
+    gradeLabel: 'Developing',
+    grades: {
+      headline: { score: 68, grade: 'C', label: 'Headline SEO' },
+      about: { score: 60, grade: 'C', label: 'About Story' },
+      skills: { score: 70, grade: 'C', label: 'Pinned Skills' },
+      network: { score: 65, grade: 'C', label: 'Social Reach' },
+    },
+    checks: [
+      { id: 'li_headline', label: 'Headline Keyword Density', detail: 'Needs target role title + top 3 technical tools', status: 'warn' },
+      { id: 'li_about', label: 'Story-Driven About Section', detail: 'Missing quantified hook and core stack keywords', status: 'fail' },
+      { id: 'li_skills', label: 'Top 3 Pinned Technical Skills', detail: 'Pin SQL, Python, and Power BI to top of skills list', status: 'fail' },
+    ],
+    summary: 'Profile is unlinked or blank, missing critical recruiter search indexing keywords and social proof.',
+  }
+
+  // Ensure grades includes numeric score values and checks uses { id, label, detail, status } (NOT { name })
+  const effectiveScorecard = (() => {
+    if (!rawScorecard) return fallbackScorecard
+
+    const normalizedGrades = {}
+    for (const [key, g] of Object.entries(rawScorecard.grades || {})) {
+      if (!g) continue
+      const gScore = typeof g.score === 'number' ? g.score : (g.grade === 'A' ? 90 : g.grade === 'B' ? 75 : g.grade === 'C' ? 60 : 45)
+      normalizedGrades[key] = {
+        ...g,
+        label: g.label || key.toUpperCase(),
+        score: gScore,
+        grade: g.grade || (gScore >= 85 ? 'A' : gScore >= 70 ? 'B' : gScore >= 55 ? 'C' : 'D'),
       }
+    }
+
+    const normalizedChecks = Array.isArray(rawScorecard.checks) && rawScorecard.checks.length > 0
+      ? rawScorecard.checks.map((c, i) => ({
+          id: c.id || `li_chk_${i}`,
+          label: c.label || c.name || c.title || 'Profile Check',
+          detail: c.detail || c.description || c.reason || '',
+          status: c.status || 'pass',
+        }))
+      : fallbackScorecard.checks
+
+    return {
+      ...rawScorecard,
+      grades: Object.keys(normalizedGrades).length > 0 ? normalizedGrades : fallbackScorecard.grades,
+      checks: normalizedChecks,
+    }
+  })()
 
   return (
     <section id="linkedin-ai" className="space-y-8 scroll-mt-28">

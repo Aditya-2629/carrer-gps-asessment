@@ -191,13 +191,15 @@ export default function ReportHero({ reportData }) {
   const hasValidLinkedin = Boolean(
     (answers.linkedin && typeof answers.linkedin === 'string' && answers.linkedin.trim().length > 3) ||
     (answers.linkedinUrl && typeof answers.linkedinUrl === 'string' && answers.linkedinUrl.trim().length > 3) ||
+    (answers['linkedin-url'] && typeof answers['linkedin-url'] === 'string' && answers['linkedin-url'].trim().length > 3) ||
     (typeof answers.contact?.linkedin === 'string' && answers.contact.linkedin.trim().length > 3) ||
     (reportData?.linkedin_json && Object.keys(reportData.linkedin_json).length > 0) ||
-    (reportData?.linkedin_agent?.dataAvailable === true)
+    (reportData?.linkedin_agent?.dataAvailable === true) ||
+    (reportData?.linkedin_agent?.inferredFromResume === true)
   )
-  const isPhase3Or4 = Number(reportData?.phase?.id) >= 3
+  const isPhase3Or4 = Number(reportData?.phase?.id) >= 3 || /technical|final|offer/i.test(reportData?.phase?.name || reportData?.phase?.shortName || '')
 
-  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile/i.test(String(rawBottleneck || ''))) {
+  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile|completely blank linkedin/i.test(String(rawBottleneck || ''))) {
     rawBottleneck = isPhase3Or4
       ? 'Technical Case-Study Depth & Architectural Tradeoff Articulation'
       : 'Top-of-Page ATS Keyword Alignment & Metric Gaps'

@@ -431,19 +431,37 @@ export async function generateReportBundle({
   const result = await agentsPromise
   const activeResumeAgent = result?.resumeAgent || precomputedResumeAgent || null
   let activeLinkedinAgent = result?.linkedinAgent || null
-  const activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
+  const isPoisonedLinkedin = (data) =>
+    data &&
+    typeof data === 'object' &&
+    data.fullName === 'Not Specified' &&
+    (!data.experiences || data.experiences.length === 0)
+
+  if (isPoisonedLinkedin(user.linkedinData)) {
+    console.warn('[ReportGeneration] Discarding poisoned/empty Apify profile in user.linkedinData')
+    user.linkedinData = null
+  }
+  if (isPoisonedLinkedin(precomputedLinkedinData)) {
+    precomputedLinkedinData = null
+  }
+
+  let activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
+  if (isPoisonedLinkedin(activeLinkedinData)) {
+    activeLinkedinData = null
+    user.linkedinData = null
+  }
   if (!user.linkedinData && activeLinkedinData) {
     user.linkedinData = activeLinkedinData
   }
 
   // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
-  if ((!activeLinkedinAgent || activeLinkedinAgent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl)) {
+  if ((!activeLinkedinAgent || activeLinkedinAgent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl || effectiveCanonicalResume || user.resumeJson)) {
     try {
       console.log('[ReportGeneration] Running safety net evaluateLinkedIn directly...')
       const directLi = await evaluateLinkedIn({
-        profile: activeLinkedinData,
+        profile: isPoisonedLinkedin(activeLinkedinData) ? null : activeLinkedinData,
         resumeContext: {
-          canonicalResume: effectiveCanonicalResume,
+          canonicalResume: activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson,
           targetRole: resumeTargetRole,
         },
         answers: user.answers || {},

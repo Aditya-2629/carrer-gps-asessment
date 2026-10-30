@@ -393,6 +393,9 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
     url,
     hasCustomUrl,
     isValid,
+    inferredFromResume: Boolean(rawProfile.inferredFromResume),
+    apifyQuotaFallback: Boolean(rawProfile.apifyQuotaFallback),
+    profileSource: rawProfile.profileSource || (rawProfile.inferredFromResume ? 'resume_inferred' : 'scraped'),
   }
 }
 

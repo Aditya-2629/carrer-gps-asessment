@@ -63,52 +63,113 @@ function makeNoDataResult() {
  */
 export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
   let profile = normalizeLinkedInProfile(rawProfile)
-  if (profile.isValid) {
+  const isPoisoned =
+    !profile.isValid ||
+    (profile.fullName === 'Not Specified' && (!profile.experiences || profile.experiences.length === 0))
+
+  if (profile.isValid && !isPoisoned && !profile.inferredFromResume) {
     return profile
   }
 
   // Fallback: Infer profile structure from canonical resume & target role
-  const canonical = resumeContext?.canonicalResume
+  // Supports BOTH canonicalResume (canonical.candidate.name, canonical.experience)
+  // AND resumeJson / resumeAgent (canonical.candidate_name, canonical.experiences, canonical.top_skills)
+  const canonical =
+    resumeContext?.canonicalResume ||
+    resumeContext?.resumeJson ||
+    resumeContext?.resumeAgent?.canonicalResume ||
+    resumeContext
+
+  const candidateSnap = resumeContext?.candidateSnapshot || resumeContext?.resumeAgent?.candidateSnapshot || {}
+
+  const candidateName =
+    canonical?.candidate?.name ||
+    canonical?.candidate_name ||
+    canonical?.name ||
+    candidateSnap.name ||
+    resumeContext?.candidateName ||
+    ''
+
   const targetRole =
     resumeContext?.targetRole ||
     canonical?.candidate?.targetRole ||
+    canonical?.candidate_name_target_role ||
+    canonical?.target_role ||
+    canonical?.targetRole ||
+    candidateSnap.targetRole ||
     ''
-  const candidateName = canonical?.candidate?.name || ''
+
   const resumeExperiences = Array.isArray(canonical?.experience)
     ? canonical.experience
     : Array.isArray(canonical?.experiences)
     ? canonical.experiences
     : []
-  const resumeSkills = (canonical?.skills || [])
-    .map((s) => (typeof s === 'string' ? s : s?.name))
+
+  const rawSkills =
+    canonical?.skills ||
+    canonical?.top_skills ||
+    canonical?.technical_skills ||
+    candidateSnap.coreSkills ||
+    candidateSnap.topSkills ||
+    []
+
+  const resumeSkills = (Array.isArray(rawSkills) ? rawSkills : [])
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
     .filter(Boolean)
+
+  const resumeEducation = Array.isArray(canonical?.education)
+    ? canonical.education
+    : Array.isArray(canonical?.educations)
+    ? canonical.educations
+    : []
+
+  const resumeCerts = Array.isArray(canonical?.certifications)
+    ? canonical.certifications
+    : Array.isArray(canonical?.licensesAndCertifications)
+    ? canonical.licensesAndCertifications
+    : []
+
+  const resumeProjects = Array.isArray(canonical?.projects)
+    ? canonical.projects
+    : Array.isArray(canonical?.featuredProjects)
+    ? canonical.featuredProjects
+    : []
 
   if (candidateName || targetRole || resumeExperiences.length > 0 || resumeSkills.length > 0) {
     const rawObj = rawProfile && typeof rawProfile === 'object' ? rawProfile : {}
     const rawUrl = rawObj.url || rawObj.linkedinUrl || rawObj.profileUrl || ''
+
+    const headline = `${targetRole || 'Professional'} | ${resumeSkills.slice(0, 4).join(' · ')}`
+    const about =
+      canonical?.summary?.text ||
+      (typeof canonical?.summary === 'string' ? canonical.summary : '') ||
+      canonical?.professional_summary ||
+      canonical?.executive_ai_critique ||
+      ''
+
     return {
       fullName: candidateName || 'Candidate',
-      headline: '', // Missing on LinkedIn so optimizer generates recruiter-aligned headlines
-      about: '',    // Missing on LinkedIn so optimizer generates 3-paragraph story
+      headline,
+      about,
       experiences: resumeExperiences.map((exp) => ({
-        title: exp.role || exp.title || 'Role Not Specified',
-        company: exp.company || 'Company Not Specified',
-        dates: exp.dates || '',
+        title: exp.role || exp.title || exp.position || 'Role Not Specified',
+        company: exp.company || exp.companyName || 'Company Not Specified',
+        dates: exp.dates || exp.duration || exp.dateRange || '',
         description: Array.isArray(exp.bullets)
           ? exp.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).join('\n')
           : (exp.description || ''),
         location: exp.location || '',
-        isCurrent: Boolean(exp.isCurrent || /present|current/i.test(exp.dates || '')),
+        isCurrent: Boolean(exp.isCurrent || /present|current/i.test(exp.dates || exp.duration || '')),
       })),
-      education: (canonical?.education || []).map((edu) => ({
-        school: edu.institution || edu.school || '',
+      education: resumeEducation.map((edu) => ({
+        school: edu.institution || edu.school || edu.university || '',
         degree: edu.degree || '',
-        fieldOfStudy: edu.field || edu.major || '',
+        fieldOfStudy: edu.field || edu.fieldOfStudy || edu.major || '',
         dates: edu.dates || edu.year || '',
       })),
-      certifications: canonical?.certifications || [],
-      projects: canonical?.projects || [],
-      skills: [], // Empty on profile so cross-analyzer suggests adding verified skills from resume
+      certifications: resumeCerts,
+      projects: resumeProjects,
+      skills: resumeSkills,
       connectionsCount: null,
       recommendationsCount: null,
       pictureUrl: '',
@@ -119,6 +180,7 @@ export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
       hasCustomUrl: Boolean(rawUrl && /linkedin\.com\/in\/[^/]+/i.test(rawUrl)),
       isValid: true,
       inferredFromResume: true,
+      apifyQuotaFallback: true,
       profileSource: 'resume_inferred',
     }
   }
@@ -202,14 +264,21 @@ export async function evaluateLinkedIn({
   const rawData = linkedinData || profile || null
   let normalized = normalizeLinkedInProfile(rawData)
 
-  // If scraped/provided profile is missing or invalid, check if we can infer from resume context
+  // If scraped/provided profile is missing, poisoned, or invalid, infer from resume context
   const hasResume = Boolean(
     resumeContext?.canonicalResume ||
+    resumeContext?.resumeJson ||
+    resumeContext?.resumeAgent?.canonicalResume ||
     resumeContext?.targetRole ||
-    resumeContext?.extractedFacts
+    resumeContext?.extractedFacts ||
+    resumeContext?.candidateSnapshot
   )
 
-  if (!normalized.isValid) {
+  const isPoisonedOrEmpty =
+    !normalized.isValid ||
+    (normalized.fullName === 'Not Specified' && (!normalized.experiences || normalized.experiences.length === 0))
+
+  if (isPoisonedOrEmpty) {
     if (hasResume) {
       normalized = resolveEffectiveProfile(rawData, resumeContext)
     }

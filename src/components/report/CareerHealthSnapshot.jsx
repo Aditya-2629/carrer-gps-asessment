@@ -40,7 +40,15 @@ export default function CareerHealthSnapshot({ reportData, onNavigateSection }) 
     checks: [],
   }
 
-  const isLinkedInUnlinked = !reportData?.linkedin_agent || reportData?.linkedin_agent?.dataAvailable === false
+  const hasUserLi = Boolean(
+    reportData?.user_answers?.linkedin ||
+    reportData?.user_answers?.linkedinUrl ||
+    reportData?.user_answers?.['linkedin-url'] ||
+    reportData?.linkedin_json?.url ||
+    reportData?.linkedin_agent?.url ||
+    reportData?.linkedin_agent?.inferredFromResume
+  )
+  const isLinkedInUnlinked = !hasUserLi && (!reportData?.linkedin_agent || reportData?.linkedin_agent?.dataAvailable === false)
 
   const rawTier = isLinkedInUnlinked
     ? 'Unverified (Unlinked)'

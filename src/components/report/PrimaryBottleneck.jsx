@@ -56,14 +56,16 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
   const hasValidLinkedin = Boolean(
     (answers.linkedin && typeof answers.linkedin === 'string' && answers.linkedin.trim().length > 3) ||
     (answers.linkedinUrl && typeof answers.linkedinUrl === 'string' && answers.linkedinUrl.trim().length > 3) ||
+    (answers['linkedin-url'] && typeof answers['linkedin-url'] === 'string' && answers['linkedin-url'].trim().length > 3) ||
     (typeof answers.contact?.linkedin === 'string' && answers.contact.linkedin.trim().length > 3) ||
     (reportData?.linkedin_json && Object.keys(reportData.linkedin_json).length > 0) ||
-    (reportData?.linkedin_agent?.dataAvailable === true)
+    (reportData?.linkedin_agent?.dataAvailable === true) ||
+    (reportData?.linkedin_agent?.inferredFromResume === true)
   )
-  const isPhase3Or4 = Number(phase?.id) >= 3
+  const isPhase3Or4 = Number(phase?.id || reportData?.phase?.id) >= 3 || /technical|final|offer/i.test(phase?.name || phase?.shortName || reportData?.phase?.name || '')
 
   const bottleneckTitle = safeText(primaryBottleneck.title || primaryBottleneck)
-  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile/i.test(bottleneckTitle)) {
+  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile|completely blank linkedin/i.test(bottleneckTitle)) {
     primaryBottleneck = isPhase3Or4 ? {
       title: 'Technical Case-Study Depth & Architectural Tradeoff Articulation',
       category: 'technical_evaluation',

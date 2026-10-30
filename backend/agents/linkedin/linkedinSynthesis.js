@@ -466,6 +466,15 @@ export async function runLinkedInSynthesis(
     return fallback
   }
 
+  const canonical = resumeContext?.canonicalResume || resumeContext?.resumeJson || {}
+  const targetRole =
+    resumeContext?.targetRole ||
+    canonical?.candidate?.targetRole ||
+    canonical?.target_role ||
+    canonical?.targetRole ||
+    profile?.headline ||
+    'Senior Software Engineer'
+
   const resumeProvider = resumeContext?.provider || options?.resumeProvider || null
   const excludeProvider = options?.excludeProvider || (resumeProvider === 'gemini' ? 'gemini' : (resumeProvider === 'groq' ? 'groq' : null))
   const preferredProvider = options?.preferredProvider || (excludeProvider === 'gemini' ? 'groq' : (excludeProvider === 'groq' ? 'gemini' : 'groq'))
@@ -710,59 +719,64 @@ export async function runLinkedInSynthesis(
         .slice(0, 12)
     }
 
-    // Visibility Tricks — deterministically enforce 100% role-alignment and consistency with top3PinnedSkills
-    const otwTitles = deriveOpenToWorkTitles(targetRole)
-    const topHardSkills = (top3PinnedSkills.length >= 3 ? top3PinnedSkills : fallback.top3PinnedSkills)
-      .filter(isValidSkill)
-      .map(formatSkillName)
-      .slice(0, 3)
+    // Visibility Tricks — preserve LLM output if returned by Task 2, else construct fallback
+    let visibilityTricks = fallback.visibilityTricks
+    const rawTricks = task2Result?.visibilityTricks || task1Result?.visibilityTricks
+    if (Array.isArray(rawTricks) && rawTricks.length > 0) {
+      visibilityTricks = rawTricks
+    } else {
+      const otwTitles = deriveOpenToWorkTitles(targetRole)
+      const topHardSkills = (top3PinnedSkills.length >= 3 ? top3PinnedSkills : fallback.top3PinnedSkills)
+        .filter(isValidSkill)
+        .map(formatSkillName)
+        .slice(0, 3)
 
-    const candidateHardSkills = Array.from(new Set([
-      ...topHardSkills,
-      ...recommendedSkillsToAdd.filter(isConcreteTechSkill),
-      ...topConcrete,
-    ])).filter(isValidSkill).filter(isConcreteTechSkill).slice(0, 4)
+      const candidateHardSkills = Array.from(new Set([
+        ...topHardSkills,
+        ...recommendedSkillsToAdd.filter(isConcreteTechSkill),
+      ])).filter(isValidSkill).filter(isConcreteTechSkill).slice(0, 4)
 
-    const booleanRolePart = /data\s+analyst/i.test(targetRole)
-      ? '("Data Analyst" OR "Business Intelligence Analyst")'
-      : `("${targetRole}")`
-    const booleanSkillsPart = candidateHardSkills.length > 0
-      ? `(${candidateHardSkills.map((s) => `"${s}"`).join(' OR ')})`
-      : '("Technical Architecture")'
-    const booleanQuery = `${booleanRolePart} AND ${booleanSkillsPart}`
+      const booleanRolePart = /data\s+analyst/i.test(targetRole)
+        ? '("Data Analyst" OR "Business Intelligence Analyst")'
+        : `("${targetRole}")`
+      const booleanSkillsPart = candidateHardSkills.length > 0
+        ? `(${candidateHardSkills.map((s) => `"${s}"`).join(' OR ')})`
+        : '("Technical Architecture")'
+      const booleanQuery = `${booleanRolePart} AND ${booleanSkillsPart}`
 
-    const visibilityTricks = [
-      {
-        category: 'Open to Work Titles',
-        trick: '1. Set 5 Exact Job Titles in "Open to Work"',
-        advice: 'LinkedIn Recruiter search filters match candidate "Job Titles" strictly. Add these 5 exact titles to your private Open to Work preferences:',
-        items: otwTitles,
-      },
-      {
-        category: 'Top 3 Pinned Skills',
-        trick: '2. Pin Your Top 3 Skills to the Top of Skills Section',
-        advice: 'Recruiters see the first 3 pinned skills immediately on mobile and search cards. Pin these 3 core skills to maximize recruiter match score:',
-        items: topHardSkills,
-      },
-      {
-        category: 'Recruiter Boolean String',
-        trick: '3. Optimize for Recruiter Boolean Search Strings',
-        advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
-        items: [booleanQuery],
-      },
-      {
-        category: 'Featured Media Architecture',
-        trick: '4. Showcase High-Scale Technical Artifacts',
-        advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
-        items: [`${topHardSkills.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
-      },
-      {
-        category: 'Featured Section Asset',
-        trick: '5. Pin Live Case Study Over Raw Resume PDF',
-        advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a GitHub architecture repo with a live deployed demo.',
-        items: ['Pin top architecture case study to Featured section'],
-      },
-    ]
+      visibilityTricks = [
+        {
+          category: 'Open to Work Titles',
+          trick: '1. Set 5 Exact Job Titles in "Open to Work"',
+          advice: 'LinkedIn Recruiter search filters match candidate "Job Titles" strictly. Add these 5 exact titles to your private Open to Work preferences:',
+          items: otwTitles,
+        },
+        {
+          category: 'Top 3 Pinned Skills',
+          trick: '2. Pin Your Top 3 Skills to the Top of Skills Section',
+          advice: 'Recruiters see the first 3 pinned skills immediately on mobile and search cards. Pin these 3 core skills to maximize recruiter match score:',
+          items: topHardSkills,
+        },
+        {
+          category: 'Recruiter Boolean String',
+          trick: '3. Optimize for Recruiter Boolean Search Strings',
+          advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
+          items: [booleanQuery],
+        },
+        {
+          category: 'Featured Media Architecture',
+          trick: '4. Showcase High-Scale Technical Artifacts',
+          advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
+          items: [`${topHardSkills.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
+        },
+        {
+          category: 'Featured Section Asset',
+          trick: '5. Pin Live Case Study Over Raw Resume PDF',
+          advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a GitHub architecture repo with a live deployed demo.',
+          items: ['Pin top architecture case study to Featured section'],
+        },
+      ]
+    }
 
     // Banner Strategy (Task 1 or fallback)
     let bannerStrategy = fallback.bannerStrategy

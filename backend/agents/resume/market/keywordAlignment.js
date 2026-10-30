@@ -550,6 +550,7 @@ export function computeKeywordAlignment({
       rawSkillsOnly
         .map(decodeHtmlEntities)
         .filter(isConcreteTechSkillChip)
+        .filter((s) => !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
         .filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase()))
     )
   ).slice(0, 8)

@@ -82,12 +82,11 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
   )
 
   let diagnosis = balanceParentheses(matchedIssue?.diagnosis || bullet.reason)
-  if (diagnosis && /participle\s*\(['"][^'"]+['"]\)/i.test(diagnosis)) {
-    const rawBulletText = bullet.text || bullet.originalText || matchedIssue?.evidence?.[0]?.originalText || ''
-    const matchIng = rawBulletText.trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
-    if (matchIng) {
-      diagnosis = diagnosis.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
-    }
+  const rawBulletText = bullet.text || bullet.originalText || matchedIssue?.evidence?.[0]?.originalText || ''
+  const matchIng = rawBulletText.trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
+  if (matchIng && diagnosis && /participle/i.test(diagnosis)) {
+    const actualGerund = matchIng[1].charAt(0).toUpperCase() + matchIng[1].slice(1)
+    diagnosis = diagnosis.replace(/(?:action\s+)?participle\s*(?:\(\s*['"‘’“”][^'"‘’“”]+['"‘’“”]\s*\)|['"‘’“”][^'"‘’“”]+['"‘’“”])/gi, `participle ('${actualGerund}')`)
   }
   const whyItMatters = balanceParentheses(matchedIssue?.whyItMatters || null)
   const rawRewrite =

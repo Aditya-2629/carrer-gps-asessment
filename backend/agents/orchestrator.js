@@ -316,6 +316,15 @@ export async function runCareerAgents(bundle) {
             activeProfile = null
           }
         }
+        if (
+          activeProfile &&
+          typeof activeProfile === 'object' &&
+          activeProfile.fullName === 'Not Specified' &&
+          (!activeProfile.experiences || activeProfile.experiences.length === 0)
+        ) {
+          console.warn('[Orchestrator] Discarding poisoned/empty Apify profile')
+          activeProfile = null
+        }
 
         const linkedinId =
           activeProfile?.publicIdentifier ||

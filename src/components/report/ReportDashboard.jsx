@@ -924,25 +924,25 @@ function ReportDashboardContent() {
     else if (isMockPreview) reportData.linkedin_agent = MOCK_REPORT.linkedin_agent
   }
 
-  // Dynamic client-side backfill if assessment metrics or bottlenecks are missing
-  if (!reportData.primary_bottleneck || !reportData.phase?.shortName || !reportData.gps_scores) {
+  // Dynamic client-side backfill if assessment metrics or bottlenecks are missing or stuck on Phase 1 fallback
+  if (!reportData.primary_bottleneck || !reportData.phase?.shortName || reportData.phase?.name === 'Resume → Screening Call') {
     try {
-      const liveAssessment = evaluateAssessmentPersona({
+      const liveEval = evaluateAssessmentPersona({
         answers: reportData.user_answers || formData || {},
         resumeAgent: reportData.resume_agent,
         linkedinAgent: reportData.linkedin_agent,
       })
-      if (liveAssessment) {
-        if (!reportData.phase?.shortName) reportData.phase = liveAssessment.phase
-        if (!reportData.primary_bottleneck) reportData.primary_bottleneck = liveAssessment.primary_bottleneck
-        if (!reportData.secondary_problem) reportData.secondary_problem = liveAssessment.secondary_problem
-        if (!reportData.strongest_area) reportData.strongest_area = liveAssessment.strongest_area
-        if (!reportData.next_best_action) reportData.next_best_action = liveAssessment.next_best_action
-        if (!reportData.top_actions || reportData.top_actions.length === 0) reportData.top_actions = liveAssessment.top_actions
-        if (!reportData.gps_scores) reportData.gps_scores = liveAssessment.scores
-        if (!reportData.external_context) reportData.external_context = liveAssessment.external_context
-        if (!reportData.assessment_agent) reportData.assessment_agent = liveAssessment
-        if (!reportData.gps_score) reportData.gps_score = liveAssessment.gpsScore
+      if (liveEval) {
+        reportData.phase = liveEval.phase
+        reportData.primary_bottleneck = liveEval.primary_bottleneck
+        reportData.secondary_problem = liveEval.secondary_problem
+        reportData.strongest_area = liveEval.strongest_area
+        reportData.next_best_action = liveEval.next_best_action
+        reportData.top_actions = liveEval.top_actions
+        reportData.gps_scores = liveEval.scores
+        reportData.external_context = liveEval.external_context
+        reportData.assessment_agent = liveEval
+        reportData.gps_score = liveEval.gpsScore
       }
     } catch (evalErr) {
       console.warn('[ReportDashboard] Failed to backfill live assessment persona:', evalErr)

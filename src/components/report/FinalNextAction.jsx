@@ -66,7 +66,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             >
               {reportData?.phase?.name && reportData?.primary_bottleneck?.title ? (
                 <>
-                  You're stuck in <span className="text-[var(--primary)]">{reportData.phase.name}</span> due to {reportData.primary_bottleneck.title}.
+                  You're stuck in <span className="text-[var(--primary)]">{decodeHtmlEntities(reportData.phase.name)}</span> due to {decodeHtmlEntities(reportData.primary_bottleneck.title)}.
                   <br />
                   <span className="text-[var(--primary)]">Let's fix it live in a 1-on-1 Strategy Session.</span>
                 </>

@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react'
+import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
+
+export { parseRangeOrNumber }
 
 export default function PresetOrNumberInput({ value, onChange, presets = [], unit = '', placeholder = 'Enter number' }) {
   const [val, setVal] = useState(value !== undefined && value !== null ? String(value) : '')
@@ -20,7 +23,7 @@ export default function PresetOrNumberInput({ value, onChange, presets = [], uni
   }
 
   const isRangePreset = /[–—-]/.test(val)
-  const customInputValue = isRangePreset ? '' : val.replace(/[^0-9]/g, '')
+  const customInputValue = isRangePreset ? '' : (val ? String(val).replace(/[^0-9]/g, '') : '')
 
   return (
     <div className="space-y-4">

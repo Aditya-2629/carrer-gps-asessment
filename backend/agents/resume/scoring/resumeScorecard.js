@@ -63,7 +63,7 @@ export function sanitizeSingleAddPlaceholder(text) {
   return cleanRewriteText(text)
 }
 
-function toPastTense(verb) {
+export function toPastTense(verb) {
   if (!verb) return verb
   const v = verb.toLowerCase().trim()
   const irregulars = {
@@ -125,7 +125,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
   }
 
   // 1. Handle "Collaborated with <noun> to <verb>" or "Partnered with <noun> to <verb>"
-  const collabToVerbMatch = clean.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+(.*)$/i)
+  const collabToVerbMatch = clean.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+(.+?)\s+to\s+([a-zA-Z]+)\s+(.*)$/i)
   if (collabToVerbMatch) {
     const [, partners, rawVerb, rest] = collabToVerbMatch
     const promotedVerb = isCurrentRole ? (rawVerb.charAt(0).toUpperCase() + rawVerb.slice(1).toLowerCase()) : toPastTense(rawVerb)

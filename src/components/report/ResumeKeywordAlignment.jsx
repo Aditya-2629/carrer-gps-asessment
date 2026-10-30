@@ -1,5 +1,6 @@
 import React from 'react'
 import { CheckCircle, Warning, XCircle, Sparkle, Target } from '@phosphor-icons/react'
+import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
 /**
  * ResumeKeywordAlignment
@@ -32,11 +33,23 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
 
   // Cap unverified and missing skills to max 8 items for a clean executive layout
   const MAX_SKILLS_SHOWN = 8
-  const displayedSkillsOnly = skillsOnlyUnverified.slice(0, MAX_SKILLS_SHOWN)
-  const remainingSkillsOnly = skillsOnlyUnverified.length - displayedSkillsOnly.length
+  const cleanSkillsOnly = skillsOnlyUnverified
+    .map(decodeHtmlEntities)
+    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
 
-  const displayedMissing = missingFromResume.slice(0, MAX_SKILLS_SHOWN)
-  const remainingMissing = missingFromResume.length - displayedMissing.length
+  const cleanMissing = missingFromResume
+    .map(decodeHtmlEntities)
+    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
+
+  const cleanMatched = matchedInExperience
+    .map(decodeHtmlEntities)
+    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
+
+  const displayedSkillsOnly = cleanSkillsOnly.slice(0, MAX_SKILLS_SHOWN)
+  const remainingSkillsOnly = cleanSkillsOnly.length - displayedSkillsOnly.length
+
+  const displayedMissing = cleanMissing.slice(0, MAX_SKILLS_SHOWN)
+  const remainingMissing = cleanMissing.length - displayedMissing.length
 
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
@@ -110,8 +123,8 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
             Core target skills proven through concrete accomplishments and deliverables in your work bullets.
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {matchedInExperience.length > 0 ? (
-              matchedInExperience.map((kw, i) => (
+            {cleanMatched.length > 0 ? (
+              cleanMatched.map((kw, i) => (
                 <span
                   key={i}
                   className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${

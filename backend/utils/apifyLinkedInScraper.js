@@ -199,8 +199,37 @@ export function mapApifyProfileToCanonical(profile = {}, formattedUrl = '', acto
 }
 
 /**
+ * Helper to collect and deduplicate all configured Apify tokens
+ * from comma-separated list or numbered env variables.
+ */
+export function getApifyTokens() {
+  const tokens = []
+  if (process.env.APIFY_API_TOKENS) {
+    const split = process.env.APIFY_API_TOKENS.split(',').map((t) => t.trim()).filter(Boolean)
+    tokens.push(...split)
+  }
+  const tokenVars = [
+    process.env.APIFY_API_TOKEN,
+    process.env.APIFY_API_TOKEN_1,
+    process.env.APIFY_API_TOKEN_2,
+    process.env.APIFY_API_TOKEN_3,
+    process.env.APIFY_API_TOKEN_4,
+  ]
+  for (const t of tokenVars) {
+    if (t && typeof t === 'string' && t.trim() && !tokens.includes(t.trim())) {
+      tokens.push(t.trim())
+    }
+  }
+  return tokens
+}
+
+/**
  * Scrapes a complete LinkedIn profile using Apify's cookieless actor:
  * Default: "harvestapi/linkedin-profile-scraper" (configurable via APIFY_LINKEDIN_ACTOR_ID)
+ *
+ * Automatically rotates across available Apify tokens on failure or 50-run limits.
+ * If all tokens fail or quota is reached, gracefully returns null so linkedinAgent
+ * falls back to Resume-Bridged LLM synthesis instead of crashing.
  */
 export const scrapeLinkedInProfile = async (linkedinUrl) => {
   if (!linkedinUrl || typeof linkedinUrl !== 'string' || !linkedinUrl.trim()) {
@@ -218,58 +247,93 @@ export const scrapeLinkedInProfile = async (linkedinUrl) => {
     }
   }
 
-  const token = process.env.APIFY_API_TOKEN
-  if (!token) {
-    console.warn('[Apify Warning] APIFY_API_TOKEN is not set in backend/.env. Skipping live LinkedIn profile scraping.')
-    return null
-  }
-
   // LinkedIn URL format validation (must start with https:// and match profile pattern)
   const linkedinRegex = /^https:\/\/(www\.)?linkedin\.com\/in\/[\w\-%.]+\/?$/i
   if (!linkedinRegex.test(formattedUrl)) {
     throw new Error('Invalid LinkedIn URL format. Must be a valid profile link (e.g. https://www.linkedin.com/in/username).')
   }
 
+  const tokens = getApifyTokens()
+  if (tokens.length === 0) {
+    console.warn('[Apify Warning] No APIFY_API_TOKEN or APIFY_API_TOKENS configured in backend/.env. Skipping live LinkedIn profile scraping.')
+    return null
+  }
+
   const actorId = process.env.APIFY_LINKEDIN_ACTOR_ID || 'harvestapi/linkedin-profile-scraper'
   const maxItemsLimit = Number(process.env.APIFY_LINKEDIN_MAX_ITEMS) || 100
 
-  try {
-    const client = new ApifyClient({ token })
+  // Multi-token rotation loop
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]
+    const tokenMask = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : 'token'
 
-    // Execute Apify actor with token, item, row, and memory limits
-    const run = await client.actor(actorId).call(
-      {
-        urls: [formattedUrl],
-        profileUrls: [formattedUrl],
-        rows: maxItemsLimit,
-        maxRowsPerUrl: maxItemsLimit,
-        maxRows: maxItemsLimit,
-        maxItems: maxItemsLimit,
+    try {
+      const client = new ApifyClient({ token })
+
+      // Execute Apify actor with token, item, row, and memory limits
+      const run = await client.actor(actorId).call(
+        {
+          urls: [formattedUrl],
+          profileUrls: [formattedUrl],
+          rows: maxItemsLimit,
+          maxRowsPerUrl: maxItemsLimit,
+          maxRows: maxItemsLimit,
+          maxItems: maxItemsLimit,
+          limit: maxItemsLimit,
+          maxSkills: 100,
+          maxProfiles: 1,
+          companyProfile: false, // Disables company sub-crawls!
+          enrichCompany: false,
+          scrapeCompanyDetails: false,
+        },
+        {
+          maxItems: maxItemsLimit,
+          waitSecs: 90,
+        }
+      )
+
+      // Retrieve items from dataset
+      const { items } = await client.dataset(run.defaultDatasetId).listItems({
         limit: maxItemsLimit,
-        maxSkills: 100,
-        maxProfiles: 1,
-        companyProfile: false, // Disables company sub-crawls!
-        enrichCompany: false,
-        scrapeCompanyDetails: false,
-      },
-      {
-        maxItems: maxItemsLimit,
-        waitSecs: 90,
+      })
+
+      if (!items || items.length === 0) {
+        throw new Error('Empty dataset returned from Apify actor run.')
       }
-    )
 
-    // Retrieve items from dataset
-    const { items } = await client.dataset(run.defaultDatasetId).listItems({
-      limit: maxItemsLimit,
-    })
+      const firstItem = items[0]
+      const itemStr = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem || {})
 
-    if (!items || items.length === 0) {
-      throw new Error('Unable to extract profile data. Please ensure your LinkedIn profile is public and accessible.')
+      // Quota / rate limit / run limit detection
+      const isQuotaHit =
+        typeof firstItem === 'string' ||
+        /limited to \d+ runs|upgrade to a paid plan|rate limit|quota exceeded|free users are limited/i.test(itemStr)
+
+      const hasBasicFields = Boolean(
+        firstItem &&
+        typeof firstItem === 'object' &&
+        (firstItem.fullName ||
+          firstItem.firstName ||
+          firstItem.name ||
+          firstItem.headline ||
+          (Array.isArray(firstItem.experience) && firstItem.experience.length > 0) ||
+          (Array.isArray(firstItem.experiences) && firstItem.experiences.length > 0) ||
+          (Array.isArray(firstItem.positions) && firstItem.positions.length > 0))
+      )
+
+      if (isQuotaHit || !hasBasicFields) {
+        console.warn(`[Apify Quota/Limit Reached]: Free 50-run limit hit on current token (${tokenMask}): ${itemStr.slice(0, 160)}`)
+        throw new Error(`Apify quota or invalid dataset returned on token ${tokenMask}`)
+      }
+
+      // Valid profile extracted successfully
+      return mapApifyProfileToCanonical(firstItem, formattedUrl, actorId)
+    } catch (err) {
+      console.warn(`[Apify Token Failed]: Token ${i + 1}/${tokens.length} (${tokenMask}) failed: ${err.message}. Trying next token...`)
     }
-
-    return mapApifyProfileToCanonical(items[0], formattedUrl, actorId)
-  } catch (error) {
-    console.error('[Apify LinkedIn Scraper Error]:', error.message)
-    throw new Error(error.message.includes('LinkedIn Scraping Error') ? error.message : `LinkedIn Scraping Error: ${error.message}`)
   }
+
+  console.warn('[Apify Exhausted]: All Apify tokens failed or hit quota limits. Falling back to Resume-Bridged profile.')
+  return null
 }
+

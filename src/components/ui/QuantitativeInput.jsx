@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Calendar, CalendarDots, Sparkle } from '@phosphor-icons/react'
+import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function QuantitativeInput({ value, onChange, error, step, onNext }) {
   // Parse incoming value into { raw, period, is_na }
@@ -49,9 +50,8 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
       return
     }
 
-    const cleaned = String(newRaw).replace(/[^0-9.]/g, '')
-    const num = parseFloat(cleaned)
-    const hasNum = !isNaN(num) && cleaned !== ''
+    const num = parseRangeOrNumber(newRaw, NaN)
+    const hasNum = !isNaN(num) && String(newRaw).trim() !== ''
 
     let perWeek = null
     let perMonth = null
@@ -117,7 +117,7 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
     : []
 
   // Normalized preview text
-  const cleanedNum = parseFloat(String(rawVal).replace(/[^0-9.]/g, ''))
+  const cleanedNum = parseRangeOrNumber(rawVal, NaN)
   const showConversion = !isNA && !isNaN(cleanedNum) && cleanedNum > 0
 
   return (
