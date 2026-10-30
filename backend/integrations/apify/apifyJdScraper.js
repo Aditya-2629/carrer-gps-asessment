@@ -8,11 +8,30 @@
  */
 
 import { ApifyClient } from 'apify-client'
+import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 
 export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
 export const DEFAULT_MAX_CANDIDATES = 35
 export const DEFAULT_TIMEOUT_MS = 120000
 export const DEFAULT_MAX_RETRIES = 3
+
+/**
+ * Scrapes live job descriptions using SmartKeyPool rotation with sticky success.
+ */
+export async function scrapeLiveJobDescriptions(searchParams, options = {}) {
+  return await apifyKeyPool.executeWithRetry(async (activeToken) => {
+    const timeoutMs = options.timeoutMs || 45000
+    const client = new ApifyClient({
+      token: activeToken,
+      timeoutSecs: Math.round(timeoutMs / 1000),
+    })
+
+    const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
+    const run = await client.actor(actorId).call(searchParams)
+    const { items } = await client.dataset(run.defaultDatasetId).listItems()
+    return items || []
+  }, { maxAttempts: options.maxRetries || 3 })
+}
 
 /**
  * Builds a search query and keyword specification for Apify.
@@ -71,7 +90,6 @@ export function buildSearchSpecification({
  * @returns {Promise<{ candidates: Array<Object>, totalFetched: number, actorId: string, durationMs: number }>}
  */
 export async function fetchMarketJdCandidates(searchSpec, options = {}) {
-  const token = process.env.APIFY_API_TOKEN
   const actorId =
     options.actorId ||
     process.env.APIFY_JOB_ACTOR_ID ||
@@ -92,20 +110,18 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     parseInt(process.env.MARKET_JD_REFRESH_TIMEOUT_MS || '120000', 10) ||
     DEFAULT_TIMEOUT_MS
 
-  if (!token) {
-    console.warn('[Apify JdScraper] APIFY_API_TOKEN is not configured in backend/.env.')
+  if (apifyKeyPool.getKeyCount() === 0) {
+    console.warn('[Apify JdScraper] No Apify tokens configured in environment.')
     return {
       candidates: [],
       totalFetched: 0,
       actorId,
       durationMs: 0,
-      warning: 'APIFY_API_TOKEN not configured.',
+      warning: 'No Apify token configured.',
     }
   }
 
-  const client = new ApifyClient({ token, timeoutSecs: Math.round(timeoutMs / 1000) })
   const startTime = Date.now()
-  let lastError = null
 
   // Universal input contract adaptable across LinkedIn/Indeed job scrapers (e.g. bebity/linkedin-jobs-scraper)
   const actorInput = {
@@ -126,65 +142,43 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     under10Applicants: false,
   }
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`[Apify JdScraper] Starting Actor run "${actorId}" (attempt ${attempt}/${maxRetries}) for query: "${searchSpec.query}"...`)
+  return await apifyKeyPool.executeWithRetry(async (activeToken) => {
+    const client = new ApifyClient({ token: activeToken, timeoutSecs: Math.round(timeoutMs / 1000) })
+    console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${searchSpec.query}"...`)
 
-      // Run actor and wait for finish with bounded timeout and maxItems limit
-      const run = await client.actor(actorId).call(actorInput, {
-        waitSecs: Math.round(timeoutMs / 1000),
-        maxItems: maxCandidates,
-      })
+    const run = await client.actor(actorId).call(actorInput, {
+      waitSecs: Math.round(timeoutMs / 1000),
+      maxItems: maxCandidates,
+    })
 
-      if (!run || !run.defaultDatasetId) {
-        throw new Error(`Apify run failed or returned no datasetId. Status: ${run?.status}`)
-      }
-
-      const { items } = await client.dataset(run.defaultDatasetId).listItems({
-        limit: maxCandidates,
-      })
-
-      const durationMs = Date.now() - startTime
-      console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
-
-      return {
-        candidates: items || [],
-        totalFetched: items?.length || 0,
-        actorId,
-        runId: run.id,
-        durationMs,
-      }
-    } catch (err) {
-      lastError = err
-      const isRetryable =
-        err.statusCode === 429 ||
-        err.statusCode === 500 ||
-        err.statusCode === 502 ||
-        err.statusCode === 503 ||
-        err.message?.includes('timeout') ||
-        err.message?.includes('network')
-
-      console.warn(`[Apify JdScraper] Attempt ${attempt} failed: ${err.message}`)
-
-      if (!isRetryable || attempt === maxRetries) {
-        break
-      }
-
-      // Exponential backoff with jitter
-      const delayMs = Math.min(10000, Math.pow(2, attempt) * 1000 + Math.random() * 500)
-      await new Promise((res) => setTimeout(res, delayMs))
+    if (!run || !run.defaultDatasetId) {
+      throw new Error(`Apify run failed or returned no datasetId. Status: ${run?.status}`)
     }
-  }
 
-  const durationMs = Date.now() - startTime
-  throw new Error(`Apify scraping failed after ${maxRetries} attempts (${durationMs}ms): ${lastError?.message}`)
+    const { items } = await client.dataset(run.defaultDatasetId).listItems({
+      limit: maxCandidates,
+    })
+
+    const durationMs = Date.now() - startTime
+    console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
+
+    return {
+      candidates: items || [],
+      totalFetched: items?.length || 0,
+      actorId,
+      runId: run.id,
+      durationMs,
+    }
+  }, { maxAttempts: maxRetries })
 }
 
 export default {
   buildSearchSpecification,
   fetchMarketJdCandidates,
+  scrapeLiveJobDescriptions,
   DEFAULT_APIFY_JOB_ACTOR,
   DEFAULT_MAX_CANDIDATES,
   DEFAULT_TIMEOUT_MS,
   DEFAULT_MAX_RETRIES,
 }
+

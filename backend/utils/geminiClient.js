@@ -6,52 +6,24 @@ import {
   markModelPermanentlyUnavailable,
   isModelPermanentlyUnavailable,
 } from '../ai/gateway/geminiModelDiscovery.js'
+import { geminiKeyPool } from './smartKeyPool.js'
 
 /**
- * Collects and deduplicates all available Gemini API keys from environment variables.
- * Supports:
- * - GEMINI_API_KEYS (comma or semicolon separated list: "key1,key2,key3")
- * - GEMINI_API_KEY
- * - GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3, etc.
- * - GEMINI_API_KEY_FALLBACK, GEMINI_API_KEY_BACKUP
+ * Collects and deduplicates all available Gemini API keys from environment variables
+ * via the unified SmartKeyPool singleton.
  */
 export const getAllGeminiKeys = () => {
-  const keys = []
-
-  // 1. Check GEMINI_API_KEYS list
-  if (process.env.GEMINI_API_KEYS) {
-    const splitKeys = process.env.GEMINI_API_KEYS.split(/[,;]/).map((k) => k.trim())
-    keys.push(...splitKeys)
-  }
-
-  // 2. Check primary GEMINI_API_KEY
-  if (process.env.GEMINI_API_KEY) {
-    keys.push(process.env.GEMINI_API_KEY.trim())
-  }
-
-  // 3. Check indexed or named fallback keys
-  const fallbackEnvNames = [
-    'GEMINI_API_KEY_1',
-    'GEMINI_API_KEY_2',
-    'GEMINI_API_KEY_3',
-    'GEMINI_API_KEY_4',
-    'GEMINI_API_KEY_5',
-    'GEMINI_API_KEY_FALLBACK',
-    'GEMINI_API_KEY_FALLBACK_1',
-    'GEMINI_API_KEY_FALLBACK_2',
-    'GEMINI_API_KEY_BACKUP',
-  ]
-
-  for (const envName of fallbackEnvNames) {
-    if (process.env[envName] && process.env[envName].trim()) {
-      keys.push(process.env[envName].trim())
-    }
-  }
-
-  // Deduplicate and filter out empty strings
-  const uniqueKeys = Array.from(new Set(keys.filter(Boolean)))
-  return uniqueKeys
+  return geminiKeyPool.getAllKeys()
 }
+
+/**
+ * Executes a task using Gemini API with automatic key retry & rotation via SmartKeyPool.
+ */
+export async function callGeminiApiWithRetry(taskFn, options = {}) {
+  return await geminiKeyPool.executeWithRetry(taskFn, options)
+}
+
+export { geminiKeyPool }
 
 // Track exhausted keys with cooldown timestamps: apiKey -> expiresAt (for 401/402 global key failures)
 export const keyExhaustionMap = new Map()
@@ -527,6 +499,7 @@ export const generateContentWithFallback = async ({
           // Clear exhaustion on successful key usage
           keyExhaustionMap.delete(currentKey)
           keyModelQuotaMap.delete(`${currentKey}:${currentModel}`)
+          geminiKeyPool.reportSuccess(currentKey)
 
           console.log(`[Gemini] Success with key index #${keyIdx + 1} on model: ${currentModel} (${durationMs}ms)`)
 
@@ -569,6 +542,7 @@ export const generateContentWithFallback = async ({
                 `[Gemini] ${keyDisplay} marked globally exhausted (${reason}). Rotating to next API key...`
               )
               keyExhaustionMap.set(currentKey, Date.now() + cooldownMs)
+              geminiKeyPool.reportFailure(currentKey, reason)
 
               AITelemetry.logAttempt?.({
                 requestId: reqId,
@@ -610,6 +584,7 @@ export const generateContentWithFallback = async ({
             } else {
               // Key-specific quota on this model
               keyModelQuotaMap.set(`${currentKey}:${currentModel}`, expiresAt)
+              geminiKeyPool.reportFailure(currentKey, 'Quota/RateLimit')
               console.warn(
                 `[Gemini] ${keyDisplay} marked exhausted for model "${currentModel}" (cooldown ${Math.round(cooldownMs / 1000)}s). Rotating to next API key...`
               )
@@ -805,27 +780,24 @@ export const generateContentWithFallback = async ({
 export const embedContentWithFallback = async (text, modelName = 'text-embedding-004') => {
   if (!text || !text.trim()) return null
 
-  const keys = getAllGeminiKeys()
-  if (keys.length === 0) {
+  if (geminiKeyPool.getKeyCount() === 0) {
     console.warn('[Gemini Embedding] No GEMINI_API_KEY found.')
     return null
   }
 
-  for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
-    const currentKey = keys[keyIdx]
-    try {
-      const genAI = new GoogleGenerativeAI(currentKey)
+  try {
+    return await geminiKeyPool.executeWithRetry(async (activeKey) => {
+      const genAI = new GoogleGenerativeAI(activeKey)
       const embeddingModel = genAI.getGenerativeModel({ model: modelName })
       const result = await embeddingModel.embedContent(text.slice(0, 2000))
 
       if (result?.embedding?.values && result.embedding.values.length > 0) {
         return result.embedding.values
       }
-    } catch (err) {
-      console.warn(`[Gemini Embedding] Key index #${keyIdx + 1} error: ${err.message}`)
-    }
+      throw new Error('Empty embedding values returned')
+    })
+  } catch (err) {
+    console.warn(`[Gemini Embedding] All API keys failed for embedding generation: ${err.message}`)
+    return null
   }
-
-  console.error('[Gemini Embedding] All API keys failed for embedding generation.')
-  return null
 }
