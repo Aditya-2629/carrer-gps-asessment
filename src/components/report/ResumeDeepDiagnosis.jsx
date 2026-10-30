@@ -11,6 +11,10 @@ import {
   Copy,
   Check,
   FileText,
+  DownloadSimple,
+  Briefcase,
+  Code,
+  RocketLaunch,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -81,8 +85,11 @@ function SectionHeader({ icon, title, accent, onOpenReport }) {
   )
 }
 
-export default function ResumeDeepDiagnosis({ resumeAgent }) {
+export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData }) {
   const theme = useAppStore((s) => s.theme)
+  const storeReportData = useAppStore((s) => s.reportData)
+  const reportData = propReportData || storeReportData || {}
+
   if (!resumeAgent?.dashboard && !resumeAgent?.issues?.length) return null
 
   const dashboard = resumeAgent.dashboard
@@ -92,6 +99,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
   const snapshot = resumeAgent.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
+
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
+  const [copiedBlueprintBullet, setCopiedBlueprintBullet] = useState(false)
 
   const rawSummaryOpt = resumeAgent.summaryOptimization || null
   const summaryOptimization = rawSummaryOpt
@@ -107,6 +117,103 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
     navigator.clipboard.writeText(summaryOptimization.rewrittenSummary)
     setCopiedSummary(true)
     setTimeout(() => setCopiedSummary(false), 2000)
+  }
+
+  const targetRole = decodeHtmlEntities(
+    snapshot.targetRole ||
+    reportData?.targetRole ||
+    reportData?.user_answers?.targetRole ||
+    'Data Analyst'
+  )
+
+  const verifiedKeywords = (resumeAgent?.keywordAlignment?.verifiedKeywords || []).map((k) => (typeof k === 'string' ? k : k.keyword || k.name)).filter(Boolean)
+  const coreSkills = (snapshot.coreSkills || snapshot.topSkills || []).map((s) => (typeof s === 'string' ? s : s.name)).filter(Boolean)
+  const topHardSkills = Array.from(new Set([...verifiedKeywords, ...coreSkills])).map(decodeHtmlEntities).slice(0, 4)
+  const displayHardSkills = topHardSkills.length > 0 ? topHardSkills : ['SQL', 'Python']
+  const searchSkillsLabel = displayHardSkills.slice(0, 2).join(' & ')
+  const linkedinSearchUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`("${targetRole}") AND ("${displayHardSkills.slice(0, 2).join('" OR "')}") AND ("Hiring" OR "Lead" OR "Manager")`)}`
+
+  const missingKeywords = [
+    ...(resumeAgent?.keywordAlignment?.missingKeywords || []),
+    ...(resumeAgent?.keywordAlignment?.missingFromResume || []),
+    ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
+  ].map((s) => (typeof s === 'string' ? s : s.keyword || s.name || '')).filter(Boolean)
+
+  const hasMissingBigQuery = missingKeywords.some((k) => /bigquery|gcp/i.test(k))
+  const isSWEOrCloud = /software|full stack|backend|cloud|devops|architect/i.test(targetRole)
+
+  let projectBlueprint = {
+    title: 'Automated ELT Pipeline with Snowflake & dbt Core',
+    gapTool: 'Snowflake & dbt Core',
+    goal: 'Deploy an automated ELT pipeline transforming raw event data into decision-ready star schemas using Snowflake & dbt Core.',
+    architecture: 'PostgreSQL / CSV -> S3 -> Snowflake -> dbt Core Models -> Power BI Executive View',
+    bullet: 'Engineered end-to-end ELT pipeline with dbt Core and Snowflake across 500K+ transactional records, automating dimensional modeling and reducing report refresh latency by 65%.',
+  }
+
+  if (hasMissingBigQuery) {
+    projectBlueprint = {
+      title: 'Serverless Analytics Warehouse with Google BigQuery',
+      gapTool: 'Google BigQuery',
+      goal: 'Architect a serverless analytics warehouse with Google BigQuery, partitioning and clustering high-volume datasets.',
+      architecture: 'Cloud Storage -> BigQuery Partitioned Tables -> SQL Views -> Looker Studio Dashboard',
+      bullet: 'Architected serverless BigQuery data warehouse with date-partitioned tables, reducing ad-hoc query billing costs by 40% while accelerating executive dashboard render times to under 3 seconds.',
+    }
+  } else if (isSWEOrCloud) {
+    projectBlueprint = {
+      title: 'High-Concurrency Microservice with FastAPI & Docker',
+      gapTool: 'FastAPI & Docker',
+      goal: 'Containerize and deploy a high-concurrency RESTful microservice with FastAPI, Redis caching, and Docker.',
+      architecture: 'FastAPI Endpoints -> Redis Cache Layer -> PostgreSQL / ChromaDB -> Docker Container',
+      bullet: 'Containerized and deployed asynchronous FastAPI service with Redis caching in Docker, supporting sub-50ms p95 latency across concurrent search endpoints.',
+    }
+  }
+
+  const handleCopyBlueprintBullet = (bulletText) => {
+    if (!bulletText) return
+    navigator.clipboard.writeText(bulletText)
+    setCopiedBlueprintBullet(true)
+    setTimeout(() => setCopiedBlueprintBullet(false), 2000)
+  }
+
+  const handleDownloadDocx = async () => {
+    try {
+      setIsDownloadingDocx(true)
+      const apiBase = import.meta.env.VITE_API_URL || '/api'
+      const storeUserId = useAppStore.getState().userId
+      const storeEmail = useAppStore.getState().email
+      const resolvedUserId = reportData?.userId || reportData?._id || storeUserId
+      const resolvedEmail = reportData?.user_answers?.email || reportData?.email || storeEmail
+
+      let downloadUrl = ''
+      if (resolvedUserId) {
+        downloadUrl = `${apiBase}/assessment/user/${resolvedUserId}/download-resume-docx`
+      } else if (resolvedEmail) {
+        downloadUrl = `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(resolvedEmail)}`
+      } else {
+        downloadUrl = `${apiBase}/assessment/download-resume-docx`
+      }
+
+      const response = await fetch(downloadUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download resume (status ${response.status})`)
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const safeCandidateName = (snapshot.name || 'Candidate').replace(/[^a-zA-Z0-9]/g, '_')
+      a.download = `${safeCandidateName}_Tailored_ATS_Resume.docx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error downloading docx:', err)
+      alert('Unable to generate resume docx at this moment. Please try again.')
+    } finally {
+      setIsDownloadingDocx(false)
+    }
   }
 
   // Filter out issues that are already rendered inline on bullet cards in ResumeBulletAudit
@@ -292,6 +399,156 @@ export default function ResumeDeepDiagnosis({ resumeAgent }) {
             </ul>
           </div>
         )}
+      </div>
+
+      {/* ── Market Execution Suite (ATS Resume .docx + Direct Sourcing + 1-Week Project Blueprint) ── */}
+      <div className="bg-gradient-to-br from-indigo-950/20 via-[var(--surface-card)] to-slate-900/10 border border-indigo-500/30 rounded-2xl p-6 space-y-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-default)] pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+              <RocketLaunch size={22} weight="duotone" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-[var(--text-primary)] tracking-tight">
+                  Market Execution Suite & Tailored ATS Resume
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
+                  Live Action Engine
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Turn your diagnosis into immediate market traction: download your pre-tailored Word resume, source hiring managers, and close skill gaps.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* Action Item 1: Download Tailored ATS Resume (.docx) */}
+          <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-indigo-500/40 transition-all">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <FileText size={16} weight="bold" /> Tailored ATS Resume (.docx)
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/25">
+                  Single-Column ATS
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                Pre-compiled with your verified experience, recruiter-rewritten Google XYZ bullet achievements, calibrated technical keywords, and executive summary. Ready to apply or customize in Microsoft Word.
+              </p>
+              <div className="pt-1">
+                <span className="inline-block text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-md">
+                  ATS Single-Column • Pre-Engineered with XYZ Metrics • Instant Word File
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleDownloadDocx}
+              disabled={isDownloadingDocx}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer"
+            >
+              <DownloadSimple size={15} weight="bold" />
+              <span>{isDownloadingDocx ? 'Generating Word Document…' : 'Download Tailored Resume (.docx)'}</span>
+            </button>
+          </div>
+
+          {/* Action Item 2: 1-Click Live LinkedIn Hiring Manager Direct Search */}
+          <div className="bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-[#0a66c2]/40 transition-all">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#0a66c2] flex items-center gap-1.5 uppercase tracking-wider">
+                  <Briefcase size={16} weight="bold" /> Active Hiring Manager Search
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#0a66c2]/10 text-[#0a66c2] border border-[#0a66c2]/25">
+                  Direct Boolean Query
+                </span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                Skip public job-board black holes. Target active Engineering Directors, Team Leads, and Hiring Managers actively recruiting for <strong className="text-[var(--text-primary)]">{targetRole}</strong> with your verified stack (<strong className="text-indigo-400">{searchSkillsLabel}</strong>).
+              </p>
+              <div className="text-[11px] font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] p-2 rounded-lg border border-[var(--border-default)] truncate">
+                {`("${targetRole}") AND ("${displayHardSkills.slice(0, 2).join('" OR "')}") AND ("Hiring" OR "Lead" OR "Manager")`}
+              </div>
+            </div>
+
+            <a
+              href={linkedinSearchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-[#0a66c2] hover:bg-[#004182] text-white flex items-center justify-center gap-2 shadow-xs transition-all"
+            >
+              <span>Search Active Hiring Managers on LinkedIn</span>
+              <ArrowSquareOut size={14} weight="bold" />
+            </a>
+          </div>
+        </div>
+
+        {/* Action Item 3: 1-Week Skill Gap Project Blueprint */}
+        <div className="bg-[var(--surface-base)] border border-emerald-500/25 rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/25">
+                <Code size={14} weight="bold" />
+              </div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                1-Week Skill Gap Project Blueprint: {projectBlueprint.title}
+              </h4>
+            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 self-start sm:self-auto">
+              Fast-Track Market Proof
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-2">
+              <div>
+                <span className="font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[10px] block mb-0.5">
+                  Project Goal:
+                </span>
+                <p className="text-[var(--text-primary)] leading-relaxed font-medium">
+                  "{projectBlueprint.goal}"
+                </p>
+              </div>
+              <div>
+                <span className="font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[10px] block mb-0.5">
+                  Architecture Pipeline:
+                </span>
+                <div className="font-mono text-[11px] p-2 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] text-indigo-400 break-words">
+                  {projectBlueprint.architecture}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-[var(--text-secondary)] uppercase tracking-wider text-[10px]">
+                    Ready-to-Paste Resume Bullet (Post Completion):
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyBlueprintBullet(projectBlueprint.bullet)}
+                    className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    {copiedBlueprintBullet ? <Check size={11} weight="bold" /> : <Copy size={11} weight="bold" />}
+                    {copiedBlueprintBullet ? 'Copied!' : 'Copy Bullet'}
+                  </button>
+                </div>
+                <div className="p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-[var(--text-primary)] text-xs leading-relaxed italic">
+                  • {projectBlueprint.bullet}
+                </div>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                Tip: Build this over a weekend, commit the code to GitHub with an architectural README diagram, and link it directly in your Projects and LinkedIn Featured sections.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}

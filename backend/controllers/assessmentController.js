@@ -10,6 +10,7 @@ import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
+import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper to balance unclosed opening parentheses before a final period
@@ -710,4 +711,73 @@ export const downloadReportPdf = async (req, res) => {
     return res.status(500).json({ message: 'Failed to generate report PDF.' })
   }
 }
+
+export const downloadAtsResumeDocx = async (req, res) => {
+  try {
+    const userId = req.params?.userId || req.query?.userId
+    const email = req.query?.email
+
+    const query = userId && mongoose.Types.ObjectId.isValid(userId)
+      ? { _id: userId }
+      : email
+      ? { email: email.toLowerCase().trim() }
+      : userId
+      ? { _id: userId }
+      : null
+
+    if (!query) {
+      return res.status(400).json({ message: 'User ID or Email is required.' })
+    }
+
+    const user = await User.findOne(query)
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    const aiReport = user.aiReport || {}
+    const ra = aiReport.resume_agent || {}
+    const canonical = ra.canonicalResume || user.resumeJson || {}
+
+    // Synchronize bullet audits with corporate experiences so rewritten bullets are embedded
+    const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
+    const auditMap = new Map(bulletAudit.map((b) => [b.bulletId, b.rewrite || b.text]))
+
+    const mergedExperiences = (canonical.experience || canonical.experiences || []).map((exp) => ({
+      ...exp,
+      bullets: (exp.bullets || []).map((b) => {
+        const bId = typeof b === 'object' ? b.id : null
+        return auditMap.get(bId) || (typeof b === 'object' ? b.text : b)
+      }),
+    }))
+
+    const candidateName =
+      canonical.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      user.answers?.name ||
+      user.name ||
+      'Candidate'
+
+    const buffer = await generateAtsResumeDocx({
+      candidateName,
+      targetRole: canonical.candidate?.targetRole || user.answers?.targetRole || 'Professional',
+      contact: canonical.candidate?.contact || canonical.contact || user.answers || {},
+      summaryText: ra.summaryOptimization?.rewrittenSummary || ra.overallReview?.summary || '',
+      experiences: mergedExperiences,
+      projects: canonical.projects || [],
+      skills: (ra.keywordAlignment?.verifiedKeywords || []).map((k) => k.keyword || k).concat(canonical.skills || []),
+      education: canonical.education || [],
+      certifications: canonical.certifications || [],
+    })
+
+    const sanitizedFilename = `${candidateName.replace(/[^a-zA-Z0-9]/g, '_')}_Tailored_ATS_Resume.docx`
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`)
+    return res.send(buffer)
+  } catch (err) {
+    console.error('[DownloadDocx Error]:', err)
+    return res.status(500).json({ message: 'Failed to generate tailored resume document', error: err.message })
+  }
+}
+
 

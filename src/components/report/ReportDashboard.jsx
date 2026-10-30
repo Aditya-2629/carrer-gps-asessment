@@ -1148,7 +1148,7 @@ function ReportDashboardContent() {
 
         {/* SECTION 3: AI RESUME DEEP DIAGNOSIS & REWRITES (MUST BE VISIBLE!) */}
         {reportData.resume_agent && (
-          <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} />
+          <ResumeDeepDiagnosis resumeAgent={reportData.resume_agent} reportData={reportData} />
         )}
 
         {/* SECTION 4: AI LINKEDIN PROFILE DIAGNOSIS & REWRITES (MUST BE VISIBLE!) */}
