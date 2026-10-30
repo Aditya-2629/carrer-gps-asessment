@@ -83,8 +83,10 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
     // 5. Build deterministic MarketProfile
     const marketProfile = buildMarketProfile(bucketKey, selectedJds)
 
-    // 6. Next version number calculation
-    const nextVersion = (bucket.activeVersion || 0) + 1
+    // 6. Next version number calculation (Safe against existing DB records)
+    const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey }).sort({ version: -1 })
+    const maxExistingVersion = latestVersionDoc ? latestVersionDoc.version : 0
+    const nextVersion = Math.max(bucket.activeVersion || 0, maxExistingVersion) + 1
 
     // 7. Create new JobMarketVersion (atomic staging)
     const newVersionDoc = await JobMarketVersion.create({

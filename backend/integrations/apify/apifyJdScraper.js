@@ -128,14 +128,16 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     queries: [searchSpec.query],
     query: searchSpec.query,
     title: searchSpec.query,
-    rows: maxCandidates,            // MUST BE 35, NEVER 0!
-    maxRowsPerUrl: maxCandidates,   // MUST BE 35, NEVER 0!
+    titles: [searchSpec.query],       // Modern bebity schema
+    rows: maxCandidates,
+    maxRowsPerUrl: maxCandidates,
     maxRows: maxCandidates,
     limit: maxCandidates,
     maxItems: maxCandidates,
     location: 'United States',
+    locations: ['United States'],     // Modern bebity schema
     country: 'us',
-    companyProfile: false,          // Disables 1,000s of company sub-crawls!
+    companyProfile: false,
     enrichCompany: false,
     scrapeCompanyDetails: false,
     easyApply: false,

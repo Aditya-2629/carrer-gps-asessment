@@ -389,6 +389,11 @@ export const generateContentWithFallback = async ({
   const makeGenAI = _clientFactory || ((k) => new GoogleGenerativeAI(k))
   const waitFn = _sleepFn || sleep
 
+  const resolveAlias = (m) => {
+    if (m === 'gemini-3.1-pro') return 'gemini-3.1-pro-preview'
+    return m
+  }
+
   const cleanRequestedModel = getCleanModelName(modelName)
   const resolvedModelName = resolveAlias(cleanRequestedModel)
   const resolvedFallbacks = (fallbackModels || [])
