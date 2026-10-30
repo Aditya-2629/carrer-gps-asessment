@@ -66,16 +66,15 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
     const scrapeResult = await fetchMarketJdCandidates(searchSpec, options)
     const rawCandidates = scrapeResult.candidates || []
 
-    // 4. Clean, validate quality, deduplicate, and select top 15
-    const TARGET_JD_COUNT = parseInt(process.env.MARKET_JD_TARGET_COUNT || '15', 10)
+    // 4. Clean, validate quality, deduplicate, and select top 100 JDs
+    const TARGET_JD_COUNT = parseInt(process.env.MARKET_JD_TARGET_COUNT || '100', 10)
     const processed = processAndSelectTopJds(rawCandidates, bucket.roleKey, TARGET_JD_COUNT)
     const selectedJds = processed.selected
 
     if (selectedJds.length < TARGET_JD_COUNT) {
-      console.warn(`[MarketJdJobs] Retrieved only ${selectedJds.length} valid JDs for ${bucketKey} (target: ${TARGET_JD_COUNT}).`)
+      console.warn(`[MarketJdJobs] Retrieved ${selectedJds.length} valid JDs for ${bucketKey} (target: ${TARGET_JD_COUNT}).`)
     }
 
-    // Check if we have at least 1 valid JD (or 5 for full health)
     if (selectedJds.length === 0) {
       throw new Error(`No valid market JDs could be extracted from candidate pool (${scrapeResult.totalFetched} items fetched).`)
     }
@@ -105,7 +104,7 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
         isValid: true,
         checkedAt: new Date(),
         jobCount: selectedJds.length,
-        errors: selectedJds.length < 5 ? [`Only ${selectedJds.length}/5 valid JDs retrieved`] : [],
+        errors: selectedJds.length < TARGET_JD_COUNT ? [`Partial sample: ${selectedJds.length}/${TARGET_JD_COUNT} JDs`] : [],
       },
       isArchived: false,
     })
