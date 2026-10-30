@@ -48,7 +48,7 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     You are an expert Resume Parser and ATS Specialist.
     Analyze the attached resume document and convert it into a structured JSON object.
     
-    CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks ```json, NO surrounding text).
+    CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks, NO surrounding text).
     
     CRITICAL PARSING RULES:
     1. STRICTLY SEPARATE EXPERIENCES: A company name, job title, location, or employment date range must NEVER be placed inside the "bullets" array of any experience.

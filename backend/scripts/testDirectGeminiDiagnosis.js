@@ -2,7 +2,8 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import packageJson from '../package.json' assert { type: 'json' }
+import fs from 'fs'
+const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../.env') })
