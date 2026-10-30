@@ -24,16 +24,31 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
   const answers = storeReport?.user_answers || formData || {}
 
   // 1. Extract Candidate Real Numbers across all 8 funnel dimensions
+  const parseFunnelCount = (val, fallback = 0) => {
+    if (typeof val === 'number' && !isNaN(val)) {
+      if (val > 1000) return Math.min(Math.round(val / 100), 250)
+      return val
+    }
+    if (!val) return fallback
+    const cleaned = String(val).replace(/[^0-9]/g, '')
+    const num = parseInt(cleaned, 10)
+    if (isNaN(num)) return fallback
+    // Safety cap: single candidate 90d applications over 1000 is almost always a data glitch or concatenated value
+    if (num > 1000) return Math.min(Math.round(num / 100), 250)
+    return num
+  }
+
   const f90 = answers.funnel90d || {}
-  const apps30d = extractQuantMetric(answers.apps30d ?? (answers.appsWeek ? answers.appsWeek * 4.33 : null), 20, 'month').rawNum
-  const totalApps90d = Number(f90.applications90d || apps30d * 3 || 60)
-  const screens = Number(f90.recruiterScreens ?? f90.screens ?? answers.interviews ?? answers.humanScreen ?? 0)
-  const assessments = Number(f90.assessments ?? 0)
-  const aiInterviews = Number(f90.aiInterviews ?? 0)
+  const apps30dRaw = extractQuantMetric(answers.apps30d ?? (answers.appsWeek ? answers.appsWeek * 4.33 : null), 20, 'month').rawNum
+  const apps30d = parseFunnelCount(apps30dRaw, 20)
+  const totalApps90d = parseFunnelCount(f90.applications90d || (apps30d * 3), 60)
+  const screens = parseFunnelCount(f90.recruiterScreens ?? f90.screens ?? answers.interviews ?? answers.humanScreen ?? 0, 0)
+  const assessments = parseFunnelCount(f90.assessments ?? 0, 0)
+  const aiInterviews = parseFunnelCount(f90.aiInterviews ?? 0, 0)
   const combinedScreens = screens + assessments + aiInterviews
-  const technicalRounds = Number(f90.technicalRounds ?? f90.assessments ?? 0)
-  const finalRounds = Number(f90.finalRounds ?? f90.finals ?? 0)
-  const offers = Number(f90.offers ?? 0)
+  const technicalRounds = parseFunnelCount(f90.technicalRounds ?? f90.assessments ?? 0, 0)
+  const finalRounds = parseFunnelCount(f90.finalRounds ?? f90.finals ?? 0, 0)
+  const offers = parseFunnelCount(f90.offers ?? 0, 0)
   const joiningStatus = String(f90.joiningStatus || answers.joiningStatus || 'No Offer Yet')
 
   // 2. Conversion Velocity Rates

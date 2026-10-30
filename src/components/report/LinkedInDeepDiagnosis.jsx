@@ -199,13 +199,18 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const isBlankProfile = !hasUserLinkedinUrl && !linkedinAgent?.dataAvailable && !linkedinAgent?.inferredFromResume
 
   const targetRole =
+    reportData?.target_role ||
+    reportData?.user_answers?.targetRole ||
     linkedinAgent?.targetRole ||
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.resume_agent?.candidateSnapshot?.targetRole ||
     resumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
     resumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
     reportData?.resume_json?.target_role ||
-    'Data Analyst'
+    'Professional'
+
+  const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web|cloud|devops/i.test(targetRole)
+  const isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
   // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
@@ -229,17 +234,40 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   }
   const yoe = String(yoeNum).replace(/\++$/, '') || '3'
 
-  const rawCandidateSkills =
+  // Extract actual candidate skills from canonical resume or resume_agent
+  const candidateSkillsPool = (
+    reportData?.resume_agent?.canonicalResume?.skills ||
     reportData?.resume_agent?.candidateSnapshot?.coreSkills ||
-    reportData?.resume_json?.top_skills ||
     reportData?.resume_json?.skills ||
+    reportData?.resume_json?.top_skills ||
+    reportData?.skills ||
     []
-  const cleanCandidateSkills = rawCandidateSkills.slice(0, 5).map(formatSkillName).filter(Boolean)
-  const coreSkillList = cleanCandidateSkills.length >= 3 ? cleanCandidateSkills.slice(0, 3) : ['SQL', 'Python', 'Power BI']
+  ).map((s) => (typeof s === 'string' ? s.trim() : (s?.name || ''))).filter(Boolean)
+
+  const cleanCandidateSkills = candidateSkillsPool.slice(0, 8).map(formatSkillName).filter(Boolean)
+
+  // Role-aware fallbacks if candidate skills are empty
+  const defaultSkills = isSoftwareRole
+    ? ['Python', 'JavaScript', 'React', 'Node.js', 'AWS', 'Docker']
+    : isDataRole
+      ? ['SQL', 'Python', 'Power BI', 'Tableau', 'Excel']
+      : ['Strategy', 'Project Management', 'Stakeholder Management', 'Process Optimization']
+
+  const effectiveSkills = cleanCandidateSkills.length >= 3 ? cleanCandidateSkills : defaultSkills
+  const coreSkillList = effectiveSkills.slice(0, 3)
   const skillsStr = coreSkillList.join(', ')
 
-  const fallbackHeadline = `${targetRole} | ${skillsStr} | Enterprise Analytics & Decision Systems`
-  const fallbackAbout = `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines. Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`
+  const fallbackHeadline = isSoftwareRole
+    ? `${targetRole} | ${skillsStr} | Scalable Systems & Cloud Architecture`
+    : isDataRole
+      ? `${targetRole} | ${skillsStr} | Enterprise Analytics & Data Strategy`
+      : `${targetRole} | ${skillsStr} | Driving Operational Excellence`
+
+  const fallbackAbout = isSoftwareRole
+    ? `${targetRole} with ${yoe}+ years of experience building high-performance, scalable applications and distributed systems. Core stack: ${effectiveSkills.slice(0, 5).join(', ')}.`
+    : isDataRole
+      ? `${targetRole} with ${yoe}+ years of experience driving quantifiable impact through technology and analytics. Core competencies: ${effectiveSkills.slice(0, 5).join(', ')}.`
+      : `${targetRole} with ${yoe}+ years of experience driving operational impact and cross-functional leadership. Core competencies: ${effectiveSkills.slice(0, 5).join(', ')}.`
 
   const headline = linkedinAgent?.optimizations?.headlines?.[0]?.headline || fallbackHeadline
   const aboutText = linkedinAgent?.optimizations?.aboutRewrite?.fullText ||
@@ -295,27 +323,49 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
     },
     {
-      headline: `${targetRole} @ Scale | Delivering 40%+ Reporting Turnaround Efficiency & Modern BI Systems`,
+      headline: isSoftwareRole
+        ? `${targetRole} @ Scale | Delivering High-Availability Distributed Systems & Modern Cloud Infrastructure`
+        : isDataRole
+        ? `${targetRole} @ Scale | Delivering 40%+ Reporting Turnaround Efficiency & Modern BI Systems`
+        : `${targetRole} @ Scale | Driving Operational Velocity & Strategic Execution`,
       formula: 'Impact-Driven',
       whyItWorks: 'Anchors on measurable operational velocity and architecture outcomes to differentiate from generic applicant pool.',
     },
     {
-      headline: `Specialist in Enterprise Analytics, Scalable Data Pipelines & Executive Dashboards`,
+      headline: isSoftwareRole
+        ? `Specialist in Cloud Architecture, Microservices & High-Throughput APIs`
+        : isDataRole
+        ? `Specialist in Enterprise Analytics, Scalable Data Pipelines & Executive Dashboards`
+        : `Specialist in Strategic Operations, Cross-Functional Execution & Agile Delivery`,
       formula: 'Specialist',
       whyItWorks: 'Appeals to specialized hiring managers seeking deep domain expertise and reporting architecture.',
     },
   ]
 
+  const fallbackRecommendedSkills = isSoftwareRole
+    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture']
+    : isDataRole
+      ? ['BigQuery', 'Tableau', 'Snowflake', 'dbt', 'Data Modeling']
+      : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards']
+
   const optimizations = rawOptimizations || {
     headlines: fallbackHeadlinesList,
     aboutRewrite: {
-      hook: `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines.`,
-      proof: `Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`,
-      callToAction: `Open to connecting with engineering leaders, analytics directors, and talent acquisition teams regarding ${targetRole} opportunities.`,
+      hook: isSoftwareRole
+        ? `${targetRole} with ${yoe}+ years of experience building high-performance, scalable applications and distributed systems.`
+        : isDataRole
+        ? `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines.`
+        : `${targetRole} with ${yoe}+ years of experience driving quantifiable impact and operational excellence.`,
+      proof: isSoftwareRole
+        ? `Proven track record of designing resilient cloud architectures, developing robust APIs, and optimizing CI/CD workflows. Core stack: ${skillsStr}, Docker, and AWS.`
+        : isDataRole
+        ? `Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`
+        : `Proven track record of streamlining workflows, managing cross-functional initiatives, and delivering scalable business results. Core competencies: ${skillsStr}.`,
+      callToAction: `Open to connecting with engineering leaders, technical directors, and talent acquisition teams regarding ${targetRole} opportunities.`,
       fullText: fallbackAbout,
     },
     top3PinnedSkills: pinnedSkills,
-    recommendedSkillsToAdd: cleanCandidateSkills.length > 0 ? cleanCandidateSkills : ['SQL', 'Python', 'Power BI', 'BigQuery', 'Tableau'],
+    recommendedSkillsToAdd: cleanCandidateSkills.length > 0 ? cleanCandidateSkills : fallbackRecommendedSkills,
   }
 
   const experienceUpgrades = (optimizations?.experienceUpgrades || []).filter(Boolean)
@@ -348,7 +398,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     .filter((s) => !pinnedLowerSet.has(s.toLowerCase().trim()))
 
   // If deduplication leaves fewer than 3 skills, backfill with high-demand role skills not in pinned list:
-  const roleBackfill = ['Tableau', 'Snowflake', 'BigQuery', 'Excel', 'Data Modeling', 'dbt']
+  const roleBackfill = isSoftwareRole
+    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture', 'AWS']
+    : isDataRole
+      ? ['Tableau', 'Snowflake', 'BigQuery', 'Excel', 'Data Modeling', 'dbt']
+      : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards', 'Stakeholder Management']
+
   for (const skill of roleBackfill) {
     if (deduplicatedRecommended.length >= 5) break
     if (!pinnedLowerSet.has(skill.toLowerCase()) && !deduplicatedRecommended.some((s) => s.toLowerCase() === skill.toLowerCase())) {

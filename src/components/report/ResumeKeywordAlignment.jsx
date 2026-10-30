@@ -33,17 +33,17 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
 
   // Cap unverified and missing skills to max 8 items for a clean executive layout
   const MAX_SKILLS_SHOWN = 8
-  const cleanSkillsOnly = skillsOnlyUnverified
-    .map(decodeHtmlEntities)
-    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
+  const cleanSkillsOnly = (skillsOnlyUnverified || [])
+    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  const cleanMissing = missingFromResume
-    .map(decodeHtmlEntities)
-    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
+  const cleanMissing = (missingFromResume || [])
+    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  const cleanMatched = matchedInExperience
-    .map(decodeHtmlEntities)
-    .filter((s) => s && !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
+  const cleanMatched = (matchedInExperience || [])
+    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
   const displayedSkillsOnly = cleanSkillsOnly.slice(0, MAX_SKILLS_SHOWN)
   const remainingSkillsOnly = cleanSkillsOnly.length - displayedSkillsOnly.length
@@ -156,7 +156,7 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
               In Skills Section Only — Add to a Work Bullet
             </span>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-              {skillsOnlyUnverified.length} {skillsOnlyUnverified.length === 1 ? 'skill' : 'skills'}
+              {cleanSkillsOnly.length} {cleanSkillsOnly.length === 1 ? 'skill' : 'skills'}
             </span>
           </div>
           <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-amber-900/80' : 'text-amber-300/80'}`}>
@@ -200,7 +200,7 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
         {/* Row 3: Missing Target Keywords (Rose Pills or 100% Banner) */}
         <div
           className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${
-            missingFromResume.length === 0
+            cleanMissing.length === 0
               ? light
                 ? 'bg-emerald-50/40 border-emerald-200/80'
                 : 'bg-emerald-950/20 border-emerald-900/30'
@@ -212,30 +212,30 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span
               className={`flex items-center gap-1.5 text-xs font-bold ${
-                missingFromResume.length === 0
+                cleanMissing.length === 0
                   ? 'text-emerald-800 dark:text-emerald-300'
                   : 'text-rose-800 dark:text-rose-300'
               }`}
             >
-              {missingFromResume.length === 0 ? (
+              {cleanMissing.length === 0 ? (
                 <CheckCircle size={15} weight="fill" className="text-emerald-600" />
               ) : (
                 <XCircle size={15} weight="fill" className="text-rose-500" />
               )}
-              {missingFromResume.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
+              {cleanMissing.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
             </span>
             <span
               className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                missingFromResume.length === 0
+                cleanMissing.length === 0
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
                   : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
               }`}
             >
-              {missingFromResume.length === 0 ? '100% Covered' : `${missingFromResume.length} missing`}
+              {cleanMissing.length === 0 ? '100% Covered' : `${cleanMissing.length} missing`}
             </span>
           </div>
 
-          {missingFromResume.length === 0 ? (
+          {cleanMissing.length === 0 ? (
             <div
               className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${
                 light

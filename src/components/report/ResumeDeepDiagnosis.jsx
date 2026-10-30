@@ -189,39 +189,53 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const handleDownloadDocx = async () => {
     try {
       setIsDownloadingDocx(true)
-      const apiBase = import.meta.env.VITE_API_URL || '/api'
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
       const storeUserId = useAppStore.getState().userId
       const storeEmail = useAppStore.getState().email
-      const resolvedUserId = reportData?.userId || reportData?._id || storeUserId
-      const resolvedEmail = reportData?.user_answers?.email || reportData?.email || storeEmail
+      const userId = reportData?.userId || reportData?._id || storeUserId || ''
+      const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || storeEmail || ''
 
-      let downloadUrl = ''
-      if (resolvedUserId) {
-        downloadUrl = `${apiBase}/assessment/user/${resolvedUserId}/download-resume-docx`
-      } else if (resolvedEmail) {
-        downloadUrl = `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(resolvedEmail)}`
-      } else {
-        downloadUrl = `${apiBase}/assessment/download-resume-docx`
+      // Support both ID and email fallback
+      let url = `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx`
+      if (!userId && email) {
+        url = `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}`
+      } else if (!userId && !email) {
+        url = `${apiBase}/assessment/download-resume-docx`
       }
 
-      const response = await fetch(downloadUrl)
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
+        }
+      })
+
       if (!response.ok) {
-        throw new Error(`Failed to download resume (status ${response.status})`)
+        // If server returned JSON error instead of docx
+        const errJson = await response.json().catch(() => null)
+        throw new Error(errJson?.message || `Download failed with status ${response.status}`)
       }
 
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      // Verify it's not HTML error response
+      if (blob.type.includes('text/html')) {
+        throw new Error('Server returned HTML instead of .docx. Please check backend route.')
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      const safeCandidateName = (snapshot.name || 'Candidate').replace(/[^a-zA-Z0-9]/g, '_')
-      a.download = `${safeCandidateName}_Tailored_ATS_Resume.docx`
+      a.href = downloadUrl
+      const candidateName = reportData?.candidate_name || reportData?.user_answers?.name || snapshot.name || 'Tailored'
+      a.download = `${candidateName.replace(/\s+/g, '_')}_Tailored_ATS_Resume.docx`
       document.body.appendChild(a)
       a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('Error downloading docx:', err)
-      alert('Unable to generate resume docx at this moment. Please try again.')
+      window.URL.revokeObjectURL(downloadUrl)
+      if (document.body.contains(a)) {
+        document.body.removeChild(a)
+      }
+    } catch (error) {
+      console.error('Failed to download tailored docx:', error)
+      alert(`Could not download resume: ${error.message}`)
     } finally {
       setIsDownloadingDocx(false)
     }
@@ -447,19 +461,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             <span>Search Hiring Managers ↗</span>
           </a>
 
-          <a
-            href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/assessment/user/${reportData?.userId || reportData?._id || ''}/download-resume-docx`}
-            download
-            onClick={(e) => {
-              if (!reportData?.userId && !reportData?._id) {
-                e.preventDefault()
-                handleDownloadDocx()
-              }
-            }}
-            className="btn-primary px-5 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-2 cursor-pointer"
+          <button
+            type="button"
+            onClick={handleDownloadDocx}
+            disabled={isDownloadingDocx}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors shadow-sm disabled:opacity-60 cursor-pointer"
           >
-            <span>Download ATS Resume (.docx) ↓</span>
-          </a>
+            <DownloadSimple className="w-4 h-4" />
+            {isDownloadingDocx ? 'Downloading...' : 'Download Tailored ATS Resume (.docx)'}
+          </button>
         </div>
       </div>
 

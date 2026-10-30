@@ -48,9 +48,13 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
     You are an expert Resume Parser and ATS Specialist.
     Analyze the attached resume document and convert it into a structured JSON object.
     
-    CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks \`\`\`json, NO surrounding text).
+    CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks ```json, NO surrounding text).
     
-    CRITICAL: Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
+    CRITICAL PARSING RULES:
+    1. STRICTLY SEPARATE EXPERIENCES: A company name, job title, location, or employment date range must NEVER be placed inside the "bullets" array of any experience.
+    2. If you see a line containing a new company name (e.g. "Recibo Technologies Bengaluru, India"), treat it as the START of a new work experience object, NOT as a bullet point of the previous experience.
+    3. Every bullet point MUST be an actual accomplishment or responsibility starting with an action verb.
+    4. Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
     
     Use this exact schema:
     {
@@ -714,16 +718,22 @@ export const downloadReportPdf = async (req, res) => {
 
 export const downloadAtsResumeDocx = async (req, res) => {
   try {
-    const userId = req.params?.userId || req.query?.userId
-    const email = req.query?.email
+    const rawUserId = req.params?.userId || req.query?.userId
+    const rawEmail = req.query?.email
 
-    const query = userId && mongoose.Types.ObjectId.isValid(userId)
-      ? { _id: userId }
-      : email
-      ? { email: email.toLowerCase().trim() }
-      : userId
-      ? { _id: userId }
-      : null
+    const cleanUserId = (rawUserId && rawUserId !== 'undefined' && rawUserId !== 'null') ? String(rawUserId).trim() : null
+    const cleanEmail = (rawEmail && rawEmail !== 'undefined' && rawEmail !== 'null') ? String(rawEmail).toLowerCase().trim() : null
+
+    let query = null
+    if (cleanUserId && mongoose.Types.ObjectId.isValid(cleanUserId)) {
+      query = { _id: cleanUserId }
+    } else if (cleanUserId && cleanUserId.includes('@')) {
+      query = { email: cleanUserId.toLowerCase() }
+    } else if (cleanEmail) {
+      query = { email: cleanEmail }
+    } else if (cleanUserId) {
+      query = { _id: cleanUserId }
+    }
 
     if (!query) {
       return res.status(400).json({ message: 'User ID or Email is required.' })
@@ -769,10 +779,10 @@ export const downloadAtsResumeDocx = async (req, res) => {
       certifications: canonical.certifications || [],
     })
 
-    const sanitizedFilename = `${candidateName.replace(/[^a-zA-Z0-9]/g, '_')}_Tailored_ATS_Resume.docx`
+    const sanitizedFilename = `${candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')}_Tailored_ATS_Resume.docx`
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(sanitizedFilename)}"`)
     return res.send(buffer)
   } catch (err) {
     console.error('[DownloadDocx Error]:', err)

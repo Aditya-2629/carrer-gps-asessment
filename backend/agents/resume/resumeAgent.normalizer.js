@@ -158,7 +158,15 @@ export class ResumeNormalizer {
             text,
             source: { page: 1, bbox: null },
           }
-        }).filter((b) => b.text.length > 0)
+        }).filter((b) => {
+          if (!b.text || b.text.length < 5) return false
+          // Filter out accidental company headers captured in bullets (e.g. "Recibo Technologies Bengaluru, India")
+          const isCompanyHeader = /^(?:[A-Z][a-zA-Z0-9\s&.,-]{2,40}\s+(?:Technologies|Tech|Solutions|Pvt|Ltd|LLC|Inc|Corporation|Corp))\s*(?:Bengaluru|Bangalore|Hyderabad|Pune|Mumbai|Delhi|California|New York|India|USA|Remote)?/i.test(b.text)
+          if (isCompanyHeader && !/^(?:developed|engineered|architected|built|designed|implemented|led|managed|created|spearheaded|optimized|automated|collaborated|authored|analyzed|delivered|reduced|improved)/i.test(b.text)) {
+            return false
+          }
+          return true
+        })
 
         return {
           id: expId,
