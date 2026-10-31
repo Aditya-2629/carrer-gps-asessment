@@ -46,67 +46,58 @@ const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   }
 
   const prompt = `
-    You are an expert Resume Parser and ATS Specialist.
-    Analyze the attached resume document and convert it into a structured JSON object.
-    
-    CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks, NO surrounding text).
-    
-    CRITICAL PARSING & BOUNDARY RULES:
-    1. STRICT EXPERIENCE SEPARATION: A company name, employment date range, or location header must NEVER be placed inside the "bullets" array of any experience block.
-    2. If you encounter a line with a new company name (e.g. "Recibo Technologies Bengaluru, India"), treat it as the START of a completely new experience object.
-    3. Every item in the "bullets" array MUST be an actual accomplishment, project description, or responsibility that begins with an active action verb.
-    4. Clean all bullets of leading dashes, bullet symbols (•, -, *), and ensure no nested objects exist in bullets.
-    5. Extract ALL bullet points from professional corporate experience (including companies like PwC, Shure, KPIT). Even if formatted as paragraphs, tab-indented lines, or bulleted with dashes or asterisks, extract each accomplishment as a separate item in the 'bullets' array. NEVER return an empty bullets array [] for corporate roles.
-    
-    Use this exact schema:
-    {
-      "candidate_name": "Full name or Candidate",
-      "target_role": "Target or current job title",
-      "years_of_experience": "Estimated total years of tech experience",
-      "contact": {
-        "email": "Email if present or N/A",
-        "phone": "Phone if present or N/A",
-        "location": "City, State/Country or N/A",
-        "linkedin": "LinkedIn URL if present or N/A",
-        "github": "GitHub URL if present or N/A"
-      },
-      "experiences": [
-        {
-          "role": "Exact role title (must NOT end with period, max 65 chars, no prepositions like 'across' or 'throughout')",
-          "company": "Company name",
-          "location": "City, State or Remote",
-          "startDate": "Start Date (e.g. Month Year)",
-          "endDate": "End Date (e.g. Month Year or Present)",
-          "isCurrent": true,
-          "bullets": [
-            "Verbatim bullet point 1",
-            "Verbatim bullet point 2"
-          ]
-        }
-      ],
-      "projects": [
-        {
-          "title": "Project Title",
-          "techStack": "Technologies used (e.g. React, Node.js, AWS)",
-          "bullets": [
-            "Verbatim bullet point"
-          ]
-        }
-      ],
-      "skills": ["Skill1", "Skill2", "Skill3"],
-      "certifications": ["Certification name 1", "Certification name 2"],
-      "top_skills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6"],
-      "missing_ats_keywords": [],
-      "ats_score": 65,
-      "strengths": ["Strength 1 with quantitative evidence", "Strength 2"],
-      "red_flags": ["Red Flag 1 (e.g. poor formatting, lack of metrics, gaps)", "Red Flag 2"],
-      "experience_summary": ["Key achievement 1", "Key achievement 2"],
-      "education": ["Degree / Institution"],
-      "executive_ai_critique": "A direct, punchy 3-4 sentence text evaluation by executive AI recruiter 'Atlas' analyzing this resume's strengths, critical ATS flaws, and harsh reality feedback for the candidate."
-    }
+You are an expert Resume Parser and ATS Specialist.
+Analyze the attached resume document and convert it into a structured JSON object.
 
-    NOTE ON missing_ats_keywords: Return an array of genuine technical skills, frameworks, or tools that are expected for the candidate's target role but completely missing from this resume. If the resume already has strong coverage or no specific technical gaps are identified, return an empty array []. NEVER return placeholder values like 'Keyword1', 'Quantified ROI Metrics', or generic phrases.
-  `
+CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks, NO surrounding text).
+
+STRICT EXPERIENCE & BOUNDARY RULES:
+1. EXPERIENCE BOUNDARIES: A company name, employment date range, or location header must NEVER be placed inside the "bullets" array of any experience block.
+2. If you encounter a new company name (e.g. "Recibo Technologies", "Kitcoek", "Accenture"), treat it as the START of a completely new experience object.
+3. In each experience object:
+   - "role": ONLY the candidate's exact title (e.g. "Software Engineer", "Full Stack Developer"). NEVER put company name or dates inside "role".
+   - "company": ONLY the employer organization name (e.g. "Kitcoek", "Recibo Technologies").
+   - "location": City and State/Country (e.g. "Maharashtra, India", "Bengaluru, India"). NEVER put programming languages or skills in "location".
+   - "startDate" and "endDate": The timeline (e.g. "Jul 2022", "Jun 2024").
+4. "bullets": Every item MUST be an actual technical achievement or responsibility starting with an active action verb. Discard any bullet that is simply a company name, date, or location header.
+5. "skills": Return an array of discrete, individual technical skills (e.g. ["Python", "Go", "Docker", "AWS"]). Do not return malformed strings with unbalanced parentheses.
+
+Use this exact schema:
+{
+  "candidate_name": "Full name",
+  "target_role": "Target or current job title",
+  "years_of_experience": "Estimated total years of experience",
+  "contact": {
+    "email": "Email address or N/A",
+    "phone": "Phone number or N/A",
+    "location": "City, State/Country or N/A",
+    "linkedin": "LinkedIn URL or N/A",
+    "github": "GitHub URL or N/A"
+  },
+  "experiences": [
+    {
+      "role": "Software Engineer",
+      "company": "Company Name",
+      "location": "City, State",
+      "startDate": "Mon YYYY",
+      "endDate": "Mon YYYY or Present",
+      "isCurrent": false,
+      "bullets": [
+        "Verbatim achievement starting with action verb..."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "title": "Project Title",
+      "techStack": "Technologies used",
+      "bullets": ["Verbatim bullet..."]
+    }
+  ],
+  "skills": ["Skill1", "Skill2"],
+  "education": ["Degree, Institution, Year"]
+}
+`
 
   const filePart = {
     inlineData: {
