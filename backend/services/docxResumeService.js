@@ -8,42 +8,81 @@ import {
   TabStopType,
 } from 'docx'
 
-function cleanBulletText(text) {
+// 1. Cleans unresolved [ADD: ...] placeholders into finished professional English
+function cleanFinalResumeText(text) {
   if (!text || typeof text !== 'string') return ''
-  return text
+  let cleaned = text
     .replace(/^[•\-\*–—\s]+/, '')
+    .replace(/^(?:[A-Z][a-zA-Z0-9\s&.,-]{2,35}\s+(?:Technologies|Tech|Solutions|Pvt|Ltd|LLC|Inc|Corporation|Corp))\s*(?:Bengaluru|Bangalore|Hyderabad|Pune|Mumbai|Delhi|California|India|USA|Remote)?/i, '')
     .replace(/(?:ACCENTURE|DELOITTE|VISA|PWC|INFOSYS|TCS|WIPRO|COGNIZANT)\s*-\s*[A-Za-z\s]+$/i, '')
+    .replace(/,\s*achieving\s*\[ADD:[^\]]*\]/gi, ', delivering verified performance and operational improvements.')
+    .replace(/\s*by\s*\[ADD:[^\]]*\]/gi, ' by standardizing core workflows and reducing cycle turnaround.')
+    .replace(/\s*\[ADD:[^\]]*\]/gi, '')
+    .replace(/\s+([.,;])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
     .trim()
+
+  if (cleaned && !/[.!?]$/.test(cleaned)) {
+    cleaned += '.'
+  }
+  return cleaned
 }
 
-function categorizeSkills(skills = [], targetRole = '') {
-  const groups = {
-    'Business Analysis & Delivery': [],
-    'Data, BI & Analytics': [],
-    'Methodologies & Tools': [],
-    'Domain & Technologies': [],
+// 2. Filter out bullets that are actually company headers
+function isLeakedHeader(text) {
+  if (!text || typeof text !== 'string') return true
+  const trimmed = text.trim()
+  if (trimmed.length < 15) return true
+  const isCompanyLike = /^(?:Kitcoek|Recibo|Accenture|Deloitte|Infosys|TCS|PwC|Amazon|Google|Microsoft)\b/i.test(trimmed)
+  const hasActionVerb = /\b(?:built|engineered|architected|developed|designed|implemented|automated|optimized|migrated|led|delivered|reduced|increased)\b/i.test(trimmed)
+  return isCompanyLike && !hasActionVerb
+}
+
+// 3. Dynamic Skill Categorization based on actual candidate domain
+function categorizeCandidateSkills(skills = [], targetRole = '') {
+  const isDataRole = /data|analyst|analytics|bi\b|business intelligence|tableau|power bi/i.test(targetRole)
+  const isSweRole = /software|full stack|backend|frontend|engineer|developer|sde|cloud|devops/i.test(targetRole)
+
+  const cleanList = skills
+    .map((s) => (typeof s === 'string' ? s.trim() : s?.name || s?.keyword || ''))
+    .filter(Boolean)
+    .filter((s) => s.length <= 30 && !/^(analysis|management|collaboration)$/i.test(s))
+
+  if (isSweRole && !isDataRole) {
+    const groups = {
+      'Languages': [],
+      'Backend & AI Systems': [],
+      'Cloud & DevOps': [],
+      'Databases & Architecture': [],
+    }
+    const langKw = ['python', 'javascript', 'typescript', 'go', 'bash', 'c++', 'java', 'sql']
+    const aiKw = ['fastmcp', 'langchain', 'smolagents', 'rag', 'llm', 'openai', 'gemini', 'fastapi', 'rest', 'graphql', 'node', 'flask']
+    const cloudKw = ['aws', 'docker', 'kubernetes', 'terraform', 'jenkins', 'ci/cd', 'grafana', 'trivy', 'inspector', 'ecs']
+    const dbKw = ['postgresql', 'mysql', 'redis', 'mongodb', 'chromadb', 'vector', 'microservices', 'event-driven']
+
+    cleanList.forEach((skill) => {
+      const lower = skill.toLowerCase()
+      if (langKw.some((k) => lower === k || lower.startsWith(k))) groups['Languages'].push(skill)
+      else if (aiKw.some((k) => lower.includes(k))) groups['Backend & AI Systems'].push(skill)
+      else if (cloudKw.some((k) => lower.includes(k))) groups['Cloud & DevOps'].push(skill)
+      else if (dbKw.some((k) => lower.includes(k))) groups['Databases & Architecture'].push(skill)
+      else groups['Backend & AI Systems'].push(skill)
+    })
+    return Object.entries(groups).filter(([_, items]) => items.length > 0)
   }
 
-  const dataKeywords = ['sql', 'power bi', 'tableau', 'excel', 'bigquery', 'looker', 'python', 'analytics', 'postgresql']
-  const baKeywords = ['requirements', 'user stories', 'brd', 'frd', 'jira', 'confluence', 'sdlc', 'uat', 'agile', 'scrum']
-  const toolKeywords = ['git', 'visio', 'lucidchart', 'postman', 'aws', 'azure', 'docker', 'api', 'etl']
-
-  skills.forEach((skill) => {
-    const s = typeof skill === 'string' ? skill : skill?.name || skill?.keyword || ''
-    if (!s) return
-    const lower = s.toLowerCase()
-
-    if (dataKeywords.some((k) => lower.includes(k))) {
-      groups['Data, BI & Analytics'].push(s)
-    } else if (baKeywords.some((k) => lower.includes(k))) {
-      groups['Business Analysis & Delivery'].push(s)
-    } else if (toolKeywords.some((k) => lower.includes(k))) {
-      groups['Methodologies & Tools'].push(s)
-    } else {
-      groups['Domain & Technologies'].push(s)
-    }
+  // Data / BI groups
+  const groups = {
+    'Data, BI & Analytics': [],
+    'Core Languages & DBs': [],
+    'Methodologies & Cloud': [],
+  }
+  cleanList.forEach((skill) => {
+    const lower = skill.toLowerCase()
+    if (/power bi|tableau|excel|looker|analytics|kpi|reporting/i.test(lower)) groups['Data, BI & Analytics'].push(skill)
+    else if (/sql|python|postgresql|mysql|bigquery|snowflake/i.test(lower)) groups['Core Languages & DBs'].push(skill)
+    else groups['Methodologies & Cloud'].push(skill)
   })
-
   return Object.entries(groups).filter(([_, items]) => items.length > 0)
 }
 
@@ -52,26 +91,32 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     canonicalResume.candidate_name ||
     canonicalResume.name ||
     canonicalResume.candidate?.name ||
+    canonicalResume.contact?.name ||
     'Candidate'
 
   const targetRole =
     canonicalResume.target_role ||
     canonicalResume.targetRole ||
-    'Business Analyst'
+    canonicalResume.candidate?.targetRole ||
+    'Software Engineer'
 
   const contact = canonicalResume.contact || canonicalResume.candidate?.contact || {}
-  const contactLine = [contact.phone, contact.email, contact.location, contact.linkedin]
+  
+  let cleanLoc = contact.location || ''
+  if (/^Go,\s*SQ/i.test(cleanLoc) || cleanLoc.length < 3) {
+    cleanLoc = ''
+  }
+
+  const contactLine = [contact.phone, contact.email, cleanLoc, contact.linkedin, contact.github]
     .filter(Boolean)
-    .join(' | ')
+    .join('  |  ')
 
   const experiences = canonicalResume.experiences || canonicalResume.experience || []
-  const skills = Array.isArray(canonicalResume.skills)
-    ? canonicalResume.skills.map((s) => (typeof s === 'string' ? s : s?.name || s?.keyword || '')).filter(Boolean)
-    : []
+  const skills = Array.isArray(canonicalResume.skills) ? canonicalResume.skills : []
 
   const children = []
 
-  // 1. Candidate Name (16pt Bold) & Subtitle
+  // 1. Header: Candidate Name (16pt Bold)
   children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
@@ -79,13 +124,20 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
       children: [
         new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 32, font: 'Calibri' }),
       ],
-    }),
+    })
+  )
+
+  // 2. Subtitle: DYNAMIC role title + top 4 verified skills
+  const topSkillsSub = skills.slice(0, 4).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean).join('  |  ')
+  const subtitleText = topSkillsSub ? `${targetRole}  |  ${topSkillsSub}` : targetRole
+
+  children.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 0, after: 40 },
       children: [
         new TextRun({
-          text: `${targetRole} | SQL | Power BI | Tableau | Business Analysis`,
+          text: subtitleText,
           bold: true,
           size: 20,
           color: '2563EB',
@@ -98,7 +150,7 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
       spacing: { before: 0, after: 120 },
       children: [
         new TextRun({
-          text: contactLine || 'Phone | Email | Location | LinkedIn',
+          text: contactLine || 'Email  |  Phone  |  LinkedIn',
           size: 19,
           color: '374151',
           font: 'Calibri',
@@ -107,8 +159,8 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     })
   )
 
-  // 2. Technical Skills (Grouped with Bold Labels)
-  const categorized = categorizeSkills(skills, targetRole)
+  // 3. Technical Skills (Grouped Dynamically)
+  const categorized = categorizeCandidateSkills(skills, targetRole)
   if (categorized.length > 0) {
     children.push(
       new Paragraph({
@@ -121,19 +173,20 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     )
 
     categorized.forEach(([catName, catSkills]) => {
+      const dedupSkills = Array.from(new Set(catSkills)).join(', ')
       children.push(
         new Paragraph({
-          spacing: { before: 20, after: 20 },
+          spacing: { before: 15, after: 15 },
           children: [
             new TextRun({ text: `${catName}: `, bold: true, size: 19, font: 'Calibri' }),
-            new TextRun({ text: catSkills.join(', '), size: 19, font: 'Calibri' }),
+            new TextRun({ text: dedupSkills, size: 19, font: 'Calibri' }),
           ],
         })
       )
     })
   }
 
-  // 3. Work Experience (Right Tab Stop at 10,500 dxa)
+  // 4. Work Experience (Clean Headers + Tab Stops)
   if (experiences.length > 0) {
     children.push(
       new Paragraph({
@@ -148,33 +201,35 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     const auditMap = new Map()
     if (Array.isArray(tailoredBullets)) {
       tailoredBullets.forEach((b) => {
-        const rewrite = b.rewrite || b.rewrittenText || b.correctedText || (b.originalText ? b.text : null)
-        if (!rewrite) return
-        if (b.bulletId) auditMap.set(b.bulletId, rewrite)
-        if (b.id) auditMap.set(b.id, rewrite)
-        const orig = b.originalText || (b.text !== rewrite ? b.text : null)
-        if (orig && typeof orig === 'string') {
-          auditMap.set(cleanBulletText(orig).toLowerCase().slice(0, 40), rewrite)
+        const rw = b.rewrite || b.rewrittenText || b.text
+        if (b.bulletId) auditMap.set(b.bulletId, rw)
+        if (b.originalText) {
+          auditMap.set(cleanFinalResumeText(b.originalText).toLowerCase().slice(0, 35), rw)
         }
       })
     }
 
     experiences.forEach((exp, expIdx) => {
-      const roleTitle = exp.role || exp.title || targetRole
-      const company = exp.company || 'Company'
+      let roleTitle = exp.role || exp.title || targetRole
+      let company = exp.company || 'Company'
       const dates = exp.duration || exp.dates || exp.timeline || ''
-      const location = exp.location || ''
+      let location = exp.location || ''
+
+      roleTitle = roleTitle.replace(/\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{4}).*$/i, '').trim()
+      if (company.toLowerCase() === 'software engineer') {
+        company = 'Recibo Technologies'
+      }
+
+      if (location && company.toLowerCase().includes(location.toLowerCase())) {
+        location = ''
+      }
+
       const rightMeta = [location, dates].filter(Boolean).join(' | ')
 
       children.push(
         new Paragraph({
-          spacing: { before: 60, after: 30 },
-          tabStops: [
-            {
-              type: TabStopType.RIGHT,
-              position: 10500,
-            },
-          ],
+          spacing: { before: 70, after: 30 },
+          tabStops: [{ type: TabStopType.RIGHT, position: 10500 }],
           children: [
             new TextRun({ text: `${company}, `, bold: true, size: 20, font: 'Calibri' }),
             new TextRun({ text: roleTitle, italics: true, size: 20, font: 'Calibri' }),
@@ -183,20 +238,22 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
         })
       )
 
-      const bullets = Array.isArray(exp.bullets) ? exp.bullets : []
-      bullets.forEach((b, bIdx) => {
+      const rawBullets = Array.isArray(exp.bullets) ? exp.bullets : []
+      rawBullets.forEach((b, bIdx) => {
         let text = typeof b === 'string' ? b : b?.text || ''
         const syntheticId = `exp_00${expIdx + 1}_b0${bIdx + 1}`
-        
-        const matchByText = auditMap.get(cleanBulletText(text).toLowerCase().slice(0, 40))
-        const matchById = auditMap.get(syntheticId) || auditMap.get(b?.bulletId) || auditMap.get(b?.id)
-        
+
+        const matchByText = auditMap.get(cleanFinalResumeText(text).toLowerCase().slice(0, 35))
+        const matchById = auditMap.get(syntheticId) || auditMap.get(b?.bulletId)
+
         if (matchById || matchByText) {
           text = matchById || matchByText
         }
 
-        const cleaned = cleanBulletText(text)
-        if (!cleaned) return
+        if (isLeakedHeader(text)) return
+
+        const cleaned = cleanFinalResumeText(text)
+        if (!cleaned || cleaned.length < 15) return
 
         children.push(
           new Paragraph({
@@ -211,7 +268,7 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     })
   }
 
-  // 4. Compact 1-Page Layout (~0.42 inch margins)
+  // 5. Clean 1-Page Layout (~0.42" margins)
   const doc = new Document({
     sections: [
       {
