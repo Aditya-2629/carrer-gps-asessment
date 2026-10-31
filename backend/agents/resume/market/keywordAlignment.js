@@ -578,4 +578,228 @@ export function computeKeywordAlignment({
   }
 }
 
-export default { computeKeywordAlignment, MARKET_ROLE_KEYWORD_PACKS, KEYWORD_SYNONYMS }
+// Semantic Slot definitions for Keyword Weaver
+export const SEMANTIC_SLOTS = {
+  api_slot: {
+    matchKw: /\b(graphql|rest|restful|swagger|websockets?|grpc|fastapi|openapi|apis?|jwt|oauth)\b/i,
+    matchBullet: /\b(apis?|endpoints?|retrieval|backend|services?|server|http|restful|rest)\b/i,
+  },
+  cloud_slot: {
+    matchKw: /\b(aws|azure|gcp|docker|kubernetes|k8s|ecs|eks|terraform|ci\/cd|clouds?|ansible|helm|cloudformation|linux)\b/i,
+    matchBullet: /\b(deploy|deployment|deploying|microservices?|infrastructure|clouds?|containers?|containerized|pipelines?|clusters?|ci\/cd)\b/i,
+  },
+  messaging_slot: {
+    matchKw: /\b(kafka|rabbitmq|sqs|sns|redis|pub\/sub|celery|eventbridge|messages?|message\s+queues?|activemq)\b/i,
+    matchBullet: /\b(messaging|queues?|streams?|streaming|caching|cache|async|asynchronous|events?|pub\/sub)\b/i,
+  },
+  frontend_slot: {
+    matchKw: /\b(react|next\.?js|redux|tailwind|vue|angular|typescript|javascript|frontends?|ui|css|html)\b/i,
+    matchBullet: /\b(frontends?|front-end|ui|ux|components?|interfaces?|web|client|pages?|views?|dashboard)\b/i,
+  },
+}
+
+export function determineSemanticSlot(kw) {
+  for (const [slotName, slotDef] of Object.entries(SEMANTIC_SLOTS)) {
+    if (slotDef.matchKw.test(kw)) return slotName
+  }
+  return 'cloud_slot'
+}
+
+/**
+ * KEYWORD WEAVER ALGORITHM
+ * Weaves high-value missing JD keywords and stranded skills directly into experience bullets.
+ *
+ * Rules:
+ * 1. Collect candidates for injection:
+ *    - Priority 1: High-value Missing JD Keywords (e.g. Kafka, TypeScript)
+ *    - Priority 2: Stranded Skills-Only Keywords (e.g. GraphQL, AWS, Docker)
+ * 2. Map keywords to semantic slots:
+ *    - api_slot (GraphQL, REST, Swagger, WebSockets) -> Matches bullets containing API, endpoint, retrieval, backend
+ *    - cloud_slot (AWS, Azure, Docker, Kubernetes, ECS) -> Matches bullets containing deployment, microservices, infrastructure
+ *    - messaging_slot (Kafka, RabbitMQ, SQS, Redis) -> Matches bullets containing messaging, queue, stream, caching, async
+ *    - frontend_slot (React 19, Next.js, Redux, Tailwind) -> Matches frontend/UI bullets
+ * 3. Natural Weaving Rule:
+ *    - Never inject more than 1 new keyword per bullet
+ *    - Insert into the tooling or method clause (...using [Existing Stack] and [Woven Keyword]...)
+ *    - Preserve all existing numbers, percentages, and metrics verbatim
+ */
+export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [], skillsOnlyKeywords = []) {
+  if (!Array.isArray(experiences) || experiences.length === 0) return []
+
+  const normList = (arr) => {
+    if (!Array.isArray(arr)) return []
+    return arr
+      .map((item) => (typeof item === 'string' ? item : item?.keyword || item?.name || item?.skill || ''))
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 2)
+  }
+
+  const p1 = normList(missingKeywords)
+  const p2 = normList(skillsOnlyKeywords)
+
+  const candidateKeywords = []
+  const seenKw = new Set()
+  for (const kw of p1) {
+    const low = kw.toLowerCase()
+    if (!seenKw.has(low)) {
+      seenKw.add(low)
+      candidateKeywords.push({ keyword: kw, priority: 1, source: 'missing_jd' })
+    }
+  }
+  for (const kw of p2) {
+    const low = kw.toLowerCase()
+    if (!seenKw.has(low)) {
+      seenKw.add(low)
+      candidateKeywords.push({ keyword: kw, priority: 2, source: 'stranded_skill' })
+    }
+  }
+
+  if (candidateKeywords.length === 0) return []
+
+  const getSlot = determineSemanticSlot
+
+  // Flatten experience bullets with stable identifiers
+  const flattenedBullets = []
+  experiences.forEach((exp, expIdx) => {
+    const expId = exp.id || `exp_${String(expIdx + 1).padStart(3, '0')}`
+    const company = exp.company || exp.employer || `Company ${expIdx + 1}`
+    const role = exp.role || exp.title || 'Software Engineer'
+    ;(exp.bullets || []).forEach((b, bIdx) => {
+      const bId = (typeof b === 'object' && b?.id) ? b.id : `${expId}_b${String(bIdx + 1).padStart(2, '0')}`
+      const origText = typeof b === 'string' ? b : b?.text || ''
+      flattenedBullets.push({
+        expId,
+        company,
+        role,
+        bulletId: bId,
+        origText,
+        expIdx,
+        bIdx,
+      })
+    })
+  })
+
+  const results = []
+  const usedBulletIds = new Set()
+  const injectedKeywords = []
+
+  // Natural weaving function preserving existing metrics verbatim
+  const naturalWeave = (text, kw, slot) => {
+    if (!text || !kw) return text
+    const kwRegex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+    if (kwRegex.test(text)) return text
+
+    let cleaned = text.trim()
+    const trailingPunct = /[.!?]$/.test(cleaned) ? cleaned.slice(-1) : '.'
+    if (/[.!?]$/.test(cleaned)) cleaned = cleaned.slice(0, -1).trim()
+
+    // 1. Tooling clause starting with "using", "utilizing", "leveraging", "via", or "with"
+    // Tooling clause must not capture numeric metrics (e.g. "with 99.99% uptime")
+    const usingRegex = /\b(?:(using|utilizing|leveraging|via)\s+([A-Za-z0-9\s,&/+-]+?)|(with)\s+([A-Za-z\s,&/+-]+?))(?=\s+(?:with|to|for|at|in|delivering|achieving|cutting|reducing|improving|saving|by)|[,;.]|$)/i
+    const usingMatch = cleaned.match(usingRegex)
+    if (usingMatch) {
+      const prep = usingMatch[1] || usingMatch[3]
+      const stack = (usingMatch[2] || usingMatch[4]).trim()
+      if (stack && !kwRegex.test(stack) && !/\d{2,}/.test(stack)) {
+        let updatedStack
+        if (/\band\b/i.test(stack)) {
+          updatedStack = `${stack.replace(/\s+and\s+/i, ', ')}, and ${kw}`
+        } else {
+          updatedStack = `${stack} and ${kw}`
+        }
+        cleaned = cleaned.replace(usingMatch[0], `${prep} ${updatedStack}`)
+        return `${cleaned}${trailingPunct}`
+      }
+    }
+
+    // 2. Slot-specific natural insertion
+    if (slot === 'api_slot' && /\b(REST\s+APIs?|APIs?|endpoints?)\b/i.test(cleaned)) {
+      cleaned = cleaned.replace(/\b(REST\s+APIs?|APIs?|endpoints?)\b/i, `$1 and ${kw} endpoints`)
+      return `${cleaned}${trailingPunct}`
+    }
+
+    // 3. Insert before primary clause / comma or append
+    const commaIndex = cleaned.indexOf(',')
+    if (commaIndex > 15) {
+      const head = cleaned.slice(0, commaIndex)
+      const tail = cleaned.slice(commaIndex)
+      cleaned = `${head} using ${kw}${tail}`
+    } else {
+      cleaned = `${cleaned} using ${kw}`
+    }
+
+    return `${cleaned}${trailingPunct}`
+  }
+
+  // Process candidates in priority order (Priority 1: Missing JD, Priority 2: Stranded Skills)
+  for (const cand of candidateKeywords) {
+    const slot = getSlot(cand.keyword)
+    const slotDef = SEMANTIC_SLOTS[slot] || SEMANTIC_SLOTS.cloud_slot
+    const kwRegex = new RegExp(`\\b${cand.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+
+    // Find best matching unused bullet for this slot
+    let targetCandidate = flattenedBullets.find((fb) => {
+      if (usedBulletIds.has(fb.bulletId)) return false
+      if (kwRegex.test(fb.origText)) return false
+      return slotDef.matchBullet.test(fb.origText)
+    })
+
+    // If no slot match, fallback to any unused bullet with length >= 25
+    if (!targetCandidate) {
+      targetCandidate = flattenedBullets.find((fb) => {
+        if (usedBulletIds.has(fb.bulletId)) return false
+        if (kwRegex.test(fb.origText)) return false
+        return fb.origText.length >= 25
+      })
+    }
+
+    if (targetCandidate) {
+      const rewritten = naturalWeave(targetCandidate.origText, cand.keyword, slot)
+      usedBulletIds.add(targetCandidate.bulletId)
+      injectedKeywords.push(cand.keyword)
+
+      results.push({
+        bulletId: targetCandidate.bulletId,
+        experienceId: targetCandidate.expId,
+        company: targetCandidate.company,
+        role: targetCandidate.role,
+        originalText: targetCandidate.origText,
+        recruiterCritique: `Line lacked verified hands-on evidence of ${cand.keyword} (${cand.source === 'missing_jd' ? 'high-demand JD keyword' : 'stranded technical skill'}). Woven into tooling clause.`,
+        wovenKeyword: cand.keyword,
+        wovenKeywords: [cand.keyword],
+        slot,
+        priority: cand.priority,
+        readyToUseRewrite: rewritten,
+        rewrittenText: rewritten,
+      })
+    }
+  }
+
+  // Build cloned experiences with woven bullets in place
+  const wovenExperiences = experiences.map((exp, expIdx) => {
+    const expId = exp.id || `exp_${String(expIdx + 1).padStart(3, '0')}`
+    const newBullets = (exp.bullets || []).map((b, bIdx) => {
+      const bId = (typeof b === 'object' && b?.id) ? b.id : `${expId}_b${String(bIdx + 1).padStart(2, '0')}`
+      const matchRw = results.find((r) => r.bulletId === bId)
+      if (matchRw) {
+        return typeof b === 'object'
+          ? { ...b, text: matchRw.readyToUseRewrite }
+          : matchRw.readyToUseRewrite
+      }
+      return b
+    })
+    return {
+      ...exp,
+      bullets: newBullets,
+    }
+  })
+
+  // Attach enriched properties for ergonomic caller consumption
+  results.wovenExperiences = wovenExperiences
+  results.wovenCount = results.length
+  results.injectedKeywords = injectedKeywords
+
+  return results
+}
+
+export default { computeKeywordAlignment, weaveKeywordsIntoBullets, MARKET_ROLE_KEYWORD_PACKS, KEYWORD_SYNONYMS }

@@ -845,17 +845,19 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
     }
 
-    // 3. Bullet Audit wiring (prioritize dashboard, bulletAudit, bulletUpgrades, tailoredBullets)
+    // 3. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
     const bulletAudit =
       (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
         ? ra.dashboard.bulletAudit
-        : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
-          ? ra.bulletAudit
-          : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
-            ? ra.bulletUpgrades
-            : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
-              ? ra.tailoredBullets
-              : []
+        : (Array.isArray(ra.bulletRewrites) && ra.bulletRewrites.length > 0)
+          ? ra.bulletRewrites
+          : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
+            ? ra.bulletAudit
+            : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
+              ? ra.bulletUpgrades
+              : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
+                ? ra.tailoredBullets
+                : []
 
     const jdKeywords = missingSkillsList.map((kw) => ({ keyword: kw, count: 1 }))
     const { buffer: docxBuffer, pages, mode, warnings, appliedKeywords, pendingKeywords } = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)

@@ -12,7 +12,14 @@
  * - Maintains full V2.2 output contract for frontend compatibility.
  */
 
-import { SYNTHESIS_SYSTEM_PROMPT, SYNTHESIS_PROMPT_VERSION, RESUME_SYNTHESIS_PROMPT } from './resumeSynthesis.prompt.js'
+import {
+  SYNTHESIS_SYSTEM_PROMPT,
+  SYNTHESIS_PROMPT_VERSION,
+  SYNTHESIS_PROMPT_VERSION_V4,
+  RESUME_SYNTHESIS_PROMPT,
+  RESUME_SYNTHESIS_PROMPT_V4,
+  renderResumeSynthesisPromptV4,
+} from './resumeSynthesis.prompt.js'
 import { formatCompactSignalSummary } from '../signals/signalEngine.js'
 import { formatCompactFactsSummary } from '../facts/resumeFactExtractor.js'
 import { filterGroundedObservations } from '../analyzers/evidenceAnalyzer.js'
@@ -21,8 +28,19 @@ import { formatSkillGuidanceForPrompt } from '../skillsEngine/index.js'
 import { formatDomainContextForPrompt } from '../market/domainClassifier.js'
 import { formatUsMarketSignalsForPrompt } from '../market/usMarketSignals.js'
 import { formatMarketProfileForPrompt } from '../market/marketProfileBuilder.js'
+import {
+  computeKeywordAlignment,
+  weaveKeywordsIntoBullets,
+} from '../market/keywordAlignment.js'
 
-export { SYNTHESIS_PROMPT_VERSION, RESUME_SYNTHESIS_PROMPT }
+export {
+  SYNTHESIS_PROMPT_VERSION,
+  SYNTHESIS_PROMPT_VERSION_V4,
+  RESUME_SYNTHESIS_PROMPT,
+  RESUME_SYNTHESIS_PROMPT_V4,
+  renderResumeSynthesisPromptV4,
+  weaveKeywordsIntoBullets,
+}
 
 // ─── Observation Formatter ────────────────────────────────────────────────────
 
@@ -279,6 +297,65 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   const skillGuidance = formatSkillGuidanceForPrompt(allBullets)
   if (skillGuidance && skillGuidance.trim()) {
     userPrompt += `\n\n${skillGuidance.trim()}`
+  }
+
+  // ── Keyword Alignment & Keyword Weaver (V4 Dynamic Recruiter Roast Engine) ──
+  const experiences = state.canonicalResume?.experience || state.canonicalResume?.experiences || []
+  const currentExp = experiences[0] || {}
+  const currentTitle = currentExp.role || currentExp.title || 'Senior Software Engineer'
+  const currentCompany = currentExp.company || currentExp.employer || 'Recent Organization'
+  const candidateName = state.canonicalResume?.candidate?.name || state.canonicalResume?.candidate_name || state.candidateSnapshot?.name || 'Candidate'
+  const yearsOfExperience = state.canonicalResume?.years_of_experience || state.candidateSnapshot?.yearsOfExperience || '5+ years'
+
+  let missingKeywords = state.keywordAlignment?.missingFromResume || state.keywordAlignment?.missingKeywords || []
+  let skillsOnlyKeywords = state.keywordAlignment?.skillsOnlyUnverified || []
+
+  if ((!missingKeywords.length && !skillsOnlyKeywords.length) && state.canonicalResume) {
+    const computedKw = computeKeywordAlignment({
+      canonicalResume: state.canonicalResume,
+      targetRole: targetRole || 'Software Engineer',
+      targetJd: state.targetJobDescription || '',
+    })
+    state.keywordAlignment = computedKw
+    missingKeywords = computedKw.missingFromResume || computedKw.missingKeywords || []
+    skillsOnlyKeywords = computedKw.skillsOnlyUnverified || []
+  }
+
+  // Pre-compute deterministic keyword weaving across experiences
+  const wovenRewrites = weaveKeywordsIntoBullets(experiences, missingKeywords, skillsOnlyKeywords)
+  state.wovenBulletRewrites = wovenRewrites
+  state.keywordWeaverResults = wovenRewrites
+
+  // Format experience bullets with stable IDs for prompt
+  const expBulletsText = experiences.flatMap((exp, expIdx) => {
+    const comp = exp.company || exp.employer || `Company ${expIdx + 1}`
+    const role = exp.role || exp.title || ''
+    return (exp.bullets || []).map((b, bIdx) => {
+      const bId = (typeof b === 'object' && b?.id) ? b.id : `exp_${String(expIdx + 1).padStart(3, '0')}_b${String(bIdx + 1).padStart(2, '0')}`
+      const bText = typeof b === 'string' ? b : b?.text || ''
+      return `[${bId}] (${comp} | ${role}): "${bText}"`
+    })
+  }).join('\n')
+
+  // Render V4 Silicon Valley Executive Recruiter Teardown block
+  const v4RoastBlock = renderResumeSynthesisPromptV4({
+    targetRole: targetRole || 'Software Engineer',
+    candidateName,
+    currentTitle,
+    currentCompany,
+    yearsOfExperience,
+    missingKeywords,
+    skillsOnlyKeywords,
+    experienceBullets: expBulletsText,
+  })
+
+  userPrompt += `\n\n==================================================\nSENIOR SILICON VALLEY EXECUTIVE RECRUITER TEARDOWN INSTRUCTIONS (V4)\n==================================================\n${v4RoastBlock}`
+
+  if (wovenRewrites.length > 0) {
+    const wovenSummary = wovenRewrites.slice(0, 5).map((rw) =>
+      `- [${rw.bulletId}] (${rw.slot}) Wove "${rw.wovenKeyword}": "${rw.readyToUseRewrite}"`
+    ).join('\n')
+    userPrompt += `\n\n### DETERMINISTIC KEYWORD WEAVER BENCHMARKS (Pre-computed for injection):\n${wovenSummary}`
   }
 
   userPrompt += `\n\nAnalyze this resume as a standalone document using the recruiter persona, rules, and required JSON schema above. Return ONLY the valid JSON object now.`

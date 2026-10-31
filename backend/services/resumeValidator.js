@@ -340,6 +340,7 @@ export function buildRewriteLookup(tailoredBullets = []) {
         item.rewrite ||
         item.suggestedRewrite ||
         item.rewrittenText ||
+        item.readyToUseRewrite ||
         (item.originalText && item.text !== item.originalText ? item.text : null)
 
       if (!rawRewrite || typeof rawRewrite !== 'string') return

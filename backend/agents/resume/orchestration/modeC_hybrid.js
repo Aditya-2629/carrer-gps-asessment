@@ -210,16 +210,51 @@ export function sanitizeModeCOutput(analysis) {
     analysis.issues = []
   }
 
-  // 5b. bulletRewrites normalization
+  // 5b. bulletRewrites normalization (supporting V4 readyToUseRewrite & wovenKeywords)
   if (Array.isArray(analysis.bulletRewrites)) {
     analysis.bulletRewrites = analysis.bulletRewrites
-      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && rw.rewrittenText)
-      .map((rw) => ({
-        ...rw,
-        rewrittenText: cleanRewriteText(rw.rewrittenText),
-      }))
+      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && (rw.rewrittenText || rw.readyToUseRewrite))
+      .map((rw) => {
+        const cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite)
+        return {
+          ...rw,
+          rewrittenText: cleanedText,
+          readyToUseRewrite: cleanedText,
+          wovenKeywords: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
+        }
+      })
   } else {
     analysis.bulletRewrites = []
+  }
+
+  // 5c. executiveDiagnosis normalization (V4 Senior Recruiter Roast)
+  if (analysis.executiveDiagnosis && typeof analysis.executiveDiagnosis === 'object') {
+    analysis.overallReview = analysis.overallReview || {}
+    if (!analysis.overallReview.summary && analysis.executiveDiagnosis.sixSecondRecruiterVerdict) {
+      analysis.overallReview.summary = analysis.executiveDiagnosis.sixSecondRecruiterVerdict
+    }
+    analysis.overallReview.strongestAdvantage = analysis.executiveDiagnosis.strongestAdvantage
+    analysis.overallReview.primaryBottleneck = analysis.executiveDiagnosis.primaryBottleneck
+    analysis.overallReview.sixSecondRecruiterVerdict = analysis.executiveDiagnosis.sixSecondRecruiterVerdict
+  }
+
+  // 5d. topThreePrioritizedActions normalization (V4 Actions)
+  if (Array.isArray(analysis.topThreePrioritizedActions) && analysis.topThreePrioritizedActions.length > 0) {
+    if (!Array.isArray(analysis.priorityActions) || analysis.priorityActions.length === 0) {
+      analysis.priorityActions = analysis.topThreePrioritizedActions.map((act, i) => ({
+        priority: act.priority || (i + 1),
+        title: act.title || 'Prioritize impact',
+        action: act.whatToDo || act.action || 'Strengthen technical outcome',
+        whyItMatters: act.whyItMatters || '',
+        impact: act.impact || '',
+      }))
+    }
+  }
+
+  // 5e. executiveSummaryRewrite normalization
+  if (analysis.executiveSummaryRewrite && typeof analysis.executiveSummaryRewrite === 'string') {
+    analysis.summaryOptimization = analysis.summaryOptimization || {}
+    analysis.summaryOptimization.rewrittenSummary = analysis.executiveSummaryRewrite.trim()
   }
 
   // 5c. bulletUpgrades normalization
