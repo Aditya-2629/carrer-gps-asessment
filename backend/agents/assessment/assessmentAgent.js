@@ -473,6 +473,11 @@ export function detectHiringPhase({ answers = {}, resumeAgent = null, linkedinAg
     confidence = 'Low'
   }
 
+  // Phase 4 Confidence Calibration: require multiple verified final rounds for high statistical certainty
+  if (detectedPhaseId === 4 && finals90d < 2) {
+    confidence = finals90d === 0 ? 'Preliminary' : 'Moderate'
+  }
+
   const phaseMeta = HIRING_PHASES[detectedPhaseId] || HIRING_PHASES[1]
 
   return {
@@ -627,11 +632,18 @@ export function synthesizeRootCauseAndActions({
   } else if (phase.id === 4) {
     const candidateRole = ans.targetRole || 'Software Professional'
     const challengeText = ans.biggestChallenge ? ` (${ans.biggestChallenge.slice(0, 50)}${ans.biggestChallenge.length > 50 ? '...' : ''})` : ''
+    const isVerifiedFinalRound = rawFinals90 >= 2
     primary_bottleneck = {
-      title: `Final-Round Offer Conversion & Executive Alignment${challengeText}`,
-      category: 'closing_conversion',
-      whyItMatters: `Reaching final rounds for ${candidateRole} confirms verified technical capabilities. Converting at the final decision gate requires aligning on leadership presence, cultural fit, and strategic project vision.`,
-      evidence: ans.biggestChallenge || ans.frustration || `Candidate completed ${rawFinals90 || 1}+ final interview round(s) but has not yet converted to a formal written offer.`,
+      title: isVerifiedFinalRound
+        ? `Final-Round Offer Conversion & Executive Alignment${challengeText}`
+        : `Preliminary Technical Foundation & Pipeline Expansion${challengeText}`,
+      category: isVerifiedFinalRound ? 'closing_conversion' : 'pipeline_expansion',
+      whyItMatters: isVerifiedFinalRound
+        ? `Reaching final rounds for ${candidateRole} confirms verified technical capabilities. Converting at the final decision gate requires aligning on leadership presence, cultural fit, and strategic project vision.`
+        : `With limited final-round sample size, your primary bottleneck is expanding technical conversion volume and securing multiple parallel final rounds for ${candidateRole}.`,
+      evidence: ans.biggestChallenge || ans.frustration || (isVerifiedFinalRound
+        ? `Candidate completed ${rawFinals90} final interview rounds but has not yet converted to a formal written offer.`
+        : `Candidate has limited final-round volume (${rawFinals90} recorded); pipeline expansion is required before assessing closing friction.`),
     }
 
     if (ans.visa && /opt|cpt|h-?1b|sponsor|visa/i.test(ans.visa)) {
@@ -1045,12 +1057,92 @@ export function evaluateAssessmentPersona({
   }
 }
 
+/**
+ * Reconciles parsed resume timeline, questionnaire answers, and work authorization
+ * to calculate accurate career perimeter and sourcing constraints.
+ */
+export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
+  const experiences = canonicalResume?.experiences || canonicalResume?.experience || user?.resume_json?.experiences || []
+  let earliestYear = Infinity
+  let latestYear = -Infinity
+  const currentYear = new Date().getFullYear()
+
+  experiences.forEach((exp) => {
+    const dateStr = [exp.duration, exp.dates, exp.startDate, exp.endDate].filter(Boolean).join(' ')
+    const matches = dateStr.match(/\b(19\d\d|20\d\d)\b/g)
+    if (matches) {
+      matches.forEach((m) => {
+        const y = parseInt(m, 10)
+        if (y >= 1990 && y <= currentYear + 1) {
+          if (y < earliestYear) earliestYear = y
+          if (y > latestYear) latestYear = y
+        }
+      })
+    }
+    if (/present|current/i.test(dateStr) || exp.isCurrent) {
+      latestYear = currentYear
+    }
+  })
+
+  const timelineYoe = (earliestYear !== Infinity && latestYear !== -Infinity && latestYear >= earliestYear)
+    ? (latestYear - earliestYear + 1)
+    : 0
+
+  const parsedYoe = Number(
+    canonicalResume?.candidate?.yearsOfExperience ||
+    user?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
+    user?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
+    user?.resume_json?.years_of_experience ||
+    0
+  )
+
+  const effectiveYoe = Math.max(parsedYoe, timelineYoe)
+
+  let seniorityTier = 'Junior'
+  if (effectiveYoe >= 6) {
+    seniorityTier = 'Senior'
+  } else if (effectiveYoe >= 3) {
+    seniorityTier = 'Mid-Level'
+  } else if (effectiveYoe >= 1) {
+    seniorityTier = 'Junior-Mid'
+  }
+
+  const rawAuth =
+    user?.user_answers?.workAuthorization ||
+    user?.user_answers?.visa ||
+    user?.answers?.workAuthorization ||
+    user?.answers?.visa ||
+    user?.workAuthorization ||
+    user?.visa ||
+    ''
+
+  const requiresSponsorship = /opt|cpt|h-?1b|sponsor|visa|f-?1|stem/i.test(rawAuth)
+  const workAuthStatus = rawAuth
+    ? rawAuth
+    : requiresSponsorship
+    ? 'Requires Visa Sponsorship'
+    : 'US Citizen / Permanent Resident'
+
+  const searchPipelineModel = requiresSponsorship ? 'Sponsorship-Optimized Direct Sourcing' : 'Standard Market Inbound/Outbound'
+
+  return {
+    parsedYoe,
+    timelineYoe,
+    effectiveYoe,
+    seniorityTier,
+    workAuthStatus,
+    requiresSponsorship,
+    searchPipelineModel,
+  }
+}
+
 export default {
   computeCareerGpsScore,
   detectHiringPhase,
   synthesizeRootCauseAndActions,
   getExternalContext,
   evaluateAssessmentPersona,
+  resolveMarketPerimeter,
   extractQuantMetric,
   parseRangeOrNumber,
   decodeHtmlEntities,

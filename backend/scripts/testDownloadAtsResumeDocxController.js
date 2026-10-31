@@ -107,6 +107,8 @@ assert(
   'Filename must match candidate name'
 )
 assert.strictEqual(headers['X-Resume-Pages'], '1', 'Pages header set')
+assert(Number(headers['X-Interview-Ledger-Count']) >= 1, 'X-Interview-Ledger-Count header must be >= 1')
+assert(fakeUser.aiReport.interview_ledger && fakeUser.aiReport.interview_ledger.length >= 1, 'interview_ledger must be persisted to user.aiReport')
 
 console.log('✓ downloadAtsResumeDocx controller test passed successfully! Generated ' + responseBuffer.length + ' bytes')
 

@@ -622,7 +622,19 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         `Principal ${baseTitle}`,
       ]
 
-  const top3SkillsForTricks = top3PinnedSkills.length >= 3
+  const cleanConcreteCandidateSkills = (
+    Array.isArray(top3PinnedSkills) && top3PinnedSkills.length >= 3
+      ? top3PinnedSkills
+      : Array.isArray(pinnedSkills) && pinnedSkills.length >= 3
+      ? pinnedSkills
+      : Array.isArray(coreSkillList) && coreSkillList.length >= 3
+      ? coreSkillList
+      : []
+  ).filter(isConcreteTechSkill)
+
+  const top3SkillsForTricks = cleanConcreteCandidateSkills.length >= 3
+    ? cleanConcreteCandidateSkills.slice(0, 3)
+    : top3PinnedSkills.length >= 3
     ? top3PinnedSkills.slice(0, 3)
     : isDataAnalystRole
     ? ['SQL', 'Power BI', 'Python']

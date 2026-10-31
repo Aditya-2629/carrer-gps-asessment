@@ -856,6 +856,23 @@ export const downloadAtsResumeDocx = async (req, res) => {
       canonical.experiences = tailoredExperiences
     }
 
+    if (interviewLedger && interviewLedger.length > 0) {
+      try {
+        if (!user.aiReport) user.aiReport = {}
+        user.aiReport.interview_ledger = interviewLedger
+        if (user.resume_agent) user.resume_agent.interviewLedger = interviewLedger
+        if (typeof user.markModified === 'function') {
+          user.markModified('aiReport')
+          user.markModified('resume_agent')
+        }
+        if (typeof user.save === 'function') {
+          await user.save()
+        }
+      } catch (_saveErr) {
+        console.warn('[downloadAtsResumeDocx] Non-blocking user interviewLedger update failed:', _saveErr.message)
+      }
+    }
+
     // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
     const bulletAudit =
       (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
@@ -885,9 +902,10 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode, X-Interview-Ledger-Count')
     res.setHeader('X-Resume-Pages', String(pages))
     res.setHeader('X-Resume-Fit-Mode', mode || 'measured')
+    res.setHeader('X-Interview-Ledger-Count', String(interviewLedger?.length || 0))
     res.setHeader('Content-Length', docxBuffer.length)
     return res.end(docxBuffer)
   } catch (err) {

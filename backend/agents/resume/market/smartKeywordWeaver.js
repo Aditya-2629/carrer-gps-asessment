@@ -38,8 +38,10 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
             keywordLedger.push({
               keyword: kw,
               company: exp.company || `Company ${expIdx + 1}`,
+              placement: 'Inline Tooling Clause',
+              bulletText: text,
               exactBullet: text,
-              interviewTalkingScript: `Explain that you adopted ${kw} to enforce static typing and prevent runtime payload errors across microservices.`,
+              interviewTalkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
             })
             break
           }
@@ -57,6 +59,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
             keywordLedger.push({
               keyword: kw,
               company: exp.company || `Company ${expIdx + 1}`,
+              placement: 'Event Architecture Clause',
+              bulletText: text,
               exactBullet: text,
               interviewTalkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
             })
@@ -81,6 +85,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
       keywordLedger.push({
         keyword: 'Unit / Integration Testing & Git',
         company: exp.company || 'Current Company',
+        placement: 'Dedicated Production Quality Bullet',
+        bulletText: practiceBullet,
         exactBullet: practiceBullet,
         interviewTalkingScript: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
       })
@@ -97,3 +103,4 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
 export default {
   weaveKeywordsAndBuildLedger,
 }
+

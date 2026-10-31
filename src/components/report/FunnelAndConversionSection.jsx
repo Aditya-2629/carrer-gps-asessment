@@ -129,14 +129,60 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     title: 'Core Software & Engineering Wave',
     currentQuarter: 'Q4',
   }
-  const visaText = decodeHtmlEntities(answers.visa || 'US Citizen / Green Card / GC-EAD')
-  const candidateYoe =
-    Number(storeReport?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
+
+  // Work Auth & Sourcing Fallback reconciliation
+  const rawVisa =
+    answers.visa ||
+    answers.workAuthorization ||
+    storeReport?.user_answers?.workAuthorization ||
+    storeReport?.user_answers?.visa ||
+    'US Citizen / Green Card / GC-EAD'
+  const visaText = decodeHtmlEntities(rawVisa)
+
+  // Dynamically calculate career timeline in years from canonical experiences
+  const experiences =
+    storeReport?.resume_agent?.canonicalResume?.experiences ||
+    storeReport?.resume_json?.experiences ||
+    storeReport?.resume_json?.experience ||
+    []
+
+  let earliestYear = Infinity
+  let latestYear = -Infinity
+  const currentYear = new Date().getFullYear()
+
+  experiences.forEach((exp) => {
+    const dateStr = [exp.duration, exp.dates, exp.startDate, exp.endDate].filter(Boolean).join(' ')
+    const matches = dateStr.match(/\b(19\d\d|20\d\d)\b/g)
+    if (matches) {
+      matches.forEach((m) => {
+        const y = parseInt(m, 10)
+        if (y >= 1990 && y <= currentYear + 1) {
+          if (y < earliestYear) earliestYear = y
+          if (y > latestYear) latestYear = y
+        }
+      })
+    }
+    if (/present|current/i.test(dateStr) || exp.isCurrent) {
+      latestYear = currentYear
+    }
+  })
+
+  const timelineYoe = (earliestYear !== Infinity && latestYear !== -Infinity && latestYear >= earliestYear)
+    ? (latestYear - earliestYear + 1)
+    : 0
+
+  const rawCandidateYoe = Number(
+    storeReport?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
     storeReport?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
-    storeReport?.resume_json?.years_of_experience || 0)
+    storeReport?.resume_json?.years_of_experience || 0
+  )
+
+  const candidateYoe = Math.max(rawCandidateYoe, timelineYoe)
 
   // Reconcile questionnaire answer against candidate's actual resume timeline
-  const expText = candidateYoe >= 5
+  const expText = candidateYoe >= 6
+    ? 'Senior / 6+ Yrs Experience ⚡'
+    : candidateYoe >= 5
     ? 'Senior / 5+ Yrs Experience ⚡'
     : candidateYoe >= 3
     ? 'Mid–Senior / 3–5 Yrs Experience 🚀'

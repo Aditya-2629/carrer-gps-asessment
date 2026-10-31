@@ -19,6 +19,7 @@ import {
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
+import InterviewDefenseSheet from './InterviewDefenseSheet.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
@@ -100,6 +101,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const snapshot = resumeAgent.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
+  const interviewLedger = resumeAgent?.interviewLedger || reportData?.interview_ledger || reportData?.resume_agent?.interviewLedger || []
 
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const [copiedBlueprintBullet, setCopiedBlueprintBullet] = useState(false)
@@ -622,6 +624,11 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
           <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
         </div>
+      )}
+
+      {/* Companion ATS Keyword Defense & Interview Cheat Sheet */}
+      {interviewLedger?.length > 0 && (
+        <InterviewDefenseSheet interviewLedger={interviewLedger} variant={variant} />
       )}
 
       {/* Deep issues (only shown when bullet audit is not available) */}

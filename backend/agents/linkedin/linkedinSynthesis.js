@@ -164,9 +164,35 @@ export function buildDeterministicOptimizations(
     ? Array.from(new Set([...filteredMissing, ...recommendedSkillsToAdd])).slice(0, 10)
     : recommendedSkillsToAdd
 
-  const topBullet = exp[0]?.bullets?.[0]?.text || (typeof exp[0]?.bullets?.[0] === 'string' ? exp[0].bullets[0] : '') || ''
-  const metricMatch = topBullet.match(/\b\d+[%xXkKMbB]?\b/)
-  const metricSnippet = metricMatch ? topBullet.slice(0, 55) : 'Scalable Architecture & High-Performance Systems'
+  // Scan all experience bullets across the resume for high-impact metric clauses
+  let bestMetricPhrase = ''
+  let bestMetricNum = ''
+
+  for (const e of exp) {
+    const bullets = Array.isArray(e.bullets)
+      ? e.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean)
+      : []
+    for (const b of bullets) {
+      if (!bestMetricPhrase) {
+        const verbMetricMatch = b.match(/\b(reducing|improving|scaling|boosting|increasing|accelerating|cutting|delivering|optimizing|saving)\s+([^,.;]{10,80}?(?:\d+[%xXkKMbB]?|\d+)[^,.;]*)/i)
+        if (verbMetricMatch) {
+          bestMetricPhrase = `${verbMetricMatch[1]} ${verbMetricMatch[2]}`.trim()
+        }
+      }
+      if (!bestMetricNum) {
+        const numMatch = b.match(/\b\d+[%xXkKMbB]?\b/)
+        if (numMatch) {
+          bestMetricNum = numMatch[0]
+        }
+      }
+      if (bestMetricPhrase && bestMetricNum) break
+    }
+    if (bestMetricPhrase && bestMetricNum) break
+  }
+
+  const metricPhrase = bestMetricPhrase || (bestMetricNum ? `driving ${bestMetricNum} performance gains` : '')
+  const metricMatch = bestMetricNum ? [bestMetricNum] : null
+  const metricSnippet = metricPhrase || (metricMatch ? `driving ${metricMatch[0]} performance gains` : 'Scalable Architecture & High-Performance Systems')
 
   // Critique current LinkedIn profile
   const currentAbout = profile?.about || ''
@@ -174,9 +200,11 @@ export function buildDeterministicOptimizations(
     ? 'Your current About section is under 210 characters, wasting prime above-the-fold real estate before recruiters click "...see more".'
     : 'Your current About section reads as a generic summary without leading with your strongest verified production metrics or target specialization.'
 
-  const hook = metricMatch
-    ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems driving ${metricMatch[0]} performance gains in production.`
-    : `${targetRole} specializing in ${topStack}. Architecting mission-critical cloud solutions, high-throughput microservices, and reliable engineering platforms.`
+  const hook = metricPhrase
+    ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems, ${metricPhrase}.`
+    : metricMatch
+      ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems driving ${metricMatch[0]} performance gains in production.`
+      : `${targetRole} specializing in ${topStack}. Architecting mission-critical cloud solutions, high-throughput microservices, and reliable engineering platforms.`
 
   const pillar1 = isDataRole
     ? `▸ Data Modeling & Analytics: Architecting scalable data models and BI pipelines that eliminate reporting bottlenecks.`
@@ -184,9 +212,11 @@ export function buildDeterministicOptimizations(
   const pillar2 = isDataRole
     ? `▸ Enterprise Intelligence & Pipelines: Deploying automated analytics workflows across modern cloud data infrastructure using ${topStack}.`
     : `▸ Cloud & Production Engineering: Deploying high-throughput workloads across modern cloud infrastructure using ${topStack}.`
-  const pillar3 = metricMatch
-    ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including verified ${metricMatch[0]} performance improvements.`
-    : `▸ Engineering Excellence & Mentorship: Establishing robust CI/CD, test automation, and engineering standards for mission-critical deliverables.`
+  const pillar3 = metricPhrase
+    ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including ${metricPhrase}.`
+    : metricMatch
+      ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including verified ${metricMatch[0]} performance improvements.`
+      : `▸ Engineering Excellence & Mentorship: Establishing robust CI/CD, test automation, and engineering standards for mission-critical deliverables.`
 
   const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 

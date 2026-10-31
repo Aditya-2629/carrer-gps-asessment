@@ -132,7 +132,7 @@ export function buildDeterministicDossier({
 /**
  * Normalizes minor model structural variations before validation and consumption.
  */
-export function sanitizeModeCOutput(analysis) {
+export function sanitizeModeCOutput(analysis, state = {}) {
   if (!analysis || typeof analysis !== 'object') return analysis
 
   // 1. dashboard normalization (required by contract, score must be null)

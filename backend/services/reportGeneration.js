@@ -19,6 +19,7 @@ import { runCareerAgents } from '../agents/orchestrator.js'
 import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
 import { evaluateAssessmentPersona, parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
+import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import AgentRun from '../models/AgentRun.js'
 import { jsonrepair } from 'jsonrepair'
 
@@ -506,6 +507,50 @@ export async function generateReportBundle({
     console.warn('[reportGeneration] evaluateAssessmentPersona error:', _e.message || _e)
   }
 
+  // Smart Keyword Weaver & Defensible Interview Ledger Integration
+  let interviewLedger = []
+  try {
+    const rawMissing = [
+      ...(Array.isArray(activeResumeAgent?.keywordAlignment?.missingKeywords) ? activeResumeAgent.keywordAlignment.missingKeywords : []),
+      ...(Array.isArray(activeResumeAgent?.keywordAlignment?.missingFromResume) ? activeResumeAgent.keywordAlignment.missingFromResume : []),
+      ...(Array.isArray(aiReport?.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
+      ...(Array.isArray(activeResumeAgent?.missingKeywords) ? activeResumeAgent.missingKeywords : []),
+    ]
+    const missingSkillsList = []
+    const seenKw = new Set()
+    for (const item of rawMissing) {
+      const kw = typeof item === 'string' ? item.trim() : (item?.keyword || item?.name || item?.skill || '').trim()
+      if (kw && kw.length >= 2 && !seenKw.has(kw.toLowerCase())) {
+        seenKw.add(kw.toLowerCase())
+        missingSkillsList.push(kw)
+      }
+    }
+
+    const canonicalForWeaving = activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson
+    if (canonicalForWeaving) {
+      const { tailoredExperiences, interviewLedger: ledger } = weaveKeywordsAndBuildLedger({
+        canonicalResume: canonicalForWeaving,
+        missingKeywords: missingSkillsList,
+      })
+      if (tailoredExperiences && tailoredExperiences.length > 0) {
+        if (activeResumeAgent && activeResumeAgent.canonicalResume) {
+          activeResumeAgent.canonicalResume.experiences = tailoredExperiences
+        }
+        if (aiReport.resume_json) {
+          aiReport.resume_json.experiences = tailoredExperiences
+        }
+      }
+      interviewLedger = ledger || []
+      if (activeResumeAgent) {
+        activeResumeAgent.interviewLedger = interviewLedger
+      }
+    }
+  } catch (_weaveErr) {
+    console.warn('[reportGeneration] weaveKeywordsAndBuildLedger warning:', _weaveErr.message || _weaveErr)
+  }
+
+  aiReport.interview_ledger = interviewLedger
+
   // Attach verified agent diagnoses and V2 Career GPS metrics
   aiReport.resume_agent = activeResumeAgent
   aiReport.linkedin_agent = activeLinkedinAgent
@@ -563,7 +608,7 @@ export async function generateReportBundle({
           'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile',
           'gps_score', 'career_health_score', 'phase', 'primary_bottleneck',
           'secondary_problem', 'strongest_area', 'next_best_action', 'top_actions',
-          'gps_scores', 'external_context'
+          'gps_scores', 'external_context', 'interview_ledger'
         ]) {
           if (source[key] !== undefined) target[key] = source[key]
         }
