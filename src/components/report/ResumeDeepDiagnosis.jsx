@@ -58,7 +58,7 @@ const severityChip = {
   low: 'bg-sky-500/10 text-sky-600 border-sky-500/25',
 }
 
-function SectionHeader({ icon, title, accent, onOpenReport, onDownloadDocx, isDownloading }) {
+function SectionHeader({ icon, title, accent, onOpenReport }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-[var(--border-default)] pb-4">
       <div className="flex items-center gap-3">
@@ -72,18 +72,6 @@ function SectionHeader({ icon, title, accent, onOpenReport, onDownloadDocx, isDo
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {onDownloadDocx && (
-          <button
-            type="button"
-            onClick={onDownloadDocx}
-            disabled={isDownloading}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60"
-            title="Download your tailored, ATS-compliant Word document resume"
-          >
-            <DownloadSimple size={14} weight="bold" />
-            {isDownloading ? 'Generating Word Doc...' : 'Download Tailored ATS Resume (.docx)'}
-          </button>
-        )}
         <button
           type="button"
           onClick={onOpenReport}
@@ -248,14 +236,17 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       }
 
       if (!filename) {
-        const fallbackName = (
+        const candidateName = (
           reportData?.resume_agent?.canonicalResume?.candidate_name ||
-          reportData?.resumeAgent?.canonicalResume?.candidate_name ||
+          reportData?.resume_agent?.canonicalResume?.name ||
+          reportData?.resume_agent?.canonicalResume?.candidate?.name ||
+          reportData?.resume_agent?.canonicalResume?.contact?.name ||
           reportData?.resumeAgent?.candidateName ||
-          reportData?.resume_agent?.candidateName ||
-          'Tailored'
+          reportData?.candidate_name ||
+          snapshot.name ||
+          'Candidate'
         ).replace(/\s+/g, '_')
-        filename = `${fallbackName}_Tailored_ATS_Resume.docx`
+        filename = `${candidateName}_Tailored_ATS_Resume.docx`
       }
 
       a.download = filename
@@ -349,8 +340,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         title="AI Resume Deep Diagnosis & Rewrites"
         accent="text-indigo-400"
         onOpenReport={handleOpenPrintReport}
-        onDownloadDocx={handleDownloadDocx}
-        isDownloading={isDownloadingDocx}
       />
 
       {/* Candidate Snapshot Meta Bar */}
