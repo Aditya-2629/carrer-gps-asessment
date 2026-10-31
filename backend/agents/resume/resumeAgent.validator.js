@@ -1110,12 +1110,27 @@ export class ResumeAgentValidator {
     // Ensure summaryOptimization is preserved or synthesized on sanitizedAnalysis
     if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
       const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
+      const isData = /data|analyst|analytics|bi\b|sql|tableau/i.test(targetRole)
+      const isAi = /ai\b|machine learning|ml\b|llm|deep learning|nlp/i.test(targetRole)
+      const isFrontend = /frontend|front-end|ui\/ux|react|angular|vue/i.test(targetRole)
+      const rawSkills = analysis.candidateSnapshot?.skills || analysis.skills || []
+      const skillsList = Array.isArray(rawSkills)
+        ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+        : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat().filter(Boolean) : [])
+      const topSkillsStr = skillsList.slice(0, 3).join(', ')
+
+      let specialization = 'scalable systems and full-stack technical delivery'
+      if (isData) specialization = 'data analytics, relational database modeling, and automated executive reporting'
+      else if (isAi) specialization = 'production AI/ML systems, predictive modeling, and scalable inference workflows'
+      else if (isFrontend) specialization = 'responsive frontend architectures, modern component libraries, and intuitive UI performance'
+      else if (topSkillsStr) specialization = `production engineering across ${topSkillsStr}`
+
       const topStrengths = (analysis.strengths || []).slice(0, 2).map((s) => s.title).join(', ')
       analysis.summaryOptimization = {
         status: 'missing',
         currentSummary: 'No Professional Summary section found on resume',
         diagnosis: `Your resume currently lacks an executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and engineering scope.`,
-        rewrittenSummary: `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution${topStrengths ? ` across ${topStrengths}` : ''}, reducing system latency, and delivering resilient production platforms. Specializes in modern cloud infrastructure, event-driven microservices, and end-to-end technical delivery.`,
+        rewrittenSummary: `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution${topStrengths ? ` across ${topStrengths}` : ''}, reducing system latency, and delivering resilient production platforms. Specializes in ${specialization}.`,
       }
     }
 

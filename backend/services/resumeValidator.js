@@ -288,22 +288,26 @@ export function normalizeEducationItem(edu) {
 /**
  * Gracefully cleans placeholder clauses from bullet rewrites
  * E.g. "...reducing approval latency by [ADD: 40%]." -> clean period "."
+ * Never eats trailing clauses (e.g. "...by [ADD: ...] and boosted system throughput." -> "...and boosted system throughput.")
  */
-export function cleanPlaceholderClause(text) {
+export function cleanPlaceholderGraceful(text) {
   if (!text || typeof text !== 'string') return ''
   let cleaned = text
-    .replace(/,\s*(?:reducing|increasing|delivering|achieving|supporting|improving|cutting|saving|driving|scaling|optimizing|boosting|generating|by|with|to|for|at|across)\s*[^.,;]*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\][^.!?]*(?:[.!?]|$)/gi, '.')
-    .replace(/\s*,?\s*(?:achieving|supporting|delivering|by|with|to|for|at|across)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\][^.!?]*(?:[.!?]|$)/gi, '.')
-    .replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
-    .replace(/\s+([.,;])/g, '$1')
-    .replace(/([.,;])\s*[.,;]+/g, '$1')
-    .replace(/\.+$/, '.')
-    .trim()
+  // Replace 'by [ADD: ...] and boosted...' -> 'and boosted...'
+  cleaned = cleaned.replace(/\b(?:by|with)\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]\s*(and|while|to)\b/gi, '$1')
+  // Strip dangling placeholder phrases without eating rest of sentence
+  cleaned = cleaned.replace(/,\s*(?:reducing|securing|achieving|supporting|delivering|improving|cutting|saving|driving|scaling|optimizing|boosting|generating)(?:\s+[a-z\s]+)?\s*(?:by|with|to)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\](?:\s+across\s+[a-z\s]+)?/gi, '')
+  // Strip raw bracket
+  cleaned = cleaned.replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+  cleaned = cleaned.replace(/\s*,\s*,/g, ',').replace(/\s{2,}/g, ' ').trim()
+  cleaned = cleaned.replace(/\s+\./g, '.')
+  cleaned = cleaned.replace(/\.+$/, '.')
   if (cleaned && !/[.!?]$/.test(cleaned)) {
     cleaned += '.'
   }
   return cleaned
 }
+export const cleanPlaceholderClause = cleanPlaceholderGraceful
 
 /**
  * Builds multi-strategy rewrite index:

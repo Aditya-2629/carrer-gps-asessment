@@ -20,11 +20,19 @@ import {
   estimateHeightBudget,
 } from './pageFit.js'
 
+/**
+ * Alekya Gold Standard Geometry:
+ * US Letter: 12240 x 15840 dxa (8.5 x 11.0 in)
+ * Margins: Top 460 dxa (0.32 in), Bottom 460 dxa (0.32 in), Left 620 dxa (0.43 in), Right 620 dxa (0.43 in)
+ * Primary Right Tab Stop: Exactly 10224 dxa (7.1 in) right-aligned
+ */
 const PAGE_CONFIG = {
   letter: { width: 12240, height: 15840 },
-  marginNormal: { top: 720, bottom: 720, left: 720, right: 720 }, // 0.50 in (10800 dxa content width)
-  marginTight: { top: 648, bottom: 648, left: 648, right: 648 },   // 0.45 in (10944 dxa content width)
+  marginNormal: { top: 460, bottom: 460, left: 620, right: 620 },
+  marginTight: { top: 380, bottom: 380, left: 540, right: 540 },
 }
+
+const RIGHT_TAB_POS = 10224
 
 /**
  * Group skills by category with JD demand order, eliminating the "General" catch-all
@@ -143,65 +151,77 @@ export function groupByCategory(skills = [], targetRole = '') {
 }
 
 function createHyperlink(text, url, size = 19) {
-  if (!url) return new TextRun({ text, font: 'Calibri', size, color: '000000' })
+  if (!url) return new TextRun({ text, font: 'Times New Roman', size, color: '555555' })
   const cleanUrl = url.startsWith('http') || url.startsWith('mailto:') ? url : `https://${url}`
   return new ExternalHyperlink({
     link: cleanUrl,
     children: [
-      new TextRun({ text, font: 'Calibri', size, color: '0563C1', underline: {} }),
+      new TextRun({ text, font: 'Times New Roman', size, color: '555555', underline: {} }),
     ],
   })
 }
 
-function createSectionHeading(title, spacingBefore = 110, spacingAfter = 30) {
+function createSectionHeading(title, spacingBefore = 160, spacingAfter = 60) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
     spacing: { before: spacingBefore, after: spacingAfter },
     border: {
-      bottom: { color: '4B5563', space: 2, style: BorderStyle.SINGLE, size: 6 }, // 0.5pt bottom rule
+      bottom: { color: '1F3A5F', space: 2, style: BorderStyle.SINGLE, size: 4 }, // 0.5pt Navy Blue bottom rule
     },
     children: [
-      new TextRun({ text: title.toUpperCase(), bold: true, size: 21, font: 'Calibri', color: '000000' }), // 10.5pt Bold
+      new TextRun({ text: title.toUpperCase(), bold: true, size: 21, font: 'Times New Roman', color: '000000' }), // 10.5pt Bold
     ],
   })
 }
 
+/**
+ * Semantic bolding without arbitrary bold cap:
+ * Bolds model **bold** marks or non-overlapping tool names and key metrics.
+ */
 function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   const rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
   if (!rawText) return []
 
-  // Case A: Model already supplied **bold** markers
+  // Case A: Model already supplied **bold** markers (no 2-bold cap)
   if (/\*\*(.*?)\*\*/.test(rawText)) {
     const parts = rawText.split(/\*\*(.*?)\*\*/g)
     const runs = []
-    let boldCount = 0
     parts.forEach((part, i) => {
       if (!part) return
-      const isBold = i % 2 === 1 && boldCount < 2
-      if (isBold) boldCount++
-      runs.push(new TextRun({ text: part, bold: isBold, size: bodySize, font: 'Calibri', color: '000000' }))
+      const isBold = i % 2 === 1
+      runs.push(
+        new TextRun({
+          text: part,
+          bold: isBold,
+          size: bodySize,
+          font: 'Times New Roman',
+          color: isBold ? '000000' : '222222',
+        })
+      )
     })
     return runs
   }
 
-  // Case B: Dynamic selection (max 2: 1 tool + 1 result metric)
+  // Case B: Dynamic selection (no arbitrary cap, non-overlapping matches)
   const targets = []
   const sortedSkills = [...candidateSkills].sort((a, b) => b.length - a.length)
 
   for (const skill of sortedSkills) {
     if (skill.length < 2) continue
-    const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
-    const match = rawText.match(regex)
-    if (match) {
-      targets.push({ start: match.index, end: match.index + match[0].length, text: match[0] })
-      break
+    const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+    let match
+    while ((match = regex.exec(rawText)) !== null) {
+      const start = match.index
+      const end = start + match[0].length
+      if (!targets.some((t) => (start >= t.start && start < t.end) || (end > t.start && end <= t.end))) {
+        targets.push({ start, end, text: match[0] })
+      }
     }
   }
 
   const METRIC_REGEX = /\$\s?\d[\d,.]*\s?[KMBkmb]?(?![A-Za-z])\+?|\b\d[\d,.]*\s?(?:%|[KMBkmb](?![A-Za-z])\+?|x(?![A-Za-z])|\+)/g
   const allMetrics = [...rawText.matchAll(METRIC_REGEX)]
-  if (allMetrics.length > 0) {
-    const picked = allMetrics.filter((m) => /[%$]/.test(m[0])).pop() || allMetrics.pop()
+  for (const picked of allMetrics) {
     const start = picked.index
     const end = start + picked[0].length
     if (!targets.some((t) => (start >= t.start && start < t.end) || (end > t.start && end <= t.end))) {
@@ -210,26 +230,48 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   }
 
   targets.sort((a, b) => a.start - b.start)
-  const safeTargets = targets.slice(0, 2)
 
   const runs = []
   let lastIdx = 0
-  safeTargets.forEach((tgt) => {
+  targets.forEach((tgt) => {
     if (tgt.start > lastIdx) {
-      runs.push(new TextRun({ text: rawText.slice(lastIdx, tgt.start), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
+      runs.push(
+        new TextRun({
+          text: rawText.slice(lastIdx, tgt.start),
+          bold: false,
+          size: bodySize,
+          font: 'Times New Roman',
+          color: '222222',
+        })
+      )
     }
-    runs.push(new TextRun({ text: rawText.slice(tgt.start, tgt.end), bold: true, size: bodySize, font: 'Calibri', color: '000000' }))
+    runs.push(
+      new TextRun({
+        text: rawText.slice(tgt.start, tgt.end),
+        bold: true,
+        size: bodySize,
+        font: 'Times New Roman',
+        color: '000000',
+      })
+    )
     lastIdx = tgt.end
   })
   if (lastIdx < rawText.length) {
-    runs.push(new TextRun({ text: rawText.slice(lastIdx), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
+    runs.push(
+      new TextRun({
+        text: rawText.slice(lastIdx),
+        bold: false,
+        size: bodySize,
+        font: 'Times New Roman',
+        color: '222222',
+      })
+    )
   }
   return runs
 }
 
 function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
-  const contentWidth = PAGE_CONFIG.letter.width - (margin.left + margin.right)
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
   const candidateName = sanitizedResume.candidate_name || ''
@@ -245,19 +287,27 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const skillGroups = groupByCategory(rawSkills, targetRole)
   const allAtomicSkills = skillGroups.flatMap(([_, items]) => items).filter((s) => s.length <= 22 && !s.includes(';'))
 
-  const topSkillsSub = allAtomicSkills.slice(0, 4).join(' | ')
-  const subtitle = [targetRole, topSkillsSub].filter(Boolean).join(' | ')
+  // Format: TARGET ROLE — KEY SKILL 1 / KEY SKILL 2 / KEY SKILL 3
+  const topSkillsSub = allAtomicSkills.slice(0, 3).join(' / ')
+  let subtitle = ''
+  if (targetRole && topSkillsSub) {
+    subtitle = `${targetRole.toUpperCase()} — ${topSkillsSub}`
+  } else if (targetRole) {
+    subtitle = targetRole.toUpperCase()
+  } else if (topSkillsSub) {
+    subtitle = topSkillsSub
+  }
 
   const children = []
 
-  // 1. Header (Centered, Calibri only)
+  // 1. Header (Alekya Gold Standard Typography & Geometry)
   if (candidateName) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 20 },
+        spacing: { before: 0, after: 25 }, // 1.25pt after
         children: [
-          new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 38, font: 'Calibri', color: '000000' }), // 19pt Bold
+          new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 40, font: 'Times New Roman', color: '000000' }), // 20pt Bold Pure Black
         ],
       })
     )
@@ -267,65 +317,165 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 30 },
+        spacing: { before: 0, after: 55 }, // 2.75pt after
         children: [
-          new TextRun({ text: subtitle, bold: true, size: 21, color: '000000', font: 'Calibri' }), // 10.5pt Bold
+          new TextRun({ text: subtitle, bold: false, size: 22, color: '222222', font: 'Times New Roman' }), // 11pt Charcoal
         ],
       })
     )
   }
 
-  // Contact line (pipe-separated with external hyperlinks)
+  // Contact line (pipe-separated "  |  " with hyperlinks)
   const contactRuns = []
-  if (contact.location) contactRuns.push(new TextRun({ text: contact.location, size: bodySize - 1, font: 'Calibri', color: '000000' }))
+  const separator = () => new TextRun({ text: '  |  ', size: 19, font: 'Times New Roman', color: '555555' })
+
+  if (contact.location) {
+    contactRuns.push(new TextRun({ text: contact.location, size: 19, font: 'Times New Roman', color: '555555' }))
+  }
   if (contact.phone) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
-    contactRuns.push(new TextRun({ text: contact.phone, size: bodySize - 1, font: 'Calibri', color: '000000' }))
+    if (contactRuns.length > 0) contactRuns.push(separator())
+    contactRuns.push(new TextRun({ text: contact.phone, size: 19, font: 'Times New Roman', color: '555555' }))
   }
   if (contact.email) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink(contact.email, `mailto:${contact.email}`, bodySize - 1))
+    if (contactRuns.length > 0) contactRuns.push(separator())
+    contactRuns.push(createHyperlink(contact.email, `mailto:${contact.email}`, 19))
   }
   if (contact.linkedin) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink('LinkedIn', contact.linkedin, bodySize - 1))
+    if (contactRuns.length > 0) contactRuns.push(separator())
+    contactRuns.push(createHyperlink('LinkedIn', contact.linkedin, 19))
   }
   if (contact.github) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink('GitHub', contact.github, bodySize - 1))
+    if (contactRuns.length > 0) contactRuns.push(separator())
+    contactRuns.push(createHyperlink('GitHub', contact.github, 19))
   }
 
   if (contactRuns.length > 0) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: config.tightSpacing ? 70 : 90 },
+        spacing: { before: 0, after: config.tightSpacing ? 70 : 90 }, // 4.5pt after
         children: contactRuns,
       })
     )
   }
 
-  // 2. Summary
+  // 2. PROFESSIONAL SUMMARY
   if (summary && summary.trim()) {
     let cleanSummary = summary.trim()
     if (config.shortenSummary) {
       const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
-    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 90 : 110, 30))
+    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
     children.push(
       new Paragraph({
-        spacing: { before: 15, after: config.tightSpacing ? 50 : 70 },
+        spacing: { before: 0, after: config.tightSpacing ? 50 : 70 },
         children: [
-          new TextRun({ text: cleanSummary, size: bodySize, font: 'Calibri', color: '000000' }),
+          new TextRun({ text: cleanSummary, size: bodySize, font: 'Times New Roman', color: '222222' }),
         ],
       })
     )
   }
 
-  // 3. Technical Skills
+  // 3. WORK EXPERIENCE (Strict Alekya 2-Line Format)
+  if (experiences.length > 0) {
+    children.push(createSectionHeading('Work Experience', config.tightSpacing ? 120 : 160, 60))
+
+    experiences.forEach((exp) => {
+      const role = exp.role || exp.title || ''
+      const duration = exp.duration || ''
+      const line1Runs = [
+        new TextRun({ text: role, bold: true, size: 22, font: 'Times New Roman', color: '000000' }), // 11pt Bold #000000
+      ]
+      if (duration) {
+        line1Runs.push(
+          new TextRun({ text: `\t${duration}`, italics: true, size: 19, font: 'Times New Roman', color: '555555' }) // 9.5pt Italic #555555
+        )
+      }
+
+      // Line 1: Job Title \t Date Range
+      children.push(
+        new Paragraph({
+          spacing: { before: config.tightSpacing ? 80 : 120, after: 15 },
+          tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB_POS }],
+          children: line1Runs,
+        })
+      )
+
+      // Line 2: Company Name | City, State/Country (Work Mode)
+      const companyMeta = [exp.company, exp.location].filter(Boolean).join(' | ')
+      if (companyMeta) {
+        children.push(
+          new Paragraph({
+            spacing: { before: 0, after: 55 },
+            children: [
+              new TextRun({ text: companyMeta, bold: true, italics: true, size: 20, font: 'Times New Roman', color: '222222' }), // 10pt Bold+Italic #222222
+            ],
+          })
+        )
+      }
+
+      ;(exp.bullets || []).forEach((b) => {
+        children.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            spacing: { before: 0, after: config.tightSpacing ? 30 : 45 },
+            indent: { left: 288, hanging: 216 },
+            children: buildSelectiveBoldRuns(b, allAtomicSkills, bodySize),
+          })
+        )
+      })
+    })
+  }
+
+  // 4. PROJECTS
+  if (projects.length > 0) {
+    children.push(createSectionHeading('Projects', config.tightSpacing ? 120 : 160, 60))
+
+    projects.forEach((proj) => {
+      const headerRuns = [
+        new TextRun({ text: proj.title || 'Project', bold: true, size: 20, font: 'Times New Roman', color: '000000' }), // 10pt Bold #000000
+      ]
+      if (proj.techStack) {
+        headerRuns.push(
+          new TextRun({ text: `  |  ${proj.techStack}`, bold: false, size: 20, font: 'Times New Roman', color: '555555' }) // 10pt Regular #555555
+        )
+      }
+      if (proj.link) {
+        headerRuns.push(new TextRun({ text: '  ', font: 'Times New Roman', size: 19 }))
+        headerRuns.push(createHyperlink('Demo / Code', proj.link, 19))
+      }
+      const rightMeta = [proj.label, proj.dates].filter(Boolean).join(' | ')
+      if (rightMeta) {
+        headerRuns.push(
+          new TextRun({ text: `\t${rightMeta}`, italics: true, size: 19, font: 'Times New Roman', color: '555555' })
+        )
+      }
+
+      children.push(
+        new Paragraph({
+          spacing: { before: config.tightSpacing ? 50 : 80, after: 25 },
+          tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB_POS }],
+          children: headerRuns,
+        })
+      )
+
+      ;(proj.bullets || []).forEach((pb) => {
+        children.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            spacing: { before: 0, after: config.tightSpacing ? 30 : 45 },
+            indent: { left: 288, hanging: 216 },
+            children: buildSelectiveBoldRuns(pb, allAtomicSkills, bodySize),
+          })
+        )
+      })
+    })
+  }
+
+  // 5. TECHNICAL SKILLS
   if (skillGroups.length > 0) {
-    children.push(createSectionHeading('Technical Skills', config.tightSpacing ? 90 : 110, 30))
+    children.push(createSectionHeading('Technical Skills', config.tightSpacing ? 120 : 160, 60))
     skillGroups.forEach(([cat, list]) => {
       const cleanList = list.map((item) => {
         let s = typeof item === 'string' ? item.trim() : (item?.name || item?.keyword || '').trim()
@@ -379,156 +529,86 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
       children.push(
         new Paragraph({
-          spacing: { before: 6, after: 12 },
+          spacing: { before: 0, after: 25 },
           children: [
-            new TextRun({ text: `${cat}: `, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: dedup, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: `${cat}: `, bold: true, size: bodySize, font: 'Times New Roman', color: '222222' }),
+            new TextRun({ text: dedup, size: bodySize, font: 'Times New Roman', color: '222222' }),
           ],
         })
       )
     })
   }
 
-  // 4. Experience (NEVER drop a role)
-  if (experiences.length > 0) {
-    children.push(createSectionHeading('Professional Experience', config.tightSpacing ? 90 : 110, 30))
-
-    experiences.forEach((exp) => {
-      const company = exp.company || ''
-      const role = exp.role || ''
-      const rightMeta = [exp.location, exp.duration].filter(Boolean).join(' | ')
-
-      children.push(
-        new Paragraph({
-          spacing: { before: config.tightSpacing ? 50 : 70, after: 20 },
-          tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
-          children: [
-            new TextRun({ text: company ? `${company}, ` : '', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: role, bold: false, size: bodySize, font: 'Calibri', color: '111827' }),
-            new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }),
-          ],
-        })
-      )
-
-      ;(exp.bullets || []).forEach((b) => {
-        children.push(
-          new Paragraph({
-            bullet: { level: 0 },
-            spacing: { before: 6, after: 12 },
-            indent: { left: 288, hanging: 216 },
-            children: buildSelectiveBoldRuns(b, allAtomicSkills, bodySize),
-          })
-        )
-      })
-    })
-  }
-
-  // 5. Projects (Preserved — Never Deleted to Save Space)
-  if (projects.length > 0) {
-    children.push(createSectionHeading('Projects', config.tightSpacing ? 90 : 110, 30))
-
-    projects.forEach((proj) => {
-      const rightMeta = [proj.label, proj.dates].filter(Boolean).join(' | ')
-      const headerRuns = [
-        new TextRun({ text: proj.title, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
-      ]
-      if (proj.techStack) {
-        headerRuns.push(
-          new TextRun({ text: ` | ${proj.techStack}`, bold: false, size: bodySize, font: 'Calibri', color: '000000' })
-        )
-      }
-      if (proj.link) {
-        headerRuns.push(new TextRun({ text: '  ' }))
-        headerRuns.push(createHyperlink('Demo / Code', proj.link, bodySize - 1))
-      }
-      if (rightMeta) {
-        headerRuns.push(new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }))
-      }
-
-      children.push(
-        new Paragraph({
-          spacing: { before: config.tightSpacing ? 40 : 55, after: 18 },
-          tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
-          children: headerRuns,
-        })
-      )
-
-      ;(proj.bullets || []).forEach((pb) => {
-        children.push(
-          new Paragraph({
-            bullet: { level: 0 },
-            spacing: { before: 5, after: 12 },
-            indent: { left: 288, hanging: 216 },
-            children: buildSelectiveBoldRuns(pb, allAtomicSkills, bodySize),
-          })
-        )
-      })
-    })
-  }
-
-  // 6. Education & Certifications
-  if (education.length > 0 || certifications.length > 0) {
-    children.push(createSectionHeading('Education & Certifications', config.tightSpacing ? 90 : 110, 30))
+  // 6. EDUCATION (Strict 2-Line Format)
+  if (education.length > 0) {
+    children.push(createSectionHeading('Education', config.tightSpacing ? 120 : 160, 60))
 
     education.forEach((rawEdu) => {
       const edu = normalizeEducationItem(rawEdu)
       if (!edu.school && !edu.degree) return
 
-      // Line 1: [College / University Name] (Bold) \t [Start Month Year – End Month Year] (Regular)
+      // Line 1: [College / University Name] (Bold) \t [Start Month Year – End Month Year] (Bold)
       const line1Runs = [
-        new TextRun({ text: edu.school, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+        new TextRun({ text: edu.school, bold: true, size: 21, font: 'Times New Roman', color: '000000' }), // 10.5pt Bold #000000
       ]
       if (edu.dates) {
         line1Runs.push(
-          new TextRun({ text: `\t${edu.dates}`, bold: false, size: bodySize - 1, font: 'Calibri', color: '000000' })
+          new TextRun({ text: `\t${edu.dates}`, bold: true, size: 21, font: 'Times New Roman', color: '000000' }) // 10.5pt Bold #000000
         )
       }
 
       children.push(
         new Paragraph({
-          spacing: { before: config.tightSpacing ? 20 : 30, after: 2 },
-          tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
+          spacing: { before: 0, after: 12 },
+          tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB_POS }],
           children: line1Runs,
         })
       )
 
-      // Line 2: [Degree, Major] (Regular) \t [City, State/Country] (Regular)
+      // Line 2: [Degree, Major] (Italic) \t [City, State/Country] (Italic)
       const line2Runs = [
-        new TextRun({ text: edu.degree, bold: false, size: bodySize, font: 'Calibri', color: '000000' }),
+        new TextRun({ text: edu.degree, italics: true, size: 21, font: 'Times New Roman', color: '444444' }), // 10.5pt Italic #444444
       ]
       if (edu.location) {
         line2Runs.push(
-          new TextRun({ text: `\t${edu.location}`, bold: false, size: bodySize - 1, font: 'Calibri', color: '000000' })
+          new TextRun({ text: `\t${edu.location}`, italics: true, size: 21, font: 'Times New Roman', color: '444444' }) // 10.5pt Italic #444444
         )
       }
 
       children.push(
         new Paragraph({
-          spacing: { before: 0, after: config.tightSpacing ? 10 : 16 },
-          tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
+          spacing: { before: 0, after: config.tightSpacing ? 45 : 65 },
+          tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB_POS }],
           children: line2Runs,
         })
       )
     })
+  }
 
-    if (certifications.length > 0) {
+  // 7. CERTIFICATIONS (MANDATORY Separate Section at end — Never merged into Education)
+  if (certifications.length > 0) {
+    children.push(createSectionHeading('Certifications', config.tightSpacing ? 120 : 160, 60))
+    certifications.forEach((cert) => {
+      const certText = typeof cert === 'string' ? cert : cert?.name || cert?.title || ''
+      if (!certText) return
       children.push(
         new Paragraph({
-          spacing: { before: 18, after: 12 },
+          bullet: { level: 0 },
+          spacing: { before: 0, after: config.tightSpacing ? 30 : 45 },
+          indent: { left: 288, hanging: 216 },
           children: [
-            new TextRun({ text: 'Certifications: ', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: certifications.join(' | '), size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: certText, size: bodySize, font: 'Times New Roman', color: '222222' }), // 10pt Charcoal
           ],
         })
       )
-    }
+    })
   }
 
   return new Document({
     styles: {
       default: {
         document: {
-          run: { font: 'Calibri', size: bodySize, color: '000000' },
+          run: { font: 'Times New Roman', size: bodySize, color: '222222' },
           paragraph: { spacing: { line: 240 } },
         },
       },

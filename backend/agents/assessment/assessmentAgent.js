@@ -624,18 +624,29 @@ export function synthesizeRootCauseAndActions({
     }
     next_best_action = 'Conduct 3 live timed mock technical interviews focusing on system design trade-offs and live coding.'
   } else if (phase.id === 4) {
+    const candidateRole = ans.targetRole || 'Software Professional'
+    const challengeText = ans.biggestChallenge ? ` (${ans.biggestChallenge.slice(0, 50)}${ans.biggestChallenge.length > 50 ? '...' : ''})` : ''
     primary_bottleneck = {
-      title: 'Final-Round Executive Alignment & Offer Conversion',
+      title: `Final-Round Offer Conversion & Executive Alignment${challengeText}`,
       category: 'closing_conversion',
-      whyItMatters: 'Reaching final rounds confirms strong technical and resume signals. Dropping at the final stage points to behavioral alignment, cross-functional vision, or compensation expectations.',
-      evidence: ans.biggestChallenge || 'Multiple final round appearances with zero formal offers indicates closing and differentiation gaps.',
+      whyItMatters: `Reaching final rounds for ${candidateRole} confirms verified technical capabilities. Converting at the final decision gate requires aligning on leadership presence, cultural fit, and strategic project vision.`,
+      evidence: ans.biggestChallenge || ans.frustration || `Candidate completed ${rawFinals90 || 1}+ final interview round(s) but has not yet converted to a formal written offer.`,
     }
-    secondary_problem = {
-      title: 'Salary, Work Authorization, or Cultural Fit Friction at Decision Gate',
-      category: 'closing_strategy',
-      description: 'Final round hiring managers evaluate cross-functional collaboration and long-term commitment.',
+
+    if (ans.visa && /opt|cpt|h-?1b|sponsor|visa/i.test(ans.visa)) {
+      secondary_problem = {
+        title: 'Work Authorization & Sponsorship Transparency at Decision Gate',
+        category: 'work_auth',
+        description: `Final round hiring teams evaluate ${ans.visa} sponsorship feasibility, E-Verify requirements, and start date runway before issuing formal written offers.`,
+      }
+    } else {
+      secondary_problem = {
+        title: 'Closing Differentiation & Multi-Threaded Offer Leverage',
+        category: 'closing_strategy',
+        description: 'Single-thread final rounds leave the candidate without negotiation leverage. Parallel final-round pipelines prevent stalled offers.',
+      }
     }
-    next_best_action = 'Frame strategic closing answers for "Why this company?" and send high-touch thank-you follow-ups within 6 hours.'
+    next_best_action = `Script your strategic closing framework for ${candidateRole} roles, debrief past interview rounds, and prepare explicit answers for leadership trade-offs.`
   } else if (phase.id === 5) {
     primary_bottleneck = {
       title: 'Background Verification, Documentation Delays, or Onboarding Friction',
@@ -651,69 +662,120 @@ export function synthesizeRootCauseAndActions({
     next_best_action = 'Pre-compile W-2s, references, and official employment verification documents to clear HR checks within 48 hours.'
   }
 
-  // Top 3 Prioritized Actions
-  const top_actions = [
-    {
-      title: phase.id === 6
-        ? 'Calibrate Core Resume & Build Daily Rhythm'
-        : (phase.id === 1
-          ? 'Quantify Top 5 Resume Bullets'
-          : (phase.id === 2
-            ? 'Script 60-Second Recruiter Pitch'
-            : (phase.id === 3
-              ? 'Master Live Technical Architecture Walkthrough'
-              : (phase.id === 4
-                ? 'Executive Alignment & Final Round Closing Strategy'
-                : 'Pre-compile Onboarding Verification Documents')))),
-      category: phase.id === 6
-        ? 'Asset Preparation'
-        : (phase.id === 1
-          ? 'Resume Optimization'
-          : (phase.id === 2
-            ? 'Screening Pitch'
-            : (phase.id === 3
-              ? 'Technical Prep'
-              : (phase.id === 4
-                ? 'Closing Strategy'
-                : 'Offer Verification')))),
-      whyItMatters: primary_bottleneck.whyItMatters,
-      whatToDo: next_best_action,
-      resourceTool: phase.id === 1 || phase.id === 6
-        ? 'Crafture STAR Bullet Builder'
+  // Dynamic Top 3 Prioritized Actions tailored to candidate's phase, answers & gaps
+  const candidateRole = ans.targetRole || 'Software Professional'
+  const missingKeywords = (resumeAgent?.keywordAlignment?.missingKeywords || [])
+    .map((k) => (typeof k === 'string' ? k : k?.keyword))
+    .filter(Boolean)
+  const hasVisaSponsorship = Boolean(ans.visa && /opt|cpt|h-?1b|sponsor|visa/i.test(ans.visa))
+
+  // Action 1: Phase-specific primary bottleneck action
+  let action1 = {
+    title: phase.id === 6
+      ? 'Calibrate Core Resume & Build Daily Rhythm'
+      : (phase.id === 1
+        ? `Quantify Top 5 Bullets for ${candidateRole}`
         : (phase.id === 2
-          ? 'Recruiter Scripting Framework'
-          : (phase.id === 4
-            ? 'Executive Alignment Matrix & Closing Playbook'
-            : 'System Design Primer & LeetCode')),
-      duration: phase.id === 4 ? '2–3 hours' : '3–5 hours',
-      successMetric: phase.id === 1 || phase.id === 6
-        ? '100% of top role bullets include quantified metrics'
+          ? `Script 60-Second Recruiter Pitch for ${candidateRole}`
+          : (phase.id === 3
+            ? 'Master Live Technical Architecture Walkthrough'
+            : (phase.id === 4
+              ? `Master Executive Alignment & Final-Round Closing for ${candidateRole}`
+              : 'Pre-compile Onboarding Verification Documents')))),
+    category: phase.id === 6
+      ? 'Asset Preparation'
+      : (phase.id === 1
+        ? 'Resume Optimization'
+        : (phase.id === 2
+          ? 'Screening Pitch'
+          : (phase.id === 3
+            ? 'Technical Prep'
+            : (phase.id === 4
+              ? 'Closing Strategy'
+              : 'Offer Verification')))),
+    whyItMatters: primary_bottleneck.whyItMatters,
+    whatToDo: next_best_action,
+    resourceTool: phase.id === 1 || phase.id === 6
+      ? 'Crafture STAR Bullet Builder'
+      : (phase.id === 2
+        ? 'Recruiter Scripting Framework'
         : (phase.id === 4
-          ? 'Formal written offer received within 30 days'
-          : 'Scheduled recruiter calls convert at >50%'),
-      followUp: phase.id === 4 ? 'Conduct debrief on past final interview questions.' : 'Track response rate over next 10 targeted applications.',
-    },
-    {
+          ? 'Executive Alignment Matrix & Closing Playbook'
+          : 'System Design Primer & LeetCode')),
+    duration: phase.id === 4 ? '2–3 hours' : '3–5 hours',
+    successMetric: phase.id === 1 || phase.id === 6
+      ? '100% of top role bullets include quantified metrics'
+      : (phase.id === 4
+        ? 'Formal written offer received within 30 days'
+        : 'Scheduled recruiter calls convert at >50%'),
+    followUp: phase.id === 4 ? 'Conduct debrief on past final interview questions.' : 'Track response rate over next 10 targeted applications.',
+  }
+
+  // Action 2: Pipeline Sourcing & Channel Strategy (Visa-aware & volume-aware)
+  let action2
+  if (hasVisaSponsorship) {
+    action2 = {
+      title: 'Target E-Verify & Verified Sponsor Channels',
+      category: 'Sponsorship Pipeline',
+      whyItMatters: 'Applying to non-sponsoring employers wastes job search runway and leads to automated portal rejections.',
+      whatToDo: `Focus 70% of weekly outbound on E-Verify certified employers and active H-1B sponsors for ${candidateRole}; engage directly with engineering leads.`,
+      resourceTool: 'USCIS H-1B Employer Data Hub & MyVisaJobs',
+      duration: '45 mins / day',
+      successMetric: 'Pipeline consists 100% of verified sponsorship-friendly employers',
+      followUp: 'Confirm sponsorship criteria on first recruiter screen.',
+    }
+  } else if (phase.id === 4) {
+    action2 = {
+      title: 'Build Multi-Threaded Pipeline for Offer Leverage',
+      category: 'Pipeline Velocity',
+      whyItMatters: 'Competing final-round processes eliminate desperation and increase formal offer compensation by 15–25%.',
+      whatToDo: `Continue active outreach and keep 3–5 parallel opportunities in motion while closing final rounds for ${candidateRole}.`,
+      resourceTool: 'Career Pipeline Kanban & Recruiter Tracker',
+      duration: '1 hour / day',
+      successMetric: 'Minimum 2 concurrent final round processes',
+      followUp: 'Schedule debrief calls immediately after each interview round.',
+    }
+  } else {
+    action2 = {
       title: 'Implement 5-to-1 Targeted Outbound System',
       category: 'Networking & Strategy',
       whyItMatters: 'Direct messages to hiring managers bypass portal queues and achieve 4x higher response rates.',
-      whatToDo: 'Identify 5 verified hiring managers or alumni weekly at target firms; send personalized 50-word notes before applying.',
+      whatToDo: `Identify 5 verified hiring managers or alumni weekly at target firms for ${candidateRole}; send personalized 50-word notes before applying.`,
       resourceTool: 'LinkedIn Sales Navigator / Apollo & InMail Templates',
       duration: '45 mins / day',
       successMetric: 'At least 2 warm recruiter replies weekly',
       followUp: 'Log referral requests in your weekly tracking spreadsheet.',
-    },
-    {
+    }
+  }
+
+  // Action 3: Technical Depth, Skill Gap Closure, or LinkedIn Brand Authority
+  let action3
+  if (missingKeywords.length > 0) {
+    const missingSkillsStr = missingKeywords.slice(0, 3).join(', ')
+    action3 = {
+      title: `Bridge High-Demand Skill Gaps: ${missingSkillsStr}`,
+      category: 'Technical Alignment',
+      whyItMatters: 'Applicant tracking systems and screening engineers scan specifically for verified proof of these core competencies.',
+      whatToDo: `Integrate ${missingSkillsStr} into your resume skills section and draft project bullets showcasing measurable application.`,
+      resourceTool: 'Career GPS Skill Injection Matrix',
+      duration: '2 hours',
+      successMetric: '100% of high-priority target skills evidenced with project achievements',
+      followUp: 'Re-run resume keyword analysis against target job description.',
+    }
+  } else {
+    action3 = {
       title: 'Synchronize LinkedIn & Resume Brand Authority',
       category: 'Digital Presence',
       whyItMatters: 'Recruiters cross-reference your profile during screening. Inconsistencies or weak headlines create instant doubt.',
-      whatToDo: 'Update your LinkedIn headline with target role keywords and add 2 featured case studies demonstrating technical depth.',
+      whatToDo: `Update your LinkedIn headline with ${candidateRole} keywords and add 2 featured case studies demonstrating technical depth.`,
       resourceTool: 'Crafture LinkedIn Recruiter Optimizer',
       duration: '2 hours',
       successMetric: 'Profile strength All-Star with target keywords indexed in search',
       followUp: 'Review LinkedIn search appearances after 7 days.',
-    },
-  ]
+    }
+  }
+
+  const top_actions = [action1, action2, action3]
 
   // Guard: If candidate provided a valid LinkedIn URL/profile, NEVER assign Blank LinkedIn bottleneck
   const hasValidLinkedin = Boolean(

@@ -109,3 +109,4 @@ assert(
 assert.strictEqual(headers['X-Resume-Pages'], '1', 'Pages header set')
 
 console.log('✓ downloadAtsResumeDocx controller test passed successfully! Generated ' + responseBuffer.length + ' bytes')
+
