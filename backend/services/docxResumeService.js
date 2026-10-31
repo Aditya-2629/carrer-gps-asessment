@@ -12,6 +12,7 @@ import {
 import {
   sanitizeAndValidateResume,
   tokenizeSkillsSafe,
+  determineSkillBucket,
 } from './resumeValidator.js'
 import {
   measurePageCountAsync,
@@ -20,8 +21,8 @@ import {
 
 const PAGE_CONFIG = {
   letter: { width: 12240, height: 15840 },
-  marginNormal: { top: 720, bottom: 720, left: 720, right: 720 }, // 0.5 in
-  marginTight: { top: 648, bottom: 648, left: 648, right: 648 },   // 0.45 in
+  marginNormal: { top: 720, bottom: 720, left: 720, right: 720 }, // 0.50 in (10800 dxa content width)
+  marginTight: { top: 648, bottom: 648, left: 648, right: 648 },   // 0.45 in (10944 dxa content width)
 }
 
 /**
@@ -51,9 +52,7 @@ export function groupByCategory(skills = [], targetRole = '') {
   })
 
   const unique = Array.from(new Set(flatTokens)).filter((s) => s.length >= 1)
-
   const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
-  const isSweRole = /software|full stack|backend|frontend|engineer|developer|sde|cloud|devops/i.test(targetRole)
 
   if (isDataRole) {
     const buckets = {
@@ -64,69 +63,54 @@ export function groupByCategory(skills = [], targetRole = '') {
       'Business Analysis & Process': [],
     }
     unique.forEach((s) => {
-      const low = s.toLowerCase()
-      if (/sql|snowflake|bigquery|postgresql|mysql|t-sql|queries/i.test(low)) buckets['SQL & Core Database'].push(s)
-      else if (/power bi|tableau|looker|excel|dashboards|reporting|dax/i.test(low)) buckets['BI & Visualization'].push(s)
-      else if (/python|machine learning|predictive|regression|hypothesis|a\/b|pandas|numpy/i.test(low)) buckets['Analytics & Machine Learning'].push(s)
-      else if (/aws|azure|dbt|alteryx|airflow|etl|databricks|spark/i.test(low)) buckets['Cloud & Data Engineering'].push(s)
+      const bucket = determineSkillBucket(s, targetRole)
+      if (buckets[bucket]) buckets[bucket].push(s)
       else buckets['Business Analysis & Process'].push(s)
     })
     return Object.entries(buckets).filter(([_, items]) => items.length > 0)
   }
 
-  if (isSweRole) {
-    const buckets = {
-      'Programming Languages': [],
-      'AI & Machine Learning Systems': [],
-      'Backend & Architecture': [],
-      'Cloud & DevOps': [],
-      'Databases & Caching': [],
-    }
-    unique.forEach((s) => {
-      const low = s.toLowerCase()
-      if (/python|javascript|typescript|go|bash|c\+\+|java|\bc\b|\br\b/i.test(low)) buckets['Programming Languages'].push(s)
-      else if (/langchain|fastmcp|smolagents|rag|llm|tensorflow|openai|gemini/i.test(low)) buckets['AI & Machine Learning Systems'].push(s)
-      else if (/fastapi|node|flask|rest|graphql|microservices|system design/i.test(low)) buckets['Backend & Architecture'].push(s)
-      else if (/aws|docker|kubernetes|terraform|ci\/cd|jenkins|git/i.test(low)) buckets['Cloud & DevOps'].push(s)
-      else buckets['Databases & Caching'].push(s)
-    })
-    return Object.entries(buckets).filter(([_, items]) => items.length > 0)
-  }
-
-  // Fallback 3 Groups
+  // SWE / AI / Full Stack
   const buckets = {
-    'Core Technical Stack': unique.slice(0, 8),
-    'Frameworks & Libraries': unique.slice(8, 16),
-    'Tools & Methodologies': unique.slice(16),
+    'Programming Languages': [],
+    'AI & Machine Learning Systems': [],
+    'Backend & Architecture': [],
+    'Cloud & DevOps': [],
+    'Databases & Caching': [],
   }
+  unique.forEach((s) => {
+    const bucket = determineSkillBucket(s, targetRole)
+    if (buckets[bucket]) buckets[bucket].push(s)
+    else buckets['Databases & Caching'].push(s)
+  })
   return Object.entries(buckets).filter(([_, items]) => items.length > 0)
 }
 
-function createHyperlink(text, url) {
-  if (!url) return new TextRun({ text, font: 'Calibri', size: 19, color: '000000' })
+function createHyperlink(text, url, size = 19) {
+  if (!url) return new TextRun({ text, font: 'Calibri', size, color: '000000' })
   const cleanUrl = url.startsWith('http') || url.startsWith('mailto:') ? url : `https://${url}`
   return new ExternalHyperlink({
     link: cleanUrl,
     children: [
-      new TextRun({ text, font: 'Calibri', size: 19, color: '0563C1', underline: {} }),
+      new TextRun({ text, font: 'Calibri', size, color: '0563C1', underline: {} }),
     ],
   })
 }
 
-function createSectionHeading(title, spacingBefore = 120, spacingAfter = 40) {
+function createSectionHeading(title, spacingBefore = 110, spacingAfter = 30) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_2,
     spacing: { before: spacingBefore, after: spacingAfter },
     border: {
-      bottom: { color: '4B5563', space: 2, style: BorderStyle.SINGLE, size: 6 },
+      bottom: { color: '4B5563', space: 2, style: BorderStyle.SINGLE, size: 6 }, // 0.5pt bottom rule
     },
     children: [
-      new TextRun({ text: title.toUpperCase(), bold: true, size: 21, font: 'Calibri', color: '000000' }),
+      new TextRun({ text: title.toUpperCase(), bold: true, size: 21, font: 'Calibri', color: '000000' }), // 10.5pt Bold
     ],
   })
 }
 
-function buildSelectiveBoldRuns(text, candidateSkills = []) {
+function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   if (!text) return []
 
   // Case A: Model already supplied **bold** markers
@@ -138,12 +122,12 @@ function buildSelectiveBoldRuns(text, candidateSkills = []) {
       if (!part) return
       const isBold = i % 2 === 1 && boldCount < 2
       if (isBold) boldCount++
-      runs.push(new TextRun({ text: part, bold: isBold, size: 20, font: 'Calibri', color: '000000' }))
+      runs.push(new TextRun({ text: part, bold: isBold, size: bodySize, font: 'Calibri', color: '000000' }))
     })
     return runs
   }
 
-  // Case B: Dynamic selection (1 tool + 1 result metric)
+  // Case B: Dynamic selection (max 2: 1 tool + 1 result metric)
   const targets = []
   const sortedSkills = [...candidateSkills].sort((a, b) => b.length - a.length)
 
@@ -175,13 +159,13 @@ function buildSelectiveBoldRuns(text, candidateSkills = []) {
   let lastIdx = 0
   safeTargets.forEach((tgt) => {
     if (tgt.start > lastIdx) {
-      runs.push(new TextRun({ text: text.slice(lastIdx, tgt.start), bold: false, size: 20, font: 'Calibri', color: '000000' }))
+      runs.push(new TextRun({ text: text.slice(lastIdx, tgt.start), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
     }
-    runs.push(new TextRun({ text: text.slice(tgt.start, tgt.end), bold: true, size: 20, font: 'Calibri', color: '000000' }))
+    runs.push(new TextRun({ text: text.slice(tgt.start, tgt.end), bold: true, size: bodySize, font: 'Calibri', color: '000000' }))
     lastIdx = tgt.end
   })
   if (lastIdx < text.length) {
-    runs.push(new TextRun({ text: text.slice(lastIdx), bold: false, size: 20, font: 'Calibri', color: '000000' }))
+    runs.push(new TextRun({ text: text.slice(lastIdx), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
   }
   return runs
 }
@@ -189,6 +173,7 @@ function buildSelectiveBoldRuns(text, candidateSkills = []) {
 function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const contentWidth = PAGE_CONFIG.letter.width - (margin.left + margin.right)
+  const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
   const candidateName = sanitizedResume.candidate_name || ''
   const targetRole = sanitizedResume.target_role || ''
@@ -208,14 +193,14 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   const children = []
 
-  // 1. Header (Centered)
+  // 1. Header (Centered, Calibri only)
   if (candidateName) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 20 },
         children: [
-          new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 38, font: 'Calibri', color: '000000' }),
+          new TextRun({ text: candidateName.toUpperCase(), bold: true, size: 38, font: 'Calibri', color: '000000' }), // 19pt Bold
         ],
       })
     )
@@ -227,37 +212,37 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
         alignment: AlignmentType.CENTER,
         spacing: { before: 0, after: 30 },
         children: [
-          new TextRun({ text: subtitle, bold: true, size: 21, color: '000000', font: 'Calibri' }),
+          new TextRun({ text: subtitle, bold: true, size: 21, color: '000000', font: 'Calibri' }), // 10.5pt Bold
         ],
       })
     )
   }
 
-  // Contact line
+  // Contact line (pipe-separated with external hyperlinks)
   const contactRuns = []
-  if (contact.location) contactRuns.push(new TextRun({ text: contact.location, size: 19, font: 'Calibri', color: '000000' }))
+  if (contact.location) contactRuns.push(new TextRun({ text: contact.location, size: bodySize - 1, font: 'Calibri', color: '000000' }))
   if (contact.phone) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: 19, font: 'Calibri', color: '000000' }))
-    contactRuns.push(new TextRun({ text: contact.phone, size: 19, font: 'Calibri', color: '000000' }))
+    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
+    contactRuns.push(new TextRun({ text: contact.phone, size: bodySize - 1, font: 'Calibri', color: '000000' }))
   }
   if (contact.email) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: 19, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink(contact.email, `mailto:${contact.email}`))
+    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
+    contactRuns.push(createHyperlink(contact.email, `mailto:${contact.email}`, bodySize - 1))
   }
   if (contact.linkedin) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: 19, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink('LinkedIn', contact.linkedin))
+    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
+    contactRuns.push(createHyperlink('LinkedIn', contact.linkedin, bodySize - 1))
   }
   if (contact.github) {
-    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: 19, font: 'Calibri', color: '000000' }))
-    contactRuns.push(createHyperlink('GitHub', contact.github))
+    if (contactRuns.length > 0) contactRuns.push(new TextRun({ text: ' | ', size: bodySize - 1, font: 'Calibri', color: '000000' }))
+    contactRuns.push(createHyperlink('GitHub', contact.github, bodySize - 1))
   }
 
   if (contactRuns.length > 0) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: config.tightSpacing ? 80 : 100 },
+        spacing: { before: 0, after: config.tightSpacing ? 70 : 90 },
         children: contactRuns,
       })
     )
@@ -270,12 +255,12 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
-    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 100 : 120, 40))
+    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 90 : 110, 30))
     children.push(
       new Paragraph({
-        spacing: { before: 20, after: config.tightSpacing ? 60 : 80 },
+        spacing: { before: 15, after: config.tightSpacing ? 50 : 70 },
         children: [
-          new TextRun({ text: cleanSummary, size: 20, font: 'Calibri', color: '000000' }),
+          new TextRun({ text: cleanSummary, size: bodySize, font: 'Calibri', color: '000000' }),
         ],
       })
     )
@@ -283,24 +268,24 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 3. Technical Skills
   if (skillGroups.length > 0) {
-    children.push(createSectionHeading('Technical Skills', config.tightSpacing ? 100 : 120, 40))
+    children.push(createSectionHeading('Technical Skills', config.tightSpacing ? 90 : 110, 30))
     skillGroups.forEach(([cat, list]) => {
       const dedup = list.join(', ')
       children.push(
         new Paragraph({
-          spacing: { before: 8, after: 15 },
+          spacing: { before: 6, after: 12 },
           children: [
-            new TextRun({ text: `${cat}: `, bold: true, size: 20, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: dedup, size: 20, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: `${cat}: `, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: dedup, size: bodySize, font: 'Calibri', color: '000000' }),
           ],
         })
       )
     })
   }
 
-  // 4. Experience
+  // 4. Experience (NEVER drop a role)
   if (experiences.length > 0) {
-    children.push(createSectionHeading('Professional Experience', config.tightSpacing ? 100 : 120, 40))
+    children.push(createSectionHeading('Professional Experience', config.tightSpacing ? 90 : 110, 30))
 
     experiences.forEach((exp) => {
       const company = exp.company || ''
@@ -309,12 +294,12 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
       children.push(
         new Paragraph({
-          spacing: { before: config.tightSpacing ? 60 : 80, after: 25 },
+          spacing: { before: config.tightSpacing ? 50 : 70, after: 20 },
           tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
           children: [
-            new TextRun({ text: company ? `${company}, ` : '', bold: true, size: 20, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: role, bold: false, size: 20, font: 'Calibri', color: '111827' }),
-            new TextRun({ text: `\t${rightMeta}`, size: 19, color: '000000', font: 'Calibri' }),
+            new TextRun({ text: company ? `${company}, ` : '', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: role, bold: false, size: bodySize, font: 'Calibri', color: '111827' }),
+            new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }),
           ],
         })
       )
@@ -323,9 +308,9 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
         children.push(
           new Paragraph({
             bullet: { level: 0 },
-            spacing: { before: 8, after: 16 },
-            indent: { left: 288, hanging: 216 }, // Custom tight bullet indent
-            children: buildSelectiveBoldRuns(b, allAtomicSkills),
+            spacing: { before: 6, after: 12 },
+            indent: { left: 288, hanging: 216 },
+            children: buildSelectiveBoldRuns(b, allAtomicSkills, bodySize),
           })
         )
       })
@@ -334,32 +319,41 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 5. Projects (Preserved — Never Deleted to Save Space)
   if (projects.length > 0) {
-    children.push(createSectionHeading('Projects', config.tightSpacing ? 100 : 120, 40))
+    children.push(createSectionHeading('Projects', config.tightSpacing ? 90 : 110, 30))
 
     projects.forEach((proj) => {
       const rightMeta = [proj.label, proj.dates].filter(Boolean).join(' | ')
+      const headerRuns = [
+        new TextRun({ text: proj.title, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+      ]
+      if (proj.techStack) {
+        headerRuns.push(
+          new TextRun({ text: ` | ${proj.techStack}`, bold: false, size: bodySize, font: 'Calibri', color: '000000' })
+        )
+      }
+      if (proj.link) {
+        headerRuns.push(new TextRun({ text: '  ' }))
+        headerRuns.push(createHyperlink('Demo / Code', proj.link, bodySize - 1))
+      }
+      if (rightMeta) {
+        headerRuns.push(new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }))
+      }
 
       children.push(
         new Paragraph({
-          spacing: { before: config.tightSpacing ? 50 : 60, after: 20 },
+          spacing: { before: config.tightSpacing ? 40 : 55, after: 18 },
           tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
-          children: [
-            new TextRun({ text: proj.title, bold: true, size: 20, font: 'Calibri', color: '000000' }),
-            proj.techStack ? new TextRun({ text: ` | ${proj.techStack}`, size: 19, color: '000000', font: 'Calibri' }) : new TextRun(''),
-            proj.link ? new TextRun({ text: '  ' }) : new TextRun(''),
-            proj.link ? createHyperlink('Demo / Code', proj.link) : new TextRun(''),
-            rightMeta ? new TextRun({ text: `\t${rightMeta}`, size: 19, color: '000000', font: 'Calibri' }) : new TextRun(''),
-          ],
+          children: headerRuns,
         })
       )
 
-      ;(proj.bullets || []).slice(0, 2).forEach((pb) => {
+      ;(proj.bullets || []).forEach((pb) => {
         children.push(
           new Paragraph({
             bullet: { level: 0 },
-            spacing: { before: 6, after: 14 },
+            spacing: { before: 5, after: 12 },
             indent: { left: 288, hanging: 216 },
-            children: buildSelectiveBoldRuns(pb, allAtomicSkills),
+            children: buildSelectiveBoldRuns(pb, allAtomicSkills, bodySize),
           })
         )
       })
@@ -368,18 +362,18 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 6. Education & Certifications
   if (education.length > 0 || certifications.length > 0) {
-    children.push(createSectionHeading('Education & Certifications', config.tightSpacing ? 100 : 120, 40))
+    children.push(createSectionHeading('Education & Certifications', config.tightSpacing ? 90 : 110, 30))
 
     education.forEach((edu) => {
       const rightMeta = [edu.location, edu.dates].filter(Boolean).join(' | ')
       children.push(
         new Paragraph({
-          spacing: { before: 30, after: 15 },
+          spacing: { before: 25, after: 12 },
           tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
           children: [
-            new TextRun({ text: edu.degree ? `${edu.degree}, ` : '', bold: true, size: 20, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: edu.school, size: 20, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: `\t${rightMeta}`, size: 19, color: '000000', font: 'Calibri' }),
+            new TextRun({ text: edu.degree ? `${edu.degree}, ` : '', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: edu.school, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }),
           ],
         })
       )
@@ -388,10 +382,10 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
     if (certifications.length > 0) {
       children.push(
         new Paragraph({
-          spacing: { before: 20, after: 15 },
+          spacing: { before: 18, after: 12 },
           children: [
-            new TextRun({ text: 'Certifications: ', bold: true, size: 20, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: certifications.join(' | '), size: 20, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: 'Certifications: ', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+            new TextRun({ text: certifications.join(' | '), size: bodySize, font: 'Calibri', color: '000000' }),
           ],
         })
       )
@@ -402,7 +396,7 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
     styles: {
       default: {
         document: {
-          run: { font: 'Calibri', size: 20, color: '000000' },
+          run: { font: 'Calibri', size: bodySize, color: '000000' },
           paragraph: { spacing: { line: 240 } },
         },
       },
@@ -423,49 +417,70 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
 /**
  * Main ATS Resume Generator with Dynamic Fit Loop
+ * Contract: returns { buffer, pages, mode, warnings, appliedKeywords, pendingKeywords }
  */
-export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets = []) {
-  // 1. Sanitize & Apply Rewrites by ID
-  const { sanitizedResume, warnings } = sanitizeAndValidateResume(canonicalResume, tailoredBullets)
+export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets = [], jdKeywords = []) {
+  // 1. Sanitize & Apply Rewrites by ID + Natural Keyword Injection
+  const { sanitizedResume, warnings, appliedKeywords, pendingKeywords } = sanitizeAndValidateResume(
+    canonicalResume,
+    tailoredBullets,
+    jdKeywords
+  )
 
-  // 2. Determine target page count
+  // 2. Determine target page count based on genuine experience & roles
   const yoe = parseFloat(String(sanitizedResume.years_of_experience || '').match(/\d+(?:\.\d+)?/)?.[0] || '3')
-  const targetPages = yoe <= 8 ? 1 : 2
+  const numRoles = (sanitizedResume.experiences || []).length
+  const allowTwoPages = yoe >= 8 && numRoles >= 4
+  const targetPages = allowTwoPages ? 2 : 1
 
-  // 3. Tightening order
-  const tighteningLevels = [
-    { tightSpacing: false, tightMargin: false, shortenSummary: false },
-    { tightSpacing: false, tightMargin: false, shortenSummary: true },
-    { tightSpacing: true, tightMargin: false, shortenSummary: true },
-    { tightSpacing: true, tightMargin: true, shortenSummary: true },
-  ]
+  // 3. Progressive Tightening Passes
+  const standardConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: false }
+  const summaryShortenConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: true }
+  const tightSpacingConfig = { tightMargin: false, tightFont: false, tightSpacing: true, shortenSummary: true }
+  const fullTightConfig = { tightMargin: true, tightFont: true, tightSpacing: true, shortenSummary: true }
+
+  const configs = [standardConfig, summaryShortenConfig, tightSpacingConfig, fullTightConfig]
 
   let bestBuffer = null
   let finalPages = 1
   let fitMode = 'measured'
 
-  for (const config of tighteningLevels) {
+  for (let i = 0; i < configs.length; i++) {
+    const config = configs[i]
     const doc = buildDocxModel(sanitizedResume, config)
     const buffer = await Packer.toBuffer(doc)
     bestBuffer = buffer
 
-    // Check page count via Async Isolated LibreOffice + pdfinfo
+    // Measure page count via Async Isolated LibreOffice
     const measured = await measurePageCountAsync(buffer)
+
     if (measured !== null) {
       finalPages = measured
       fitMode = 'measured'
     } else {
       finalPages = estimateHeightBudget(sanitizedResume, config)
       fitMode = 'estimated'
+      if (!warnings.some((w) => w?.type === 'page_fit_fallback')) {
+        warnings.push({
+          type: 'page_fit_fallback',
+          message: 'LibreOffice measurement timed out or was unavailable; fell back to calibrated height budget estimation.',
+        })
+      }
     }
 
+    // If within target pages, we're done
     if (finalPages <= targetPages) {
       break
     }
   }
 
   if (finalPages > targetPages) {
-    warnings.push(`Content spilled to ${finalPages} pages after all tightening attempts.`)
+    warnings.push({
+      type: 'page_overflow',
+      pages: finalPages,
+      targetPages,
+      message: `Resume content rendered across ${finalPages} pages after all tightening passes.`,
+    })
   }
 
   return {
@@ -473,5 +488,7 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     pages: finalPages,
     mode: fitMode,
     warnings,
+    appliedKeywords,
+    pendingKeywords,
   }
 }

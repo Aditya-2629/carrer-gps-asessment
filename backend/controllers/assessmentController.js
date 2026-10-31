@@ -787,7 +787,8 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
-    const { buffer: docxBuffer, pages, warnings } = await buildAtsTailoredDocx(canonical, bulletAudit)
+    const jdKeywords = aiReport.missing_ats_keywords || ra.keywordAlignment?.missingKeywords || []
+    const { buffer: docxBuffer, pages, mode, warnings, appliedKeywords, pendingKeywords } = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
 
     const candidateName = (
       canonical.candidate_name ||
@@ -801,8 +802,9 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode')
     res.setHeader('X-Resume-Pages', String(pages))
+    res.setHeader('X-Resume-Fit-Mode', mode || 'measured')
     res.setHeader('Content-Length', docxBuffer.length)
     return res.end(docxBuffer)
   } catch (err) {

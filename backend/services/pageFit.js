@@ -77,12 +77,12 @@ export async function measurePageCountAsync(docxBuffer) {
 }
 
 /**
- * Calibrated Line & Height Budget Estimator (105–115 chars/line for 10pt Calibri)
+ * Calibrated Line & Height Budget Estimator (105–118 chars/line for 10pt/9.5pt Calibri)
  */
 export function estimateHeightBudget(sanitizedResume = {}, config = {}) {
   const exps = sanitizedResume.experiences || []
   const projs = sanitizedResume.projects || []
-  const CHARS_PER_LINE = 110
+  const CHARS_PER_LINE = config.tightFont ? 118 : 110
 
   let totalLines = 0
 
@@ -91,11 +91,15 @@ export function estimateHeightBudget(sanitizedResume = {}, config = {}) {
 
   // Summary lines
   if (sanitizedResume.summary) {
-    totalLines += Math.max(2, Math.ceil(sanitizedResume.summary.length / CHARS_PER_LINE)) + 2
+    const sumText = config.shortenSummary
+      ? sanitizedResume.summary.split(/(?<=[.?!])\s+/).slice(0, 3).join(' ')
+      : sanitizedResume.summary
+    totalLines += Math.max(2, Math.ceil(sumText.length / CHARS_PER_LINE)) + 2
   }
 
   // Skills lines
-  const skillsCount = sanitizedResume.skills?.length || 0
+  const rawSkills = sanitizedResume.skills || []
+  const skillsCount = Array.isArray(rawSkills) ? rawSkills.length : Object.values(rawSkills).flat().length
   totalLines += Math.min(5, Math.ceil(skillsCount / 6)) + 2
 
   // Experience lines: role/company headers + bullets
@@ -119,7 +123,10 @@ export function estimateHeightBudget(sanitizedResume = {}, config = {}) {
   // Education lines
   totalLines += 3
 
-  // 1 standard US Letter page capacity: normal = 42 lines, tight = 46 lines
-  const capacity = config.tightSpacing ? 46 : 42
+  // 1 standard US Letter page capacity:
+  // Standard pass: 44 lines.
+  // Tightening pass (0.45" margins, 9.5pt font, reduced spacing): 52 lines.
+  const capacity = config.tightMargin ? 52 : (config.tightSpacing ? 48 : 44)
   return totalLines <= capacity ? 1 : 2
 }
+
