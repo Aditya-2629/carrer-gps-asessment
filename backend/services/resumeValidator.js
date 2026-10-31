@@ -102,20 +102,18 @@ export function repairGrammar(rawText) {
   return text
 }
 
-/**
- * Truth-First Number Integrity Checker:
- * Normalizes numbers by ignoring currency symbols, commas, whitespace, AND '+' signs
- * (e.g. '50+' in original matches '50' in rewrite without false violations).
- */
-const normNum = (s) => s.replace(/[\$,\s+]/g, '').toLowerCase()
-const NUM_REGEX = /\$?\d[\d,]*(?:\.\d+)?\s?(?:%|[KMBkmb]\b|x\b)?\+?/g
-const extractNumbers = (t) => new Set((String(t || '').match(NUM_REGEX) || []).map(normNum))
+import {
+  extractNumbers,
+  findNumberViolations,
+  injectKeywordNaturally,
+} from './keywordInjector.js'
 
-export function findNumberViolations(originalText, bulletText) {
-  const orig = extractNumbers(originalText)
-  const rew = extractNumbers(bulletText)
-  return [...rew].filter((n) => !orig.has(n))
+export {
+  extractNumbers,
+  findNumberViolations,
+  injectKeywordNaturally,
 }
+
 
 /**
  * Bracket-Aware Skill Tokenizer:
@@ -530,15 +528,15 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
       for (const item of verifiedKeywordsToInject) {
         if (item.injectedInBullet) continue
         const { keyword, kwLow, aliases } = item
-        const hasToolingClause = /\b(using|utilizing|with|via)\s+([^.,;]+)/i.test(candidateText)
         const hasDomainOverlap = aliases.some((al) => candidateText.toLowerCase().includes(al))
-        if (hasToolingClause && hasDomainOverlap && !candidateText.toLowerCase().includes(kwLow)) {
-          candidateText = candidateText.replace(/\b(using|utilizing|with|via)\s+([^.,;]+)/i, (m, prep, tools) => {
-            return `${prep} ${tools.trim()}, and ${keyword}`
-          })
-          appliedKeywords.push({ keyword, location: `Method/Tooling clause in ${bId}` })
-          item.injectedInBullet = true
-          break
+        if (hasDomainOverlap && !candidateText.toLowerCase().includes(kwLow)) {
+          const res = injectKeywordNaturally(candidateText, keyword)
+          if (res.injected) {
+            candidateText = res.text
+            appliedKeywords.push({ keyword, location: `Method/Tooling clause in ${bId}` })
+            item.injectedInBullet = true
+            break
+          }
         }
       }
 
