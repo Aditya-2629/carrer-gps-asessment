@@ -92,7 +92,7 @@ export function renderResumeSynthesisPromptV4(data = {}) {
         ? experienceBullets.map((b) => (typeof b === 'string' ? `- ${b}` : `- [${b.id || 'b'}]: "${b.text || b.origText || ''}"`)).join('\n')
         : '')
 
-  return RESUME_SYNTHESIS_PROMPT_V4
+  const rendered = RESUME_SYNTHESIS_PROMPT_V4
     .replace(/\{\{targetRole\}\}/g, targetRole)
     .replace(/\{\{candidateName\}\}/g, candidateName)
     .replace(/\{\{currentTitle\}\}/g, currentTitle)
@@ -101,6 +101,9 @@ export function renderResumeSynthesisPromptV4(data = {}) {
     .replace(/\{\{missingKeywords\}\}/g, missingStr || 'None')
     .replace(/\{\{skillsOnlyKeywords\}\}/g, strandedStr || 'None')
     .replace(/\{\{experienceBullets\}\}/g, bulletsStr || 'No experience bullets supplied.')
+
+  // Final defense: ensure zero unreplaced {{...}} placeholders leak into prompt
+  return rendered.replace(/\{\{[A-Za-z0-9_]+\}\}/g, 'N/A')
 }
 
 export const RESUME_SYNTHESIS_PROMPT = RESUME_SYNTHESIS_PROMPT_V4

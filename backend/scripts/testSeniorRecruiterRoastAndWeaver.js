@@ -2,6 +2,9 @@ import assert from 'node:assert'
 import {
   weaveKeywordsIntoBullets,
   determineSemanticSlot,
+  cleanTargetRoleTitle,
+  buildInterviewTalkingPointsLedger,
+  getTalkingPointsForKeyword,
   SEMANTIC_SLOTS,
 } from '../agents/resume/market/keywordAlignment.js'
 import {
@@ -13,6 +16,7 @@ import {
   buildSynthesisMessages,
 } from '../agents/resume/synthesis/resumeSynthesis.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
+import { decodeHtmlEntities, cleanPlaceholderGraceful } from '../services/resumeValidator.js'
 
 console.log('================================================================')
 console.log('RUNNING SENIOR RECRUITER ROAST & KEYWORD WEAVER TEST SUITE')
@@ -193,6 +197,141 @@ assert(docxRes.buffer && docxRes.buffer.length > 5000, 'Must generate valid DOCX
 assert.strictEqual(docxRes.pages, 1, 'Must fit on 1 page')
 console.log(`  ✓ 5.1 ATS DOCX tailored buffer built successfully with woven bullet rewrites (length: ${docxRes.buffer.length} bytes)`)
 
+// -----------------------------------------------------------------------------
+// TEST 6: Title Concatenation Bug Fix (cleanTargetRoleTitle)
+// -----------------------------------------------------------------------------
+console.log('\n[Test 6] Title Concatenation Bug Fix (cleanTargetRoleTitle):')
+
+assert.strictEqual(
+  cleanTargetRoleTitle('Senior', 'Senior Full Stack Software Developer'),
+  'Senior Full Stack Software Developer',
+  'Must not duplicate Senior'
+)
+assert.strictEqual(
+  cleanTargetRoleTitle('Lead', 'Senior Full Stack Software Developer'),
+  'Lead Full Stack Software Developer',
+  'Must replace Senior with Lead cleanly'
+)
+assert.strictEqual(
+  cleanTargetRoleTitle('Staff', 'Senior Full Stack Software Developer'),
+  'Staff Full Stack Software Developer',
+  'Must replace Senior with Staff cleanly'
+)
+assert.strictEqual(
+  cleanTargetRoleTitle('Principal', 'Senior Full Stack Software Developer'),
+  'Principal Full Stack Software Developer',
+  'Must replace Senior with Principal cleanly'
+)
+assert.strictEqual(
+  cleanTargetRoleTitle('Senior', 'Full Stack Software Developer'),
+  'Senior Full Stack Software Developer',
+  'Must prepend Senior to un-prefixed role'
+)
+assert.strictEqual(
+  cleanTargetRoleTitle('', 'Senior Senior Full Stack Software Developer'),
+  'Senior Full Stack Software Developer',
+  'Must deduplicate repeated prefix in baseRole'
+)
+console.log('  ✓ 6.1 cleanTargetRoleTitle eliminates title duplication across Senior, Lead, Staff, and Principal prefixes')
+
+// -----------------------------------------------------------------------------
+// TEST 7: Context-Anchored Weaving for High-Frequency Keywords (Kafka, TypeScript, Unit Testing, Git)
+// -----------------------------------------------------------------------------
+console.log('\n[Test 7] Context-Anchored Weaving for High-Frequency JD Keywords:')
+
+const highFreqExperiences = [
+  {
+    id: 'exp_002',
+    company: 'Fintech Corp',
+    role: 'Senior Software Engineer',
+    bullets: [
+      { id: 'exp_002_b01', text: 'Designed and shipped an event-driven telemetry ingestion engine in Go, scaling throughput from 5,000 to 45,000 events/second.' },
+      { id: 'exp_002_b02', text: 'Built real-time transaction reconciliation dashboard in React, Node.js serving 250,000 monthly active retail users.' },
+      { id: 'exp_002_b03', text: 'Authored comprehensive Jest and Cypress test suites, elevating code coverage from 61% to 89%.' },
+      { id: 'exp_002_b04', text: 'Automated multi-region AWS infrastructure using Terraform and GitHub Actions, cutting production deployment lead time from 4 hours to 18 minutes.' },
+    ],
+  },
+]
+
+const highFreqKeywords = ['Kafka', 'TypeScript', 'Unit Testing', 'Git']
+const highFreqWoven = weaveKeywordsIntoBullets(highFreqExperiences, highFreqKeywords, [])
+
+assert.strictEqual(highFreqWoven.length, 4, 'Must weave all 4 high-frequency keywords')
+
+const kafkaRw = highFreqWoven.find((r) => r.wovenKeyword === 'Kafka')
+assert(kafkaRw, 'Must weave Kafka')
+assert.strictEqual(kafkaRw.slot, 'messaging_slot')
+assert(kafkaRw.readyToUseRewrite.includes('Kafka'), 'Must contain Kafka')
+assert(kafkaRw.readyToUseRewrite.includes('5,000 to 45,000 events/second'), 'Must preserve telemetry metric verbatim')
+
+const tsRw = highFreqWoven.find((r) => r.wovenKeyword === 'TypeScript')
+assert(tsRw, 'Must weave TypeScript')
+assert.strictEqual(tsRw.slot, 'frontend_slot')
+assert(tsRw.readyToUseRewrite.includes('TypeScript'), 'Must contain TypeScript')
+assert(tsRw.readyToUseRewrite.includes('250,000 monthly active retail users'), 'Must preserve user count metric verbatim')
+
+const utRw = highFreqWoven.find((r) => r.wovenKeyword === 'Unit Testing')
+assert(utRw, 'Must weave Unit Testing')
+assert.strictEqual(utRw.slot, 'testing_slot')
+assert(utRw.readyToUseRewrite.includes('Unit Testing'), 'Must contain Unit Testing')
+assert(utRw.readyToUseRewrite.includes('61% to 89%'), 'Must preserve coverage metric verbatim')
+
+const gitRw = highFreqWoven.find((r) => r.wovenKeyword === 'Git')
+assert(gitRw, 'Must weave Git')
+assert.strictEqual(gitRw.slot, 'cloud_slot')
+assert(gitRw.readyToUseRewrite.includes('Git'), 'Must contain Git')
+assert(gitRw.readyToUseRewrite.includes('4 hours to 18 minutes'), 'Must preserve lead time metric verbatim')
+
+console.log('  ✓ 7.1 High-frequency keywords (Kafka, TypeScript, Unit Testing, Git) context-anchored into exact semantic slots')
+console.log('  ✓ 7.2 All numeric metrics, scale counts, and deltas preserved 100% verbatim without corruption')
+
+// -----------------------------------------------------------------------------
+// TEST 8: Companion Interview Talking Points & Keyword Transparency Ledger
+// -----------------------------------------------------------------------------
+console.log('\n[Test 8] Companion Interview Talking Points & Keyword Transparency Ledger:')
+
+assert(Array.isArray(highFreqWoven.keywordTransparencyLedger), 'Must generate keywordTransparencyLedger')
+assert.strictEqual(highFreqWoven.keywordTransparencyLedger.length, 4, 'Ledger must contain 4 items')
+
+highFreqWoven.keywordTransparencyLedger.forEach((entry) => {
+  assert(entry.keyword, 'Entry must have keyword')
+  assert(entry.slot, 'Entry must have slot')
+  assert(entry.bulletId, 'Entry must have bulletId')
+  assert(entry.originalBullet, 'Entry must have originalBullet')
+  assert(entry.wovenBullet, 'Entry must have wovenBullet')
+  assert(entry.whyRecruiterLookedForThis && entry.whyRecruiterLookedForThis.length > 20, 'Must have detailed recruiter rationale')
+  assert(entry.howToSpeakToIt && entry.howToSpeakToIt.length > 20, 'Must have interview talking points')
+  assert(entry.sampleInterviewAnswer && entry.sampleInterviewAnswer.length > 20, 'Must have concrete interview sample answer')
+  assert(Array.isArray(entry.keyConceptsToMention) && entry.keyConceptsToMention.length >= 3, 'Must have key technical concepts')
+})
+
+const kafkaLedger = highFreqWoven.keywordTransparencyLedger.find((e) => e.keyword === 'Kafka')
+assert(kafkaLedger.whyRecruiterLookedForThis.includes('event streaming'), 'Kafka rationale must explain event streaming')
+assert(kafkaLedger.keyConceptsToMention.includes('Partitions & Consumer Groups'), 'Must list Kafka concepts')
+
+console.log('  ✓ 8.1 Companion Interview Cheat Sheet & Keyword Transparency Ledger fully populated with recruiter screening rationale, talking points, sample answers, and key concepts')
+
+// -----------------------------------------------------------------------------
+// TEST 9: HTML Entity Decoding and Template Placeholder Cleaning
+// -----------------------------------------------------------------------------
+console.log('\n[Test 9] HTML Entity Decoding and Template Placeholder Cleaning:')
+
+assert.strictEqual(
+  decodeHtmlEntities('P&amp;C &lt;Cloud&gt; &#39;Platform&#39; &quot;Enterprise&quot;'),
+  'P&C <Cloud> \'Platform\' "Enterprise"',
+  'Must decode all HTML entities'
+)
+
+const cleanedPlaceholder1 = cleanPlaceholderGraceful('Engineered payment gateway integration, reducing approval latency by [ADD: 40%].')
+assert.strictEqual(cleanedPlaceholder1, 'Engineered payment gateway integration.', 'Must gracefully clean trailing placeholder clause')
+
+const cleanedPlaceholder2 = cleanPlaceholderGraceful('Scaled real-time chat infrastructure by [ADD: 3x concurrent capacity] and boosted system throughput.')
+assert(cleanedPlaceholder2.includes('and boosted system throughput.'), 'Must preserve subsequent clause after placeholder')
+assert(!cleanedPlaceholder2.includes('[ADD:'), 'Must not contain [ADD: ...]')
+
+console.log('  ✓ 9.1 HTML entities cleanly decoded and [ADD: ...] placeholders gracefully removed without sentence corruption')
+
 console.log('\n================================================================')
 console.log('ALL SENIOR RECRUITER ROAST & KEYWORD WEAVER TESTS PASSED!')
 console.log('================================================================')
+

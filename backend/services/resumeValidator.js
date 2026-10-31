@@ -286,13 +286,44 @@ export function normalizeEducationItem(edu) {
 }
 
 /**
+ * Decodes HTML entities (handles &amp;, &Amp;, &lt;, &gt;, &quot;, &#39;, &apos;, &#x2F;)
+ */
+export function decodeHtmlEntities(str) {
+  if (!str || typeof str !== 'string') return str
+  return str
+    .replace(/&(?:amp|Amp);?/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x2F;/gi, '/')
+}
+
+/**
+ * Normalizes target role title to prevent duplicate prefixes (e.g. "Senior Senior Full Stack...")
+ */
+export function cleanTargetRoleTitle(prefix, baseRole) {
+  if (!baseRole && !prefix) return 'Software Engineer'
+  if (!baseRole) return String(prefix).trim()
+  if (!prefix) {
+    return String(baseRole)
+      .replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)(?:\1)+/i, '$1')
+      .trim()
+  }
+  const clean = String(baseRole).replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)+/i, '').trim()
+  return `${String(prefix).trim()} ${clean}`.trim()
+}
+
+/**
  * Gracefully cleans placeholder clauses from bullet rewrites
  * E.g. "...reducing approval latency by [ADD: 40%]." -> clean period "."
  * Never eats trailing clauses (e.g. "...by [ADD: ...] and boosted system throughput." -> "...and boosted system throughput.")
  */
 export function cleanPlaceholderGraceful(text) {
   if (!text || typeof text !== 'string') return ''
-  let cleaned = text
+  let cleaned = decodeHtmlEntities(text)
+  // Strip unrendered template variables like {{targetRole}} or {{currentCompany}}
+  cleaned = cleaned.replace(/\{\{[A-Za-z0-9_]+\}\}/g, '')
   // Replace 'by [ADD: ...] and boosted...' -> 'and boosted...'
   cleaned = cleaned.replace(/\b(?:by|with)\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]\s*(and|while|to)\b/gi, '$1')
   // Strip dangling placeholder phrases without eating rest of sentence
@@ -440,25 +471,27 @@ export function normalizeCanonical(raw = {}) {
   let rawSummary = safeString(
     raw.summary?.text ?? (typeof raw.summary === 'string' ? raw.summary : (raw.professional_summary || raw.summaryText || ''))
   )
+  const rawTarget = safeString(c.targetRole || raw.target_role || raw.targetRole || '')
+  const cleanTarget = cleanTargetRoleTitle('', decodeHtmlEntities(rawTarget))
 
   return {
     ...raw,
-    candidate_name: safeString(c.name || raw.candidate_name || raw.name || ''),
-    target_role: safeString(c.targetRole || raw.target_role || raw.targetRole || ''),
+    candidate_name: decodeHtmlEntities(safeString(c.name || raw.candidate_name || raw.name || '')),
+    target_role: cleanTarget,
     contact: c.contact || raw.contact || {},
-    summary: rawSummary,
+    summary: decodeHtmlEntities(rawSummary),
     years_of_experience: raw.years_of_experience || raw.yearsExperience || 3,
     experiences: exps.map((e, i) => {
       const id = e.id ?? `exp_${pad(i + 1, 3)}`
       return {
         ...e,
         id,
-        company: safeString(e.company || e.employer || ''),
-        role: safeString(e.role || e.title || ''),
-        location: extractLocation(e.location),
+        company: decodeHtmlEntities(safeString(e.company || e.employer || '')),
+        role: decodeHtmlEntities(safeString(e.role || e.title || '')),
+        location: decodeHtmlEntities(extractLocation(e.location)),
         duration: formatDateRange(e.startDate, e.endDate || e.duration, e.isCurrent) || safeString(e.duration || '').replace(/\s*[–-]\s*$/, ''),
         bullets: (e.bullets || []).map((b, j) => {
-          const text = safeString(b)
+          const text = decodeHtmlEntities(safeString(b))
           const bId = (typeof b === 'object' && b?.id) ? b.id : `${id}_b${pad(j + 1, 2)}`
           return { id: bId, text }
         }),
@@ -469,12 +502,12 @@ export function normalizeCanonical(raw = {}) {
       return {
         ...p,
         id,
-        title: safeString(p.title || p.name || 'Project'),
-        techStack: safeString(p.techStack || (Array.isArray(p.technologies) ? p.technologies.join(', ') : (p.technologies || ''))),
+        title: decodeHtmlEntities(safeString(p.title || p.name || 'Project')),
+        techStack: decodeHtmlEntities(safeString(p.techStack || (Array.isArray(p.technologies) ? p.technologies.join(', ') : (p.technologies || '')))),
         dates: formatDateRange(p.startDate, p.endDate || p.dates, false) || safeString(p.dates || '').replace(/\s*[–-]\s*$/, ''),
         link: safeString(p.link || p.github || ''),
         bullets: (Array.isArray(p.bullets) ? p.bullets : [p.description].filter(Boolean)).map((b, j) => {
-          const text = safeString(b)
+          const text = decodeHtmlEntities(safeString(b))
           const bId = (typeof b === 'object' && b?.id) ? b.id : `${id}_b${pad(j + 1, 2)}`
           return { id: bId, text }
         }),
@@ -483,13 +516,13 @@ export function normalizeCanonical(raw = {}) {
     education: edu.map((ed) => {
       const norm = normalizeEducationItem(ed)
       return {
-        degree: norm.degree,
-        school: norm.school,
-        location: norm.location,
-        dates: norm.dates,
+        degree: decodeHtmlEntities(norm.degree),
+        school: decodeHtmlEntities(norm.school),
+        location: decodeHtmlEntities(norm.location),
+        dates: decodeHtmlEntities(norm.dates),
       }
     }),
-    certifications: certs.map((ct) => safeString(typeof ct === 'string' ? ct : ct?.name || ct?.title || '')).filter(Boolean),
+    certifications: certs.map((ct) => decodeHtmlEntities(safeString(typeof ct === 'string' ? ct : ct?.name || ct?.title || ''))).filter(Boolean),
   }
 }
 

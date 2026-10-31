@@ -14,6 +14,8 @@ import {
   tokenizeSkillsSafe,
   determineSkillBucket,
   normalizeEducationItem,
+  cleanTargetRoleTitle,
+  decodeHtmlEntities,
 } from './resumeValidator.js'
 import {
   measurePageCountAsync,
@@ -179,8 +181,9 @@ function createSectionHeading(title, spacingBefore = 160, spacingAfter = 60) {
  * Bolds model **bold** marks or non-overlapping tool names and key metrics.
  */
 function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
-  const rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
+  let rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
   if (!rawText) return []
+  rawText = decodeHtmlEntities(rawText).replace(/\{\{[A-Za-z0-9_]+\}\}/g, '').trim()
 
   // Case A: Model already supplied **bold** markers (no 2-bold cap)
   if (/\*\*(.*?)\*\*/.test(rawText)) {
@@ -274,10 +277,11 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
-  const candidateName = sanitizedResume.candidate_name || ''
-  const targetRole = sanitizedResume.target_role || ''
+  const candidateName = decodeHtmlEntities(sanitizedResume.candidate_name || '')
+  const rawTargetRole = decodeHtmlEntities(sanitizedResume.target_role || '')
+  const targetRole = cleanTargetRoleTitle('', rawTargetRole)
   const contact = sanitizedResume.contact || {}
-  const summary = sanitizedResume.summary || ''
+  const summary = decodeHtmlEntities(sanitizedResume.summary || '')
   const experiences = sanitizedResume.experiences || []
   const projects = sanitizedResume.projects || []
   const education = sanitizedResume.education || []
@@ -330,15 +334,15 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const separator = () => new TextRun({ text: '  |  ', size: 19, font: 'Times New Roman', color: '555555' })
 
   if (contact.location) {
-    contactRuns.push(new TextRun({ text: contact.location, size: 19, font: 'Times New Roman', color: '555555' }))
+    contactRuns.push(new TextRun({ text: decodeHtmlEntities(contact.location), size: 19, font: 'Times New Roman', color: '555555' }))
   }
   if (contact.phone) {
     if (contactRuns.length > 0) contactRuns.push(separator())
-    contactRuns.push(new TextRun({ text: contact.phone, size: 19, font: 'Times New Roman', color: '555555' }))
+    contactRuns.push(new TextRun({ text: decodeHtmlEntities(contact.phone), size: 19, font: 'Times New Roman', color: '555555' }))
   }
   if (contact.email) {
     if (contactRuns.length > 0) contactRuns.push(separator())
-    contactRuns.push(createHyperlink(contact.email, `mailto:${contact.email}`, 19))
+    contactRuns.push(createHyperlink(decodeHtmlEntities(contact.email), `mailto:${contact.email}`, 19))
   }
   if (contact.linkedin) {
     if (contactRuns.length > 0) contactRuns.push(separator())
@@ -382,8 +386,8 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
     children.push(createSectionHeading('Work Experience', config.tightSpacing ? 120 : 160, 60))
 
     experiences.forEach((exp) => {
-      const role = exp.role || exp.title || ''
-      const duration = exp.duration || ''
+      const role = decodeHtmlEntities(exp.role || exp.title || '')
+      const duration = decodeHtmlEntities(exp.duration || '')
       const line1Runs = [
         new TextRun({ text: role, bold: true, size: 22, font: 'Times New Roman', color: '000000' }), // 11pt Bold #000000
       ]
@@ -403,7 +407,7 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       )
 
       // Line 2: Company Name | City, State/Country (Work Mode)
-      const companyMeta = [exp.company, exp.location].filter(Boolean).join(' | ')
+      const companyMeta = [decodeHtmlEntities(exp.company), decodeHtmlEntities(exp.location)].filter(Boolean).join(' | ')
       if (companyMeta) {
         children.push(
           new Paragraph({
@@ -434,18 +438,18 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
     projects.forEach((proj) => {
       const headerRuns = [
-        new TextRun({ text: proj.title || 'Project', bold: true, size: 20, font: 'Times New Roman', color: '000000' }), // 10pt Bold #000000
+        new TextRun({ text: decodeHtmlEntities(proj.title || 'Project'), bold: true, size: 20, font: 'Times New Roman', color: '000000' }), // 10pt Bold #000000
       ]
       if (proj.techStack) {
         headerRuns.push(
-          new TextRun({ text: `  |  ${proj.techStack}`, bold: false, size: 20, font: 'Times New Roman', color: '555555' }) // 10pt Regular #555555
+          new TextRun({ text: `  |  ${decodeHtmlEntities(proj.techStack)}`, bold: false, size: 20, font: 'Times New Roman', color: '555555' }) // 10pt Regular #555555
         )
       }
       if (proj.link) {
         headerRuns.push(new TextRun({ text: '  ', font: 'Times New Roman', size: 19 }))
         headerRuns.push(createHyperlink('Demo / Code', proj.link, 19))
       }
-      const rightMeta = [proj.label, proj.dates].filter(Boolean).join(' | ')
+      const rightMeta = [decodeHtmlEntities(proj.label), decodeHtmlEntities(proj.dates)].filter(Boolean).join(' | ')
       if (rightMeta) {
         headerRuns.push(
           new TextRun({ text: `\t${rightMeta}`, italics: true, size: 19, font: 'Times New Roman', color: '555555' })
@@ -525,13 +529,13 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       if (balance > 0) {
         repaired += ')'.repeat(balance)
       }
-      dedup = repaired
+      dedup = decodeHtmlEntities(repaired)
 
       children.push(
         new Paragraph({
           spacing: { before: 0, after: 25 },
           children: [
-            new TextRun({ text: `${cat}: `, bold: true, size: bodySize, font: 'Times New Roman', color: '222222' }),
+            new TextRun({ text: `${decodeHtmlEntities(cat)}: `, bold: true, size: bodySize, font: 'Times New Roman', color: '222222' }),
             new TextRun({ text: dedup, size: bodySize, font: 'Times New Roman', color: '222222' }),
           ],
         })
@@ -547,13 +551,18 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       const edu = normalizeEducationItem(rawEdu)
       if (!edu.school && !edu.degree) return
 
+      const school = decodeHtmlEntities(edu.school)
+      const dates = decodeHtmlEntities(edu.dates)
+      const degree = decodeHtmlEntities(edu.degree)
+      const location = decodeHtmlEntities(edu.location)
+
       // Line 1: [College / University Name] (Bold) \t [Start Month Year – End Month Year] (Bold)
       const line1Runs = [
-        new TextRun({ text: edu.school, bold: true, size: 21, font: 'Times New Roman', color: '000000' }), // 10.5pt Bold #000000
+        new TextRun({ text: school, bold: true, size: 21, font: 'Times New Roman', color: '000000' }), // 10.5pt Bold #000000
       ]
-      if (edu.dates) {
+      if (dates) {
         line1Runs.push(
-          new TextRun({ text: `\t${edu.dates}`, bold: true, size: 21, font: 'Times New Roman', color: '000000' }) // 10.5pt Bold #000000
+          new TextRun({ text: `\t${dates}`, bold: true, size: 21, font: 'Times New Roman', color: '000000' }) // 10.5pt Bold #000000
         )
       }
 
@@ -567,11 +576,11 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
       // Line 2: [Degree, Major] (Italic) \t [City, State/Country] (Italic)
       const line2Runs = [
-        new TextRun({ text: edu.degree, italics: true, size: 21, font: 'Times New Roman', color: '444444' }), // 10.5pt Italic #444444
+        new TextRun({ text: degree, italics: true, size: 21, font: 'Times New Roman', color: '444444' }), // 10.5pt Italic #444444
       ]
-      if (edu.location) {
+      if (location) {
         line2Runs.push(
-          new TextRun({ text: `\t${edu.location}`, italics: true, size: 21, font: 'Times New Roman', color: '444444' }) // 10.5pt Italic #444444
+          new TextRun({ text: `\t${location}`, italics: true, size: 21, font: 'Times New Roman', color: '444444' }) // 10.5pt Italic #444444
         )
       }
 
@@ -589,7 +598,8 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   if (certifications.length > 0) {
     children.push(createSectionHeading('Certifications', config.tightSpacing ? 120 : 160, 60))
     certifications.forEach((cert) => {
-      const certText = typeof cert === 'string' ? cert : cert?.name || cert?.title || ''
+      const rawCert = typeof cert === 'string' ? cert : cert?.name || cert?.title || ''
+      const certText = decodeHtmlEntities(rawCert)
       if (!certText) return
       children.push(
         new Paragraph({

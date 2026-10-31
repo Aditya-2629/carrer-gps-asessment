@@ -227,15 +227,21 @@ export function sanitizeModeCOutput(analysis) {
     analysis.bulletRewrites = []
   }
 
+  // Helper: Strip unrendered template variables like {{targetRole}}
+  const cleanTokens = (str) => {
+    if (!str || typeof str !== 'string') return str
+    return str.replace(/\{\{[A-Za-z0-9_]+\}\}/g, '').trim()
+  }
+
   // 5c. executiveDiagnosis normalization (V4 Senior Recruiter Roast)
   if (analysis.executiveDiagnosis && typeof analysis.executiveDiagnosis === 'object') {
     analysis.overallReview = analysis.overallReview || {}
     if (!analysis.overallReview.summary && analysis.executiveDiagnosis.sixSecondRecruiterVerdict) {
-      analysis.overallReview.summary = analysis.executiveDiagnosis.sixSecondRecruiterVerdict
+      analysis.overallReview.summary = cleanTokens(analysis.executiveDiagnosis.sixSecondRecruiterVerdict)
     }
-    analysis.overallReview.strongestAdvantage = analysis.executiveDiagnosis.strongestAdvantage
-    analysis.overallReview.primaryBottleneck = analysis.executiveDiagnosis.primaryBottleneck
-    analysis.overallReview.sixSecondRecruiterVerdict = analysis.executiveDiagnosis.sixSecondRecruiterVerdict
+    analysis.overallReview.strongestAdvantage = cleanTokens(analysis.executiveDiagnosis.strongestAdvantage)
+    analysis.overallReview.primaryBottleneck = cleanTokens(analysis.executiveDiagnosis.primaryBottleneck)
+    analysis.overallReview.sixSecondRecruiterVerdict = cleanTokens(analysis.executiveDiagnosis.sixSecondRecruiterVerdict)
   }
 
   // 5d. topThreePrioritizedActions normalization (V4 Actions)
@@ -243,10 +249,10 @@ export function sanitizeModeCOutput(analysis) {
     if (!Array.isArray(analysis.priorityActions) || analysis.priorityActions.length === 0) {
       analysis.priorityActions = analysis.topThreePrioritizedActions.map((act, i) => ({
         priority: act.priority || (i + 1),
-        title: act.title || 'Prioritize impact',
-        action: act.whatToDo || act.action || 'Strengthen technical outcome',
-        whyItMatters: act.whyItMatters || '',
-        impact: act.impact || '',
+        title: cleanTokens(act.title || 'Prioritize impact'),
+        action: cleanTokens(act.whatToDo || act.action || 'Strengthen technical outcome'),
+        whyItMatters: cleanTokens(act.whyItMatters || ''),
+        impact: cleanTokens(act.impact || ''),
       }))
     }
   }
@@ -254,7 +260,16 @@ export function sanitizeModeCOutput(analysis) {
   // 5e. executiveSummaryRewrite normalization
   if (analysis.executiveSummaryRewrite && typeof analysis.executiveSummaryRewrite === 'string') {
     analysis.summaryOptimization = analysis.summaryOptimization || {}
-    analysis.summaryOptimization.rewrittenSummary = analysis.executiveSummaryRewrite.trim()
+    analysis.summaryOptimization.rewrittenSummary = cleanTokens(analysis.executiveSummaryRewrite)
+  }
+
+  // 5f. Companion Interview Talking Points & Keyword Transparency Ledger
+  if (state.wovenBulletRewrites?.keywordTransparencyLedger) {
+    analysis.keywordTransparencyLedger = state.wovenBulletRewrites.keywordTransparencyLedger
+    analysis.interviewTalkingPoints = state.wovenBulletRewrites.interviewTalkingPoints
+  } else if (state.keywordWeaverResults?.keywordTransparencyLedger) {
+    analysis.keywordTransparencyLedger = state.keywordWeaverResults.keywordTransparencyLedger
+    analysis.interviewTalkingPoints = state.keywordWeaverResults.interviewTalkingPoints
   }
 
   // 5c. bulletUpgrades normalization

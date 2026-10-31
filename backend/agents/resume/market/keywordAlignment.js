@@ -585,24 +585,169 @@ export const SEMANTIC_SLOTS = {
     matchBullet: /\b(apis?|endpoints?|retrieval|backend|services?|server|http|restful|rest)\b/i,
   },
   cloud_slot: {
-    matchKw: /\b(aws|azure|gcp|docker|kubernetes|k8s|ecs|eks|terraform|ci\/cd|clouds?|ansible|helm|cloudformation|linux)\b/i,
-    matchBullet: /\b(deploy|deployment|deploying|microservices?|infrastructure|clouds?|containers?|containerized|pipelines?|clusters?|ci\/cd)\b/i,
+    matchKw: /\b(aws|azure|gcp|docker|kubernetes|k8s|ecs|eks|terraform|ci\/cd|clouds?|ansible|helm|cloudformation|linux|git|github|gitlab)\b/i,
+    matchBullet: /\b(deploy|deployment|deploying|microservices?|infrastructure|clouds?|containers?|containerized|pipelines?|clusters?|ci\/cd|version\s+control|releases?)\b/i,
   },
   messaging_slot: {
     matchKw: /\b(kafka|rabbitmq|sqs|sns|redis|pub\/sub|celery|eventbridge|messages?|message\s+queues?|activemq)\b/i,
-    matchBullet: /\b(messaging|queues?|streams?|streaming|caching|cache|async|asynchronous|events?|pub\/sub)\b/i,
+    matchBullet: /\b(messaging|queues?|streams?|streaming|caching|cache|async|asynchronous|events?|pub\/sub|telemetry|ingestion|event-driven)\b/i,
   },
   frontend_slot: {
     matchKw: /\b(react|next\.?js|redux|tailwind|vue|angular|typescript|javascript|frontends?|ui|css|html)\b/i,
     matchBullet: /\b(frontends?|front-end|ui|ux|components?|interfaces?|web|client|pages?|views?|dashboard)\b/i,
   },
+  testing_slot: {
+    matchKw: /\b(unit\s+testing|testing|test\s+automation|jest|cypress|mocha|pytest|tdd|integration\s+testing|qa)\b/i,
+    matchBullet: /\b(tests?|testing|test\s+coverage|coverage|quality|validation|validating|ci|releases?|defect|regression|suites?)\b/i,
+  },
 }
 
 export function determineSemanticSlot(kw) {
+  const low = String(kw || '').toLowerCase()
+  if (/\b(unit\s+testing|testing|test\s+automation|jest|cypress|mocha|pytest|tdd)\b/i.test(low)) {
+    return 'testing_slot'
+  }
+  if (/\b(kafka|rabbitmq|sqs|sns|redis|pub\/sub|celery|eventbridge)\b/i.test(low)) {
+    return 'messaging_slot'
+  }
+  if (/\b(typescript|react|next\.?js|redux|tailwind|vue|angular)\b/i.test(low)) {
+    return 'frontend_slot'
+  }
+  if (/\b(graphql|rest|restful|swagger|websockets?|grpc|fastapi|openapi|apis?|jwt|oauth)\b/i.test(low)) {
+    return 'api_slot'
+  }
   for (const [slotName, slotDef] of Object.entries(SEMANTIC_SLOTS)) {
     if (slotDef.matchKw.test(kw)) return slotName
   }
   return 'cloud_slot'
+}
+
+/**
+ * Normalizes target role title to prevent duplicate prefixes (e.g. "Senior Senior Full Stack...")
+ */
+export function cleanTargetRoleTitle(prefix, baseRole) {
+  if (!baseRole && !prefix) return 'Software Engineer'
+  if (!baseRole) return String(prefix).trim()
+  if (!prefix) {
+    return String(baseRole)
+      .replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)(?:\1)+/i, '$1')
+      .trim()
+  }
+  const clean = String(baseRole).replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)+/i, '').trim()
+  return `${String(prefix).trim()} ${clean}`.trim()
+}
+
+/**
+ * Comprehensive Knowledge Base for Companion Interview Talking Points & Keyword Transparency Ledger
+ */
+export const KEYWORD_INTERVIEW_CHEATSHEET = {
+  kafka: {
+    whyRecruiterLookedForThis: 'High-throughput event streaming is a core requirement for modern distributed architectures. Recruiters screen for Kafka to verify you can decouple microservices asynchronously and handle data at scale.',
+    howToSpeakToIt: 'Emphasize your understanding of topic partitions, consumer groups, offset commits, retention policies, and exactly how at-least-once delivery or backpressure handling prevented message loss.',
+    sampleInterviewAnswer: 'In our architecture, we leveraged Kafka as the central event bus between our ingestion layer and downstream consumers. I configured consumer groups to scale horizontally across partitions, ensuring fault-tolerant delivery and sub-100ms processing latencies.',
+    keyConceptsToMention: ['Partitions & Consumer Groups', 'At-Least-Once Delivery', 'Backpressure Handling', 'Schema Registry / Avro'],
+  },
+  typescript: {
+    whyRecruiterLookedForThis: 'Type safety drastically reduces runtime errors in large-scale full-stack and frontend codebases. Recruiters and engineering managers view TypeScript as a standard indicator of production engineering maturity.',
+    howToSpeakToIt: 'Discuss interface contracts, generics, strict null checks, discriminated unions, and how type inference streamlined team collaboration and eliminated regression bugs during refactors.',
+    sampleInterviewAnswer: 'We transitioned our codebase to TypeScript with strict type checking. By defining shared domain interfaces and strict contract validation across API boundaries, we eliminated common runtime null-pointer exceptions and made large refactors painless across the team.',
+    keyConceptsToMention: ['Strict Null Checking', 'Discriminated Unions', 'Generic Constraints', 'API Contract Types'],
+  },
+  'unit testing': {
+    whyRecruiterLookedForThis: 'Hiring teams want engineers who ship reliable code that does not break in production. Automated unit testing proves you write modular, testable code and protect business logic against regressions.',
+    howToSpeakToIt: 'Focus on test coverage metrics, mocking external dependencies/APIs, edge case validation, and incorporating unit tests into pre-commit hooks and CI/CD pull request gates.',
+    sampleInterviewAnswer: 'I prioritize automated unit testing using frameworks like Jest and PyTest. I focus on testing business logic edge cases, mocking third-party integrations, and maintaining automated CI test suites that keep our regression rate near zero.',
+    keyConceptsToMention: ['Mocking & Dependency Injection', 'Edge Case Coverage', 'Regression Prevention', 'TDD & CI Gates'],
+  },
+  git: {
+    whyRecruiterLookedForThis: 'Git is the universal foundation for team collaboration, code reviews, and release management in modern engineering workflows.',
+    howToSpeakToIt: 'Highlight trunk-based development or GitFlow, rebasing vs merging, interactive rebases for clean commit histories, and pull request review workflows with CI gate checks.',
+    sampleInterviewAnswer: 'We used Git for our entire development lifecycle, utilizing feature branching and pull request reviews with automated CI checks. I kept history clean with rebasing and ensured that every PR required peer approval and passing test suites before merging.',
+    keyConceptsToMention: ['Feature Branching & GitFlow', 'Interactive Rebase & Clean History', 'Merge Conflict Resolution', 'PR Review Gates'],
+  },
+  docker: {
+    whyRecruiterLookedForThis: 'Containerization guarantees reproducible environments across dev, staging, and production. Recruiters look for Docker as fundamental evidence of cloud-ready engineering.',
+    howToSpeakToIt: 'Talk about multi-stage builds for minimal image size, container isolation, layer caching, and docker-compose for local integration testing.',
+    sampleInterviewAnswer: 'I containerized our microservices using multi-stage Dockerfiles to minimize attack surface and image size, reducing our deployment image sizes by 65% and eliminating "works on my machine" inconsistencies.',
+    keyConceptsToMention: ['Multi-Stage Builds', 'Layer Caching', 'Container Isolation', 'Minimal Base Images (Alpine/Distroless)'],
+  },
+  kubernetes: {
+    whyRecruiterLookedForThis: 'Container orchestration at scale requires Kubernetes knowledge. Recruiters view K8s experience as a high-signal indicator of senior cloud systems proficiency.',
+    howToSpeakToIt: 'Discuss Pods, Deployments, Services, Ingress, Horizontal Pod Autoscaling (HPA), Helm charts, and health probes (readiness/liveness).',
+    sampleInterviewAnswer: 'I managed container deployments on Kubernetes clusters using Helm charts, configuring Horizontal Pod Autoscalers and readiness/liveness probes to maintain 99.99% service availability during traffic spikes.',
+    keyConceptsToMention: ['Deployments & Services', 'Horizontal Pod Autoscaling (HPA)', 'Readiness & Liveness Probes', 'Helm Charts & Ingress'],
+  },
+  aws: {
+    whyRecruiterLookedForThis: 'AWS is the dominant cloud platform; hands-on experience with core primitives (ECS, S3, IAM, Lambda, RDS) proves cloud deployment autonomy.',
+    howToSpeakToIt: 'Highlight least-privilege IAM roles, automated infrastructure provisioning, multi-AZ high availability, and CloudWatch metrics for real-time observability.',
+    sampleInterviewAnswer: 'We deployed our microservices on AWS using containerized services with auto-scaling policies, least-privilege IAM security roles, and CloudWatch metrics for real-time observability.',
+    keyConceptsToMention: ['Least-Privilege IAM', 'Multi-AZ High Availability', 'Auto-scaling & CloudWatch', 'Serverless & Container Primitives'],
+  },
+  graphql: {
+    whyRecruiterLookedForThis: 'GraphQL solves over-fetching and under-fetching, allowing frontend teams to query flexible nested data in a single round-trip.',
+    howToSpeakToIt: 'Explain schema design, resolver optimization, avoiding the N+1 problem with DataLoader, and caching strategies.',
+    sampleInterviewAnswer: 'We implemented GraphQL to consolidate multiple REST endpoints into a unified schema, utilizing DataLoader for batching and caching to solve the N+1 database query problem.',
+    keyConceptsToMention: ['Schema Design & Resolvers', 'DataLoader & N+1 Prevention', 'Type Safety & Introspection', 'Query Complexity Analysis'],
+  },
+  redis: {
+    whyRecruiterLookedForThis: 'In-memory caching and data structures are essential for sub-millisecond data retrieval, session storage, and rate limiting.',
+    howToSpeakToIt: 'Discuss read-aside caching, cache invalidation strategies (TTL vs write-through), cache penetration/stampede prevention, and Redis data structures (hashes, sorted sets).',
+    sampleInterviewAnswer: 'I implemented a Redis read-aside caching layer for our high-frequency query endpoints with calibrated TTLs, offloading 75% of read queries from our primary database.',
+    keyConceptsToMention: ['Read-Aside Caching', 'TTL & Eviction Policies', 'Cache Stampede Mitigation', 'Distributed Locks'],
+  },
+  'ci/cd': {
+    whyRecruiterLookedForThis: 'Automated build, test, and release pipelines directly impact engineering velocity and production reliability.',
+    howToSpeakToIt: 'Describe pipeline stages (lint, test, build, scan, deploy), blue/green or canary deployments, and automated rollbacks.',
+    sampleInterviewAnswer: 'I architected our CI/CD pipeline using GitHub Actions, automating test suites and security scans on every PR and enabling zero-downtime canary deployments to production.',
+    keyConceptsToMention: ['Automated Linting & Test Gates', 'Blue-Green / Canary Releases', 'Automated Rollback', 'Secret Management'],
+  },
+  postgresql: {
+    whyRecruiterLookedForThis: 'PostgreSQL is the industry-standard relational database for ACID compliance, complex queries, and JSONB capabilities.',
+    howToSpeakToIt: 'Talk about query indexing (B-Tree, GIN), EXPLAIN ANALYZE for query optimization, connection pooling, and transactional integrity.',
+    sampleInterviewAnswer: 'I optimized our PostgreSQL database through index restructuring and query plan analysis with EXPLAIN ANALYZE, resolving slow queries and scaling our concurrent connection capacity.',
+    keyConceptsToMention: ['B-Tree & GIN Indexing', 'EXPLAIN ANALYZE Tuning', 'Connection Pooling (PgBouncer)', 'ACID Transactions & Row Locking'],
+  },
+}
+
+export function getTalkingPointsForKeyword(keyword, slot = 'cloud_slot') {
+  const low = String(keyword || '').toLowerCase().trim()
+  if (KEYWORD_INTERVIEW_CHEATSHEET[low]) {
+    return { ...KEYWORD_INTERVIEW_CHEATSHEET[low] }
+  }
+  for (const [key, data] of Object.entries(KEYWORD_INTERVIEW_CHEATSHEET)) {
+    if (low.includes(key) || key.includes(low)) {
+      return { ...data }
+    }
+  }
+  return {
+    whyRecruiterLookedForThis: `Recruiters screen for ${keyword} as an industry-standard skill to verify hands-on execution and modern stack proficiency.`,
+    howToSpeakToIt: `Explain your architecture decisions with ${keyword}, how you integrated it with surrounding services, and the measurable reliability or performance gains achieved.`,
+    sampleInterviewAnswer: `I leveraged ${keyword} to streamline our engineering workflow and enhance production stability, ensuring our team delivered dependable, scalable results.`,
+    keyConceptsToMention: ['Architecture Integration', 'Production Best Practices', 'Error Handling & Resilience', 'Performance Tuning'],
+  }
+}
+
+export function buildInterviewTalkingPointsLedger(wovenResults = []) {
+  if (!Array.isArray(wovenResults)) return []
+  return wovenResults.map((item) => {
+    const kw = item.wovenKeyword || (Array.isArray(item.wovenKeywords) ? item.wovenKeywords[0] : '') || ''
+    const points = item.interviewTalkingPoints || getTalkingPointsForKeyword(kw, item.slot)
+    return {
+      keyword: kw,
+      slot: item.slot || 'cloud_slot',
+      bulletId: item.bulletId,
+      company: item.company || '',
+      role: item.role || '',
+      originalBullet: item.originalText || '',
+      wovenBullet: item.readyToUseRewrite || item.rewrittenText || '',
+      recruiterCritique: item.recruiterCritique || '',
+      interviewTalkingPoints: points,
+      whyRecruiterLookedForThis: points.whyRecruiterLookedForThis,
+      howToSpeakToIt: points.howToSpeakToIt,
+      sampleInterviewAnswer: points.sampleInterviewAnswer,
+      keyConceptsToMention: points.keyConceptsToMention,
+    }
+  })
 }
 
 /**
@@ -693,6 +838,47 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
     const trailingPunct = /[.!?]$/.test(cleaned) ? cleaned.slice(-1) : '.'
     if (/[.!?]$/.test(cleaned)) cleaned = cleaned.slice(0, -1).trim()
 
+    // Context-anchored insertion rules for top high-frequency keywords:
+    const kwLower = kw.toLowerCase()
+
+    // 1. Kafka: event-driven, telemetry, ingestion, streaming pipelines
+    if (kwLower === 'kafka') {
+      if (/\b(event-driven|telemetry|ingestion|streaming|data\s+pipeline)\b/i.test(cleaned)) {
+        if (/\bin\s+([A-Za-z]+)\b/i.test(cleaned) && !/\bin\s+[A-Za-z]+\s+and\b/i.test(cleaned)) {
+          cleaned = cleaned.replace(/\bin\s+([A-Za-z]+)\b/i, 'in $1 and Kafka')
+          return `${cleaned}${trailingPunct}`
+        }
+      }
+    }
+
+    // 2. TypeScript: React, Node, frontend, type-safe APIs
+    if (kwLower === 'typescript') {
+      if (/\bin\s+React\b/i.test(cleaned) && !/typescript/i.test(cleaned)) {
+        cleaned = cleaned.replace(/\bin\s+React\b/i, 'in React, TypeScript,')
+        cleaned = cleaned.replace(/\s*,\s*,/g, ',')
+        return `${cleaned}${trailingPunct}`
+      }
+    }
+
+    // 3. Unit Testing: test suites, code coverage, test automation
+    if (kwLower === 'unit testing') {
+      if (/\b(test\s+suites?|coverage)\b/i.test(cleaned) && !/unit testing/i.test(cleaned)) {
+        cleaned = cleaned.replace(/\b(test\s+suites?)\b/i, '$1 with automated Unit Testing')
+        return `${cleaned}${trailingPunct}`
+      }
+    }
+
+    // 4. Git: CI/CD, version control, branching, infrastructure
+    if (kwLower === 'git') {
+      if (/\busing\s+([A-Za-z0-9\s,&/+-]+?)\s+and\s+([A-Za-z0-9\s,&/+-]+?)(?=\s*,|\s+cutting|\s+reducing|\s+improving|$)/i.test(cleaned) && !/\bgit\b/i.test(cleaned)) {
+        cleaned = cleaned.replace(
+          /\busing\s+([A-Za-z0-9\s,&/+-]+?)\s+and\s+([A-Za-z0-9\s,&/+-]+?)(?=\s*,|\s+cutting|\s+reducing|\s+improving|$)/i,
+          'using $1, Git, and $2'
+        )
+        return `${cleaned}${trailingPunct}`
+      }
+    }
+
     // 1. Tooling clause starting with "using", "utilizing", "leveraging", "via", or "with"
     // Tooling clause must not capture numeric metrics (e.g. "with 99.99% uptime")
     const usingRegex = /\b(?:(using|utilizing|leveraging|via)\s+([A-Za-z0-9\s,&/+-]+?)|(with)\s+([A-Za-z\s,&/+-]+?))(?=\s+(?:with|to|for|at|in|delivering|achieving|cutting|reducing|improving|saving|by)|[,;.]|$)/i
@@ -771,6 +957,7 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
         priority: cand.priority,
         readyToUseRewrite: rewritten,
         rewrittenText: rewritten,
+        interviewTalkingPoints: getTalkingPointsForKeyword(cand.keyword, slot),
       })
     }
   }
@@ -799,7 +986,23 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
   results.wovenCount = results.length
   results.injectedKeywords = injectedKeywords
 
+  // Build companion Interview Talking Points & Keyword Transparency Ledger
+  const ledger = buildInterviewTalkingPointsLedger(results)
+  results.keywordTransparencyLedger = ledger
+  results.interviewTalkingPoints = ledger
+
   return results
 }
 
-export default { computeKeywordAlignment, weaveKeywordsIntoBullets, MARKET_ROLE_KEYWORD_PACKS, KEYWORD_SYNONYMS }
+export default {
+  computeKeywordAlignment,
+  weaveKeywordsIntoBullets,
+  determineSemanticSlot,
+  cleanTargetRoleTitle,
+  buildInterviewTalkingPointsLedger,
+  getTalkingPointsForKeyword,
+  KEYWORD_INTERVIEW_CHEATSHEET,
+  SEMANTIC_SLOTS,
+  MARKET_ROLE_KEYWORD_PACKS,
+  KEYWORD_SYNONYMS,
+}

@@ -35,6 +35,18 @@ const HEADLINE_FORMULA_LABELS = {
   2: 'Specialist',
 }
 
+export function cleanTargetRoleTitle(prefix, baseRole) {
+  if (!baseRole && !prefix) return 'Software Engineer'
+  if (!baseRole) return String(prefix).trim()
+  if (!prefix) {
+    return String(baseRole)
+      .replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)(?:\1)+/i, '$1')
+      .trim()
+  }
+  const clean = String(baseRole).replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)+/i, '').trim()
+  return `${String(prefix).trim()} ${clean}`.trim()
+}
+
 // Defensive helper to prevent React runtime crash from rendering raw objects
 const safeText = (val) => {
   if (!val) return ''
@@ -592,15 +604,21 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const otwTitles = isDataAnalystRole
     ? ['Data Analyst', 'Senior Data Analyst', 'Business Intelligence Analyst', 'Product Data Analyst', 'Analytics Specialist']
     : /data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(resolvedTargetRole)
-    ? [resolvedTargetRole, `Senior ${resolvedTargetRole}`, 'Applied AI / ML Engineer', 'Lead Data Scientist', `Staff ${resolvedTargetRole}`]
+    ? [
+        cleanTargetRoleTitle('', resolvedTargetRole),
+        cleanTargetRoleTitle('Senior', resolvedTargetRole),
+        'Applied AI / ML Engineer',
+        'Lead Data Scientist',
+        cleanTargetRoleTitle('Staff', resolvedTargetRole),
+      ]
     : /data\s+engineer/i.test(resolvedTargetRole)
     ? ['Data Engineer', 'Senior Data Engineer', 'Lead Data Engineer', 'Analytics & BigQuery Data Engineer', 'Cloud Data Architect']
     : [
-        resolvedTargetRole,
-        `Senior ${resolvedTargetRole}`,
-        `Lead ${resolvedTargetRole}`,
-        `${resolvedTargetRole} II`,
-        `Principal ${resolvedTargetRole}`,
+        cleanTargetRoleTitle('', resolvedTargetRole),
+        cleanTargetRoleTitle('Senior', resolvedTargetRole),
+        cleanTargetRoleTitle('Lead', resolvedTargetRole),
+        `${cleanTargetRoleTitle('', resolvedTargetRole)} II`,
+        cleanTargetRoleTitle('Principal', resolvedTargetRole),
       ]
 
   const top3SkillsForTricks = top3PinnedSkills.length >= 3

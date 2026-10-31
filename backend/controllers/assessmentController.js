@@ -12,7 +12,7 @@ import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
-import { determineSkillBucket } from '../services/resumeValidator.js'
+import { determineSkillBucket, cleanTargetRoleTitle } from '../services/resumeValidator.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper to balance unclosed opening parentheses before a final period
@@ -788,6 +788,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     const canonical = JSON.parse(JSON.stringify(rawCanonical))
+    canonical.target_role = cleanTargetRoleTitle('', canonical.target_role || user.targetRole || user.answers?.targetRole || 'Professional')
 
     // 1. Executive Summary Rewrite wiring
     const summaryRewrite =

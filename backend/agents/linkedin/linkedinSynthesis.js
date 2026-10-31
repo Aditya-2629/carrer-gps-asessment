@@ -15,6 +15,7 @@
 import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../ai/gateway/llmGateway.js'
 import { matchCompany, isConcreteTechSkill, formatSkillName, isValidSkill } from './linkedinCrossAnalyzer.js'
+import { cleanTargetRoleTitle } from '../../services/resumeValidator.js'
 import {
   buildLinkedInSynthesisPrompt,
   buildTask1HeadlinesAndBannerPrompt,
@@ -26,9 +27,10 @@ import {
  * Never defaults or hardcodes Software Engineer for non-SWE roles.
  */
 export function deriveOpenToWorkTitles(targetRole) {
-  const coreRole = String(targetRole || 'Software Engineer')
-    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate)\s+/i, '')
-    .trim()
+  const cleanBase = cleanTargetRoleTitle('', targetRole || 'Software Engineer')
+  const coreRole = cleanBase
+    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level)\s+/i, '')
+    .trim() || cleanBase
 
   if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(coreRole)) {
     return [
@@ -40,11 +42,11 @@ export function deriveOpenToWorkTitles(targetRole) {
     ]
   } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(coreRole)) {
     return [
-      coreRole,
-      `Senior ${coreRole}`,
+      cleanTargetRoleTitle('', coreRole),
+      cleanTargetRoleTitle('Senior', coreRole),
       'Applied AI / ML Engineer',
       'Lead Data Scientist',
-      `Staff ${coreRole}`,
+      cleanTargetRoleTitle('Staff', coreRole),
     ]
   } else if (/data\s+engineer/i.test(coreRole)) {
     return [
@@ -56,11 +58,11 @@ export function deriveOpenToWorkTitles(targetRole) {
     ]
   } else {
     return [
-      `Senior ${coreRole}`,
-      `Lead ${coreRole}`,
-      `Staff ${coreRole}`,
-      coreRole,
-      `Principal ${coreRole}`,
+      cleanTargetRoleTitle('Senior', coreRole),
+      cleanTargetRoleTitle('Lead', coreRole),
+      cleanTargetRoleTitle('Staff', coreRole),
+      cleanTargetRoleTitle('', coreRole),
+      cleanTargetRoleTitle('Principal', coreRole),
     ]
   }
 }

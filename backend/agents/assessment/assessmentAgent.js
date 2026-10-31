@@ -11,6 +11,7 @@
  */
 
 import { classifyConsistencyTier } from '../linkedin/linkedinCrossAnalyzer.js'
+import { cleanTargetRoleTitle } from '../../services/resumeValidator.js'
 
 // Shared range-safe numeric parser that prevents concatenating range digits (e.g. "30–60" -> 45, never 3060)
 export function parseRangeOrNumber(val, fallback = 0) {
@@ -945,7 +946,8 @@ export function evaluateAssessmentPersona({
   })
 
   // 4. External SDLC Market Cycle Context
-  const targetRole = resumeContext?.targetRole || ans.targetRole || 'Software Professional'
+  const rawTargetRole = resumeContext?.targetRole || ans.targetRole || 'Software Professional'
+  const targetRole = cleanTargetRoleTitle('', rawTargetRole)
   const externalContext = getExternalContext({
     targetRole,
     answers: ans,
