@@ -210,7 +210,42 @@ export class ResumeNormalizer {
       projects = this.parseProjects(sections.projects || [])
     }
 
-    const education = this.parseEducation(sections.education || [])
+    let education = this.parseEducation(sections.education || [])
+
+    // ── Strict Separation Guard: Extract degrees/institutions accidentally parsed into projects ──
+    const degreeKeywordsRegex = /\b(?:M\.?S\.?|B\.?S\.?|B\.?Tech|Bachelor|Master|Ph\.?D\.?|University|College|Institute|Diploma|Graduated|GPA)\b/i
+    const trueProjects = []
+    const rescuedEducationLines = []
+
+    for (const proj of projects) {
+      const titleMatchesDegree = degreeKeywordsRegex.test(proj.title || '')
+      const bulletsMatchDegree = (proj.bullets || []).some((b) => degreeKeywordsRegex.test(b.text || ''))
+
+      if (titleMatchesDegree) {
+        rescuedEducationLines.push(proj.title)
+        for (const b of (proj.bullets || [])) {
+          rescuedEducationLines.push(b.text)
+        }
+      } else {
+        trueProjects.push(proj)
+      }
+    }
+    projects = trueProjects
+
+    // If any education lines were rescued from projects, re-parse and merge into education
+    if (rescuedEducationLines.length > 0) {
+      const rescuedEdu = this.parseEducation(rescuedEducationLines)
+      education.push(...rescuedEdu)
+    }
+
+    // Fallback: If education is still empty, scan rawText / lines for degree & university lines
+    if (education.length === 0) {
+      const candidateEduLines = lines.filter((l) => degreeKeywordsRegex.test(l) && l.length < 120)
+      if (candidateEduLines.length > 0) {
+        const fallbackEdu = this.parseEducation(candidateEduLines)
+        education.push(...fallbackEdu)
+      }
+    }
 
     let skills = []
     if (Array.isArray(structuredSkills) && structuredSkills.length > 0) {
@@ -233,6 +268,15 @@ export class ResumeNormalizer {
       })).filter((c) => c.name.length > 0)
     } else {
       initialCertifications = this.parseCertifications(sections.certifications || [])
+    }
+
+    // Fallback: If certifications is empty, scan rawText / lines for certification lines
+    if (initialCertifications.length === 0) {
+      const certKeywordsRegex = /\b(?:Certified|Certification|AWS|Google|Meta|IBM|Microsoft|Scrum|PMP|Coursera|DeepLearning|Oracle|Cisco|CompTIA|Udacity|License)\b/i
+      const candidateCertLines = lines.filter((l) => certKeywordsRegex.test(l) && !degreeKeywordsRegex.test(l) && l.length < 120)
+      if (candidateCertLines.length > 0) {
+        initialCertifications = this.parseCertifications(candidateCertLines)
+      }
     }
 
     const summary = this.parseSummary(sections.summary || [])
@@ -557,9 +601,19 @@ export class ResumeNormalizer {
     const sectionPatterns = [
       { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history|relevant\s+experience|career\s+history|work\s+history)$/i },
       { key: 'projects', regex: /^(projects|technical\s+projects|personal\s+projects|academic\s+projects|key\s+projects)$/i },
-      { key: 'education', regex: /^(education|academic\s+background|academics|education\s+and\s+training)$/i },
+      {
+        key: 'education_and_certifications',
+        regex: /^(?:education\s*(?:&|and|\/)\s*certifications?|certifications?\s*(?:&|and|\/)\s*education)$/i
+      },
+      {
+        key: 'education',
+        regex: /^(?:education(?:\s*(?:&|and|\/)\s*certifications?)?|academic\s+background|academics|education\s+and\s+training)$/i
+      },
       { key: 'skills', regex: /^(skills|technical\s+skills|core\s+competencies|technologies|tools\s+and\s+technologies|core\s+skills)$/i },
-      { key: 'certifications', regex: /^(?:certifications?|certificates?|licenses?(?:\s*(?:&|and)\s*certifications?)?|professional\s+certifications?|training\s*(?:&|and)\s*certifications?|credentials|licenses|courses|awards)$/i },
+      {
+        key: 'certifications',
+        regex: /^(?:certifications?(?:\s*(?:&|and|\/)\s*licenses?)?|licenses?\s*(?:&|and)\s*certifications?|credentials|certificates?|courses|awards)$/i
+      },
       { key: 'summary', regex: /^(summary|professional\s+summary|profile|about\s+me|objective|career\s+summary|executive\s+summary)$/i },
     ]
 
@@ -593,6 +647,39 @@ export class ResumeNormalizer {
           sections.header.push(cleanLine)
         } else {
           sections.summary.push(cleanLine)
+        }
+      } else if (currentSection === 'education_and_certifications') {
+        const isDegreeLine = /\b(?:M\.?S\.?|B\.?S\.?|B\.?Tech|Bachelor|Master|Ph\.?D\.?|University|College|Institute|Associate|Diploma|Degree|Graduated|GPA)\b/i.test(cleanLine)
+        const isCertLine = /\b(?:Certified|Certification|Google|AWS|Meta|IBM|Microsoft|Scrum|PMP|Coursera|DeepLearning|Oracle|Cisco|CompTIA|Udacity|License)\b/i.test(cleanLine)
+
+        if (isCertLine && !isDegreeLine) {
+          sections.certifications.push(cleanLine)
+        } else if (isDegreeLine) {
+          sections.education.push(cleanLine)
+        } else {
+          if (sections.education.length > 0 && /cert|license|credential|badge/i.test(cleanLine)) {
+            sections.certifications.push(cleanLine)
+          } else if (sections.education.length === 0) {
+            sections.education.push(cleanLine)
+          } else {
+            sections.certifications.push(cleanLine)
+          }
+        }
+      } else if (currentSection === 'education') {
+        const isCertLine = /\b(?:Certified|Certification|Google|AWS|Meta|IBM|Microsoft|Scrum|PMP|Coursera|DeepLearning|Oracle|Cisco|CompTIA|Udacity|License)\b/i.test(cleanLine)
+        const isDegreeLine = /\b(?:M\.?S\.?|B\.?S\.?|B\.?Tech|Bachelor|Master|Ph\.?D\.?|University|College|Institute|Associate|Diploma|Degree|Graduated|GPA)\b/i.test(cleanLine)
+        if (isCertLine && !isDegreeLine) {
+          sections.certifications.push(cleanLine)
+        } else {
+          sections.education.push(cleanLine)
+        }
+      } else if (currentSection === 'certifications') {
+        const isDegreeLine = /\b(?:M\.?S\.?|B\.?S\.?|B\.?Tech|Bachelor|Master|Ph\.?D\.?|University|College|Institute|Associate|Diploma|Degree|Graduated|GPA)\b/i.test(cleanLine)
+        const isCertLine = /\b(?:Certified|Certification|Google|AWS|Meta|IBM|Microsoft|Scrum|PMP|Coursera|DeepLearning|Oracle|Cisco|CompTIA|Udacity|License)\b/i.test(cleanLine)
+        if (isDegreeLine && !isCertLine) {
+          sections.education.push(cleanLine)
+        } else {
+          sections.certifications.push(cleanLine)
         }
       } else {
         sections[currentSection].push(cleanLine)
@@ -806,7 +893,7 @@ export class ResumeNormalizer {
         location = part
       } else if (!role && ROLE_KEYWORDS_REGEX.test(part) && isValidRoleTitle(part)) {
         role = part
-      } else if (!company && isValidCompanyName(part)) {
+      } else if (!company && isValidCompanyName(part) && !ROLE_KEYWORDS_REGEX.test(part)) {
         company = part
       } else if (!role && isValidRoleTitle(part)) {
         role = part
@@ -817,7 +904,33 @@ export class ResumeNormalizer {
       role = ''
     }
 
-    let finalCompany = (company || line1 || '').trim()
+    // Safety guard: Check if line1 contains a date range or role keyword - NEVER allow line1 to be company
+    const line1HasDate = line1 && DATE_RANGE_REGEX.test(line1)
+    const line1HasRole = line1 && ROLE_KEYWORDS_REGEX.test(line1)
+
+    // Check if line2, line3, or unconsumedParts has a real company
+    if (!company) {
+      for (const candidate of [line2, line3, ...unconsumedParts]) {
+        if (!candidate) continue
+        const cleanCand = candidate.trim()
+        if (
+          !DATE_RANGE_REGEX.test(cleanCand) &&
+          !locationRegex.test(cleanCand) &&
+          !ROLE_KEYWORDS_REGEX.test(cleanCand) &&
+          cleanCand.length >= 2 &&
+          cleanCand.length <= 60
+        ) {
+          company = cleanCand
+          break
+        }
+      }
+    }
+
+    let finalCompany = (company || '').trim()
+    if (!finalCompany && !line1HasDate && !line1HasRole) {
+      finalCompany = (line1 || '').trim()
+    }
+
     // Clean trailing location residue / delimiters from company
     finalCompany = finalCompany.replace(/\s*[|–—\-]\s*(?:illinois|india|usa|chicago.*|remote|hybrid|onsite).*$/i, '').trim()
     finalCompany = finalCompany.replace(/^[|–—\-\s,]+|[|–—\-\s,]+$/g, '').trim()
@@ -829,6 +942,11 @@ export class ResumeNormalizer {
       finalCompany = 'Collabera / Bank of America'
     } else if (/capgemini/i.test(finalCompany)) {
       finalCompany = 'Capgemini Technology Services'
+    }
+
+    // Safety guard: NEVER allow company to be a raw date or pure role title
+    if (!finalCompany || DATE_RANGE_REGEX.test(finalCompany) || (ROLE_KEYWORDS_REGEX.test(finalCompany) && finalCompany.length < 50)) {
+      finalCompany = 'Enterprise Organization'
     }
 
     const isCurrent = /present|current|now|active/i.test(dates) || /present|current|now/i.test(endDate)
@@ -909,6 +1027,14 @@ export class ResumeNormalizer {
           (nextLineHasDate && lineAfterHasRole)
         )
 
+      const nextLineLooksLikeCompany =
+        !bulletRegex.test(nextLine) &&
+        !this.isSentenceFragment(nextLine) &&
+        !nextLineHasDate &&
+        !nextLineHasRole &&
+        nextLine.length > 2 &&
+        nextLine.length < 80
+
       // Detect if 2 lines form a job header (e.g. Line 1: Role/Company, Line 2: Date)
       const isTwoLineHeader =
         !isBullet &&
@@ -918,9 +1044,9 @@ export class ResumeNormalizer {
         line.length < 90 &&
         nextLine.length < 90 &&
         (
-          (lineHasDate && (lineHasRole || nextLineHasRole)) ||
+          (lineHasDate && (lineHasRole || nextLineHasRole || nextLineLooksLikeCompany)) ||
           (nextLineHasDate && (lineHasRole || lineHasSep || !currentItem)) ||
-          (lineHasRole && nextLineHasDate)
+          (lineHasRole && (nextLineHasDate || nextLineLooksLikeCompany))
         )
 
       const isSingleLineHeader =
@@ -974,16 +1100,41 @@ export class ResumeNormalizer {
           bulletCounter++
         }
       } else if (currentItem && currentItem.bullets.length === 0) {
-        // Second line of header before bullets (often dates or role)
-        const updated = this.parseExperienceHeader(currentItem.company, line)
-        if (updated.role) currentItem.role = updated.role
-        if (updated.company && updated.company !== line) currentItem.company = updated.company
+        // Second line of header before bullets (often dates or role or company)
+        const updated = this.parseExperienceHeader(currentItem.role || currentItem.company, line)
+        if (updated.role && (!currentItem.role || currentItem.role === 'Software Engineer')) currentItem.role = updated.role
+        if (updated.company && updated.company !== 'Enterprise Organization') {
+          currentItem.company = updated.company
+        } else if (!currentItem.company || currentItem.company === 'Enterprise Organization') {
+          if (!DATE_RANGE_REGEX.test(line) && !ROLE_KEYWORDS_REGEX.test(line) && line.length < 80) {
+            currentItem.company = line.trim()
+          }
+        }
         if (updated.location) currentItem.location = updated.location
         if (updated.startDate) currentItem.startDate = updated.startDate
         if (updated.endDate) currentItem.endDate = updated.endDate
         if (updated.dates) currentItem.dates = updated.dates
         if (updated.isCurrent) currentItem.isCurrent = updated.isCurrent
       } else if (currentItem && currentItem.bullets.length > 0) {
+        // Guard: Check if unbulleted line is a client or employer name (e.g. "Shure Incorporated USA", "PwC USA", "Client: PwC")
+        const isClientOrCompanyLine =
+          !isBullet &&
+          line.length < 80 &&
+          !this.isSentenceFragment(line) &&
+          !/^(?:developed|engineered|architected|built|designed|implemented|led|managed|created|spearheaded|optimized|automated|collaborated|authored|analyzed|delivered|reduced|improved|scaled|orchestrated|deployed|streamlined|responsible|assisted|worked)\b/i.test(line) &&
+          (/\b(?:Inc|Incorporated|LLC|Corp|Corporation|Technologies|Solutions|Services|USA|Client:?)\b/i.test(line) ||
+            /^(?:PwC|KPIT|Shure|Deloitte|Infosys|TCS|Wipro|Cognizant|Accenture)\b/i.test(line))
+
+        if (isClientOrCompanyLine) {
+          const cleanOrg = line.replace(/^client:\s*/i, '').trim()
+          if (!currentItem.company || currentItem.company === 'Enterprise Organization') {
+            currentItem.company = cleanOrg
+          } else if (!currentItem.company.toLowerCase().includes(cleanOrg.toLowerCase())) {
+            currentItem.company = `${currentItem.company} / ${cleanOrg}`
+          }
+          continue
+        }
+
         // Line continuation of previous bullet (wrapped sentence or continuation)
         const lastBullet = currentItem.bullets[currentItem.bullets.length - 1]
         const startsLower = /^[a-z]/.test(line)

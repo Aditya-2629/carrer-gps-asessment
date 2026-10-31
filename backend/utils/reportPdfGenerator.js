@@ -4,6 +4,7 @@
  */
 
 import PDFDocument from 'pdfkit'
+import { cleanPlaceholderGraceful, decodeHtmlEntities } from '../services/resumeValidator.js'
 
 export const VALID_FORM_KEYS = new Set([
   'opportunityType', 'targetRole', 'apps30d', 'appsWeek', 'targetedMatchPct',
@@ -226,8 +227,20 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       }
 
       // Bullet Audit Rows
-      const bulletAudit = resumeAgent?.bulletAudit || []
-      const displayBullets = bulletAudit.filter((b) => b.needsRewrite || b.rewrittenText).slice(0, 5)
+      const bulletAudit =
+        (Array.isArray(aiReport?.resume_agent?.dashboard?.bulletAudit) && aiReport.resume_agent.dashboard.bulletAudit.length > 0)
+          ? aiReport.resume_agent.dashboard.bulletAudit
+          : (Array.isArray(resumeAgent?.bulletRewrites) && resumeAgent.bulletRewrites.length > 0)
+            ? resumeAgent.bulletRewrites
+            : (Array.isArray(resumeAgent?.bulletAudit) && resumeAgent.bulletAudit.length > 0)
+              ? resumeAgent.bulletAudit
+              : (Array.isArray(resumeAgent?.bulletUpgrades) && resumeAgent.bulletUpgrades.length > 0)
+                ? resumeAgent.bulletUpgrades
+                : []
+
+      const displayBullets = bulletAudit
+        .filter((b) => b && (b.needsRewrite || b.rewrittenText || b.readyToUseRewrite || b.rewriteOption || b.rewrite))
+        .slice(0, 5)
 
       if (displayBullets.length > 0) {
         ensureSpace(doc, 30)
@@ -239,16 +252,22 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
           const bStartY = doc.y
           const colW = (pageWidth - 8) / 2
 
+          const rawOrig = bullet.originalText || bullet.rawBullet || bullet.text || ''
+          const origText = decodeHtmlEntities(rawOrig).trim()
+
+          const rawRw = bullet.rewrittenText || bullet.readyToUseRewrite || bullet.rewriteOption || bullet.rewrite || bullet.originalText || ''
+          const rwText = cleanPlaceholderGraceful(rawRw).trim()
+
           // Original Box
           doc.rect(28, bStartY, colW, 44).fillAndStroke('#fef2f2', '#fecaca')
           doc.fillColor('#991b1b').fontSize(6.5).font('Helvetica-Bold').text(`ORIGINAL (${bullet.company || 'Role'})`, 34, bStartY + 5)
-          doc.fillColor('#7f1d1d').fontSize(6.5).font('Helvetica').text((bullet.originalText || '').slice(0, 130), 34, bStartY + 15, { width: colW - 12 })
+          doc.fillColor('#7f1d1d').fontSize(6.5).font('Helvetica').text(origText.slice(0, 130), 34, bStartY + 15, { width: colW - 12 })
 
           // Rewritten Box
           const rX = 28 + colW + 8
           doc.rect(rX, bStartY, colW, 44).fillAndStroke('#f0fdf4', '#bbf7d0')
           doc.fillColor('#166534').fontSize(6.5).font('Helvetica-Bold').text('RECRUITER STAR/XYZ REWRITE', rX + 6, bStartY + 5)
-          doc.fillColor('#14532d').fontSize(6.5).font('Helvetica').text((bullet.rewrittenText || bullet.originalText || '').slice(0, 130), rX + 6, bStartY + 15, { width: colW - 12 })
+          doc.fillColor('#14532d').fontSize(6.5).font('Helvetica').text(rwText.slice(0, 130), rX + 6, bStartY + 15, { width: colW - 12 })
 
           doc.y = bStartY + 48
         })

@@ -324,13 +324,26 @@ export function cleanPlaceholderGraceful(text) {
   let cleaned = decodeHtmlEntities(text)
   // Strip unrendered template variables like {{targetRole}} or {{currentCompany}}
   cleaned = cleaned.replace(/\{\{[A-Za-z0-9_]+\}\}/g, '')
-  // Replace 'by [ADD: ...] and boosted...' -> 'and boosted...'
+
+  // 1. Strip subordinate participial clauses containing placeholders: e.g. ", reducing latency by [ADD: ...]" or ", achieving [ADD: ...] across teams."
+  cleaned = cleaned.replace(/,\s*(?:reducing|securing|achieving|supporting|delivering|improving|cutting|saving|driving|scaling|optimizing|boosting|generating|utilizing|leveraging)(?:\s+[a-z0-9\s]+)?\s*(?:by|with|to)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\](?:\s+across\s+[a-z0-9\s]+)?/gi, '')
+
+  // 2. Strip dangling verbs immediately preceding bracket placeholders: e.g. "utilized by [ADD: ...]" or "leveraged with [ADD: ...]"
+  cleaned = cleaned.replace(/\s+(?:utilized|leveraged|achieving|securing|supporting|delivering|utilizing|driving|scaling)\s*(?:by|with|to)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+
+  // 3. Replace 'by [ADD: ...] and boosted...' -> 'and boosted...'
   cleaned = cleaned.replace(/\b(?:by|with)\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]\s*(and|while|to)\b/gi, '$1')
-  // Strip dangling placeholder phrases without eating rest of sentence
-  cleaned = cleaned.replace(/,\s*(?:reducing|securing|achieving|supporting|delivering|improving|cutting|saving|driving|scaling|optimizing|boosting|generating)(?:\s+[a-z\s]+)?\s*(?:by|with|to)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\](?:\s+across\s+[a-z\s]+)?/gi, '')
-  // Strip raw bracket
+
+  // 4. Strip any remaining raw bracket placeholder: e.g. "[ADD: ...]"
   cleaned = cleaned.replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
-  cleaned = cleaned.replace(/\s*,\s*,/g, ',').replace(/\s{2,}/g, ' ').trim()
+
+  // 5. Clean hanging verbs left before punctuation at sentence boundaries: e.g. "utilized." -> "."
+  cleaned = cleaned.replace(/\s+(?:utilized|leveraged|utilizing|achieved|driven)\s*([.,;])/gi, '$1')
+
+  // 6. Normalize punctuation and whitespace: e.g. ",." -> "."
+  cleaned = cleaned.replace(/\s*,\s*\./g, '.')
+  cleaned = cleaned.replace(/,\s*,/g, ',')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
   cleaned = cleaned.replace(/\s+\./g, '.')
   cleaned = cleaned.replace(/\.+$/, '.')
   if (cleaned && !/[.!?]$/.test(cleaned)) {

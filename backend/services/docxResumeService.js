@@ -16,6 +16,7 @@ import {
   normalizeEducationItem,
   cleanTargetRoleTitle,
   decodeHtmlEntities,
+  cleanPlaceholderGraceful,
 } from './resumeValidator.js'
 import {
   measurePageCountAsync,
@@ -183,7 +184,7 @@ function createSectionHeading(title, spacingBefore = 160, spacingAfter = 60) {
 function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   let rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
   if (!rawText) return []
-  rawText = decodeHtmlEntities(rawText).replace(/\{\{[A-Za-z0-9_]+\}\}/g, '').trim()
+  rawText = cleanPlaceholderGraceful(rawText)
 
   // Case A: Model already supplied **bold** markers (no 2-bold cap)
   if (/\*\*(.*?)\*\*/.test(rawText)) {
