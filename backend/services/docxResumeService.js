@@ -13,6 +13,7 @@ import {
   sanitizeAndValidateResume,
   tokenizeSkillsSafe,
   determineSkillBucket,
+  normalizeEducationItem,
 } from './resumeValidator.js'
 import {
   measurePageCountAsync,
@@ -35,13 +36,49 @@ export function groupByCategory(skills = [], targetRole = '') {
   if (!Array.isArray(skills) && typeof skills === 'object') {
     return Object.entries(skills)
       .filter(([k]) => !/general|other/i.test(k))
-      .map(([k, v]) => [k, [].concat(v).filter(Boolean)])
+      .map(([k, v]) => {
+        let mappedKey = k
+        if (/backend/i.test(k)) mappedKey = 'Backend & APIs'
+        else if (/database|caching/i.test(k)) mappedKey = 'Databases & Messaging'
+        return [mappedKey, [].concat(v).filter(Boolean)]
+      })
+  }
+
+  // Pre-process: stitch array elements where unclosed parentheses span multiple items
+  // (e.g. ["AWS (ECS Fargate", "Lambda", "S3", "SQS)", "CI/CD"])
+  const rawItems = Array.isArray(skills) ? skills : [skills]
+  const stitchedItems = []
+  let pendingGroup = null
+
+  for (const raw of rawItems) {
+    const str = typeof raw === 'string' ? raw : raw?.name || raw?.keyword || ''
+    if (!str) continue
+
+    if (pendingGroup !== null) {
+      pendingGroup += `, ${str}`
+      const openCount = (pendingGroup.match(/\(/g) || []).length
+      const closeCount = (pendingGroup.match(/\)/g) || []).length
+      if (closeCount >= openCount) {
+        stitchedItems.push(pendingGroup)
+        pendingGroup = null
+      }
+    } else {
+      const openCount = (str.match(/\(/g) || []).length
+      const closeCount = (str.match(/\)/g) || []).length
+      if (openCount > closeCount) {
+        pendingGroup = str
+      } else {
+        stitchedItems.push(str)
+      }
+    }
+  }
+  if (pendingGroup !== null) {
+    stitchedItems.push(`${pendingGroup})`)
   }
 
   // Tokenize safely
   const flatTokens = []
-  ;(Array.isArray(skills) ? skills : [skills]).forEach((item) => {
-    const str = typeof item === 'string' ? item : item?.name || item?.keyword || ''
+  stitchedItems.forEach((str) => {
     if (str.includes(',') && str.includes('(')) {
       flatTokens.push(...tokenizeSkillsSafe(str))
     } else if (str.includes(',') && !str.includes('A/B') && !str.includes('CI/CD')) {
@@ -51,7 +88,22 @@ export function groupByCategory(skills = [], targetRole = '') {
     }
   })
 
-  const unique = Array.from(new Set(flatTokens)).filter((s) => s.length >= 1)
+  // Normalize and balance individual tokens
+  const cleanTokens = flatTokens.map((item) => {
+    let s = String(item || '').trim()
+    if (!s) return ''
+    const openP = (s.match(/\(/g) || []).length
+    const closeP = (s.match(/\)/g) || []).length
+    if (openP > closeP) s += ')'.repeat(openP - closeP)
+    else if (closeP > openP) {
+      while (s.startsWith(')')) s = s.slice(1).trim()
+      const excess = (s.match(/\)/g) || []).length - (s.match(/\(/g) || []).length
+      if (excess > 0) s = s.replace(/\)+$/, '')
+    }
+    return s.trim()
+  }).filter((s) => s.length >= 1)
+
+  const unique = Array.from(new Set(cleanTokens))
   const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
 
   if (isDataRole) {
@@ -73,15 +125,19 @@ export function groupByCategory(skills = [], targetRole = '') {
   // SWE / AI / Full Stack
   const buckets = {
     'Programming Languages': [],
-    'AI & Machine Learning Systems': [],
-    'Backend & Architecture': [],
+    'Backend & APIs': [],
     'Cloud & DevOps': [],
-    'Databases & Caching': [],
+    'Databases & Messaging': [],
+    'AI & Machine Learning Systems': [],
   }
   unique.forEach((s) => {
-    const bucket = determineSkillBucket(s, targetRole)
+    let bucket = determineSkillBucket(s, targetRole)
+    if (bucket === 'Backend & Architecture') bucket = 'Backend & APIs'
+    if (bucket === 'Databases & Caching') bucket = 'Databases & Messaging'
+
     if (buckets[bucket]) buckets[bucket].push(s)
-    else buckets['Databases & Caching'].push(s)
+    else if (buckets['Backend & APIs']) buckets['Backend & APIs'].push(s)
+    else buckets['Databases & Messaging'].push(s)
   })
   return Object.entries(buckets).filter(([_, items]) => items.length > 0)
 }
@@ -111,11 +167,12 @@ function createSectionHeading(title, spacingBefore = 110, spacingAfter = 30) {
 }
 
 function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
-  if (!text) return []
+  const rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
+  if (!rawText) return []
 
   // Case A: Model already supplied **bold** markers
-  if (/\*\*(.*?)\*\*/.test(text)) {
-    const parts = text.split(/\*\*(.*?)\*\*/g)
+  if (/\*\*(.*?)\*\*/.test(rawText)) {
+    const parts = rawText.split(/\*\*(.*?)\*\*/g)
     const runs = []
     let boldCount = 0
     parts.forEach((part, i) => {
@@ -134,7 +191,7 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   for (const skill of sortedSkills) {
     if (skill.length < 2) continue
     const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
-    const match = text.match(regex)
+    const match = rawText.match(regex)
     if (match) {
       targets.push({ start: match.index, end: match.index + match[0].length, text: match[0] })
       break
@@ -142,7 +199,7 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   }
 
   const METRIC_REGEX = /\$\s?\d[\d,.]*\s?[KMBkmb]?(?![A-Za-z])\+?|\b\d[\d,.]*\s?(?:%|[KMBkmb](?![A-Za-z])\+?|x(?![A-Za-z])|\+)/g
-  const allMetrics = [...text.matchAll(METRIC_REGEX)]
+  const allMetrics = [...rawText.matchAll(METRIC_REGEX)]
   if (allMetrics.length > 0) {
     const picked = allMetrics.filter((m) => /[%$]/.test(m[0])).pop() || allMetrics.pop()
     const start = picked.index
@@ -159,13 +216,13 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   let lastIdx = 0
   safeTargets.forEach((tgt) => {
     if (tgt.start > lastIdx) {
-      runs.push(new TextRun({ text: text.slice(lastIdx, tgt.start), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
+      runs.push(new TextRun({ text: rawText.slice(lastIdx, tgt.start), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
     }
-    runs.push(new TextRun({ text: text.slice(tgt.start, tgt.end), bold: true, size: bodySize, font: 'Calibri', color: '000000' }))
+    runs.push(new TextRun({ text: rawText.slice(tgt.start, tgt.end), bold: true, size: bodySize, font: 'Calibri', color: '000000' }))
     lastIdx = tgt.end
   })
-  if (lastIdx < text.length) {
-    runs.push(new TextRun({ text: text.slice(lastIdx), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
+  if (lastIdx < rawText.length) {
+    runs.push(new TextRun({ text: rawText.slice(lastIdx), bold: false, size: bodySize, font: 'Calibri', color: '000000' }))
   }
   return runs
 }
@@ -270,7 +327,56 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   if (skillGroups.length > 0) {
     children.push(createSectionHeading('Technical Skills', config.tightSpacing ? 90 : 110, 30))
     skillGroups.forEach(([cat, list]) => {
-      const dedup = list.join(', ')
+      const cleanList = list.map((item) => {
+        let s = typeof item === 'string' ? item.trim() : (item?.name || item?.keyword || '').trim()
+        if (!s) return ''
+        const openP = (s.match(/\(/g) || []).length
+        const closeP = (s.match(/\)/g) || []).length
+        if (openP > closeP) {
+          s += ')'.repeat(openP - closeP)
+        } else if (closeP > openP) {
+          while (s.startsWith(')')) s = s.slice(1).trim()
+          const excess = (s.match(/\)/g) || []).length - (s.match(/\(/g) || []).length
+          if (excess > 0) {
+            s = s.replace(/\)+$/, '')
+          }
+        }
+        return s.trim()
+      }).filter(Boolean)
+
+      const seen = new Set()
+      const dedupList = []
+      for (const item of cleanList) {
+        const low = item.toLowerCase()
+        if (!seen.has(low)) {
+          seen.add(low)
+          dedupList.push(item)
+        }
+      }
+
+      let dedup = dedupList.join(', ')
+
+      // Ensure all brackets close within the same paragraph
+      let balance = 0
+      let repaired = ''
+      for (const char of dedup) {
+        if (char === '(') {
+          balance++
+          repaired += char
+        } else if (char === ')') {
+          if (balance > 0) {
+            balance--
+            repaired += char
+          }
+        } else {
+          repaired += char
+        }
+      }
+      if (balance > 0) {
+        repaired += ')'.repeat(balance)
+      }
+      dedup = repaired
+
       children.push(
         new Paragraph({
           spacing: { before: 6, after: 12 },
@@ -364,17 +470,43 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   if (education.length > 0 || certifications.length > 0) {
     children.push(createSectionHeading('Education & Certifications', config.tightSpacing ? 90 : 110, 30))
 
-    education.forEach((edu) => {
-      const rightMeta = [edu.location, edu.dates].filter(Boolean).join(' | ')
+    education.forEach((rawEdu) => {
+      const edu = normalizeEducationItem(rawEdu)
+      if (!edu.school && !edu.degree) return
+
+      // Line 1: [College / University Name] (Bold) \t [Start Month Year – End Month Year] (Regular)
+      const line1Runs = [
+        new TextRun({ text: edu.school, bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
+      ]
+      if (edu.dates) {
+        line1Runs.push(
+          new TextRun({ text: `\t${edu.dates}`, bold: false, size: bodySize - 1, font: 'Calibri', color: '000000' })
+        )
+      }
+
       children.push(
         new Paragraph({
-          spacing: { before: 25, after: 12 },
+          spacing: { before: config.tightSpacing ? 20 : 30, after: 2 },
           tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
-          children: [
-            new TextRun({ text: edu.degree ? `${edu.degree}, ` : '', bold: true, size: bodySize, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: edu.school, size: bodySize, font: 'Calibri', color: '000000' }),
-            new TextRun({ text: `\t${rightMeta}`, size: bodySize - 1, color: '000000', font: 'Calibri' }),
-          ],
+          children: line1Runs,
+        })
+      )
+
+      // Line 2: [Degree, Major] (Regular) \t [City, State/Country] (Regular)
+      const line2Runs = [
+        new TextRun({ text: edu.degree, bold: false, size: bodySize, font: 'Calibri', color: '000000' }),
+      ]
+      if (edu.location) {
+        line2Runs.push(
+          new TextRun({ text: `\t${edu.location}`, bold: false, size: bodySize - 1, font: 'Calibri', color: '000000' })
+        )
+      }
+
+      children.push(
+        new Paragraph({
+          spacing: { before: 0, after: config.tightSpacing ? 10 : 16 },
+          tabStops: [{ type: TabStopType.RIGHT, position: contentWidth }],
+          children: line2Runs,
         })
       )
     })

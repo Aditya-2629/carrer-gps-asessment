@@ -154,11 +154,237 @@ export function isLeakedHeader(text) {
   return isCompanyLike && !ACTION_VERB_REGEX.test(t)
 }
 
+const FULL_MONTHS = {
+  jan: 'January', january: 'January',
+  feb: 'February', february: 'February',
+  mar: 'March', march: 'March',
+  apr: 'April', april: 'April',
+  may: 'May',
+  jun: 'June', june: 'June',
+  jul: 'July', july: 'July',
+  aug: 'August', august: 'August',
+  sep: 'September', sept: 'September', september: 'September',
+  oct: 'October', october: 'October',
+  nov: 'November', november: 'November',
+  dec: 'December', december: 'December',
+}
+
+/**
+ * Education Date Formatter
+ * Expands abbreviations to full month names and standardizes ranges with en-dash.
+ * E.g. "Sep 2024 - May 2026" -> "September 2024 – May 2026", "2024" -> "2024"
+ */
+export function formatEducationDates(dates, startDate, endDate) {
+  const expandMonth = (str) => {
+    if (!str) return ''
+    return String(str)
+      .replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{4})\b/gi, (match, m, y) => {
+        const full = FULL_MONTHS[m.toLowerCase()] || m
+        return `${full} ${y}`
+      })
+      .replace(/\b(0?[1-9]|1[0-2])\/(\d{4})\b/g, (match, m, y) => {
+        const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        const full = monthNames[parseInt(m, 10)] || m
+        return `${full} ${y}`
+      })
+  }
+
+  let s = startDate ? expandMonth(String(startDate).trim()) : ''
+  let e = endDate ? expandMonth(String(endDate).trim()) : ''
+
+  if (s && e && s !== e) {
+    return `${s} – ${e}`
+  }
+  if (!dates) return e || s || ''
+
+  let clean = expandMonth(String(dates).trim())
+  clean = clean.replace(/\s*(?:–|—|-|\bto\b)\s*/gi, ' – ')
+  return clean
+}
+
+/**
+ * Universal Education Item Normalizer
+ * Guarantees distinct school, degree, location, and full-month dates.
+ */
+export function normalizeEducationItem(edu) {
+  if (!edu) return { school: '', degree: '', location: '', dates: '' }
+  if (typeof edu === 'string') {
+    let raw = edu
+    let location = ''
+    const locMatch = raw.match(/\b([A-Za-z\s.-]+,\s*[A-Z]{2}(?:\s*USA)?|[A-Za-z\s.-]+,\s*(?:India|USA|UK|Canada|Germany))\b/i)
+    if (locMatch) {
+      location = locMatch[0].trim()
+      raw = raw.replace(locMatch[0], '')
+    }
+
+    let dates = ''
+    const dateMatch = raw.match(/\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})\s*(?:–|—|-|\bto\b)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})|present|current|expected)\b|\b(?:19|20)\d{2}\b/i)
+    if (dateMatch) {
+      dates = dateMatch[0].trim()
+      raw = raw.replace(dateMatch[0], '')
+    }
+
+    const remaining = raw.split(/,\s*/).map((p) => p.trim()).filter((p) => p.length >= 2)
+    let school = ''
+    let degree = ''
+    for (const p of remaining) {
+      if (/\b(university|institute|college|school|academy|polytechnic|iit|nit|bits|kit|stevens)\b/i.test(p)) {
+        school = p
+      } else if (/\b(master|bachelor|b\.?tech|m\.?tech|m\.?s\.?|b\.?s\.?|ph\.?d|mba|associate|science|degree|engineering)\b/i.test(p)) {
+        degree = p
+      } else if (!school) {
+        school = p
+      } else if (!degree) {
+        degree = p
+      }
+    }
+    return {
+      school,
+      degree,
+      location,
+      dates: formatEducationDates(dates),
+    }
+  }
+
+  let school = safeString(edu.school || edu.institution || edu.university || '').trim()
+  let degree = safeString(edu.degree || edu.degreeName || '').trim()
+  let location = extractLocation(edu.location)
+  let dates = formatEducationDates(edu.dates || edu.year, edu.startDate, edu.endDate)
+
+  // Location recovery if location is missing but inside school or degree
+  if (!location) {
+    const locRegex = /,\s*([A-Za-z\s.-]+,\s*[A-Z]{2}(?:\s*USA)?|[A-Za-z\s.-]+,\s*(?:India|USA|UK|Canada|Germany))\s*$/i
+    const mSchool = school.match(locRegex)
+    if (mSchool) {
+      location = mSchool[1].trim()
+      school = school.replace(locRegex, '').trim()
+    } else {
+      const mDegree = degree.match(locRegex)
+      if (mDegree) {
+        location = mDegree[1].trim()
+        degree = degree.replace(locRegex, '').trim()
+      }
+    }
+  }
+
+  // If school is missing but degree contains an institution name
+  if (!school && degree && /\b(university|institute|college|school|academy|polytechnic|iit|nit|bits|kit|stevens)\b/i.test(degree)) {
+    const parts = degree.split(/,\s*/)
+    if (parts.length >= 2) {
+      const instIdx = parts.findIndex((p) => /\b(university|institute|college|school|academy|polytechnic|iit|nit|bits|kit|stevens)\b/i.test(p))
+      if (instIdx !== -1) {
+        school = parts[instIdx].trim()
+        degree = parts.filter((_, i) => i !== instIdx).join(', ').trim()
+      }
+    }
+  }
+
+  if (SENTINEL_ONLY.test(school)) school = ''
+  if (SENTINEL_ONLY.test(degree)) degree = ''
+
+  return { school, degree, location, dates }
+}
+
+/**
+ * Gracefully cleans placeholder clauses from bullet rewrites
+ * E.g. "...reducing approval latency by [ADD: 40%]." -> clean period "."
+ */
+export function cleanPlaceholderClause(text) {
+  if (!text || typeof text !== 'string') return ''
+  let cleaned = text
+    .replace(/,\s*(?:reducing|increasing|delivering|achieving|supporting|improving|cutting|saving|driving|scaling|optimizing|boosting|generating|by|with|to|for|at|across)\s*[^.,;]*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\][^.!?]*(?:[.!?]|$)/gi, '.')
+    .replace(/\s*,?\s*(?:achieving|supporting|delivering|by|with|to|for|at|across)?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\][^.!?]*(?:[.!?]|$)/gi, '.')
+    .replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+    .replace(/\s+([.,;])/g, '$1')
+    .replace(/([.,;])\s*[.,;]+/g, '$1')
+    .replace(/\.+$/, '.')
+    .trim()
+  if (cleaned && !/[.!?]$/.test(cleaned)) {
+    cleaned += '.'
+  }
+  return cleaned
+}
+
+/**
+ * Builds multi-strategy rewrite index:
+ * 1. bulletId / id exact match
+ * 2. exact text match (case-insensitive, trimmed)
+ * 3. 35-character normalized prefix match
+ */
+export function buildRewriteLookup(tailoredBullets = []) {
+  const idMap = new Map()
+  const exactMap = new Map()
+  const prefixMap = new Map()
+
+  const normalizePrefix = (str, len = 35) => {
+    if (!str) return ''
+    return String(str)
+      .toLowerCase()
+      .replace(/^([•\-\*\u2022\u25e6\u2043\u2219]|\*(?!\*))\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, len)
+  }
+
+  if (Array.isArray(tailoredBullets)) {
+    tailoredBullets.forEach((item) => {
+      if (!item) return
+      const id = item.bulletId || item.id
+      const origText = item.originalText || item.text || item.original || item.bullet || ''
+      const rawRewrite =
+        item.rewriteOption ||
+        item.rewrite ||
+        item.suggestedRewrite ||
+        item.rewrittenText ||
+        (item.originalText && item.text !== item.originalText ? item.text : null)
+
+      if (!rawRewrite || typeof rawRewrite !== 'string') return
+
+      const cleanRw = cleanPlaceholderClause(rawRewrite)
+      if (!cleanRw) return
+
+      const hadPlaceholder = PLACEHOLDER_REGEX.test(rawRewrite)
+      const entry = { text: cleanRw, hadPlaceholder, raw: rawRewrite }
+
+      if (id) {
+        idMap.set(String(id), entry)
+      }
+      if (origText && typeof origText === 'string') {
+        const normExact = origText.toLowerCase().trim()
+        exactMap.set(normExact, entry)
+        const pfx = normalizePrefix(origText, 35)
+        if (pfx.length >= 10) {
+          prefixMap.set(pfx, entry)
+        }
+      }
+    })
+  }
+
+  return {
+    findRewrite(bulletId, rawText) {
+      if (bulletId && idMap.has(String(bulletId))) {
+        return idMap.get(String(bulletId))
+      }
+      if (rawText && typeof rawText === 'string') {
+        const normExact = rawText.toLowerCase().trim()
+        if (exactMap.has(normExact)) {
+          return exactMap.get(normExact)
+        }
+        const pfx = normalizePrefix(rawText, 35)
+        if (pfx.length >= 10 && prefixMap.has(pfx)) {
+          return prefixMap.get(pfx)
+        }
+      }
+      return null
+    },
+  }
+}
+
 /**
  * Categorizes a skill into an exact ATS bucket based on target role
  */
 export function determineSkillBucket(skill, targetRole = '') {
-  const low = String(skill || '').toLowerCase()
+  const low = String(skill || '').toLowerCase().trim()
   const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
 
   if (isDataRole) {
@@ -170,11 +396,29 @@ export function determineSkillBucket(skill, targetRole = '') {
   }
 
   // SWE / AI / Full Stack
-  if (/python|javascript|typescript|go\b|golang|bash|c\+\+|java\b|\bc\b|\br\b|rust|c#/i.test(low)) return 'Programming Languages'
-  if (/langchain|fastmcp|smolagents|rag|llm|tensorflow|pytorch|openai|gemini|nlp|genai/i.test(low)) return 'AI & Machine Learning Systems'
-  if (/fastapi|node|express|flask|django|react|next\.js|rest|graphql|microservices|system design/i.test(low)) return 'Backend & Architecture'
-  if (/aws|docker|kubernetes|terraform|ci\/cd|jenkins|git|cloud|linux/i.test(low)) return 'Cloud & DevOps'
-  return 'Databases & Caching'
+  // 1. Programming Languages
+  if (/python|javascript|typescript|go\b|golang|bash|c\+\+|java\b|\bc\b|\br\b|rust|c#|ruby|php|kotlin|swift/i.test(low)) {
+    return 'Programming Languages'
+  }
+  // 2. AI & Machine Learning Systems
+  if (/langchain|fastmcp|smolagents|rag|llm|tensorflow|pytorch|openai|gemini|nlp|genai|scikit|huggingface/i.test(low)) {
+    return 'AI & Machine Learning Systems'
+  }
+  // 3. Cloud & DevOps
+  if (/aws|docker|kubernetes|terraform|ci\/cd|jenkins|git|cloud|linux|gcp|azure|ansible|helm/i.test(low)) {
+    return 'Cloud & DevOps'
+  }
+  // 4. Databases & Messaging
+  if (/sql|postgresql|postgres|mysql|sqlite|mongodb|redis|cassandra|elasticsearch|dynamodb|kafka|rabbitmq|pub\/sub|message queue|caching/i.test(low)) {
+    return 'Databases & Messaging'
+  }
+  // 5. Backend & APIs (e.g. Spring Boot, FastAPI, Node.js, Express, REST, GraphQL, JWT / OAuth 2.0, microservices)
+  if (/fastapi|node|express|flask|django|react|next\.js|rest|graphql|microservices|system design|spring|spring boot|api|apis|jwt|oauth|auth0/i.test(low)) {
+    return 'Backend & APIs'
+  }
+
+  if (/database|query|queries|cache/i.test(low)) return 'Databases & Messaging'
+  return 'Backend & APIs'
 }
 
 /**
@@ -210,7 +454,7 @@ export function normalizeCanonical(raw = {}) {
         duration: formatDateRange(e.startDate, e.endDate || e.duration, e.isCurrent) || safeString(e.duration || '').replace(/\s*[–-]\s*$/, ''),
         bullets: (e.bullets || []).map((b, j) => {
           const text = safeString(b)
-          const bId = b?.id || `${id}_b${pad(j + 1, 2)}`
+          const bId = (typeof b === 'object' && b?.id) ? b.id : `${id}_b${pad(j + 1, 2)}`
           return { id: bId, text }
         }),
       }
@@ -226,17 +470,20 @@ export function normalizeCanonical(raw = {}) {
         link: safeString(p.link || p.github || ''),
         bullets: (Array.isArray(p.bullets) ? p.bullets : [p.description].filter(Boolean)).map((b, j) => {
           const text = safeString(b)
-          const bId = b?.id || `${id}_b${pad(j + 1, 2)}`
+          const bId = (typeof b === 'object' && b?.id) ? b.id : `${id}_b${pad(j + 1, 2)}`
           return { id: bId, text }
         }),
       }
     }),
-    education: edu.map((ed) => ({
-      degree: safeString(ed.degree || ed.degreeName || (typeof ed === 'string' ? ed : '')),
-      school: safeString(ed.school || ed.institution || ed.university || ''),
-      location: extractLocation(ed.location),
-      dates: formatDateRange(ed.startDate, ed.endDate || ed.dates || ed.year, false) || safeString(ed.dates || ed.year || '').replace(/\s*[–-]\s*$/, ''),
-    })),
+    education: edu.map((ed) => {
+      const norm = normalizeEducationItem(ed)
+      return {
+        degree: norm.degree,
+        school: norm.school,
+        location: norm.location,
+        dates: norm.dates,
+      }
+    }),
     certifications: certs.map((ct) => safeString(typeof ct === 'string' ? ct : ct?.name || ct?.title || '')).filter(Boolean),
   }
 }
@@ -280,17 +527,8 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
   const normalized = normalizeCanonical(canonicalResume)
   const sanitized = JSON.parse(JSON.stringify(normalized))
 
-  // 1. Build fast rewrite lookup map by exact ID
-  const rewriteMap = new Map()
-  if (Array.isArray(tailoredBullets)) {
-    tailoredBullets.forEach((b) => {
-      const id = b.id || b.bulletId
-      const text = b.rewrite || b.rewrittenText || b.text
-      if (id && text) {
-        rewriteMap.set(id, text)
-      }
-    })
-  }
+  // 1. Build fast rewrite lookup map with multi-strategy matching (bulletId, exact text, 35-char prefix)
+  const rewriteLookup = buildRewriteLookup(tailoredBullets)
 
   // 2. Build full candidate text corpus for evidence verification
   const candidateCorpusParts = [
@@ -447,15 +685,31 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
 
     const cleanBullets = []
     ;(exp.bullets || []).forEach((b) => {
-      const origText = b.text || ''
-      const bId = b.id || `exp_${pad(expIdx + 1, 3)}_b01`
-      let candidateText = rewriteMap.get(bId) || origText
+      const origText = typeof b === 'string' ? b : b?.text || ''
+      const bId = (typeof b === 'object' && b?.id) ? b.id : `exp_${pad(expIdx + 1, 3)}_b01`
+      const rewriteEntry = rewriteLookup.findRewrite(bId, origText)
+      let candidateText = origText
+
+      if (rewriteEntry) {
+        if (rewriteEntry.hadPlaceholder) {
+          warnings.push({
+            type: 'needs_input',
+            bulletId: bId,
+            message: `Rewrite contained unresolved placeholder which was gracefully cleaned.`,
+          })
+        }
+        if (rewriteEntry.text && rewriteEntry.text.length >= 15) {
+          candidateText = rewriteEntry.text
+        }
+      }
 
       // Check Placeholders: Never delete text leaving an incomplete fragment.
-      // If a rewrite contains [ADD: ...] or placeholder markers, REVERT to original candidate bullet.
       if (PLACEHOLDER_REGEX.test(candidateText)) {
-        warnings.push({ type: 'needs_input', bulletId: bId, message: `Rewrite contained unresolved placeholder; reverted to original bullet.` })
-        candidateText = origText
+        candidateText = cleanPlaceholderClause(candidateText)
+        if (!candidateText || candidateText.length < 15) {
+          warnings.push({ type: 'needs_input', bulletId: bId, message: `Rewrite contained unresolved placeholder; reverted to original bullet.` })
+          candidateText = origText
+        }
       }
 
       // Truth Check: Strict Number Integrity
@@ -589,13 +843,26 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
 
     const cleanBullets = []
     ;(p.bullets || []).forEach((pb) => {
-      const origText = pb.text || ''
-      const pbId = pb.id || `proj_${pad(pIdx + 1, 3)}_b01`
-      let candidateText = rewriteMap.get(pbId) || origText
+      const origText = typeof pb === 'string' ? pb : pb?.text || ''
+      const pbId = (typeof pb === 'object' && pb?.id) ? pb.id : `proj_${pad(pIdx + 1, 3)}_b01`
+      const rewriteEntry = rewriteLookup.findRewrite(pbId, origText)
+      let candidateText = origText
+
+      if (rewriteEntry) {
+        if (rewriteEntry.hadPlaceholder) {
+          warnings.push({ type: 'needs_input', bulletId: pbId })
+        }
+        if (rewriteEntry.text && rewriteEntry.text.length >= 15) {
+          candidateText = rewriteEntry.text
+        }
+      }
 
       if (PLACEHOLDER_REGEX.test(candidateText)) {
-        warnings.push({ type: 'needs_input', bulletId: pbId })
-        candidateText = origText
+        candidateText = cleanPlaceholderClause(candidateText)
+        if (!candidateText || candidateText.length < 15) {
+          warnings.push({ type: 'needs_input', bulletId: pbId })
+          candidateText = origText
+        }
       }
 
       // Check Number Integrity on project rewrites
@@ -636,8 +903,9 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
 
   // 10. Education (Never output sentinel defaults)
   sanitized.education = (sanitized.education || []).map((edu, eduIdx) => {
-    let degree = String(edu.degree || '').trim().replace(/^Degree,?\s*/i, '').replace(SENTINEL_DEBUG, '').trim()
-    let school = String(edu.school || '').trim().replace(SENTINEL_DEBUG, '').trim()
+    const norm = normalizeEducationItem(edu)
+    let degree = norm.degree
+    let school = norm.school
 
     if (SENTINEL_ONLY.test(degree)) {
       warnings.push({ type: 'missing_field', field: 'degree', index: eduIdx, message: 'Degree was sentinel and was suppressed' })
@@ -651,8 +919,8 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
     return {
       degree,
       school,
-      location: String(edu.location || '').replace(SENTINEL_DEBUG, '').trim(),
-      dates: formatDateRange(edu.startDate, edu.endDate || edu.dates, false) || safeString(edu.dates || '').replace(/\s*[–-]\s*$/, ''),
+      location: norm.location,
+      dates: norm.dates,
     }
   }).filter((e) => e.degree || e.school)
 

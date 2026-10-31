@@ -12,6 +12,7 @@ import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
+import { determineSkillBucket } from '../services/resumeValidator.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper to balance unclosed opening parentheses before a final period
@@ -780,14 +781,83 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     const aiReport = user.aiReport || {}
     const ra = aiReport.resume_agent || user.resume_agent || {}
-    const canonical = ra.canonicalResume || user.resumeJson || {
+    const rawCanonical = ra.canonicalResume || user.resumeJson || {
       candidate_name: user.name || 'Candidate',
       target_role: user.targetRole || user.answers?.targetRole || 'Professional',
       skills: user.skills || [],
     }
 
-    const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || []
-    const jdKeywords = aiReport.missing_ats_keywords || ra.keywordAlignment?.missingKeywords || []
+    const canonical = JSON.parse(JSON.stringify(rawCanonical))
+
+    // 1. Executive Summary Rewrite wiring
+    const summaryRewrite =
+      ra.summaryOptimization?.rewrittenSummary ||
+      ra.executiveSummaryRewrite ||
+      ra.dashboard?.summaryOptimization?.rewrittenSummary ||
+      ra.overallReview?.summary ||
+      aiReport.summaryOptimization?.rewrittenSummary ||
+      aiReport.executiveSummaryRewrite ||
+      null
+
+    if (summaryRewrite) {
+      canonical.summary = summaryRewrite
+    }
+
+    // 2. Missing target keywords collection and skills injection
+    const rawMissing = [
+      ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
+      ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
+      ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
+      ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
+    ]
+
+    const missingSkillsList = []
+    const seenKw = new Set()
+    for (const item of rawMissing) {
+      const kw = typeof item === 'string' ? item.trim() : (item?.keyword || item?.name || item?.skill || '').trim()
+      if (kw && kw.length >= 2 && !seenKw.has(kw.toLowerCase())) {
+        seenKw.add(kw.toLowerCase())
+        missingSkillsList.push(kw)
+      }
+    }
+
+    if (missingSkillsList.length > 0) {
+      if (Array.isArray(canonical.skills)) {
+        const existing = new Set(
+          canonical.skills.map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : (s?.name || '').toLowerCase().trim()))
+        )
+        for (const kw of missingSkillsList) {
+          if (!existing.has(kw.toLowerCase())) {
+            existing.add(kw.toLowerCase())
+            canonical.skills.push(kw)
+          }
+        }
+      } else if (typeof canonical.skills === 'object' && canonical.skills !== null) {
+        for (const kw of missingSkillsList) {
+          const bucket = determineSkillBucket(kw, canonical.target_role || '')
+          canonical.skills[bucket] = canonical.skills[bucket] || []
+          if (!canonical.skills[bucket].some((s) => (typeof s === 'string' ? s.toLowerCase() : s?.name?.toLowerCase()) === kw.toLowerCase())) {
+            canonical.skills[bucket].push(kw)
+          }
+        }
+      } else {
+        canonical.skills = [...missingSkillsList]
+      }
+    }
+
+    // 3. Bullet Audit wiring (prioritize dashboard, bulletAudit, bulletUpgrades, tailoredBullets)
+    const bulletAudit =
+      (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
+        ? ra.dashboard.bulletAudit
+        : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
+          ? ra.bulletAudit
+          : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
+            ? ra.bulletUpgrades
+            : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
+              ? ra.tailoredBullets
+              : []
+
+    const jdKeywords = missingSkillsList.map((kw) => ({ keyword: kw, count: 1 }))
     const { buffer: docxBuffer, pages, mode, warnings, appliedKeywords, pendingKeywords } = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
 
     const candidateName = (
