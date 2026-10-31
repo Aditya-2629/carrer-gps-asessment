@@ -130,7 +130,17 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     currentQuarter: 'Q4',
   }
   const visaText = decodeHtmlEntities(answers.visa || 'US Citizen / Green Card / GC-EAD')
-  const expText = decodeHtmlEntities(answers.experience || 'Mid–Senior / 4–7 Yrs Experience')
+  const candidateYoe =
+    Number(storeReport?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
+    storeReport?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
+    storeReport?.resume_json?.years_of_experience || 0)
+
+  // Reconcile questionnaire answer against candidate's actual resume timeline
+  const expText = candidateYoe >= 5
+    ? 'Senior / 5+ Yrs Experience ⚡'
+    : candidateYoe >= 3
+    ? 'Mid–Senior / 3–5 Yrs Experience 🚀'
+    : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience 🌱')
   const consultancy = ext.consultancy_context || {
     mode: /C2C/i.test(answers.externalHelp) ? 'C2C Consultancy / Bench' : 'Solo Search',
     description: '100% self-directed application pipeline',

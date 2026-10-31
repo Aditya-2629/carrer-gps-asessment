@@ -601,24 +601,25 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const resolvedTargetRole = targetRole || 'Data Analyst'
   const isDataAnalystRole = /data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(resolvedTargetRole)
 
+  const baseTitle = resolvedTargetRole.replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level)\s+/i, '').trim() || resolvedTargetRole
   const otwTitles = isDataAnalystRole
     ? ['Data Analyst', 'Senior Data Analyst', 'Business Intelligence Analyst', 'Product Data Analyst', 'Analytics Specialist']
     : /data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(resolvedTargetRole)
     ? [
-        cleanTargetRoleTitle('', resolvedTargetRole),
-        cleanTargetRoleTitle('Senior', resolvedTargetRole),
+        resolvedTargetRole,
+        `Senior ${baseTitle}`,
         'Applied AI / ML Engineer',
         'Lead Data Scientist',
-        cleanTargetRoleTitle('Staff', resolvedTargetRole),
+        `Staff ${baseTitle}`,
       ]
     : /data\s+engineer/i.test(resolvedTargetRole)
     ? ['Data Engineer', 'Senior Data Engineer', 'Lead Data Engineer', 'Analytics & BigQuery Data Engineer', 'Cloud Data Architect']
     : [
-        cleanTargetRoleTitle('', resolvedTargetRole),
-        cleanTargetRoleTitle('Senior', resolvedTargetRole),
-        cleanTargetRoleTitle('Lead', resolvedTargetRole),
-        `${cleanTargetRoleTitle('', resolvedTargetRole)} II`,
-        cleanTargetRoleTitle('Principal', resolvedTargetRole),
+        resolvedTargetRole,
+        `Senior ${baseTitle}`,
+        `Lead ${baseTitle}`,
+        `${baseTitle} II`,
+        `Principal ${baseTitle}`,
       ]
 
   const top3SkillsForTricks = top3PinnedSkills.length >= 3
@@ -688,6 +689,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     ? linkedinAgent
     : null
 
+  const topSkillStr = (top3SkillsForTricks && top3SkillsForTricks.length > 0)
+    ? top3SkillsForTricks.join(', ')
+    : (isDataAnalystRole ? 'SQL, Power BI, and Python' : 'React, TypeScript, and Node.js')
+
   const fallbackScorecard = {
     score: reportData?.score_breakdown?.linkedin?.score || 68,
     grade: reportData?.score_breakdown?.linkedin?.grade || 'C',
@@ -701,7 +706,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     checks: [
       { id: 'li_headline', label: 'Headline Keyword Density', detail: 'Needs target role title + top 3 technical tools', status: 'warn' },
       { id: 'li_about', label: 'Story-Driven About Section', detail: 'Missing quantified hook and core stack keywords', status: 'fail' },
-      { id: 'li_skills', label: 'Top 3 Pinned Technical Skills', detail: 'Pin SQL, Python, and Power BI to top of skills list', status: 'fail' },
+      { id: 'li_skills', label: 'Top 3 Pinned Technical Skills', detail: `Pin ${topSkillStr} to top of skills list`, status: 'fail' },
     ],
     summary: 'Profile is unlinked or blank, missing critical recruiter search indexing keywords and social proof.',
   }

@@ -13,6 +13,7 @@ import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGe
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle } from '../services/resumeValidator.js'
+import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 // Helper to balance unclosed opening parentheses before a final period
@@ -846,7 +847,16 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
     }
 
-    // 3. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
+    // 3. Smart Keyword Weaver & Interview Defense Sheet Integration
+    const { tailoredExperiences, interviewLedger } = weaveKeywordsAndBuildLedger({
+      canonicalResume: canonical,
+      missingKeywords: missingSkillsList,
+    })
+    if (tailoredExperiences && tailoredExperiences.length > 0) {
+      canonical.experiences = tailoredExperiences
+    }
+
+    // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
     const bulletAudit =
       (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
         ? ra.dashboard.bulletAudit

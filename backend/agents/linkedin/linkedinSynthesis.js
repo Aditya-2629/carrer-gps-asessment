@@ -27,12 +27,11 @@ import {
  * Never defaults or hardcodes Software Engineer for non-SWE roles.
  */
 export function deriveOpenToWorkTitles(targetRole) {
-  const cleanBase = cleanTargetRoleTitle('', targetRole || 'Software Engineer')
-  const coreRole = cleanBase
+  const cleanBase = String(targetRole || 'Software Engineer')
     .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level)\s+/i, '')
-    .trim() || cleanBase
+    .trim() || 'Software Engineer'
 
-  if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(coreRole)) {
+  if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(cleanBase)) {
     return [
       'Data Analyst',
       'Senior Data Analyst',
@@ -40,15 +39,15 @@ export function deriveOpenToWorkTitles(targetRole) {
       'Healthcare / Enterprise Data Analyst',
       'Lead Analytics Specialist',
     ]
-  } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(coreRole)) {
+  } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(cleanBase)) {
     return [
-      cleanTargetRoleTitle('', coreRole),
-      cleanTargetRoleTitle('Senior', coreRole),
+      targetRole || 'Data Scientist',
+      `Senior ${cleanBase}`,
       'Applied AI / ML Engineer',
       'Lead Data Scientist',
-      cleanTargetRoleTitle('Staff', coreRole),
+      `Staff ${cleanBase}`,
     ]
-  } else if (/data\s+engineer/i.test(coreRole)) {
+  } else if (/data\s+engineer/i.test(cleanBase)) {
     return [
       'Data Engineer',
       'Senior Data Engineer',
@@ -58,11 +57,11 @@ export function deriveOpenToWorkTitles(targetRole) {
     ]
   } else {
     return [
-      cleanTargetRoleTitle('Senior', coreRole),
-      cleanTargetRoleTitle('Lead', coreRole),
-      cleanTargetRoleTitle('Staff', coreRole),
-      cleanTargetRoleTitle('', coreRole),
-      cleanTargetRoleTitle('Principal', coreRole),
+      targetRole || 'Software Engineer',
+      `Senior ${cleanBase}`,
+      `Lead ${cleanBase}`,
+      `Staff ${cleanBase}`,
+      `Principal ${cleanBase}`,
     ]
   }
 }
