@@ -67,8 +67,8 @@ async function verifySwapnilResume() {
   console.log('    ✓ Filename matches exactly: Swapnil_Jadhav_Tailored_ATS_Resume.docx\n')
 
   // 2. Generate docx buffer
-  console.log('[2] Generating ATS Tailored Docx...')
-  const buffer = await buildAtsTailoredDocx(swapnilCanonical)
+  const docxRes = await buildAtsTailoredDocx(swapnilCanonical)
+  const buffer = Buffer.isBuffer(docxRes) ? docxRes : docxRes?.buffer
   assert(Buffer.isBuffer(buffer), 'Output must be a Buffer')
   assert(buffer.length > 5000, `Buffer size (${buffer.length} bytes) should be substantial`)
   assert.strictEqual(buffer[0], 0x50, 'PK magic byte 0')

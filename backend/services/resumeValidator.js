@@ -13,6 +13,15 @@ const BANNED_BUZZWORDS = [
 ]
 
 const META_COMMENTARY_WORDS = /\b(maintained clean chronological formatting|chronological formatting|integrating [A-Za-z0-9\s]+ into the primary|format of the resume|section with verified dates|re-written to|rewritten for ATS|as requested in the prompt)\b/i
+const ACTION_VERB_REGEX = /\b(built|developed|designed|implemented|automated|led|reduced|increased|analy[sz]ed|delivered|created|managed|architected|migrated|optimized|engineered|spearheaded|orchestrated)\w*/i
+const COMPANY_HEADER_REGEX = /^(?:Kitcoek|Recibo|Accenture|Deloitte|Infosys|TCS|PwC|Amazon|Google|Microsoft|\b[A-Za-z0-9\s&.,-]{2,40}\s+(?:Technologies|Tech|Solutions|Pvt|Ltd|LLC|Inc|Corporation|Corp))\b/i
+
+export function isLeakedHeader(text) {
+  const t = String(text || '').trim()
+  if (t.length < 15) return true
+  const isCompanyLike = COMPANY_HEADER_REGEX.test(t)
+  return isCompanyLike && !ACTION_VERB_REGEX.test(t)
+}
 
 const pad = (n, w = 3) => String(n).padStart(w, '0')
 
@@ -255,6 +264,10 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
         .trim()
 
       if (candidateText && !/[.!?]$/.test(candidateText)) candidateText += '.'
+      if (isLeakedHeader(candidateText)) {
+        warnings.push(`Leaked company header dropped in ${bId}: "${candidateText}"`)
+        return
+      }
       if (candidateText.length >= 12) {
         cleanBullets.push(candidateText)
       }

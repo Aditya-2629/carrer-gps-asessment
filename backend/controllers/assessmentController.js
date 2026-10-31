@@ -795,8 +795,8 @@ export const downloadAtsResumeDocx = async (req, res) => {
         rewrite: typeof rw === 'string' ? rw : null,
       }
     }).filter((iss) => iss.rewrite)
-    const tailoredBullets = [...rawAudit, ...issueRewrites]
-    const docxBuffer = await buildAtsTailoredDocx(canonical, tailoredBullets)
+    const docxResult = await buildAtsTailoredDocx(canonical, tailoredBullets)
+    const docxBuffer = Buffer.isBuffer(docxResult) ? docxResult : docxResult?.buffer
 
     const candidateName = (
       canonical.candidate_name ||
