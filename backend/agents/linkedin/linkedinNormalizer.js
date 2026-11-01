@@ -32,8 +32,10 @@ export function extractImageUrl(val) {
 export function sanitizeText(val) {
   if (val === null || val === undefined) return ''
   let str = ''
-  if (typeof val === 'object') {
-    str = val.url || val.parsed?.text || val.linkedinText || val.text || val.name || ''
+  if (Array.isArray(val)) {
+    str = val.map(sanitizeText).filter(Boolean).join(' ')
+  } else if (typeof val === 'object') {
+    str = val.url || val.parsed?.text || val.linkedinText || val.text || val.summary || val.description || val.name || ''
   } else {
     str = String(val)
   }

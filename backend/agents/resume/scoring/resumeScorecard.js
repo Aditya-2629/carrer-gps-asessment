@@ -205,7 +205,10 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
   let domainMechanism = ''
   let domainOutcome = ''
 
-  if (isDataRole) {
+  if (/security|xss|vulnerabilit|cve|sanitize|input validation|auth|jwt|oauth|hipaa/i.test(clean)) {
+    domainMechanism = 'by implementing automated DevSecOps vulnerability scanning and strict payload validation'
+    domainOutcome = 'eliminating high-severity CVEs and ensuring 100% security audit compliance across release pipelines'
+  } else if (isDataRole) {
     domainMechanism = 'by architecting automated star-schema data models and dbt test assertions'
     domainOutcome = 'enhancing reporting adoption, reducing turnaround time, and enabling data-driven executive decisions'
   } else if (isAiRole) {

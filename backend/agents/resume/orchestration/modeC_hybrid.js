@@ -469,6 +469,9 @@ DOMAIN ARCHETYPE ENFORCEMENT:
    Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
 3. Generative AI & ML Engineer: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
    Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
+4. DevOps & Cloud Platform Engineer: CI/CD deployment velocity, infrastructure-as-code automation, multi-stage Docker builds, Kubernetes cluster orchestration, and zero-downtime rollouts.
+   Example: "Reduced deployment lead time from 4 days to 45 minutes while sustaining 99.99% service availability by orchestrating multi-stage Docker container builds, automated Terraform infrastructure, and blue-green Kubernetes deployments."
+- SECURITY & COMPLIANCE NON-ABSURDITY: For security/vulnerability/sanitization bullets, anchor ONLY on eliminating high-severity CVEs, zero-day threat prevention, and achieving 100% security audit compliance (SOC2/HIPAA/PCI-DSS). NEVER claim security sanitization or input validation increased processing speed, system throughput, or execution latency.
 
 - ZERO PLACEHOLDER MANDATE: NEVER use bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
 - 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Conservative: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).

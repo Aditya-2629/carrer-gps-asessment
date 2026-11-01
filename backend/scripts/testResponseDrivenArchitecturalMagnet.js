@@ -84,6 +84,24 @@ assert.ok(
 )
 console.log('  ✓ 1.4 DevOps & Cloud Engineer archetype verified with Kubernetes and zero-downtime mechanism')
 
+// 1.5 Security & Vulnerability Non-Absurdity
+const secRewrite = generateDeterministicRewrite(
+  'Assisted with input sanitization and XSS vulnerability remediation across user endpoints.',
+  { weakVerbIssue: true },
+  false,
+  'Senior Software Engineer'
+)
+assert.ok(
+  secRewrite.includes('by implementing automated DevSecOps vulnerability scanning and strict payload validation'),
+  'Security rewrite must inject DevSecOps vulnerability scanning mechanism'
+)
+assert.ok(
+  secRewrite.includes('eliminating high-severity CVEs and ensuring 100% security audit compliance across release pipelines'),
+  'Security rewrite must anchor on CVE elimination and audit compliance, never latency or throughput'
+)
+assert.ok(!secRewrite.includes('reducing execution latency'), 'Security rewrite must never claim sanitization speeds up latency')
+console.log('  ✓ 1.5 Security & Vulnerability non-absurdity verified with CVE elimination and zero latency claims')
+
 // ── Test 2: Organic Skill Weaving with Architectural Rationale ─────────────────
 console.log('\n[Test 2] Organic Skill Weaving with Architectural Rationale:')
 const mockResume = {

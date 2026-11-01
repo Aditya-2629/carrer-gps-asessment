@@ -633,19 +633,21 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     const isSameOrSubstring = normL === normR || (normL.length >= 4 && normR.includes(normL)) || (normR.length >= 4 && normL.includes(normR))
     const hasSpellingMismatch = Boolean(matchMeta?.diff > 0 && !isSameOrSubstring)
 
-    const rCompClean = typeof rExp?.company === 'string' ? rExp.company.trim().toLowerCase() : ''
-    const lCompClean = typeof lExp?.company === 'string' ? lExp.company.trim().toLowerCase() : ''
+    const rCompClean = typeof rExp?.company === 'string' ? rExp.company.trim().toLowerCase() : (rExp?.company?.name || '').trim().toLowerCase()
+    const lCompClean = typeof lExp?.company === 'string' ? lExp.company.trim().toLowerCase() : (lExp?.company?.name || '').trim().toLowerCase()
+    const rCompDisplay = typeof rExp?.company === 'string' ? rExp.company : (rExp?.company?.name || 'Company')
+    const lCompDisplay = typeof lExp?.company === 'string' ? lExp.company : (lExp?.company?.name || 'Company')
     if (hasSpellingMismatch && rCompClean !== lCompClean && normL !== normR) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
         type: 'company_typo_unlinked_logo',
         severity: 'high',
         title: 'Company Name Typo & Missing Official Logo on LinkedIn',
-        company: rExp.company,
-        resumeClaim: rExp.company,
-        linkedinClaim: `${lExp.company}${lExp.companyLogo === null ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
-        diagnosis: `Your LinkedIn profile spells the employer as '${lExp.company}'${matchMeta?.diff > 0 ? ' (minor typo)' : ''}, which breaks official LinkedIn company logo binding, whereas your resume lists '${rExp.company}' (${matchMeta?.isVendorClientMatch ? 'Staffing Vendor / End Client' : 'Verified Employer Name'}).`,
-        recommendation: `Fix the spelling on LinkedIn to match the official LinkedIn Company Page ("${rExp.company.split(/[/|\\—–-]/)[1]?.trim() || rExp.company}") and select the verified organization from the dropdown so the official logo renders.`,
+        company: rCompDisplay,
+        resumeClaim: rCompDisplay,
+        linkedinClaim: `${lCompDisplay}${lExp.companyLogo === null ? ' (Unlinked Company Page — Grey Placeholder Logo)' : ''}`,
+        diagnosis: `Your LinkedIn profile spells the employer as '${lCompDisplay}'${matchMeta?.diff > 0 ? ' (minor typo)' : ''}, which breaks official LinkedIn company logo binding, whereas your resume lists '${rCompDisplay}' (${matchMeta?.isVendorClientMatch ? 'Staffing Vendor / End Client' : 'Verified Employer Name'}).`,
+        recommendation: `Fix the spelling on LinkedIn to match the official LinkedIn Company Page ("${String(rCompDisplay).split(/[/|\\—–-]/)[1]?.trim() || rCompDisplay}") and select the verified organization from the dropdown so the official logo renders.`,
       }
       timelineMismatches.push(typoObs)
       discrepancies.push(typoObs)
@@ -726,7 +728,11 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       ? lExp.description
       : (typeof lExp?.summary === 'string'
         ? lExp.summary
-        : (typeof lExp?.description?.text === 'string' ? lExp.description.text : ''))
+        : (typeof lExp?.description?.text === 'string'
+          ? lExp.description.text
+          : (Array.isArray(lExp?.description)
+            ? lExp.description.map((x) => (typeof x === 'string' ? x : x?.text || '')).join(' ')
+            : '')))
     const lDesc = (rawLDesc || '').trim()
     const lHasMetrics = /\d+[%xXkKMbB]?|\b\d+\b/.test(lDesc)
 
