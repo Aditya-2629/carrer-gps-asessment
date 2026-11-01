@@ -243,17 +243,21 @@ export function buildDeterministicOptimizations(
     // Find corresponding LinkedIn role using multi-segment vendor/client matching
     const compParts = String(e.company || '').split(/[/|\\—–-]/).map((p) => p.trim()).filter(Boolean)
     const matchedLi = liExp.find((le) => {
-      const liComp = le.company || le.companyName || le.organization || ''
+      const rawLiComp = le.company || le.companyName || le.organization || ''
+      const liComp = typeof rawLiComp === 'string' ? rawLiComp : (rawLiComp?.name || rawLiComp?.text || '')
       if (!liComp || !e.company) return false
       if (matchCompany(e.company, liComp)?.matched) return true
       return compParts.some((part) => matchCompany(part, liComp)?.matched)
     })
 
-    const compMatch = matchedLi ? matchCompany(e.company, matchedLi.company || matchedLi.companyName) : null
+    const rawMatchedComp = matchedLi ? (matchedLi.company || matchedLi.companyName || '') : ''
+    const matchedCompName = typeof rawMatchedComp === 'string' ? rawMatchedComp : (rawMatchedComp?.name || '')
+    const compMatch = matchedLi ? matchCompany(e.company, matchedCompName) : null
 
     let linkedinGap = `LinkedIn Optimization Focus: Align vendor/client naming ('${e.company}') with your LinkedIn experience entry and replace task-heavy descriptions with the quantified executive bullets below.`
-    if (matchedLi && matchedLi.title && e.role && matchedLi.title.toLowerCase() !== e.role.toLowerCase()) {
-      linkedinGap = `Job title alignment: Your LinkedIn profile lists "${matchedLi.title}" while your resume positions you as "${e.role}". Standardize to "${e.role}" to maintain unified recruiter indexing.`
+    const matchedLiTitle = typeof matchedLi?.title === 'string' ? matchedLi.title : (matchedLi?.title?.text || '')
+    if (matchedLi && matchedLiTitle && e.role && matchedLiTitle.toLowerCase() !== String(e.role).toLowerCase()) {
+      linkedinGap = `Job title alignment: Your LinkedIn profile lists "${matchedLiTitle}" while your resume positions you as "${e.role}". Standardize to "${e.role}" to maintain unified recruiter indexing.`
     }
 
     const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
@@ -304,7 +308,7 @@ export function buildDeterministicOptimizations(
         : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
       const pitch = cleanBullet
         ? (cleanBullet.length > 240 ? cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-        : (p.description ? p.description.trim() : synthPitch)
+        : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
 
       return {
         title: pTitle,
@@ -349,7 +353,7 @@ export function buildDeterministicOptimizations(
           : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
         const pitch = cleanBullet
           ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-          : (p.description ? p.description.trim() : synthPitch)
+          : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
         return {
           title: pTitle,
           reason: pitch,
@@ -504,71 +508,71 @@ export async function runLinkedInSynthesis(
 
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
-  const task1Messages = buildTask1HeadlinesAndBannerPrompt({
-    profile,
-    resumeContext,
-    discrepancies,
-    missingSkills,
-    signals,
-    answers: effectiveAnswers,
-  })
-
-  const task2Messages = buildTask2AboutAndFeaturedPrompt({
-    profile,
-    resumeContext,
-    discrepancies,
-    missingSkills,
-    signals,
-    answers: effectiveAnswers,
-  })
-
-  async function executeTask(taskName, messages, maxTokens) {
-    try {
-      const response = await llmGateway.generate({
-        purpose: 'linkedin_analysis',
-        messages,
-        temperature: 0.25,
-        maxTokens,
-        responseFormat: { type: 'json_object' },
-        excludeProvider,
-        preferredProvider,
-      })
-
-      let parsed = tryParseJson(response?.text)
-
-      // Retry once if invalid JSON
-      if (!parsed && response?.text) {
-        console.warn(`[LinkedInSynthesis] ${taskName} output not valid JSON — retrying once`)
-        try {
-          const retryResponse = await llmGateway.generate({
-            purpose: 'linkedin_analysis',
-            messages: [
-              ...messages,
-              { role: 'assistant', content: response.text },
-              {
-                role: 'user',
-                content: 'Your previous response was not valid JSON. Return ONLY the complete corrected JSON object now with no markdown formatting or extra text.',
-              },
-            ],
-            temperature: 0.1,
-            maxTokens,
-            responseFormat: { type: 'json_object' },
-            excludeProvider,
-            preferredProvider,
-          })
-          parsed = tryParseJson(retryResponse?.text)
-        } catch (_retryErr) {
-          // Fall back gracefully
-        }
-      }
-      return parsed
-    } catch (err) {
-      console.warn(`[LinkedInSynthesis] ${taskName} execution failed:`, err.message)
-      return null
-    }
-  }
-
   try {
+    const task1Messages = buildTask1HeadlinesAndBannerPrompt({
+      profile,
+      resumeContext,
+      discrepancies,
+      missingSkills,
+      signals,
+      answers: effectiveAnswers,
+    })
+
+    const task2Messages = buildTask2AboutAndFeaturedPrompt({
+      profile,
+      resumeContext,
+      discrepancies,
+      missingSkills,
+      signals,
+      answers: effectiveAnswers,
+    })
+
+    async function executeTask(taskName, messages, maxTokens) {
+      try {
+        const response = await llmGateway.generate({
+          purpose: 'linkedin_analysis',
+          messages,
+          temperature: 0.25,
+          maxTokens,
+          responseFormat: { type: 'json_object' },
+          excludeProvider,
+          preferredProvider,
+        })
+
+        let parsed = tryParseJson(response?.text)
+
+        // Retry once if invalid JSON
+        if (!parsed && response?.text) {
+          console.warn(`[LinkedInSynthesis] ${taskName} output not valid JSON — retrying once`)
+          try {
+            const retryResponse = await llmGateway.generate({
+              purpose: 'linkedin_analysis',
+              messages: [
+                ...messages,
+                { role: 'assistant', content: response.text },
+                {
+                  role: 'user',
+                  content: 'Your previous response was not valid JSON. Return ONLY the complete corrected JSON object now with no markdown formatting or extra text.',
+                },
+              ],
+              temperature: 0.1,
+              maxTokens,
+              responseFormat: { type: 'json_object' },
+              excludeProvider,
+              preferredProvider,
+            })
+            parsed = tryParseJson(retryResponse?.text)
+          } catch (_retryErr) {
+            // Fall back gracefully
+          }
+        }
+        return parsed
+      } catch (err) {
+        console.warn(`[LinkedInSynthesis] ${taskName} execution failed:`, err.message)
+        return null
+      }
+    }
+
     // Run Task 1 (maxTokens: 2048) and Task 2 (maxTokens: 2200) in parallel via Promise.all
     const [task1Result, task2Result] = await Promise.all([
       executeTask('Task 1 (Headlines & About)', task1Messages, 2048),

@@ -1,7 +1,8 @@
 import { normalizeLinkedInProfile } from './linkedinNormalizer.js'
 
 function normalizeName(str) {
-  return (str || '')
+  const val = typeof str === 'string' ? str : (str?.name || str?.text || String(str || ''))
+  return val
     .toLowerCase()
     .replace(/[^\w\s]/g, '')
     .replace(/\s+/g, ' ')
@@ -448,7 +449,11 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
   }
 
   // ── 0B. Above-The-Fold About Hook Audit (<210 Characters) ─────────────────
-  const rawAbout = (profile.about || '').trim()
+  const rawAbout = typeof profile?.about === 'string'
+    ? profile.about.trim()
+    : (typeof profile?.summary === 'string'
+      ? profile.summary.trim()
+      : (typeof profile?.about?.text === 'string' ? profile.about.text.trim() : ''))
   if (!rawAbout || rawAbout.length < 50) {
     const aboutMissingObs = {
       id: 'about_section_missing',
@@ -527,9 +532,13 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
   // ── 1. Headline vs Target Role Title Drift & Wasted Opener (Red Flag 7A) ───
   if (profile.headline) {
-    const isWastedOpener =
-      /^(actively\s+seeking|seeking|looking\s+for|open\s+to|searching\s+for|aspiring)\b/i.test(profile.headline.trim()) ||
-      /\|\s*UCM\s*\|/i.test(profile.headline)
+    const headlineStr = typeof profile?.headline === 'string' ? profile.headline.trim() : ''
+    const isSeekingHeadline =
+      /^(actively\s+seeking|seeking|looking\s+for|open\s+to|searching\s+for|aspiring)\b/i.test(headlineStr) ||
+      /open\s+to\s+work/i.test(headlineStr) ||
+      /\|\s*UCM\s*\|/i.test(headlineStr)
+
+    const isWastedOpener = isSeekingHeadline
 
     if (isWastedOpener) {
       const wastedHlObs = {
@@ -624,7 +633,9 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     const isSameOrSubstring = normL === normR || (normL.length >= 4 && normR.includes(normL)) || (normR.length >= 4 && normL.includes(normR))
     const hasSpellingMismatch = Boolean(matchMeta?.diff > 0 && !isSameOrSubstring)
 
-    if (hasSpellingMismatch && rExp.company.trim().toLowerCase() !== lExp.company.trim().toLowerCase() && normL !== normR) {
+    const rCompClean = typeof rExp?.company === 'string' ? rExp.company.trim().toLowerCase() : ''
+    const lCompClean = typeof lExp?.company === 'string' ? lExp.company.trim().toLowerCase() : ''
+    if (hasSpellingMismatch && rCompClean !== lCompClean && normL !== normR) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
         type: 'company_typo_unlinked_logo',
@@ -711,7 +722,12 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     // ── 3. Dropped Impact Check ─────────────────────────────────────────────
     const rBullets = Array.isArray(rExp.bullets) ? rExp.bullets : []
     const quantifiedBullets = rBullets.filter((b) => /\d+[%xXkKMbB]?|\b\d+\b/.test(b.text || ''))
-    const lDesc = (lExp.description || '').trim()
+    const rawLDesc = typeof lExp?.description === 'string'
+      ? lExp.description
+      : (typeof lExp?.summary === 'string'
+        ? lExp.summary
+        : (typeof lExp?.description?.text === 'string' ? lExp.description.text : ''))
+    const lDesc = (rawLDesc || '').trim()
     const lHasMetrics = /\d+[%xXkKMbB]?|\b\d+\b/.test(lDesc)
 
     if (quantifiedBullets.length > 0 && (!lDesc || lDesc.length < 60 || !lHasMetrics)) {
@@ -936,7 +952,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         discrepancies.push(unlistedEduObs)
       } else {
         // Red Flag 5: Incomplete Education Metadata on LinkedIn — Missing fieldOfStudy
-        const hasFieldOfStudy = Boolean(lEdu.fieldOfStudy && lEdu.fieldOfStudy.trim())
+        const hasFieldOfStudy = Boolean(typeof lEdu?.fieldOfStudy === 'string' && lEdu.fieldOfStudy.trim())
         const degreeHasField = /\b(computer science|engineering|software|electrical|data|information|business|mathematics)\b/i.test(lEdu.degree || '')
         if (!hasFieldOfStudy && !degreeHasField) {
           const missingFieldObs = {

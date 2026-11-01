@@ -97,7 +97,12 @@ function normalizeExperience(exp) {
     formattedDateRange
   )
 
-  const description = sanitizeText(exp.description || exp.summary || exp.details)
+  const rawDesc = exp.description || exp.summary || exp.details
+  const description = typeof rawDesc === 'string'
+    ? sanitizeText(rawDesc)
+    : (typeof rawDesc?.text === 'string'
+      ? sanitizeText(rawDesc.text)
+      : (Array.isArray(rawDesc) ? rawDesc.map(b => (typeof b === 'string' ? b : b?.text || '')).join(' ') : ''))
   const location = sanitizeText(exp.location?.parsed?.text || exp.location?.linkedinText || exp.location || exp.geo)
   const companyLogo = exp.companyLogo === null ? null : (extractImageUrl(exp.companyLogo) || null)
 

@@ -55,8 +55,15 @@ export function buildCompactCandidateContext({
     'Technical Professional'
 
   // Current LinkedIn Profile Details
-  const currentHeadline = profile?.headline || 'None provided'
-  const currentAbout = (profile?.about || 'Empty').slice(0, 600)
+  const currentHeadline = typeof profile?.headline === 'string'
+    ? profile.headline
+    : (typeof profile?.headline?.text === 'string' ? profile.headline.text : 'None provided')
+  const rawAbout = typeof profile?.about === 'string'
+    ? profile.about
+    : (typeof profile?.summary === 'string'
+      ? profile.summary
+      : (typeof profile?.about?.text === 'string' ? profile.about.text : 'Empty'))
+  const currentAbout = (rawAbout || 'Empty').slice(0, 600)
   const currentSkills = (profile?.skills || profile?.topSkills || [])
     .slice(0, 25)
     .map((s) => (typeof s === 'string' ? s : s?.name || s?.title || ''))
@@ -65,11 +72,19 @@ export function buildCompactCandidateContext({
 
   const liExperiences = profile?.experiences || []
   const liExpSummary = liExperiences.slice(0, 6).map((e) => {
-    const desc = (e.description || e.summary || '').trim()
+    const rawDesc = typeof e?.description === 'string'
+      ? e.description
+      : (typeof e?.summary === 'string'
+        ? e.summary
+        : (typeof e?.description?.text === 'string'
+          ? e.description.text
+          : (Array.isArray(e?.description) ? e.description.map(b => (typeof b === 'string' ? b : b?.text || '')).join(' ') : '')))
+    const desc = (rawDesc || '').trim()
     const descNote = desc ? `Description present (${desc.slice(0, 140)}...)` : 'Description EMPTY'
-    const compName = typeof e.company === 'string' ? e.company : (e.company?.name || 'Company')
-    const roleTitle = typeof e.title === 'string' ? e.title : (e.role || 'Role')
-    return `- ${roleTitle} at ${compName} (${e.duration || e.dates || 'dates unlisted'}) [${descNote}]`
+    const roleTitle = typeof e?.title === 'string' ? e.title : (typeof e?.role === 'string' ? e.role : 'Role')
+    const compName = typeof e?.company === 'string' ? e.company : (typeof e?.companyName === 'string' ? e.companyName : 'Company')
+    const dates = typeof e?.duration === 'string' ? e.duration : (typeof e?.dates === 'string' ? e.dates : 'dates unlisted')
+    return `- ${roleTitle} at ${compName} (${dates}) [${descNote}]`
   }).join('\n') || 'None listed'
 
   // Full Resume Experience (all roles, up to 4 roles x 6 bullets each)
