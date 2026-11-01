@@ -108,7 +108,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   // Special case: AI / Copilot prompt engineering
   if (/^using prompt engineering with (?:microsoft\s+copilot|copilot|ai tools)/i.test(clean)) {
-    const copilotRewrite = 'Engineered automated unit tests and surfaced critical edge cases (null payloads, expired JWT tokens, RBAC boundaries) using Microsoft Copilot prompt engineering, enhancing operational throughput and reducing defect leakage.'
+    const copilotRewrite = 'Engineered automated unit tests and surfaced critical edge cases (null payloads, expired JWT tokens, RBAC boundaries) using Microsoft Copilot prompt engineering by architecting production validation guardrails, enhancing operational throughput and reducing defect leakage.'
     return sanitizeSingleAddPlaceholder(copilotRewrite)
   }
 
@@ -197,7 +197,29 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
     clean = clean.replace(new RegExp(`^${openingWord}\\b`, 'i'), targetVerb)
   }
 
-  // 4. If bullet lacks a quantified metric, append a concrete metric prompt
+  // 4. Domain Archetype & Google XYZ Architectural Mechanism Enforcement
+  const isDataRole = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(targetRole)
+  const isAiRole = /ai\b|artificial\s+intelligence|machine\s+learning|ml\b|llm|nlp|prompt|rag\b/i.test(targetRole)
+  const isDevopsRole = /devops|cloud|sre|infrastructure|platform|kubernetes/i.test(targetRole)
+
+  let domainMechanism = ''
+  let domainOutcome = ''
+
+  if (isDataRole) {
+    domainMechanism = 'by architecting automated star-schema data models and dbt test assertions'
+    domainOutcome = 'enhancing reporting adoption, reducing turnaround time, and enabling data-driven executive decisions'
+  } else if (isAiRole) {
+    domainMechanism = 'by architecting production vector retrieval pipelines with automated context-caching guardrails'
+    domainOutcome = 'minimizing token latency, eliminating hallucination risks, and sustaining reliable sub-second inference'
+  } else if (isDevopsRole) {
+    domainMechanism = 'by orchestrating multi-stage Docker builds and automated Kubernetes rolling deployments'
+    domainOutcome = 'sustaining 99.99% service availability, accelerating release velocity, and ensuring zero-downtime rollouts'
+  } else {
+    // Default / Software / Backend Engineer
+    domainMechanism = 'by establishing decoupled microservice boundaries and resilient caching'
+    domainOutcome = 'enhancing operational throughput, reducing execution latency, and ensuring continuous production uptime'
+  }
+
   const cleanWithoutVersions = clean
     .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css)\.?\s*\d+(?:\.\d+)?\b/gi, '')
     .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
@@ -206,13 +228,16 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
     sig?.hasMetric ||
     /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(cleanWithoutVersions)
 
-  const addMetricPlaceholder = /data|analyst|analytics|bi\b|business\s+intelligence/i.test(targetRole)
-    ? 'enhancing reporting adoption, reducing turnaround time, and enabling data-driven executive decisions'
-    : 'enhancing operational throughput, reducing execution latency, and ensuring continuous production uptime'
+  const hasArchitecturalMechanism = /\bby\s+(?:architecting|engineering|transitioning|developing|implementing|establishing|building|automating|optimizing|orchestrating|designing|deploying|adopting|utilizing)\b/i.test(clean)
+
+  if (!hasArchitecturalMechanism) {
+    clean = clean.replace(/[.!?]+$/, '')
+    clean = `${clean} ${domainMechanism}`
+  }
 
   if (!hasRealMetric && !clean.includes('[ADD:')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, ${addMetricPlaceholder}.`
+    clean = `${clean}, ${domainOutcome}.`
   }
 
   // 5. Clean punctuation and whitespace
@@ -224,7 +249,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
   // 6. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
   if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, ${addMetricPlaceholder}.`
+    clean = `${clean}, ${domainOutcome}.`
   }
 
   return sanitizeSingleAddPlaceholder(clean)

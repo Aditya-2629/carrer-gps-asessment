@@ -200,29 +200,18 @@ export function buildDeterministicOptimizations(
     ? 'Your current About section is under 210 characters, wasting prime above-the-fold real estate before recruiters click "...see more".'
     : 'Your current About section reads as a generic summary without leading with your strongest verified production metrics or target specialization.'
 
-  const hook = metricPhrase
-    ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems, ${metricPhrase}.`
-    : metricMatch
-      ? `${targetRole} specializing in ${topStack}. Proven track record of architecting high-throughput systems driving ${metricMatch[0]} performance gains in production.`
-      : `${targetRole} specializing in ${topStack}. Architecting mission-critical cloud solutions, high-throughput microservices, and reliable engineering platforms.`
+  // Full 180–250 Word 3-Paragraph Executive LinkedIn Storytelling
+  const yoeText = canonical.years_of_experience || '3+ years'
+  const hook = isDataRole
+    ? `I am a ${targetRole} with ${yoeText} of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${topStack} to eliminate organizational reporting bottlenecks.`
+    : `I am a ${targetRole} with ${yoeText} of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${topStack} across resilient production environments.`
 
-  const pillar1 = isDataRole
-    ? `▸ Data Modeling & Analytics: Architecting scalable data models and BI pipelines that eliminate reporting bottlenecks.`
-    : `▸ System Architecture & Scale: Architecting resilient microservices and distributed event-driven systems that eliminate performance bottlenecks.`
-  const pillar2 = isDataRole
-    ? `▸ Enterprise Intelligence & Pipelines: Deploying automated analytics workflows across modern cloud data infrastructure using ${topStack}.`
-    : `▸ Cloud & Production Engineering: Deploying high-throughput workloads across modern cloud infrastructure using ${topStack}.`
-  const pillar3 = metricPhrase
-    ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including ${metricPhrase}.`
-    : metricMatch
-      ? `▸ Measurable Business Impact: Driving tangible organizational velocity and efficiency gains, including verified ${metricMatch[0]} performance improvements.`
-      : `▸ Engineering Excellence & Mentorship: Establishing robust CI/CD, test automation, and engineering standards for mission-critical deliverables.`
+  const proof = isDataRole
+    ? `Over my career, I have focused on turning complex, siloed data into actionable business momentum. At ${topCompany}, I engineered end-to-end data pipelines that consolidated multi-source transactional databases into centralized analytical warehouses, automating cross-functional reporting across high-volume SKU catalogs. By establishing automated transformation models and dbt test assertions, I eliminated cross-system discrepancies, accelerated weekly executive reporting cycles, and provided self-service Power BI and Tableau visualization layers adopted by leadership and operational stakeholders${bestMetricPhrase ? `, ${bestMetricPhrase}` : ''}.`
+    : `Throughout my career, I have prioritized architectural resilience and engineering velocity. At ${topCompany}, I engineered scalable service boundaries and asynchronous event handling pipelines that process high-volume request streams with zero dropped transactions. By implementing read-aside Redis caching layers, containerizing multi-stage Docker builds, and automating CI/CD release gating on Kubernetes, I helped drive engineering modernization while sustaining 99.99% production availability${bestMetricPhrase ? `, ${bestMetricPhrase}` : ''}.`
 
-  const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
-
-  const callToAction = `Currently exploring ${targetRole} opportunities where I can drive measurable technical scale. Always open to discussing systems architecture, team mentorship, and high-impact technical initiatives—let's connect!`
-  const coreSkillsLine = `Core Skills: ${effectiveSkills.slice(0, 10).join(' · ')}`
-  const fullText = `${hook}\n\n${proof}\n\n${callToAction}\n\n${coreSkillsLine}`
+  const callToAction = `My engineering philosophy is rooted in clean modular architecture, automated test gating, and continuous cross-functional mentorship. I am currently exploring ${targetRole} roles where I can drive scalable system architecture and meaningful operational impact. If you are building high-scale systems or looking to expand your technical leadership, let's connect!\n\nCore Stack: ${effectiveSkills.slice(0, 10).join(' · ')}`
+  const fullText = `${hook}\n\n${proof}\n\n${callToAction}`
 
   const bannerStrategy = {
     bannerTagline: `${targetRole} | ${isDataRole ? 'Data Architecture & Analytics' : 'Scalable Systems & High-Impact Architecture'}`,
@@ -601,7 +590,12 @@ export async function runLinkedInSynthesis(
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
       const { currentCritique, hook, proof, callToAction, fullText } = rawAbout
-      const combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
+      let combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
+      const wordCount = (combined.match(/\b\w+\b/g) || []).length
+      // Permanently purge short stubs: enforce strict 180+ word executive standard
+      if (wordCount < 140 && fallback?.aboutRewrite?.fullText) {
+        combined = fallback.aboutRewrite.fullText
+      }
       aboutRewrite = {
         currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
         hook: hook || fallback.aboutRewrite.hook || '',

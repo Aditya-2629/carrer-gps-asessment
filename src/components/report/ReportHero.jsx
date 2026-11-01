@@ -26,7 +26,7 @@ function getScoreBadgeClass(score) {
 }
 
 import useAppStore from '../../store/useAppStore'
-import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
+import { decodeHtmlEntities, truncateAtWord } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function ReportHero({ reportData }) {
   const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
@@ -205,7 +205,13 @@ export default function ReportHero({ reportData }) {
       : 'Top-of-Page ATS Keyword Alignment & Metric Gaps'
   }
 
-  const cleanBottleneck = decodeHtmlEntities(String(rawBottleneck || 'Application & Targeting Alignment').replace(/\.+$/, '').trim())
+  const rawCleanedBottleneck = decodeHtmlEntities(
+    String(rawBottleneck || 'Application & Targeting Alignment')
+      .replace(/\brecrui\.\.\./gi, 'recruiter...')
+      .replace(/\.+$/, '')
+      .trim()
+  )
+  const cleanBottleneck = truncateAtWord(rawCleanedBottleneck, 75)
 
   // Detection of corporate experience extraction gaps (e.g. PwC, Shure listed without bullets)
   const experiences = candidate?.experiences || candidate?.experience || resumeAgent?.canonicalResume?.experiences || []

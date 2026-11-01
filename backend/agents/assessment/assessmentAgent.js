@@ -40,6 +40,19 @@ export function decodeHtmlEntities(str) {
     .replace(/&#39;|&apos;/gi, "'")
 }
 
+// Clean whole-word string truncation preventing sliced words like "human recrui..."
+export function truncateAtWord(str, maxLen = 65) {
+  if (!str || typeof str !== 'string') return ''
+  const trimmed = str.trim()
+  if (trimmed.length <= maxLen) return trimmed
+  const truncated = trimmed.slice(0, maxLen)
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > 0) {
+    return `${truncated.slice(0, lastSpace).trim()}...`
+  }
+  return `${truncated}...`
+}
+
 // Helper: parse numbers from strings or quantitative objects
 export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month') {
   if (val === null || val === undefined) {
@@ -631,7 +644,7 @@ export function synthesizeRootCauseAndActions({
     next_best_action = 'Conduct 3 live timed mock technical interviews focusing on system design trade-offs and live coding.'
   } else if (phase.id === 4) {
     const candidateRole = ans.targetRole || 'Software Professional'
-    const challengeText = ans.biggestChallenge ? ` (${ans.biggestChallenge.slice(0, 50)}${ans.biggestChallenge.length > 50 ? '...' : ''})` : ''
+    const challengeText = ans.biggestChallenge ? ` (${truncateAtWord(ans.biggestChallenge, 65)})` : ''
     const isVerifiedFinalRound = rawFinals90 >= 2
     primary_bottleneck = {
       title: isVerifiedFinalRound

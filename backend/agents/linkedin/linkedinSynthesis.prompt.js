@@ -212,13 +212,15 @@ TASK 1 SCOPE: HEADLINES, ABOUT STORY, PINNED SKILLS & RED FLAGS
    - STRICTLY avoid desperate phrases like "Actively seeking...", "Looking for opportunities", or "Open to work" (which lowers perceived candidate value and wastes algorithmic headline space).
    - In "whyItWorks", explain specifically how this headline ranks in LinkedIn Recruiter boolean search algorithms and hooks hiring managers.
 
-2. ABOUT REWRITE (FIRST-PERSON EXECUTIVE STORY & 3 THEMATIC PILLARS — NEVER COPY RESUME BULLETS):
-   - CRITICAL RULE FOR aboutRewrite: NEVER copy-paste resume bullets or list role-by-role resume points inside the LinkedIn About section! A LinkedIn About section must read like a compelling, first-person executive story and architectural thesis — completely distinct from the Experience section below it.
-   - Structure aboutRewrite into 3 cohesive prose/pillar sections:
-     1. "hook" (Paragraph 1 — The Architectural Hook): 2-3 punchy first-person sentences establishing who you are, the scale of systems you design, and the core engineering problems you solve (e.g., turning complex LLM workflows and legacy monoliths into sub-second, event-driven production systems). Engineered to beat the desktop & mobile "...see more" fold (<210 chars).
-     2. "proof" (Paragraph 2 — 3 Core Engineering Pillars, NOT raw resume bullets): Synthesize the candidate's career into 3 thematic domain pillars (for example: "▸ Production AI & Agentic Systems: ...", "▸ Cloud-Native & Serverless Scale: ...", "▸ Enterprise Data & Reliability Engineering: ..."), weaving their verified metrics and architectural wins naturally into those 3 strategic pillars without repeating their resume bullet phrasing.
-     3. "callToAction" (Paragraph 3 — What I'm Solving Next + Core Specialties): 2-3 warm, confident sentences on the exact engineering challenges and roles they are targeting next, followed by a "Core Specialties:" keyword line for LinkedIn Recruiter SEO.
-   - "fullText": Complete copy-paste ready 3-paragraph executive narrative merging hook, proof, and callToAction.
+2. ABOUT REWRITE (FULL 180–250 WORD 3-PARAGRAPH EXECUTIVE STORYTELLING — STRICT MINIMUM 180 WORDS):
+   - PERMANENTLY PURGE SHORT 20-WORD STUBS. The complete About rewrite MUST contain a strict minimum of 180 words (180–250 words total) across 3 distinct paragraphs:
+     * Paragraph 1: The Executive Hook & Specialization (50–65 words)
+       Anchor on target title, total years of experience, core technical stack, and high-scale production systems delivered.
+     * Paragraph 2: Architectural Wins & Quantified Proof (80–110 words)
+       Narrate 2 verified technical accomplishments citing exact tools (e.g. Python, PostgreSQL, Snowflake, Kafka, Docker), scale handled, and measurable business outcomes.
+     * Paragraph 3: Engineering Philosophy & Call to Connect (45–60 words)
+       Articulate approach to clean code, team mentorship, and operational reliability; invite engineering leaders, hiring managers, and recruiters to connect for target role opportunities, followed by a Core Skills line.
+   - "fullText": Complete copy-paste ready 3-paragraph executive narrative merging hook, proof, and callToAction (strictly 180–250 words).
 
 3. TOP 3 PINNED SKILLS:
    - Identify the top 3 highest-leverage skills from the candidate's verified stack to pin to the very top of their LinkedIn Skills section (the 3 visible to recruiters in search results and mobile cards).

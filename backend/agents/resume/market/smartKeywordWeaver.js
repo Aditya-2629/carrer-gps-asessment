@@ -26,19 +26,16 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
         const kwLower = kw.toLowerCase()
         if (usedKeywords.has(kwLower)) continue
 
-        // 1. API / Language slot (TypeScript, GraphQL, gRPC)
-        if (['typescript', 'graphql', 'grpc'].includes(kwLower) && /react|frontend|api|endpoint|service/i.test(text)) {
+        // 1. Static Typing & Contract Safety slot (TypeScript)
+        if (kwLower === 'typescript' && /react|frontend|api|endpoint|service|javascript|node|web|ui/i.test(text)) {
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            if (/(using|with)\s+([^,.;]+)/i.test(text)) {
-              text = text.replace(/(using|with)\s+([^,.;]+)/i, `$1 $2 and ${kw}`)
-            } else {
-              text = text.replace(/([.,;]?)$/, ` using ${kw}$1`)
-            }
+            const clean = text.replace(/[.!?]+$/, '').trim()
+            text = `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
               company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Inline Tooling Clause',
+              placement: 'Static Typing & Contract Safety Clause',
               bulletText: text,
               exactBullet: text,
               interviewTalkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
@@ -47,22 +44,76 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
           }
         }
 
-        // 2. Messaging / Async slot (Kafka, Redis, SQS, RabbitMQ)
-        if (['kafka', 'redis', 'sqs', 'rabbitmq'].includes(kwLower) && /event|stream|queue|sync|message|serverless/i.test(text)) {
+        // 2. Event Streaming & Messaging slot (Kafka, SQS, RabbitMQ)
+        if (['kafka', 'sqs', 'rabbitmq'].includes(kwLower) && /event|stream|queue|sync|message|serverless|worker|pipeline/i.test(text)) {
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            if (/(using|with)\s+([^,.;]+)/i.test(text)) {
-              text = text.replace(/(using|with)\s+([^,.;]+)/i, `$1 $2, ${kw} message queues,`)
-            } else {
-              text = text.replace(/([.,;]?)$/, ` via ${kw} message queues$1`)
-            }
+            const clean = text.replace(/[.!?]+$/, '').trim()
+            text = `${clean}, utilizing Kafka event topics to decouple asynchronous workers, eliminating request drops during high-volume spikes.`
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
               company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Event Architecture Clause',
+              placement: 'Event Streaming Architecture Clause',
               bulletText: text,
               exactBullet: text,
               interviewTalkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
+            })
+            break
+          }
+        }
+
+        // 3. Read-Aside Caching slot (Redis)
+        if (kwLower === 'redis' && /cache|caching|latency|query|database|session|api|throughput|load/i.test(text)) {
+          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
+            const clean = text.replace(/[.!?]+$/, '').trim()
+            text = `${clean}, implementing a Redis read-aside caching layer with TTL eviction, offloading 70% of read queries from the primary database.`
+            usedKeywords.add(kwLower)
+            keywordLedger.push({
+              keyword: kw,
+              company: exp.company || `Company ${expIdx + 1}`,
+              placement: 'Read-Aside Caching Architecture',
+              bulletText: text,
+              exactBullet: text,
+              interviewTalkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
+            })
+            break
+          }
+        }
+
+        // 4. Container Orchestration slot (Docker, Kubernetes)
+        if (['docker', 'kubernetes', 'k8s'].includes(kwLower) && /deploy|container|cloud|ci\/cd|pipeline|backend|service|microservice|aws/i.test(text)) {
+          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
+            const clean = text.replace(/[.!?]+$/, '').trim()
+            text = `${clean}, containerized using multi-stage Docker builds and deployed on Kubernetes with automated health probes and rolling updates.`
+            usedKeywords.add(kwLower)
+            keywordLedger.push({
+              keyword: kw,
+              company: exp.company || `Company ${expIdx + 1}`,
+              placement: 'Container Orchestration Clause',
+              bulletText: text,
+              exactBullet: text,
+              interviewTalkingScript: `Explain how multi-stage Docker builds and Kubernetes automated health probes ensured repeatable deployments and zero downtime.`,
+            })
+            break
+          }
+        }
+
+        // 5. GraphQL / gRPC API slot
+        if (['graphql', 'grpc'].includes(kwLower) && /api|endpoint|service|interface|rest|backend/i.test(text)) {
+          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
+            const clean = text.replace(/[.!?]+$/, '').trim()
+            const clause = kwLower === 'graphql'
+              ? 'architecting a unified GraphQL schema to eliminate over-fetching and consolidate multi-endpoint data retrieval into single network requests'
+              : 'implementing high-performance gRPC service-to-service communication with Protocol Buffers, cutting inter-service serialization overhead'
+            text = `${clean}, ${clause}.`
+            usedKeywords.add(kwLower)
+            keywordLedger.push({
+              keyword: kw,
+              company: exp.company || `Company ${expIdx + 1}`,
+              placement: `${kw} API Layer Clause`,
+              bulletText: text,
+              exactBullet: text,
+              interviewTalkingScript: `Discuss how you integrated ${kw} to optimize client-server communication efficiency and payload contracts.`,
             })
             break
           }

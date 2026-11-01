@@ -455,14 +455,23 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Restructure them so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated").
 
 ==================================================
-3. MANDATORY FULL REWRITES (GOOGLE XYZ FORMULA)
+3. MANDATORY FULL REWRITES (GOOGLE XYZ + ARCHITECTURAL MECHANISM)
 ==================================================
 Every single issue in "issues" MUST have a non-null "correctedText" ("correctionType": "rewrite"). Never return "correctedText": null.
-Never just swap the first verb — restructure the sentence so the Engineering Outcome / Scale leads, followed by the Technical Architecture / Mechanism:
-- Formula: Accomplished [X], evidenced by [Y], by doing [Z].
-- Lead with the system outcome, latency gain, throughput, reliability improvement, or user/workflow impact.
-- Follow with the specific engineering architecture, pattern, or mechanism evidenced in the resume.
-- ZERO PLACEHOLDER MANDATE: NEVER use bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>". If the original bullet lacks a measurable metric, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity). Still provide 1 to 3 "metricDiscoveryQuestions" to help the candidate discover an exact numeric delta if available.
+BAN COSMETIC SWAPS: Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
+Mandatory Structure:
+[Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].
+
+DOMAIN ARCHETYPE ENFORCEMENT:
+1. Data & Business Analyst: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
+   Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by 40% by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
+2. Software / Backend Engineer: p99 latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
+   Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
+3. Generative AI & ML Engineer: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
+   Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
+
+- ZERO PLACEHOLDER MANDATE: NEVER use bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
+- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Conservative: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
 - Do NOT invent new technologies or concrete fake numbers in "correctedText". Ground rewrites strictly in verified resume facts and natural operational outcomes.
 - The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 

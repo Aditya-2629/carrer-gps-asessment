@@ -37,11 +37,19 @@ RULES:
    - State exactly what the recruiter's eye catches first.
    - State the brutal red flag (e.g. "You claim Senior Full Stack, but your first 3 bullets at {{currentCompany}} describe manual accessibility testing, which looks like a junior QA role").
    - Give the 1-sentence career-saving pivot.
-3. HUMANIZED BULLET REWRITES (GOOGLE XYZ):
-   - BAN AI WORDS: Never use "spearheaded", "leveraged", "pioneered", "orchestrated", "synergistic".
-   - Use direct practitioner verbs: "Architected", "Decomposed", "Hardened", "Engineered", "Streamlined".
-   - WEAVE KEYWORDS: Naturally weave {{missingKeywords}} and {{skillsOnlyKeywords}} into the most relevant bullets without keyword stuffing.
-   - NO PLACEHOLDER LEAKS: Never output "[ADD: ...]". If a metric is missing in the original, write a realistic high-impact sentence ending with the concrete architectural deliverable.
+3. HUMANIZED BULLET REWRITES (GOOGLE XYZ + ARCHITECTURAL MECHANISM):
+   - BAN COSMETIC VERB SWAPS: Strictly forbid rewrites that only replace action verbs (e.g., "Implemented" -> "Secured") without injecting measurable scale, system throughput, or architectural mechanisms.
+   - MANDATORY BULLET STRUCTURE: Every rewritten bullet MUST follow:
+     [Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].
+   - DOMAIN ARCHETYPE ENFORCEMENT:
+     * Data & Business Analyst: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
+       Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by 40% by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
+     * Software / Backend Engineer: p99 latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
+       Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
+     * Generative AI & ML Engineer: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
+       Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
+   - WEAVE KEYWORDS WITH RATIONALE: Naturally weave {{missingKeywords}} and {{skillsOnlyKeywords}} attaching their specific production purpose (never bare "using Python and Kafka").
+   - ZERO PLACEHOLDER LEAKS: Strictly NO "[ADD: ...]" in final rewrites. For unquantified bullets, generate 3 pre-calculated domain metric options (Option A: Conservative, Option B: Standard, Option C: High-Scale) inside metricOptions.
 
 OUTPUT JSON FORMAT ONLY:
 {
@@ -65,7 +73,12 @@ OUTPUT JSON FORMAT ONLY:
       "originalText": "...",
       "recruiterCritique": "Why this specific line failed human recruiter review",
       "wovenKeywords": ["GraphQL", "AWS"],
-      "readyToUseRewrite": "Humanized, quantified rewrite with woven keywords"
+      "readyToUseRewrite": "Humanized, quantified rewrite with woven keywords and architectural mechanism",
+      "metricOptions": {
+        "optionA": "15–20% latency reduction / 10+ hours saved weekly",
+        "optionB": "30–45% processing acceleration / 250k+ records handled",
+        "optionC": "3x throughput increase / 99.99% service availability"
+      }
     }
   ],
   "executiveSummaryRewrite": "Punchy 3-4 line executive summary highlighting scale, domain, and modern stack"
@@ -452,38 +465,40 @@ unless that exact number already exists in the resume evidence.
 Do NOT suggest a hypothetical number even as an example!
 
 ==================================================
-11. CORRECTED TEXT RULE & GOOGLE X-Y-Z FRAMEWORK
+11. CORRECTED TEXT RULE & GOOGLE X-Y-Z ARCHITECTURAL MECHANISM
 ==================================================
-correctedText is a conservative structural rewrite only. It does NOT authorize new facts.
-Apply the Google X-Y-Z Formula: "Accomplished [X] as measured by [Y] by doing [Z]".
+correctedText is an executive-grade rewrite following the Google XYZ + Architectural Mechanism standard.
+BAN COSMETIC SWAPS: Strictly forbid rewrites that only replace action verbs (e.g., "Implemented" -> "Secured") without injecting measurable scale, system throughput, or architectural mechanisms.
+
+MANDATORY BULLET STRUCTURE:
+Every rewritten bullet MUST follow:
+[Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].
+
+DOMAIN ARCHETYPE ENFORCEMENT:
+1. Data & Business Analyst (isDataRole):
+   - Focus on: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
+   - Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by 40% by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
+2. Software / Backend Engineer (isSoftwareRole):
+   - Focus on: p99 latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
+   - Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
+3. Generative AI & ML Engineer (isAiRole):
+   - Focus on: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
+   - Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
 
 ✅ ALLOWED — correctedText MAY:
 - Reorder to lead with accomplishment / impact first:
-  * If the bullet already contains an outcome or metric [Y], front-load it:
-    e.g., "Achieved [Outcome/Metric] by [Action/Tool]" instead of "Used [Tool] to achieve [Outcome/Metric]"
-  * If the bullet lacks a metric, apply the Power Action Formula:
-    "[Power Verb] + [Specific System/Feature/Scope] + by [Technical Action/Architecture]"
+  * Front-load the engineering outcome: "Achieved [Outcome/Metric] by [Architectural Mechanism]"
+  * Apply the Architectural Power Formula: "[Action Verb] + [Specific System/Scope] + by [Technical Pattern/Mechanism] + [Operational Outcome]"
 - Replace duty phrasing with categorized Power Verbs:
-  * Leadership: Led, Spearheaded, Orchestrated, Directed, Coordinated, Mentored
-  * Creation & Engineering: Built, Architected, Engineered, Developed, Launched, Implemented
-  * Optimization: Streamlined, Automated, Optimized, Refactored, Accelerated, Modernized
-  * Analysis: Analyzed, Benchmarked, Evaluated, Diagnosed, Audited
+  * Architecture & Engineering: Architected, Engineered, Streamlined, Automated, Modernized, Hardened, Decomposed
   * Problem-Solving: Remediated, Resolved, Debugged, Mitigated, Eliminated
-- Convert job duty descriptions into active achievements:
-  * Replace "Responsible for X" / "Worked on X" / "Tasked with X" / "Helped with X" with active power verbs ("Architected", "Built", "Engineered", "Streamlined", "Automated")
-- Strip bloat and filler phrases:
-  * Remove "as part of a team", "helped to", "working closely with", "involved in", "was responsible for", "tasked with"
-- Enforce concise bullet length:
-  * Keep bullets to 1-2 lines maximum (under 35 words). Eliminate conversational rambling.
+- Enforce concise bullet length: Under 38 words, crisp, authoritative engineering prose.
 - Fix passive voice to active voice.
-- Remove redundant technology mentions from the same bullet.
 
 ❌ NOT ALLOWED — correctedText must NEVER:
-- Introduce any metric, percentage, dollar value, or number not in the resume evidence
-- Add a technology, tool, or skill not mentioned in the evidence bullet
-- Add a user count, team size, customer scope, or business outcome not in the evidence
-- Change or estimate any existing number
-- Invent outcomes, business impact, or production context
+- Output "[ADD: ...]" or bracketed placeholders.
+- Perform superficial verb replacements that leave the bullet vague and unmeasured.
+- Invent random unverifiable facts (use resume facts + natural operational outcomes).
 
 ==================================================
 COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
@@ -572,22 +587,22 @@ Do NOT introduce any of these terms unless explicitly present in the resume text
 - "exceptional"
 
 ==================================================
-15. RECOMMENDATION QUALITY & METRIC DISCOVERY FRAMEWORK (§13, §14)
+15. RECOMMENDATION QUALITY & 1-CLICK REALISTIC METRIC GENERATOR (§13, §14)
 ==================================================
 Every recommendation MUST be action-oriented:
 - Diagnosis answers: WHY is this a problem?
 - Recommendation answers: WHAT should the candidate do?
 CRITICAL: Do NOT repeat the diagnosis as the recommendation!
 
+1-CLICK REALISTIC METRIC GENERATOR (ELIMINATE DISCOVERY TRAP):
+For every unquantified bullet, do NOT just ask open-ended questions like "What was the metric?".
+The AI must generate 3 Pre-Calculated Realistic Metric Options tailored to that exact domain inside "metricOptions":
+- Option A (Conservative): e.g. "15–20% latency reduction / 10+ hours saved weekly"
+- Option B (Moderate / Standard): e.g. "30–45% processing acceleration / 250k+ records handled"
+- Option C (High-Scale): e.g. "3x throughput increase / 99.99% service availability"
+
 METRIC DISCOVERY QUESTIONS (from resume-quantifier):
-When diagnosing a bullet that lacks impact or quantification, do NOT just say "add metrics".
-Equip the candidate with targeted discovery questions drawn from the 6 metric dimensions:
-1. Scale & Volume: "How many users, daily active requests, records, or concurrent connections did this system handle?"
-2. Time & Speed: "What was the latency reduction (e.g. from X ms to Y ms), cycle time improvement, or hours saved?"
-3. Percentages: "What percentage improvement in uptime, error reduction, throughput, or test coverage was achieved?"
-4. Money & Resources: "Did this reduce cloud infrastructure spend, save engineering budget, or influence revenue?"
-5. Quality & Reliability: "What was the resulting uptime (e.g. 99.9%), reduction in production incidents, or SLA adherence?"
-6. Cadence: "How frequently was this pipeline executed, deployed, or monitored?"
+Complement the metric options with targeted discovery questions drawn from the 6 metric dimensions (Scale & Volume, Time & Speed, Percentages, Money & Resources, Quality & Reliability, Cadence).
 
 Tailor the discovery prompt directly to the candidate's actual work domain.
 BAD:
@@ -665,6 +680,11 @@ Use this exact structure:
       "recommendation": "...",
       "correctedText": null,
       "metricDiscoveryQuestions": [],
+      "metricOptions": {
+        "optionA": "Conservative metric (e.g. 15–20% latency reduction / 10+ hours saved weekly)",
+        "optionB": "Moderate / Standard metric (e.g. 30–45% processing acceleration / 250k+ records handled)",
+        "optionC": "High-Scale metric (e.g. 3x throughput increase / 99.99% service availability)"
+      },
       "evidence": [
         {
           "section": "experience",

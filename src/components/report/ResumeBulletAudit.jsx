@@ -95,14 +95,53 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
     null
   const rewriteText = cleanRewriteText(rawRewrite)
 
+  // 1-Click Realistic Metric Options (Eliminate Discovery Trap)
+  const targetCategory = (bullet.category || matchedIssue?.category || '').toLowerCase()
+  const bLower = (bullet.text || '').toLowerCase()
+  const isDataDomain = /data|analyst|analytics|bi\b|dashboard|sql|tableau|power\s*bi/i.test(bLower) || /data|analyst/i.test(targetCategory)
+  const isAiDomain = /ai\b|rag\b|llm|agent|model|vector|hallucination|embeddings/i.test(bLower) || /ai|ml/i.test(targetCategory)
+
+  const defaultMetricOptions = isDataDomain
+    ? {
+        optionA: '15–20% faster reporting cycles / 8+ hours saved weekly',
+        optionB: '35–45% query acceleration / 500k+ records modeled',
+        optionC: '4x dashboard adoption / 1,500+ SKUs analyzed',
+      }
+    : isAiDomain
+    ? {
+        optionA: '20–25% token latency drop / 100+ documents indexed',
+        optionB: '38% hallucination reduction / sub-second query retrieval',
+        optionC: '3x agent concurrency / 99.9% tool execution reliability',
+      }
+    : {
+        optionA: '15–20% latency reduction / 10+ hours saved weekly',
+        optionB: '30–45% processing acceleration / 250k+ records handled',
+        optionC: '3x throughput increase / 99.99% service availability',
+      }
+
+  const metricOptions = matchedIssue?.metricOptions || bullet.metricOptions || defaultMetricOptions
+  const [selectedMetric, setSelectedMetric] = useState(null)
+
+  // Construct active dynamic rewrite based on candidate's 1-click selection
+  let activeRewrite = rewriteText
+  if (selectedMetric && metricOptions[selectedMetric] && activeRewrite) {
+    const chosenMetricText = metricOptions[selectedMetric].split('/')[0].trim()
+    const baseClean = activeRewrite.replace(/[.!?]+$/, '').trim()
+    if (/,\s*(?:enhancing|reducing|sustaining|delivering|accelerating|minimizing)\b/i.test(baseClean)) {
+      activeRewrite = baseClean.replace(/,\s*(enhancing|reducing|sustaining|delivering|accelerating|minimizing)\b/i, `, delivering ${chosenMetricText} and $1`) + '.'
+    } else {
+      activeRewrite = `${baseClean}, achieving ${chosenMetricText}.`
+    }
+  }
+
   const questions = Array.isArray(matchedIssue?.metricDiscoveryQuestions)
     ? matchedIssue.metricDiscoveryQuestions
     : []
 
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
-    if (rewriteText) {
-      navigator.clipboard.writeText(rewriteText)
+    if (activeRewrite) {
+      navigator.clipboard.writeText(activeRewrite)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -221,8 +260,65 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
             </button>
           </div>
           <p className="text-xs sm:text-[13px] font-medium leading-relaxed">
-            {rewriteText}
+            {activeRewrite}
           </p>
+        </div>
+      )}
+
+      {/* 1-Click Realistic Metric Generator */}
+      {metricOptions && rewriteText && (
+        <div
+          className={`rounded-lg p-3 space-y-2 border ${
+            light
+              ? 'bg-sky-50/60 border-sky-200/80'
+              : 'bg-sky-950/20 border-sky-800/40'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${light ? 'text-sky-800' : 'text-sky-300'}`}>
+              <Sparkle size={12} weight="fill" className={light ? 'text-sky-600' : 'text-sky-400'} />
+              1-Click Realistic Metric Generator:
+            </span>
+            <span className={`text-[10px] ${light ? 'text-slate-500' : 'text-slate-400'}`}>
+              Select option to tailor rewrite
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            {[
+              { id: 'optionA', label: 'Option A (Conservative)', text: metricOptions.optionA },
+              { id: 'optionB', label: 'Option B (Standard)', text: metricOptions.optionB },
+              { id: 'optionC', label: 'Option C (High-Scale)', text: metricOptions.optionC },
+            ].filter((opt) => Boolean(opt.text)).map((opt) => {
+              const isSelected = selectedMetric === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSelectedMetric(isSelected ? null : opt.id)}
+                  className={`text-left text-[11px] p-2 rounded-md transition-all cursor-pointer border ${
+                    isSelected
+                      ? light
+                        ? 'bg-sky-100 border-sky-400 text-sky-950 font-semibold ring-1 ring-sky-400 shadow-2xs'
+                        : 'bg-sky-900/60 border-sky-500 text-sky-100 font-semibold ring-1 ring-sky-500'
+                      : light
+                        ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                        : 'bg-slate-900/60 hover:bg-slate-900 border-slate-800 text-slate-300'
+                  }`}
+                >
+                  <span className={`block text-[9px] uppercase font-bold mb-0.5 ${
+                    isSelected
+                      ? light ? 'text-sky-800' : 'text-sky-300'
+                      : light ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
+                    {opt.label}
+                  </span>
+                  <span className="line-clamp-2 leading-tight">
+                    {opt.text}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 

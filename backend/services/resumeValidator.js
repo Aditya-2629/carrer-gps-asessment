@@ -337,8 +337,11 @@ export function cleanPlaceholderGraceful(text) {
   // 4. Strip any remaining raw bracket placeholder: e.g. "[ADD: ...]"
   cleaned = cleaned.replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
 
-  // 5. Clean hanging verbs left before punctuation at sentence boundaries: e.g. "utilized." -> "."
-  cleaned = cleaned.replace(/\s+(?:utilized|leveraged|utilizing|achieved|driven)\s*([.,;])/gi, '$1')
+  // 4b. Collapse duplicated prepositions
+  cleaned = cleaned.replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
+
+  // 5. Clean hanging verbs or prepositions left before punctuation at sentence boundaries: e.g. "utilized." -> "." or "by." -> "."
+  cleaned = cleaned.replace(/\s+(?:utilized|leveraged|utilizing|achieved|driven|by|with|to|of|for|at|in|from)\s*([.,;])/gi, '$1')
 
   // 6. Normalize punctuation and whitespace: e.g. ",." -> "."
   cleaned = cleaned.replace(/\s*,\s*\./g, '.')
