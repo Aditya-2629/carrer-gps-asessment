@@ -316,9 +316,9 @@ export function buildDeterministicOptimizations(
       }
     }),
     certifications: (canonical.certifications || []).slice(0, 5).map((c) => ({
-      name: c.name || c.title || 'Certification',
-      issuer: c.issuer || c.authority || '',
-      date: c.date || c.year || '',
+      name: typeof c === 'string' ? c : (c?.name || c?.title || 'Certification'),
+      issuer: typeof c === 'object' ? (c?.issuer || c?.authority || '') : '',
+      date: typeof c === 'object' ? (c?.date || c?.year || '') : '',
     })),
     featured: rawProjects.slice(0, 2).map((p) => {
       const bulletList = Array.isArray(p.bullets) ? p.bullets : []

@@ -57,50 +57,63 @@ export function buildCompactCandidateContext({
   // Current LinkedIn Profile Details
   const currentHeadline = profile?.headline || 'None provided'
   const currentAbout = (profile?.about || 'Empty').slice(0, 600)
-  const currentSkills = (profile?.skills || profile?.topSkills || []).slice(0, 25).join(', ') || 'None listed'
+  const currentSkills = (profile?.skills || profile?.topSkills || [])
+    .slice(0, 25)
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.title || ''))
+    .filter(Boolean)
+    .join(', ') || 'None listed'
 
   const liExperiences = profile?.experiences || []
   const liExpSummary = liExperiences.slice(0, 6).map((e) => {
     const desc = (e.description || e.summary || '').trim()
     const descNote = desc ? `Description present (${desc.slice(0, 140)}...)` : 'Description EMPTY'
-    return `- ${e.title || e.role || 'Role'} at ${e.company || 'Company'} (${e.duration || e.dates || 'dates unlisted'}) [${descNote}]`
+    const compName = typeof e.company === 'string' ? e.company : (e.company?.name || 'Company')
+    const roleTitle = typeof e.title === 'string' ? e.title : (e.role || 'Role')
+    return `- ${roleTitle} at ${compName} (${e.duration || e.dates || 'dates unlisted'}) [${descNote}]`
   }).join('\n') || 'None listed'
 
   // Full Resume Experience (all roles, up to 4 roles x 6 bullets each)
   const resumeExperiences = canonical.experience || canonical.experiences || []
   const expSummary = resumeExperiences.slice(0, 4).map((exp) => {
-    const bullets = (exp.bullets || []).slice(0, 6).map((b) => `  - ${typeof b === 'string' ? b : b.text}`).join('\n')
-    return `${exp.role || exp.title} at ${exp.company} (${exp.dates || 'dates unlisted'}):\n${bullets || '  - Engineering scope and delivery'}`
+    const bullets = (exp.bullets || []).slice(0, 6).map((b) => `  - ${typeof b === 'string' ? b : b?.text || ''}`).join('\n')
+    const compName = typeof exp.company === 'string' ? exp.company : (exp.company?.name || 'Company')
+    const roleTitle = typeof exp.role === 'string' ? exp.role : (exp.title || 'Role')
+    return `${roleTitle} at ${compName} (${exp.dates || exp.duration || 'dates unlisted'}):\n${bullets || '  - Engineering scope and delivery'}`
   }).join('\n\n') || 'No resume experience provided; optimize based strictly on profile.'
 
   // Resume Projects (all projects with bullets)
   const projects = canonical.projects || []
   const projSummary = projects.slice(0, 4).map((p) => {
-    const bullets = (p.bullets || []).slice(0, 4).map((b) => `  - ${typeof b === 'string' ? b : b.text}`).join('\n')
-    const tech = (p.technologies || p.skills || []).join(', ')
-    return `${p.title || p.name} [Tech: ${tech || 'Core Stack'}]:\n${bullets || p.description || 'Project details'}`
+    const bullets = (p.bullets || []).slice(0, 4).map((b) => `  - ${typeof b === 'string' ? b : b?.text || ''}`).join('\n')
+    const rawTech = p.techStack || p.technologies || p.tech || p.skills || ''
+    const tech = Array.isArray(rawTech)
+      ? rawTech.map((t) => (typeof t === 'string' ? t : t?.name || '')).filter(Boolean).join(', ')
+      : (typeof rawTech === 'string' ? rawTech : '')
+    return `${p.title || p.name || 'Core Project'} [Tech: ${tech || 'Core Stack'}]:\n${bullets || p.description || 'Project details'}`
   }).join('\n\n') || 'None explicitly listed'
 
   // Full Resume Skills (up to 35 skills)
   const resumeSkills = (canonical.skills || [])
-    .map((s) => (typeof s === 'string' ? s : s?.name))
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
     .filter(Boolean)
     .slice(0, 35)
     .join(', ') || 'None listed'
 
   // Resume Certifications
   const certSummary = (canonical.certifications || []).slice(0, 4).map((c) => {
-    return `- ${c.name || c.title} (${c.issuer || c.authority || ''})`
-  }).join('\n')
+    const certName = typeof c === 'string' ? c : (c?.name || c?.title || '')
+    const certIssuer = typeof c === 'object' && (c?.issuer || c?.authority) ? ` (${c.issuer || c.authority})` : ''
+    return certName ? `- ${certName}${certIssuer}` : null
+  }).filter(Boolean).join('\n')
 
   // Cross-platform Discrepancies
   const discList = Array.isArray(discrepancies) ? discrepancies : (discrepancies?.discrepancies || [])
-  const discSummary = discList.slice(0, 6).map((d) => `- [${d.severity || 'warning'}] ${d.title}: ${d.diagnosis || d.explanation}`).join('\n') || 'None detected'
+  const discSummary = discList.slice(0, 6).map((d) => `- [${d?.severity || 'warning'}] ${d?.title || 'Notice'}: ${d?.diagnosis || d?.explanation || ''}`).join('\n') || 'None detected'
 
   // Missing Skills
   const effectiveMissingSkills = (
     missingSkills.length > 0 ? missingSkills : (resumeContext?.missingSkills || discrepancies?.missingSkills || [])
-  ).slice(0, 20).join(', ') || 'None identified'
+  ).slice(0, 20).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean).join(', ') || 'None identified'
 
   return `CANDIDATE NAME: ${candidateName}
 TARGET ROLE: ${targetRole}

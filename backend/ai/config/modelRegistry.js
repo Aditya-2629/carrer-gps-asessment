@@ -226,5 +226,6 @@ export const isModelAllowedForData = (modelId, isSynthetic = false) => {
  * List models enabled for a specific purpose
  */
 export const listModelsForPurpose = (purpose = 'resume_analysis') => {
-  return Object.values(MODEL_REGISTRY).filter((m) => m.enabled && m.purpose.includes(purpose))
+  const normalizedPurpose = purpose === 'resume-parsing' ? 'resume_analysis' : purpose
+  return Object.values(MODEL_REGISTRY).filter((m) => m.enabled && (m.purpose.includes(purpose) || m.purpose.includes(normalizedPurpose)))
 }

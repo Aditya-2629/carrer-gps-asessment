@@ -79,7 +79,7 @@ export async function parseResumeWithAI(rawText = '', targetRoleContext = '') {
   }
 
   const userPrompt = `
-TARGET ROLE: ${targetRoleContext || 'Not Specified'}
+TARGET ROLE CONTEXT: ${targetRoleContext || 'Not Specified'}
 
 RESUME RAW TEXT TO PARSE:
 ${rawText}
@@ -87,13 +87,13 @@ ${rawText}
 
   try {
     const rawResponse = await llmGateway.generate({
-      purpose: 'resume_analysis',
+      purpose: 'resume-parsing',
       messages: [
         { role: 'system', content: RESUME_PARSER_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
       responseFormat: 'json_object',
-      temperature: 0.0, // Strict deterministic extraction
+      temperature: 0.0,
     })
 
     const textToParse = typeof rawResponse === 'string' ? rawResponse : rawResponse?.text || JSON.stringify(rawResponse)
@@ -168,3 +168,4 @@ export default {
   RESUME_PARSER_SYSTEM_PROMPT,
   parseResumeWithAI,
 }
+

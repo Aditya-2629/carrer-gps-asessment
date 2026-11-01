@@ -90,10 +90,13 @@ export function estimateHeightBudget(sanitizedResume = {}, config = {}) {
   totalLines += 4
 
   // Summary lines
-  if (sanitizedResume.summary) {
+  const rawSummary = typeof sanitizedResume.summary === 'string'
+    ? sanitizedResume.summary
+    : (sanitizedResume.summary?.text || '')
+  if (rawSummary) {
     const sumText = config.shortenSummary
-      ? sanitizedResume.summary.split(/(?<=[.?!])\s+/).slice(0, 3).join(' ')
-      : sanitizedResume.summary
+      ? rawSummary.split(/(?<=[.?!])\s+/).slice(0, 3).join(' ')
+      : rawSummary
     totalLines += Math.max(2, Math.ceil(sumText.length / CHARS_PER_LINE)) + 2
   }
 

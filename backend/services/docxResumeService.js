@@ -278,12 +278,25 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
-  const candidateName = decodeHtmlEntities(sanitizedResume.candidate_name || '')
-  const rawTargetRole = decodeHtmlEntities(sanitizedResume.target_role || '')
+  const candidateName = decodeHtmlEntities(
+    sanitizedResume.candidate_name ||
+    sanitizedResume.candidate?.name ||
+    sanitizedResume.name ||
+    ''
+  )
+  const rawTargetRole = decodeHtmlEntities(
+    sanitizedResume.target_role ||
+    sanitizedResume.candidate?.targetRole ||
+    sanitizedResume.targetRole ||
+    ''
+  )
   const targetRole = cleanTargetRoleTitle('', rawTargetRole)
-  const contact = sanitizedResume.contact || {}
-  const summary = decodeHtmlEntities(sanitizedResume.summary || '')
-  const experiences = sanitizedResume.experiences || []
+  const contact = sanitizedResume.contact || sanitizedResume.candidate?.contact || {}
+  const rawSummary = typeof sanitizedResume.summary === 'string'
+    ? sanitizedResume.summary
+    : (sanitizedResume.summary?.text || '')
+  const summary = decodeHtmlEntities(rawSummary || '')
+  const experiences = sanitizedResume.experiences || sanitizedResume.experience || []
   const projects = sanitizedResume.projects || []
   const education = sanitizedResume.education || []
   const certifications = sanitizedResume.certifications || []
@@ -388,7 +401,11 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
     experiences.forEach((exp) => {
       const role = decodeHtmlEntities(exp.role || exp.title || '')
-      const duration = decodeHtmlEntities(exp.duration || '')
+      const duration = decodeHtmlEntities(
+        exp.duration ||
+        exp.dates ||
+        (exp.startDate && exp.endDate ? `${exp.startDate} – ${exp.endDate}` : exp.startDate || '')
+      )
       const line1Runs = [
         new TextRun({ text: role, bold: true, size: 22, font: 'Times New Roman', color: '000000' }), // 11pt Bold #000000
       ]
@@ -552,8 +569,8 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       const edu = normalizeEducationItem(rawEdu)
       if (!edu.school && !edu.degree) return
 
-      const school = decodeHtmlEntities(edu.school)
-      const dates = decodeHtmlEntities(edu.dates)
+      const school = decodeHtmlEntities(edu.school || edu.institution || '')
+      const dates = decodeHtmlEntities(edu.dates || edu.year || '')
       const degree = decodeHtmlEntities(edu.degree)
       const location = decodeHtmlEntities(edu.location)
 
