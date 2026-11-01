@@ -366,10 +366,14 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
 
   const canonicalResume = resumeContext?.canonicalResume || resumeContext || null
   const extractedFacts = resumeContext?.extractedFacts?.facts || []
-  const targetRole = (
+  const rawTargetRole =
     resumeContext?.targetRole ||
     canonicalResume?.candidate?.targetRole ||
     ''
+  const targetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
   ).trim()
 
   const timelineMismatches = []

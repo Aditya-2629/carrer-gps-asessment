@@ -90,7 +90,7 @@ export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
     resumeContext?.candidateName ||
     ''
 
-  const targetRole =
+  const rawTargetRole =
     resumeContext?.targetRole ||
     canonical?.candidate?.targetRole ||
     canonical?.candidate_name_target_role ||
@@ -98,6 +98,11 @@ export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
     canonical?.targetRole ||
     candidateSnap.targetRole ||
     ''
+  const targetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
+  ).trim()
 
   const resumeExperiences = Array.isArray(canonical?.experience)
     ? canonical.experience
@@ -202,10 +207,15 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}) {
     return makeNoDataResult()
   }
 
-  const targetRole =
+  const rawTargetRole =
     resumeContext?.targetRole ||
     resumeContext?.canonicalResume?.candidate?.targetRole ||
     ''
+  const targetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
+  ).trim()
 
   const signals = extractLinkedInSignals(profile, resumeContext)
   const crossAnalysis = analyzeCrossAgentDiscrepancies(profile, resumeContext, signals)
@@ -295,7 +305,13 @@ export async function evaluateLinkedIn({
       message: 'Cross-auditing resume claims against LinkedIn profile & detecting section omissions…',
     })
   }
-  const baseResult = analyzeLinkedInProfile(normalized, resumeContext)
+  let baseResult
+  try {
+    baseResult = analyzeLinkedInProfile(normalized, resumeContext)
+  } catch (baseErr) {
+    console.warn('[LinkedInAgent] analyzeLinkedInProfile encountered error, generating fallback base:', baseErr.message)
+    baseResult = makeNoDataResult()
+  }
   if (!baseResult.dataAvailable) return baseResult
 
   // 2. Run generative optimizer if requested

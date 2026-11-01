@@ -199,7 +199,12 @@ export async function runCareerAgents(bundle) {
     }
   }
 
-  const effectiveTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
+  const rawTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
+  const effectiveTargetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
+  ).trim()
 
   // ── Stage 2 (Pipelined Execution) ──────────────────────────────────────────
   // Stage 2A: Resume Agent (LLM Synthesis)

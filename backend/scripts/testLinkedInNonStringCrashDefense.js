@@ -8,6 +8,8 @@ import { buildCompactCandidateContext } from '../agents/linkedin/linkedinSynthes
 import { analyzeCrossAgentDiscrepancies } from '../agents/linkedin/linkedinCrossAnalyzer.js'
 import { buildDeterministicOptimizations, runLinkedInSynthesis } from '../agents/linkedin/linkedinSynthesis.js'
 import { normalizeLinkedInProfile } from '../agents/linkedin/linkedinNormalizer.js'
+import { evaluateLinkedIn, analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
+import { extractLinkedInSignals } from '../agents/linkedin/linkedinSignalEngine.js'
 
 async function runTests() {
   console.log('================================================================')
@@ -133,6 +135,38 @@ async function runTests() {
   )
   assert(synthResult && synthResult.headlines.length >= 2)
   console.log('  ✓ 5.1 runLinkedInSynthesis safely handled and completed with valid output')
+
+  // ── TEST 6: Object TargetRole Defense (Swapnil Case) ──────────
+  console.log('\n[Test 6] Object TargetRole Defense:')
+  const objectRoleResumeContext = {
+    canonicalResume: {
+      candidate: { name: 'Swapnil Jadhav', targetRole: { title: 'Senior AI Engineer', value: 'ai_engineer' } },
+      experience: sampleResumeContext.canonicalResume.experience,
+      projects: sampleResumeContext.canonicalResume.projects,
+      skills: ['Python', 'FastAPI'],
+    },
+    targetRole: { title: 'Senior AI & Full Stack Engineer', raw: 'AI Engineer' },
+  }
+
+  const signals = extractLinkedInSignals(malformedApifyProfile, objectRoleResumeContext)
+  assert.strictEqual(typeof signals.headline.targetRoleMatches, 'boolean')
+  console.log('  ✓ 6.1 extractLinkedInSignals coerced object targetRole without .trim errors')
+
+  const crossObjResult = analyzeCrossAgentDiscrepancies(malformedApifyProfile, objectRoleResumeContext, signals)
+  assert(crossObjResult && Array.isArray(crossObjResult.discrepancies))
+  console.log('  ✓ 6.2 analyzeCrossAgentDiscrepancies coerced object targetRole safely')
+
+  const baseObjResult = analyzeLinkedInProfile(malformedApifyProfile, objectRoleResumeContext)
+  assert.strictEqual(baseObjResult.dataAvailable, true)
+  console.log('  ✓ 6.3 analyzeLinkedInProfile executed cleanly with object targetRole')
+
+  const evalObjResult = await evaluateLinkedIn({
+    profile: malformedApifyProfile,
+    resumeContext: objectRoleResumeContext,
+    runLlm: false,
+  })
+  assert.strictEqual(evalObjResult.dataAvailable, true)
+  console.log('  ✓ 6.4 evaluateLinkedIn completed safely with zero .trim errors under object targetRole')
 
   console.log('\n================================================================')
   console.log('ALL LINKEDIN NON-STRING CRASH DEFENSE TESTS PASSED!')

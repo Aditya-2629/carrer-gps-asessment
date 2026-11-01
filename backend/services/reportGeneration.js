@@ -332,12 +332,17 @@ export async function generateReportBundle({
 
   const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
-  const resumeTargetRole =
+  const rawTargetRole =
     effectiveSemanticProfile?.targetRole ||
     effectiveSemanticProfile?.target_role ||
     user.answers?.targetRole ||
     user.resumeJson?.target_role ||
     ''
+  const resumeTargetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
+  ).trim()
 
   // Evaluate rich assessment intelligence & directives across all agents
   const assessmentPersona = evaluateAssessmentPersona({

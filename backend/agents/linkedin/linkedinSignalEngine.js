@@ -47,10 +47,14 @@ export function extractLinkedInSignals(rawOrNormalizedProfile = {}, resumeContex
   const separatorCount = (headline.match(/[|•/—–]/g) || []).length
 
   // Target role / role presence check
-  const targetRole = (
+  const rawTargetRole =
     resumeContext?.targetRole ||
     resumeContext?.canonicalResume?.candidate?.targetRole ||
     ''
+  const targetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
   ).trim()
 
   let targetRoleKeywordsMatched = 0
