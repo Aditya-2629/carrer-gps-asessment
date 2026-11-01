@@ -22,15 +22,14 @@ function safeString(val, fallback = '') {
 
 function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
-  let count = 0
-  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
-    count += 1
-    if (count === 1) return match
-    return ''
-  })
-  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
-  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
-  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  let cleaned = text
+    .replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, '')
+    .replace(/\[ADD:[^\]]*\]/gi, '')
+    .replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
+    .replace(/\](?=[A-Za-z0-9])/g, '] ')
+    .replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
   return cleaned
 }
 

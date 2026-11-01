@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { pathToFileURL } from 'node:url'
+import { splitIntoSentencesSafely } from './docxResumeService.js'
 
 const runExec = promisify(execFile)
 
@@ -95,7 +96,7 @@ export function estimateHeightBudget(sanitizedResume = {}, config = {}) {
     : (sanitizedResume.summary?.text || '')
   if (rawSummary) {
     const sumText = config.shortenSummary
-      ? rawSummary.split(/(?<=[.?!])\s+/).slice(0, 3).join(' ')
+      ? splitIntoSentencesSafely(rawSummary).slice(0, 3).join(' ')
       : rawSummary
     totalLines += Math.max(2, Math.ceil(sumText.length / CHARS_PER_LINE)) + 2
   }

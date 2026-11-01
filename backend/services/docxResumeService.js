@@ -38,6 +38,35 @@ const PAGE_CONFIG = {
 const RIGHT_TAB_POS = 10224
 
 /**
+ * Splits text into sentences safely without prematurely breaking on common
+ * academic, professional, or colloquial abbreviations (e.g., M.S., B.S., Ph.D., B.Tech, M.Tech, e.g., i.e., Dr., U.S.).
+ */
+export function splitIntoSentencesSafely(text) {
+  if (!text || typeof text !== 'string') return []
+  return text
+    .split(/(?<=(?<!\b(?:M\.S|B\.S|Ph\.D|B\.Tech|M\.Tech|e\.g|i\.e|Dr|Mr|Ms|U\.S))[.?!])\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Eliminates stray bracketed placeholders ([ADD: ...]), collapses duplicated prepositions
+ * (e.g. "by by", "with with"), removes dangling prepositions before punctuation, and normalizes whitespace.
+ */
+export function cleanGrammarArtifacts(text) {
+  if (!text || typeof text !== 'string') return ''
+  let cleaned = text
+    .replace(/(\s+(?:by|to|of|across|for|with|at|in|from|and|on))?\s*\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+    .replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+    .replace(/\b(by|with|to|in|of|for|and|on|at|from|that|the|is)\s+\1\b/gi, '$1')
+    .replace(/\s+\b(?:by|to|of|across|for|with|at|in|from|on)\s*([.,;!?])/gi, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  return cleaned
+}
+
+/**
  * Group skills by category with JD demand order, eliminating the "General" catch-all
  */
 export function groupByCategory(skills = [], targetRole = '') {
@@ -185,6 +214,7 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   let rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
   if (!rawText) return []
   rawText = cleanPlaceholderGraceful(rawText)
+  rawText = cleanGrammarArtifacts(rawText)
 
   // Case A: Model already supplied **bold** markers (no 2-bold cap)
   if (/\*\*(.*?)\*\*/.test(rawText)) {
@@ -379,9 +409,9 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 2. PROFESSIONAL SUMMARY
   if (summary && summary.trim()) {
-    let cleanSummary = summary.trim()
+    let cleanSummary = cleanGrammarArtifacts(summary.trim())
     if (config.shortenSummary) {
-      const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
+      const sentences = splitIntoSentencesSafely(cleanSummary)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
     children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))

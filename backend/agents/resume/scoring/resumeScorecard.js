@@ -50,11 +50,13 @@ export function cleanRewriteText(text) {
     if (count === 1) return match // keep the first placeholder intact
     return '' // strip 2nd+ placeholder along with its leading preposition
   })
-  // 2. Ensure a space after closing bracket if followed immediately by a word character: "]audit" -> "] audit"
+  // 2. Collapse duplicated prepositions
+  cleaned = cleaned.replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
+  // 3. Ensure a space after closing bracket if followed immediately by a word character: "]audit" -> "] audit"
   cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
-  // 3. Remove any dangling prepositions right before a period or comma (e.g. "time by." -> "time.")
+  // 4. Remove any dangling prepositions right before a period or comma (e.g. "time by." -> "time.")
   cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
-  // 4. Normalize multiple spaces
+  // 5. Normalize multiple spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
   return balanceParentheses(cleaned)
 }
@@ -106,7 +108,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   // Special case: AI / Copilot prompt engineering
   if (/^using prompt engineering with (?:microsoft\s+copilot|copilot|ai tools)/i.test(clean)) {
-    const copilotRewrite = 'Engineered automated unit tests and surfaced critical edge cases (null payloads, expired JWT tokens, RBAC boundaries) using Microsoft Copilot prompt engineering, achieving [ADD: test coverage % or defect reduction].'
+    const copilotRewrite = 'Engineered automated unit tests and surfaced critical edge cases (null payloads, expired JWT tokens, RBAC boundaries) using Microsoft Copilot prompt engineering, enhancing operational throughput and reducing defect leakage.'
     return sanitizeSingleAddPlaceholder(copilotRewrite)
   }
 
@@ -205,12 +207,12 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
     /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(cleanWithoutVersions)
 
   const addMetricPlaceholder = /data|analyst|analytics|bi\b|business\s+intelligence/i.test(targetRole)
-    ? '[ADD: measurable business outcome, e.g., decision turnaround time saved, reporting adoption %, or cost/revenue impact]'
-    : '[ADD: measurable outcome, e.g., latency reduction %, system scale, or engineering hours saved]'
+    ? 'enhancing reporting adoption, reducing turnaround time, and enabling data-driven executive decisions'
+    : 'enhancing operational throughput, reducing execution latency, and ensuring continuous production uptime'
 
   if (!hasRealMetric && !clean.includes('[ADD:')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, achieving ${addMetricPlaceholder}.`
+    clean = `${clean}, ${addMetricPlaceholder}.`
   }
 
   // 5. Clean punctuation and whitespace
@@ -222,7 +224,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
   // 6. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
   if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
     clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, achieving ${addMetricPlaceholder}.`
+    clean = `${clean}, ${addMetricPlaceholder}.`
   }
 
   return sanitizeSingleAddPlaceholder(clean)

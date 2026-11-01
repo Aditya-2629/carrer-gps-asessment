@@ -440,9 +440,14 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Flag amateur or student-style phrasing (e.g., "Currently learning Generative AI...", "as a self-initiated project to explore...", "worked on academic project").
    - Rewrite them to emphasize architectural ownership, modernization, fault-tolerance, and production readiness.
 
-2. Vague / Unquantified Impact Claims:
-   - Flag bullets that claim improvements or effort without concrete numbers (e.g., "cutting page load times", "improving responsiveness", "easing manual effort", "raised release quality", "optimized database queries").
-   - Rewrite them into concrete Google XYZ bullets using a clean metric placeholder "[ADD: specific metric, e.g. latency reduction % or load time delta]" (strictly NO digits inside "[ADD: ...]").
+2. Vague / Unquantified Impact & Seniority Upgrade:
+   - Flag bullets that undercut senior positioning or lack tangible operational impact.
+   - Rewrite them into punchy, executive-grade engineering bullets following the Google XYZ standard:
+     "Accomplished [X], evidenced by [Y], by executing [Z]."
+   - CRITICAL HUMANIZATION MANDATE (ZERO PLACEHOLDERS):
+     * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
+     * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
+     * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
    - Flag bullets that list 5+ tools without explaining the architectural problem solved or the system built.
@@ -454,12 +459,12 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
 ==================================================
 Every single issue in "issues" MUST have a non-null "correctedText" ("correctionType": "rewrite"). Never return "correctedText": null.
 Never just swap the first verb — restructure the sentence so the Engineering Outcome / Scale leads, followed by the Technical Architecture / Mechanism:
-- Formula: Accomplished [X], as measured by [Y], by doing [Z].
+- Formula: Accomplished [X], evidenced by [Y], by doing [Z].
 - Lead with the system outcome, latency gain, throughput, reliability improvement, or user/workflow impact.
 - Follow with the specific engineering architecture, pattern, or mechanism evidenced in the resume.
-- If the original bullet lacks a measurable metric, insert a clean metric slot "[ADD: specific metric, e.g. latency reduction % or load time delta]" (strictly NO digits inside "[ADD: ...]") and provide 1 to 3 "metricDiscoveryQuestions" to help the candidate discover that metric.
-- Do NOT invent new technologies or concrete numeric digits in "correctedText". Use existing resume facts + clean "[ADD: ...]" placeholders.
-- Enforce at most ONE "[ADD: ...]" placeholder per rewritten bullet (never include multiple placeholders like "[ADD: metric] as measured by [ADD: secondary metric]").
+- ZERO PLACEHOLDER MANDATE: NEVER use bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>". If the original bullet lacks a measurable metric, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity). Still provide 1 to 3 "metricDiscoveryQuestions" to help the candidate discover an exact numeric delta if available.
+- Do NOT invent new technologies or concrete fake numbers in "correctedText". Ground rewrites strictly in verified resume facts and natural operational outcomes.
+- The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 ==================================================
 4. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")
@@ -468,7 +473,7 @@ In addition to the 5 to 7 primary issues, identify and rewrite up to 8 additiona
 Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
 - Set "status": "warn" (or "fix").
 - Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
-- Set "rewrittenText": Complete Google XYZ rewrite using only facts from the resume + [ADD: specific metric] if unquantified.
+- Set "rewrittenText": Complete Google XYZ rewrite using only facts from the resume and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.
 
 ==================================================
 4B. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
@@ -562,7 +567,7 @@ Return ONLY a valid JSON object matching this structure:
       "diagnosis": "Conversational, direct breakdown of what was noticed in this bullet.",
       "whyItMatters": "Why a senior hiring manager or recruiter cares for this target role.",
       "recommendation": "Concrete, actionable guidance on what to change.",
-      "correctedText": "Complete Google XYZ rewrite (Engineering Outcome/Scale first, then Mechanism). Non-null. Use [ADD: specific metric] if unquantified (no digits inside brackets).",
+      "correctedText": "Complete humanized Google XYZ rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.",
       "metricDiscoveryQuestions": [
         "What was the measurable latency improvement or percentage throughput gain?"
       ],
@@ -591,7 +596,7 @@ Return ONLY a valid JSON object matching this structure:
       "bulletId": "exp_001_b05",
       "status": "warn",
       "reason": "Specific 1-sentence recruiter critique of why this bullet is weak or unquantified",
-      "rewrittenText": "Complete Google XYZ rewrite using only facts from the resume + [ADD: specific metric] if unquantified"
+      "rewrittenText": "Complete humanized Google XYZ rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders."
     }
   ]
 }`,
