@@ -6,6 +6,7 @@
 
 import { detectCertifications } from './signals/certificationDetector.js'
 import { normalizeLinkedInUrl } from '../../utils/linkedinUrlUtils.js'
+import { parseResumeWithAI } from './parser/aiResumeParserAgent.js'
 
 // Broad role keywords matching all modern technical, management, product, data, design, and operations titles
 export const ROLE_KEYWORDS_REGEX = /\b(engineer|developer|architect|manager|lead|director|analyst|scientist|consultant|specialist|designer|intern|administrator|coordinator|programmer|officer|head|vp|president|founder|cto|ceo|cpo|coo|cso|fellow|associate|technician|representative|trainee|apprentice|practitioner|researcher|operator|advisor|strategist|auditor|recruiter|tester|qa|sde|swe|devops|sre|scrum\s+master|product\s+owner|instructor|professor|assistant|writer|marketer|producer|supervisor)\b/i
@@ -120,6 +121,52 @@ export const DATE_RANGE_REGEX = /((?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|
 
 export class ResumeNormalizer {
   /**
+   * Asynchronous normalization pipeline
+   * Uses AI Resume Parser Agent to parse raw document text into canonical JSON.
+   * If structured experiences are already present, or if LLM parsing is not possible/offline,
+   * falls back safely to deterministic normalization.
+   *
+   * @param {Object} parsedDoc - Output from DocumentParser.parse()
+   * @param {string} [targetRoleOverride] - Optional target role passed by user/caller
+   * @returns {Promise<Object>} Canonical Resume Representation
+   */
+  static async normalizeAsync(parsedDoc, targetRoleOverride = '') {
+    if (!parsedDoc) return this.normalize({}, targetRoleOverride)
+
+    const hasStructuredExp = Boolean(
+      (Array.isArray(parsedDoc.experiences) && parsedDoc.experiences.length > 0) ||
+      (Array.isArray(parsedDoc.experience) && parsedDoc.experience.length > 0) ||
+      (Array.isArray(parsedDoc.structuredResume?.experiences) && parsedDoc.structuredResume.experiences.length > 0) ||
+      (Array.isArray(parsedDoc.resumeJson?.experiences) && parsedDoc.resumeJson.experiences.length > 0)
+    )
+
+    // If structured experience is missing and we have rawText, invoke AI Resume Parser
+    if (!hasStructuredExp && parsedDoc.rawText && parsedDoc.rawText.trim().length >= 40) {
+      try {
+        const aiParsed = await parseResumeWithAI(parsedDoc.rawText, targetRoleOverride)
+        if (aiParsed && typeof aiParsed === 'object') {
+          // Merge AI parsed structured data into parsedDoc
+          const mergedDoc = {
+            ...parsedDoc,
+            experiences: aiParsed.experiences || parsedDoc.experiences,
+            projects: aiParsed.projects || parsedDoc.projects,
+            education: aiParsed.education || parsedDoc.education,
+            skills: aiParsed.skills || parsedDoc.skills,
+            certifications: aiParsed.certifications || parsedDoc.certifications,
+            candidate: aiParsed.candidate || parsedDoc.candidate,
+            summary: aiParsed.summary || parsedDoc.summary,
+          }
+          return this.normalize(mergedDoc, targetRoleOverride)
+        }
+      } catch (err) {
+        console.warn('[ResumeNormalizer] AI parsing fallback to deterministic normalizer:', err.message)
+      }
+    }
+
+    return this.normalize(parsedDoc, targetRoleOverride)
+  }
+
+  /**
    * Main normalization function
    *
    * @param {Object} parsedDoc - Output from DocumentParser.parse()
@@ -131,12 +178,28 @@ export class ResumeNormalizer {
     const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean)
 
     const candidate = this.extractCandidateInfo(lines, targetRoleOverride, rawText)
+    if (parsedDoc.candidate && typeof parsedDoc.candidate === 'object') {
+      if (parsedDoc.candidate.name && parsedDoc.candidate.name !== 'Candidate') {
+        candidate.name = parsedDoc.candidate.name
+      }
+      if (parsedDoc.candidate.targetRole) {
+        candidate.targetRole = parsedDoc.candidate.targetRole
+        candidate.headline = parsedDoc.candidate.targetRole
+      }
+      if (parsedDoc.candidate.contact) {
+        candidate.contact = {
+          ...candidate.contact,
+          ...parsedDoc.candidate.contact,
+        }
+      }
+    }
     const sections = this.segmentSections(lines)
 
-    // Check if structured experiences, projects, skills, certifications already exist from AI Chunker or Parser
+    // Check if structured experiences, projects, skills, education, certifications already exist from AI Chunker or Parser
     const structuredExp = parsedDoc.experiences || parsedDoc.experience || parsedDoc.structuredResume?.experiences || parsedDoc.resumeJson?.experiences
     const structuredProjects = parsedDoc.projects || parsedDoc.structuredResume?.projects || parsedDoc.resumeJson?.projects
     const structuredSkills = parsedDoc.skills || parsedDoc.structuredResume?.skills || parsedDoc.resumeJson?.skills
+    const structuredEdu = parsedDoc.education || parsedDoc.structuredResume?.education || parsedDoc.resumeJson?.education
     const structuredCerts = parsedDoc.certifications || parsedDoc.structuredResume?.certifications || parsedDoc.resumeJson?.certifications
 
     let experience = []
@@ -210,7 +273,39 @@ export class ResumeNormalizer {
       projects = this.parseProjects(sections.projects || [])
     }
 
-    let education = this.parseEducation(sections.education || [])
+    let education = []
+    if (Array.isArray(structuredEdu) && structuredEdu.length > 0) {
+      education = structuredEdu.map((e, idx) => {
+        const eduId = `edu_${String(idx + 1).padStart(3, '0')}`
+        if (typeof e === 'string') {
+          const parsed = this.parseEducation([e])
+          return parsed[0] || {
+            id: eduId,
+            school: 'University',
+            institution: 'University',
+            degree: e,
+            location: '',
+            dates: '',
+            year: '',
+          }
+        }
+        const school = (e.school || e.institution || e.university || '').trim()
+        const degree = (e.degree || e.degreeName || '').trim()
+        const dates = (e.dates || e.year || (e.startDate && e.endDate ? `${e.startDate} – ${e.endDate}` : '')).trim()
+        const location = (e.location || '').trim()
+        return {
+          id: eduId,
+          school,
+          institution: school,
+          degree,
+          location,
+          dates,
+          year: dates,
+        }
+      }).filter((e) => e.school || e.degree)
+    } else {
+      education = this.parseEducation(sections.education || [])
+    }
 
     // ── Strict Separation Guard: Extract degrees/institutions accidentally parsed into projects ──
     const degreeKeywordsRegex = /\b(?:M\.?S\.?|B\.?S\.?|B\.?Tech|Bachelor|Master|Ph\.?D\.?|University|College|Institute|Diploma|Graduated|GPA)\b/i
@@ -249,10 +344,29 @@ export class ResumeNormalizer {
 
     let skills = []
     if (Array.isArray(structuredSkills) && structuredSkills.length > 0) {
-      skills = structuredSkills.map((s, idx) => ({
+      const flattenedSkills = []
+      for (const item of structuredSkills) {
+        if (typeof item === 'string') {
+          flattenedSkills.push({ name: item.trim(), category: 'General' })
+        } else if (item && Array.isArray(item.skills)) {
+          const cat = item.category || 'General'
+          for (const sk of item.skills) {
+            if (typeof sk === 'string' && sk.trim()) {
+              flattenedSkills.push({ name: sk.trim(), category: cat })
+            }
+          }
+        } else if (item && (item.name || item.skill)) {
+          flattenedSkills.push({
+            name: (item.name || item.skill || '').trim(),
+            category: item.category || 'General',
+          })
+        }
+      }
+
+      skills = flattenedSkills.map((s, idx) => ({
         id: `skill_${String(idx + 1).padStart(3, '0')}`,
-        name: typeof s === 'string' ? s.trim() : (s.name || '').trim(),
-        category: typeof s === 'object' && s.category ? s.category : 'General',
+        name: s.name,
+        category: s.category || 'General',
       })).filter((s) => s.name.length > 0)
     } else {
       skills = this.parseSkills(sections.skills || [])
@@ -262,7 +376,7 @@ export class ResumeNormalizer {
     if (Array.isArray(structuredCerts) && structuredCerts.length > 0) {
       initialCertifications = structuredCerts.map((c, idx) => ({
         id: `cert_${String(idx + 1).padStart(3, '0')}`,
-        name: typeof c === 'string' ? c.trim() : (c.name || '').trim(),
+        name: typeof c === 'string' ? c.trim() : (c.name || c.title || '').trim(),
         issuer: typeof c === 'object' && c.issuer ? c.issuer : '',
         year: typeof c === 'object' && c.year ? c.year : '',
       })).filter((c) => c.name.length > 0)
@@ -279,7 +393,17 @@ export class ResumeNormalizer {
       }
     }
 
-    const summary = this.parseSummary(sections.summary || [])
+    let summary = this.parseSummary(sections.summary || [])
+    if (parsedDoc.summary) {
+      const summaryText = typeof parsedDoc.summary === 'string' ? parsedDoc.summary : parsedDoc.summary.text || ''
+      if (summaryText.trim()) {
+        summary = {
+          id: 'summary_001',
+          text: summaryText.trim(),
+          source: { page: 1, bbox: null },
+        }
+      }
+    }
 
     // ── Extract past and present roles from experience ─────────────────────────
     let presentRole = ''
@@ -1331,6 +1455,9 @@ export class ResumeNormalizer {
             id: `edu_${String(eduCounter++).padStart(3, '0')}`,
             degree: currentEntry.degree || 'Degree',
             institution: currentEntry.institution || 'University',
+            school: currentEntry.institution || 'University',
+            location: '',
+            dates: currentEntry.year || '',
             year: currentEntry.year || '',
           })
           currentEntry = {
@@ -1358,6 +1485,9 @@ export class ResumeNormalizer {
         id: `edu_${String(eduCounter++).padStart(3, '0')}`,
         degree: currentEntry.degree || 'Degree',
         institution: currentEntry.institution || 'University',
+        school: currentEntry.institution || 'University',
+        location: '',
+        dates: currentEntry.year || '',
         year: currentEntry.year || '',
       })
     }
@@ -1429,4 +1559,6 @@ export class ResumeNormalizer {
   }
 }
 
+export const normalize = ResumeNormalizer.normalize.bind(ResumeNormalizer)
+export const normalizeAsync = ResumeNormalizer.normalizeAsync.bind(ResumeNormalizer)
 export default ResumeNormalizer

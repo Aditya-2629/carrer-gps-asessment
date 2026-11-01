@@ -147,7 +147,7 @@ export class ResumeAgent {
         maxSectionChars: 16000,
       })
       parsedDoc = chunkResult.parsedDoc
-      canonicalResume = ResumeNormalizer.normalize(parsedDoc, targetRole)
+      canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
     }
 
     const effectiveRole = targetRole || canonicalResume?.candidate?.targetRole || 'Technical Professional'
@@ -242,7 +242,7 @@ export class ResumeAgent {
 
       // ── Step 2: Normalize → Canonical Resume ────────────────────────────────
       if (!canonicalResume) {
-        canonicalResume = ResumeNormalizer.normalize(parsedDoc, targetRole)
+        canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
       }
       if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
         canonicalResume.candidate.contact.linkedin = linkedinUrl
