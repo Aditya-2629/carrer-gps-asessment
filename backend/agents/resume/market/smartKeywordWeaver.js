@@ -21,6 +21,9 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
 
     bullets.forEach((b, bIdx) => {
       let text = typeof b === 'string' ? b : (b?.text || '')
+      const initialWordCount = text.split(/\s+/).filter(Boolean).length
+      // Strict Length Guard: Do not append secondary clauses to already dense bullets (35+ words)
+      if (initialWordCount >= 35) return
 
       for (const kw of targetKws) {
         const kwLower = kw.toLowerCase()
@@ -30,7 +33,12 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
         if (kwLower === 'typescript' && /react|frontend|api|endpoint|service|javascript|node|web|ui/i.test(text)) {
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
             const clean = text.replace(/[.!?]+$/, '').trim()
-            text = `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
+            const candidate = `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
+            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
+              text = candidate
+            } else {
+              text = `${clean}, enforcing strict TypeScript API contracts.`
+            }
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
@@ -48,7 +56,12 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
         if (['kafka', 'sqs', 'rabbitmq'].includes(kwLower) && /event|stream|queue|sync|message|serverless|worker|pipeline/i.test(text)) {
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
             const clean = text.replace(/[.!?]+$/, '').trim()
-            text = `${clean}, utilizing Kafka event topics to decouple asynchronous workers, eliminating request drops during high-volume spikes.`
+            const candidate = `${clean}, utilizing Kafka event topics to decouple asynchronous workers, eliminating request drops during high-volume spikes.`
+            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
+              text = candidate
+            } else {
+              text = `${clean}, utilizing Kafka event topics to decouple asynchronous workers.`
+            }
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
@@ -62,21 +75,30 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
           }
         }
 
-        // 3. Read-Aside Caching slot (Redis)
-        if (kwLower === 'redis' && /cache|caching|latency|query|database|session|api|throughput|load/i.test(text)) {
-          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            const clean = text.replace(/[.!?]+$/, '').trim()
-            text = `${clean}, implementing a Redis read-aside caching layer with TTL eviction, offloading 70% of read queries from the primary database.`
-            usedKeywords.add(kwLower)
-            keywordLedger.push({
-              keyword: kw,
-              company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Read-Aside Caching Architecture',
-              bulletText: text,
-              exactBullet: text,
-              interviewTalkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
-            })
-            break
+        // 3. Read-Aside Caching slot (Redis) — Strictly DO NOT tack onto AI/Chatbot bullets!
+        if (kwLower === 'redis') {
+          const isChatbotOrAi = /chatbot|llm|copilot|rag|conversational|dialog|prompt|vector/i.test(text)
+          const isDbOrQuery = /cache|caching|latency|query|database|session|api|throughput|load|sql|postgres|postgresql|orm/i.test(text)
+          if (!isChatbotOrAi && isDbOrQuery) {
+            if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
+              const clean = text.replace(/[.!?]+$/, '').trim()
+              const fullCandidate = `${clean}, implementing a Redis read-aside caching layer with TTL eviction, offloading 70% of read queries from the primary database.`
+              if (fullCandidate.split(/\s+/).filter(Boolean).length <= 38) {
+                text = fullCandidate
+              } else {
+                text = `${clean}, deploying Redis read-aside caching to cut p95 database query latency by 35%.`
+              }
+              usedKeywords.add(kwLower)
+              keywordLedger.push({
+                keyword: kw,
+                company: exp.company || `Company ${expIdx + 1}`,
+                placement: 'Read-Aside Caching Architecture',
+                bulletText: text,
+                exactBullet: text,
+                interviewTalkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
+              })
+              break
+            }
           }
         }
 
@@ -84,7 +106,12 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
         if (['docker', 'kubernetes', 'k8s'].includes(kwLower) && /deploy|container|cloud|ci\/cd|pipeline|backend|service|microservice|aws/i.test(text)) {
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
             const clean = text.replace(/[.!?]+$/, '').trim()
-            text = `${clean}, containerized using multi-stage Docker builds and deployed on Kubernetes with automated health probes and rolling updates.`
+            const candidate = `${clean}, containerized using multi-stage Docker builds and deployed on Kubernetes with automated health probes and rolling updates.`
+            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
+              text = candidate
+            } else {
+              text = `${clean}, containerized via Docker and deployed on Kubernetes.`
+            }
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
@@ -103,9 +130,14 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
           if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
             const clean = text.replace(/[.!?]+$/, '').trim()
             const clause = kwLower === 'graphql'
-              ? 'architecting a unified GraphQL schema to eliminate over-fetching and consolidate multi-endpoint data retrieval into single network requests'
-              : 'implementing high-performance gRPC service-to-service communication with Protocol Buffers, cutting inter-service serialization overhead'
-            text = `${clean}, ${clause}.`
+              ? 'architecting a unified GraphQL schema to eliminate over-fetching and consolidate multi-endpoint data retrieval'
+              : 'implementing high-performance gRPC service-to-service communication with Protocol Buffers'
+            const candidate = `${clean}, ${clause}.`
+            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
+              text = candidate
+            } else {
+              text = `${clean}, adopting ${kw} to optimize API network payloads.`
+            }
             usedKeywords.add(kwLower)
             keywordLedger.push({
               keyword: kw,
@@ -127,7 +159,7 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
     // Synthesize Engineering Practice Bullet (Testing, Code Reviews, Git) if missing
     const needsTesting = targetKws.some((k) => /testing|code review|git|system design/i.test(k))
     if (expIdx === 0 && needsTesting && !usedKeywords.has('unit testing')) {
-      const practiceBullet = `Maintained production reliability by establishing unit and integration test coverage with Jest and PyTest, driving peer code reviews and Git/GitHub release deployment workflows.`
+      const practiceBullet = `Established comprehensive automated testing and release reliability with Jest and PyTest, driving peer code reviews and Git/GitHub CI/CD pull request review gates.`
       exp.bullets.push(practiceBullet)
       usedKeywords.add('unit testing')
       usedKeywords.add('code review')

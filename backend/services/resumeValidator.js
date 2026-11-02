@@ -83,6 +83,7 @@ export function repairGrammar(rawText) {
     .replace(/\breduced of\b/gi, 'reduced')
     .replace(/\bassisted with to\b/gi, 'assisted with')
     .replace(/\bachievedsecurity\b/gi, 'achieved security')
+    .replace(/sanitization\s+security\s+audit\s+compliance/gi, 'sanitization, achieving 100% security audit compliance')
     .replace(/\bzero-\s+downtime\b/gi, 'zero-downtime')
     .replace(/\bintent-\s+classification\b/gi, 'intent-classification')
     // Buzzword rephrasings

@@ -60,6 +60,7 @@ export function cleanGrammarArtifacts(text) {
     .replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
     .replace(/\b(by|with|to|in|of|for|and|on|at|from|that|the|is)\s+\1\b/gi, '$1')
     .replace(/\s+\b(?:by|to|of|across|for|with|at|in|from|on)\s*([.,;!?])/gi, '$1')
+    .replace(/sanitization\s+security\s+audit\s+compliance/gi, 'sanitization, achieving 100% security audit compliance')
     .replace(/\s{2,}/g, ' ')
     .trim()
 
@@ -143,7 +144,14 @@ export function groupByCategory(skills = [], targetRole = '') {
     return s.trim()
   }).filter((s) => s.length >= 1)
 
-  const unique = Array.from(new Set(cleanTokens))
+  const BANNED_SKILLS = new Set([
+    'agile/scrum', 'agile', 'scrum', 'oop & design patterns', 'oop', 'design patterns',
+    'code review', 'full-stack development', 'full-stack', 'performance optimization',
+    'secure coding', 'unit & integration testing', 'software engineering', 'problem solving',
+    'communication', 'team player', 'leadership',
+  ])
+
+  const unique = Array.from(new Set(cleanTokens)).filter((s) => !BANNED_SKILLS.has(s.toLowerCase().trim()))
   const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
 
   if (isDataRole) {
@@ -159,7 +167,9 @@ export function groupByCategory(skills = [], targetRole = '') {
       if (buckets[bucket]) buckets[bucket].push(s)
       else buckets['Business Analysis & Process'].push(s)
     })
-    return Object.entries(buckets).filter(([_, items]) => items.length > 0)
+    return Object.entries(buckets)
+      .map(([cat, items]) => [cat, items.slice(0, 8)])
+      .filter(([_, items]) => items.length > 0)
   }
 
   // SWE / AI / Full Stack
@@ -179,7 +189,9 @@ export function groupByCategory(skills = [], targetRole = '') {
     else if (buckets['Backend & APIs']) buckets['Backend & APIs'].push(s)
     else buckets['Databases & Messaging'].push(s)
   })
-  return Object.entries(buckets).filter(([_, items]) => items.length > 0)
+  return Object.entries(buckets)
+    .map(([cat, items]) => [cat, items.slice(0, 8)])
+    .filter(([_, items]) => items.length > 0)
 }
 
 function createHyperlink(text, url, size = 19) {

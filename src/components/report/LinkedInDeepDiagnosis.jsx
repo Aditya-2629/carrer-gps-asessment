@@ -210,7 +210,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   )
   const isBlankProfile = !hasUserLinkedinUrl && !linkedinAgent?.dataAvailable && !linkedinAgent?.inferredFromResume
 
-  const targetRole =
+  const rawTarget =
     reportData?.target_role ||
     reportData?.user_answers?.targetRole ||
     linkedinAgent?.targetRole ||
@@ -219,7 +219,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     resumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
     resumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
     reportData?.resume_json?.target_role ||
-    'Professional'
+    'Software Engineer'
+
+  const targetRole = typeof rawTarget === 'object'
+    ? (rawTarget?.rawAnswer || rawTarget?.value || rawTarget?.title || 'Software Engineer')
+    : String(rawTarget || 'Software Engineer').trim()
 
   const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web|cloud|devops/i.test(targetRole)
   const isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)

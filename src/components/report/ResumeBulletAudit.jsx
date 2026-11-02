@@ -268,7 +268,8 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
       {/* 1-Click Realistic Metric Generator */}
       {metricOptions && rewriteText && (
         <div
-          className={`rounded-lg p-3 space-y-2 border ${
+          data-interactive="true"
+          className={`rounded-lg p-3 space-y-2 border no-print metric-generator-widget ${
             light
               ? 'bg-sky-50/60 border-sky-200/80'
               : 'bg-sky-950/20 border-sky-800/40'

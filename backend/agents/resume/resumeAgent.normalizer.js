@@ -736,7 +736,7 @@ export class ResumeNormalizer {
       { key: 'skills', regex: /^(skills|technical\s+skills|core\s+competencies|technologies|tools\s+and\s+technologies|core\s+skills)$/i },
       {
         key: 'certifications',
-        regex: /^(?:certifications?(?:\s*(?:&|and|\/)\s*licenses?)?|licenses?\s*(?:&|and)\s*certifications?|credentials|certificates?|courses|awards)$/i
+        regex: /^(?:(?:professional\s+)?certifications?(?:\s*(?:&|and|\/)\s*licenses?)?|licenses?\s*(?:&|and)\s*certifications?|credentials|certificates?|courses|awards)$/i
       },
       { key: 'summary', regex: /^(summary|professional\s+summary|profile|about\s+me|objective|career\s+summary|executive\s+summary)$/i },
     ]

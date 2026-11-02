@@ -9,6 +9,7 @@
  */
 
 import { extractSkillsFromJd } from './jdNormalizer.js'
+import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
 
 // Curated high-frequency market intelligence keywords per controlled role category
 export const MARKET_ROLE_KEYWORD_PACKS = {
@@ -250,7 +251,14 @@ export const KEYWORD_SYNONYMS = {
     'openapi',
     'graphql',
   ],
-  'git': ['git', 'github', 'gitlab', 'bitbucket', 'version control', 'pull request'],
+  'git': ['git', 'github', 'gitlab', 'bitbucket', 'version control', 'pull request', 'pr'],
+  'git / github': ['git', 'github', 'gitlab', 'bitbucket', 'version control', 'pull request', 'pr'],
+  'machine learning': ['machine learning', 'ml', 'deep learning', 'scikit-learn', 'tensorflow', 'pytorch'],
+  'system design': ['system design', 'system architecture', 'distributed systems', 'high-level design', 'low-level design', 'software architecture', 'microservices architecture'],
+  'unit / integration testing': ['unit test', 'unit testing', 'integration test', 'integration testing', 'jest', 'pytest', 'mocha', 'junit', 'automated tests', 'test coverage', 'tdd', 'test automation'],
+  'unit testing': ['unit test', 'unit testing', 'integration test', 'integration testing', 'jest', 'pytest', 'mocha', 'junit', 'automated tests', 'test coverage', 'tdd'],
+  'code review': ['code review', 'code reviews', 'pr review', 'pr reviews', 'peer review'],
+  'devops': ['devops', 'ci/cd', 'ci / cd', 'docker', 'kubernetes', 'terraform', 'jenkins'],
   'jwt / oauth 2.0': [
     'jwt / oauth 2.0',
     'jwt',
@@ -559,6 +567,33 @@ export function computeKeywordAlignment({
     new Set(missingFromResume.filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())))
   )
 
+  // 5. Market JD Skill Demand Comparison (Benchmarked against live tech JDs)
+  const demandedSkills = getMarketDemandedSkills(roleName)
+  const missingMarketSkillsRanked = []
+
+  for (const item of demandedSkills) {
+    const inExperience = keywordMatchesText(item.skill, expAndProjText)
+    const inSkills = keywordMatchesText(item.skill, skillsText)
+    const inSummary = keywordMatchesText(item.skill, summaryText)
+    const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(item.skill, fullResumeText)
+
+    if (!inFullResume && (item.priority === 'HIGH' || item.priority === 'MEDIUM')) {
+      missingMarketSkillsRanked.push({
+        keyword: item.skill,
+        percentage: item.percentage,
+        priority: item.priority,
+        category: item.category,
+        badge: `${item.percentage}% of JDs`,
+      })
+      if (!uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
+        uniqueMissing.push(item.skill)
+      }
+    }
+  }
+
+  // Sort ranked skills by percentage descending
+  missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage)
+
   const matchedCount = uniqueMatched.length
   const totalTargetKeywords = uniqueMatched.length + uniqueMissing.length
   const matchPercent = totalTargetKeywords > 0 ? Math.round((matchedCount / totalTargetKeywords) * 100) : 100
@@ -573,6 +608,7 @@ export function computeKeywordAlignment({
     matchedInExperience: uniqueMatched,
     skillsOnlyUnverified: uniqueSkillsOnly,
     missingFromResume: uniqueMissing,
+    missingMarketSkillsRanked,
     isCompleteCoverage: uniqueMissing.length === 0,
     skillsOnlyGuidance: 'Listed in your Skills section, but not shown in your work bullets — mention in 1 bullet to prove hands-on usage.',
   }

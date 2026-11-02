@@ -597,6 +597,8 @@ h1, h2, h3, h4, h5, h6 {
   }
   .no-print,
   button:not(.print-keep),
+  [data-interactive="true"],
+  .metric-generator-widget,
   .filter-tabs,
   .collapse-toggle,
   .experience-dropdown-chevron,

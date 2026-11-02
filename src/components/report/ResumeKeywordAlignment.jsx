@@ -26,6 +26,7 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
     matchedInExperience = [],
     skillsOnlyUnverified = [],
     missingFromResume = [],
+    missingMarketSkillsRanked = [],
     matchPercent = 0,
     matchedCount = 0,
     totalTargetKeywords = 0,
@@ -37,12 +38,44 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  // 1. Clean, trim and deduplicate missing keywords
-  const cleanMissing = (Array.isArray(missingFromResume) ? missingFromResume : [])
-    .map((k) => (typeof k === 'string' ? decodeHtmlEntities(k).trim() : (k?.keyword || k?.name || '')))
-    .filter((k) => k && k.length > 0 && k.split(/\s+/).length <= 4 && !/&(?:amp|lt|gt|quot|#39);/i.test(k) && !/&amp;/i.test(k))
+  // 1. Clean, trim and deduplicate missing keywords with real market demand badges
+  const missingMap = new Map()
 
-  const uniqueMissing = Array.from(new Set(cleanMissing))
+  const rankedItems = Array.isArray(missingMarketSkillsRanked) ? missingMarketSkillsRanked : []
+  for (const item of rankedItems) {
+    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
+    const cleanName = decodeHtmlEntities(rawName).trim()
+    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
+    const key = cleanName.toLowerCase()
+    if (!missingMap.has(key)) {
+      missingMap.set(key, {
+        keyword: cleanName,
+        percentage: item.percentage || null,
+        priority: item.priority || 'HIGH',
+        category: item.category || 'Tech',
+        badge: item.badge || (item.percentage ? `${item.percentage}% of JDs` : null),
+      })
+    }
+  }
+
+  const fallbackMissing = Array.isArray(missingFromResume) ? missingFromResume : []
+  for (const item of fallbackMissing) {
+    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
+    const cleanName = decodeHtmlEntities(rawName).trim()
+    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
+    const key = cleanName.toLowerCase()
+    if (!missingMap.has(key)) {
+      missingMap.set(key, {
+        keyword: cleanName,
+        percentage: item?.percentage || null,
+        priority: item?.priority || 'MEDIUM',
+        category: item?.category || 'Tech',
+        badge: item?.badge || (item?.percentage ? `${item.percentage}% of JDs` : null),
+      })
+    }
+  }
+
+  const uniqueMissing = Array.from(missingMap.values())
   const cleanMatched = (matchedInExperience || [])
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
@@ -255,22 +288,47 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
               <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-slate-600' : 'text-slate-400'}`}>
                 High-priority market keywords standard for {targetRole || 'this role'} not found anywhere on your resume.
               </p>
-              <div className="flex flex-wrap gap-1.5">
-                {displayedMissing.map((kw, i) => (
-                  <span
-                    key={i}
-                    className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${
-                      light
-                        ? 'bg-white text-rose-700 border-rose-200 shadow-2xs'
-                        : 'bg-rose-950/60 text-rose-200 border-rose-700/50'
-                    }`}
-                  >
-                    + {kw}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {displayedMissing.map((item, i) => {
+                  const name = typeof item === 'string' ? item : item.keyword || item.name
+                  const pct = item.percentage ? `${item.percentage}% of JDs` : item.badge
+                  const isHigh = item.priority === 'HIGH' || (item.percentage && item.percentage >= 25)
+
+                  return (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border ${
+                        isHigh
+                          ? light
+                            ? 'bg-rose-500/10 text-rose-700 border-rose-500/25 font-semibold'
+                            : 'bg-rose-500/10 text-rose-300 border-rose-500/25 font-semibold'
+                          : light
+                            ? 'bg-amber-500/10 text-amber-700 border-amber-500/25'
+                            : 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                      }`}
+                    >
+                      <span>+ {name}</span>
+                      {pct && (
+                        <span
+                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                            isHigh
+                              ? light
+                                ? 'bg-rose-500/20 text-rose-800'
+                                : 'bg-rose-500/30 text-rose-200'
+                              : light
+                                ? 'bg-amber-500/20 text-amber-800'
+                                : 'bg-amber-500/30 text-amber-200'
+                          }`}
+                        >
+                          {pct}
+                        </span>
+                      )}
+                    </span>
+                  )
+                })}
                 {remainingMissing > 0 && (
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-lg font-medium border border-dashed ${
+                    className={`inline-flex items-center text-xs px-2.5 py-1.5 rounded-lg font-medium border border-dashed ${
                       light
                         ? 'bg-rose-100/50 text-rose-800 border-rose-300'
                         : 'bg-rose-950/40 text-rose-300 border-rose-700/40'

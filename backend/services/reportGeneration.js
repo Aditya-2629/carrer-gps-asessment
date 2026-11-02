@@ -332,17 +332,24 @@ export async function generateReportBundle({
 
   const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
 
+  // Safely extract string targetRole from semantic profile or user answers
   const rawTargetRole =
-    effectiveSemanticProfile?.targetRole ||
-    effectiveSemanticProfile?.target_role ||
-    user.answers?.targetRole ||
+    (typeof effectiveSemanticProfile?.targetRole === 'object'
+      ? effectiveSemanticProfile?.targetRole?.rawAnswer || effectiveSemanticProfile?.targetRole?.value || effectiveSemanticProfile?.targetRole?.title
+      : effectiveSemanticProfile?.targetRole) ||
+    (typeof effectiveSemanticProfile?.target_role === 'object'
+      ? effectiveSemanticProfile?.target_role?.rawAnswer || effectiveSemanticProfile?.target_role?.value || effectiveSemanticProfile?.target_role?.title
+      : effectiveSemanticProfile?.target_role) ||
+    (typeof user.answers?.targetRole === 'object'
+      ? user.answers?.targetRole?.rawAnswer || user.answers?.targetRole?.value || user.answers?.targetRole?.title
+      : user.answers?.targetRole) ||
     user.resumeJson?.target_role ||
-    ''
-  const resumeTargetRole = (
-    typeof rawTargetRole === 'string'
-      ? rawTargetRole
-      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
-  ).trim()
+    user.targetRole ||
+    'Software Engineer'
+
+  const resumeTargetRole = typeof rawTargetRole === 'string' && rawTargetRole.trim()
+    ? rawTargetRole.trim()
+    : 'Software Engineer'
 
   // Evaluate rich assessment intelligence & directives across all agents
   const assessmentPersona = evaluateAssessmentPersona({
@@ -555,6 +562,7 @@ export async function generateReportBundle({
   }
 
   aiReport.interview_ledger = interviewLedger
+  aiReport.target_role = resumeTargetRole
 
   // Attach verified agent diagnoses and V2 Career GPS metrics
   aiReport.resume_agent = activeResumeAgent
