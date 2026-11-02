@@ -285,8 +285,14 @@ export function computePrecomputedSignals(resumeInput) {
   const bulletEntries = [] // Array of { bulletId, text, isCurrentRole, parentId }
 
   // Case A: Canonical resume shape with experience[] and projects[]
-  if (Array.isArray(resumeInput.experience)) {
-    for (const exp of resumeInput.experience) {
+  const rawExperiences =
+    resumeInput?.experiences ||
+    resumeInput?.experience ||
+    resumeInput?.work_experience ||
+    resumeInput?.workExperience ||
+    []
+  if (Array.isArray(rawExperiences)) {
+    for (const exp of rawExperiences) {
       if (!exp || !Array.isArray(exp.bullets)) continue
       const isCurrent = exp.isCurrent === true || /present|current|now/i.test(exp.endDate || '') || /present|current|now/i.test(exp.dates || '')
       for (const b of exp.bullets) {

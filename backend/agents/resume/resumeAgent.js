@@ -150,6 +150,14 @@ export class ResumeAgent {
       canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
     }
 
+    if (canonicalResume) {
+      if (!canonicalResume.experiences && canonicalResume.experience) {
+        canonicalResume.experiences = canonicalResume.experience
+      } else if (!canonicalResume.experience && canonicalResume.experiences) {
+        canonicalResume.experience = canonicalResume.experiences
+      }
+    }
+
     const effectiveRole = targetRole || canonicalResume?.candidate?.targetRole || 'Technical Professional'
     const rawFacts = extractResumeFacts(canonicalResume)
     const normalizedFacts = normalizeFacts(rawFacts.facts)
@@ -243,6 +251,13 @@ export class ResumeAgent {
       // ── Step 2: Normalize → Canonical Resume ────────────────────────────────
       if (!canonicalResume) {
         canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
+      }
+      if (canonicalResume) {
+        if (!canonicalResume.experiences && canonicalResume.experience) {
+          canonicalResume.experiences = canonicalResume.experience
+        } else if (!canonicalResume.experience && canonicalResume.experiences) {
+          canonicalResume.experience = canonicalResume.experiences
+        }
       }
       if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
         canonicalResume.candidate.contact.linkedin = linkedinUrl
@@ -911,7 +926,7 @@ export class ResumeAgent {
           ...(parsedAnalysis.candidateSnapshot || {}),
           name: parsedAnalysis.candidateSnapshot?.name || canonicalResume.candidate?.name || '',
           targetRole: parsedAnalysis.candidateSnapshot?.targetRole || canonicalResume.candidate?.targetRole || effectiveRole || '',
-          experienceLevel: parsedAnalysis.candidateSnapshot?.experienceLevel || (canonicalResume.experience?.length ? `${Math.max(1, canonicalResume.experience.length * 2)}+ years` : ''),
+          experienceLevel: parsedAnalysis.candidateSnapshot?.experienceLevel || ((canonicalResume.experiences || canonicalResume.experience)?.length ? `${Math.max(1, (canonicalResume.experiences || canonicalResume.experience).length * 2)}+ years` : ''),
           presentRole: canonicalResume.candidate?.presentRole || '',
           presentCompany: canonicalResume.candidate?.presentCompany || '',
           pastRoles: canonicalResume.candidate?.pastRoles || [],

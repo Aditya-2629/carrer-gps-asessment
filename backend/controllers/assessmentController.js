@@ -766,7 +766,17 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     // 2. Missing target keywords collection and skills injection
+    const querySkills = []
+    const rawSkillsParam = req.query?.skills || req.body?.skills
+    if (typeof rawSkillsParam === 'string') {
+      querySkills.push(...rawSkillsParam.split(',').map((s) => s.trim()).filter(Boolean))
+    } else if (Array.isArray(rawSkillsParam)) {
+      querySkills.push(...rawSkillsParam.map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '')).trim()).filter(Boolean))
+    }
+
     const rawMissing = [
+      ...querySkills,
+      ...(Array.isArray(ra.keywordAlignment?.missingMarketSkillsRanked) ? ra.keywordAlignment.missingMarketSkillsRanked : []),
       ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
       ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
       ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),

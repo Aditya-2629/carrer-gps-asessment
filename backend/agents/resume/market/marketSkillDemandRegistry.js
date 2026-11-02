@@ -51,3 +51,4 @@ export function getMarketDemandedSkills(role = 'software-engineer') {
   const normRole = roleStr.toLowerCase().includes('data') ? 'data-analyst' : 'software-engineer'
   return MARKET_SKILL_DEMAND[normRole] || MARKET_SKILL_DEMAND['software-engineer']
 }
+

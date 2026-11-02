@@ -422,8 +422,8 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
     return groupList
   }, [bulletAudit])
 
-  // Filter tab state: 'all' | 'needs_action' | 'good'
-  const [activeFilter, setActiveFilter] = useState('all')
+  // Filter tab state: default to 'needs_action' so 30 passing bullets don't clutter the audit
+  const [activeFilter, setActiveFilter] = useState('needs_action')
 
   // Interactive accordion state: expand all or selective
   const [expandedGroups, setExpandedGroups] = useState(() => {
@@ -564,49 +564,70 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
 
       {/* Full Audited Bullets (Collapsed by default on Web and hidden from PDF when collapsed) */}
       <div className={showAllAuditedBullets ? 'space-y-4 pt-3 border-t border-slate-200/60' : 'hidden print:hidden'}>
-        {/* Filter Tabs on Web */}
-        <div className="no-print filter-tabs flex flex-wrap items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-              activeFilter === 'all'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                : light
-                ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
-            }`}
-          >
-            All Bullets ({bulletAudit.length})
-          </button>
+        {/* Filter Tabs & Strong Bullets Toggle on Web */}
+        <div className="no-print filter-tabs flex flex-wrap items-center justify-between gap-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveFilter('needs_action')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                activeFilter === 'needs_action'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                  : light
+                  ? 'bg-white hover:bg-rose-50 text-rose-700 border-slate-200'
+                  : 'bg-slate-900 hover:bg-rose-950/50 text-rose-400 border-slate-800'
+              }`}
+            >
+              Needs Action: Fix & Improve ({totalNeedsAction})
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveFilter('needs_action')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-              activeFilter === 'needs_action'
-                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                : light
-                ? 'bg-white hover:bg-rose-50 text-rose-700 border-slate-200'
-                : 'bg-slate-900 hover:bg-rose-950/50 text-rose-400 border-slate-800'
-            }`}
-          >
-            Needs Action: Fix & Improve ({totalNeedsAction})
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                activeFilter === 'all'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  : light
+                  ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
+              }`}
+            >
+              All Bullets ({bulletAudit.length})
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveFilter('good')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-              activeFilter === 'good'
-                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                : light
-                ? 'bg-white hover:bg-emerald-50 text-emerald-700 border-slate-200'
-                : 'bg-slate-900 hover:bg-emerald-950/50 text-emerald-400 border-slate-800'
-            }`}
-          >
-            Strong Bullets ({counts.pass})
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter('good')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                activeFilter === 'good'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : light
+                  ? 'bg-white hover:bg-emerald-50 text-emerald-700 border-slate-200'
+                  : 'bg-slate-900 hover:bg-emerald-950/50 text-emerald-400 border-slate-800'
+              }`}
+            >
+              Strong Bullets ({counts.pass})
+            </button>
+          </div>
+
+          {/* Clear Toggle for Strong / Passed Bullets */}
+          {counts.pass > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveFilter((prev) => (prev === 'needs_action' ? 'all' : 'needs_action'))}
+              className={`text-xs font-semibold hover:underline flex items-center gap-1.5 cursor-pointer py-1 ${
+                activeFilter === 'needs_action'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                  : 'text-slate-500'
+              }`}
+            >
+              <span>
+                {activeFilter === 'needs_action'
+                  ? `+ View ${counts.pass} Strong / Passed Bullets (Pre-Verified)`
+                  : `– Hide ${counts.pass} Strong / Passed Bullets`}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Accordion / List of Experience Groups */}

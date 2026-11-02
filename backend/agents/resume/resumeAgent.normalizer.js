@@ -492,6 +492,7 @@ export class ResumeNormalizer {
       header: sections.header || [],
       summary,
       experience,
+      experiences: experience,
       projects,
       education,
       skills,

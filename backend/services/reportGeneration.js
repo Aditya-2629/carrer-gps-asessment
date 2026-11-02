@@ -538,8 +538,11 @@ export async function generateReportBundle({
       }
     }
 
-    const canonicalForWeaving = activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson
-    if (canonicalForWeaving) {
+    // Deep clone canonicalResume so properties can be mutated safely (fixes Mongoose frozen object error):
+    const canonicalForWeaving = JSON.parse(JSON.stringify(
+      activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson || {}
+    ))
+    if (canonicalForWeaving && (canonicalForWeaving.experiences || canonicalForWeaving.experience)) {
       const { tailoredExperiences, interviewLedger: ledger } = weaveKeywordsAndBuildLedger({
         canonicalResume: canonicalForWeaving,
         missingKeywords: missingSkillsList,
@@ -547,14 +550,17 @@ export async function generateReportBundle({
       if (tailoredExperiences && tailoredExperiences.length > 0) {
         if (activeResumeAgent && activeResumeAgent.canonicalResume) {
           activeResumeAgent.canonicalResume.experiences = tailoredExperiences
+          activeResumeAgent.canonicalResume.experience = tailoredExperiences
         }
         if (aiReport.resume_json) {
           aiReport.resume_json.experiences = tailoredExperiences
+          aiReport.resume_json.experience = tailoredExperiences
         }
       }
       interviewLedger = ledger || []
       if (activeResumeAgent) {
         activeResumeAgent.interviewLedger = interviewLedger
+        activeResumeAgent.wovenKeywords = interviewLedger
       }
     }
   } catch (_weaveErr) {
@@ -562,6 +568,7 @@ export async function generateReportBundle({
   }
 
   aiReport.interview_ledger = interviewLedger
+  aiReport.woven_keywords = interviewLedger
   aiReport.target_role = resumeTargetRole
 
   // Attach verified agent diagnoses and V2 Career GPS metrics

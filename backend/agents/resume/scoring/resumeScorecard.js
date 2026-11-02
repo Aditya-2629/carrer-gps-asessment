@@ -299,7 +299,8 @@ const ISSUE_CATEGORY_MAP = {
  */
 function bulletLengthStats(canonicalResume) {
   const lengths = []
-  for (const section of [canonicalResume?.experience, canonicalResume?.projects]) {
+  const rawExperiences = canonicalResume?.experiences || canonicalResume?.experience || []
+  for (const section of [rawExperiences, canonicalResume?.projects]) {
     for (const item of section || []) {
       for (const b of item.bullets || []) {
         if (b?.text) lengths.push(b.text.trim().split(/\s+/).length)
@@ -681,8 +682,15 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
   const audit = []
   const isDateLike = (s) => !s || /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4})/i.test(s.trim())
+  const rawExperiences =
+    canonicalResume?.experiences ||
+    canonicalResume?.experience ||
+    canonicalResume?.work_experience ||
+    canonicalResume?.workExperience ||
+    []
+
   const sections = [
-    { key: 'experience', label: 'Experience', items: canonicalResume?.experience || [], nameFields: ['company', 'role'] },
+    { key: 'experience', label: 'Experience', items: rawExperiences, nameFields: ['company', 'role', 'employer', 'title'] },
     { key: 'projects', label: 'Projects', items: canonicalResume?.projects || [], nameFields: ['name', 'title'] },
   ]
 

@@ -100,7 +100,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const snapshot = resumeAgent.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
-  const interviewLedger = resumeAgent?.interviewLedger || reportData?.interview_ledger || reportData?.resume_agent?.interviewLedger || []
+  const wovenList =
+    resumeAgent?.interviewLedger ||
+    resumeAgent?.wovenKeywords ||
+    reportData?.interview_ledger ||
+    reportData?.woven_keywords ||
+    reportData?.resume_agent?.interviewLedger ||
+    reportData?.resume_agent?.wovenKeywords ||
+    []
+  const interviewLedger = wovenList
 
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const [copiedBlueprintBullet, setCopiedBlueprintBullet] = useState(false)
@@ -622,6 +630,44 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       {dashboard?.bulletAudit?.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
           <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
+        </div>
+      )}
+
+      {/* Woven Keywords & Interview Talking Points Ledger */}
+      {wovenList?.length > 0 && (
+        <div className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] space-y-4 shadow-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={18} className="text-emerald-500" weight="fill" />
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                Keywords Woven into Tailored Resume ({wovenList.length})
+              </h3>
+            </div>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              Verified ATS Placement
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {wovenList.map((item, idx) => (
+              <div key={idx} className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[var(--text-primary)] bg-[var(--surface-card)] px-2 py-0.5 rounded border border-[var(--border-default)]">
+                    {item.keyword}
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    {item.company || 'Experience 1'} • {item.placement || 'Inline Tooling'}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] italic">
+                  "{item.wovenBullet || item.bulletText}"
+                </p>
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/15">
+                  <strong>Interview Talking Script:</strong> {item.talkingScript || item.interviewTalkingScript}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

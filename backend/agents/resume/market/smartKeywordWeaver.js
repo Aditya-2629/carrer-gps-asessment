@@ -46,6 +46,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
               placement: 'Static Typing & Contract Safety Clause',
               bulletText: text,
               exactBullet: text,
+              wovenBullet: text,
+              talkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
               interviewTalkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
             })
             break
@@ -69,6 +71,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
               placement: 'Event Streaming Architecture Clause',
               bulletText: text,
               exactBullet: text,
+              wovenBullet: text,
+              talkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
               interviewTalkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
             })
             break
@@ -95,6 +99,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
                 placement: 'Read-Aside Caching Architecture',
                 bulletText: text,
                 exactBullet: text,
+                wovenBullet: text,
+                talkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
                 interviewTalkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
               })
               break
@@ -119,6 +125,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
               placement: 'Container Orchestration Clause',
               bulletText: text,
               exactBullet: text,
+              wovenBullet: text,
+              talkingScript: `Explain how multi-stage Docker builds and Kubernetes automated health probes ensured repeatable deployments and zero downtime.`,
               interviewTalkingScript: `Explain how multi-stage Docker builds and Kubernetes automated health probes ensured repeatable deployments and zero downtime.`,
             })
             break
@@ -145,6 +153,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
               placement: `${kw} API Layer Clause`,
               bulletText: text,
               exactBullet: text,
+              wovenBullet: text,
+              talkingScript: `Discuss how you integrated ${kw} to optimize client-server communication efficiency and payload contracts.`,
               interviewTalkingScript: `Discuss how you integrated ${kw} to optimize client-server communication efficiency and payload contracts.`,
             })
             break
@@ -171,6 +181,8 @@ export function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywo
         placement: 'Dedicated Production Quality Bullet',
         bulletText: practiceBullet,
         exactBullet: practiceBullet,
+        wovenBullet: practiceBullet,
+        talkingScript: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
         interviewTalkingScript: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
       })
     }

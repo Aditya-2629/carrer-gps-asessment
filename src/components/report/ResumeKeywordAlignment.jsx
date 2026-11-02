@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { CheckCircle, Warning, XCircle, Sparkle, Target } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
@@ -9,15 +9,20 @@ import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmen
  * full-width horizontal pill rows (flex-wrap: wrap).
  *
  * 1. ✓ Verified in Experience (Green Pills)
- * 2. ⚠️ In Skills Section Only — Add to a Work Bullet (Amber Pills, max 8 items)
- * 3. ✕ Missing Target Keywords (Rose Pills, max 8 items) or 100% Coverage Banner
+ * 2. ⚠️ In Skills Section Only — Add to a Work Bullet (Amber Pills)
+ * 3. ✕ Missing Target Keywords (Interactive Tiered Accordion with % of JDs & Rebuild Trigger)
  *
  * Completely eliminates vertical scrollbars (overflow-y: auto) and max-height constraints
  * so pills wrap naturally on screen and in Print / Save PDF.
  *
  * Supports variant="light" (Report page / print) and variant="dark" (Test Lab console).
  */
-export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'light' }) {
+export default function ResumeKeywordAlignment({
+  keywordAlignment,
+  variant = 'light',
+  onRebuildResume = null,
+  currentMatchRate: propMatchRate = null,
+}) {
   if (!keywordAlignment) return null
 
   const light = variant === 'light'
@@ -32,8 +37,49 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
     totalTargetKeywords = 0,
   } = keywordAlignment
 
-  // Cap unverified and missing skills to max 8 items for a clean executive layout
-  const MAX_SKILLS_SHOWN = 8
+  const currentMatchRate = propMatchRate != null ? propMatchRate : (matchPercent || 0)
+  const [selectedSkills, setSelectedSkills] = useState(new Set())
+  const [showAllMissing, setShowAllMissing] = useState(false)
+  const [isRebuilding, setIsRebuilding] = useState(false)
+
+  const toggleSkillSelection = (skillName) => {
+    setSelectedSkills((prev) => {
+      const next = new Set(prev)
+      if (next.has(skillName)) next.delete(skillName)
+      else next.add(skillName)
+      return next
+    })
+  }
+
+  const handleRebuildResumeWithSkills = async () => {
+    if (selectedSkills.size === 0 || isRebuilding) return
+    setIsRebuilding(true)
+    try {
+      if (typeof onRebuildResume === 'function') {
+        await onRebuildResume(Array.from(selectedSkills))
+      } else {
+        const skillsParam = encodeURIComponent(Array.from(selectedSkills).join(','))
+        const params = new URLSearchParams(window.location.search)
+        const userId = params.get('userId') || params.get('id') || ''
+        const email = params.get('email') || ''
+        let url = `/api/download-resume-docx?skills=${skillsParam}`
+        if (userId) url += `&userId=${encodeURIComponent(userId)}`
+        if (email) url += `&email=${encodeURIComponent(email)}`
+
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', '')
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } catch (err) {
+      console.error('Error rebuilding tailored resume:', err)
+    } finally {
+      setTimeout(() => setIsRebuilding(false), 2000)
+    }
+  }
+
   const cleanSkillsOnly = (skillsOnlyUnverified || [])
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
@@ -80,11 +126,13 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  const displayedSkillsOnly = cleanSkillsOnly.slice(0, MAX_SKILLS_SHOWN)
-  const remainingSkillsOnly = cleanSkillsOnly.length - displayedSkillsOnly.length
-
-  const displayedMissing = uniqueMissing.slice(0, MAX_SKILLS_SHOWN)
-  const remainingMissing = uniqueMissing.length - displayedMissing.length
+  // Partition missing skills into 2 tiers: High-Demand Market Core (>= 20% JDs) vs Secondary (< 20% JDs)
+  const initialHigh = uniqueMissing.filter(
+    (item) => (item.percentage != null ? item.percentage >= 20 : item.priority === 'HIGH')
+  )
+  const highPriorityMissing =
+    initialHigh.length > 0 ? initialHigh : uniqueMissing.slice(0, Math.min(8, uniqueMissing.length))
+  const mediumPriorityMissing = uniqueMissing.filter((item) => !highPriorityMissing.includes(item))
 
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
@@ -198,32 +246,19 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
             Listed in your Skills section, but not demonstrated in your work history. Add these to at least 1 bullet to prove hands-on application.
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {displayedSkillsOnly.length > 0 ? (
-              <>
-                {displayedSkillsOnly.map((kw, i) => (
-                  <span
-                    key={i}
-                    className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${
-                      light
-                        ? 'bg-white text-amber-900 border-amber-200 shadow-2xs'
-                        : 'bg-amber-950/60 text-amber-200 border-amber-700/50'
-                    }`}
-                  >
-                    ⚠️ {kw}
-                  </span>
-                ))}
-                {remainingSkillsOnly > 0 && (
-                  <span
-                    className={`text-xs px-2.5 py-1 rounded-lg font-medium border border-dashed ${
-                      light
-                        ? 'bg-amber-100/50 text-amber-800 border-amber-300'
-                        : 'bg-amber-950/40 text-amber-300 border-amber-700/40'
-                    }`}
-                  >
-                    +{remainingSkillsOnly} more
-                  </span>
-                )}
-              </>
+            {cleanSkillsOnly.length > 0 ? (
+              cleanSkillsOnly.map((kw, i) => (
+                <span
+                  key={i}
+                  className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${
+                    light
+                      ? 'bg-white text-amber-900 border-amber-200 shadow-2xs'
+                      : 'bg-amber-950/60 text-amber-200 border-amber-700/50'
+                  }`}
+                >
+                  ⚠️ {kw}
+                </span>
+              ))
             ) : (
               <span className={`text-xs italic ${light ? 'text-slate-400' : 'text-slate-500'}`}>
                 None. All listed skills are actively backed by work experience.
@@ -284,61 +319,100 @@ export default function ResumeKeywordAlignment({ keywordAlignment, variant = 'li
               </span>
             </div>
           ) : (
-            <>
-              <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-slate-600' : 'text-slate-400'}`}>
-                High-priority market keywords standard for {targetRole || 'this role'} not found anywhere on your resume.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {displayedMissing.map((item, i) => {
-                  const name = typeof item === 'string' ? item : item.keyword || item.name
-                  const pct = item.percentage ? `${item.percentage}% of JDs` : item.badge
-                  const isHigh = item.priority === 'HIGH' || (item.percentage && item.percentage >= 25)
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
+                  <XCircle size={15} weight="fill" />
+                  High-Priority Missing Market Skills ({highPriorityMissing.length})
+                </span>
+                <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                  Ranked by % of 99 live JDs
+                </span>
+              </div>
 
+              {/* High Priority Grid */}
+              <div className="flex flex-wrap gap-2">
+                {highPriorityMissing.map((item, i) => {
+                  const isSelected = selectedSkills.has(item.keyword)
                   return (
-                    <span
+                    <button
                       key={i}
-                      className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium border ${
-                        isHigh
-                          ? light
-                            ? 'bg-rose-500/10 text-rose-700 border-rose-500/25 font-semibold'
-                            : 'bg-rose-500/10 text-rose-300 border-rose-500/25 font-semibold'
-                          : light
-                            ? 'bg-amber-500/10 text-amber-700 border-amber-500/25'
-                            : 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+                      type="button"
+                      onClick={() => toggleSkillSelection(item.keyword)}
+                      className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
+                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25 hover:border-rose-500/50'
                       }`}
                     >
-                      <span>+ {name}</span>
-                      {pct && (
-                        <span
-                          className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                            isHigh
-                              ? light
-                                ? 'bg-rose-500/20 text-rose-800'
-                                : 'bg-rose-500/30 text-rose-200'
-                              : light
-                                ? 'bg-amber-500/20 text-amber-800'
-                                : 'bg-amber-500/30 text-amber-200'
-                          }`}
-                        >
-                          {pct}
-                        </span>
-                      )}
-                    </span>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}}
+                        className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
+                      />
+                      <span>{item.keyword}</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
+                        {item.percentage}% of JDs
+                      </span>
+                    </button>
                   )
                 })}
-                {remainingMissing > 0 && (
-                  <span
-                    className={`inline-flex items-center text-xs px-2.5 py-1.5 rounded-lg font-medium border border-dashed ${
-                      light
-                        ? 'bg-rose-100/50 text-rose-800 border-rose-300'
-                        : 'bg-rose-950/40 text-rose-300 border-rose-700/40'
-                    }`}
-                  >
-                    +{remainingMissing} more
-                  </span>
-                )}
               </div>
-            </>
+
+              {/* Accordion for Remaining Skills */}
+              {mediumPriorityMissing.length > 0 && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllMissing(!showAllMissing)}
+                    className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{showAllMissing ? '– Collapse Additional Skills' : `+ View ${mediumPriorityMissing.length} More Medium-Demand Skills (10%–19% JDs)`}</span>
+                  </button>
+
+                  {showAllMissing && (
+                    <div className="flex flex-wrap gap-2 pt-3">
+                      {mediumPriorityMissing.map((item, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => toggleSkillSelection(item.keyword)}
+                          className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-lg border bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-secondary)]"
+                        >
+                          <input type="checkbox" checked={selectedSkills.has(item.keyword)} onChange={() => {}} className="pointer-events-none" />
+                          <span>{item.keyword}</span>
+                          <span className="text-[10px] font-mono opacity-80">{item.percentage}%</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Rebuild Trigger Card */}
+              {selectedSkills.size > 0 && (
+                <div className="mt-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+                  <div>
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 block">
+                      {selectedSkills.size} Skill{selectedSkills.size > 1 ? 's' : ''} Selected to Weave into Resume
+                    </span>
+                    <span className="text-[11px] text-[var(--text-secondary)]">
+                      Estimated ATS Match Lift: +{selectedSkills.size * 14}% (from {currentMatchRate}% ➔ {Math.min(95, currentMatchRate + selectedSkills.size * 14)}%)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRebuildResumeWithSkills}
+                    disabled={isRebuilding}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Sparkle size={14} weight="fill" />
+                    <span>{isRebuilding ? 'Weaving Skills & Rebuilding...' : 'Rebuild Tailored Resume (.docx)'}</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
