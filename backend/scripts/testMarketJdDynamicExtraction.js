@@ -2,6 +2,7 @@ import assert from 'assert'
 import { computeKeywordAlignment } from '../agents/resume/market/keywordAlignment.js'
 import { extractSkillsFromJd } from '../agents/resume/market/jdNormalizer.js'
 import { analyzeMarketJdCorpus } from '../agents/resume/market/marketJdAnalyzer.js'
+import { getMarketDemandedSkills } from '../agents/resume/market/marketSkillDemandRegistry.js'
 
 async function runTests() {
   console.log('=== TEST SUITE: Scraped Market JDs & Dynamic Skill Extraction ===\n')
@@ -138,8 +139,60 @@ async function runTests() {
 
   console.log('✓ analyzeMarketJdCorpus dynamically extracted emerging tools and ranked them by corpus frequency.')
 
+  // ── TEST 5: getMarketDemandedSkills dynamic computation ─────────────────
+  console.log('\n--- TEST 5: getMarketDemandedSkills dynamic computation ---')
+  const dynamicProfile = {
+    sampleSize: 10,
+    skills: [
+      { name: 'FastMCP', frequency: 8, frequencyRatio: 0.8 },
+      { name: 'DuckDB', frequency: 4, frequencyRatio: 0.4 },
+      { name: 'Redis', frequency: 2, frequencyRatio: 0.2 },
+      { name: 'Jenkins', frequency: 1, frequencyRatio: 0.1 },
+    ],
+  }
+  const demands = getMarketDemandedSkills('Healthcare AI Engineer', dynamicProfile)
+  assert.strictEqual(demands.length, 4)
+  assert.strictEqual(demands[0].skill, 'FastMCP')
+  assert.strictEqual(demands[0].percentage, 80)
+  assert.strictEqual(demands[0].priority, 'HIGH')
+  assert.strictEqual(demands[0].category, 'AI/ML')
+
+  assert.strictEqual(demands[1].skill, 'DuckDB')
+  assert.strictEqual(demands[1].percentage, 40)
+  assert.strictEqual(demands[1].priority, 'HIGH')
+
+  assert.strictEqual(demands[2].skill, 'Redis')
+  assert.strictEqual(demands[2].percentage, 20)
+  assert.strictEqual(demands[2].priority, 'MEDIUM')
+
+  assert.strictEqual(demands[3].skill, 'Jenkins')
+  assert.strictEqual(demands[3].percentage, 10)
+  assert.strictEqual(demands[3].priority, 'LOW')
+  console.log('✓ getMarketDemandedSkills dynamically computed percentages, priorities and categories without binary role switches.')
+
+  // ── TEST 6: 24 target keywords capacity & stopword filtering ─────────────
+  console.log('\n--- TEST 6: 24 target keywords capacity & stopword filtering ---')
+  const largeProfile = {
+    skills: [
+      ...Array.from({ length: 30 }, (_, i) => ({ name: `SkillTool_${i + 1}`, frequency: 5 })),
+      { name: 'the', frequency: 10 },
+      { name: 'and', frequency: 10 },
+      { name: 'team', frequency: 10 },
+    ],
+  }
+  const largeAlignment = computeKeywordAlignment({
+    canonicalResume: mockResume,
+    targetRole: 'Data Analyst',
+    marketProfile: largeProfile,
+  })
+  assert.strictEqual(largeAlignment.totalTargetKeywords, 24, 'Must evaluate up to 24 target keywords')
+  assert(!largeAlignment.missingFromResume.includes('the'), 'Stop word "the" must be filtered')
+  assert(!largeAlignment.missingFromResume.includes('and'), 'Stop word "and" must be filtered')
+  assert(!largeAlignment.missingFromResume.includes('team'), 'Stop word "team" must be filtered')
+  console.log('✓ Dynamic capacity capped at 24 keywords and English stop words filtered successfully.')
+
   console.log('\n======================================================================')
-  console.log(' ALL SCRAPED MARKET JD & DYNAMIC SKILL EXTRACTION TESTS PASSED (4/4)!')
+  console.log(' ALL SCRAPED MARKET JD & DYNAMIC SKILL EXTRACTION TESTS PASSED (6/6)!')
   console.log('======================================================================\n')
 }
 

@@ -5,6 +5,18 @@
  * Provides precise frequency counts, percentage presence across postings, categories, and priorities.
  */
 
+import { assignHeuristicCategory } from './dynamicSkillExtractor.js'
+
+const CATEGORY_MAP = {
+  ai_ml: 'AI/ML',
+  cloud_devops: 'Cloud/DevOps',
+  database_data: 'Database/Data',
+  messaging_streaming: 'Messaging/Streaming',
+  testing_quality: 'Testing/QA',
+  domain_specialized: 'Domain Specialized',
+  languages_frameworks: 'Languages/Frameworks',
+}
+
 export const MARKET_SKILL_DEMAND = {
   'software-engineer': [
     { skill: 'Machine Learning', category: 'AI/ML', count: 47, percentage: 48, priority: 'HIGH' },
@@ -41,10 +53,39 @@ export const MARKET_SKILL_DEMAND = {
 /**
  * Returns ranked market skill demands for a target role.
  *
+ * If marketProfile with scraped skills is provided, skill demand is computed dynamically
+ * directly from live posting frequencies and percentages, eliminating hardcoded binary assumptions.
+ *
  * @param {string|Object} role
+ * @param {Object} [marketProfile]
  * @returns {Array<Object>} List of market-demanded skills with frequency & percentage
  */
-export function getMarketDemandedSkills(role = 'software-engineer') {
+export function getMarketDemandedSkills(role = 'software-engineer', marketProfile = null) {
+  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
+    const totalJds = marketProfile.sampleSize || marketProfile.totalAnalyzed || 10
+    return marketProfile.skills
+      .map((s) => {
+        const skillName = typeof s === 'string' ? s : (s?.name || s?.skill || s?.tool || '')
+        const count = typeof s === 'object' ? (s?.frequency || s?.count || 1) : 1
+        const percentage = typeof s === 'object' && s?.percentage != null
+          ? s.percentage
+          : (s?.frequencyRatio != null ? Math.round(s.frequencyRatio * 100) : Math.min(100, Math.round((count / totalJds) * 100)))
+        const priority = percentage >= 30 ? 'HIGH' : (percentage >= 15 ? 'MEDIUM' : 'LOW')
+        const rawCat = (typeof s === 'object' && s?.category) || assignHeuristicCategory(skillName)
+        const category = CATEGORY_MAP[rawCat] || rawCat
+
+        return {
+          skill: skillName,
+          category,
+          count,
+          percentage,
+          priority,
+        }
+      })
+      .filter((item) => Boolean(item.skill) && item.skill.length >= 2 && !/^(and|the|with|for|you|our|team)$/i.test(item.skill))
+      .sort((a, b) => b.percentage - a.percentage)
+  }
+
   const roleStr = typeof role === 'string'
     ? role
     : (role?.title || role?.value || role?.name || String(role || 'software-engineer'))

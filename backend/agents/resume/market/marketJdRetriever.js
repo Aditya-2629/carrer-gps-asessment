@@ -47,27 +47,27 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
   try {
     const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
 
-    // 1. Bucket exists and has active validated version with valid JDs
-    if (bucket && bucket.activeVersion > 0 && bucket.jobCount > 0) {
+    // 1. Bucket exists and has active validated version with valid JDs (or is refreshing but has prior version)
+    if (bucket && (bucket.status === 'refreshing' || bucket.activeVersion > 0)) {
       const activeVersion = await JobMarketVersion.findOne({
         bucketKey,
-        version: bucket.activeVersion,
-      }).lean()
+        isArchived: false,
+      }).sort({ version: -1 }).lean()
 
-      if (activeVersion && activeVersion.jobs && activeVersion.jobs.length > 0) {
+      if (activeVersion && activeVersion.marketProfile && Array.isArray(activeVersion.marketProfile.skills)) {
         return {
           status: 'available',
           bucketKey,
-          version: bucket.activeVersion,
-          sampleSize: activeVersion.jobs.length,
+          version: activeVersion.version,
+          sampleSize: activeVersion.jobs?.length || activeVersion.marketProfile.sampleSize || 0,
           marketProfile: activeVersion.marketProfile,
-          jobs: activeVersion.jobs,
+          jobs: activeVersion.jobs || [],
           lastRefreshedAt: bucket.lastSuccessfulRefreshAt,
         }
       }
     }
 
-    // 2. Bucket is currently refreshing
+    // 2. Bucket is currently refreshing (and no prior unarchived version was available)
     if (bucket && bucket.status === 'refreshing') {
       return {
         status: 'refreshing',

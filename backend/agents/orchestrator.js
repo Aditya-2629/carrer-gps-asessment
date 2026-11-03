@@ -15,6 +15,7 @@ import crypto from 'crypto'
 import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import JobMarketVersion from '../models/JobMarketVersion.js'
 import { ResumeAgent } from './resume/resumeAgent.js'
 import { evaluateLinkedIn } from './linkedin/linkedinAgent.js'
 import { LINKEDIN_AGENT } from './core/agentContract.js'
@@ -224,6 +225,13 @@ export async function runCareerAgents(bundle) {
           if (MONGO_CONNECTED()) {
             const bucketDoc = await JobMarketBucket.findOne({ bucketKey }).select('activeVersion').lean()
             marketBucketVersion = bucketDoc?.activeVersion || 0
+            if (!marketBucketVersion) {
+              const latestVer = await JobMarketVersion.findOne({ bucketKey, isArchived: false })
+                .sort({ version: -1 })
+                .select('version')
+                .lean()
+              marketBucketVersion = latestVer?.version || 0
+            }
           }
         } catch (_bErr) {
           /* fallback to 0 */

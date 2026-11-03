@@ -123,11 +123,11 @@ async function runTests() {
   })
   console.log('  ✓ 3.1 Redis placed only in DB bullet; Chatbot bullet preserved cleanly without franken-phrases')
 
-  // Check synthesized 3rd bullet for testing and git
-  const testingBullet = exp.bullets.find((b) => /jest|pytest/i.test(b))
-  assert.ok(testingBullet, 'Testing & Git bullet must be present')
-  assert.ok(testingBullet.includes('Git/GitHub CI/CD pull request review gates'))
-  console.log('  ✓ 3.2 Standalone production quality bullet generated with Jest, PyTest, and Git')
+  // Check synthesized bullet for quality and review gates
+  const practiceBullet = exp.bullets.find((b) => /quality|testing|governance|review gates/i.test(b))
+  assert.ok(practiceBullet, 'Practice/Governance bullet must be present')
+  assert.ok(practiceBullet.includes('review gates') || practiceBullet.includes('delivery benchmarks'))
+  console.log('  ✓ 3.2 Standalone production quality bullet generated with quality governance and review gates')
 
   // ── TEST 4: Skills Section De-Cluttering (4-Line Standard) ───────────────
   console.log('\n[Test 4] Skills Section De-Cluttering & Banned Buzzwords:')

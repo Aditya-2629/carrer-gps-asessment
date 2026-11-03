@@ -480,21 +480,23 @@ export function computeKeywordAlignment({
   const summaryText = canonicalResume?.summary?.text || ''
   const fullResumeText = `${expAndProjText}\n${skillsText}\n${summaryText}`
 
-  // 2. Determine Target Keywords dynamically from Scraped Market JDs first!
+  // 2. Determine Target Keywords dynamically (Target JD > Scraped Market JDs > Fallback Pack)
   let targetKeywords = []
   if (isJdProvided) {
     const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
     if (extractedJdSkills.length >= 6) {
       targetKeywords = extractedJdSkills
     }
-  } else if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
-    // Priority 1: Use REAL Scraped Market JDs from MongoDB Bucket
-    targetKeywords = marketProfile.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
-      .filter(Boolean)
   }
 
-  // Priority 2: Fallback to Market Pack ONLY if scraped JDs are unavailable
+  // Priority 2: Use REAL Scraped Market JDs from MongoDB Bucket (marketProfile)
+  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
+    targetKeywords = marketProfile.skills
+      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .filter((s) => Boolean(s) && s.length >= 2 && !/^(and|the|with|for|you|our|team)$/i.test(s))
+  }
+
+  // Priority 3: Fallback to Market Pack ONLY if scraped JDs are unavailable
   if (targetKeywords.length < 6) {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'
@@ -509,8 +511,8 @@ export function computeKeywordAlignment({
     targetKeywords = Array.from(new Set([...targetKeywords, ...pack]))
   }
 
-  // Enforce evaluation of top 12–16 core keywords
-  targetKeywords = targetKeywords.slice(0, 16)
+  // Allow dynamic target keyword evaluation capacity up to 24 keywords
+  targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 24)
 
   // 3. Classify target keywords into 3 buckets
   const matchedInExperience = []
@@ -573,7 +575,7 @@ export function computeKeywordAlignment({
   )
 
   // 5. Market JD Skill Demand Comparison (Benchmarked against live tech JDs)
-  const demandedSkills = getMarketDemandedSkills(roleName)
+  const demandedSkills = getMarketDemandedSkills(roleName, marketProfile)
   const missingMarketSkillsRanked = []
 
   for (const item of demandedSkills) {
@@ -590,7 +592,7 @@ export function computeKeywordAlignment({
         category: item.category,
         badge: `${item.percentage}% of JDs`,
       })
-      if (!uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
+      if (uniqueMissing.length < 24 && !uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
         uniqueMissing.push(item.skill)
       }
     }
@@ -600,13 +602,14 @@ export function computeKeywordAlignment({
   missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage)
 
   const matchedCount = uniqueMatched.length
-  const totalTargetKeywords = uniqueMatched.length + uniqueMissing.length
+  const totalTargetKeywords = Math.min(24, uniqueMatched.length + uniqueMissing.length)
   const matchPercent = totalTargetKeywords > 0 ? Math.round((matchedCount / totalTargetKeywords) * 100) : 100
 
   return {
     source: isJdProvided ? 'active_jd' : 'market_intelligence',
     sourceLabel: isJdProvided ? 'Active Job Description' : 'Market Intelligence (Top Target Keywords)',
     targetRole: roleName,
+    targetKeywords,
     matchedCount,
     totalTargetKeywords,
     matchPercent,
