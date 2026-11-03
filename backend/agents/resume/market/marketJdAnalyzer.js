@@ -84,6 +84,9 @@ export function analyzeMarketJdCorpus(jdTexts = [], candidateResumeSkills = []) 
   }
 }
 
+export const extractDynamicSkillsFromText = extractSkillsHeuristically
+
 export default {
   analyzeMarketJdCorpus,
+  extractDynamicSkillsFromText,
 }

@@ -443,11 +443,25 @@ export function buildRewriteLookup(tailoredBullets = []) {
 }
 
 /**
- * Categorizes a skill into an exact ATS bucket based on target role
+ * Categorizes a skill into an exact ATS bucket based on universal multi-domain taxonomy
  */
 export function determineSkillBucket(skill, targetRole = '') {
   const low = String(skill || '').toLowerCase().trim()
-  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
+
+  // 1. Non-Tech / Functional Roles (Product, Operations, Healthcare, Finance, HR, Marketing, Sales)
+  const isNonTechRole =
+    /product\s+manager|project\s+manager|scrum|design|ux\b|ui\b|marketing|sales|recruiter|human\s+resources|hr\b|finance|financial|accountant|nurse|healthcare|clinical|operations|supply\s+chain|compliance|business\s+analyst/i.test(targetRole) &&
+    !/engineer|developer|architect|data\s+scientist|data\s+engineer|devops/i.test(targetRole)
+
+  if (isNonTechRole) {
+    if (/jira|figma|excel|powerpoint|word|salesforce|sap|epic|workday|asana|trello|hubspot|tableau|power\s*bi|quickbooks|notion|confluence|slack|postman|software|system|tool|crm|erp/i.test(low)) {
+      return 'Tools & Systems'
+    }
+    return 'Core Competencies'
+  }
+
+  // 2. Data Roles (Data Analyst, BI, Analytics Engineer)
+  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole) && !/software|full\s*stack|backend/i.test(targetRole)
 
   if (isDataRole) {
     if (/sql|snowflake|bigquery|postgresql|mysql|t-sql|queries/i.test(low)) return 'SQL & Core Database'
@@ -457,24 +471,32 @@ export function determineSkillBucket(skill, targetRole = '') {
     return 'Business Analysis & Process'
   }
 
-  // SWE / AI / Full Stack
-  // 1. Programming Languages
+  // 3. Technical Universal Taxonomy (SWE, DevOps, AI/ML, Cloud)
+  // Programming Languages & Frameworks
   if (/python|javascript|typescript|go\b|golang|bash|c\+\+|java\b|\bc\b|\br\b|rust|c#|ruby|php|kotlin|swift/i.test(low)) {
     return 'Programming Languages'
   }
-  // 2. AI & Machine Learning Systems
+  // AI & Machine Learning Systems
   if (/langchain|fastmcp|smolagents|rag|llm|tensorflow|pytorch|openai|gemini|nlp|genai|scikit|huggingface/i.test(low)) {
     return 'AI & Machine Learning Systems'
   }
-  // 3. Cloud & DevOps
-  if (/aws|docker|kubernetes|terraform|ci\/cd|jenkins|git|cloud|linux|gcp|azure|ansible|helm/i.test(low)) {
+  // Cloud & DevOps
+  if (/aws|docker|kubernetes|terraform|ci\/cd|jenkins|git\b|cloud|linux|gcp|azure|ansible|helm/i.test(low)) {
     return 'Cloud & DevOps'
   }
-  // 4. Databases & Messaging
-  if (/sql|postgresql|postgres|mysql|sqlite|mongodb|redis|cassandra|elasticsearch|dynamodb|kafka|rabbitmq|pub\/sub|message queue|caching/i.test(low)) {
+  // Databases & Data Systems / Messaging
+  if (/sql|postgresql|postgres|mysql|sqlite|mongodb|redis|cassandra|elasticsearch|dynamodb|kafka|rabbitmq|pub\/sub|message queue|caching|snowflake|dbt|spark/i.test(low)) {
     return 'Databases & Messaging'
   }
-  // 5. Backend & APIs (e.g. Spring Boot, FastAPI, Node.js, Express, REST, GraphQL, JWT / OAuth 2.0, microservices)
+  // Analytics, BI & Tools
+  if (/tableau|power\s*bi|excel|jira|figma|postman|splunk|grafana|datadog|looker|confluence/i.test(low)) {
+    return 'Analytics, BI & Tools'
+  }
+  // Core Domain Competencies
+  if (/project management|regulatory compliance|financial modeling|system architecture|agile|sdlc|cross-functional/i.test(low)) {
+    return 'Core Domain Competencies'
+  }
+  // Backend & APIs (e.g. Spring Boot, FastAPI, Node.js, Express, REST, GraphQL, JWT / OAuth 2.0, microservices)
   if (/fastapi|node|express|flask|django|react|next\.js|rest|graphql|microservices|system design|spring|spring boot|api|apis|jwt|oauth|auth0/i.test(low)) {
     return 'Backend & APIs'
   }

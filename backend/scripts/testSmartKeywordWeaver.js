@@ -56,7 +56,7 @@ assert(kafkaEntry.interviewTalkingScript.includes('decoupled event streaming'), 
 
 const practiceEntry = result.interviewLedger.find((l) => l.keyword.includes('Unit / Integration Testing'))
 assert(practiceEntry, 'Must synthesize engineering practice bullet on experience 0')
-assert(practiceEntry.exactBullet.includes('Jest and PyTest'), 'Must reference Jest and PyTest')
+assert(practiceEntry.exactBullet.includes('unit and integration test coverage'), 'Must reference test coverage without hardcoded tools')
 assert(practiceEntry.exactBullet.includes('Git/GitHub'), 'Must reference Git/GitHub')
 assert(practiceEntry.interviewTalkingScript.includes('automated PR test gating'), 'Must include PR test gating script')
 

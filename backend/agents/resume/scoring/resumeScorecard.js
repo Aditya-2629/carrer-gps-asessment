@@ -43,21 +43,17 @@ export function balanceParentheses(str) {
 
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
-  let count = 0
-  // 1. Keep only the first [ADD: ...] placeholder; when removing subsequent ones, also remove any immediately preceding preposition (by, to, of, across, for, with, at, in, from)
-  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
-    count += 1
-    if (count === 1) return match // keep the first placeholder intact
-    return '' // strip 2nd+ placeholder along with its leading preposition
-  })
+  // 1. Strip ALL [ADD: ...] bracketed placeholders along with any immediately preceding preposition (by, to, of, across, for, with, at, in, from)
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, '')
   // 2. Collapse duplicated prepositions
   cleaned = cleaned.replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
-  // 3. Ensure a space after closing bracket if followed immediately by a word character: "]audit" -> "] audit"
-  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
-  // 4. Remove any dangling prepositions right before a period or comma (e.g. "time by." -> "time.")
+  // 3. Remove any dangling prepositions right before a period or comma (e.g. "time by." -> "time.")
   cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
-  // 5. Normalize multiple spaces
+  // 4. Normalize multiple spaces
   cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
+  if (!/[.!?]$/.test(cleaned) && cleaned.length > 0) {
+    cleaned = `${cleaned}.`
+  }
   return balanceParentheses(cleaned)
 }
 
@@ -805,15 +801,20 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           }
         }
 
+        const cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
+
         audit.push({
           bulletId: b.id,
           section: section.key,
           itemName,
           text: b.text,
+          original: b.text,
           status,
           reason: balanceParentheses(reason),
+          guidance: lacksOutcome ? 'Consider adding a quantified percentage or business impact metric if verifiable.' : null,
           quickPolishNote,
-          rewrite,
+          rewrite: cleanImproved,
+          improved: cleanImproved,
           issueId: issue?.id || null,
           category: issue?.category || null,
         })

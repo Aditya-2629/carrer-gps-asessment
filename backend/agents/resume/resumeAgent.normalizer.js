@@ -93,26 +93,65 @@ export function extractRoleFromSummary(summaryText) {
 }
 
 /**
- * Priority 4 fallback: Infers role from keyword frequency, ensuring Full Stack /
- * Software Engineering is never overridden by secondary mentions of data tools.
+ * Priority 4 fallback: Infers role from multi-domain keyword frequency across
+ * Data, Engineering, DevOps, Product, Design, Operations, Healthcare, and Finance.
+ * Never defaults to 'Software Engineer' or cancels Data roles due to collaboration mentions.
  */
 export function inferRoleFromKeywordFrequency(resumeText = '') {
-  if (!resumeText) return 'Software Engineer'
+  if (!resumeText) return 'Professional'
   const text = resumeText.toLowerCase()
 
-  const fullStackSignals = ['full stack', 'fullstack', 'react', 'node.js', 'spring boot', 'software developer', 'software engineer', 'microservices', 'typescript', 'java developer']
-  const fullStackCount = fullStackSignals.filter((kw) => text.includes(kw)).length
+  const domains = [
+    {
+      role: 'Data Analyst',
+      keywords: ['data analyst', 'business intelligence', 'bi analyst', 'tableau', 'power bi', 'looker', 'reporting analyst', 'sql queries', 'etl pipeline', 'data visualization', 'snowflake', 'dbt'],
+    },
+    {
+      role: 'Software Engineer',
+      keywords: ['software engineer', 'software developer', 'full stack', 'fullstack', 'frontend developer', 'backend developer', 'web developer', 'microservices', 'typescript', 'react', 'node.js', 'spring boot', 'java developer', 'python developer'],
+    },
+    {
+      role: 'DevOps / Cloud Engineer',
+      keywords: ['devops', 'cloud engineer', 'site reliability', 'sre', 'kubernetes', 'terraform', 'docker', 'ci/cd', 'aws certified', 'infrastructure engineer'],
+    },
+    {
+      role: 'Product Manager',
+      keywords: ['product manager', 'technical product manager', 'product owner', 'scrum master', 'product roadmap', 'user stories', 'agile delivery', 'product backlog'],
+    },
+    {
+      role: 'Product Designer',
+      keywords: ['ui/ux designer', 'product designer', 'ux researcher', 'figma', 'wireframes', 'prototyping', 'user experience design'],
+    },
+    {
+      role: 'Financial Analyst',
+      keywords: ['financial analyst', 'financial modeling', 'investment banking', 'accounting', 'auditing', 'cpa', 'portfolio management', 'budgeting & forecasting'],
+    },
+    {
+      role: 'Healthcare Professional',
+      keywords: ['registered nurse', 'clinical', 'patient care', 'healthcare', 'medical', 'hospital', 'ehr', 'epic systems', 'physician', 'nursing'],
+    },
+    {
+      role: 'Operations Specialist',
+      keywords: ['operations manager', 'business operations', 'supply chain', 'logistics', 'process improvement', 'operational excellence', 'vendor management'],
+    },
+  ]
 
-  const dataAnalystSignals = ['data analyst', 'tableau', 'power bi', 'business intelligence', 'bi analyst', 'looker', 'reporting analyst']
-  const dataCount = dataAnalystSignals.filter((kw) => text.includes(kw)).length
+  let bestMatch = null
+  let maxScore = 0
 
-  if (fullStackCount >= 2) {
-    return 'Senior Full Stack Software Developer'
+  for (const domain of domains) {
+    const score = domain.keywords.filter((kw) => text.includes(kw)).length
+    if (score > maxScore) {
+      maxScore = score
+      bestMatch = domain.role
+    }
   }
-  if (dataCount >= 2 && !text.includes('software engineer') && !text.includes('full stack developer') && !text.includes('software developer')) {
-    return 'Data Analyst'
+
+  if (maxScore >= 2 && bestMatch) {
+    return bestMatch
   }
-  return 'Software Engineer'
+
+  return 'Professional'
 }
 
 
@@ -208,7 +247,7 @@ export class ResumeNormalizer {
       experience = structuredExp.map((exp, idx) => {
         const expId = `exp_${String(idx + 1).padStart(3, '0')}`
         const rawRole = exp.role || ''
-        const cleanRole = isValidRoleTitle(rawRole) ? rawRole.trim() : (cleanRoleTitle(rawRole) || 'Software Engineer')
+        const cleanRole = isValidRoleTitle(rawRole) ? rawRole.trim() : (cleanRoleTitle(rawRole) || 'Professional')
         const rawComp = exp.company || ''
         const cleanComp = isValidCompanyName(rawComp) ? rawComp.trim() : (rawComp.trim() || 'Company')
         const dates = exp.dates || (exp.startDate && exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.startDate || '')
@@ -449,30 +488,36 @@ export class ResumeNormalizer {
       if (firstIdx !== -1) pastRoles.splice(firstIdx, 1)
     }
 
-    // Strict Priority Order for Target Role Inference (when user has not explicitly typed/locked a custom Target Role for current upload):
-    // Priority 1 (Resume Headline): Inspect lines 2–4 in header block, strip tech list after —, -, |
-    // Priority 2 (Current / Most Recent Job Title): experiences[0].role
-    // Priority 3 (Professional Summary Opening Clause): first sentence of summary
-    // Priority 4 (Keyword Bucket Fallback): Full stack / engineering prioritized over secondary data tools
+    // Strict Priority Order for Target Role Resolution:
+    // a. Target role override / candidate declared target role (targetRoleOverride, parsedDoc.targetRole, parsedDoc.target_role)
+    // b. Most recent job title: experiences[0].role / presentRole (cleaned using cleanRoleTitle)
+    // c. Headline role or professional summary opening clause
+    // d. Broad domain keyword classification (inferRoleFromKeywordFrequency: Data, Engineering, Product, Design, Operations, Healthcare, Finance)
+    // e. Neutral fallback: 'Professional' or candidate's cleaned headline
     const headlineRole = cleanRoleTitle(candidate.headline)
     const currentJobRole = cleanRoleTitle(presentRole || (experience[0]?.role ? experience[0].role : ''))
     const summaryRole = extractRoleFromSummary(summary?.text || '')
     const keywordFallback = inferRoleFromKeywordFrequency(rawText)
 
     let inferredTargetRole = ''
-    if (headlineRole && ROLE_KEYWORDS_REGEX.test(headlineRole)) {
-      inferredTargetRole = headlineRole
-    } else if (currentJobRole && ROLE_KEYWORDS_REGEX.test(currentJobRole)) {
+    if (currentJobRole && ROLE_KEYWORDS_REGEX.test(currentJobRole)) {
       inferredTargetRole = currentJobRole
+    } else if (headlineRole && ROLE_KEYWORDS_REGEX.test(headlineRole)) {
+      inferredTargetRole = headlineRole
     } else if (summaryRole && ROLE_KEYWORDS_REGEX.test(summaryRole)) {
       inferredTargetRole = summaryRole
-    } else {
+    } else if (keywordFallback && keywordFallback !== 'Professional') {
       inferredTargetRole = keywordFallback
+    } else {
+      inferredTargetRole = headlineRole || 'Professional'
     }
 
     const resolvedTargetRole =
       (typeof targetRoleOverride === 'string' && targetRoleOverride.trim()) ||
-      inferredTargetRole
+      (typeof parsedDoc.targetRole === 'string' && parsedDoc.targetRole.trim()) ||
+      (typeof parsedDoc.target_role === 'string' && parsedDoc.target_role.trim()) ||
+      inferredTargetRole ||
+      'Professional'
 
     candidate.headline = headlineRole || candidate.headline
     candidate.targetRole = resolvedTargetRole
@@ -1227,7 +1272,7 @@ export class ResumeNormalizer {
       } else if (currentItem && currentItem.bullets.length === 0) {
         // Second line of header before bullets (often dates or role or company)
         const updated = this.parseExperienceHeader(currentItem.role || currentItem.company, line)
-        if (updated.role && (!currentItem.role || currentItem.role === 'Software Engineer')) currentItem.role = updated.role
+        if (updated.role && (!currentItem.role || currentItem.role === 'Professional' || currentItem.role === 'Software Engineer')) currentItem.role = updated.role
         if (updated.company && updated.company !== 'Enterprise Organization') {
           currentItem.company = updated.company
         } else if (!currentItem.company || currentItem.company === 'Enterprise Organization') {

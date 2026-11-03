@@ -151,9 +151,9 @@ console.log('  ✓ 3.3 DevOps role generates container vulnerability scanning pr
 
 const swePractice = buildRolePracticeBullet('Full Stack Software Engineer')
 assert.strictEqual(swePractice.keyword, 'Unit / Integration Testing & Git')
-assert(swePractice.bullet.includes('Jest and PyTest'))
+assert(swePractice.bullet.includes('unit and integration test coverage'), 'Must establish test coverage without hardcoded tools')
 assert(swePractice.script.includes('automated PR test gating'))
-console.log('  ✓ 3.4 SWE role generates Jest/PyTest/Git PR gating practice bullet\n')
+console.log('  ✓ 3.4 SWE role generates unit/integration testing & Git PR gating practice bullet\n')
 
 // -------------------------------------------------------------
 // Test 4: Dynamic Interview Talking Scripts

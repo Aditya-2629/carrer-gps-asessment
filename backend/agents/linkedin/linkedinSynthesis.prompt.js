@@ -13,6 +13,16 @@
 // 1. SHARED COMPACT CANDIDATE CONTEXT BUILDER (~900-1,100 tokens, 100% context)
 // ─────────────────────────────────────────────────────────────────────────────
 
+export function safeExtractString(val) {
+  if (typeof val === 'string') return val.trim();
+  if (val && typeof val === 'object') {
+    if (typeof val.text === 'string') return val.text.trim();
+    if (Array.isArray(val)) return val.map(safeExtractString).filter(Boolean).join(' ');
+    return JSON.stringify(val);
+  }
+  return '';
+}
+
 /**
  * Builds the compact candidate context combining the candidate's actual scraped LinkedIn profile
  * and their verified Resume ground truth into ~900-1,100 tokens without cutting skills or roles.
@@ -72,14 +82,7 @@ export function buildCompactCandidateContext({
 
   const liExperiences = profile?.experiences || []
   const liExpSummary = liExperiences.slice(0, 6).map((e) => {
-    const rawDesc = typeof e?.description === 'string'
-      ? e.description
-      : (typeof e?.summary === 'string'
-        ? e.summary
-        : (typeof e?.description?.text === 'string'
-          ? e.description.text
-          : (Array.isArray(e?.description) ? e.description.map(b => (typeof b === 'string' ? b : b?.text || '')).join(' ') : '')))
-    const desc = (rawDesc || '').trim()
+    const desc = safeExtractString(e?.description || e?.summary)
     const descNote = desc ? `Description present (${desc.slice(0, 140)}...)` : 'Description EMPTY'
     const roleTitle = typeof e?.title === 'string' ? e.title : (typeof e?.role === 'string' ? e.role : 'Role')
     const compName = typeof e?.company === 'string' ? e.company : (typeof e?.companyName === 'string' ? e.companyName : 'Company')

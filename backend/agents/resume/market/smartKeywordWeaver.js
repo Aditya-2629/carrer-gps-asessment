@@ -51,7 +51,7 @@ export function classifyToolCategory(kw, targetRole = '') {
     return 'ai_ml'
   }
   // 3. Cloud, Containers & DevOps
-  if (/aws|azure|gcp|docker|kubernetes|k8s|terraform|ansible|helm|jenkins|ci\/cd|github actions|gitlab|ecs|eks|linux/i.test(low)) {
+  if (/aws|azure|gcp|docker|kubernetes|k8s|terraform|ansible|helm|jenkins|ci\/cd|github actions|gitlab|ecs|eks|linux|git\b|github/i.test(low)) {
     return 'cloud_devops'
   }
   // 4. Messaging & Event Streaming
@@ -72,27 +72,15 @@ export function classifyToolCategory(kw, targetRole = '') {
 
 /**
  * Universal Natural Clause Weaver
- * Injects ANY tool into an existing bullet using grammatically sound technical phrasing.
+ * Injects ANY tool into an existing bullet using grammatically sound technical phrasing
+ * based on dynamic semantic category without hardcoding specific tools.
  */
 export function weaveToolIntoSentence(text, kw, category) {
   const clean = text.replace(/[.!?]+$/, '').trim()
   const kwRegex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
   if (kwRegex.test(clean)) return text
 
-  const lowKw = kw.toLowerCase()
-
-  // Deep architectural mechanism injection for standard high-frequency tools
-  if (lowKw === 'kafka' && /(?:event|stream|queue|sync|message|worker|async|transaction|ingestion)/i.test(clean)) {
-    return `${clean}, utilizing Kafka event topics to decouple asynchronous workers, eliminating request drops during high-volume spikes.`
-  }
-  if (lowKw === 'typescript' && /(?:ui|frontend|component|page|view|interface|dashboard|client|react|node|service|api|backend)/i.test(clean)) {
-    return `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
-  }
-  if (lowKw === 'redis' && /(?:database|caching|cache|queries|query|transaction|volume|backend)/i.test(clean)) {
-    return `${clean}, implementing a Redis read-aside caching layer with TTL eviction, offloading 70% of read queries from the primary database.`
-  }
-
-  // Universal dynamic category weaving for ANY technology
+  // Universal dynamic category weaving for ANY technology across ALL domains
   switch (category) {
     case 'data_warehouse':
       if (/(?:sql|query|queries|data|pipeline|report|dashboard|analytics|warehouse)/i.test(clean)) {
@@ -107,8 +95,8 @@ export function weaveToolIntoSentence(text, kw, category) {
       return `${clean}, powered by ${kw} for automated contextual intelligence.`
 
     case 'messaging_streaming':
-      if (/(?:event|stream|queue|sync|message|worker|async|transaction|database|queries)/i.test(clean)) {
-        return `${clean}, utilizing ${kw} topics to decouple asynchronous workers and eliminate message drops during peak spikes.`
+      if (/(?:event|stream|queue|sync|message|worker|async|transaction|ingestion|database|queries)/i.test(clean)) {
+        return `${clean}, utilizing ${kw} event streams to decouple asynchronous workers and eliminate message drops during high-volume spikes.`
       }
       return `${clean}, with ${kw} message queues for decoupled asynchronous processing.`
 
@@ -119,8 +107,8 @@ export function weaveToolIntoSentence(text, kw, category) {
       return `${clean}, deployed across modern ${kw} infrastructure.`
 
     case 'frontend_ui':
-      if (/(?:ui|frontend|component|page|view|interface|dashboard|client|web)/i.test(clean)) {
-        return `${clean}, adopting ${kw} to enforce strict type contracts and eliminate runtime payload errors.`
+      if (/(?:ui|frontend|component|page|view|interface|dashboard|client|web|react|node|service|api|backend)/i.test(clean)) {
+        return `${clean}, adopting ${kw} to enforce strict payload contracts and eliminate runtime errors across service boundaries.`
       }
       return `${clean}, utilizing ${kw} for modular, responsive interface delivery.`
 
@@ -130,28 +118,27 @@ export function weaveToolIntoSentence(text, kw, category) {
       }
       return `${clean}, validated with ${kw} test suites to ensure production reliability.`
 
+    case 'backend_api':
+      if (/(?:services?|endpoints?|microservices?|backend|api)/i.test(clean)) {
+        return `${clean}, architected with ${kw} to support high-throughput transactions and sub-second response times.`
+      }
+      return `${clean}, engineered with ${kw} for enhanced production reliability.`
+
     default:
       if (/(?:using|with|via)\s+([^,.;]+)/i.test(clean)) {
         return clean.replace(/(using|with|via)\s+([^,.;]+)/i, `$1 $2 and ${kw}`) + '.'
       }
-      return `${clean}, engineered with ${kw} for enhanced production reliability.`
+      return `${clean}, leveraging ${kw} to enhance production execution and reliability.`
   }
 }
 
 /**
  * Dynamic Interview Talking Script Generator
+ * Quotes the tool directly and explains its real-world operational impact.
  */
 export function generateInterviewScript(kw, category = '', targetRole = '', company = '') {
   const comp = company || 'my organization'
   const cat = category || classifyToolCategory(kw, targetRole)
-  const low = String(kw || '').toLowerCase()
-
-  if (low.includes('typescript')) {
-    return `At ${comp}, I used TypeScript to define strict interfaces and enforce static typing across our frontend architecture, eliminating runtime payload errors.`
-  }
-  if (low.includes('kafka')) {
-    return `At ${comp}, I architected Kafka partitions and consumer offset management for decoupled event streaming to eliminate message drops under load.`
-  }
 
   switch (cat) {
     case 'data_warehouse':
@@ -159,15 +146,17 @@ export function generateInterviewScript(kw, category = '', targetRole = '', comp
     case 'ai_ml':
       return `At ${comp}, I integrated ${kw} to optimize context retrieval precision, manage token latency, and enforce prompt defense guardrails.`
     case 'messaging_streaming':
-      return `At ${comp}, I configured ${kw} partitions, retention policies, and consumer offset handling to eliminate dropped requests under load.`
+      return `At ${comp}, I configured ${kw} partitions, retention policies, and consumer offset handling for decoupled event streaming to eliminate message drops under load.`
     case 'cloud_devops':
       return `At ${comp}, I used ${kw} for reproducible environments, automated health probes, and zero-downtime deployment rollouts.`
     case 'frontend_ui':
-      return `At ${comp}, I applied ${kw} for interface contract safety, state predictability, and component modularity.`
+      return `At ${comp}, I used ${kw} to define strict interfaces, enforce static typing, and ensure interface state predictability, eliminating runtime errors.`
     case 'testing_qa':
       return `At ${comp}, I established comprehensive unit and integration test coverage using ${kw} with automated PR test gating to maintain code quality.`
+    case 'backend_api':
+      return `At ${comp}, I implemented ${kw} to handle enterprise backend services, optimize throughput, and sustain resilient integrations.`
     default:
-      return `At ${comp}, I applied ${kw} directly in production workflows, evaluating architectural trade-offs to deliver measurable reliability gains.`
+      return `At ${comp}, I applied ${kw} directly in production workflows, evaluating architectural trade-offs to deliver measurable operational gains.`
   }
 }
 
@@ -177,11 +166,13 @@ export function generateTalkingScript(kw, company = '', targetRole = '') {
 
 /**
  * Role-Calibrated Production Practice Bullet
+ * Dynamically calibrated to candidate's actual domain without hardcoding SWE testing tools.
  */
 export function buildRolePracticeBullet(targetRole = '') {
   const isData = /data|analyst|analytics|bi\b/i.test(targetRole)
   const isAi = /ai\b|machine learning|ml\b|llm|agent/i.test(targetRole)
   const isDevops = /devops|cloud|sre|platform|infra/i.test(targetRole)
+  const isSwe = /software|developer|swe|sde|full stack|backend|frontend/i.test(targetRole)
 
   if (isData) {
     return {
@@ -207,11 +198,19 @@ export function buildRolePracticeBullet(targetRole = '') {
     }
   }
 
-  // SWE / Backend Default
+  if (isSwe) {
+    return {
+      keyword: 'Unit / Integration Testing & Git',
+      bullet: 'Maintained production reliability by establishing comprehensive unit and integration test coverage, driving peer code reviews and Git/GitHub CI/CD pull request review gates.',
+      script: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
+    }
+  }
+
+  // Non-tech / Operations / Management
   return {
-    keyword: 'Unit / Integration Testing & Git',
-    bullet: 'Maintained production reliability by establishing comprehensive unit and integration test coverage with Jest and PyTest, driving peer code reviews and Git/GitHub CI/CD pull request review gates.',
-    script: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
+    keyword: 'Operational Excellence & Quality Governance',
+    bullet: 'Drove operational excellence and quality governance across cross-functional initiatives, establishing standard review gates and delivery benchmarks.',
+    script: 'Discuss your methodology for establishing standard review gates, metric tracking, and stakeholder alignment to maintain delivery rigor.',
   }
 }
 
@@ -219,6 +218,7 @@ export function buildRolePracticeBullet(targetRole = '') {
  * Universal Deterministic Keyword Weaver
  */
 export function deterministicWeave(experiences, targetKws, targetRole = '') {
+  const role = targetRole || experiences?.[0]?.role || ''
   const keywordLedger = []
   const usedKeywords = new Set()
   const expClones = JSON.parse(JSON.stringify(experiences || []))
@@ -243,16 +243,23 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     }
   })
 
-  // 1. Natural In-Line Weaving by Semantic Matching
+  const needsQuality = targetKws.some((k) => /test|review|quality|git|guardrail|assertion/i.test(k))
+
+  // 1. Natural In-Line Weaving by Semantic Relevance
   for (const kw of targetKws) {
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
+    if (needsQuality && (/test|review|quality|git\b|guardrail|assertion/i.test(kwLower) || classifyToolCategory(kw, role) === 'testing_qa')) {
+      continue // Reserved for role-appropriate practice bullet below
+    }
 
-    const category = classifyToolCategory(kw, targetRole)
+    const category = classifyToolCategory(kw, role)
 
-    // Select candidate company profile: prioritize least modified for balanced distribution
-    let candidateProfiles = expProfiles.filter((p) => p.modifiedCount < 2)
-    if (candidateProfiles.length === 0) candidateProfiles = expProfiles
+    // Select candidate company profile: prioritize least modified and fewest bullets for balanced distribution
+    let candidateProfiles = [...expProfiles].sort((a, b) => {
+      if (a.modifiedCount !== b.modifiedCount) return a.modifiedCount - b.modifiedCount
+      return a.bullets.length - b.bullets.length
+    })
 
     let woven = false
 
@@ -275,11 +282,12 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         if (isDbKw && isChatbotBullet) continue // Never tack database/cache tools onto chatbot bullets
 
         const isMatch = (
-          (category === 'data_warehouse' && /(?:sql|query|queries|data\s+pipeline|report|dashboard|analytics|warehouse)/i.test(origText)) ||
-          (category === 'ai_ml' && /(?:ai|model|search|query|chat|assistant|retrieval|nlp|agent)/i.test(origText)) ||
+          (category === 'data_warehouse' && /(?:sql|query|queries|data\s+pipeline|report|dashboard|analytics|warehouse|database|mart|etl)/i.test(origText)) ||
+          (category === 'ai_ml' && /(?:ai\b|model|search|query|chat|assistant|retrieval|nlp|agent|prompt|vector)/i.test(origText)) ||
           (category === 'messaging_streaming' && /(?:event|stream|queue|sync|message|worker|async|transaction|database|queries|caching)/i.test(origText)) ||
-          (category === 'cloud_devops' && /(?:deploy|cloud|infrastructure|cluster|containers?|kubernetes|docker|terraform)/i.test(origText)) ||
-          (category === 'frontend_ui' && /(?:ui|frontend|component|page|view|interface|dashboard|client|web|react|node)/i.test(origText)) ||
+          (category === 'cloud_devops' && /(?:deploy|cloud|infrastructure|cluster|containers?|kubernetes|docker|terraform|ci\/cd|pipeline|aws|azure|gcp)/i.test(origText)) ||
+          (category === 'backend_api' && /(?:api\b|services?|endpoints?|microservices?|backend|server|grpc|rest|graphql|payload)/i.test(origText)) ||
+          (category === 'frontend_ui' && /(?:ui\b|frontend|component|page|view|interface|dashboard|client|web|react|node|state)/i.test(origText)) ||
           (category === 'testing_qa' && /(?:tests?|testing|test\s+coverage|test\s+suite|validation|quality\s+assurance|qa\b|code\s+reviews?)/i.test(origText))
         )
 
@@ -291,7 +299,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
             usedKeywords.add(kwLower)
             woven = true
 
-            const script = generateInterviewScript(kw, category, targetRole, prof.company)
+            const script = generateInterviewScript(kw, category, role, prof.company)
             keywordLedger.push({
               keyword: kw,
               company: prof.company,
@@ -309,12 +317,12 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     }
   }
 
-  // 2. Synthesize Dedicated Production Bullet if Needed
+  // 2. Synthesize Dedicated Domain Bullet if an Experience has < 5 Bullets
   for (const kw of targetKws) {
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
-    if (/test|review|quality|git|guardrail|assertion/i.test(kwLower) || classifyToolCategory(kw, targetRole) === 'testing_qa') {
-      continue // Handled by role-appropriate practice bullet below
+    if (needsQuality && (/test|review|quality|git\b|guardrail|assertion/i.test(kwLower) || classifyToolCategory(kw, role) === 'testing_qa')) {
+      continue
     }
 
     const availableProfile = expProfiles
@@ -324,7 +332,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     if (!availableProfile) break
 
     const isCurrent = availableProfile.isCurrent
-    const category = classifyToolCategory(kw, targetRole)
+    const category = classifyToolCategory(kw, role)
     let synthBullet = ''
 
     if (category === 'data_warehouse') {
@@ -354,7 +362,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
       availableProfile.synthesizedCount++
       usedKeywords.add(kwLower)
 
-      const script = generateInterviewScript(kw, category, targetRole, availableProfile.company)
+      const script = generateInterviewScript(kw, category, role, availableProfile.company)
       keywordLedger.push({
         keyword: kw,
         company: availableProfile.company,
@@ -368,15 +376,15 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     }
   }
 
-  // 3. Role-Appropriate Practice Bullet if Testing/Reliability Keywords Missing
-  const needsQuality = targetKws.some((k) => /test|review|quality|git|guardrail|assertion/i.test(k))
-  if (needsQuality && !usedKeywords.has('unit testing') && !usedKeywords.has('data quality') && !usedKeywords.has('ci/cd automation')) {
-    const practice = buildRolePracticeBullet(targetRole)
+  // 3. Role-Appropriate Practice Bullet if Testing/Reliability Keywords Requested
+  if (needsQuality && !usedKeywords.has('unit testing') && !usedKeywords.has('data quality') && !usedKeywords.has('ci/cd automation') && !usedKeywords.has('git')) {
+    const practice = buildRolePracticeBullet(role)
     const prof0 = expProfiles[0]
 
     if (prof0 && !prof0.bullets.some((b) => b.includes(practice.bullet))) {
       prof0.bullets.push(practice.bullet)
       usedKeywords.add('unit testing')
+      usedKeywords.add('git')
       usedKeywords.add('data quality')
       usedKeywords.add('ci/cd automation')
 
@@ -391,6 +399,28 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         talkingScript: practice.script,
       })
     }
+  }
+
+  // 4. For any remaining keywords that cannot be woven into full profiles without fabricating facts:
+  // Place them cleanly into Technical Skills and mark in ledger as 'Skill Section Insertion'
+  for (const kw of targetKws) {
+    const kwLower = kw.toLowerCase()
+    if (usedKeywords.has(kwLower)) continue
+
+    const category = classifyToolCategory(kw, role)
+    const script = generateInterviewScript(kw, category, role, expProfiles[0]?.company || 'my recent projects')
+
+    keywordLedger.push({
+      keyword: kw,
+      company: 'Technical Skills',
+      placement: 'Skill Section Insertion',
+      bulletText: `Added ${kw} to Technical Skills profile`,
+      exactBullet: `Added ${kw} to Technical Skills profile`,
+      wovenBullet: `Added ${kw} to Technical Skills profile`,
+      interviewTalkingScript: script,
+      talkingScript: script,
+    })
+    usedKeywords.add(kwLower)
   }
 
   const tailoredExperiences = expClones.map((origExp, idx) => {
@@ -505,7 +535,7 @@ OUTPUT FORMAT (JSON ONLY):
   ]
 }`
 
-    const userPrompt = `Target Role: ${role || 'Software Engineer'}
+    const userPrompt = `Target Role: ${role || 'Professional'}
 Target Keywords to Weave: ${targetKws.slice(0, 10).join(', ')}
 
 Candidate Experiences:
@@ -574,7 +604,7 @@ ${JSON.stringify(compactExperiences, null, 2)}`
 
 export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywords = [], targetRole = '' } = {}) {
   const experiences = canonicalResume?.experiences || canonicalResume?.experience || []
-  const role = targetRole || canonicalResume?.target_role || canonicalResume?.candidate?.targetRole || ''
+  const role = targetRole || canonicalResume?.target_role || canonicalResume?.candidate?.targetRole || experiences?.[0]?.role || ''
   const targetKws = (Array.isArray(missingKeywords) ? missingKeywords : [])
     .map((k) => (typeof k === 'string' ? k : k?.skill || k?.name || k?.keyword || ''))
     .map((s) => s.trim())

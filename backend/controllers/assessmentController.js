@@ -879,7 +879,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
     }
 
-    // 2.5. Prioritize applying the LLM's dynamic bulletRewrites / tailoredBullets directly into canonical experiences
+    // 2.5. Prioritize applying the LLM's dynamic bulletRewrites / tailoredBullets directly into canonical experiences FIRST
     const rawDirectRewrites = [
       ...(Array.isArray(ra.bulletRewrites) ? ra.bulletRewrites : []),
       ...(Array.isArray(ra.tailoredBullets) ? ra.tailoredBullets : []),
@@ -889,6 +889,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       ...(Array.isArray(ra.bulletAudit) ? ra.bulletAudit : []),
     ]
 
+    const upgradedBulletIds = new Set()
     if (rawDirectRewrites.length > 0 && Array.isArray(canonical.experiences)) {
       const rewriteMap = new Map()
       rawDirectRewrites.forEach((rw) => {
@@ -905,11 +906,14 @@ export const downloadAtsResumeDocx = async (req, res) => {
       canonical.experiences.forEach((exp) => {
         if (Array.isArray(exp.bullets)) {
           exp.bullets = exp.bullets.map((b) => {
+            const bId = b?.id || null
             const bText = typeof b === 'string' ? b : (b?.text || '')
             const low = bText.trim().toLowerCase()
             const match = rewriteMap.get(low) || (low.length >= 35 ? rewriteMap.get(low.slice(0, 35)) : null)
             if (match) {
-              return typeof b === 'string' ? match : { ...b, text: match }
+              if (bId) upgradedBulletIds.add(bId)
+              upgradedBulletIds.add(low)
+              return typeof b === 'string' ? match : { ...b, id: bId, text: match }
             }
             return b
           })
@@ -925,7 +929,26 @@ export const downloadAtsResumeDocx = async (req, res) => {
       skillsOnlyKeywords: strandedSkillsOnly,
     })
     if (tailoredExperiences && tailoredExperiences.length > 0) {
-      canonical.experiences = tailoredExperiences
+      canonical.experiences = tailoredExperiences.map((te, expIdx) => {
+        const origExp = canonical.experiences[expIdx]
+        const preservedBullets = (te.bullets || []).map((b, bIdx) => {
+          const origB = origExp?.bullets?.[bIdx]
+          const stableId = (typeof origB === 'object' && origB?.id)
+            ? origB.id
+            : (typeof b === 'object' && b?.id ? b.id : `exp_${String(expIdx + 1).padStart(3, '0')}_b${String(bIdx + 1).padStart(2, '0')}`)
+          const text = typeof b === 'string' ? b : b?.text || ''
+          return {
+            id: stableId,
+            text,
+            source: origB?.source || { page: 1, bbox: null },
+          }
+        })
+        return {
+          ...origExp,
+          ...te,
+          bullets: preservedBullets,
+        }
+      })
     }
 
     // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)

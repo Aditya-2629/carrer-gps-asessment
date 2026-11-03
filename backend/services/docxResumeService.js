@@ -186,7 +186,27 @@ export function groupByCategory(skills = [], targetRole = '') {
   ])
 
   const unique = Array.from(new Set(cleanTokens)).filter((s) => !BANNED_SKILLS.has(s.toLowerCase().trim()))
-  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole)
+
+  const isNonTech =
+    /product\s+manager|project\s+manager|scrum|design|ux\b|ui\b|marketing|sales|recruiter|human\s+resources|hr\b|finance|financial|accountant|nurse|healthcare|clinical|operations|supply\s+chain|compliance|business\s+analyst/i.test(targetRole) &&
+    !/engineer|developer|architect|data\s+scientist|data\s+engineer|devops/i.test(targetRole)
+
+  if (isNonTech) {
+    const buckets = {
+      'Core Competencies': [],
+      'Tools & Systems': [],
+    }
+    unique.forEach((s) => {
+      const bucket = determineSkillBucket(s, targetRole)
+      if (bucket === 'Tools & Systems') buckets['Tools & Systems'].push(s)
+      else buckets['Core Competencies'].push(s)
+    })
+    return Object.entries(buckets)
+      .map(([cat, items]) => [cat, items.slice(0, 10)])
+      .filter(([_, items]) => items.length > 0)
+  }
+
+  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power bi/i.test(targetRole) && !/software|full\s*stack|backend/i.test(targetRole)
 
   if (isDataRole) {
     const buckets = {
@@ -811,3 +831,5 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     pendingKeywords,
   }
 }
+
+export { determineSkillBucket }

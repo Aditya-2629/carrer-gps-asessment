@@ -28,6 +28,18 @@ import { sanitizeSingleAddPlaceholder, cleanRewriteText } from '../scoring/resum
 export { cleanRewriteText }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
+export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = []) {
+  const role = targetRole || (experiences[0]?.role) || 'Experienced Professional';
+  const topSkills = Array.isArray(skills) 
+    ? skills.slice(0, 4).join(', ') 
+    : (skills && typeof skills === 'object')
+      ? Object.values(skills).flat().slice(0, 4).join(', ')
+      : '';
+
+  const skillsClause = topSkills ? ` with expertise across ${topSkills}` : '';
+  return `${role}${skillsClause}, recognized for driving operational efficiency, cross-functional collaboration, and measurable business outcomes. Proven track record of delivering end-to-end initiatives on schedule while upholding industry standards and process rigor.`;
+}
+
 /**
  * Computes deterministic dossier of ground-truth checks prior to reasoning call.
  */
@@ -292,28 +304,18 @@ export function sanitizeModeCOutput(analysis, state = {}) {
 
   // 6. summaryOptimization normalization
   if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
-    const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
-    const isData = /data|analyst|analytics|bi\b|sql|tableau/i.test(targetRole)
-    const isAi = /ai\b|machine learning|ml\b|llm|deep learning|nlp/i.test(targetRole)
-    const isFrontend = /frontend|front-end|ui\/ux|react|angular|vue/i.test(targetRole)
+    const targetRole = analysis.candidateSnapshot?.targetRole || 'Experienced Professional'
     const rawSkills = analysis.candidateSnapshot?.skills || analysis.skills || []
     const skillsList = Array.isArray(rawSkills)
       ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
       : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat().filter(Boolean) : [])
-    const topSkillsStr = skillsList.slice(0, 3).join(', ')
+    const experiences = analysis.candidateSnapshot?.experiences || analysis.experiences || []
 
-    let specialization = 'scalable systems and full-stack technical delivery'
-    if (isData) specialization = 'data analytics, relational database modeling, and automated executive reporting'
-    else if (isAi) specialization = 'production AI/ML systems, predictive modeling, and scalable inference workflows'
-    else if (isFrontend) specialization = 'responsive frontend architectures, modern component libraries, and intuitive UI performance'
-    else if (topSkillsStr) specialization = `production engineering across ${topSkillsStr}`
-
-    const topStrengths = (analysis.strengths || []).slice(0, 2).map((s) => s.title).join(', ')
     analysis.summaryOptimization = {
       status: 'missing',
       currentSummary: 'No Professional Summary section found on resume',
-      diagnosis: `Your resume currently lacks a tailored executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and engineering scope.`,
-      rewrittenSummary: `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution${topStrengths ? ` across ${topStrengths}` : ''}, reducing system latency, and delivering resilient production platforms. Specializes in ${specialization}.`,
+      diagnosis: `Your resume currently lacks a tailored executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and operational scope.`,
+      rewrittenSummary: generateDomainCalibratedSummary(targetRole, experiences, skillsList),
     }
   } else {
     const sOpt = analysis.summaryOptimization
@@ -321,21 +323,19 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       sOpt.status = sOpt.currentSummary && !sOpt.currentSummary.includes('No Professional Summary') ? 'needs_rewrite' : 'missing'
     }
     if (!sOpt.currentSummary) {
-      sOpt.currentSummary = sOpt.status === 'missing' ? 'No Professional Summary section found on resume' : 'No Professional Summary section found on resume'
+      sOpt.currentSummary = 'No Professional Summary section found on resume'
     }
     if (!sOpt.diagnosis) {
-      sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and technical specialization.`
+      sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and specialization.`
     }
     if (!sOpt.rewrittenSummary) {
-      const targetRole = analysis.candidateSnapshot?.targetRole || 'Software Professional'
-      const isData = /data|analyst|analytics|bi\b|sql|tableau/i.test(targetRole)
-      const isAi = /ai\b|machine learning|ml\b|llm|deep learning|nlp/i.test(targetRole)
-      const isFrontend = /frontend|front-end|ui\/ux|react|angular|vue/i.test(targetRole)
-      let specialization = 'scalable systems and full-stack technical delivery'
-      if (isData) specialization = 'data analytics, relational database modeling, and automated executive reporting'
-      else if (isAi) specialization = 'production AI/ML systems, predictive modeling, and scalable inference workflows'
-      else if (isFrontend) specialization = 'responsive frontend architectures, modern component libraries, and intuitive UI performance'
-      sOpt.rewrittenSummary = `${targetRole} with demonstrated experience architecting scalable, high-availability software systems. Proven track record driving engineering execution, reducing system latency, and delivering resilient production platforms. Specializes in ${specialization}.`
+      const targetRole = analysis.candidateSnapshot?.targetRole || 'Experienced Professional'
+      const rawSkills = analysis.candidateSnapshot?.skills || analysis.skills || []
+      const skillsList = Array.isArray(rawSkills)
+        ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+        : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat().filter(Boolean) : [])
+      const experiences = analysis.candidateSnapshot?.experiences || analysis.experiences || []
+      sOpt.rewrittenSummary = generateDomainCalibratedSummary(targetRole, experiences, skillsList)
     }
   }
 

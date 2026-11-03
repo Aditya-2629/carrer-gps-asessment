@@ -174,8 +174,10 @@ export async function extractSkillsDynamically(jdText = '', options = {}) {
 
 /**
  * Deterministic Heuristic Extractor:
- * Finds capitalized technical terms, acronyms (2-6 uppercase letters), camelCase words,
- * technical compounds, and known patterns without requiring rigid static single-domain lists.
+ * Finds capitalized technical terms, acronyms (2-5 uppercase letters: e.g. GCP, ETL, IAM, LLM, SDK),
+ * camelCase/PascalCase tokens (e.g. LangGraph, TensorFlow, PostgreSQL),
+ * hyphenated tools (e.g. ci-cd, scikit-learn), and noun phrases following indicator patterns
+ * ("experience with", "proficiency in", "knowledge of", "hands-on with").
  */
 export function extractSkillsHeuristically(text = '') {
   if (!text || typeof text !== 'string') {
@@ -191,12 +193,13 @@ export function extractSkillsHeuristically(text = '') {
   const found = new Set()
   const categories = {}
 
-  // 1. Acronyms & technical abbreviations (e.g. AWS, GCP, SQL, ETL, RAG, API, SDK, dbt, K8s, FHIR, HL7, GATK, BLAST)
-  const acronymMatches = text.match(/\b[A-Z]{2,6}\b|\b[a-z][A-Z0-9]+\b|\b[A-Z][a-z]+[A-Z][a-zA-Z]*\b|\b[A-Z]{1,5}\d{1,4}\b/g) || []
+  // 1. Capitalized technical acronyms & abbreviations (2-5 uppercase letters, e.g. GCP, ETL, IAM, LLM, SDK, AWS, SQL, API, RAG, dbt)
+  const acronymMatches = text.match(/\b[A-Z]{2,5}\b|\b[a-z][A-Z0-9]+\b|\b[A-Z][a-z]+[A-Z][a-zA-Z]*\b|\b[A-Z]{1,5}\d{1,4}\b/g) || []
   for (const acr of acronymMatches) {
-    if (!COMMON_STOP_WORDS.has(acr.toLowerCase()) && acr.length >= 2) {
+    const low = acr.toLowerCase()
+    if (!COMMON_STOP_WORDS.has(low) && acr.length >= 2) {
       found.add(acr)
-      categories[acr.toLowerCase()] = assignHeuristicCategory(acr)
+      categories[low] = assignHeuristicCategory(acr)
     }
   }
 
@@ -204,23 +207,51 @@ export function extractSkillsHeuristically(text = '') {
   const patternMatches = text.match(/\b(?:[A-Za-z0-9]+(?:\.[a-z]{2,4})|\.NET|C\+\+|C#|CI\/CD|Power\s+BI|REST(?:ful)?\s+APIs?)\b/gi) || []
   for (const pat of patternMatches) {
     const trimmed = pat.trim()
-    if (!COMMON_STOP_WORDS.has(trimmed.toLowerCase())) {
+    const low = trimmed.toLowerCase()
+    if (!COMMON_STOP_WORDS.has(low)) {
       found.add(trimmed)
-      categories[trimmed.toLowerCase()] = assignHeuristicCategory(trimmed)
+      categories[low] = assignHeuristicCategory(trimmed)
     }
   }
 
-  // 3. Technical compounds & specialized suffixes (e.g. Biopython, Nextflow, ChromaDB, LangGraph)
-  const compoundMatches = text.match(/\b[A-Z][a-z]*(?:flow|python|db|sql|graph|mcp|hub|lab|script|box|base|stack)\b/gi) || []
+  // 3. CamelCase/PascalCase technical compounds & specialized suffixes (e.g. LangGraph, TensorFlow, PostgreSQL, ChromaDB, Biopython, Nextflow)
+  const compoundMatches = text.match(/\b[A-Z][a-z]+[A-Z][a-zA-Z]+\b|\b[A-Z][a-z]*(?:flow|python|db|sql|graph|mcp|hub|lab|script|box|base|stack)\b/gi) || []
   for (const cmp of compoundMatches) {
     const trimmed = cmp.trim()
-    if (!COMMON_STOP_WORDS.has(trimmed.toLowerCase()) && trimmed.length >= 3) {
+    const low = trimmed.toLowerCase()
+    if (!COMMON_STOP_WORDS.has(low) && trimmed.length >= 3) {
       found.add(trimmed)
-      categories[trimmed.toLowerCase()] = assignHeuristicCategory(trimmed)
+      categories[low] = assignHeuristicCategory(trimmed)
     }
   }
 
-  // 4. Two-word capitalized domain platforms (e.g. Epic Systems, Apache Spark, Google Cloud)
+  // 4. Hyphenated technical tools (e.g. ci-cd, scikit-learn, spring-boot, react-native)
+  const hyphenMatches = text.match(/\b[a-zA-Z0-9]+-[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)?\b/g) || []
+  for (const hyp of hyphenMatches) {
+    const low = hyp.toLowerCase()
+    if (!COMMON_STOP_WORDS.has(low) && hyp.length >= 3 && !/^(?:pre-requisite|full-time|part-time|day-to-day|hands-on|end-to-end)$/i.test(hyp)) {
+      found.add(hyp)
+      categories[low] = assignHeuristicCategory(hyp)
+    }
+  }
+
+  // 5. Noun phrases following indicator clauses: "experience with", "proficiency in", "knowledge of", "hands-on with"
+  const indicatorRegex = /(?:experience with|proficiency in|knowledge of|hands-on with|familiarity with|expertise in)\s+([A-Za-z0-9\s/.,#+-]{2,60})(?=[.;\n]|\band\b|\bas well as\b)/gi
+  let indMatch
+  while ((indMatch = indicatorRegex.exec(text)) !== null) {
+    const chunk = indMatch[1] || ''
+    const parts = chunk.split(/[,/]\s*|\s+or\s+/).map((p) => p.trim())
+    for (const p of parts) {
+      const pClean = p.replace(/[.!?]+$/, '').trim()
+      const pLow = pClean.toLowerCase()
+      if (pClean.length >= 2 && pClean.length <= 30 && !COMMON_STOP_WORDS.has(pLow) && !/^(?:a|an|the|such|other|various|relevant|related)$/i.test(pLow)) {
+        found.add(pClean)
+        categories[pLow] = assignHeuristicCategory(pClean)
+      }
+    }
+  }
+
+  // 6. Two-word capitalized domain platforms (e.g. Epic Systems, Apache Spark, Google Cloud)
   const twoWordMatches = text.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g) || []
   for (const phrase of twoWordMatches) {
     const low = phrase.toLowerCase()
@@ -231,7 +262,7 @@ export function extractSkillsHeuristically(text = '') {
     }
   }
 
-  // 5. Well-known base languages & core tech when present in text
+  // 7. Well-known base languages & core tech when present in text
   const coreTech = ['python', 'java', 'sql', 'docker', 'kubernetes', 'git', 'snowflake', 'tableau', 'excel', 'spark', 'kafka', 'redis', 'airflow', 'dbt']
   const lowerText = text.toLowerCase()
   for (const ct of coreTech) {
@@ -245,7 +276,7 @@ export function extractSkillsHeuristically(text = '') {
   }
 
   return {
-    skills: Array.from(found).slice(0, 30),
+    skills: Array.from(found).slice(0, 35),
     categories,
     seniority: 'Mid-Level',
     minYears: 0,

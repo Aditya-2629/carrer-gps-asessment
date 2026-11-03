@@ -137,6 +137,8 @@ export function extractSkillsFromJd(cleanText = '') {
   return Array.from(found)
 }
 
+export const extractDynamicSkillsFromText = extractSkillsFromJd
+
 /**
  * Extracts responsibilities & action phrases from JD text.
  */
