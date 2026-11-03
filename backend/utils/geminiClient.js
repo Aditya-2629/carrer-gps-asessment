@@ -357,7 +357,7 @@ export function sleep(ms, signal = null) {
  */
 export const generateContentWithFallback = async ({
   contents,
-  modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+  modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   fallbackModels = DEFAULT_MODELS,
   generationConfig = {},
   timeoutMs = process.env.GEMINI_TIMEOUT_MS ? parseInt(process.env.GEMINI_TIMEOUT_MS, 10) : 15000,
