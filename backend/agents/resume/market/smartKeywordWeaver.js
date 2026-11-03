@@ -169,16 +169,25 @@ export function generateTalkingScript(kw, company = '', targetRole = '') {
  * Dynamically calibrated to candidate's actual domain without hardcoding SWE testing tools.
  */
 export function buildRolePracticeBullet(targetRole = '') {
-  const isData = /data|analyst|analytics|bi\b/i.test(targetRole)
-  const isAi = /ai\b|machine learning|ml\b|llm|agent/i.test(targetRole)
-  const isDevops = /devops|cloud|sre|platform|infra/i.test(targetRole)
-  const isSwe = /software|developer|swe|sde|full stack|backend|frontend/i.test(targetRole)
+  const isData = /data\s*(?:analyst|analytics|specialist|bi\b|science|scientist)|business\s+analyst|analytics\b|bi\s+(?:developer|analyst|specialist)|tableau|power\s*bi/i.test(targetRole) || (/data|analyst|analytics|bi\b/i.test(targetRole) && !/software\s+developer|swe|sde/i.test(targetRole))
+  const isProductOrNonTech = /product\s*(?:manager|owner|lead)|program\s*manager|project\s*manager|scrum\s*master|operations|business\s*(?:operations|lead)|strategy|marketing|sales|customer\s*success|recruiter|hr\b/i.test(targetRole)
+  const isAi = !isData && !isProductOrNonTech && /ai\b|machine learning|ml\b|llm|agent/i.test(targetRole)
+  const isDevops = !isData && !isProductOrNonTech && /devops|cloud|sre|platform|infra/i.test(targetRole)
+  const isSwe = !isData && !isProductOrNonTech && !isAi && !isDevops && /software|developer|swe|sde|full stack|backend|frontend/i.test(targetRole)
 
   if (isData) {
     return {
       keyword: 'Data Quality & dbt Assertions',
-      bullet: 'Established automated data testing and schema assertions with dbt, eliminating cross-system reporting discrepancies and ensuring 100% metric SLA compliance.',
+      bullet: 'Established automated data testing, reconciliation routines, and schema assertions with dbt, eliminating cross-system reporting discrepancies and ensuring 100% metric SLA compliance.',
       script: 'Explain how you set up automated uniqueness, not-null, and relationship tests to stop corrupted raw data from poisoning executive dashboards.',
+    }
+  }
+
+  if (isProductOrNonTech) {
+    return {
+      keyword: 'Operational Excellence & Quality Governance',
+      bullet: 'Drove operational excellence and quality governance across cross-functional initiatives, establishing standard review gates and delivery benchmarks.',
+      script: 'Discuss your methodology for establishing standard review gates, metric tracking, and stakeholder alignment to maintain delivery rigor.',
     }
   }
 
@@ -244,11 +253,23 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
   })
 
   const needsQuality = targetKws.some((k) => /test|review|quality|git|guardrail|assertion/i.test(k))
+  const isProductOrNonTech =
+    /product\s*(?:manager|owner|lead)|program\s*manager|project\s*manager|scrum\s*master|operations|business\s*(?:operations|lead)|strategy|marketing|sales|customer\s*success|recruiter|hr\b/i.test(role)
+  const isData =
+    /data\s*(?:analyst|analytics|specialist|bi\b|science|scientist)|business\s+analyst|analytics\b|bi\s+(?:developer|analyst|specialist)|tableau|power\s*bi/i.test(role) ||
+    (/data|analyst|analytics|bi\b/i.test(role) && !/software\s+developer|swe|sde/i.test(role))
 
   // 1. Natural In-Line Weaving by Semantic Relevance
   for (const kw of targetKws) {
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
+
+    // For Non-Tech / Product roles: NEVER weave Git/GitHub PR gating, code review, or SWE unit testing tools
+    if (isProductOrNonTech && /git\b|github|pull\s*request|unit\s*test|pytest|jest|code\s*review/i.test(kwLower)) {
+      usedKeywords.add(kwLower)
+      continue
+    }
+
     if (needsQuality && (/test|review|quality|git\b|guardrail|assertion/i.test(kwLower) || classifyToolCategory(kw, role) === 'testing_qa')) {
       continue // Reserved for role-appropriate practice bullet below
     }
@@ -321,6 +342,13 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
   for (const kw of targetKws) {
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
+
+    // For Non-Tech / Product roles: NEVER synthesize SWE testing, git, or code review bullets
+    if (isProductOrNonTech && /git\b|github|pull\s*request|unit\s*test|pytest|jest|code\s*review/i.test(kwLower)) {
+      usedKeywords.add(kwLower)
+      continue
+    }
+
     if (needsQuality && (/test|review|quality|git\b|guardrail|assertion/i.test(kwLower) || classifyToolCategory(kw, role) === 'testing_qa')) {
       continue
     }
@@ -377,27 +405,71 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
   }
 
   // 3. Role-Appropriate Practice Bullet if Testing/Reliability Keywords Requested
-  if (needsQuality && !usedKeywords.has('unit testing') && !usedKeywords.has('data quality') && !usedKeywords.has('ci/cd automation') && !usedKeywords.has('git')) {
-    const practice = buildRolePracticeBullet(role)
-    const prof0 = expProfiles[0]
+  if (needsQuality && !usedKeywords.has('unit testing') && !usedKeywords.has('data quality') && !usedKeywords.has('ci/cd automation') && !usedKeywords.has('git') && !usedKeywords.has('quality governance')) {
+    if (isProductOrNonTech) {
+      // For Non-Tech / Product roles: NEVER inject Git/GitHub PR gating or unit testing bullets
+      const practice = buildRolePracticeBullet(role)
+      if (!/git|github|pull\s*request|unit\s*test|pytest|jest|code\s*review/i.test(practice.bullet)) {
+        const prof0 = expProfiles[0]
+        if (prof0 && !prof0.bullets.some((b) => b.includes(practice.bullet))) {
+          prof0.bullets.push(practice.bullet)
+          usedKeywords.add('operational excellence')
+          usedKeywords.add('quality governance')
 
-    if (prof0 && !prof0.bullets.some((b) => b.includes(practice.bullet))) {
-      prof0.bullets.push(practice.bullet)
-      usedKeywords.add('unit testing')
-      usedKeywords.add('git')
-      usedKeywords.add('data quality')
-      usedKeywords.add('ci/cd automation')
+          keywordLedger.push({
+            keyword: practice.keyword,
+            company: prof0.company,
+            placement: 'Dedicated Quality Governance Bullet',
+            bulletText: practice.bullet,
+            exactBullet: practice.bullet,
+            wovenBullet: practice.bullet,
+            interviewTalkingScript: practice.script,
+            talkingScript: practice.script,
+          })
+        }
+      }
+    } else if (isData) {
+      // For Data Analyst / BI roles: inject ONLY data-specific quality bullets (data validation, reconciliation, dbt tests)
+      const practice = buildRolePracticeBullet(role)
+      const prof0 = expProfiles[0]
+      if (prof0 && !prof0.bullets.some((b) => b.includes(practice.bullet))) {
+        prof0.bullets.push(practice.bullet)
+        usedKeywords.add('data quality')
+        usedKeywords.add('dbt assertions')
 
-      keywordLedger.push({
-        keyword: practice.keyword,
-        company: prof0.company,
-        placement: 'Dedicated Production Quality Bullet',
-        bulletText: practice.bullet,
-        exactBullet: practice.bullet,
-        wovenBullet: practice.bullet,
-        interviewTalkingScript: practice.script,
-        talkingScript: practice.script,
-      })
+        keywordLedger.push({
+          keyword: practice.keyword,
+          company: prof0.company,
+          placement: 'Dedicated Data Quality Bullet',
+          bulletText: practice.bullet,
+          exactBullet: practice.bullet,
+          wovenBullet: practice.bullet,
+          interviewTalkingScript: practice.script,
+          talkingScript: practice.script,
+        })
+      }
+    } else {
+      // SWE, DevOps, AI tech roles
+      const practice = buildRolePracticeBullet(role)
+      const prof0 = expProfiles[0]
+      if (prof0 && !prof0.bullets.some((b) => b.includes(practice.bullet))) {
+        prof0.bullets.push(practice.bullet)
+        usedKeywords.add('unit testing')
+        usedKeywords.add('git')
+        usedKeywords.add('data quality')
+        usedKeywords.add('ci/cd automation')
+
+        keywordLedger.push({
+          keyword: practice.keyword,
+          company: prof0.company,
+          placement: 'Dedicated Production Quality Bullet',
+          bulletText: practice.bullet,
+          exactBullet: practice.bullet,
+          wovenBullet: practice.bullet,
+          interviewTalkingScript: practice.script,
+          talkingScript: practice.script,
+        })
+      }
     }
   }
 

@@ -205,6 +205,7 @@ export function formatEducationDates(dates, startDate, endDate) {
 
   let clean = expandMonth(String(dates).trim())
   clean = clean.replace(/\s*(?:–|—|-|\bto\b)\s*/gi, ' – ')
+  clean = clean.replace(/\bexpected\b/i, 'Expected')
   return clean
 }
 
@@ -224,7 +225,9 @@ export function normalizeEducationItem(edu) {
     }
 
     let dates = ''
-    const dateMatch = raw.match(/\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})\s*(?:–|—|-|\bto\b)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})|present|current|expected)\b|\b(?:19|20)\d{2}\b/i)
+    const dateMatch = raw.match(
+      /\b(?:expected\s+)?(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})\s*(?:–|—|-|\bto\b)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})|present|current|expected)\b|\b(?:expected\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b|\b(?:expected\s+)?(?:19|20)\d{2}\b/i
+    )
     if (dateMatch) {
       dates = dateMatch[0].trim()
       raw = raw.replace(dateMatch[0], '')
@@ -255,7 +258,35 @@ export function normalizeEducationItem(edu) {
   let school = safeString(edu.school || edu.institution || edu.university || '').trim()
   let degree = safeString(edu.degree || edu.degreeName || '').trim()
   let location = extractLocation(edu.location)
-  let dates = formatEducationDates(edu.dates || edu.year, edu.startDate, edu.endDate)
+  const rawDateCandidate =
+    edu.dates ||
+    edu.year ||
+    edu.graduationYear ||
+    edu.graduationDate ||
+    edu.gradYear ||
+    edu.gradDate ||
+    edu.date ||
+    edu.period ||
+    edu.completionDate ||
+    edu.time ||
+    ''
+  let dates = formatEducationDates(rawDateCandidate, edu.startDate, edu.endDate)
+
+  // Recovery: if dates is missing or empty, search school and degree for valid graduation date
+  if (!dates) {
+    const embeddedDateRegex = /\b(?:expected\s+)?(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})\s*(?:–|—|-|\bto\b)\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+)?(?:\d{4})|present|current|expected)\b|\b(?:expected\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}\b|\b(?:expected\s+)?(?:19|20)\d{2}\b/i
+    const mDeg = degree.match(embeddedDateRegex)
+    if (mDeg) {
+      dates = formatEducationDates(mDeg[0])
+      degree = degree.replace(mDeg[0], '').replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim()
+    } else {
+      const mSch = school.match(embeddedDateRegex)
+      if (mSch) {
+        dates = formatEducationDates(mSch[0])
+        school = school.replace(mSch[0], '').replace(/[(),]/g, ' ').replace(/\s+/g, ' ').trim()
+      }
+    }
+  }
 
   // Location recovery if location is missing but inside school or degree
   if (!location) {

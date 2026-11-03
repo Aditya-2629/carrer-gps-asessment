@@ -12,7 +12,7 @@ import { generateReportBundle } from '../services/reportGeneration.js'
 import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
-import { determineSkillBucket, cleanTargetRoleTitle } from '../services/resumeValidator.js'
+import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
 import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 
@@ -855,27 +855,50 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
     }
 
-    if (missingSkillsList.length > 0) {
+    // Verified skills injection check: do NOT blindly push unverified missing keywords
+    const { appliedKeywords: verifiedApplied = [] } = sanitizeAndValidateResume(
+      canonical,
+      [],
+      missingSkillsList
+    )
+    const verifiedSet = new Set((verifiedApplied || []).map((a) => a.keyword.toLowerCase().trim()))
+    const userSelectedSet = new Set(userSelectedSkills.map((s) => s.toLowerCase().trim()))
+
+    const skillsToInject = []
+    for (const kw of missingSkillsList) {
+      const kwLow = kw.toLowerCase().trim()
+      if (verifiedSet.has(kwLow)) {
+        // Demonstrable evidence in corpus: safe to inject directly
+        skillsToInject.push(kw)
+      } else if (userSelectedSet.has(kwLow)) {
+        // Explicitly requested by candidate: append indicator so recruiters do not flag as keyword stuffing
+        skillsToInject.push(`${kw} (In-Progress)`)
+      }
+      // Otherwise unverified and not user-selected: omit to prevent blind keyword stuffing
+    }
+
+    if (skillsToInject.length > 0) {
       if (Array.isArray(canonical.skills)) {
         const existing = new Set(
           canonical.skills.map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : (s?.name || '').toLowerCase().trim()))
         )
-        for (const kw of missingSkillsList) {
+        for (const kw of skillsToInject) {
           if (!existing.has(kw.toLowerCase())) {
             existing.add(kw.toLowerCase())
             canonical.skills.push(kw)
           }
         }
       } else if (typeof canonical.skills === 'object' && canonical.skills !== null) {
-        for (const kw of missingSkillsList) {
-          const bucket = determineSkillBucket(kw, canonical.target_role || '')
+        for (const kw of skillsToInject) {
+          const rawKw = kw.replace(/\s*\([^)]*\)$/, '').trim()
+          const bucket = determineSkillBucket(rawKw, canonical.target_role || '')
           canonical.skills[bucket] = canonical.skills[bucket] || []
           if (!canonical.skills[bucket].some((s) => (typeof s === 'string' ? s.toLowerCase() : s?.name?.toLowerCase()) === kw.toLowerCase())) {
             canonical.skills[bucket].push(kw)
           }
         }
       } else {
-        canonical.skills = [...missingSkillsList]
+        canonical.skills = [...skillsToInject]
       }
     }
 

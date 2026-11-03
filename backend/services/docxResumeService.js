@@ -660,6 +660,16 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       const edu = normalizeEducationItem(rawEdu)
       if (!edu.school && !edu.degree) return
 
+      // Safeguard: Never replace valid graduation date with empty string or placeholder
+      if (!edu.dates && rawEdu) {
+        const rawDateCandidate = typeof rawEdu === 'string'
+          ? rawEdu
+          : (rawEdu.dates || rawEdu.year || rawEdu.graduationYear || rawEdu.graduationDate || rawEdu.gradYear || rawEdu.date || rawEdu.period || '')
+        if (rawDateCandidate) {
+          edu.dates = normalizeEducationItem(rawDateCandidate).dates || rawDateCandidate
+        }
+      }
+
       const school = decodeHtmlEntities(edu.school)
       const dates = decodeHtmlEntities(edu.dates)
       const degree = decodeHtmlEntities(edu.degree)
@@ -832,4 +842,4 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
   }
 }
 
-export { determineSkillBucket }
+export { determineSkillBucket, normalizeEducationItem }
