@@ -259,8 +259,7 @@ function createSectionHeading(title, spacingBefore = 160, spacingAfter = 60) {
 function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   let rawText = typeof text === 'string' ? text : text?.text || text?.rewrite || String(text || '')
   if (!rawText) return []
-  rawText = cleanPlaceholderGraceful(rawText)
-  rawText = cleanGrammarArtifacts(rawText)
+  rawText = decodeHtmlEntities(rawText).replace(/\{\{[A-Za-z0-9_]+\}\}/g, '').trim()
 
   // Case A: Model already supplied **bold** markers (no 2-bold cap)
   if (/\*\*(.*?)\*\*/.test(rawText)) {
@@ -310,10 +309,11 @@ function buildSelectiveBoldRuns(text, candidateSkills = [], bodySize = 20) {
   }
 
   targets.sort((a, b) => a.start - b.start)
+  const cappedTargets = targets.slice(0, 4) // Highlight up to 3-4 key technical keywords & metrics per bullet
 
   const runs = []
   let lastIdx = 0
-  targets.forEach((tgt) => {
+  cappedTargets.forEach((tgt) => {
     if (tgt.start > lastIdx) {
       runs.push(
         new TextRun({
@@ -354,25 +354,12 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
-  const candidateName = decodeHtmlEntities(
-    sanitizedResume.candidate_name ||
-    sanitizedResume.candidate?.name ||
-    sanitizedResume.name ||
-    ''
-  )
-  const rawTargetRole = decodeHtmlEntities(
-    sanitizedResume.target_role ||
-    sanitizedResume.candidate?.targetRole ||
-    sanitizedResume.targetRole ||
-    ''
-  )
+  const candidateName = decodeHtmlEntities(sanitizedResume.candidate_name || '')
+  const rawTargetRole = decodeHtmlEntities(sanitizedResume.target_role || '')
   const targetRole = cleanTargetRoleTitle('', rawTargetRole)
-  const contact = sanitizedResume.contact || sanitizedResume.candidate?.contact || {}
-  const rawSummary = typeof sanitizedResume.summary === 'string'
-    ? sanitizedResume.summary
-    : (sanitizedResume.summary?.text || '')
-  const summary = decodeHtmlEntities(rawSummary || '')
-  const experiences = sanitizedResume.experiences || sanitizedResume.experience || []
+  const contact = sanitizedResume.contact || {}
+  const summary = decodeHtmlEntities(sanitizedResume.summary || '')
+  const experiences = sanitizedResume.experiences || []
   const projects = sanitizedResume.projects || []
   const education = sanitizedResume.education || []
   const certifications = sanitizedResume.certifications || []
@@ -455,9 +442,9 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 2. PROFESSIONAL SUMMARY
   if (summary && summary.trim()) {
-    let cleanSummary = cleanGrammarArtifacts(summary.trim())
+    let cleanSummary = summary.trim()
     if (config.shortenSummary) {
-      const sentences = splitIntoSentencesSafely(cleanSummary)
+      const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
     children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
@@ -477,11 +464,7 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
     experiences.forEach((exp) => {
       const role = decodeHtmlEntities(exp.role || exp.title || '')
-      const duration = decodeHtmlEntities(
-        exp.duration ||
-        exp.dates ||
-        (exp.startDate && exp.endDate ? `${exp.startDate} – ${exp.endDate}` : exp.startDate || '')
-      )
+      const duration = decodeHtmlEntities(exp.duration || '')
       const line1Runs = [
         new TextRun({ text: role, bold: true, size: 22, font: 'Times New Roman', color: '000000' }), // 11pt Bold #000000
       ]
@@ -645,8 +628,8 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       const edu = normalizeEducationItem(rawEdu)
       if (!edu.school && !edu.degree) return
 
-      const school = decodeHtmlEntities(edu.school || edu.institution || '')
-      const dates = decodeHtmlEntities(edu.dates || edu.year || '')
+      const school = decodeHtmlEntities(edu.school)
+      const dates = decodeHtmlEntities(edu.dates)
       const degree = decodeHtmlEntities(edu.degree)
       const location = decodeHtmlEntities(edu.location)
 
@@ -787,14 +770,6 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     // If within target pages, we're done
     if (finalPages <= targetPages) {
       break
-    }
-  }
-
-  if (!bestBuffer || bestBuffer.length === 0 || bestBuffer[0] !== 0x50 || bestBuffer[1] !== 0x4b) {
-    try {
-      bestBuffer = await generateDocxViaPython(sanitizedResume)
-    } catch (pyErr) {
-      console.warn('Python DOCX fallback failed:', pyErr.message)
     }
   }
 

@@ -5,10 +5,10 @@
 
 export const CHAPTERS = [
   { id: 1, number: '00', title: 'Setup & Digital Coordinates', icon: '🎒', subtitle: 'Resume, LinkedIn & Phone', range: [1, 3] },
-  { id: 2, number: '01', title: 'Work Authorization & Target Role', icon: '🎯', subtitle: 'Perimeter & Seniority', range: [4, 5] },
-  { id: 3, number: '02', title: 'Search Engine, Sourcing & Support', icon: '⚡', subtitle: 'Volume, Channels & Consultancy', range: [6, 10] },
-  { id: 4, number: '03', title: 'Inside the Hiring Funnel', icon: '🏟️', subtitle: '90-Day Conversion & Stuck Stage', range: [11, 13] },
-  { id: 5, number: '04', title: 'Remediation & Root Cause', icon: '🚀', subtitle: 'Past Attempts & Core Problem', range: [14, 15] },
+  { id: 2, number: '01', title: 'Work Authorization Status', icon: '🎯', subtitle: 'Perimeter & Visa', range: [4, 4] },
+  { id: 3, number: '02', title: 'Search Engine, Sourcing & Support', icon: '⚡', subtitle: 'Volume, Channels & Consultancy', range: [5, 9] },
+  { id: 4, number: '03', title: 'Inside the Hiring Funnel', icon: '🏟️', subtitle: '90-Day Conversion & Stuck Stage', range: [10, 12] },
+  { id: 5, number: '04', title: 'Remediation & Root Cause', icon: '🚀', subtitle: 'Past Attempts & Core Problem', range: [13, 14] },
 ]
 
 export const EXPERIENCE = {
@@ -286,27 +286,10 @@ export const RAW_STEPS = [
     visual: EXPERIENCE[3].visual,
     icon: EXPERIENCE[3].icon,
   },
-  // Q2: targetRole & experience
+  // Q3: apps30d
   {
     id: 5,
     questionNumber: 2,
-    name: 'targetRole',
-    type: 'targetRole',
-    label: EXPERIENCE[4].title,
-    sublabel: EXPERIENCE[4].helper,
-    required: true,
-    chapter: EXPERIENCE[4].chapter,
-    scene: EXPERIENCE[4].scene,
-    sceneTitle: EXPERIENCE[4].sceneTitle,
-    kicker: EXPERIENCE[4].kicker,
-    visual: EXPERIENCE[4].visual,
-    icon: EXPERIENCE[4].icon,
-    reaction: EXPERIENCE[4].reaction,
-  },
-  // Q3: apps30d
-  {
-    id: 6,
-    questionNumber: 3,
     name: 'apps30d',
     type: 'preset-or-number',
     label: EXPERIENCE[5].title,
@@ -322,8 +305,8 @@ export const RAW_STEPS = [
   },
   // Q4: targetedMatchPct
   {
-    id: 7,
-    questionNumber: 4,
+    id: 6,
+    questionNumber: 3,
     name: 'targetedMatchPct',
     type: 'radio',
     label: EXPERIENCE[6].title,
@@ -352,8 +335,8 @@ export const RAW_STEPS = [
   },
   // Q5: searchMethods
   {
-    id: 8,
-    questionNumber: 5,
+    id: 7,
+    questionNumber: 4,
     name: 'searchMethods',
     type: 'checkbox',
     label: EXPERIENCE[7].title,
@@ -384,8 +367,8 @@ export const RAW_STEPS = [
   },
   // Q6: externalHelp (Consultancies & External Support)
   {
-    id: 9,
-    questionNumber: 6,
+    id: 8,
+    questionNumber: 5,
     name: 'externalHelp',
     type: 'radio',
     label: EXPERIENCE[8].title,
@@ -414,8 +397,8 @@ export const RAW_STEPS = [
   },
   // Q7: outreach & referralsMonth
   {
-    id: 10,
-    questionNumber: 7,
+    id: 9,
+    questionNumber: 6,
     name: 'outreach',
     type: 'outreach-referral',
     label: EXPERIENCE[9].title,
@@ -430,8 +413,8 @@ export const RAW_STEPS = [
   },
   // Q8: funnel90d (8-Stage Funnel Grid)
   {
-    id: 11,
-    questionNumber: 8,
+    id: 10,
+    questionNumber: 7,
     name: 'funnel90d',
     type: 'funnel-grid',
     label: EXPERIENCE[10].title,
@@ -446,8 +429,8 @@ export const RAW_STEPS = [
   },
   // Q9: DropOffStage (6 Phases)
   {
-    id: 12,
-    questionNumber: 9,
+    id: 11,
+    questionNumber: 8,
     name: 'DropOffStage',
     type: 'radio',
     label: EXPERIENCE[11].title,
@@ -480,8 +463,8 @@ export const RAW_STEPS = [
   },
   // Q10: biggestChallenge
   {
-    id: 13,
-    questionNumber: 10,
+    id: 12,
+    questionNumber: 9,
     name: 'biggestChallenge',
     type: 'radio',
     label: EXPERIENCE[12].title,
@@ -511,8 +494,8 @@ export const RAW_STEPS = [
   },
   // Q11: alreadyTried
   {
-    id: 14,
-    questionNumber: 11,
+    id: 13,
+    questionNumber: 10,
     name: 'alreadyTried',
     type: 'checkbox',
     label: EXPERIENCE[13].title,
@@ -543,8 +526,8 @@ export const RAW_STEPS = [
   },
   // Q12: frustration & helpNeed
   {
-    id: 15,
-    questionNumber: 12,
+    id: 14,
+    questionNumber: 11,
     name: 'frustration',
     type: 'frustration-custom',
     isSubmitStep: true,

@@ -15,9 +15,6 @@ import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle } from '../services/resumeValidator.js'
 import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
-import { DocumentParser } from '../services/documentParser/index.js'
-import { parseResumeWithAI } from '../agents/resume/parser/aiResumeParserAgent.js'
-import { ResumeNormalizer } from '../agents/resume/resumeAgent.normalizer.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -44,99 +41,142 @@ export function decodeHtmlEntities(str) {
     .replace(/&#39;|&apos;/gi, "'")
 }
 
-// Helper function to parse uploaded resume to JSON using DocumentParser & AI Resume Parser Agent
-export const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
+// Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
+const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error('Resume file is empty or corrupted. Please upload a valid document.')
   }
 
-  // 1. Extract clean text from file buffer using DocumentParser
-  const parsedDoc = await DocumentParser.parse({
-    buffer: fileBuffer,
-    mimeType: mimeType || 'application/pdf',
-    filename: filename || 'resume.pdf',
+  const prompt = `
+You are an expert Resume Parser and ATS Specialist.
+Analyze the attached resume document and convert it into a structured JSON object.
+
+CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks, NO surrounding text).
+
+STRICT EXPERIENCE & BOUNDARY RULES:
+1. EXPERIENCE BOUNDARIES: A company name, employment date range, or location header must NEVER be placed inside the "bullets" array of any experience block.
+2. If you encounter a new company name (e.g. "Recibo Technologies", "Kitcoek", "Accenture"), treat it as the START of a completely new experience object.
+3. In each experience object:
+   - "role": ONLY the candidate's exact title (e.g. "Software Engineer", "Full Stack Developer"). NEVER put company name or dates inside "role".
+   - "company": ONLY the employer organization name (e.g. "Kitcoek", "Recibo Technologies").
+   - "location": City and State/Country (e.g. "Maharashtra, India", "Bengaluru, India"). NEVER put programming languages or skills in "location".
+   - "startDate" and "endDate": The timeline (e.g. "Jul 2022", "Jun 2024").
+4. "bullets": Every item MUST be an actual technical achievement or responsibility starting with an active action verb. Discard any bullet that is simply a company name, date, or location header.
+5. "skills": Return an array of discrete, individual technical skills (e.g. ["Python", "Go", "Docker", "AWS"]). Do not return malformed strings with unbalanced parentheses.
+
+Use this exact schema:
+{
+  "candidate_name": "Full name",
+  "target_role": "Target or current job title",
+  "years_of_experience": "Estimated total years of experience",
+  "contact": {
+    "email": "Email address or N/A",
+    "phone": "Phone number or N/A",
+    "location": "City, State/Country or N/A",
+    "linkedin": "LinkedIn URL or N/A",
+    "github": "GitHub URL or N/A"
+  },
+  "experiences": [
+    {
+      "role": "Software Engineer",
+      "company": "Company Name",
+      "location": "City, State",
+      "startDate": "Mon YYYY",
+      "endDate": "Mon YYYY or Present",
+      "isCurrent": false,
+      "bullets": [
+        "Verbatim achievement starting with action verb..."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "title": "Project Title",
+      "techStack": "Technologies used",
+      "bullets": ["Verbatim bullet..."]
+    }
+  ],
+  "skills": ["Skill1", "Skill2"],
+  "education": ["Degree, Institution, Year"]
+}
+`
+
+  const filePart = {
+    inlineData: {
+      data: fileBuffer.toString('base64'),
+      mimeType: mimeType || 'application/pdf',
+    },
+  }
+
+  const { text: responseText } = await generateContentWithFallback({
+    contents: [prompt, filePart],
+    modelName: 'gemini-3.5-flash-lite',
   })
 
-  if (!parsedDoc.rawText || parsedDoc.rawText.trim().length < 40) {
-    throw new Error('Could not extract text from the resume document.')
+  const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
+  const parsed = JSON.parse(cleanJson)
+
+  // Sanitize missing_ats_keywords to remove any placeholder values
+  const placeholderPatterns = [
+    /^keyword\d+$/i,
+    /quantified roi metrics/i,
+    /star achievement bullets/i,
+    /ci\/cd automation/i,
+    /kubernetes orchestration/i,
+  ]
+  const allExtractedSkills = [
+    ...(Array.isArray(parsed.skills) ? parsed.skills : []),
+    ...(Array.isArray(parsed.top_skills) ? parsed.top_skills : [])
+  ].map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+
+  if (Array.isArray(parsed.missing_ats_keywords)) {
+    parsed.missing_ats_keywords = parsed.missing_ats_keywords
+      .map((kw) => (typeof kw === 'string' ? kw.trim() : ''))
+      .filter((kw) => {
+        if (!kw || placeholderPatterns.some((p) => p.test(kw))) return false
+        const kwLower = kw.toLowerCase()
+        const isAlreadyPresent = allExtractedSkills.some((s) => {
+          const sLower = s.toLowerCase()
+          if (sLower === kwLower || sLower.includes(kwLower) || kwLower.includes(sLower)) return true
+          const tokens = sLower.split(/[^a-z0-9+#.]+/).filter(Boolean)
+          return tokens.includes(kwLower)
+        })
+        return !isAlreadyPresent
+      })
+  } else {
+    parsed.missing_ats_keywords = []
   }
 
-  // 2. Parse into structured canonical JSON using dedicated AI Resume Parser Agent
-  let aiParsed
-  try {
-    aiParsed = await parseResumeWithAI(parsedDoc.rawText)
-  } catch (parseErr) {
-    console.warn('[AssessmentController] parseResumeWithAI failed, falling back to deterministic normalizer:', parseErr.message)
-    aiParsed = null
+  if (parsed.candidate_name) parsed.candidate_name = decodeHtmlEntities(parsed.candidate_name)
+  if (parsed.target_role) parsed.target_role = decodeHtmlEntities(parsed.target_role)
+  if (Array.isArray(parsed.skills)) parsed.skills = parsed.skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
+  if (Array.isArray(parsed.top_skills)) parsed.top_skills = parsed.top_skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
+
+  if (parsed.executive_ai_critique) {
+    parsed.executive_ai_critique = balanceParentheses(decodeHtmlEntities(parsed.executive_ai_critique))
   }
-
-  // 3. Normalize into canonical structure with stable IDs
-  const canonical = ResumeNormalizer.normalize(
-    aiParsed ? { ...parsedDoc, ...aiParsed } : parsedDoc,
-    aiParsed?.candidate?.targetRole || ''
-  )
-
-  // 4. Backward-compatible mapping for downstream consumers
-  const candidateName = decodeHtmlEntities(canonical.candidate?.name || aiParsed?.candidate_name || 'Candidate')
-  const targetRole = decodeHtmlEntities(canonical.candidate?.targetRole || aiParsed?.target_role || 'Professional')
-
-  // Extract flat list of skills
-  const flatSkills = []
-  if (Array.isArray(canonical.skills)) {
-    for (const s of canonical.skills) {
-      const name = typeof s === 'string' ? s : s?.name || ''
-      if (name.trim()) flatSkills.push(decodeHtmlEntities(name.trim()))
-    }
+  if (Array.isArray(parsed.experiences)) {
+    parsed.experiences.forEach((exp) => {
+      if (exp.role) exp.role = decodeHtmlEntities(exp.role)
+      if (exp.company) exp.company = decodeHtmlEntities(exp.company)
+      if (Array.isArray(exp.bullets)) {
+        exp.bullets = exp.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(decodeHtmlEntities(b)) : b))
+      }
+    })
   }
-
-  // Build 4-field normalized education list with backward-compatible aliases
-  const education = (canonical.education || []).map((edu) => ({
-    school: decodeHtmlEntities(edu.school || edu.institution || ''),
-    institution: decodeHtmlEntities(edu.institution || edu.school || ''),
-    degree: decodeHtmlEntities(edu.degree || ''),
-    location: decodeHtmlEntities(edu.location || ''),
-    dates: decodeHtmlEntities(edu.dates || edu.year || ''),
-    year: decodeHtmlEntities(edu.year || edu.dates || ''),
-  }))
-
-  const experiences = (canonical.experience || []).map((exp) => ({
-    role: decodeHtmlEntities(exp.role || ''),
-    company: decodeHtmlEntities(exp.company || ''),
-    location: decodeHtmlEntities(exp.location || ''),
-    startDate: exp.startDate || '',
-    endDate: exp.endDate || '',
-    dates: exp.dates || '',
-    isCurrent: Boolean(exp.isCurrent),
-    bullets: (exp.bullets || []).map((b) => balanceParentheses(decodeHtmlEntities(typeof b === 'string' ? b : b.text || ''))),
-  }))
-
-  const projects = (canonical.projects || []).map((proj) => ({
-    title: decodeHtmlEntities(proj.title || ''),
-    techStack: decodeHtmlEntities(proj.techStack || ''),
-    bullets: (proj.bullets || []).map((b) => balanceParentheses(decodeHtmlEntities(typeof b === 'string' ? b : b.text || ''))),
-  }))
-
-  const certifications = (canonical.certifications || []).map((c) =>
-    decodeHtmlEntities(typeof c === 'string' ? c : c?.name || c?.title || '')
-  ).filter(Boolean)
-
-  const parsed = {
-    candidate_name: candidateName,
-    target_role: targetRole,
-    candidate: {
-      name: candidateName,
-      targetRole,
-      contact: canonical.candidate?.contact || {},
-    },
-    contact: canonical.candidate?.contact || {},
-    summary: canonical.summary?.text || '',
-    experiences,
-    projects,
-    education,
-    skills: flatSkills,
-    top_skills: flatSkills.slice(0, 8),
-    certifications,
-    missing_ats_keywords: [],
+  if (Array.isArray(parsed.projects)) {
+    parsed.projects.forEach((proj) => {
+      if (proj.title) proj.title = decodeHtmlEntities(proj.title)
+      if (Array.isArray(proj.bullets)) {
+        proj.bullets = proj.bullets.map((b) => (typeof b === 'string' ? balanceParentheses(decodeHtmlEntities(b)) : b))
+      }
+    })
+  }
+  if (Array.isArray(parsed.strengths)) {
+    parsed.strengths = parsed.strengths.map((s) => (typeof s === 'string' ? balanceParentheses(decodeHtmlEntities(s)) : s))
+  }
+  if (Array.isArray(parsed.red_flags)) {
+    parsed.red_flags = parsed.red_flags.map((rf) => (typeof rf === 'string' ? balanceParentheses(decodeHtmlEntities(rf)) : rf))
   }
 
   return parsed
@@ -752,7 +792,6 @@ export const downloadAtsResumeDocx = async (req, res) => {
       user = await User.findOne({ _id: cleanUserId })
     }
 
-    // Direct body fallback if user document is not found in MongoDB
     const directPayload = req.body?.reportData || req.body?.canonicalResume ? req.body : null
     if (!user && !directPayload) {
       return res.status(404).json({ message: 'User assessment not found.' })
@@ -767,7 +806,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     const canonical = JSON.parse(JSON.stringify(rawCanonical))
-    canonical.target_role = cleanTargetRoleTitle('', canonical.target_role || user?.targetRole || user?.answers?.targetRole || directPayload?.targetRole || 'Professional')
+    canonical.target_role = cleanTargetRoleTitle('', canonical.target_role || user.targetRole || user.answers?.targetRole || 'Professional')
 
     // 1. Executive Summary Rewrite wiring
     const summaryRewrite =
@@ -790,7 +829,6 @@ export const downloadAtsResumeDocx = async (req, res) => {
     const bodySkills = [
       ...(Array.isArray(req.body?.selectedSkills) ? req.body.selectedSkills : []),
       ...(Array.isArray(req.body?.skills) ? req.body.skills : []),
-      ...(Array.isArray(directPayload?.missingKeywords) ? directPayload.missingKeywords : []),
     ].map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim())).filter(Boolean)
 
     const userSelectedSkills = Array.from(new Set([...querySkills, ...bodySkills]))
@@ -799,19 +837,15 @@ export const downloadAtsResumeDocx = async (req, res) => {
       .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
       .filter((s) => s && s.length >= 2)
 
-    // Priority: If user selected missing skills, use them; if user selected nothing, automatically weave stranded skills from "In Skills Section Only"!
-    const skillsToPrioritize = userSelectedSkills.length > 0
+    // Priority: If user selected missing skills, weave ONLY them! If user selected nothing, automatically weave stranded skills from "In Skills Section Only"!
+    const rawMissing = userSelectedSkills.length > 0
       ? userSelectedSkills
-      : (strandedSkillsOnly.length > 0 ? strandedSkillsOnly : [])
-
-    const rawMissing = [
-      ...skillsToPrioritize,
-      ...(Array.isArray(ra.keywordAlignment?.missingMarketSkillsRanked) ? ra.keywordAlignment.missingMarketSkillsRanked : []),
-      ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
-      ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
-      ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
-      ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
-    ]
+      : (strandedSkillsOnly.length > 0 ? strandedSkillsOnly : [
+          ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
+          ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
+          ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
+          ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
+        ])
 
     const missingSkillsList = []
     const seenKw = new Set()
@@ -858,60 +892,66 @@ export const downloadAtsResumeDocx = async (req, res) => {
       canonical.experiences = tailoredExperiences
     }
 
-    if (user && interviewLedger && interviewLedger.length > 0) {
-      try {
-        if (!user.aiReport) user.aiReport = {}
-        user.aiReport.interview_ledger = interviewLedger
-        if (user.resume_agent) user.resume_agent.interviewLedger = interviewLedger
-        if (typeof user.markModified === 'function') {
-          user.markModified('aiReport')
-          user.markModified('resume_agent')
-        }
-        if (typeof user.save === 'function') {
-          await user.save()
-        }
-      } catch (_saveErr) {
-        console.warn('[downloadAtsResumeDocx] Non-blocking user interviewLedger update failed:', _saveErr.message)
-      }
-    }
-
     // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
     const bulletAudit =
-      (Array.isArray(directPayload?.bulletAudit) && directPayload.bulletAudit.length > 0)
-        ? directPayload.bulletAudit
-        : (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
-          ? ra.dashboard.bulletAudit
-          : (Array.isArray(ra.bulletRewrites) && ra.bulletRewrites.length > 0)
-            ? ra.bulletRewrites
-            : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
-              ? ra.bulletAudit
-              : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
-                ? ra.bulletUpgrades
-                : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
-                  ? ra.tailoredBullets
-                  : []
+      (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
+        ? ra.dashboard.bulletAudit
+        : (Array.isArray(ra.bulletRewrites) && ra.bulletRewrites.length > 0)
+          ? ra.bulletRewrites
+          : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
+            ? ra.bulletAudit
+            : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
+              ? ra.bulletUpgrades
+              : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
+                ? ra.tailoredBullets
+                : []
 
     const jdKeywords = missingSkillsList.map((kw) => ({ keyword: kw, count: 1 }))
     const { buffer: docxBuffer, pages, mode, warnings, appliedKeywords, pendingKeywords } = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
 
-    const safeName = (
+    const candidateName = (
       canonical.candidate_name ||
       canonical.name ||
       user?.resumeJson?.candidate_name ||
       user?.name ||
-      ra.candidateName ||
       directPayload?.candidateName ||
+      ra.candidateName ||
       'Candidate'
     ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'
 
-    const filename = `${safeName}_Tailored_ATS_Resume.docx`
+    const filename = `${candidateName}_Tailored_ATS_Resume.docx`
+
+    if (user) {
+      if (!user.aiReport) user.aiReport = {}
+      user.aiReport.interview_ledger = interviewLedger
+      if (user.resume_agent) user.resume_agent.interviewLedger = interviewLedger
+      if (!user.assessmentReport) user.assessmentReport = {}
+      if (!user.assessmentReport.resume_agent) user.assessmentReport.resume_agent = {}
+      user.assessmentReport.resume_agent.interviewLedger = interviewLedger
+      user.assessmentReport.resume_agent.canonicalResume = canonical
+      user.resumeJson = canonical
+      if (typeof user.markModified === 'function') {
+        user.markModified('aiReport')
+        user.markModified('assessmentReport')
+        user.markModified('resume_agent')
+      }
+      if (typeof user.save === 'function') {
+        try {
+          await user.save().catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
+        } catch (_saveErr) {
+          console.warn('Could not save user report with interview ledger:', _saveErr.message)
+        }
+      }
+    }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`)
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode, X-Interview-Ledger-Count')
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode, X-Interview-Ledger-Count, X-Interview-Ledger, X-Tailored-Experiences')
+    res.setHeader('X-Interview-Ledger-Count', String(interviewLedger?.length || 0))
+    res.setHeader('X-Interview-Ledger', Buffer.from(JSON.stringify(interviewLedger || [])).toString('base64'))
+    res.setHeader('X-Tailored-Experiences', Buffer.from(JSON.stringify(tailoredExperiences || [])).toString('base64'))
     res.setHeader('X-Resume-Pages', String(pages))
     res.setHeader('X-Resume-Fit-Mode', mode || 'measured')
-    res.setHeader('X-Interview-Ledger-Count', String(interviewLedger?.length || 0))
     res.setHeader('Content-Length', docxBuffer.length)
     return res.end(docxBuffer)
   } catch (err) {

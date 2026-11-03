@@ -110,6 +110,19 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         }
       }
 
+      if (!wovenInline && isDbKw && /sql|database|queries|query/i.test(bText)) {
+        if (/redis/i.test(kwLower) && !/redis/i.test(bText)) {
+          bText = bText.replace(/(?:sql\s+)?database\s+queries/i, '$& with Redis caching')
+          if (!/redis/i.test(bText)) {
+            bText = bText.replace(/queries/i, 'queries with Redis caching')
+          }
+          wovenInline = true
+        } else if (/postgres/i.test(kwLower) && !/postgres/i.test(bText)) {
+          bText = bText.replace(/sql\s+database/i, 'PostgreSQL database')
+          wovenInline = true
+        }
+      }
+
       if (!wovenInline && (isDbKw || isLangKw) && /graphql|sequelize|orm|backend/i.test(bText)) {
         if (/typescript/i.test(kwLower) && !/typescript/i.test(bText)) {
           bText = bText.replace(/using\s+GraphQL/i, 'using TypeScript, GraphQL')
@@ -176,12 +189,18 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     let synthBullet = ''
 
     if (/testing|unit|integration|jest|pytest|code review/i.test(kwLower)) {
+      const hasGit = targetKws.some((k) => /git/i.test(k))
+      const gateClause = hasGit ? 'Git/GitHub CI/CD pull request review gates' : 'peer code reviews to gate pull requests'
       synthBullet = isCurrent
-        ? `Maintain production reliability by establishing unit and integration test coverage with Jest and PyTest alongside peer code reviews to gate pull requests.`
-        : `Maintained production reliability by establishing unit and integration test coverage with Jest and PyTest alongside peer code reviews to gate pull requests.`
+        ? `Maintain production reliability by establishing unit and integration test coverage with Jest and PyTest alongside ${gateClause}.`
+        : `Maintained production reliability by establishing unit and integration test coverage with Jest and PyTest alongside ${gateClause}.`
       usedKeywords.add('unit / integration testing')
       usedKeywords.add('unit testing')
       usedKeywords.add('code review')
+      if (hasGit) {
+        usedKeywords.add('git')
+        usedKeywords.add('git / github')
+      }
     } else if (/java/i.test(kwLower)) {
       synthBullet = isCurrent
         ? `Engineer high-throughput enterprise RESTful API endpoints utilizing Java and Spring Boot for secure third-party client integrations.`

@@ -41,14 +41,15 @@ import { getCompanySponsorStatus } from '../../lib/sponsorIntelligence.js'
 
 function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
-  let cleaned = text
-    .replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, '')
-    .replace(/\[ADD:[^\]]*\]/gi, '')
-    .replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
-    .replace(/\](?=[A-Za-z0-9])/g, '] ')
-    .replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
+  let count = 0
+  let cleaned = text.replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, (match) => {
+    count += 1
+    if (count === 1) return match
+    return ''
+  })
+  cleaned = cleaned.replace(/\](?=[A-Za-z0-9])/g, '] ')
+  cleaned = cleaned.replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim()
   return cleaned
 }
 
@@ -100,17 +101,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const snapshot = resumeAgent.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
+
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const wovenList =
     resumeAgent?.interviewLedger ||
     resumeAgent?.wovenKeywords ||
-    reportData?.interview_ledger ||
-    reportData?.woven_keywords ||
     reportData?.resume_agent?.interviewLedger ||
-    reportData?.resume_agent?.wovenKeywords ||
+    reportData?.interviewLedger ||
     []
   const interviewLedger = wovenList
-
-  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
 
   const rawSummaryOpt = resumeAgent.summaryOptimization || null
   const summaryOptimization = rawSummaryOpt
@@ -158,7 +157,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
   ].map((s) => (typeof s === 'string' ? s : s.keyword || s.name || '')).filter(Boolean)
 
-  const handleDownloadDocx = async () => {
+
+
+  const handleDownloadDocx = async (skillsToWeave = null) => {
     try {
       setIsDownloadingDocx(true)
       const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
@@ -167,52 +168,91 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       const userId = reportData?.userId || reportData?._id || storeUserId || ''
       const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || storeEmail || ''
 
+      const skillsList = Array.isArray(skillsToWeave)
+        ? skillsToWeave
+        : (missingKeywords.length > 0 ? missingKeywords.slice(0, 6) : [])
+      const skillsQuery = skillsList.length > 0 ? `&skills=${encodeURIComponent(skillsList.join(','))}` : ''
+
       let response = null
 
-      // Strategy 1: Attempt GET if ID or email exists
+      // Strategy A: If userId or email is present, try GET with skills param
       if (userId || email) {
         const url = userId
-          ? `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx`
-          : `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}`
+          ? `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx?${skillsQuery.replace('&', '')}`
+          : `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}${skillsQuery}`
         try {
           response = await fetch(url, {
             method: 'GET',
             headers: {
-              'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream',
-            },
+              'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
+            }
           })
-        } catch (_e) {
+        } catch (_fetchErr) {
           response = null
         }
       }
 
-      // Strategy 2: If GET fails or returns non-200, fallback to POST with client reportData payload
+      // Strategy B: Fallback to POST with direct JSON payload including selectedSkills
       if (!response || !response.ok) {
-        response = await fetch(`${apiBase}/assessment/download-resume-docx`, {
+        const postUrl = `${apiBase}/assessment/download-resume-docx`
+        response = await fetch(postUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream',
+            'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
           },
           body: JSON.stringify({
             userId,
             email,
+            selectedSkills: skillsList,
+            skills: skillsList,
             reportData,
             canonicalResume: reportData?.resume_agent?.canonicalResume || reportData?.resumeJson,
             bulletAudit: reportData?.resume_agent?.dashboard?.bulletAudit || reportData?.resume_agent?.bulletRewrites,
-            missingKeywords: reportData?.resume_agent?.keywordAlignment?.missingKeywords || reportData?.missing_ats_keywords,
-          }),
+            missingKeywords: skillsList
+          })
         })
       }
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => null)
-        throw new Error(errJson?.message || `Download failed with HTTP ${response.status}`)
+        throw new Error(errJson?.message || `Download failed with status ${response.status}`)
+      }
+
+      // Dynamically update on-screen report and interview defense sheet from response headers
+      const ledgerHeader = response.headers.get('x-interview-ledger')
+      const expHeader = response.headers.get('x-tailored-experiences')
+      if (ledgerHeader) {
+        try {
+          const parsedLedger = JSON.parse(atob(ledgerHeader))
+          let parsedExp = null
+          if (expHeader) {
+            try {
+              parsedExp = JSON.parse(atob(expHeader))
+            } catch (_) {}
+          }
+          const cur = useAppStore.getState().reportData || {}
+          const updated = {
+            ...cur,
+            interviewLedger: parsedLedger,
+            resume_agent: {
+              ...(cur.resume_agent || {}),
+              interviewLedger: parsedLedger,
+              canonicalResume: {
+                ...(cur.resume_agent?.canonicalResume || {}),
+                ...(parsedExp ? { experiences: parsedExp } : {}),
+              },
+            },
+          }
+          useAppStore.getState().setReportData(updated)
+        } catch (hErr) {
+          console.warn('Could not parse updated ledger from headers:', hErr)
+        }
       }
 
       const blob = await response.blob()
       if (blob.type && blob.type.includes('text/html')) {
-        throw new Error('Server returned an HTML error page instead of a Word document.')
+        throw new Error('Server returned HTML error page instead of Word document.')
       }
 
       const disposition = response.headers.get('content-disposition') || ''
@@ -228,6 +268,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         const candidateName = (
           reportData?.resume_agent?.canonicalResume?.candidate_name ||
           reportData?.resume_agent?.canonicalResume?.name ||
+          snapshot.name ||
           'Candidate'
         ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
         filename = `${candidateName || 'Candidate'}_Tailored_ATS_Resume.docx`
@@ -240,7 +281,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(downloadUrl)
-      if (document.body.contains(a)) document.body.removeChild(a)
+      if (document.body.contains(a)) {
+        document.body.removeChild(a)
+      }
     } catch (error) {
       console.error('Failed to download tailored docx:', error)
       alert(`Could not download resume: ${error.message}`)
@@ -445,6 +488,11 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           </div>
         )}
       </div>
+
+
+
+
+
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
       {summaryOptimization && (

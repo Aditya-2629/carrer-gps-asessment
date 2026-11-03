@@ -1,37 +1,28 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  UploadSimple,
-  FilePdf,
-  FileDoc,
-  FileText,
-  CheckCircle,
-  WarningCircle,
-  Sparkle,
-  ArrowSquareOut,
-  ArrowsClockwise,
-} from '@phosphor-icons/react'
+import { UploadSimple, FileDoc, FilePdf, CheckCircle, WarningCircle, Sparkle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 
+function extractCleanPhone(text) {
+  if (!text || typeof text !== 'string') return ''
+  // Standard formatted phone numbers with separators or country codes (avoids PDF timestamps like 2026082610474)
+  const match = text.match(/(?:\+\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\b\d{3})[-.\s]\d{3}[-.\s]\d{4}\b/)
+  if (match) return match[0].trim()
+  const intlMatch = text.match(/\+\d{1,3}[-.\s]\d{9,11}\b/)
+  if (intlMatch) return intlMatch[0].trim()
+  return ''
+}
+
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
   const [fileError, setFileError] = useState('')
-  const abortControllerRef = useRef(null)
-
   const { formData, resumeAnalysis, setResumeAnalysis } = useAppStore()
 
   const startBackgroundAnalysis = useCallback(
     async (file, fastLinkedIn = '') => {
       if (!file) return
-
-      // Abort any ongoing request for a previous file
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      const controller = new AbortController()
-      abortControllerRef.current = controller
 
       setResumeAnalysis({
         status: 'analyzing',
@@ -41,31 +32,20 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       })
 
       try {
-        // Clear stale targetRole on new resume upload unless user explicitly locked it or pasted a custom JD
-        const isCustomLocked = Boolean(formData.isCustomTargetRoleLocked || formData.customTargetRoleLocked)
-        const customJd = formData.targetJobDescription || formData.targetJd || ''
-        const targetRole = isCustomLocked
-          ? (formData.targetRole || formData.target_role || formData.role || '')
-          : ''
+        const result = await api.analyzeResumeFile(file)
 
-        const result = await api.evaluateResume({
-          file,
-          targetRole,
-          targetJobDescription: customJd,
-          signal: controller.signal,
-        })
-
-        if (result && result.analysis) {
+        if (result && (result.analysis || result.canonicalResume)) {
           setResumeAnalysis({
             status: 'completed',
             filename: file.name,
-            data: result,
             error: null,
+            data: result,
           })
 
-          // Dynamically populate LinkedIn and candidate info into assessment questions
+          const isCustomLocked = Boolean(useAppStore.getState().customTargetRoleLocked)
           const detectedLinkedin = normalizeLinkedInUrl(
-            result.canonicalResume?.candidate?.contact?.linkedin ||
+            result.canonicalResume?.candidate?.linkedin ||
+            result.canonicalResume?.linkedin ||
             result.analysis?.candidateSnapshot?.linkedinUrl ||
             fastLinkedIn ||
             ''
@@ -74,10 +54,14 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             result.canonicalResume?.candidate?.name ||
             result.analysis?.candidateSnapshot?.name ||
             ''
-          const detectedTarget =
-            result.canonicalResume?.candidate?.targetRole ||
+          // Automatically infer target role from the candidate's last (most recent) experience role
+          const mostRecentRole =
+            result.canonicalResume?.experiences?.[0]?.role ||
+            result.canonicalResume?.experience?.[0]?.role ||
+            result.analysis?.candidateSnapshot?.presentRole ||
             result.analysis?.candidateSnapshot?.targetRole ||
-            ''
+            result.canonicalResume?.candidate?.targetRole ||
+            'Software Engineer'
 
           const bulkUpdates = {}
           if (detectedLinkedin) {
@@ -97,9 +81,11 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (detectedName && !formData.name && !formData.fullName) {
             bulkUpdates.name = detectedName
           }
-          if (detectedTarget && (!isCustomLocked || !formData.targetRole)) {
-            bulkUpdates.targetRole = detectedTarget
+          // Always infer target role from last work experience
+          if (mostRecentRole && (!isCustomLocked || !formData.targetRole)) {
+            bulkUpdates.targetRole = mostRecentRole
           }
+
           const detectedPhone =
             result.canonicalResume?.candidate?.phone ||
             result.canonicalResume?.phone ||
@@ -108,6 +94,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (detectedPhone && !formData.phone) {
             bulkUpdates.phone = detectedPhone
           }
+
           const detectedLocation =
             result.canonicalResume?.candidate?.location ||
             result.canonicalResume?.location ||
@@ -116,6 +103,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (detectedLocation && !formData.location) {
             bulkUpdates.location = detectedLocation
           }
+
           if (Object.keys(bulkUpdates).length > 0) {
             useAppStore.getState().setBulkFormData(bulkUpdates)
           }
@@ -186,29 +174,26 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         window.__uploadedResumeFile = file
       }
 
-      // 1. IMMEDIATELY clear previous LinkedIn URL & scraped data on new upload
+      // 1. Clear previous LinkedIn URL on new upload
       useAppStore.getState().setBulkFormData({ linkedin: '', linkedinData: null })
 
-      // 2. Instant client-side binary/text scan (<50ms) for embedded hyperlinks or plain URLs
+      // 2. Client-side scan for clean Phone Number & LinkedIn URL
       let fastLinkedIn = ''
       try {
         const buf = await file.arrayBuffer()
         const text = new TextDecoder('latin1').decode(buf)
 
-        // PDF embedded URI link annotations: /URI (https://www.linkedin.com/in/...)
+        // Clean phone detection (ignores timestamps like 2026082610474)
+        const cleanPhone = extractCleanPhone(text)
+        if (cleanPhone) {
+          useAppStore.getState().setFormData('phone', cleanPhone)
+        }
+
         const pdfUriMatch = text.match(/\/URI\s*\(([^)]*linkedin\.com\/in\/[^)]*)\)/i)
-        // DOCX XML hyperlink target relationships: Target="https://www.linkedin.com/in/..."
         const docxTargetMatch = text.match(/Target="([^"]*linkedin\.com\/in\/[^"]*)"/i)
-        // Plain text / bare url match: linkedin.com/in/...
         const plainMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
 
         const candidateRaw = pdfUriMatch?.[1] || docxTargetMatch?.[1] || plainMatch?.[0] || ''
-        // Fast phone scan from binary/text
-        const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
-        if (phoneMatch && phoneMatch[0]) {
-          useAppStore.getState().setFormData('phone', phoneMatch[0].trim())
-        }
-
         fastLinkedIn = normalizeLinkedInUrl(candidateRaw)
         if (fastLinkedIn) {
           useAppStore.getState().setFormData('linkedin', fastLinkedIn)
@@ -320,143 +305,40 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
               <div className="text-center">
                 <p className="font-medium text-sm text-[var(--text-primary)]">
                   Drop your resume (PDF or DOCX), or{' '}
-                  <span className="text-[var(--primary)] font-semibold underline decoration-[var(--primary)]/40">browse</span>
+                  <span style={{ color: 'var(--primary)' }} className="underline font-semibold">
+                    browse
+                  </span>
                 </p>
-                <p className="text-xs mt-1 text-[var(--text-muted)]">
-                  PDF or Word DOCX · Max {step?.maxSizeMB || 5}MB · AI parses and audits immediately
-                </p>
+                <p className="text-xs mt-1 text-[var(--text-muted)]">Max 5MB · Text-based PDF or Word docx preferred</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </label>
 
-      {/* Real-Time Background Resume Agent Status Card */}
-      {hasFile && (
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-2xl border transition-all"
-          style={{
-            background:
-              resumeAnalysis?.status === 'completed'
-                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)'
-                : resumeAnalysis?.status === 'analyzing'
-                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.04) 100%)'
-                : 'var(--surface-card)',
-            borderColor:
-              resumeAnalysis?.status === 'completed'
-                ? 'rgba(16, 185, 129, 0.3)'
-                : resumeAnalysis?.status === 'analyzing'
-                ? 'rgba(99, 102, 241, 0.3)'
-                : 'var(--border-default)',
-          }}
-        >
-          <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3.5 min-w-0">
-              {/* Status Indicator Icon */}
-              <div className="shrink-0 mt-0.5 sm:mt-0">
-                {resumeAnalysis?.status === 'analyzing' && (
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                    <Sparkle size={18} weight="fill" className="animate-spin" style={{ animationDuration: '3s' }} />
-                  </div>
-                )}
-                {resumeAnalysis?.status === 'completed' && (
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                    <CheckCircle size={20} weight="fill" />
-                  </div>
-                )}
-                {resumeAnalysis?.status === 'error' && (
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                    <WarningCircle size={20} weight="fill" />
-                  </div>
-                )}
-                {(!resumeAnalysis || resumeAnalysis.status === 'idle') && (
-                  <div className="w-9 h-9 rounded-xl bg-[var(--surface-strong)] border border-[var(--border-default)] flex items-center justify-center text-[var(--text-muted)]">
-                    <Sparkle size={18} />
-                  </div>
-                )}
-              </div>
+      {/* Real-time background analysis indicator */}
+      {hasFile && resumeAnalysis?.status === 'analyzing' && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 animate-pulse">
+          <Sparkle size={14} weight="fill" className="animate-spin shrink-0" />
+          <span>Extracting tech stack, experience roles & contact information...</span>
+        </div>
+      )}
 
-              {/* Status Narrative & Progress */}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                    {resumeAnalysis?.status === 'analyzing' && '⚡ AI Resume Agent Analyzing in Background'}
-                    {resumeAnalysis?.status === 'completed' && '✅ Resume Audit & Parsing Complete'}
-                    {resumeAnalysis?.status === 'error' && 'Resume Saved · Background Audit Pending'}
-                    {(!resumeAnalysis || resumeAnalysis.status === 'idle') && 'Resume Document Ready'}
-                  </span>
-                  {resumeAnalysis?.status === 'completed' &&
-                    resumeAnalysis.data?.analysis?.dashboard?.score !== undefined && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                        Score: {resumeAnalysis.data.analysis.dashboard.score}/100 (
-                        {resumeAnalysis.data.analysis.dashboard.grade || 'A'})
-                      </span>
-                    )}
-                </div>
-
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5 leading-relaxed">
-                  {resumeAnalysis?.status === 'analyzing' && (
-                    <span>
-                      Extracting sections, scoring ATS metrics, and drafting recruiter rewrites.{' '}
-                      <strong>You can continue answering the assessment questions</strong> — your full report will be ready when you finish!
-                    </span>
-                  )}
-                  {resumeAnalysis?.status === 'completed' && (
-                    <span>
-                      Audited {resumeAnalysis.data?.analysis?.dashboard?.bulletAudit?.length || 'all'} bullet points & identified{' '}
-                      {resumeAnalysis.data?.analysis?.issues?.length || 0} high-impact improvements. Ready for your executive report!
-                    </span>
-                  )}
-                  {resumeAnalysis?.status === 'error' && (
-                    <span>
-                      Document parsed and stored. Background pre-check timed out, but your report will generate normally at the final step.
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="shrink-0 flex items-center gap-2 self-end sm:self-auto">
-              {resumeAnalysis?.status === 'completed' && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    window.open('/resume-report', '_blank')
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-                  title="Open the polished full-page diagnosis report in a new tab"
-                >
-                  <span>Full Diagnosis</span>
-                  <ArrowSquareOut size={13} weight="bold" />
-                </button>
-              )}
-              {resumeAnalysis?.status === 'error' && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    if (value instanceof File) startBackgroundAnalysis(value)
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-strong)] hover:bg-[var(--surface-muted)] text-[var(--text-primary)] border border-[var(--border-default)] flex items-center gap-1 cursor-pointer transition-all"
-                >
-                  <ArrowsClockwise size={13} />
-                  <span>Retry</span>
-                </button>
-              )}
-            </div>
+      {hasFile && resumeAnalysis?.status === 'completed' && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={14} weight="fill" className="shrink-0" />
+            <span>Resume calibrated: Contact & last experience role auto-detected</span>
           </div>
-        </motion.div>
+          <span className="text-[10px] font-mono opacity-80">Ready</span>
+        </div>
       )}
 
       {(fileError || error) && (
-        <div className="flex items-center gap-2 mt-2 text-sm text-red-500" role="alert">
-          <WarningCircle size={15} weight="fill" />
+        <p className="field-error flex items-center gap-1.5">
+          <WarningCircle size={14} weight="fill" />
           <span>{fileError || error}</span>
-        </div>
+        </p>
       )}
     </div>
   )

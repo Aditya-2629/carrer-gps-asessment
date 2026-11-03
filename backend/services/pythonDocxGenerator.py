@@ -2,12 +2,13 @@
 """
 Python ATS Resume DOCX Generator
 Generates a 100% valid, Harvard-compliant single-column ATS Word (.docx) document
-using python-docx. Handles progressive tightening, semantic bolding, and strict page fit.
+using python-docx. Handles progressive tightening, semantic bolding (3-4 key skills & metrics), and strict page fit.
 """
 
 import sys
 import json
 import os
+import re
 import tempfile
 import docx
 from docx.shared import Inches, Pt, RGBColor
@@ -22,6 +23,72 @@ def decode_html_entities(s):
     s = html.unescape(s)
     s = s.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")
     return s.strip()
+
+def add_bullet_with_bolding(p, text, candidate_skills=None, font_size=10):
+    text = decode_html_entities(text).replace('{{', '').replace('}}', '').strip()
+    if not text:
+        return
+
+    # Case A: Model already supplied **bold** markers
+    if '**' in text:
+        parts = re.split(r'\*\*(.*?)\*\*', text)
+        for i, part in enumerate(parts):
+            if not part:
+                continue
+            r = p.add_run(part)
+            r.font.name = 'Times New Roman'
+            r.font.size = Pt(font_size)
+            if i % 2 == 1:
+                r.font.bold = True
+        return
+
+    # Case B: Selective semantic bolding for 3-4 key tech terms & metrics
+    targets = []
+
+    # 1. Match impact metrics (%, $, x, ms, scale, hours)
+    metric_regex = re.compile(r'(?:\$\s?\d[\d,.]*\s?[KMBkmb]?\+?|\b\d[\d,.]*\s?(?:%|[KMBkmb]\+?|x|ms|s|hours|users)\b)', re.I)
+    for m in metric_regex.finditer(text):
+        targets.append((m.start(), m.end(), m.group()))
+
+    # 2. Match technical keywords from candidate skills
+    if candidate_skills:
+        for skill in sorted(set(candidate_skills), key=len, reverse=True):
+            if len(skill) < 2:
+                continue
+            try:
+                pattern = re.compile(r'\b' + re.escape(skill) + r'\b', re.I)
+                for m in pattern.finditer(text):
+                    start, end = m.start(), m.end()
+                    if not any(ts < end and te > start for ts, te, _ in targets):
+                        targets.append((start, end, m.group()))
+            except Exception:
+                pass
+
+    # Sort targets by start position and cap at 3-4 key highlights per bullet
+    targets = sorted(targets, key=lambda x: x[0])[:4]
+
+    if not targets:
+        r = p.add_run(text)
+        r.font.name = 'Times New Roman'
+        r.font.size = Pt(font_size)
+        return
+
+    last_idx = 0
+    for start, end, _ in targets:
+        if start > last_idx:
+            r = p.add_run(text[last_idx:start])
+            r.font.name = 'Times New Roman'
+            r.font.size = Pt(font_size)
+        r_bold = p.add_run(text[start:end])
+        r_bold.font.name = 'Times New Roman'
+        r_bold.font.size = Pt(font_size)
+        r_bold.font.bold = True
+        last_idx = end
+
+    if last_idx < len(text):
+        r = p.add_run(text[last_idx:])
+        r.font.name = 'Times New Roman'
+        r.font.size = Pt(font_size)
 
 def build_docx_from_json(resume_data, output_path):
     doc = docx.Document()
@@ -64,6 +131,22 @@ def build_docx_from_json(resume_data, output_path):
         r.font.color.rgb = RGBColor(0x00, 0x00, 0x00)
         return p
 
+    # Collect candidate skills for semantic bolding
+    candidate_skills = []
+    skills_raw = resume_data.get('skills') or []
+    if isinstance(skills_raw, dict):
+        for s_list in skills_raw.values():
+            if isinstance(s_list, list):
+                for s in s_list:
+                    s_str = s if isinstance(s, str) else (s.get('name') or s.get('keyword') or '')
+                    if s_str and len(s_str) >= 2:
+                        candidate_skills.append(s_str.strip())
+    elif isinstance(skills_raw, list):
+        for s in skills_raw:
+            s_str = s if isinstance(s, str) else (s.get('name') or s.get('keyword') or '')
+            if s_str and len(s_str) >= 2:
+                candidate_skills.append(s_str.strip())
+
     # 1. Header: Candidate Name, Title, Contact
     name = decode_html_entities(resume_data.get('candidate_name') or resume_data.get('name') or 'Candidate Name')
     p_name = add_p(space_after=1.5, align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -90,24 +173,24 @@ def build_docx_from_json(resume_data, output_path):
     if phone: contact_parts.append(phone)
     if email: contact_parts.append(email)
     if location: contact_parts.append(location)
-    if linkedin: contact_parts.append("LinkedIn" if "linkedin" in linkedin.lower() else linkedin)
-    if github: contact_parts.append("GitHub" if "github" in github.lower() else github)
+    if linkedin: contact_parts.append("LinkedIn")
+    if github: contact_parts.append("GitHub")
 
     if contact_parts:
-        p_con = add_p(space_after=5, align=WD_ALIGN_PARAGRAPH.CENTER)
-        r_con = p_con.add_run("  |  ".join(contact_parts))
-        r_con.font.name = 'Times New Roman'
-        r_con.font.size = Pt(9.5)
-        r_con.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+        p_contact = add_p(space_after=4, align=WD_ALIGN_PARAGRAPH.CENTER)
+        for i, part in enumerate(contact_parts):
+            if i > 0:
+                p_contact.add_run("  |  ").font.size = Pt(9.5)
+            r_cp = p_contact.add_run(part)
+            r_cp.font.name = 'Times New Roman'
+            r_cp.font.size = Pt(9.5)
+            r_cp.font.color.rgb = RGBColor(0x44, 0x44, 0x44)
 
     # 2. Professional Summary
-    summary = decode_html_entities(
-        resume_data.get('summary') if isinstance(resume_data.get('summary'), str)
-        else (resume_data.get('summary', {}).get('text') if isinstance(resume_data.get('summary'), dict) else '')
-    )
+    summary = decode_html_entities(resume_data.get('summary') or '')
     if summary:
         add_header("Professional Summary")
-        p_sum = add_p(space_after=3.5)
+        p_sum = add_p(space_after=3)
         r_sum = p_sum.add_run(summary)
         r_sum.font.name = 'Times New Roman'
         r_sum.font.size = Pt(10)
@@ -150,7 +233,7 @@ def build_docx_from_json(resume_data, output_path):
                     r_loc.font.size = Pt(9.5)
                     r_loc.font.italic = True
 
-            # Bullets
+            # Bullets with semantic bolding (3-4 key skills & metrics)
             bullets = exp.get('bullets') or []
             for b in bullets:
                 b_text = decode_html_entities(b if isinstance(b, str) else b.get('text', ''))
@@ -160,9 +243,7 @@ def build_docx_from_json(resume_data, output_path):
                 r_dot = pb.add_run("•  ")
                 r_dot.font.name = 'Times New Roman'
                 r_dot.font.size = Pt(9)
-                r_b = pb.add_run(b_text)
-                r_b.font.name = 'Times New Roman'
-                r_b.font.size = Pt(10)
+                add_bullet_with_bolding(pb, b_text, candidate_skills, font_size=10)
 
     # 4. Projects
     projects = resume_data.get('projects') or []
@@ -191,9 +272,7 @@ def build_docx_from_json(resume_data, output_path):
                 r_dot = pb.add_run("•  ")
                 r_dot.font.name = 'Times New Roman'
                 r_dot.font.size = Pt(9)
-                r_pb = pb.add_run(pb_text)
-                r_pb.font.name = 'Times New Roman'
-                r_pb.font.size = Pt(10)
+                add_bullet_with_bolding(pb, pb_text, candidate_skills, font_size=9.5)
 
     # 5. Technical Skills
     skills_data = resume_data.get('skills')
