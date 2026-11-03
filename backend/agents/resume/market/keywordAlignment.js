@@ -10,6 +10,7 @@
 
 import { extractSkillsFromJd } from './jdNormalizer.js'
 import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
+import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 
 // Curated high-frequency market intelligence keywords per controlled role category
 export const MARKET_ROLE_KEYWORD_PACKS = {
@@ -476,7 +477,7 @@ export function computeKeywordAlignment({
       }
     }
   }
-  const skillsText = declaredSkills.join(', ')
+  const skillsText = declaredSkills.filter(isConcreteTechSkill).join(', ')
   const summaryText = canonicalResume?.summary?.text || ''
   const fullResumeText = `${expAndProjText}\n${skillsText}\n${summaryText}`
 
@@ -513,6 +514,9 @@ export function computeKeywordAlignment({
     targetKeywords = Array.from(new Set([...targetKeywords, ...pack]))
   }
 
+  targetKeywords = targetKeywords
+    .map((s) => (typeof s === 'string' ? s.trim() : s?.name || '').trim())
+    .filter(isConcreteTechSkill)
   targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 24)
 
   // 3. Classify target keywords into 3 buckets
@@ -556,7 +560,7 @@ export function computeKeywordAlignment({
   }
 
   // Deduplicate and cap skillsOnlyUnverified to at most 6–8 items total
-  const uniqueMatched = Array.from(new Set(matchedInExperience))
+  const uniqueMatched = Array.from(new Set(matchedInExperience.filter(isConcreteTechSkill)))
   const rawSkillsOnly = [
     ...skillsOnlyUnverified,
     ...additionalUnverified.slice(0, 6),
@@ -566,13 +570,14 @@ export function computeKeywordAlignment({
       rawSkillsOnly
         .map(decodeHtmlEntities)
         .filter(isConcreteTechSkillChip)
+        .filter(isConcreteTechSkill)
         .filter((s) => !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
         .filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase()))
     )
   ).slice(0, 8)
 
   const uniqueMissing = Array.from(
-    new Set(missingFromResume.filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())))
+    new Set(missingFromResume.filter(isConcreteTechSkill).filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())))
   )
 
   // 5. Market JD Skill Demand Comparison (Benchmarked against live tech JDs)
@@ -580,6 +585,7 @@ export function computeKeywordAlignment({
   const missingMarketSkillsRanked = []
 
   for (const item of demandedSkills) {
+    if (!isConcreteTechSkill(item.skill)) continue
     const inExperience = keywordMatchesText(item.skill, expAndProjText)
     const inSkills = keywordMatchesText(item.skill, skillsText)
     const inSummary = keywordMatchesText(item.skill, summaryText)

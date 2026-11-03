@@ -25,6 +25,120 @@ export const COMMON_STOP_WORDS = new Set([
   'collaborate', 'partners', 'stakeholders', 'teams', 'solutions', 'systems'
 ])
 
+export const BANNED_GENERIC_WORDS = new Set([
+  // Prepositions & Pronouns
+  'into', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'we', 'you', 'them',
+  'with', 'from', 'about', 'above', 'below', 'under', 'over', 'across', 'through',
+  // Common sentence openers & generic business nouns
+  'overview', 'position', 'role', 'insights', 'insight', 'server', 'servers',
+  'senior', 'junior', 'lead', 'staff', 'principal', 'intern', 'entry', 'level',
+  'candidate', 'applicant', 'requirements', 'qualifications', 'responsibilities',
+  'opportunity', 'company', 'organization', 'client', 'stakeholders', 'teams',
+  'experience', 'years', 'working', 'ability', 'skills', 'knowledge', 'understanding',
+  'solutions', 'environment', 'business', 'process', 'management', 'delivery',
+  'data', 'it', 'ai', 'bi', 'information', 'technology', 'system', 'systems',
+  'desktop', 'mobile', 'web', 'application', 'applications', 'platform', 'platforms',
+  'pipeline', 'pipelines', 'dashboard', 'dashboards', 'report', 'reports', 'reporting',
+  'development', 'developer', 'engineer', 'analyst', 'specialist', 'manager',
+  'high', 'scale', 'fast', 'deep', 'strong', 'solid', 'proven', 'excellent',
+  'good', 'great', 'best', 'well', 'such', 'other', 'various', 'relevant',
+  'description', 'analytics', 'employer', 'competitive', 'salary', 'benefits',
+  'health', 'dental', 'vision', 'hands', 'performing',
+  // Additional stop words & action verbs
+  'and', 'the', 'for', 'will', 'are', 'have', 'work', 'join', 'help', 'build', 'create', 'support',
+  'bachelor', 'master', 'degree', 'computer', 'science', 'engineering', 'written', 'verbal',
+  'communication', 'problem', 'solving', 'equal', 'preferred', 'demonstrated', 'proficient',
+  'proficiency', 'must', 'should', 'can', 'may', 'collaborate', 'collaborating', 'collaboration',
+  'require', 'required', 'requiring', 'plus', 'including', 'include', 'includes', 'familiar',
+  'familiarity', 'expertise', 'deliver', 'delivering', 'ensure', 'ensuring', 'maintain', 'maintaining'
+])
+
+export const ALLOWED_LOWERCASE_TOOLS = new Set([
+  'sql', 'aws', 'gcp', 'dbt', 'git', 'r', 'sas', 'etl', 'elt', 'dax',
+  'python', 'java', 'react', 'vue', 'node', 'scala', 'rust', 'redis', 'kafka', 'spark', 'linux', 'c', 'c++', 'c#'
+])
+
+/**
+ * Strict Technical Entity Validation
+ * Validates whether a token represents a real concrete technical skill, library, framework, or tool
+ * rather than an English stop word, pronoun, preposition, or generic business noun.
+ */
+export function isConcreteTechSkill(token) {
+  if (!token || typeof token !== 'string') return false
+  let clean = token.trim()
+
+  // Strip leading/trailing conjunctions or prepositions if phrase was captured
+  clean = clean.replace(/^(?:and|or|with|as\s+well\s+as|in|the|a|an|of|for|to)\s+/i, '').trim()
+  clean = clean.replace(/\s+(?:and|or|with|in|the|platforms?|tools?|systems?)$/i, '').trim()
+
+  const low = clean.toLowerCase()
+
+  // Length limits
+  if (clean.length < 2 || clean.length > 35) return false
+
+  // Pure digits or punctuation
+  if (/^\d+$/.test(clean) || /^[^a-zA-Z0-9]+$/.test(clean)) return false
+
+  // Disallow hyphenated ordinary English words (e.g. high-performing, well-known, fast-paced, day-to-day)
+  if (clean.includes('-')) {
+    if (/^(?:high|low|fast|slow|well|end|day|multi|cross|user|client|customer|self|in|out|on|off)-/i.test(clean) &&
+        !/^(?:ci-cd|scikit-learn|spring-boot|react-native|angular-cli|node-cron)$/i.test(clean)) {
+      return false
+    }
+  }
+
+  // Specifically block common non-skill two-letter uppercase/lowercase words
+  if (/^(?:us|it|at|or|in|to|do|as|by|on|if|is|be|an|am|so|no|my|he|we)$/i.test(clean)) {
+    return false
+  }
+
+  // Banned generic words & prepositions
+  if (BANNED_GENERIC_WORDS.has(low)) return false
+
+  // Disallow single generic lowercase words without punctuation or digits
+  // (True tools usually have camelCase, uppercase acronyms, dots/plus, or are known tech names)
+  if (/^[a-z]{2,8}$/.test(clean) && !ALLOWED_LOWERCASE_TOOLS.has(low)) {
+    return false
+  }
+
+  // Block capitalized ordinary English verbs/adjectives that are not tools
+  if (/^[A-Z][a-z]{2,15}$/.test(clean) && !ALLOWED_LOWERCASE_TOOLS.has(low)) {
+    if (
+      BANNED_GENERIC_WORDS.has(low) ||
+      /^(?:must|should|could|would|can|may|will|have|has|had|been|were|was|are|is|collaborate|participate|contribute|deliver|ensure|support|provide|maintain|develop|build|create|manage|lead|drive|execute|work|join|learn|grow|thrive|excel)$/i.test(low)
+    ) {
+      return false
+    }
+  }
+
+  // Multi-word phrase validation
+  const words = clean.split(/\s+/)
+  if (words.length > 1) {
+    const allowedPhrases = new Set([
+      'ruby on rails', 'power bi', 'power apps', 'power automate', 'google cloud',
+      'amazon web services', 'apache spark', 'apache kafka', 'apache flink', 'apache airflow',
+      'apache cassandra', 'apache camel', 'spring boot', 'react native', 'rest api', 'rest apis',
+      'epic systems', 'sql server', 'big query', 'ci cd', 'ci/cd', 'scikit learn'
+    ])
+    if (!allowedPhrases.has(low)) {
+      const stopWordsInPhrase = [
+        'into', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'we', 'you', 'them',
+        'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'about', 'across', 'through',
+        'the', 'a', 'an', 'as', 'position', 'overview', 'role', 'insights', 'insight',
+        'solutions', 'environment', 'process', 'management', 'delivery', 'responsibilities',
+        'requirements', 'qualifications', 'opportunity', 'company', 'organization'
+      ]
+      for (const w of words) {
+        const wLow = w.toLowerCase()
+        if (stopWordsInPhrase.includes(wLow)) return false
+        if (BANNED_GENERIC_WORDS.has(wLow)) return false
+      }
+    }
+  }
+
+  return true
+}
+
 export const DYNAMIC_EXTRACTOR_SYSTEM_PROMPT = `You are a Universal ATS Skill & Technology Extractor.
 Your job is to read raw Job Description text from ANY industry domain (SWE, Data Analytics, Generative AI, Healthcare, Embedded, Salesforce, Finance, Biotech, etc.) and extract all specific technical skills, tools, frameworks, languages, and methodologies required.
 
@@ -196,10 +310,10 @@ export function extractSkillsHeuristically(text = '') {
   // 1. Capitalized technical acronyms & abbreviations (2-5 uppercase letters, e.g. GCP, ETL, IAM, LLM, SDK, AWS, SQL, API, RAG, dbt)
   const acronymMatches = text.match(/\b[A-Z]{2,5}\b|\b[a-z][A-Z0-9]+\b|\b[A-Z][a-z]+[A-Z][a-zA-Z]*\b|\b[A-Z]{1,5}\d{1,4}\b/g) || []
   for (const acr of acronymMatches) {
-    const low = acr.toLowerCase()
-    if (!COMMON_STOP_WORDS.has(low) && acr.length >= 2) {
+    if (['US', 'IT', 'AT', 'OR', 'IN', 'TO', 'DO'].includes(acr)) continue
+    if (isConcreteTechSkill(acr)) {
       found.add(acr)
-      categories[low] = assignHeuristicCategory(acr)
+      categories[acr.toLowerCase()] = assignHeuristicCategory(acr)
     }
   }
 
@@ -207,46 +321,46 @@ export function extractSkillsHeuristically(text = '') {
   const patternMatches = text.match(/\b(?:[A-Za-z0-9]+(?:\.[a-z]{2,4})|\.NET|C\+\+|C#|CI\/CD|Power\s+BI|REST(?:ful)?\s+APIs?)\b/gi) || []
   for (const pat of patternMatches) {
     const trimmed = pat.trim()
-    const low = trimmed.toLowerCase()
-    if (!COMMON_STOP_WORDS.has(low)) {
+    if (isConcreteTechSkill(trimmed)) {
       found.add(trimmed)
-      categories[low] = assignHeuristicCategory(trimmed)
+      categories[trimmed.toLowerCase()] = assignHeuristicCategory(trimmed)
     }
   }
 
   // 3. CamelCase/PascalCase technical compounds & specialized suffixes (e.g. LangGraph, TensorFlow, PostgreSQL, ChromaDB, Biopython, Nextflow)
-  const compoundMatches = text.match(/\b[A-Z][a-z]+[A-Z][a-zA-Z]+\b|\b[A-Z][a-z]*(?:flow|python|db|sql|graph|mcp|hub|lab|script|box|base|stack)\b/gi) || []
+  const compoundMatches = text.match(/\b[A-Z][a-z]+[A-Z][a-zA-Z]+\b|\b[A-Z][a-z]*(?:[Ff]low|[Pp]ython|[Dd]b|[Ss]ql|[Gg]raph|[Mm]cp|[Hh]ub|[Ll]ab|[Ss]cript|[Bb]ox|[Bb]ase|[Ss]tack)\b/g) || []
   for (const cmp of compoundMatches) {
     const trimmed = cmp.trim()
-    const low = trimmed.toLowerCase()
-    if (!COMMON_STOP_WORDS.has(low) && trimmed.length >= 3) {
+    if (isConcreteTechSkill(trimmed)) {
       found.add(trimmed)
-      categories[low] = assignHeuristicCategory(trimmed)
+      categories[trimmed.toLowerCase()] = assignHeuristicCategory(trimmed)
     }
   }
 
   // 4. Hyphenated technical tools (e.g. ci-cd, scikit-learn, spring-boot, react-native)
   const hyphenMatches = text.match(/\b[a-zA-Z0-9]+-[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)?\b/g) || []
   for (const hyp of hyphenMatches) {
-    const low = hyp.toLowerCase()
-    if (!COMMON_STOP_WORDS.has(low) && hyp.length >= 3 && !/^(?:pre-requisite|full-time|part-time|day-to-day|hands-on|end-to-end)$/i.test(hyp)) {
+    if (isConcreteTechSkill(hyp) && !/^(?:pre-requisite|full-time|part-time|day-to-day|hands-on|end-to-end)$/i.test(hyp)) {
       found.add(hyp)
-      categories[low] = assignHeuristicCategory(hyp)
+      categories[hyp.toLowerCase()] = assignHeuristicCategory(hyp)
     }
   }
 
   // 5. Noun phrases following indicator clauses: "experience with", "proficiency in", "knowledge of", "hands-on with"
-  const indicatorRegex = /(?:experience with|proficiency in|knowledge of|hands-on with|familiarity with|expertise in)\s+([A-Za-z0-9\s/.,#+-]{2,60})(?=[.;\n]|\band\b|\bas well as\b)/gi
+  const indicatorRegex = /(?:experience with|proficiency in|knowledge of|hands-on with|familiarity with|expertise in)\s+([A-Za-z0-9#+, \t/-]+(?:\.[A-Za-z0-9#+]+)*(?:[A-Za-z0-9#+, \t/-]+)*)/gi
   let indMatch
   while ((indMatch = indicatorRegex.exec(text)) !== null) {
     const chunk = indMatch[1] || ''
-    const parts = chunk.split(/[,/]\s*|\s+or\s+/).map((p) => p.trim())
+    const parts = chunk.split(/[,/]\s*|\s+(?:and|or|as\s+well\s+as)\s+/i).map((p) => p.trim())
     for (const p of parts) {
-      const pClean = p.replace(/[.!?]+$/, '').trim()
-      const pLow = pClean.toLowerCase()
-      if (pClean.length >= 2 && pClean.length <= 30 && !COMMON_STOP_WORDS.has(pLow) && !/^(?:a|an|the|such|other|various|relevant|related)$/i.test(pLow)) {
-        found.add(pClean)
-        categories[pLow] = assignHeuristicCategory(pClean)
+      let pClean = p.replace(/[.!?]+$/, '').trim()
+      pClean = pClean.replace(/^(?:and|or|with|as\s+well\s+as|in|the|a|an|of|for|to)\s+/i, '').trim()
+      pClean = pClean.replace(/\s+(?:in|on|at|for|to|with|from|by|across|within|into)\s+.*$/i, '').trim()
+      pClean = pClean.replace(/\s+(?:and|or|with|in|the|platforms?|tools?|systems?|pipelines?)$/i, '').trim()
+      if (isConcreteTechSkill(pClean)) {
+        const canonical = pClean.toLowerCase() === 'dbt' ? 'dbt' : pClean
+        found.add(canonical)
+        categories[canonical.toLowerCase()] = assignHeuristicCategory(canonical)
       }
     }
   }
@@ -254,11 +368,12 @@ export function extractSkillsHeuristically(text = '') {
   // 6. Two-word capitalized domain platforms (e.g. Epic Systems, Apache Spark, Google Cloud)
   const twoWordMatches = text.match(/\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g) || []
   for (const phrase of twoWordMatches) {
-    const low = phrase.toLowerCase()
+    const trimmed = phrase.trim()
+    const low = trimmed.toLowerCase()
     const words = low.split(/\s+/)
-    if (/systems|platform|cloud|analytics|database|studio|bi|engine|services/i.test(words[1]) && !COMMON_STOP_WORDS.has(words[0])) {
-      found.add(phrase.trim())
-      categories[low] = assignHeuristicCategory(phrase)
+    if (isConcreteTechSkill(trimmed) && /systems|platform|cloud|analytics|database|studio|bi|engine|services/i.test(words[1]) && !BANNED_GENERIC_WORDS.has(words[0])) {
+      found.add(trimmed)
+      categories[low] = assignHeuristicCategory(trimmed)
     }
   }
 
@@ -269,7 +384,7 @@ export function extractSkillsHeuristically(text = '') {
     const rx = new RegExp(`\\b${ct}\\b`, 'i')
     if (rx.test(lowerText)) {
       const canon = ct.charAt(0).toUpperCase() + ct.slice(1)
-      const name = canon === 'Sql' ? 'SQL' : canon
+      const name = ct === 'sql' ? 'SQL' : ct === 'dbt' ? 'dbt' : canon
       found.add(name)
       categories[ct] = assignHeuristicCategory(ct)
     }
@@ -288,6 +403,8 @@ export default {
   extractSkillsDynamically,
   extractSkillsHeuristically,
   assignHeuristicCategory,
+  isConcreteTechSkill,
+  BANNED_GENERIC_WORDS,
   DYNAMIC_EXTRACTOR_SYSTEM_PROMPT,
   JD_SKILL_CACHE,
   clearJdSkillCache,

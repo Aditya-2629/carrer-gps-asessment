@@ -1,5 +1,6 @@
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { toPresentTense } from '../signals/patterns.js'
+import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 
 export function isRoleCurrent(exp = {}) {
   return Boolean(
@@ -228,11 +229,14 @@ export function buildRolePracticeBullet(targetRole = '') {
  */
 export function deterministicWeave(experiences, targetKws, targetRole = '') {
   const role = targetRole || experiences?.[0]?.role || ''
+  const validTargetKws = (Array.isArray(targetKws) ? targetKws : [])
+    .map((s) => (typeof s === 'string' ? s.trim() : s?.name || s?.skill || '').trim())
+    .filter(isConcreteTechSkill)
   const keywordLedger = []
   const usedKeywords = new Set()
   const expClones = JSON.parse(JSON.stringify(experiences || []))
 
-  if (expClones.length === 0 || targetKws.length === 0) {
+  if (expClones.length === 0 || validTargetKws.length === 0) {
     return {
       tailoredExperiences: expClones,
       interviewLedger: [],
@@ -252,7 +256,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     }
   })
 
-  const needsQuality = targetKws.some((k) => /test|review|quality|git|guardrail|assertion/i.test(k))
+  const needsQuality = validTargetKws.some((k) => /test|review|quality|git|guardrail|assertion/i.test(k))
   const isProductOrNonTech =
     /product\s*(?:manager|owner|lead)|program\s*manager|project\s*manager|scrum\s*master|operations|business\s*(?:operations|lead)|strategy|marketing|sales|customer\s*success|recruiter|hr\b/i.test(role)
   const isData =
@@ -260,7 +264,8 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     (/data|analyst|analytics|bi\b/i.test(role) && !/software\s+developer|swe|sde/i.test(role))
 
   // 1. Natural In-Line Weaving by Semantic Relevance
-  for (const kw of targetKws) {
+  for (const kw of validTargetKws) {
+    if (!isConcreteTechSkill(kw)) continue
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
 
@@ -339,7 +344,8 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
   }
 
   // 2. Synthesize Dedicated Domain Bullet if an Experience has < 5 Bullets
-  for (const kw of targetKws) {
+  for (const kw of validTargetKws) {
+    if (!isConcreteTechSkill(kw)) continue
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
 
@@ -475,7 +481,8 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
 
   // 4. For any remaining keywords that cannot be woven into full profiles without fabricating facts:
   // Place them cleanly into Technical Skills and mark in ledger as 'Skill Section Insertion'
-  for (const kw of targetKws) {
+  for (const kw of validTargetKws) {
+    if (!isConcreteTechSkill(kw)) continue
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
 
@@ -535,7 +542,7 @@ export async function weaveKeywordsAndBuildLedger({
   for (const item of rawPool) {
     const raw = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
     const clean = raw.trim()
-    if (clean.length >= 2 && !seen.has(clean.toLowerCase()) && !/^(?:and|or|etc|tools|skills)$/i.test(clean)) {
+    if (isConcreteTechSkill(clean) && !seen.has(clean.toLowerCase())) {
       seen.add(clean.toLowerCase())
       targetKws.push(clean)
     }
@@ -680,7 +687,7 @@ export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywor
   const targetKws = (Array.isArray(missingKeywords) ? missingKeywords : [])
     .map((k) => (typeof k === 'string' ? k : k?.skill || k?.name || k?.keyword || ''))
     .map((s) => s.trim())
-    .filter(Boolean)
+    .filter(isConcreteTechSkill)
   return deterministicWeave(experiences, targetKws, role)
 }
 

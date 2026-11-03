@@ -9,7 +9,7 @@
  */
 
 import crypto from 'crypto'
-import { extractSkillsDynamically, extractSkillsHeuristically } from './dynamicSkillExtractor.js'
+import { extractSkillsDynamically, extractSkillsHeuristically, isConcreteTechSkill } from './dynamicSkillExtractor.js'
 
 // Common technical and functional skill dictionary for deterministic signal extraction
 export const COMMON_MARKET_SKILLS = [
@@ -130,7 +130,8 @@ export async function extractSkillsFromJdAsync(cleanText = '') {
  */
 export function extractSkillsFromJd(cleanText = '') {
   if (!cleanText || typeof cleanText !== 'string') return []
-  const lower = cleanText.toLowerCase()
+  const text = cleanJdText(cleanText)
+  const lower = text.toLowerCase()
   const found = new Set()
 
   // 1. Check common base dictionary
@@ -149,34 +150,38 @@ export function extractSkillsFromJd(cleanText = '') {
 
   // 2. Dynamic regex pattern matching:
   // 2a. CamelCase / PascalCase keywords (e.g. DuckDB, LangGraph, FastMCP, PostgreSQL, Databricks, PowerBI)
-  const camelMatches = cleanText.match(/\b[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+\b/g) || []
+  const camelMatches = text.match(/\b[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+\b/g) || []
   for (const m of camelMatches) {
-    if (m.length >= 3 && !JD_SKILL_STOP_WORDS.has(m.toLowerCase())) {
+    if (m.length >= 3 && !JD_SKILL_STOP_WORDS.has(m.toLowerCase()) && isConcreteTechSkill(m)) {
       found.add(CANONICAL_SKILL_CASING[m.toLowerCase()] || m)
     }
   }
 
   // 2b. Technical uppercase acronyms: 2-5 uppercase letters (e.g. ETL, ELT, RAG, KPI, EDA, SSIS, SSRS, AWS, GCP)
-  const acronymMatches = cleanText.match(/\b[A-Z]{2,5}\b/g) || []
+  const acronymMatches = text.match(/\b[A-Z]{2,5}\b/g) || []
   for (const a of acronymMatches) {
-    if (a.length >= 2 && !JD_SKILL_STOP_WORDS.has(a.toLowerCase())) {
+    if (a.length >= 2 && !JD_SKILL_STOP_WORDS.has(a.toLowerCase()) && isConcreteTechSkill(a)) {
       found.add(CANONICAL_SKILL_CASING[a.toLowerCase()] || a)
     }
   }
 
   // 2c. N-grams following indicator phrases:
   // e.g. "experience with DuckDB, FastMCP and LangGraph", "proficient in Snowflake, dbt"
-  const indicatorRegex = /(?:experience with|proficient in|proficiency in|hands-on with|strong knowledge of|working with)[ \t]+([A-Za-z0-9#+., \t/-]{3,50})/gi
+  const indicatorRegex = /(?:experience with|proficient in|proficiency in|hands-on with|strong knowledge of|working with)[ \t]+([A-Za-z0-9#+, \t/-]+(?:\.[A-Za-z0-9#+]+)*(?:[A-Za-z0-9#+, \t/-]+)*)/gi
   let indMatch
-  while ((indMatch = indicatorRegex.exec(cleanText)) !== null) {
+  while ((indMatch = indicatorRegex.exec(text)) !== null) {
     const rawTokens = indMatch[1].split(/[,/]|(?:\s+(?:and|or|with)\s+)/i)
     for (const rawToken of rawTokens) {
-      const token = rawToken.replace(/[.;:!?"'()]/g, '').trim()
+      let token = rawToken.replace(/[.;:!?"'()]/g, '').trim()
+      token = token.replace(/^(?:and|or|with|as\s+well\s+as|in|the|a|an|of|for|to)\s+/i, '').trim()
+      token = token.replace(/\s+(?:in|on|at|for|to|with|from|by|across|within|into)\s+.*$/i, '').trim()
+      token = token.replace(/\s+(?:and|or|with|in|the|platforms?|tools?|systems?|pipelines?)$/i, '').trim()
       if (
         token.length >= 2 &&
         token.length <= 35 &&
         !/^\d+$/.test(token) &&
-        !JD_SKILL_STOP_WORDS.has(token.toLowerCase())
+        !JD_SKILL_STOP_WORDS.has(token.toLowerCase()) &&
+        isConcreteTechSkill(token)
       ) {
         const canon = CANONICAL_SKILL_CASING[token.toLowerCase()] || token
         found.add(canon)
@@ -185,14 +190,14 @@ export function extractSkillsFromJd(cleanText = '') {
   }
 
   // 3. Union with heuristic extraction
-  const heuristic = extractSkillsHeuristically(cleanText)
+  const heuristic = extractSkillsHeuristically(text)
   for (const s of heuristic.skills) {
-    if (!JD_SKILL_STOP_WORDS.has(s.toLowerCase())) {
+    if (!JD_SKILL_STOP_WORDS.has(s.toLowerCase()) && isConcreteTechSkill(s)) {
       found.add(CANONICAL_SKILL_CASING[s.toLowerCase()] || s)
     }
   }
 
-  return Array.from(found)
+  return Array.from(found).filter(isConcreteTechSkill)
 }
 
 export const extractDynamicSkillsFromText = extractSkillsFromJd
