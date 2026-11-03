@@ -20,8 +20,8 @@ export class GeminiProvider {
     temperature = 0.2,
     topP = 0.9,
     maxTokens = null,
-    timeoutMs = 18000,
-    totalDeadlineMs = 38000,
+    timeoutMs = 45000,
+    totalDeadlineMs = 60000,
     signal = null,
     requestId = null,
   }) {

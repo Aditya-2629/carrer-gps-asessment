@@ -131,13 +131,13 @@ export const aiConfig = {
       return process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
     },
     get perAttemptTimeoutMs() {
-      return parseInt(process.env.GEMINI_PER_ATTEMPT_TIMEOUT_MS || '20000', 10)
+      return parseInt(process.env.GEMINI_PER_ATTEMPT_TIMEOUT_MS || '45000', 10)
     },
     get timeoutMs() {
-      return parseInt(process.env.GEMINI_TIMEOUT_MS || '20000', 10)
+      return parseInt(process.env.GEMINI_TIMEOUT_MS || '45000', 10)
     },
     get totalDeadlineMs() {
-      return parseInt(process.env.GEMINI_TOTAL_DEADLINE_MS || process.env.AI_TOTAL_DEADLINE_MS || '60000', 10)
+      return parseInt(process.env.GEMINI_TOTAL_DEADLINE_MS || process.env.AI_TOTAL_DEADLINE_MS || '90000', 10)
     },
   },
   nvidia: {

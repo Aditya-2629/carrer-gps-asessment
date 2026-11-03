@@ -89,6 +89,19 @@ export const MODEL_REGISTRY = {
 
   // --- Fallback / Secondary Providers (for future or explicit comparison) ---
 
+  'gemini-3.8-flash': {
+    id: 'gemini-3.8-flash',
+    displayName: 'Google Gemini 3.8 Flash',
+    provider: 'gemini',
+    purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
   'gemini-3.6-flash': {
     id: 'gemini-3.6-flash',
     displayName: 'Google Gemini 3.6 Flash',
@@ -156,7 +169,7 @@ export const MODEL_REGISTRY = {
 
   'gemini-2.5-flash-lite': {
     id: 'gemini-2.5-flash-lite',
-    displayName: 'Google Gemini 2.5 Flash Lite',
+    displayName: 'Google Gemini 2.5 Flash Lite (Discontinued)',
     provider: 'gemini',
     purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
     supportsJsonObject: true,
@@ -164,12 +177,12 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 1048576,
-    enabled: true,
+    enabled: false,
   },
 
   'gemini-2.5-flash': {
     id: 'gemini-2.5-flash',
-    displayName: 'Google Gemini 2.5 Flash',
+    displayName: 'Google Gemini 2.5 Flash (Discontinued)',
     provider: 'gemini',
     purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
     supportsJsonObject: true,
@@ -177,7 +190,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 1048576,
-    enabled: true,
+    enabled: false,
   },
 
   'gemini-1.5-flash': {

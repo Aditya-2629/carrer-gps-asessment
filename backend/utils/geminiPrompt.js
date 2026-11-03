@@ -72,7 +72,7 @@ export const compactLinkedInForAtlas = (li) => {
 
   const name = li.firstName ? `${li.firstName} ${li.lastName || ''}`.trim() : li.fullName || li.name || ''
   const headline = li.headline || ''
-  const about = String(li.about || li.summary || '').trim()
+  const about = String(li.about || li.summary || '').split('?')[0].slice(0, 1200).trim()
   const location = li.location?.parsed?.text || li.location?.linkedinText || (typeof li.location === 'string' ? li.location : '')
   const openToWork = Boolean(li.openToWork)
   const connectionsCount = li.connectionsCount || li.connections || 0
@@ -86,7 +86,7 @@ export const compactLinkedInForAtlas = (li) => {
     title: e.title || e.position || '',
     company: e.companyName || e.company || '',
     duration: e.duration || e.dateRange || e.dates || '',
-    description: cleanTrackingUrl(String(e.description || e.text || '').trim()),
+    description: String(e.description || e.text || '').split('?')[0].slice(0, 250).trim(),
   }))
 
   const rawEdu = Array.isArray(li.education) ? li.education : []
@@ -278,7 +278,8 @@ export default (
   linkedinAgent = null,
   assessmentPersona = null
 ) => {
-  const kbText = compactKnowledgeBase(dynamicKnowledgeBase || defaultKnowledgeBase)
+  const rawKb = dynamicKnowledgeBase || defaultKnowledgeBase
+  const kbText = typeof rawKb === 'string' && rawKb.length > 1200 ? rawKb.slice(0, 1200) : rawKb
 
   return `
     You are "Atlas", a $2000/hour Elite Executive Career Strategist, Senior Technical Recruiter, and ATS Systems Expert who has placed 500+ candidates into FAANG, Fortune 500, and hyper-growth startups.

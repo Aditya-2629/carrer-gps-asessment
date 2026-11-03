@@ -366,8 +366,8 @@ Use the following facts to base your analysis and recommendations.
   console.log('\n--- TEST 8: Fallback Chain & Trap Models Configuration ---')
   assert.deepStrictEqual(
     PRODUCTION_FALLBACK_CHAIN,
-    ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'groq'],
-    'PRODUCTION_FALLBACK_CHAIN must strictly match [gemini-2.5-flash-lite, gemini-2.5-flash, groq]'
+    ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-pro', 'groq'],
+    'PRODUCTION_FALLBACK_CHAIN must strictly match [gemini-3.5-flash-lite, gemini-3.8-flash, gemini-3.1-pro, groq]'
   )
 
   const deadModels = [
@@ -375,6 +375,8 @@ Use the following facts to base your analysis and recommendations.
     'gemini-1.5-flash-latest',
     'gemini-1.5-pro-latest',
     'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
     'nvidia/nemotron-3-super-120b-a12b:free',
     'google/gemma-4-26b-a4b-it:free',
   ]
@@ -383,15 +385,21 @@ Use the following facts to base your analysis and recommendations.
     assert(TRAP_MODELS.has(m), `Dead 404 model ${m} must be in TRAP_MODELS`)
   }
 
+  // Verify gemini-3.8-flash is UNBLOCKED from TRAP_MODELS
+  assert(!TRAP_MODELS.has('gemini-3.8-flash'), 'gemini-3.8-flash must be unblocked from TRAP_MODELS')
+
   // Verify models are registered in MODEL_REGISTRY
-  const gLite = getModel('gemini-2.5-flash-lite')
-  assert(gLite && gLite.enabled, 'gemini-2.5-flash-lite must be registered and enabled')
+  const gLite = getModel('gemini-3.5-flash-lite')
+  assert(gLite && gLite.enabled, 'gemini-3.5-flash-lite must be registered and enabled')
 
-  const gFlash = getModel('gemini-2.5-flash')
-  assert(gFlash && gFlash.enabled, 'gemini-2.5-flash must be registered and enabled')
+  const g38Flash = getModel('gemini-3.8-flash')
+  assert(g38Flash && g38Flash.enabled, 'gemini-3.8-flash must be registered and enabled')
 
-  const groqLlama = getModel('llama-3.3-70b-versatile')
-  assert(groqLlama && groqLlama.enabled, 'llama-3.3-70b-versatile must be registered and enabled')
+  const g31Pro = getModel('gemini-3.1-pro')
+  assert(g31Pro && g31Pro.enabled, 'gemini-3.1-pro must be registered and enabled')
+
+  const groq120b = getModel('openai/gpt-oss-120b')
+  assert(groq120b && groq120b.enabled, 'openai/gpt-oss-120b must be registered and enabled')
 
   console.log('✓ Fallback chain and trap models strictly verified against specification.')
 
@@ -404,3 +412,4 @@ runTests().catch((err) => {
   console.error('\n❌ TEST FAILED:', err)
   process.exit(1)
 })
+

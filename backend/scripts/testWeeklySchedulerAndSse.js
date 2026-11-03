@@ -17,14 +17,14 @@ async function runTests() {
 
   // Verify getCleanModelName returns verified model for trap models
   const clean1 = getCleanModelName('gemini-2.0-flash')
-  assert.strictEqual(clean1, process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite')
+  assert.strictEqual(clean1, process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite')
 
   const clean2 = getCleanModelName('gemini-1.0-pro')
-  assert.strictEqual(clean2, process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite')
+  assert.strictEqual(clean2, process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite')
 
   // Valid model passes through
-  const clean3 = getCleanModelName('gemini-2.5-flash-lite')
-  assert.strictEqual(clean3, 'gemini-2.5-flash-lite')
+  const clean3 = getCleanModelName('gemini-3.5-flash-lite')
+  assert.strictEqual(clean3, 'gemini-3.5-flash-lite')
 
   // Verify DEFAULT_MODELS contains verified models and no trap models
   for (const trap of DEPRECATED_TRAP_MODELS) {

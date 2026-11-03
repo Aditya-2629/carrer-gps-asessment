@@ -241,12 +241,15 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
 
   const isProduction = process.env.NODE_ENV === 'production'
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
+  const bypassCacheSetting = isProduction ? true : false
 
+  // 1. Primary Model: Gemini 3.5 Flash Lite
   try {
     const result = await llmGateway.generate({
       purpose: 'assessment_report',
       task: 'report_generation',
-      model: 'gemini-2.5-flash-lite',
+      model: primaryModel,
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
       temperature: 0.4,
@@ -254,28 +257,52 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
       maxRetries: 2,
       treatLengthAsRetryable: true,
       totalDeadlineMs: 45000,
-      bypassCache: isProduction,
+      bypassCache: bypassCacheSetting,
     })
     const actualTokens = result.tokens?.prompt || estimatedPromptTokens
     console.log(`[ReportGeneration] Atlas report generated successfully via ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
     return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
   } catch (primaryErr) {
-    console.warn('[ReportGeneration] Atlas generation via primary model failed/timed out. Falling back to Groq (llama-3.3-70b-versatile):', primaryErr.message)
-    const result = await llmGateway.generate({
-      purpose: 'assessment_report',
-      task: 'report_generation',
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
-      responseFormat: 'json_object',
-      temperature: 0.4,
-      maxTokens: 3500,
-      treatLengthAsRetryable: true,
-      totalDeadlineMs: 45000,
-      bypassCache: isProduction,
-    })
-    const actualTokens = result.tokens?.prompt || estimatedPromptTokens
-    console.log(`[ReportGeneration] Atlas report generated successfully via fallback ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
-    return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
+    console.warn(`[ReportGeneration] Atlas generation via primary model (${primaryModel}) failed/timed out. Falling back to Gemini 3.8 Flash:`, primaryErr.message)
+
+    // 2. Secondary Fallback: Gemini 3.8 Flash
+    try {
+      const result = await llmGateway.generate({
+        purpose: 'assessment_report',
+        task: 'report_generation',
+        model: 'gemini-3.8-flash',
+        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+        responseFormat: 'json_object',
+        temperature: 0.4,
+        maxTokens: 4096,
+        maxRetries: 2,
+        treatLengthAsRetryable: true,
+        totalDeadlineMs: 45000,
+        bypassCache: bypassCacheSetting,
+      })
+      const actualTokens = result.tokens?.prompt || estimatedPromptTokens
+      console.log(`[ReportGeneration] Atlas report generated successfully via secondary ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
+      return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
+    } catch (secondaryErr) {
+      console.warn('[ReportGeneration] Atlas secondary model (gemini-3.8-flash) failed. Falling back to Groq (openai/gpt-oss-120b):', secondaryErr.message)
+
+      // 3. Tertiary Fallback: Groq (openai/gpt-oss-120b)
+      const result = await llmGateway.generate({
+        purpose: 'assessment_report',
+        task: 'report_generation',
+        model: 'openai/gpt-oss-120b',
+        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+        responseFormat: 'json_object',
+        temperature: 0.4,
+        maxTokens: 3500,
+        treatLengthAsRetryable: true,
+        totalDeadlineMs: 45000,
+        bypassCache: bypassCacheSetting,
+      })
+      const actualTokens = result.tokens?.prompt || estimatedPromptTokens
+      console.log(`[ReportGeneration] Atlas report generated successfully via tertiary fallback ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
+      return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
+    }
   }
 }
 

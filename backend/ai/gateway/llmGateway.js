@@ -20,22 +20,24 @@ import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 
 // Production fallback chain in priority order:
-// 1. Primary: Gemini 2.5 Flash Lite (Google fast inference)
-// 2. 1st Fallback: Gemini 2.5 Flash
-// 3. 2nd Fallback: Groq (Llama 3.3 70B / GPT-OSS 120B / 20B)
+// 1. Primary: Gemini 3.5 Flash Lite (Google fast inference)
+// 2. 1st Fallback: Gemini 3.8 Flash
+// 3. 2nd Fallback: Gemini 3.1 Pro
+// 4. 3rd Fallback: Groq (Llama 3.3 70B / GPT-OSS 120B / 20B)
 export const PRODUCTION_FALLBACK_CHAIN = [
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.1-pro',
   'groq',
 ]
 
 export const MAX_CONCURRENT_PER_PROVIDER = 4
 
 export const TRAP_MODELS = new Set([
-  'gemini-3.8-flash',
-  'gemini-3.8',
   'gemini-3.7-flash',
   'gemini-3.7',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
   'gemini-2.0-flash',
   'gemini-1.5-flash-latest',
   'gemini-1.5-pro-latest',
