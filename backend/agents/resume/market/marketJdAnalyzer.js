@@ -1,5 +1,6 @@
 import natural from 'natural'
-import { extractSkillsHeuristically, COMMON_STOP_WORDS } from './dynamicSkillExtractor.js'
+import { extractSkillsFromJd } from './jdNormalizer.js'
+import { COMMON_STOP_WORDS } from './dynamicSkillExtractor.js'
 
 export function analyzeMarketJdCorpus(jdTexts = [], candidateResumeSkills = []) {
   if (!Array.isArray(jdTexts) || jdTexts.length === 0) {
@@ -16,20 +17,20 @@ export function analyzeMarketJdCorpus(jdTexts = [], candidateResumeSkills = []) 
     (candidateResumeSkills || []).map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : ''))
   )
 
-  // Dynamically collect all candidate tools across all JDs in the corpus
+  // Dynamically collect all candidate tools across all JDs in the corpus using extractSkillsFromJd
   const corpusToolFrequencies = new Map()
 
   for (const text of jdTexts) {
-    const detected = extractSkillsHeuristically(text)
+    const detectedSkills = extractSkillsFromJd(text)
     const seenInThisJd = new Set()
 
-    detected.skills.forEach((skill) => {
+    detectedSkills.forEach((skill) => {
       const low = skill.toLowerCase()
       if (!seenInThisJd.has(low)) {
         seenInThisJd.add(low)
-        const current = corpusToolFrequencies.get(skill) || { tool: skill, count: 0 }
+        const current = corpusToolFrequencies.get(low) || { tool: skill, count: 0 }
         current.count++
-        corpusToolFrequencies.set(skill, current)
+        corpusToolFrequencies.set(low, current)
       }
     })
   }
@@ -42,7 +43,7 @@ export function analyzeMarketJdCorpus(jdTexts = [], candidateResumeSkills = []) 
       percentage: Math.round((item.count / totalJds) * 100),
     }))
     .filter((t) => t.percentage >= 15) // Mentioned in at least 15% of market postings
-    .sort((a, b) => b.percentage - a.percentage)
+    .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
 
   // Top tool pairings via Bigram analysis
   const NGrams = natural.NGrams
@@ -84,7 +85,7 @@ export function analyzeMarketJdCorpus(jdTexts = [], candidateResumeSkills = []) 
   }
 }
 
-export const extractDynamicSkillsFromText = extractSkillsHeuristically
+export const extractDynamicSkillsFromText = extractSkillsFromJd
 
 export default {
   analyzeMarketJdCorpus,

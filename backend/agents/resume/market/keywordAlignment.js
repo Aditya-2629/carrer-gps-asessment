@@ -480,16 +480,21 @@ export function computeKeywordAlignment({
   const summaryText = canonicalResume?.summary?.text || ''
   const fullResumeText = `${expAndProjText}\n${skillsText}\n${summaryText}`
 
-  // 2. Determine Target Keywords (12–16 Core High-Impact Keywords)
+  // 2. Determine Target Keywords dynamically from Scraped Market JDs first!
   let targetKeywords = []
   if (isJdProvided) {
     const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
     if (extractedJdSkills.length >= 6) {
       targetKeywords = extractedJdSkills
     }
+  } else if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
+    // Priority 1: Use REAL Scraped Market JDs from MongoDB Bucket
+    targetKeywords = marketProfile.skills
+      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .filter(Boolean)
   }
 
-  // If JD yields few keywords or no JD provided, use Market Pack for role
+  // Priority 2: Fallback to Market Pack ONLY if scraped JDs are unavailable
   if (targetKeywords.length < 6) {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'

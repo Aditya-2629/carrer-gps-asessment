@@ -96,6 +96,24 @@ export const CANONICAL_SKILL_CASING = {
   'mysql': 'MySQL',
 }
 
+export const JD_SKILL_STOP_WORDS = new Set([
+  'the', 'and', 'with', 'for', 'you', 'will', 'are', 'have', 'our', 'team',
+  'experience', 'years', 'work', 'working', 'ability', 'skills', 'role',
+  'candidate', 'business', 'company', 'strong', 'equal', 'opportunity',
+  'requirements', 'preferred', 'qualifications', 'including', 'across',
+  'demonstrated', 'proficient', 'knowledge', 'responsibilities', 'duties',
+  'bachelor', 'master', 'degree', 'computer', 'science', 'engineering',
+  'written', 'verbal', 'communication', 'problem', 'solving', 'environment',
+  'engineer', 'analyst', 'developer', 'specialist', 'manager', 'lead',
+  'looking', 'join', 'help', 'build', 'create', 'support', 'high', 'quality',
+  'collaborate', 'partners', 'stakeholders', 'teams', 'solutions', 'systems',
+  'this', 'that', 'from', 'must', 'plus', 'ideal', 'good', 'status', 'notice',
+  'salary', 'range', 'location', 'hybrid', 'remote', 'full', 'time', 'part',
+  'benefits', 'health', 'dental', 'vision', 'paid', 'states', 'city', 'state',
+  'usa', 'north', 'south', 'east', 'west', 'etc', 'job', 'about', 'summary',
+  'eeo', 'pto', '401k', 'est', 'pst', 'cst', 'mst', 'apply', 'applicant'
+])
+
 /**
  * Async dynamic extraction for full pipeline runs
  */
@@ -108,9 +126,10 @@ export async function extractSkillsFromJdAsync(cleanText = '') {
 }
 
 /**
- * Extracts recognized skills from JD text with dynamic heuristic expansion.
+ * Extracts recognized skills from JD text with dynamic heuristic and pattern expansion.
  */
 export function extractSkillsFromJd(cleanText = '') {
+  if (!cleanText || typeof cleanText !== 'string') return []
   const lower = cleanText.toLowerCase()
   const found = new Set()
 
@@ -128,10 +147,49 @@ export function extractSkillsFromJd(cleanText = '') {
     }
   }
 
-  // 2. Dynamically extract unlisted capitalized tools, frameworks, and acronyms
+  // 2. Dynamic regex pattern matching:
+  // 2a. CamelCase / PascalCase keywords (e.g. DuckDB, LangGraph, FastMCP, PostgreSQL, Databricks, PowerBI)
+  const camelMatches = cleanText.match(/\b[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+\b/g) || []
+  for (const m of camelMatches) {
+    if (m.length >= 3 && !JD_SKILL_STOP_WORDS.has(m.toLowerCase())) {
+      found.add(CANONICAL_SKILL_CASING[m.toLowerCase()] || m)
+    }
+  }
+
+  // 2b. Technical uppercase acronyms: 2-5 uppercase letters (e.g. ETL, ELT, RAG, KPI, EDA, SSIS, SSRS, AWS, GCP)
+  const acronymMatches = cleanText.match(/\b[A-Z]{2,5}\b/g) || []
+  for (const a of acronymMatches) {
+    if (a.length >= 2 && !JD_SKILL_STOP_WORDS.has(a.toLowerCase())) {
+      found.add(CANONICAL_SKILL_CASING[a.toLowerCase()] || a)
+    }
+  }
+
+  // 2c. N-grams following indicator phrases:
+  // e.g. "experience with DuckDB, FastMCP and LangGraph", "proficient in Snowflake, dbt"
+  const indicatorRegex = /(?:experience with|proficient in|proficiency in|hands-on with|strong knowledge of|working with)[ \t]+([A-Za-z0-9#+., \t/-]{3,50})/gi
+  let indMatch
+  while ((indMatch = indicatorRegex.exec(cleanText)) !== null) {
+    const rawTokens = indMatch[1].split(/[,/]|(?:\s+(?:and|or|with)\s+)/i)
+    for (const rawToken of rawTokens) {
+      const token = rawToken.replace(/[.;:!?"'()]/g, '').trim()
+      if (
+        token.length >= 2 &&
+        token.length <= 35 &&
+        !/^\d+$/.test(token) &&
+        !JD_SKILL_STOP_WORDS.has(token.toLowerCase())
+      ) {
+        const canon = CANONICAL_SKILL_CASING[token.toLowerCase()] || token
+        found.add(canon)
+      }
+    }
+  }
+
+  // 3. Union with heuristic extraction
   const heuristic = extractSkillsHeuristically(cleanText)
   for (const s of heuristic.skills) {
-    found.add(s)
+    if (!JD_SKILL_STOP_WORDS.has(s.toLowerCase())) {
+      found.add(CANONICAL_SKILL_CASING[s.toLowerCase()] || s)
+    }
   }
 
   return Array.from(found)
