@@ -480,8 +480,10 @@ export function computeKeywordAlignment({
   const summaryText = canonicalResume?.summary?.text || ''
   const fullResumeText = `${expAndProjText}\n${skillsText}\n${summaryText}`
 
-  // 2. Determine Target Keywords dynamically (Target JD > Scraped Market JDs > Fallback Pack)
+  // 2. Determine Target Keywords dynamically (Scraped Market JDs > Target JD > Fallback Pack)
   let targetKeywords = []
+
+  // Priority 1: User pasted a specific target JD
   if (isJdProvided) {
     const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
     if (extractedJdSkills.length >= 6) {
@@ -496,7 +498,7 @@ export function computeKeywordAlignment({
       .filter((s) => Boolean(s) && s.length >= 2 && !/^(and|the|with|for|you|our|team)$/i.test(s))
   }
 
-  // Priority 3: Fallback to Market Pack ONLY if scraped JDs are unavailable
+  // Priority 3: Fallback to role pack ONLY if no scraped JDs and no pasted JD
   if (targetKeywords.length < 6) {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'
@@ -511,7 +513,6 @@ export function computeKeywordAlignment({
     targetKeywords = Array.from(new Set([...targetKeywords, ...pack]))
   }
 
-  // Allow dynamic target keyword evaluation capacity up to 24 keywords
   targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 24)
 
   // 3. Classify target keywords into 3 buckets
