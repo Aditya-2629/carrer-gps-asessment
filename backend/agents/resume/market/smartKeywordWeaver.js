@@ -151,7 +151,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         keywordLedger.push({
           keyword: kw,
           company: targetProfile.company,
-          placement: 'Woven into existing bullet',
+          placement: 'Enhanced in Experience',
           exactBullet: bText,
           wovenBullet: bText,
           interviewTalkingScript: generateTalkingScript(kw, targetProfile.company),
@@ -215,7 +215,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
       keywordLedger.push({
         keyword: kw,
         company: availableProfile.company,
-        placement: 'Synthesized high-impact bullet',
+        placement: 'Added to Experience',
         exactBullet: synthBullet,
         wovenBullet: synthBullet,
         interviewTalkingScript: generateTalkingScript(kw, availableProfile.company),
@@ -245,7 +245,7 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
 function generateTalkingScript(kw, company) {
   const low = kw.toLowerCase()
   if (low.includes('git')) {
-    return `In technical rounds, explain how you enforced trunk-based development, branch protection rules, and automated PR test gates in ${company}.`
+    return `In technical rounds, explain how you enforced trunk-based development, branch protection rules, and automated PR test gates at ${company}.`
   }
   if (low.includes('azure') || low.includes('gcp') || low.includes('aws')) {
     return `Highlight your hands-on infrastructure provisioning, IAM roles, and serverless compute scaling on ${kw} to handle enterprise production traffic.`
@@ -265,7 +265,7 @@ function generateTalkingScript(kw, company) {
   if (low.includes('java')) {
     return `Discuss your experience designing performant, type-safe backend services in ${kw} to support high-concurrency enterprise client integrations.`
   }
-  return `Explain your hands-on architectural implementation of ${kw} at ${company}, focusing on trade-offs, system reliability, and business impact.`
+  return `Explain your hands-on implementation of ${kw} at ${company}, focusing on trade-offs, system reliability, and measurable business impact.`
 }
 
 export async function weaveKeywordsAndBuildLedger({
@@ -338,7 +338,7 @@ CRITICAL ARCHITECTURAL CONSTRAINTS:
    - For EVERY woven keyword, provide:
      - "keyword": exact keyword
      - "company": company name where woven
-     - "placement": "Woven into existing bullet" or "Synthesized high-impact bullet"
+     - "placement": "Enhanced in Experience" or "Added to Experience"
      - "exactBullet": the final bullet text containing the keyword
      - "interviewTalkingScript": a concise, 1-sentence technical defense script explaining why you chose this tool, architectural trade-offs, and measurable impact for recruiter/tech screening rounds.
 

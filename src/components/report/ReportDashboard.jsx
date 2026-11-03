@@ -1061,9 +1061,8 @@ function ReportDashboardContent() {
             <button
               onClick={async () => {
                 try {
-                  const state = useAppStore.getState()
-                  const email = state.userEmail || reportData?.user_answers?.email || ''
-                  const userId = state.userId || ''
+                  const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
+                  const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
                   const params = new URLSearchParams()
                   if (userId) params.append('userId', userId)
                   if (email) params.append('email', email)
@@ -1071,7 +1070,9 @@ function ReportDashboardContent() {
                   window.open(url, '_blank')
                 } catch (_e) {
                   sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                  window.open('/full-report?print=true', '_blank')
+                  const userId = reportData?.userId || reportData?._id || ''
+                  const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
+                  window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&print=true`, '_blank')
                 }
               }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
@@ -1084,7 +1085,9 @@ function ReportDashboardContent() {
             <button
               onClick={() => {
                 sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                window.open('/full-report', '_blank')
+                const userId = reportData?.userId || reportData?._id || ''
+                const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
+                window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}`, '_blank')
               }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
               title="Open full expanded document view for printing"

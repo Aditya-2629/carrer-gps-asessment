@@ -682,27 +682,43 @@ export const downloadReportPdf = async (req, res) => {
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       user = await User.findById(userId)
     }
+    if (!user && userId && userId.includes('@')) {
+      user = await User.findOne({ email: userId.toLowerCase().trim() })
+    }
     if (!user && email) {
       user = await User.findOne({ email: email.toLowerCase().trim() })
     }
+    if (!user && userId) {
+      user = await User.findOne({ _id: userId })
+    }
 
-    if (!user || !user.aiReport) {
+    const directPayload = req.body?.reportData || req.body?.report || null
+
+    if (!user && !directPayload) {
       return res.status(404).json({ message: 'No completed report found for this user.' })
     }
 
+    const effectiveUser = user || {
+      name: directPayload?.resume_agent?.candidateSnapshot?.name || directPayload?.user_answers?.fullName || 'Candidate',
+      email: email || directPayload?.user_answers?.email || 'candidate@example.com',
+      answers: directPayload?.user_answers || {},
+      semanticProfile: directPayload?.semantic_profile || null,
+      aiReport: directPayload,
+    }
+
     const pdfBuffer = await generateStandardReportPdf({
-      user,
-      answers: user.answers || {},
-      semanticProfile: user.semanticProfile || user.aiReport?.semantic_profile || null,
-      aiReport: user.aiReport,
+      user: effectiveUser,
+      answers: effectiveUser.answers || {},
+      semanticProfile: effectiveUser.semanticProfile || effectiveUser.aiReport?.semantic_profile || null,
+      aiReport: effectiveUser.aiReport,
     })
 
     const candidateName =
-      user.aiReport?.resume_agent?.candidateSnapshot?.name ||
-      user.answers?.fullName ||
-      user.answers?.name ||
-      user.name ||
-      (user.email ? user.email.split('@')[0] : 'Candidate')
+      effectiveUser.aiReport?.resume_agent?.candidateSnapshot?.name ||
+      effectiveUser.answers?.fullName ||
+      effectiveUser.answers?.name ||
+      effectiveUser.name ||
+      (effectiveUser.email ? effectiveUser.email.split('@')[0] : 'Candidate')
     const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
 
     res.setHeader('Content-Type', 'application/pdf')
@@ -779,18 +795,23 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     const userSelectedSkills = Array.from(new Set([...querySkills, ...bodySkills]))
 
+    const strandedSkillsOnly = (Array.isArray(ra.keywordAlignment?.skillsOnlyUnverified) ? ra.keywordAlignment.skillsOnlyUnverified : [])
+      .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
+      .filter((s) => s && s.length >= 2)
+
+    // Priority: If user selected missing skills, use them; if user selected nothing, automatically weave stranded skills from "In Skills Section Only"!
+    const skillsToPrioritize = userSelectedSkills.length > 0
+      ? userSelectedSkills
+      : (strandedSkillsOnly.length > 0 ? strandedSkillsOnly : [])
+
     const rawMissing = [
-      ...userSelectedSkills,
+      ...skillsToPrioritize,
       ...(Array.isArray(ra.keywordAlignment?.missingMarketSkillsRanked) ? ra.keywordAlignment.missingMarketSkillsRanked : []),
       ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
       ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
       ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
       ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
     ]
-
-    const strandedSkillsOnly = (Array.isArray(ra.keywordAlignment?.skillsOnlyUnverified) ? ra.keywordAlignment.skillsOnlyUnverified : [])
-      .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
-      .filter((s) => s && s.length >= 2)
 
     const missingSkillsList = []
     const seenKw = new Set()

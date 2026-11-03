@@ -798,6 +798,14 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     }
   }
 
+  if (!bestBuffer || bestBuffer.length === 0 || bestBuffer[0] !== 0x50 || bestBuffer[1] !== 0x4b) {
+    try {
+      bestBuffer = await generateDocxViaPython(sanitizedResume)
+    } catch (pyErr) {
+      console.warn('Python DOCX fallback failed:', pyErr.message)
+    }
+  }
+
   if (finalPages > targetPages) {
     warnings.push({
       type: 'page_overflow',

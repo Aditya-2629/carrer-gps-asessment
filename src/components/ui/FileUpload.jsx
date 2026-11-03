@@ -100,6 +100,22 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (detectedTarget && (!isCustomLocked || !formData.targetRole)) {
             bulkUpdates.targetRole = detectedTarget
           }
+          const detectedPhone =
+            result.canonicalResume?.candidate?.phone ||
+            result.canonicalResume?.phone ||
+            result.analysis?.candidateSnapshot?.phone ||
+            ''
+          if (detectedPhone && !formData.phone) {
+            bulkUpdates.phone = detectedPhone
+          }
+          const detectedLocation =
+            result.canonicalResume?.candidate?.location ||
+            result.canonicalResume?.location ||
+            result.analysis?.candidateSnapshot?.location ||
+            ''
+          if (detectedLocation && !formData.location) {
+            bulkUpdates.location = detectedLocation
+          }
           if (Object.keys(bulkUpdates).length > 0) {
             useAppStore.getState().setBulkFormData(bulkUpdates)
           }
@@ -187,6 +203,12 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         const plainMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
 
         const candidateRaw = pdfUriMatch?.[1] || docxTargetMatch?.[1] || plainMatch?.[0] || ''
+        // Fast phone scan from binary/text
+        const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
+        if (phoneMatch && phoneMatch[0]) {
+          useAppStore.getState().setFormData('phone', phoneMatch[0].trim())
+        }
+
         fastLinkedIn = normalizeLinkedInUrl(candidateRaw)
         if (fastLinkedIn) {
           useAppStore.getState().setFormData('linkedin', fastLinkedIn)

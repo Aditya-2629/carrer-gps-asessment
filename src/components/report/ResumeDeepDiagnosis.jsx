@@ -386,19 +386,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <ResumeScoreCard dashboard={dashboard} candidateName={firstName} variant={variant} />
       )}
 
-      {/* Keyword & JD Alignment */}
+      {/* Keyword & JD Alignment (With Single Unified Download CTA) */}
       {(dashboard?.keywordAlignment || resumeAgent.keywordAlignment) && (
         <ResumeKeywordAlignment
           keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
           variant={variant}
           currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
           onRebuildResume={handleDownloadDocx}
+          reportData={reportData}
         />
-      )}
-
-      {/* Companion ATS Keyword Defense & Interview Cheat Sheet */}
-      {interviewLedger?.length > 0 && (
-        <InterviewDefenseSheet interviewLedger={interviewLedger} variant={variant} />
       )}
 
       {/* Two Column Grid: Recruiter's Read & What's Working */}
@@ -448,44 +444,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             </ul>
           </div>
         )}
-      </div>
-
-      {/* ── 1-Click Action Suite: Download ATS Word File & Direct Sourcing Links ── */}
-      <div className="p-6 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5 mb-8">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-              Ready-to-Apply Asset
-            </span>
-            <h3 className="text-base font-bold text-[var(--text-primary)]">
-              Optimized Single-Column ATS Resume (.docx)
-            </h3>
-          </div>
-          <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-xl">
-            Pre-loaded with verified Google XYZ outcome bullets and target keywords. Formatted to pass Workday, Taleo, and Greenhouse parsers with 100% extraction.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <a
-            href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`("${targetRole}") AND ("Hiring" OR "Lead" OR "Manager")`)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all flex items-center gap-1.5"
-          >
-            <span>Search Hiring Managers ↗</span>
-          </a>
-
-          <button
-            type="button"
-            onClick={handleDownloadDocx}
-            disabled={isDownloadingDocx}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors shadow-sm disabled:opacity-60 cursor-pointer"
-          >
-            <DownloadSimple className="w-4 h-4" />
-            {isDownloadingDocx ? 'Downloading...' : 'Download Tailored ATS Resume (.docx)'}
-          </button>
-        </div>
       </div>
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
@@ -581,45 +539,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         </div>
       )}
 
-      {/* Woven Keywords & Interview Talking Points Ledger */}
-      {wovenList?.length > 0 && (
-        <div className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] space-y-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck size={18} className="text-emerald-500" weight="fill" />
-              <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                Keywords Woven into Tailored Resume ({wovenList.length})
-              </h3>
-            </div>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-              Verified ATS Placement
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {wovenList.map((item, idx) => (
-              <div key={idx} className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-[var(--text-primary)] bg-[var(--surface-card)] px-2 py-0.5 rounded border border-[var(--border-default)]">
-                    {item.keyword}
-                  </span>
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    {item.company || 'Experience 1'} • {item.placement || 'Inline Tooling'}
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--text-secondary)] italic">
-                  "{item.wovenBullet || item.bulletText}"
-                </p>
-                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 p-2 rounded-lg border border-emerald-500/15">
-                  <strong>Interview Talking Script:</strong> {item.talkingScript || item.interviewTalkingScript}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Companion ATS Keyword Defense & Interview Cheat Sheet */}
+      {/* Single Dedicated Technical Talking Points & Interview Defense Guide */}
       {interviewLedger?.length > 0 && (
         <InterviewDefenseSheet interviewLedger={interviewLedger} variant={variant} />
       )}

@@ -60,8 +60,9 @@ function loadInitialState() {
   let formData = {}
   let isVerified = false
 
+  // 1. Prioritize tab-isolated sessionStorage (prevents Tab 2 from overwriting Tab 1)
   try {
-    const rawReport = localStorage.getItem(STORAGE_KEYS.REPORT_DATA)
+    const rawReport = sessionStorage.getItem(STORAGE_KEYS.REPORT_DATA) || localStorage.getItem(STORAGE_KEYS.REPORT_DATA)
     if (rawReport) {
       reportData = JSON.parse(rawReport)
     }
@@ -70,16 +71,15 @@ function loadInitialState() {
   }
 
   try {
-    userId = localStorage.getItem(STORAGE_KEYS.USER_ID) || null
-    email = localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
-    isVerified = localStorage.getItem(STORAGE_KEYS.IS_VERIFIED) === 'true'
-    const rawForm = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
+    userId = sessionStorage.getItem(STORAGE_KEYS.USER_ID) || localStorage.getItem(STORAGE_KEYS.USER_ID) || null
+    email = sessionStorage.getItem(STORAGE_KEYS.EMAIL) || localStorage.getItem(STORAGE_KEYS.EMAIL) || ''
+    isVerified = (sessionStorage.getItem(STORAGE_KEYS.IS_VERIFIED) || localStorage.getItem(STORAGE_KEYS.IS_VERIFIED)) === 'true'
+    const rawForm = sessionStorage.getItem(STORAGE_KEYS.FORM_DATA) || localStorage.getItem(STORAGE_KEYS.FORM_DATA)
     if (rawForm) {
       const parsed = JSON.parse(rawForm)
       delete parsed.resume
       formData = sanitizeFormData(parsed)
-      // Permanently purge stale legacy keys from localStorage
-      localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
+      sessionStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
     }
   } catch (e) {
     console.warn('[Store] Failed to parse stored auth/formData:', e)
@@ -92,6 +92,7 @@ function persistFormData(data) {
   if (typeof window === 'undefined') return
   try {
     const clean = sanitizeFormData(data)
+    sessionStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(clean))
     localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(clean))
   } catch (e) {
     console.warn('[Store] Failed to persist formData:', e)
@@ -124,8 +125,13 @@ const useAppStore = create((set) => ({
   setEmail: (email) => {
     try {
       if (typeof window !== 'undefined') {
-        if (email) localStorage.setItem(STORAGE_KEYS.EMAIL, email)
-        else localStorage.removeItem(STORAGE_KEYS.EMAIL)
+        if (email) {
+          sessionStorage.setItem(STORAGE_KEYS.EMAIL, email)
+          localStorage.setItem(STORAGE_KEYS.EMAIL, email)
+        } else {
+          sessionStorage.removeItem(STORAGE_KEYS.EMAIL)
+          localStorage.removeItem(STORAGE_KEYS.EMAIL)
+        }
       }
     } catch (e) {}
     set({ email })
@@ -134,9 +140,13 @@ const useAppStore = create((set) => ({
     try {
       if (typeof window !== 'undefined') {
         if (userId) {
+          sessionStorage.setItem(STORAGE_KEYS.USER_ID, userId)
+          sessionStorage.setItem(STORAGE_KEYS.IS_VERIFIED, 'true')
           localStorage.setItem(STORAGE_KEYS.USER_ID, userId)
           localStorage.setItem(STORAGE_KEYS.IS_VERIFIED, 'true')
         } else {
+          sessionStorage.removeItem(STORAGE_KEYS.USER_ID)
+          sessionStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
           localStorage.removeItem(STORAGE_KEYS.USER_ID)
           localStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
         }
@@ -214,8 +224,12 @@ const useAppStore = create((set) => ({
     try {
       if (typeof window !== 'undefined') {
         if (reportData) {
+          sessionStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(reportData))
+          sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
           localStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(reportData))
         } else {
+          sessionStorage.removeItem(STORAGE_KEYS.REPORT_DATA)
+          sessionStorage.removeItem('craftureFullReport')
           localStorage.removeItem(STORAGE_KEYS.REPORT_DATA)
         }
       }

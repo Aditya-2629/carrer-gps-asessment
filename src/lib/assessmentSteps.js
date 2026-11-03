@@ -4,11 +4,11 @@
 // 2. 12 Exact V2 Questions incorporating Yash's 6-Phase Framework & 8-Stage 90-Day Funnel.
 
 export const CHAPTERS = [
-  { id: 1, number: '00', title: 'Setup & Digital Coordinates', icon: '🎒', subtitle: 'Resume & LinkedIn', range: [1, 2] },
-  { id: 2, number: '01', title: 'Work Authorization & Target Role', icon: '🎯', subtitle: 'Perimeter & Seniority', range: [3, 4] },
-  { id: 3, number: '02', title: 'Search Engine, Sourcing & Support', icon: '⚡', subtitle: 'Volume, Channels & Consultancy', range: [5, 9] },
-  { id: 4, number: '03', title: 'Inside the Hiring Funnel', icon: '🏟️', subtitle: '90-Day Conversion & Stuck Stage', range: [10, 12] },
-  { id: 5, number: '04', title: 'Remediation & Root Cause', icon: '🚀', subtitle: 'Past Attempts & Core Problem', range: [13, 14] },
+  { id: 1, number: '00', title: 'Setup & Digital Coordinates', icon: '🎒', subtitle: 'Resume, LinkedIn & Phone', range: [1, 3] },
+  { id: 2, number: '01', title: 'Work Authorization & Target Role', icon: '🎯', subtitle: 'Perimeter & Seniority', range: [4, 5] },
+  { id: 3, number: '02', title: 'Search Engine, Sourcing & Support', icon: '⚡', subtitle: 'Volume, Channels & Consultancy', range: [6, 10] },
+  { id: 4, number: '03', title: 'Inside the Hiring Funnel', icon: '🏟️', subtitle: '90-Day Conversion & Stuck Stage', range: [11, 13] },
+  { id: 5, number: '04', title: 'Remediation & Root Cause', icon: '🚀', subtitle: 'Past Attempts & Core Problem', range: [14, 15] },
 ]
 
 export const EXPERIENCE = {
@@ -251,9 +251,28 @@ export const RAW_STEPS = [
     icon: EXPERIENCE[2].icon,
     reaction: EXPERIENCE[2].reaction,
   },
-  // Q1: visa & location
+  // Setup 3: Phone / WhatsApp (Auto-detected from resume)
   {
     id: 3,
+    name: 'phone',
+    type: 'phone',
+    isSetup: true,
+    label: 'What is your primary contact or WhatsApp number?',
+    sublabel: 'Auto-detected from your resume — adjust if your WhatsApp number is different.',
+    required: false,
+    chapter: 'Setup & Digital Coordinates',
+    scene: 'phone-screen',
+    sceneTitle: 'Contact Coordinates',
+    kicker: 'INITIAL SETUP',
+    visual: 'phone-screen',
+    icon: '📱',
+    reaction: {
+      default: 'Contact coordinates verified 📱',
+    },
+  },
+  // Q1: visa & location
+  {
+    id: 4,
     questionNumber: 1,
     name: 'visa',
     type: 'visa-location',
@@ -269,7 +288,7 @@ export const RAW_STEPS = [
   },
   // Q2: targetRole & experience
   {
-    id: 4,
+    id: 5,
     questionNumber: 2,
     name: 'targetRole',
     type: 'targetRole',
@@ -286,7 +305,7 @@ export const RAW_STEPS = [
   },
   // Q3: apps30d
   {
-    id: 5,
+    id: 6,
     questionNumber: 3,
     name: 'apps30d',
     type: 'preset-or-number',
@@ -303,7 +322,7 @@ export const RAW_STEPS = [
   },
   // Q4: targetedMatchPct
   {
-    id: 6,
+    id: 7,
     questionNumber: 4,
     name: 'targetedMatchPct',
     type: 'radio',
@@ -333,7 +352,7 @@ export const RAW_STEPS = [
   },
   // Q5: searchMethods
   {
-    id: 7,
+    id: 8,
     questionNumber: 5,
     name: 'searchMethods',
     type: 'checkbox',
@@ -365,7 +384,7 @@ export const RAW_STEPS = [
   },
   // Q6: externalHelp (Consultancies & External Support)
   {
-    id: 8,
+    id: 9,
     questionNumber: 6,
     name: 'externalHelp',
     type: 'radio',
@@ -395,7 +414,7 @@ export const RAW_STEPS = [
   },
   // Q7: outreach & referralsMonth
   {
-    id: 9,
+    id: 10,
     questionNumber: 7,
     name: 'outreach',
     type: 'outreach-referral',
@@ -411,7 +430,7 @@ export const RAW_STEPS = [
   },
   // Q8: funnel90d (8-Stage Funnel Grid)
   {
-    id: 10,
+    id: 11,
     questionNumber: 8,
     name: 'funnel90d',
     type: 'funnel-grid',
@@ -427,7 +446,7 @@ export const RAW_STEPS = [
   },
   // Q9: DropOffStage (6 Phases)
   {
-    id: 11,
+    id: 12,
     questionNumber: 9,
     name: 'DropOffStage',
     type: 'radio',
@@ -461,7 +480,7 @@ export const RAW_STEPS = [
   },
   // Q10: biggestChallenge
   {
-    id: 12,
+    id: 13,
     questionNumber: 10,
     name: 'biggestChallenge',
     type: 'radio',
@@ -492,7 +511,7 @@ export const RAW_STEPS = [
   },
   // Q11: alreadyTried
   {
-    id: 13,
+    id: 14,
     questionNumber: 11,
     name: 'alreadyTried',
     type: 'checkbox',
@@ -524,7 +543,7 @@ export const RAW_STEPS = [
   },
   // Q12: frustration & helpNeed
   {
-    id: 14,
+    id: 15,
     questionNumber: 12,
     name: 'frustration',
     type: 'frustration-custom',

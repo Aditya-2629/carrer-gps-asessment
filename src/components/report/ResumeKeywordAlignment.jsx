@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCircle, Warning, XCircle, Sparkle, Target } from '@phosphor-icons/react'
+import { CheckCircle, Warning, XCircle, Sparkle, Target, DownloadSimple } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import useAppStore from '../../store/useAppStore'
 
@@ -8,6 +8,7 @@ export default function ResumeKeywordAlignment({
   variant = 'light',
   onRebuildResume = null,
   currentMatchRate: propMatchRate = null,
+  reportData: propReportData = null,
 }) {
   if (!keywordAlignment) return null
 
@@ -25,7 +26,7 @@ export default function ResumeKeywordAlignment({
 
   const [selectedSkills, setSelectedSkills] = useState(new Set())
   const [showAllMissing, setShowAllMissing] = useState(false)
-  const [isRebuilding, setIsRebuilding] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const toggleSkillSelection = (skillName) => {
     setSelectedSkills((prev) => {
@@ -36,11 +37,71 @@ export default function ResumeKeywordAlignment({
     })
   }
 
-  const handleRebuildResumeWithSkills = async () => {
-    if (selectedSkills.size === 0 || isRebuilding) return
-    setIsRebuilding(true)
+  const cleanSkillsOnly = (skillsOnlyUnverified || [])
+    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
+
+  const missingMap = new Map()
+  const rankedItems = Array.isArray(missingMarketSkillsRanked) ? missingMarketSkillsRanked : []
+  for (const item of rankedItems) {
+    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
+    const cleanName = decodeHtmlEntities(rawName).trim()
+    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
+    const key = cleanName.toLowerCase()
+    if (!missingMap.has(key)) {
+      missingMap.set(key, {
+        keyword: cleanName,
+        percentage: item.percentage || null,
+        priority: item.priority || 'HIGH',
+        category: item.category || 'Tech',
+        badge: item.badge || (item.percentage ? `${item.percentage}% of JDs` : null),
+      })
+    }
+  }
+
+  const fallbackMissing = Array.isArray(missingFromResume) ? missingFromResume : []
+  for (const item of fallbackMissing) {
+    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
+    const cleanName = decodeHtmlEntities(rawName).trim()
+    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
+    const key = cleanName.toLowerCase()
+    if (!missingMap.has(key)) {
+      missingMap.set(key, {
+        keyword: cleanName,
+        percentage: item?.percentage || null,
+        priority: item?.priority || 'MEDIUM',
+        category: item?.category || 'Tech',
+        badge: item?.badge || (item?.percentage ? `${item.percentage}% of JDs` : null),
+      })
+    }
+  }
+
+  const uniqueMissing = Array.from(missingMap.values())
+  const cleanMatched = (matchedInExperience || [])
+    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
+
+  const initialHigh = uniqueMissing.filter(
+    (item) => (item.percentage != null ? item.percentage >= 20 : item.priority === 'HIGH')
+  )
+  const highPriorityMissing =
+    initialHigh.length > 0 ? initialHigh : uniqueMissing.slice(0, Math.min(8, uniqueMissing.length))
+  const mediumPriorityMissing = uniqueMissing.filter((item) => !highPriorityMissing.includes(item))
+
+  const verifiedCount = matchedCount || cleanMatched.length
+  const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : ((cleanMatched.length + uniqueMissing.length) || 1)
+  const baseMatchPercent = Math.min(100, Math.round((verifiedCount / calculatedTotal) * 100))
+  const currentMatchRate = propMatchRate != null ? propMatchRate : (matchPercent > 0 ? matchPercent : baseMatchPercent)
+
+  const projectedCount = Math.min(calculatedTotal, verifiedCount + selectedSkills.size)
+  const projectedPercent = Math.min(100, Math.round((projectedCount / calculatedTotal) * 100))
+  const liftPercent = Math.max(0, projectedPercent - currentMatchRate)
+
+  const handleDownloadTailoredResume = async () => {
+    if (isDownloading) return
+    setIsDownloading(true)
     try {
-      const selectedSkillsArray = Array.from(selectedSkills)
+      const selectedSkillsArray = selectedSkills.size > 0 ? Array.from(selectedSkills) : cleanSkillsOnly
 
       if (typeof onRebuildResume === 'function') {
         await onRebuildResume(selectedSkillsArray)
@@ -49,17 +110,15 @@ export default function ResumeKeywordAlignment({
 
       const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
       const storeState = useAppStore.getState()
-      const storeUserId = storeState.userId
-      const storeEmail = storeState.email
-      const reportData = storeState.reportData || storeState.assessmentReport
+      const reportData = propReportData || storeState.reportData || storeState.assessmentReport
       const params = new URLSearchParams(window.location.search)
-      const userId = params.get('userId') || params.get('id') || reportData?.userId || reportData?._id || storeUserId || ''
-      const email = params.get('email') || reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || storeEmail || ''
+
+      const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || params.get('userId') || params.get('id') || storeState.userId || ''
+      const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || params.get('email') || storeState.email || ''
 
       const skillsParam = encodeURIComponent(selectedSkillsArray.join(','))
       let response = null
 
-      // Strategy A: If userId or email is present, try GET with skills param
       if (userId || email) {
         const getUrl = userId
           ? `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx?skills=${skillsParam}`
@@ -76,7 +135,6 @@ export default function ResumeKeywordAlignment({
         }
       }
 
-      // Strategy B: Fallback to POST with direct JSON payload
       if (!response || !response.ok) {
         const postUrl = `${apiBase}/assessment/download-resume-docx`
         response = await fetch(postUrl, {
@@ -137,73 +195,12 @@ export default function ResumeKeywordAlignment({
         document.body.removeChild(a)
       }
     } catch (err) {
-      console.error('Error rebuilding tailored resume:', err)
+      console.error('Error downloading tailored resume:', err)
       alert(`Could not download resume: ${err.message}`)
     } finally {
-      setIsRebuilding(false)
+      setIsDownloading(false)
     }
   }
-
-  const cleanSkillsOnly = (skillsOnlyUnverified || [])
-    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
-    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
-
-  const missingMap = new Map()
-  const rankedItems = Array.isArray(missingMarketSkillsRanked) ? missingMarketSkillsRanked : []
-  for (const item of rankedItems) {
-    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
-    const cleanName = decodeHtmlEntities(rawName).trim()
-    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
-    const key = cleanName.toLowerCase()
-    if (!missingMap.has(key)) {
-      missingMap.set(key, {
-        keyword: cleanName,
-        percentage: item.percentage || null,
-        priority: item.priority || 'HIGH',
-        category: item.category || 'Tech',
-        badge: item.badge || (item.percentage ? `${item.percentage}% of JDs` : null),
-      })
-    }
-  }
-
-  const fallbackMissing = Array.isArray(missingFromResume) ? missingFromResume : []
-  for (const item of fallbackMissing) {
-    const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
-    const cleanName = decodeHtmlEntities(rawName).trim()
-    if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
-    const key = cleanName.toLowerCase()
-    if (!missingMap.has(key)) {
-      missingMap.set(key, {
-        keyword: cleanName,
-        percentage: item?.percentage || null,
-        priority: item?.priority || 'MEDIUM',
-        category: item?.category || 'Tech',
-        badge: item?.badge || (item?.percentage ? `${item.percentage}% of JDs` : null),
-      })
-    }
-  }
-
-  const uniqueMissing = Array.from(missingMap.values())
-  const cleanMatched = (matchedInExperience || [])
-    .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
-    .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
-
-  const initialHigh = uniqueMissing.filter(
-    (item) => (item.percentage != null ? item.percentage >= 20 : item.priority === 'HIGH')
-  )
-  const highPriorityMissing =
-    initialHigh.length > 0 ? initialHigh : uniqueMissing.slice(0, Math.min(8, uniqueMissing.length))
-  const mediumPriorityMissing = uniqueMissing.filter((item) => !highPriorityMissing.includes(item))
-
-  const verifiedCount = matchedCount || cleanMatched.length
-  const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : ((cleanMatched.length + uniqueMissing.length) || 1)
-  const baseMatchPercent = Math.min(100, Math.round((verifiedCount / calculatedTotal) * 100))
-  const currentMatchRate = propMatchRate != null ? propMatchRate : (matchPercent > 0 ? matchPercent : baseMatchPercent)
-
-  // Real ground math: no arbitrary 14% multipliers
-  const projectedCount = Math.min(calculatedTotal, verifiedCount + selectedSkills.size)
-  const projectedPercent = Math.min(100, Math.round((projectedCount / calculatedTotal) * 100))
-  const liftPercent = Math.max(0, projectedPercent - currentMatchRate)
 
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
@@ -300,7 +297,7 @@ export default function ResumeKeywordAlignment({
             </span>
           </div>
           <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-amber-900/80' : 'text-amber-300/80'}`}>
-            Listed in your Skills section, but not demonstrated in your work history. Add these to at least 1 bullet to prove hands-on application.
+            Listed in your Skills section, but not demonstrated in your work history. Clicking download will automatically weave these into your work bullets to prove hands-on application.
           </p>
           <div className="flex flex-wrap gap-1.5">
             {cleanSkillsOnly.length > 0 ? (
@@ -324,7 +321,7 @@ export default function ResumeKeywordAlignment({
           </div>
         </div>
 
-        {/* Row 3: Missing Target Keywords with Interactive Selection */}
+        {/* Row 3: Missing Target Keywords */}
         <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${uniqueMissing.length === 0 ? (light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-900/30') : (light ? 'bg-rose-50/40 border-rose-200/80' : 'bg-rose-950/20 border-rose-800/40')}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className={`flex items-center gap-1.5 text-xs font-bold ${uniqueMissing.length === 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>
@@ -426,31 +423,45 @@ export default function ResumeKeywordAlignment({
                   )}
                 </div>
               )}
-
-              {selectedSkills.size > 0 && (
-                <div className="mt-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
-                  <div>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 block">
-                      {selectedSkills.size} Skill{selectedSkills.size > 1 ? 's' : ''} Selected to Weave into Resume
-                    </span>
-                    <span className="text-[11px] text-[var(--text-secondary)]">
-                      Estimated ATS Match Lift: +{liftPercent}% (from {currentMatchRate}% ➔ {projectedPercent}%) [{projectedCount}/${calculatedTotal} keywords verified]
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleRebuildResumeWithSkills}
-                    disabled={isRebuilding}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Sparkle size={14} weight="fill" />
-                    <span>{isRebuilding ? 'Weaving Skills & Rebuilding...' : 'Rebuild Tailored Resume (.docx)'}</span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── Single Unified Resume Download Card ── */}
+      <div className="mt-5 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 border-2 border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm print:hidden">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+              Ready-to-Apply Asset
+            </span>
+            <span className="text-xs font-bold text-[var(--text-primary)]">
+              {selectedSkills.size > 0
+                ? `${selectedSkills.size} Selected Target Skills Woven into Experience`
+                : cleanSkillsOnly.length > 0
+                ? `Auto-Weaving ${cleanSkillsOnly.length} Stranded Skills into Experience`
+                : 'Harvard-ATS Single-Column Format (.docx)'}
+            </span>
+          </div>
+
+          <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+            {selectedSkills.size > 0
+              ? `Estimated ATS Match Lift: +${liftPercent}% (from ${currentMatchRate}% ➔ ${projectedPercent}%) [${projectedCount}/${calculatedTotal} keywords verified]`
+              : cleanSkillsOnly.length > 0
+              ? `Keywords from your Skills section (such as ${cleanSkillsOnly.slice(0, 3).join(', ')}) will be naturally backed by concrete experience bullets.`
+              : 'Formatted to pass Workday, Taleo, and Greenhouse parsers with 100% extraction.'}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDownloadTailoredResume}
+          disabled={isDownloading}
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
+        >
+          <DownloadSimple size={15} weight="bold" />
+          <span>{isDownloading ? 'Building Tailored Resume...' : 'Download Tailored ATS Resume (.docx)'}</span>
+        </button>
       </div>
     </div>
   )

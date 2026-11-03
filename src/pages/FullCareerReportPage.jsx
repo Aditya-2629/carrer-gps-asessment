@@ -27,6 +27,32 @@ export default function FullCareerReportPage() {
   const storeReportData = useAppStore((s) => s.reportData)
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const urlId = params.get('id') || params.get('userId')
+    const urlEmail = params.get('email')
+
+    if (urlId || urlEmail) {
+      if (report) {
+        const reportId = report.userId || report._id || report.user_answers?.userId
+        const reportEmail = report.user_answers?.email || report.candidate_email || report.email
+        if (urlId && reportId && String(reportId) === String(urlId)) return
+        if (urlEmail && reportEmail && String(reportEmail).toLowerCase() === String(urlEmail).toLowerCase()) return
+      }
+      const apiBase = import.meta.env.VITE_API_URL || (window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
+      const fetchUrl = urlId
+        ? `${apiBase}/assessment/user/${encodeURIComponent(urlId)}`
+        : `${apiBase}/assessment/report?email=${encodeURIComponent(urlEmail)}`
+      fetch(fetchUrl)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.report || data?.assessmentReport) {
+            setReport(data.report || data.assessmentReport)
+          }
+        })
+        .catch(() => {})
+      return
+    }
+
     if (!report && storeReportData) {
       setReport(storeReportData)
     }
