@@ -133,10 +133,10 @@ export function parseGeminiQuotaDetails(err) {
  * Active Production Verified Models in priority order:
  */
 export const VERIFIED_GEMINI_MODELS = [
-  'gemini-2.0-flash', // Fast, highly capable current generation
-  'gemini-1.5-flash-latest', // Ultra-reliable fallback
-  'gemini-1.5-pro-latest', // Deep reasoning for complex recruiter diagnosis
-  'gemini-1.5-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
 ]
 
 export const DEPRECATED_TRAP_MODELS = new Set([
@@ -144,7 +144,10 @@ export const DEPRECATED_TRAP_MODELS = new Set([
   'gemini-1.0-pro-001',
   'gemini-1.5-pro-001',
   'gemini-1.5-flash-001',
-  'gemini-2.5-flash', // Note: returns 404 in standard Google AI Studio endpoint
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest',
+  'gemini-1.5-flash',
   'gemini-3.8-flash',
   'gemini-3.8',
   'gemini-3.7-flash',
@@ -153,20 +156,19 @@ export const DEPRECATED_TRAP_MODELS = new Set([
 
 export function getCleanModelName(requestedModel) {
   if (!requestedModel || DEPRECATED_TRAP_MODELS.has(requestedModel)) {
-    return process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+    return process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite'
   }
   return requestedModel
 }
 
 /**
  * Model priority chain — verified active Gemini flash models.
- * Prioritizes configured GEMINI_MODEL (default gemini-2.0-flash),
+ * Prioritizes configured GEMINI_MODEL (default gemini-2.5-flash-lite),
  * followed by verified stable fallbacks.
  */
 export const DEFAULT_MODELS = [
-  process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+  process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
   ...VERIFIED_GEMINI_MODELS,
-  'gemini-3.5-flash-lite',
 ].filter((m, idx, arr) => m && arr.indexOf(m) === idx && !DEPRECATED_TRAP_MODELS.has(m))
 
 /**
@@ -417,7 +419,7 @@ export const generateContentWithFallback = async ({
     return true
   })
   if (candidateModels.length === 0) {
-    candidateModels.push(process.env.GEMINI_MODEL || 'gemini-2.0-flash')
+    candidateModels.push(process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite')
   }
   const modelsToTry = candidateModels.filter((m) => !isModelPermanentlyUnavailable(m))
   let lastModelError = null

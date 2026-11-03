@@ -237,35 +237,45 @@ FORMAT CONTRACT (strict):
 - Never merge sections. Return every section fully populated.`
 
 async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
-  // Phase E-fix: Atlas routes through the LLM gateway with gemini-3.5-flash-lite as primary
-  // and groq (openai/gpt-oss-120b) as immediate failover so report synthesis never starves.
+  const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + extraInstructions.length) / 4)
+  console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
+
+  const isProduction = process.env.NODE_ENV === 'production'
+
   try {
-    const { text: responseText } = await llmGateway.generate({
+    const result = await llmGateway.generate({
       purpose: 'assessment_report',
       task: 'report_generation',
-      model: 'gemini-3.5-flash-lite',
+      model: 'gemini-2.5-flash-lite',
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
       temperature: 0.4,
       maxTokens: 4096,
       maxRetries: 2,
       treatLengthAsRetryable: true,
+      totalDeadlineMs: 45000,
+      bypassCache: isProduction,
     })
-    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+    const actualTokens = result.tokens?.prompt || estimatedPromptTokens
+    console.log(`[ReportGeneration] Atlas report generated successfully via ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
+    return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
   } catch (primaryErr) {
-    console.warn('[ReportGeneration] Atlas generation via primary model failed/timed out. Falling back to Groq (openai/gpt-oss-120b):', primaryErr.message)
-    const { text: responseText } = await llmGateway.generate({
+    console.warn('[ReportGeneration] Atlas generation via primary model failed/timed out. Falling back to Groq (llama-3.3-70b-versatile):', primaryErr.message)
+    const result = await llmGateway.generate({
       purpose: 'assessment_report',
       task: 'report_generation',
-      model: 'openai/gpt-oss-120b',
+      model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
       temperature: 0.4,
       maxTokens: 3500,
       treatLengthAsRetryable: true,
-      bypassCache: true,
+      totalDeadlineMs: 45000,
+      bypassCache: isProduction,
     })
-    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+    const actualTokens = result.tokens?.prompt || estimatedPromptTokens
+    console.log(`[ReportGeneration] Atlas report generated successfully via fallback ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
+    return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
   }
 }
 

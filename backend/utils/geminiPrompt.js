@@ -1,46 +1,164 @@
 import defaultKnowledgeBase from './knowledgeBase.js'
 
-const safeJson = (data) => {
-  if (!data) return ''
-  return JSON.stringify(data, null, 2).replace(/`/g, "'")
+/**
+ * Strips null, undefined, empty strings, and empty arrays/objects recursively.
+ */
+export function stripEmptyKeys(obj) {
+  if (Array.isArray(obj)) {
+    const cleanedArr = obj
+      .map(stripEmptyKeys)
+      .filter((v) => {
+        if (v === null || v === undefined || v === '') return false
+        if (Array.isArray(v) && v.length === 0) return false
+        if (typeof v === 'object' && Object.keys(v).length === 0) return false
+        return true
+      })
+    return cleanedArr.length > 0 ? cleanedArr : []
+  } else if (obj && typeof obj === 'object') {
+    const res = {}
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === null || v === undefined || v === '') continue
+      if (Array.isArray(v) && v.length === 0) continue
+      const cleaned = stripEmptyKeys(v)
+      if (cleaned === null || cleaned === undefined || cleaned === '') continue
+      if (Array.isArray(cleaned) && cleaned.length === 0) continue
+      if (typeof cleaned === 'object' && Object.keys(cleaned).length === 0) continue
+      res[k] = cleaned
+    }
+    return res
+  }
+  return obj
 }
 
-export const compactLinkedInForAtlas = (li) => {
-  if (!li || typeof li !== 'object') return null
-  return {
-    name: li.firstName ? `${li.firstName} ${li.lastName || ''}`.trim() : li.fullName || li.name || '',
-    headline: li.headline || '',
-    about: String(li.about || li.summary || '').slice(0, 1200),
-    location: li.location?.parsed?.text || li.location?.linkedinText || (typeof li.location === 'string' ? li.location : ''),
-    openToWork: Boolean(li.openToWork),
-    connectionsCount: li.connectionsCount || li.connections || 0,
-    followerCount: li.followerCount || li.followers || 0,
-    topSkills: (li.topSkills || (Array.isArray(li.skills) ? li.skills.map((s) => (typeof s === 'string' ? s : s?.name)) : []))
-      .filter(Boolean)
-      .slice(0, 20),
-    experience: (li.experience || li.positions || []).slice(0, 5).map((e) => ({
-      title: e.title || e.position || '',
-      company: e.companyName || e.company || '',
-      duration: e.duration || e.dateRange || '',
-      description: String(e.description || e.text || '').slice(0, 350),
-    })),
-    education: (li.education || []).slice(0, 2).map((ed) => ({
-      school: ed.schoolName || ed.school || '',
-      degree: ed.degreeName || ed.degree || '',
-    })),
-    certificationsCount: (li.certifications || []).length,
-    projectsCount: (li.projects || []).length,
+const safeJson = (data) => {
+  if (!data) return ''
+  const cleaned = stripEmptyKeys(data)
+  return JSON.stringify(cleaned, null, 2).replace(/`/g, "'")
+}
+
+/**
+ * Strips tracking query parameters (miniProfileUrn, trackingId, lipi, etc.) from URLs.
+ */
+export const cleanTrackingUrl = (url) => {
+  if (typeof url !== 'string' || !url) return ''
+  try {
+    const u = new URL(url)
+    const toDelete = []
+    for (const [k] of u.searchParams.entries()) {
+      if (
+        /^(miniprofileurn|trackingid|lipi|trk|utm_|ref_|midtoken|fs_)/i.test(k) ||
+        k.toLowerCase().includes('tracking') ||
+        k.toLowerCase().includes('urn')
+      ) {
+        toDelete.push(k)
+      }
+    }
+    toDelete.forEach((k) => u.searchParams.delete(k))
+    const search = u.searchParams.toString()
+    return `${u.origin}${u.pathname}${search ? '?' + search : ''}`
+  } catch {
+    return url
+      .replace(/[?&](miniProfileUrn|trackingId|lipi|trkCode|trackingParam)=[^&#]*/gi, '')
+      .replace(/[?&]$/, '')
   }
 }
 
+/**
+ * Compacts LinkedIn scraper data: strips tracking query params and machine noise
+ * while preserving 100% of candidate profile text, real work experiences, and education.
+ */
+export const compactLinkedInForAtlas = (li) => {
+  if (!li || typeof li !== 'object') return null
+
+  const name = li.firstName ? `${li.firstName} ${li.lastName || ''}`.trim() : li.fullName || li.name || ''
+  const headline = li.headline || ''
+  const about = String(li.about || li.summary || '').trim()
+  const location = li.location?.parsed?.text || li.location?.linkedinText || (typeof li.location === 'string' ? li.location : '')
+  const openToWork = Boolean(li.openToWork)
+  const connectionsCount = li.connectionsCount || li.connections || 0
+  const followerCount = li.followerCount || li.followers || 0
+
+  const topSkills = (li.topSkills || (Array.isArray(li.skills) ? li.skills.map((s) => (typeof s === 'string' ? s : s?.name)) : []))
+    .filter(Boolean)
+
+  const rawExp = Array.isArray(li.experience) ? li.experience : Array.isArray(li.positions) ? li.positions : []
+  const experience = rawExp.map((e) => ({
+    title: e.title || e.position || '',
+    company: e.companyName || e.company || '',
+    duration: e.duration || e.dateRange || e.dates || '',
+    description: cleanTrackingUrl(String(e.description || e.text || '').trim()),
+  }))
+
+  const rawEdu = Array.isArray(li.education) ? li.education : []
+  const education = rawEdu.map((ed) => ({
+    school: ed.schoolName || ed.school || '',
+    degree: ed.degreeName || ed.degree || '',
+    dates: ed.dates || ed.year || '',
+  }))
+
+  const result = {
+    name,
+    headline,
+    about,
+    location,
+    openToWork,
+    connectionsCount,
+    followerCount,
+    topSkills,
+    experience,
+    education,
+  }
+
+  // Preserve optional genuine sections only if non-empty
+  const rawCerts = Array.isArray(li.certifications) ? li.certifications : []
+  if (rawCerts.length > 0) {
+    result.certifications = rawCerts.map((c) => (typeof c === 'string' ? c : c.name || c.title)).filter(Boolean)
+  }
+  const rawVol = Array.isArray(li.volunteer) ? li.volunteer : []
+  if (rawVol.length > 0) {
+    result.volunteer = rawVol.map((v) => (typeof v === 'string' ? v : v.role || v.organization)).filter(Boolean)
+  }
+  const rawProj = Array.isArray(li.projects) ? li.projects : []
+  if (rawProj.length > 0) {
+    result.projects = rawProj.map((p) => (typeof p === 'string' ? p : p.title || p.name)).filter(Boolean)
+  }
+
+  return stripEmptyKeys(result)
+}
+
+/**
+ * Compacts Resume data: strips OCR/PDF artifacts (rawText, fullText, markdown, _raw, boundingBoxes, styles)
+ * while preserving 100% of candidate's real personal context (all roles, bullets, metrics, projects, skills).
+ */
 export const compactResumeForAtlas = (res) => {
   if (!res || typeof res !== 'object') return null
 
-  // Strip any raw OCR/fullText blobs
-  const { rawText, fullText, markdown, _raw, ...cleanRes } = res
+  // Strip any raw OCR/fullText blobs, boundingBoxes, and CSS/styling
+  const {
+    rawText,
+    fullText,
+    markdown,
+    _raw,
+    boundingBoxes,
+    styles,
+    css,
+    style,
+    pageLayout,
+    fontMap,
+    ...cleanRes
+  } = res
 
-  const summary = String(cleanRes.summary || cleanRes.profile || cleanRes.objective || '').slice(0, 800)
-  const skills = (Array.isArray(cleanRes.skills) ? cleanRes.skills : []).slice(0, 35)
+  const candidateName = cleanRes.candidate?.name || cleanRes.name || ''
+  const targetRole = cleanRes.candidate?.targetRole || cleanRes.targetRole || ''
+  const summary = String(cleanRes.summary || cleanRes.profile || cleanRes.objective || '').trim()
+
+  // Preserve 100% of skills categories or array
+  let skills = cleanRes.skills
+  if (Array.isArray(skills)) {
+    skills = skills.filter(Boolean)
+  } else if (skills && typeof skills === 'object') {
+    skills = stripEmptyKeys(skills)
+  }
 
   const rawExp = Array.isArray(cleanRes.experience)
     ? cleanRes.experience
@@ -48,43 +166,106 @@ export const compactResumeForAtlas = (res) => {
     ? cleanRes.experiences
     : []
 
-  const experience = rawExp.slice(0, 4).map((role) => {
+  const experience = rawExp.map((role) => {
     const rawBullets = Array.isArray(role.bullets)
       ? role.bullets.map((b) => (typeof b === 'string' ? b : b?.text || ''))
       : Array.isArray(role.highlights)
-      ? role.highlights
+      ? role.highlights.map((h) => (typeof h === 'string' ? h : h?.text || ''))
       : []
 
     return {
       role: role.role || role.title || '',
       company: role.company || role.employer || '',
       dates: role.dates || role.duration || '',
-      bullets: rawBullets.slice(0, 5),
+      location: role.location || '',
+      bullets: rawBullets.filter(Boolean),
     }
   })
 
   const rawProjects = Array.isArray(cleanRes.projects) ? cleanRes.projects : []
-  const projects = rawProjects.slice(0, 3).map((p) => ({
-    name: p.name || p.title || '',
-    technologies: p.technologies || p.tech || [],
-    description: String(p.description || (Array.isArray(p.bullets) ? p.bullets.map((b) => (typeof b === 'string' ? b : b?.text)).join(' ') : '')).slice(0, 300),
-  }))
+  const projects = rawProjects.map((p) => {
+    const projBullets = Array.isArray(p.bullets)
+      ? p.bullets.map((b) => (typeof b === 'string' ? b : b?.text || ''))
+      : []
+    return {
+      name: p.name || p.title || '',
+      technologies: p.technologies || p.tech || [],
+      description: String(p.description || '').trim(),
+      bullets: projBullets.filter(Boolean),
+    }
+  })
 
   const rawEdu = Array.isArray(cleanRes.education) ? cleanRes.education : []
-  const education = rawEdu.slice(0, 2).map((ed) => ({
+  const education = rawEdu.map((ed) => ({
     institution: ed.institution || ed.school || '',
     degree: ed.degree || '',
     year: ed.year || ed.dates || '',
   }))
 
-  return {
-    candidate: cleanRes.candidate || cleanRes.name ? { name: cleanRes.candidate?.name || cleanRes.name, targetRole: cleanRes.candidate?.targetRole || cleanRes.targetRole } : undefined,
+  const result = {
+    candidate: candidateName || targetRole ? { name: candidateName, targetRole } : undefined,
     summary,
     skills,
     experience,
     projects,
     education,
   }
+
+  return stripEmptyKeys(result)
+}
+
+/**
+ * Compacts semantic assessment profile: retains ONLY high-signal candidate data
+ * (answer, perWeek, perMonth, intent) and eliminates static dictionary rulebooks.
+ */
+export const compactSemanticProfile = (sp) => {
+  if (!sp || typeof sp !== 'object') return null
+  const cleaned = {}
+  for (const [key, val] of Object.entries(sp)) {
+    if (!val) continue
+    cleaned[key] = {
+      answer: val.candidateAnswer !== undefined ? val.candidateAnswer : val.answer,
+      perWeek: val.normalizedPerWeek,
+      perMonth: val.normalizedPerMonth,
+      intent: val.field || key,
+    }
+  }
+  return stripEmptyKeys(cleaned)
+}
+
+/**
+ * Trims knowledge base text to top essential benchmarks and statistics (max 1,200 chars).
+ */
+export const compactKnowledgeBase = (kb) => {
+  if (!kb || typeof kb !== 'string') return ''
+  const trimmed = kb.trim()
+  if (trimmed.length <= 1200) return trimmed
+
+  const lines = trimmed.split('\n')
+  const benchmarkLines = []
+  let lengthCount = 0
+
+  for (const line of lines) {
+    const l = line.trim()
+    if (!l) continue
+    const isStatLine =
+      l.startsWith('###') ||
+      l.startsWith('####') ||
+      /\b(\d+%\b|\d+:\d+|\d+\+|\bresponse rate\b|\bconversion\b|\breferral\b|\bATS\b|\bvelocity\b|\btime to hire\b|\binterview rate\b)/i.test(
+        l
+      )
+    if (isStatLine) {
+      if (lengthCount + l.length + 1 <= 1200) {
+        benchmarkLines.push(l)
+        lengthCount += l.length + 1
+      }
+    }
+  }
+
+  if (benchmarkLines.length > 0) {
+    return benchmarkLines.join('\n')
+  }
+  return trimmed.slice(0, 1200).trim()
 }
 
 export default (
@@ -97,8 +278,7 @@ export default (
   linkedinAgent = null,
   assessmentPersona = null
 ) => {
-  const rawKb = dynamicKnowledgeBase || defaultKnowledgeBase
-  const kbText = typeof rawKb === 'string' && rawKb.length > 6000 ? rawKb.slice(0, 6000) : rawKb
+  const kbText = compactKnowledgeBase(dynamicKnowledgeBase || defaultKnowledgeBase)
 
   return `
     You are "Atlas", a $2000/hour Elite Executive Career Strategist, Senior Technical Recruiter, and ATS Systems Expert who has placed 500+ candidates into FAANG, Fortune 500, and hyper-growth startups.
@@ -272,7 +452,7 @@ export default (
     }) : 'No assessment persona intelligence available.'}
 
     ### CANDIDATE AI-SEMANTIC ASSESSMENT PROFILE (Layer-2 Machine-Readable Definitions):
-    ${semanticProfile ? safeJson(semanticProfile) : 'No semantic profile provided.'}
+    ${semanticProfile ? safeJson(compactSemanticProfile(semanticProfile)) : 'No semantic profile provided.'}
 
     Candidate's Raw Assessment Answers:
     ${safeJson(userData)}

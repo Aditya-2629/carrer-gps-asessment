@@ -32,10 +32,23 @@ export const MODEL_REGISTRY = {
     enabled: true,
   },
 
-  // --- OpenRouter Free Tier Candidates for Resume Agent V1 ---
+  'llama-3.3-70b-versatile': {
+    id: 'llama-3.3-70b-versatile',
+    displayName: 'Groq Llama 3.3 70B Versatile (Primary/Failover)',
+    provider: 'groq',
+    purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 131072,
+    enabled: true,
+  },
+
+  // --- OpenRouter Free Tier Candidates for Resume Agent V1 (Discontinued 404 models disabled) ---
   'google/gemma-4-26b-a4b-it:free': {
     id: 'google/gemma-4-26b-a4b-it:free',
-    displayName: 'Google Gemma 4 26B A4B (Free)',
+    displayName: 'Google Gemma 4 26B A4B (Free - Discontinued)',
     provider: 'openrouter',
     purpose: ['resume_analysis'],
     supportsJsonObject: true,
@@ -43,12 +56,12 @@ export const MODEL_REGISTRY = {
     supportsReasoning: false,
     allowPersonalData: true,
     contextWindow: 8192,
-    enabled: true,
+    enabled: false,
   },
 
   'nvidia/nemotron-3-super-120b-a12b:free': {
     id: 'nvidia/nemotron-3-super-120b-a12b:free',
-    displayName: 'Nvidia Nemotron 3 Super 120B A12B (Free)',
+    displayName: 'Nvidia Nemotron 3 Super 120B A12B (Free - Discontinued)',
     provider: 'openrouter',
     purpose: ['resume_analysis'],
     supportsJsonObject: true,
@@ -56,7 +69,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 8192,
-    enabled: true,
+    enabled: false,
   },
 
   'thinkingmachines/inkling-small:free': {
@@ -141,17 +154,30 @@ export const MODEL_REGISTRY = {
     enabled: true,
   },
 
-  'gemini-2.5-flash': {
-    id: 'gemini-2.5-flash',
-    displayName: 'Google Gemini 2.5 Flash',
+  'gemini-2.5-flash-lite': {
+    id: 'gemini-2.5-flash-lite',
+    displayName: 'Google Gemini 2.5 Flash Lite',
     provider: 'gemini',
-    purpose: ['resume_analysis', 'assessment_report'],
+    purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
     supportsJsonObject: true,
     supportsJsonSchema: true,
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 1048576,
-    enabled: false, // Disabled: returns HTTP 404 on production projects/credentials
+    enabled: true,
+  },
+
+  'gemini-2.5-flash': {
+    id: 'gemini-2.5-flash',
+    displayName: 'Google Gemini 2.5 Flash',
+    provider: 'gemini',
+    purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
   },
 
   'gemini-1.5-flash': {
