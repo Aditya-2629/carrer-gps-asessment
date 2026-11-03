@@ -261,30 +261,34 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
   }
 }
 
-function generateTalkingScript(kw, company) {
+export function generateTalkingScript(kw, company) {
   const low = kw.toLowerCase()
+  const comp = company || 'my previous company'
   if (low.includes('git')) {
-    return `In technical rounds, explain how you enforced trunk-based development, branch protection rules, and automated PR test gates at ${company}.`
+    return `At ${comp}, I used Git for daily version control, following branch workflows and submitting pull requests with automated test checks before merging.`
   }
   if (low.includes('azure') || low.includes('gcp') || low.includes('aws')) {
-    return `Highlight your hands-on infrastructure provisioning, IAM roles, and serverless compute scaling on ${kw} to handle enterprise production traffic.`
+    return `At ${comp}, I worked with ${kw} to deploy our backend services, configure IAM permissions, and monitor application health and scaling in production.`
   }
   if (low.includes('test') || low.includes('jest') || low.includes('review')) {
-    return `Discuss your testing philosophy: driving unit test coverage on core business logic and conducting mandatory peer code reviews to prevent regressions.`
+    return `At ${comp}, I wrote unit and integration tests using Jest and PyTest for key API endpoints and participated in peer code reviews to maintain code quality.`
   }
   if (low.includes('typescript')) {
-    return `Explain that you introduced ${kw} to enforce strict contract boundaries between microservices and eliminate null-pointer exceptions in production.`
+    return `At ${comp}, I used TypeScript to define strict interfaces across our microservices and API payloads, eliminating runtime type errors.`
   }
-  if (low.includes('postgres') || low.includes('redis') || low.includes('sql')) {
-    return `Describe how you selected ${kw} to optimize query latency, indexing strategies, and caching for data synchronization at ${company}.`
+  if (low.includes('postgres') || low.includes('redis') || low.includes('sql') || low.includes('database')) {
+    return `At ${comp}, I used ${kw} for data storage and indexing, writing optimized queries and leveraging caching to keep response times fast under high load.`
+  }
+  if (low.includes('docker') || low.includes('kubernetes') || low.includes('k8s')) {
+    return `At ${comp}, I containerized our services with Docker to ensure consistent environments across local dev, staging, and production clusters.`
   }
   if (low.includes('pytorch') || low.includes('ml')) {
-    return `Walk through how you applied ${kw} for model embedding generation and semantic search inference in live agent workflows.`
+    return `At ${comp}, I used ${kw} to generate vector embeddings and build semantic search workflows for our data pipeline.`
   }
   if (low.includes('java')) {
-    return `Discuss your experience designing performant, type-safe backend services in ${kw} to support high-concurrency enterprise client integrations.`
+    return `At ${comp}, I developed backend REST endpoints in Java to ensure reliable, high-throughput data exchange with external client systems.`
   }
-  return `Explain your hands-on implementation of ${kw} at ${company}, focusing on trade-offs, system reliability, and measurable business impact.`
+  return `At ${comp}, I applied ${kw} directly in our daily backend workflow to build reliable features and keep deployments smooth.`
 }
 
 export async function weaveKeywordsAndBuildLedger({
@@ -462,6 +466,7 @@ export default {
   weaveKeywordsAndBuildLedger,
   deterministicWeave,
   weaveKeywordsDeterministic,
+  generateTalkingScript,
   isRoleCurrent,
   cleanBoilerplateAndTense,
 }

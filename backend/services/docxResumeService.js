@@ -354,10 +354,22 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
-  const candidateName = decodeHtmlEntities(sanitizedResume.candidate_name || '')
+  const candidateName = decodeHtmlEntities(
+    sanitizedResume.candidate_name ||
+    sanitizedResume.candidate?.name ||
+    sanitizedResume.name ||
+    ''
+  )
   const rawTargetRole = decodeHtmlEntities(sanitizedResume.target_role || '')
   const targetRole = cleanTargetRoleTitle('', rawTargetRole)
-  const contact = sanitizedResume.contact || {}
+  const contact = {
+    ...(sanitizedResume.contact || sanitizedResume.candidate?.contact || {}),
+    ...(sanitizedResume.phone ? { phone: sanitizedResume.phone } : {}),
+    ...(sanitizedResume.email ? { email: sanitizedResume.email } : {}),
+    ...(sanitizedResume.linkedin ? { linkedin: sanitizedResume.linkedin } : {}),
+    ...(sanitizedResume.github ? { github: sanitizedResume.github } : {}),
+    ...(sanitizedResume.location ? { location: sanitizedResume.location } : {}),
+  }
   const summary = decodeHtmlEntities(sanitizedResume.summary || '')
   const experiences = sanitizedResume.experiences || []
   const projects = sanitizedResume.projects || []

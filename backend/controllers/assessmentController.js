@@ -843,8 +843,6 @@ export const downloadAtsResumeDocx = async (req, res) => {
       : (strandedSkillsOnly.length > 0 ? strandedSkillsOnly : [
           ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
           ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
-          ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
-          ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
         ])
 
     const missingSkillsList = []

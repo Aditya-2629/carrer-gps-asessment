@@ -147,5 +147,6 @@ assert(
   'Content-Disposition must include RFC 6266 dual-encoded parameter'
 )
 console.log('✓ downloadAtsResumeDocx POST direct payload fallback test passed successfully! Generated ' + responseBuffer.length + ' bytes')
+process.exit(0)
 
 

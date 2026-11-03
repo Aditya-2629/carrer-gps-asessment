@@ -161,6 +161,37 @@ export default function ResumeKeywordAlignment({
         throw new Error(errJson?.message || `Download failed with status ${response.status}`)
       }
 
+      // Dynamically update on-screen report and interview defense sheet from response headers
+      const ledgerHeader = response.headers.get('x-interview-ledger')
+      const expHeader = response.headers.get('x-tailored-experiences')
+      if (ledgerHeader) {
+        try {
+          const parsedLedger = JSON.parse(atob(ledgerHeader))
+          let parsedExp = null
+          if (expHeader) {
+            try {
+              parsedExp = JSON.parse(atob(expHeader))
+            } catch (_) {}
+          }
+          const cur = useAppStore.getState().reportData || {}
+          const updated = {
+            ...cur,
+            interviewLedger: parsedLedger,
+            resume_agent: {
+              ...(cur.resume_agent || {}),
+              interviewLedger: parsedLedger,
+              canonicalResume: {
+                ...(cur.resume_agent?.canonicalResume || {}),
+                ...(parsedExp ? { experiences: parsedExp } : {}),
+              },
+            },
+          }
+          useAppStore.getState().setReportData(updated)
+        } catch (hErr) {
+          console.warn('Could not parse updated ledger from headers:', hErr)
+        }
+      }
+
       const blob = await response.blob()
       if (blob.type && blob.type.includes('text/html')) {
         throw new Error('Server returned HTML instead of a Word document. Please ensure backend server is running.')
