@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename)
 
 import { getMarketDemandedSkills, MARKET_SKILL_DEMAND } from '../agents/resume/market/marketSkillDemandRegistry.js'
 import { computeKeywordAlignment } from '../agents/resume/market/keywordAlignment.js'
-import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
+import { weaveKeywordsDeterministic } from '../agents/resume/market/smartKeywordWeaver.js'
 import { groupByCategory, cleanGrammarArtifacts } from '../services/docxResumeService.js'
 import { repairGrammar } from '../services/resumeValidator.js'
 
@@ -94,7 +94,7 @@ async function runTests() {
     ],
   }
 
-  const woven = weaveKeywordsAndBuildLedger({
+  const woven = weaveKeywordsDeterministic({
     canonicalResume: resumeWithChatbot,
     missingKeywords: ['Redis', 'TypeScript', 'Unit / Integration Testing', 'Git / GitHub'],
   })

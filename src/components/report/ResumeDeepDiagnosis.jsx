@@ -111,7 +111,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const interviewLedger = wovenList
 
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
-  const [copiedBlueprintBullet, setCopiedBlueprintBullet] = useState(false)
 
   const rawSummaryOpt = resumeAgent.summaryOptimization || null
   const summaryOptimization = rawSummaryOpt
@@ -159,81 +158,62 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
   ].map((s) => (typeof s === 'string' ? s : s.keyword || s.name || '')).filter(Boolean)
 
-  const hasMissingBigQuery = missingKeywords.some((k) => /bigquery|gcp/i.test(k))
-  const isSWEOrCloud = /software|full stack|backend|cloud|devops|architect/i.test(targetRole)
-
-  let projectBlueprint = {
-    title: 'Automated ELT Pipeline with Snowflake & dbt Core',
-    gapTool: 'Snowflake & dbt Core',
-    goal: 'Deploy an automated ELT pipeline transforming raw event data into decision-ready star schemas using Snowflake & dbt Core.',
-    architecture: 'PostgreSQL / CSV -> S3 -> Snowflake -> dbt Core Models -> Power BI Executive View',
-    bullet: 'Engineered end-to-end ELT pipeline with dbt Core and Snowflake across 500K+ transactional records, automating dimensional modeling and reducing report refresh latency by 65%.',
-  }
-
-  if (hasMissingBigQuery) {
-    projectBlueprint = {
-      title: 'Serverless Analytics Warehouse with Google BigQuery',
-      gapTool: 'Google BigQuery',
-      goal: 'Architect a serverless analytics warehouse with Google BigQuery, partitioning and clustering high-volume datasets.',
-      architecture: 'Cloud Storage -> BigQuery Partitioned Tables -> SQL Views -> Looker Studio Dashboard',
-      bullet: 'Architected serverless BigQuery data warehouse with date-partitioned tables, reducing ad-hoc query billing costs by 40% while accelerating executive dashboard render times to under 3 seconds.',
-    }
-  } else if (isSWEOrCloud) {
-    projectBlueprint = {
-      title: 'High-Concurrency Microservice with FastAPI & Docker',
-      gapTool: 'FastAPI & Docker',
-      goal: 'Containerize and deploy a high-concurrency RESTful microservice with FastAPI, Redis caching, and Docker.',
-      architecture: 'FastAPI Endpoints -> Redis Cache Layer -> PostgreSQL / ChromaDB -> Docker Container',
-      bullet: 'Containerized and deployed asynchronous FastAPI service with Redis caching in Docker, supporting sub-50ms p95 latency across concurrent search endpoints.',
-    }
-  }
-
-  const handleCopyBlueprintBullet = (bulletText) => {
-    if (!bulletText) return
-    navigator.clipboard.writeText(bulletText)
-    setCopiedBlueprintBullet(true)
-    setTimeout(() => setCopiedBlueprintBullet(false), 2000)
-  }
-
   const handleDownloadDocx = async () => {
     try {
       setIsDownloadingDocx(true)
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
       const storeUserId = useAppStore.getState().userId
       const storeEmail = useAppStore.getState().email
       const userId = reportData?.userId || reportData?._id || storeUserId || ''
       const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || storeEmail || ''
 
-      // Support both ID and email fallback
-      let url = `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx`
-      if (!userId && email) {
-        url = `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}`
-      } else if (!userId && !email) {
-        url = `${apiBase}/assessment/download-resume-docx`
+      let response = null
+
+      // Strategy 1: Attempt GET if ID or email exists
+      if (userId || email) {
+        const url = userId
+          ? `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx`
+          : `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}`
+        try {
+          response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream',
+            },
+          })
+        } catch (_e) {
+          response = null
+        }
       }
 
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
-        }
-      })
+      // Strategy 2: If GET fails or returns non-200, fallback to POST with client reportData payload
+      if (!response || !response.ok) {
+        response = await fetch(`${apiBase}/assessment/download-resume-docx`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream',
+          },
+          body: JSON.stringify({
+            userId,
+            email,
+            reportData,
+            canonicalResume: reportData?.resume_agent?.canonicalResume || reportData?.resumeJson,
+            bulletAudit: reportData?.resume_agent?.dashboard?.bulletAudit || reportData?.resume_agent?.bulletRewrites,
+            missingKeywords: reportData?.resume_agent?.keywordAlignment?.missingKeywords || reportData?.missing_ats_keywords,
+          }),
+        })
+      }
 
       if (!response.ok) {
-        // If server returned JSON error instead of docx
         const errJson = await response.json().catch(() => null)
-        throw new Error(errJson?.message || `Download failed with status ${response.status}`)
+        throw new Error(errJson?.message || `Download failed with HTTP ${response.status}`)
       }
 
       const blob = await response.blob()
-      // Verify it's not HTML error response
-      if (blob.type.includes('text/html')) {
-        throw new Error('Server returned HTML instead of .docx. Please check backend route.')
+      if (blob.type && blob.type.includes('text/html')) {
+        throw new Error('Server returned an HTML error page instead of a Word document.')
       }
-
-      const downloadUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = downloadUrl
 
       const disposition = response.headers.get('content-disposition') || ''
       let filename = ''
@@ -244,27 +224,23 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         }
       }
 
-      if (!filename) {
+      if (!filename || !filename.toLowerCase().endsWith('.docx')) {
         const candidateName = (
           reportData?.resume_agent?.canonicalResume?.candidate_name ||
           reportData?.resume_agent?.canonicalResume?.name ||
-          reportData?.resume_agent?.canonicalResume?.candidate?.name ||
-          reportData?.resume_agent?.canonicalResume?.contact?.name ||
-          reportData?.resumeAgent?.candidateName ||
-          reportData?.candidate_name ||
-          snapshot.name ||
           'Candidate'
-        ).replace(/\s+/g, '_')
-        filename = `${candidateName}_Tailored_ATS_Resume.docx`
+        ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
+        filename = `${candidateName || 'Candidate'}_Tailored_ATS_Resume.docx`
       }
 
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
       a.download = filename
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(downloadUrl)
-      if (document.body.contains(a)) {
-        document.body.removeChild(a)
-      }
+      if (document.body.contains(a)) document.body.removeChild(a)
     } catch (error) {
       console.error('Failed to download tailored docx:', error)
       alert(`Could not download resume: ${error.message}`)
@@ -504,41 +480,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           </button>
         </div>
       </div>
-
-      {/* ── 1-Week Gap-Busting Mini Project Blueprint ── */}
-      <div className="p-6 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-3 mb-8">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] font-mono">
-            1-Week Skill Gap Project Blueprint
-          </span>
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            Bridge Missing Market Tools
-          </span>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
-          <h4 className="text-sm font-bold text-[var(--text-primary)]">
-            {projectBlueprint.title || 'Production ELT Pipeline with Snowflake & dbt Core'}
-          </h4>
-          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-            <strong>Architecture:</strong> {projectBlueprint.architecture || 'Raw Data Ingestion (PostgreSQL/S3) → Dimensional Modeling in Snowflake → dbt Core Transformations (Star Schema) → Automated Power BI Reporting.'}
-          </p>
-          <div className="pt-2 border-t border-[var(--border-subtle)] text-[11px] text-[var(--text-muted)] flex flex-wrap items-center justify-between gap-2">
-            <span className="flex-1 min-w-[200px]">
-              <strong>Ready Resume Bullet Once Built:</strong> "{projectBlueprint.bullet || 'Architected automated enterprise ELT pipeline using dbt Core and Snowflake, transforming 250k+ raw records into validated dimensional models and cutting report refresh latency by 45%.'}"
-            </span>
-            <button
-              type="button"
-              onClick={() => handleCopyBlueprintBullet(projectBlueprint.bullet || 'Architected automated enterprise ELT pipeline using dbt Core and Snowflake, transforming 250k+ raw records into validated dimensional models and cutting report refresh latency by 45%.')}
-              className="shrink-0 px-2.5 py-1 rounded bg-[var(--surface-card)] border border-[var(--border-default)] text-[10px] font-semibold text-[var(--primary)] hover:bg-[var(--surface-strong)] flex items-center gap-1 cursor-pointer"
-            >
-              {copiedBlueprintBullet ? <Check size={11} weight="bold" /> : <Copy size={11} weight="bold" />}
-              {copiedBlueprintBullet ? 'Copied' : 'Copy Bullet'}
-            </button>
-          </div>
-        </div>
-      </div>
-
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
       {summaryOptimization && (

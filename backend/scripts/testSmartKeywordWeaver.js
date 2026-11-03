@@ -1,5 +1,5 @@
 import assert from 'node:assert'
-import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
+import { weaveKeywordsDeterministic } from '../agents/resume/market/smartKeywordWeaver.js'
 import { deriveOpenToWorkTitles } from '../agents/linkedin/linkedinSynthesis.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 
@@ -34,7 +34,7 @@ const mockResume = {
 
 const missingKws = ['TypeScript', 'Kafka', 'Unit Testing', 'Git']
 
-const result = weaveKeywordsAndBuildLedger({
+const result = weaveKeywordsDeterministic({
   canonicalResume: mockResume,
   missingKeywords: missingKws,
 })

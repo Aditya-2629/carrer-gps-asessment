@@ -716,8 +716,8 @@ export const downloadReportPdf = async (req, res) => {
 
 export const downloadAtsResumeDocx = async (req, res) => {
   try {
-    const rawUserId = req.params?.userId || req.query?.userId
-    const rawEmail = req.query?.email
+    const rawUserId = req.params?.userId || req.query?.userId || req.body?.userId
+    const rawEmail = req.query?.email || req.body?.email
 
     const cleanUserId = (rawUserId && rawUserId !== 'undefined' && rawUserId !== 'null') ? String(rawUserId).trim() : null
     const cleanEmail = (rawEmail && rawEmail !== 'undefined' && rawEmail !== 'null') ? String(rawEmail).toLowerCase().trim() : null
@@ -736,20 +736,22 @@ export const downloadAtsResumeDocx = async (req, res) => {
       user = await User.findOne({ _id: cleanUserId })
     }
 
-    if (!user) {
+    // Direct body fallback if user document is not found in MongoDB
+    const directPayload = req.body?.reportData || req.body?.canonicalResume ? req.body : null
+    if (!user && !directPayload) {
       return res.status(404).json({ message: 'User assessment not found.' })
     }
 
-    const aiReport = user.aiReport || {}
-    const ra = aiReport.resume_agent || user.resume_agent || {}
-    const rawCanonical = ra.canonicalResume || user.resumeJson || {
-      candidate_name: user.name || 'Candidate',
-      target_role: user.targetRole || user.answers?.targetRole || 'Professional',
-      skills: user.skills || [],
+    const aiReport = user?.aiReport || directPayload?.reportData || {}
+    const ra = aiReport.resume_agent || user?.resume_agent || directPayload?.resume_agent || {}
+    const rawCanonical = directPayload?.canonicalResume || ra.canonicalResume || user?.resumeJson || {
+      candidate_name: user?.name || directPayload?.candidateName || 'Candidate',
+      target_role: user?.targetRole || user?.answers?.targetRole || directPayload?.targetRole || 'Professional',
+      skills: user?.skills || [],
     }
 
     const canonical = JSON.parse(JSON.stringify(rawCanonical))
-    canonical.target_role = cleanTargetRoleTitle('', canonical.target_role || user.targetRole || user.answers?.targetRole || 'Professional')
+    canonical.target_role = cleanTargetRoleTitle('', canonical.target_role || user?.targetRole || user?.answers?.targetRole || directPayload?.targetRole || 'Professional')
 
     // 1. Executive Summary Rewrite wiring
     const summaryRewrite =
@@ -767,7 +769,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     // 2. Missing target keywords collection and skills injection
     const querySkills = []
-    const rawSkillsParam = req.query?.skills || req.body?.skills
+    const rawSkillsParam = req.query?.skills || req.body?.skills || directPayload?.missingKeywords
     if (typeof rawSkillsParam === 'string') {
       querySkills.push(...rawSkillsParam.split(',').map((s) => s.trim()).filter(Boolean))
     } else if (Array.isArray(rawSkillsParam)) {
@@ -781,6 +783,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
       ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
       ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
+      ...(Array.isArray(directPayload?.missingKeywords) ? directPayload.missingKeywords : []),
     ]
 
     const missingSkillsList = []
@@ -818,15 +821,16 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     // 3. Smart Keyword Weaver & Interview Defense Sheet Integration
-    const { tailoredExperiences, interviewLedger } = weaveKeywordsAndBuildLedger({
+    const { tailoredExperiences, interviewLedger } = await weaveKeywordsAndBuildLedger({
       canonicalResume: canonical,
       missingKeywords: missingSkillsList,
+      targetRole: canonical.target_role,
     })
     if (tailoredExperiences && tailoredExperiences.length > 0) {
       canonical.experiences = tailoredExperiences
     }
 
-    if (interviewLedger && interviewLedger.length > 0) {
+    if (user && interviewLedger && interviewLedger.length > 0) {
       try {
         if (!user.aiReport) user.aiReport = {}
         user.aiReport.interview_ledger = interviewLedger
@@ -845,33 +849,37 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)
     const bulletAudit =
-      (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
-        ? ra.dashboard.bulletAudit
-        : (Array.isArray(ra.bulletRewrites) && ra.bulletRewrites.length > 0)
-          ? ra.bulletRewrites
-          : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
-            ? ra.bulletAudit
-            : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
-              ? ra.bulletUpgrades
-              : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
-                ? ra.tailoredBullets
-                : []
+      (Array.isArray(directPayload?.bulletAudit) && directPayload.bulletAudit.length > 0)
+        ? directPayload.bulletAudit
+        : (Array.isArray(ra.dashboard?.bulletAudit) && ra.dashboard.bulletAudit.length > 0)
+          ? ra.dashboard.bulletAudit
+          : (Array.isArray(ra.bulletRewrites) && ra.bulletRewrites.length > 0)
+            ? ra.bulletRewrites
+            : (Array.isArray(ra.bulletAudit) && ra.bulletAudit.length > 0)
+              ? ra.bulletAudit
+              : (Array.isArray(ra.bulletUpgrades) && ra.bulletUpgrades.length > 0)
+                ? ra.bulletUpgrades
+                : (Array.isArray(ra.tailoredBullets) && ra.tailoredBullets.length > 0)
+                  ? ra.tailoredBullets
+                  : []
 
     const jdKeywords = missingSkillsList.map((kw) => ({ keyword: kw, count: 1 }))
     const { buffer: docxBuffer, pages, mode, warnings, appliedKeywords, pendingKeywords } = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
 
-    const candidateName = (
+    const safeName = (
       canonical.candidate_name ||
       canonical.name ||
-      user.resumeJson?.candidate_name ||
+      user?.resumeJson?.candidate_name ||
+      user?.name ||
       ra.candidateName ||
+      directPayload?.candidateName ||
       'Candidate'
-    ).replace(/\s+/g, '_')
+    ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'
 
-    const filename = `${candidateName}_Tailored_ATS_Resume.docx`
+    const filename = `${safeName}_Tailored_ATS_Resume.docx`
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`)
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`)
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, X-Resume-Pages, X-Resume-Fit-Mode, X-Interview-Ledger-Count')
     res.setHeader('X-Resume-Pages', String(pages))
     res.setHeader('X-Resume-Fit-Mode', mode || 'measured')

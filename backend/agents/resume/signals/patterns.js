@@ -217,6 +217,137 @@ export function normalizeGerundVerb(word = '', isPresent = true) {
   return word
 }
 
+/**
+ * Maps irregular past verbs and -ed/-ing verbs into active present-tense action verbs.
+ */
+export function toPresentTense(word = '') {
+  if (!word || typeof word !== 'string') return ''
+  const trimmed = word.trim()
+  const lower = trimmed.toLowerCase()
+
+  const irregularPastToPresent = {
+    built: 'Build',
+    led: 'Lead',
+    wrote: 'Write',
+    drove: 'Drive',
+    oversaw: 'Oversee',
+    ran: 'Run',
+    held: 'Hold',
+    made: 'Make',
+    cut: 'Cut',
+    split: 'Split',
+    set: 'Set',
+    sent: 'Send',
+    spent: 'Spend',
+    spoke: 'Speak',
+    chose: 'Choose',
+    drew: 'Draw',
+    grew: 'Grow',
+    threw: 'Throw',
+    flew: 'Fly',
+    knew: 'Know',
+    began: 'Begin',
+    found: 'Find',
+    stood: 'Stand',
+    understood: 'Understand',
+    won: 'Win',
+    met: 'Meet',
+    fed: 'Feed',
+    fled: 'Flee',
+    left: 'Leave',
+    slept: 'Sleep',
+    lost: 'Lose',
+    sold: 'Sell',
+    bought: 'Buy',
+    brought: 'Bring',
+    caught: 'Catch',
+    thought: 'Think',
+    taught: 'Teach',
+  }
+
+  if (irregularPastToPresent[lower]) {
+    return irregularPastToPresent[lower]
+  }
+
+  // If already a gerund, convert
+  if (lower.endsWith('ing')) {
+    return normalizeGerundVerb(trimmed, true)
+  }
+
+  // Specific common past tense technical verbs mapping:
+  const pastToPresent = {
+    architected: 'Architect',
+    automated: 'Automate',
+    configured: 'Configure',
+    coordinated: 'Coordinate',
+    created: 'Create',
+    delivered: 'Deliver',
+    deployed: 'Deploy',
+    designed: 'Design',
+    developed: 'Develop',
+    directed: 'Direct',
+    engineered: 'Engineer',
+    enforced: 'Enforce',
+    ensured: 'Ensure',
+    established: 'Establish',
+    executed: 'Execute',
+    guided: 'Guide',
+    implemented: 'Implement',
+    integrated: 'Integrate',
+    maintained: 'Maintain',
+    managed: 'Manage',
+    mentored: 'Mentor',
+    migrated: 'Migrate',
+    modernized: 'Modernize',
+    monitored: 'Monitor',
+    optimized: 'Optimize',
+    orchestrated: 'Orchestrate',
+    overhauled: 'Overhaul',
+    performed: 'Perform',
+    refactored: 'Refactor',
+    remediated: 'Remediate',
+    resolved: 'Resolve',
+    scaled: 'Scale',
+    secured: 'Secure',
+    spearheaded: 'Spearhead',
+    standardized: 'Standardize',
+    streamlined: 'Streamline',
+    supported: 'Support',
+    tested: 'Test',
+    troubleshot: 'Troubleshoot',
+    analyzed: 'Analyze',
+    authored: 'Author',
+    collaborated: 'Collaborate',
+    conducted: 'Conduct',
+    constructed: 'Construct',
+    facilitated: 'Facilitate',
+    partnered: 'Partner',
+    prototyped: 'Prototype',
+    transformed: 'Transform',
+    upgraded: 'Upgrade',
+    containerized: 'Containerize',
+  }
+
+  if (pastToPresent[lower]) {
+    return pastToPresent[lower]
+  }
+
+  // Fallback for regular -ed forms
+  if (lower.endsWith('ed')) {
+    let stem = lower.slice(0, -2)
+    if (stem.length > 2 && stem[stem.length - 1] === stem[stem.length - 2]) {
+      stem = stem.slice(0, -1)
+    } else if (lower.endsWith('ied')) {
+      stem = lower.slice(0, -3) + 'y'
+    } else if (!stem.endsWith('e') && !['act', 'adapt', 'adopt', 'affect', 'affirm', 'align', 'audit', 'author', 'boost', 'build', 'chart', 'check', 'clean', 'clear', 'coach', 'craft', 'cross', 'draft', 'drill', 'earn', 'form', 'gain', 'grow', 'guide', 'help', 'hold', 'hunt', 'join', 'launch', 'lead', 'learn', 'lift', 'link', 'load', 'lock', 'mark', 'meet', 'mend', 'mind', 'mold', 'mount', 'open', 'pack', 'pass', 'pick', 'plan', 'post', 'pull', 'push', 'rank', 'read', 'reap', 'root', 'run', 'scan', 'seek', 'sell', 'send', 'set', 'ship', 'show', 'shut', 'sign', 'sink', 'skip', 'sort', 'span', 'spin', 'spur', 'stem', 'step', 'stop', 'swap', 'team', 'tend', 'test', 'track', 'trim', 'turn', 'vet', 'view', 'warn', 'wash', 'win', 'work'].includes(stem)) {
+      stem = stem + 'e'
+    }
+    return stem.charAt(0).toUpperCase() + stem.slice(1)
+  }
+
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+}
+
 export default {
   QUANTIFIER_PATTERNS,
   OUTCOME_VERBS_REGEX,
@@ -229,5 +360,6 @@ export default {
   COMMON_PRESENT_VERBS,
   getVerbStem,
   normalizeGerundVerb,
+  toPresentTense,
 }
 

@@ -543,9 +543,10 @@ export async function generateReportBundle({
       activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson || {}
     ))
     if (canonicalForWeaving && (canonicalForWeaving.experiences || canonicalForWeaving.experience)) {
-      const { tailoredExperiences, interviewLedger: ledger } = weaveKeywordsAndBuildLedger({
+      const { tailoredExperiences, interviewLedger: ledger } = await weaveKeywordsAndBuildLedger({
         canonicalResume: canonicalForWeaving,
         missingKeywords: missingSkillsList,
+        targetRole: resumeTargetRole,
       })
       if (tailoredExperiences && tailoredExperiences.length > 0) {
         if (activeResumeAgent && activeResumeAgent.canonicalResume) {

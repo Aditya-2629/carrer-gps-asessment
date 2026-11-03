@@ -110,5 +110,42 @@ assert.strictEqual(headers['X-Resume-Pages'], '1', 'Pages header set')
 assert(Number(headers['X-Interview-Ledger-Count']) >= 1, 'X-Interview-Ledger-Count header must be >= 1')
 assert(fakeUser.aiReport.interview_ledger && fakeUser.aiReport.interview_ledger.length >= 1, 'interview_ledger must be persisted to user.aiReport')
 
-console.log('✓ downloadAtsResumeDocx controller test passed successfully! Generated ' + responseBuffer.length + ' bytes')
+console.log('✓ downloadAtsResumeDocx GET controller test passed successfully! Generated ' + responseBuffer.length + ' bytes')
+
+// Test POST direct payload fallback (no database user)
+headers = {}
+responseBuffer = null
+statusSent = null
+
+const postReq = {
+  params: {},
+  query: {},
+  body: {
+    reportData: fakeUser.aiReport,
+    canonicalResume: fakeUser.aiReport.resume_agent.canonicalResume,
+    bulletAudit: fakeUser.aiReport.resume_agent.bulletAudit,
+    missingKeywords: ['Docker', 'Kubernetes'],
+  },
+}
+
+await downloadAtsResumeDocx(postReq, res)
+
+assert(!statusSent, 'POST fallback should not return error status')
+assert(responseBuffer && Buffer.isBuffer(responseBuffer), 'Response buffer must be a Buffer')
+assert(responseBuffer.length > 5000, 'DOCX buffer length must be > 5000 bytes')
+assert.strictEqual(
+  headers['Content-Type'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'Content-Type must be docx'
+)
+assert(
+  headers['Content-Disposition'].includes('Aditya_Kulkarni_Tailored_ATS_Resume.docx'),
+  'Filename must match candidate name'
+)
+assert(
+  headers['Content-Disposition'].includes("filename*=UTF-8''"),
+  'Content-Disposition must include RFC 6266 dual-encoded parameter'
+)
+console.log('✓ downloadAtsResumeDocx POST direct payload fallback test passed successfully! Generated ' + responseBuffer.length + ' bytes')
+
 

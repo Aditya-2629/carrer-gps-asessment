@@ -20,7 +20,7 @@
  *  - Missing quantification alone never drops a bullet below "warn".
  */
 
-import { normalizeGerundVerb } from '../signals/patterns.js'
+import { normalizeGerundVerb, toPresentTense } from '../signals/patterns.js'
 import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 
 export const SCORECARD_VERSION = 'resume-scorecard-v1'
@@ -707,8 +707,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       if (typeof itemName === 'string' && itemName.includes('|')) {
         itemName = itemName.split('|')[0].trim()
       }
-      const hasPresentDate = /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '')
-      const isCurrentRole = section.key === 'experience' && itemIndex === 0 && (item?.isCurrent === true || hasPresentDate)
+      const hasPresentDate = /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '') || /present|current|now/i.test(item?.duration || '') || item?.isCurrent === true
+      const isCurrentRole = section.key === 'experience' && (item?.isCurrent === true || hasPresentDate)
 
       for (const b of item.bullets || []) {
         if (!b?.id || !b?.text) continue
@@ -791,6 +791,18 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
         if (rewrite) {
           rewrite = sanitizeSingleAddPlaceholder(rewrite)
+          if (isCurrentRole) {
+            const m = rewrite.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
+            if (m) {
+              const prefix = m[1]
+              const firstWord = m[2]
+              const rest = m[3]
+              const presentWord = toPresentTense(firstWord)
+              if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
+                rewrite = `${prefix}${presentWord}${rest}`
+              }
+            }
+          }
         }
 
         audit.push({

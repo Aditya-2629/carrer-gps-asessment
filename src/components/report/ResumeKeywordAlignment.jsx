@@ -37,7 +37,6 @@ export default function ResumeKeywordAlignment({
     totalTargetKeywords = 0,
   } = keywordAlignment
 
-  const currentMatchRate = propMatchRate != null ? propMatchRate : (matchPercent || 0)
   const [selectedSkills, setSelectedSkills] = useState(new Set())
   const [showAllMissing, setShowAllMissing] = useState(false)
   const [isRebuilding, setIsRebuilding] = useState(false)
@@ -134,16 +133,21 @@ export default function ResumeKeywordAlignment({
     initialHigh.length > 0 ? initialHigh : uniqueMissing.slice(0, Math.min(8, uniqueMissing.length))
   const mediumPriorityMissing = uniqueMissing.filter((item) => !highPriorityMissing.includes(item))
 
+  const verifiedCount = matchedCount || cleanMatched.length
+  const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : ((cleanMatched.length + uniqueMissing.length) || 1)
+  const displayPercent = Math.min(100, Math.round((verifiedCount / calculatedTotal) * 100))
+  const currentMatchRate = propMatchRate != null ? propMatchRate : displayPercent
+
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
     : 'bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl'
 
   const scorePillBg =
-    matchPercent >= 75
+    displayPercent >= 75
       ? light
         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
         : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-      : matchPercent >= 50
+      : displayPercent >= 50
       ? light
         ? 'bg-amber-50 text-amber-700 border-amber-200'
         : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
@@ -180,7 +184,7 @@ export default function ResumeKeywordAlignment({
         <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold tracking-tight flex items-center gap-2 ${scorePillBg}`}>
           <span>Target Keyword Match:</span>
           <span className="font-mono text-sm font-extrabold">
-            {matchedCount}/{totalTargetKeywords} ({matchPercent}%)
+            {verifiedCount}/{calculatedTotal} ({displayPercent}%)
           </span>
         </div>
       </div>

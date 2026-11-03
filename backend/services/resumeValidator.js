@@ -4,6 +4,8 @@
  * Grammar Normalization, and Missing Keywords Injection with Evidence Verification.
  */
 
+import { toPresentTense } from '../agents/resume/signals/patterns.js'
+
 export const SENTINEL_ONLY = /^(?:degree|university|college|school|company|candidate|resume|n\/a|null|undefined)$/i
 export const SENTINEL_DEBUG = /\[Extracted Document Links:[^\]]*\]|\bundefined\b|\bnull\b/gi
 export const PLACEHOLDER_REGEX = /\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/i
@@ -86,6 +88,9 @@ export function repairGrammar(rawText) {
     .replace(/sanitization\s+security\s+audit\s+compliance/gi, 'sanitization, achieving 100% security audit compliance')
     .replace(/\bzero-\s+downtime\b/gi, 'zero-downtime')
     .replace(/\bintent-\s+classification\b/gi, 'intent-classification')
+    // Purge repetitive microservice boilerplate clauses
+    .replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '.')
+    .replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '.')
     // Buzzword rephrasings
     .replace(/\bas measured by\s+([^,.;]+)/gi, 'targeting $1')
     .replace(/\s*—\s*/g, ', ')
@@ -337,6 +342,10 @@ export function cleanPlaceholderGraceful(text) {
 
   // 4. Strip any remaining raw bracket placeholder: e.g. "[ADD: ...]"
   cleaned = cleaned.replace(/\[(?:ADD|TODO|TBD|INSERT)[^\]]*\]/gi, '')
+
+  // Purge repetitive microservice boilerplate clauses
+  cleaned = cleaned.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '.')
+  cleaned = cleaned.replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '.')
 
   // 4b. Collapse duplicated prepositions
   cleaned = cleaned.replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
@@ -738,6 +747,8 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
       company = company.replace(new RegExp(`,?\\s*${location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), '').trim()
     }
 
+    const isCurrent = exp.isCurrent === true || /present|current|now/i.test(exp.endDate || '') || /present|current|now/i.test(exp.dates || '') || /present|current|now/i.test(exp.duration || '')
+
     const cleanBullets = []
     ;(exp.bullets || []).forEach((b) => {
       const origText = typeof b === 'string' ? b : b?.text || ''
@@ -861,6 +872,20 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
       // Weak opener check: NEVER drop bullet! Emit warning and KEEP the bullet.
       if (!ACTION_VERB_REGEX.test(candidateText)) {
         warnings.push({ type: 'weak_opener', bullet: candidateText, bulletId: bId })
+      }
+
+      // Enforce active present tense on the opening verb of every bullet for current roles
+      if (isCurrent && candidateText) {
+        const m = candidateText.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
+        if (m) {
+          const prefix = m[1]
+          const firstWord = m[2]
+          const rest = m[3]
+          const presentWord = toPresentTense(firstWord)
+          if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
+            candidateText = `${prefix}${presentWord}${rest}`
+          }
+        }
       }
 
       if (candidateText && !/[.!?]$/.test(candidateText)) candidateText += '.'

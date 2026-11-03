@@ -68,7 +68,7 @@ assert(b2.rewrite === 'Spearheaded agile ceremonies and engineered REST API endp
 console.log('✓ 1.2 scorecard and buildBulletAudit properly processed experiences[]')
 
 // Test 1.3: weaveKeywordsAndBuildLedger with 'experiences' and new aliases
-const weaveResult = weaveKeywordsAndBuildLedger({
+const weaveResult = await weaveKeywordsAndBuildLedger({
   canonicalResume: canonicalPlural,
   missingKeywords: ['TypeScript', 'Redis', 'Unit Testing'],
 })
