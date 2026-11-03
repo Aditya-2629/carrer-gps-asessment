@@ -638,15 +638,31 @@ export const SEMANTIC_SLOTS = {
   },
 }
 
-export function determineSemanticSlot(kw) {
+export function determineSemanticSlot(kw, dynamicCategory = null) {
+  if (dynamicCategory) {
+    if (dynamicCategory === 'messaging_streaming') return 'messaging_slot'
+    if (dynamicCategory === 'cloud_devops') return 'cloud_slot'
+    if (dynamicCategory === 'testing_quality') return 'testing_slot'
+    if (dynamicCategory === 'ai_ml') return 'api_slot'
+    if (dynamicCategory === 'database_data') {
+      if (/redis|cache|caching/i.test(kw)) return 'messaging_slot'
+      return 'api_slot'
+    }
+    if (dynamicCategory === 'languages_frameworks') {
+      if (/react|ui|vue|front|tailwind|css/i.test(kw)) return 'frontend_slot'
+      return 'api_slot'
+    }
+  }
+
+  // Fallback to pattern matcher
   const low = String(kw || '').toLowerCase()
-  if (/\b(unit\s+testing|testing|test\s+automation|jest|cypress|mocha|pytest|tdd)\b/i.test(low)) {
+  if (/\b(unit\s+testing|testing|test\s+automation|jest|cypress|mocha|pytest|tdd|integration\s+testing|qa)\b/i.test(low)) {
     return 'testing_slot'
   }
-  if (/\b(kafka|rabbitmq|sqs|sns|redis|pub\/sub|celery|eventbridge)\b/i.test(low)) {
+  if (/\b(kafka|rabbitmq|sqs|sns|redis|pub\/sub|celery|eventbridge|streaming|event-driven)\b/i.test(low)) {
     return 'messaging_slot'
   }
-  if (/\b(typescript|react|next\.?js|redux|tailwind|vue|angular)\b/i.test(low)) {
+  if (/\b(typescript|react|next\.?js|redux|tailwind|vue|angular|frontend|ui)\b/i.test(low)) {
     return 'frontend_slot'
   }
   if (/\b(graphql|rest|restful|swagger|websockets?|grpc|fastapi|openapi|apis?|jwt|oauth)\b/i.test(low)) {
@@ -658,9 +674,6 @@ export function determineSemanticSlot(kw) {
   return 'cloud_slot'
 }
 
-/**
- * Normalizes target role title to prevent duplicate prefixes (e.g. "Senior Senior Full Stack...")
- */
 export function cleanTargetRoleTitle(prefix, baseRole) {
   if (!baseRole && !prefix) return 'Software Engineer'
   if (!baseRole) return String(prefix).trim()

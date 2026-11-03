@@ -9,6 +9,7 @@
  */
 
 import crypto from 'crypto'
+import { extractSkillsDynamically, extractSkillsHeuristically } from './dynamicSkillExtractor.js'
 
 // Common technical and functional skill dictionary for deterministic signal extraction
 export const COMMON_MARKET_SKILLS = [
@@ -96,12 +97,24 @@ export const CANONICAL_SKILL_CASING = {
 }
 
 /**
- * Extracts recognized skills from JD text.
+ * Async dynamic extraction for full pipeline runs
+ */
+export async function extractSkillsFromJdAsync(cleanText = '') {
+  const extracted = await extractSkillsDynamically(cleanText)
+  if (extracted.skills && extracted.skills.length > 0) {
+    return extracted.skills
+  }
+  return extractSkillsFromJd(cleanText)
+}
+
+/**
+ * Extracts recognized skills from JD text with dynamic heuristic expansion.
  */
 export function extractSkillsFromJd(cleanText = '') {
   const lower = cleanText.toLowerCase()
   const found = new Set()
 
+  // 1. Check common base dictionary
   for (const skill of COMMON_MARKET_SKILLS) {
     // Word boundary check
     const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
@@ -113,6 +126,12 @@ export function extractSkillsFromJd(cleanText = '') {
         .join(' ')
       found.add(canon)
     }
+  }
+
+  // 2. Dynamically extract unlisted capitalized tools, frameworks, and acronyms
+  const heuristic = extractSkillsHeuristically(cleanText)
+  for (const s of heuristic.skills) {
+    found.add(s)
   }
 
   return Array.from(found)
@@ -341,6 +360,7 @@ export default {
   computeJdFingerprint,
   cleanJdText,
   extractSkillsFromJd,
+  extractSkillsFromJdAsync,
   extractResponsibilitiesFromJd,
   extractSenioritySignalsFromJd,
   validateJdQuality,
