@@ -879,6 +879,44 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
     }
 
+    // 2.5. Prioritize applying the LLM's dynamic bulletRewrites / tailoredBullets directly into canonical experiences
+    const rawDirectRewrites = [
+      ...(Array.isArray(ra.bulletRewrites) ? ra.bulletRewrites : []),
+      ...(Array.isArray(ra.tailoredBullets) ? ra.tailoredBullets : []),
+      ...(Array.isArray(directPayload?.bulletRewrites) ? directPayload.bulletRewrites : []),
+      ...(Array.isArray(directPayload?.tailoredBullets) ? directPayload.tailoredBullets : []),
+      ...(Array.isArray(ra.dashboard?.bulletAudit) ? ra.dashboard.bulletAudit : []),
+      ...(Array.isArray(ra.bulletAudit) ? ra.bulletAudit : []),
+    ]
+
+    if (rawDirectRewrites.length > 0 && Array.isArray(canonical.experiences)) {
+      const rewriteMap = new Map()
+      rawDirectRewrites.forEach((rw) => {
+        const orig = (rw.originalBullet || rw.original || rw.originalText || rw.sourceText || '').trim().toLowerCase()
+        const target = (rw.rewrittenBullet || rw.rewrite || rw.tailoredBullet || rw.text || rw.rewrittenText || '').trim()
+        if (orig && target) {
+          rewriteMap.set(orig, target)
+          if (orig.length >= 35) {
+            rewriteMap.set(orig.slice(0, 35), target)
+          }
+        }
+      })
+
+      canonical.experiences.forEach((exp) => {
+        if (Array.isArray(exp.bullets)) {
+          exp.bullets = exp.bullets.map((b) => {
+            const bText = typeof b === 'string' ? b : (b?.text || '')
+            const low = bText.trim().toLowerCase()
+            const match = rewriteMap.get(low) || (low.length >= 35 ? rewriteMap.get(low.slice(0, 35)) : null)
+            if (match) {
+              return typeof b === 'string' ? match : { ...b, text: match }
+            }
+            return b
+          })
+        }
+      })
+    }
+
     // 3. Smart Keyword Weaver & Interview Defense Sheet Integration
     const { tailoredExperiences, interviewLedger } = await weaveKeywordsAndBuildLedger({
       canonicalResume: canonical,

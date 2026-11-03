@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import fs from 'node:fs'
 import { generateDeterministicRewrite } from '../agents/resume/scoring/resumeScorecard.js'
-import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
+import { weaveKeywordsDeterministic } from '../agents/resume/market/smartKeywordWeaver.js'
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
 import { truncateAtWord } from '../agents/assessment/assessmentAgent.js'
 import { cleanPlaceholderGraceful } from '../services/resumeValidator.js'
@@ -119,7 +119,7 @@ const mockResume = {
 }
 
 const missingKws = ['Kafka', 'TypeScript', 'Redis']
-const wovenResult = weaveKeywordsAndBuildLedger({
+const wovenResult = weaveKeywordsDeterministic({
   canonicalResume: mockResume,
   missingKeywords: missingKws,
 })
