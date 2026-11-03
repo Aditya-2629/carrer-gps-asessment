@@ -768,23 +768,29 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     // 2. Missing target keywords collection and skills injection
-    const querySkills = []
-    const rawSkillsParam = req.query?.skills || req.body?.skills || directPayload?.missingKeywords
-    if (typeof rawSkillsParam === 'string') {
-      querySkills.push(...rawSkillsParam.split(',').map((s) => s.trim()).filter(Boolean))
-    } else if (Array.isArray(rawSkillsParam)) {
-      querySkills.push(...rawSkillsParam.map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '')).trim()).filter(Boolean))
-    }
+    const querySkills = req.query.skills
+      ? String(req.query.skills).split(',').map((s) => s.trim()).filter(Boolean)
+      : []
+    const bodySkills = [
+      ...(Array.isArray(req.body?.selectedSkills) ? req.body.selectedSkills : []),
+      ...(Array.isArray(req.body?.skills) ? req.body.skills : []),
+      ...(Array.isArray(directPayload?.missingKeywords) ? directPayload.missingKeywords : []),
+    ].map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim())).filter(Boolean)
+
+    const userSelectedSkills = Array.from(new Set([...querySkills, ...bodySkills]))
 
     const rawMissing = [
-      ...querySkills,
+      ...userSelectedSkills,
       ...(Array.isArray(ra.keywordAlignment?.missingMarketSkillsRanked) ? ra.keywordAlignment.missingMarketSkillsRanked : []),
       ...(Array.isArray(ra.keywordAlignment?.missingKeywords) ? ra.keywordAlignment.missingKeywords : []),
       ...(Array.isArray(ra.keywordAlignment?.missingFromResume) ? ra.keywordAlignment.missingFromResume : []),
       ...(Array.isArray(aiReport.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
       ...(Array.isArray(ra.missingKeywords) ? ra.missingKeywords : []),
-      ...(Array.isArray(directPayload?.missingKeywords) ? directPayload.missingKeywords : []),
     ]
+
+    const strandedSkillsOnly = (Array.isArray(ra.keywordAlignment?.skillsOnlyUnverified) ? ra.keywordAlignment.skillsOnlyUnverified : [])
+      .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
+      .filter((s) => s && s.length >= 2)
 
     const missingSkillsList = []
     const seenKw = new Set()
@@ -825,6 +831,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       canonicalResume: canonical,
       missingKeywords: missingSkillsList,
       targetRole: canonical.target_role,
+      skillsOnlyKeywords: strandedSkillsOnly,
     })
     if (tailoredExperiences && tailoredExperiences.length > 0) {
       canonical.experiences = tailoredExperiences

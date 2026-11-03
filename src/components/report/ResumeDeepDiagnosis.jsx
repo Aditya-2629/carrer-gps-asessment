@@ -391,7 +391,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <ResumeKeywordAlignment
           keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
           variant={variant}
+          currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
+          onRebuildResume={handleDownloadDocx}
         />
+      )}
+
+      {/* Companion ATS Keyword Defense & Interview Cheat Sheet */}
+      {interviewLedger?.length > 0 && (
+        <InterviewDefenseSheet interviewLedger={interviewLedger} variant={variant} />
       )}
 
       {/* Two Column Grid: Recruiter's Read & What's Working */}

@@ -538,6 +538,10 @@ export async function generateReportBundle({
       }
     }
 
+    const strandedSkillsOnly = (Array.isArray(activeResumeAgent?.keywordAlignment?.skillsOnlyUnverified) ? activeResumeAgent.keywordAlignment.skillsOnlyUnverified : [])
+      .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
+      .filter((s) => s && s.length >= 2)
+
     // Deep clone canonicalResume so properties can be mutated safely (fixes Mongoose frozen object error):
     const canonicalForWeaving = JSON.parse(JSON.stringify(
       activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson || {}
@@ -547,6 +551,7 @@ export async function generateReportBundle({
         canonicalResume: canonicalForWeaving,
         missingKeywords: missingSkillsList,
         targetRole: resumeTargetRole,
+        skillsOnlyKeywords: strandedSkillsOnly,
       })
       if (tailoredExperiences && tailoredExperiences.length > 0) {
         if (activeResumeAgent && activeResumeAgent.canonicalResume) {

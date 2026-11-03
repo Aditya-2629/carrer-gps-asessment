@@ -1,22 +1,8 @@
 import React, { useState } from 'react'
 import { CheckCircle, Warning, XCircle, Sparkle, Target } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
+import useAppStore from '../../store/useAppStore'
 
-/**
- * ResumeKeywordAlignment
- *
- * Renders the 3-bucket keyword and JD alignment analysis using 3 clean,
- * full-width horizontal pill rows (flex-wrap: wrap).
- *
- * 1. ✓ Verified in Experience (Green Pills)
- * 2. ⚠️ In Skills Section Only — Add to a Work Bullet (Amber Pills)
- * 3. ✕ Missing Target Keywords (Interactive Tiered Accordion with % of JDs & Rebuild Trigger)
- *
- * Completely eliminates vertical scrollbars (overflow-y: auto) and max-height constraints
- * so pills wrap naturally on screen and in Print / Save PDF.
- *
- * Supports variant="light" (Report page / print) and variant="dark" (Test Lab console).
- */
 export default function ResumeKeywordAlignment({
   keywordAlignment,
   variant = 'light',
@@ -54,28 +40,107 @@ export default function ResumeKeywordAlignment({
     if (selectedSkills.size === 0 || isRebuilding) return
     setIsRebuilding(true)
     try {
-      if (typeof onRebuildResume === 'function') {
-        await onRebuildResume(Array.from(selectedSkills))
-      } else {
-        const skillsParam = encodeURIComponent(Array.from(selectedSkills).join(','))
-        const params = new URLSearchParams(window.location.search)
-        const userId = params.get('userId') || params.get('id') || ''
-        const email = params.get('email') || ''
-        let url = `/api/download-resume-docx?skills=${skillsParam}`
-        if (userId) url += `&userId=${encodeURIComponent(userId)}`
-        if (email) url += `&email=${encodeURIComponent(email)}`
+      const selectedSkillsArray = Array.from(selectedSkills)
 
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', '')
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+      if (typeof onRebuildResume === 'function') {
+        await onRebuildResume(selectedSkillsArray)
+        return
+      }
+
+      const apiBase = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
+      const storeState = useAppStore.getState()
+      const storeUserId = storeState.userId
+      const storeEmail = storeState.email
+      const reportData = storeState.reportData || storeState.assessmentReport
+      const params = new URLSearchParams(window.location.search)
+      const userId = params.get('userId') || params.get('id') || reportData?.userId || reportData?._id || storeUserId || ''
+      const email = params.get('email') || reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || storeEmail || ''
+
+      const skillsParam = encodeURIComponent(selectedSkillsArray.join(','))
+      let response = null
+
+      // Strategy A: If userId or email is present, try GET with skills param
+      if (userId || email) {
+        const getUrl = userId
+          ? `${apiBase}/assessment/user/${encodeURIComponent(userId)}/download-resume-docx?skills=${skillsParam}`
+          : `${apiBase}/assessment/download-resume-docx?email=${encodeURIComponent(email)}&skills=${skillsParam}`
+        try {
+          response = await fetch(getUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
+            }
+          })
+        } catch (_fetchErr) {
+          response = null
+        }
+      }
+
+      // Strategy B: Fallback to POST with direct JSON payload
+      if (!response || !response.ok) {
+        const postUrl = `${apiBase}/assessment/download-resume-docx`
+        response = await fetch(postUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/octet-stream'
+          },
+          body: JSON.stringify({
+            userId,
+            email,
+            selectedSkills: selectedSkillsArray,
+            skills: selectedSkillsArray,
+            reportData,
+            canonicalResume: reportData?.resume_agent?.canonicalResume || reportData?.resumeJson,
+            bulletAudit: reportData?.resume_agent?.dashboard?.bulletAudit || reportData?.resume_agent?.bulletRewrites,
+            missingKeywords: selectedSkillsArray,
+          })
+        })
+      }
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null)
+        throw new Error(errJson?.message || `Download failed with status ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      if (blob.type && blob.type.includes('text/html')) {
+        throw new Error('Server returned HTML instead of a Word document. Please ensure backend server is running.')
+      }
+
+      const disposition = response.headers.get('content-disposition') || ''
+      let filename = ''
+      if (disposition) {
+        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (match && match[1]) {
+          filename = decodeURIComponent(match[1].replace(/['"]/g, '').trim())
+        }
+      }
+
+      if (!filename || !filename.toLowerCase().endsWith('.docx')) {
+        const candidateName = (
+          reportData?.resume_agent?.canonicalResume?.candidate_name ||
+          reportData?.resume_agent?.canonicalResume?.name ||
+          'Candidate'
+        ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_')
+        filename = `${candidateName || 'Candidate'}_Tailored_ATS_Resume.docx`
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(downloadUrl)
+      if (document.body.contains(a)) {
+        document.body.removeChild(a)
       }
     } catch (err) {
       console.error('Error rebuilding tailored resume:', err)
+      alert(`Could not download resume: ${err.message}`)
     } finally {
-      setTimeout(() => setIsRebuilding(false), 2000)
+      setIsRebuilding(false)
     }
   }
 
@@ -83,9 +148,7 @@ export default function ResumeKeywordAlignment({
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  // 1. Clean, trim and deduplicate missing keywords with real market demand badges
   const missingMap = new Map()
-
   const rankedItems = Array.isArray(missingMarketSkillsRanked) ? missingMarketSkillsRanked : []
   for (const item of rankedItems) {
     const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
@@ -125,7 +188,6 @@ export default function ResumeKeywordAlignment({
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  // Partition missing skills into 2 tiers: High-Demand Market Core (>= 20% JDs) vs Secondary (< 20% JDs)
   const initialHigh = uniqueMissing.filter(
     (item) => (item.percentage != null ? item.percentage >= 20 : item.priority === 'HIGH')
   )
@@ -135,19 +197,24 @@ export default function ResumeKeywordAlignment({
 
   const verifiedCount = matchedCount || cleanMatched.length
   const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : ((cleanMatched.length + uniqueMissing.length) || 1)
-  const displayPercent = Math.min(100, Math.round((verifiedCount / calculatedTotal) * 100))
-  const currentMatchRate = propMatchRate != null ? propMatchRate : displayPercent
+  const baseMatchPercent = Math.min(100, Math.round((verifiedCount / calculatedTotal) * 100))
+  const currentMatchRate = propMatchRate != null ? propMatchRate : (matchPercent > 0 ? matchPercent : baseMatchPercent)
+
+  // Real ground math: no arbitrary 14% multipliers
+  const projectedCount = Math.min(calculatedTotal, verifiedCount + selectedSkills.size)
+  const projectedPercent = Math.min(100, Math.round((projectedCount / calculatedTotal) * 100))
+  const liftPercent = Math.max(0, projectedPercent - currentMatchRate)
 
   const containerClasses = light
     ? 'bg-white border border-slate-200 rounded-2xl p-6 shadow-sm print:shadow-none print:border-slate-300 print:rounded-none'
     : 'bg-[#0f172a] border border-slate-800 rounded-2xl p-6 shadow-xl'
 
   const scorePillBg =
-    displayPercent >= 75
+    currentMatchRate >= 75
       ? light
         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
         : 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
-      : displayPercent >= 50
+      : currentMatchRate >= 50
       ? light
         ? 'bg-amber-50 text-amber-700 border-amber-200'
         : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
@@ -157,7 +224,6 @@ export default function ResumeKeywordAlignment({
 
   return (
     <div className={`${containerClasses} space-y-5 print:break-inside-avoid print:p-4 print:space-y-4`}>
-      {/* Header with Role and Match Pill */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
           <span
@@ -168,11 +234,7 @@ export default function ResumeKeywordAlignment({
             <Target size={18} weight="bold" />
           </span>
           <div>
-            <div
-              className={`text-[10px] uppercase tracking-wider font-bold ${
-                light ? 'text-slate-400' : 'text-slate-500'
-              }`}
-            >
+            <div className={`text-[10px] uppercase tracking-wider font-bold ${light ? 'text-slate-400' : 'text-slate-500'}`}>
               Target Alignment
             </div>
             <div className={`text-sm font-extrabold ${light ? 'text-slate-900' : 'text-white'}`}>
@@ -184,26 +246,21 @@ export default function ResumeKeywordAlignment({
         <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold tracking-tight flex items-center gap-2 ${scorePillBg}`}>
           <span>Target Keyword Match:</span>
           <span className="font-mono text-sm font-extrabold">
-            {verifiedCount}/{calculatedTotal} ({displayPercent}%)
+            {verifiedCount}/{calculatedTotal} ({currentMatchRate}%)
           </span>
         </div>
       </div>
 
-      {/* 3 Full-Width Horizontal Rows (Zero Scrollbars, flex-wrap) */}
       <div className="space-y-4 print:space-y-3">
-        {/* Row 1: Verified in Experience (Green Pills) */}
-        <div
-          className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${
-            light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-800/40'
-          }`}
-        >
+        {/* Row 1: Verified in Experience */}
+        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-800/40'}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
               <CheckCircle size={15} weight="fill" className="text-emerald-600" />
               Verified in Experience
             </span>
             <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-              {matchedInExperience.length} {matchedInExperience.length === 1 ? 'skill' : 'skills'}
+              {cleanMatched.length} {cleanMatched.length === 1 ? 'skill' : 'skills'}
             </span>
           </div>
           <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-slate-600' : 'text-slate-400'}`}>
@@ -231,12 +288,8 @@ export default function ResumeKeywordAlignment({
           </div>
         </div>
 
-        {/* Row 2: In Skills Section Only — Add to a Work Bullet (Amber Pills) */}
-        <div
-          className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${
-            light ? 'bg-amber-50/40 border-amber-200/80' : 'bg-amber-950/20 border-amber-800/40'
-          }`}
-        >
+        {/* Row 2: In Skills Section Only */}
+        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-amber-50/40 border-amber-200/80' : 'bg-amber-950/20 border-amber-800/40'}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <span className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
               <Warning size={15} weight="fill" className="text-amber-500" />
@@ -271,56 +324,22 @@ export default function ResumeKeywordAlignment({
           </div>
         </div>
 
-        {/* Row 3: Missing Target Keywords (Rose Pills or 100% Banner) */}
-        <div
-          className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${
-            uniqueMissing.length === 0
-              ? light
-                ? 'bg-emerald-50/40 border-emerald-200/80'
-                : 'bg-emerald-950/20 border-emerald-900/30'
-              : light
-              ? 'bg-rose-50/40 border-rose-200/80'
-              : 'bg-rose-950/20 border-rose-800/40'
-          }`}
-        >
+        {/* Row 3: Missing Target Keywords with Interactive Selection */}
+        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${uniqueMissing.length === 0 ? (light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-900/30') : (light ? 'bg-rose-50/40 border-rose-200/80' : 'bg-rose-950/20 border-rose-800/40')}`}>
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-            <span
-              className={`flex items-center gap-1.5 text-xs font-bold ${
-                uniqueMissing.length === 0
-                  ? 'text-emerald-800 dark:text-emerald-300'
-                  : 'text-rose-800 dark:text-rose-300'
-              }`}
-            >
-              {uniqueMissing.length === 0 ? (
-                <CheckCircle size={15} weight="fill" className="text-emerald-600" />
-              ) : (
-                <XCircle size={15} weight="fill" className="text-rose-500" />
-              )}
+            <span className={`flex items-center gap-1.5 text-xs font-bold ${uniqueMissing.length === 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>
+              {uniqueMissing.length === 0 ? <CheckCircle size={15} weight="fill" className="text-emerald-600" /> : <XCircle size={15} weight="fill" className="text-rose-500" />}
               {uniqueMissing.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
             </span>
-            <span
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                uniqueMissing.length === 0
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'
-              }`}
-            >
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${uniqueMissing.length === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'}`}>
               {uniqueMissing.length === 0 ? '100% Covered' : `${uniqueMissing.length} missing`}
             </span>
           </div>
 
           {uniqueMissing.length === 0 ? (
-            <div
-              className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${
-                light
-                  ? 'bg-white border-emerald-200 text-emerald-900'
-                  : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-200'
-              }`}
-            >
+            <div className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${light ? 'bg-white border-emerald-200 text-emerald-900' : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-200'}`}>
               <Sparkle size={15} weight="fill" className="text-emerald-600 shrink-0" />
-              <span>
-                <strong>100% Core Keyword Coverage</strong> — All essential target keywords detected on your resume.
-              </span>
+              <span><strong>100% Core Keyword Coverage</strong> — All essential target keywords detected on your resume.</span>
             </div>
           ) : (
             <div className="space-y-3 pt-2">
@@ -334,7 +353,6 @@ export default function ResumeKeywordAlignment({
                 </span>
               </div>
 
-              {/* High Priority Grid */}
               <div className="flex flex-wrap gap-2">
                 {highPriorityMissing.map((item, i) => {
                   const isSelected = selectedSkills.has(item.keyword)
@@ -356,15 +374,16 @@ export default function ResumeKeywordAlignment({
                         className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
                       />
                       <span>{item.keyword}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
-                        {item.percentage}% of JDs
-                      </span>
+                      {item.percentage && (
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
+                          {item.percentage}% of JDs
+                        </span>
+                      )}
                     </button>
                   )
                 })}
               </div>
 
-              {/* Accordion for Remaining Skills */}
               {mediumPriorityMissing.length > 0 && (
                 <div className="pt-2">
                   <button
@@ -377,24 +396,37 @@ export default function ResumeKeywordAlignment({
 
                   {showAllMissing && (
                     <div className="flex flex-wrap gap-2 pt-3">
-                      {mediumPriorityMissing.map((item, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => toggleSkillSelection(item.keyword)}
-                          className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-lg border bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-secondary)]"
-                        >
-                          <input type="checkbox" checked={selectedSkills.has(item.keyword)} onChange={() => {}} className="pointer-events-none" />
-                          <span>{item.keyword}</span>
-                          <span className="text-[10px] font-mono opacity-80">{item.percentage}%</span>
-                        </button>
-                      ))}
+                      {mediumPriorityMissing.map((item, i) => {
+                        const isSelected = selectedSkills.has(item.keyword)
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => toggleSkillSelection(item.keyword)}
+                            className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
+                                : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="pointer-events-none"
+                            />
+                            <span>{item.keyword}</span>
+                            {item.percentage && (
+                              <span className="text-[10px] font-mono opacity-80">{item.percentage}%</span>
+                            )}
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Rebuild Trigger Card */}
               {selectedSkills.size > 0 && (
                 <div className="mt-4 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
                   <div>
@@ -402,7 +434,7 @@ export default function ResumeKeywordAlignment({
                       {selectedSkills.size} Skill{selectedSkills.size > 1 ? 's' : ''} Selected to Weave into Resume
                     </span>
                     <span className="text-[11px] text-[var(--text-secondary)]">
-                      Estimated ATS Match Lift: +{selectedSkills.size * 14}% (from {currentMatchRate}% ➔ {Math.min(95, currentMatchRate + selectedSkills.size * 14)}%)
+                      Estimated ATS Match Lift: +{liftPercent}% (from {currentMatchRate}% ➔ {projectedPercent}%) [{projectedCount}/${calculatedTotal} keywords verified]
                     </span>
                   </div>
                   <button

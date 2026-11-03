@@ -1,3 +1,37 @@
+import { spawn } from 'child_process'
+import fs from 'fs/promises'
+import os from 'os'
+import path from 'path'
+
+async function generateDocxViaPython(resumeData) {
+  const tmpDir = os.tmpdir()
+  const inPath = path.join(tmpDir, `resume_${Date.now()}_${Math.random().toString(36).slice(2)}.json`)
+  const outPath = path.join(tmpDir, `resume_${Date.now()}_${Math.random().toString(36).slice(2)}.docx`)
+
+  await fs.writeFile(inPath, JSON.stringify(resumeData), 'utf-8')
+
+  return new Promise((resolve, reject) => {
+    const scriptPath = path.resolve(process.cwd(), 'backend/services/pythonDocxGenerator.py')
+    const py = spawn('python3', [scriptPath, inPath, outPath])
+
+    py.on('close', async (code) => {
+      try {
+        if (code === 0) {
+          const docxBuf = await fs.readFile(outPath)
+          await fs.unlink(inPath).catch(() => {})
+          await fs.unlink(outPath).catch(() => {})
+          resolve(docxBuf)
+        } else {
+          reject(new Error(`pythonDocxGenerator exited with code ${code}`))
+        }
+      } catch (err) {
+        reject(err)
+      }
+    })
+    py.on('error', reject)
+  })
+}
+
 import {
   Document,
   Packer,
@@ -753,6 +787,14 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
     // If within target pages, we're done
     if (finalPages <= targetPages) {
       break
+    }
+  }
+
+  if (!bestBuffer || bestBuffer.length === 0 || bestBuffer[0] !== 0x50 || bestBuffer[1] !== 0x4b) {
+    try {
+      bestBuffer = await generateDocxViaPython(sanitizedResume)
+    } catch (pyErr) {
+      console.warn('Python DOCX fallback failed:', pyErr.message)
     }
   }
 

@@ -1,393 +1,448 @@
-/**
- * Smart Keyword Weaver & Interview Cheat Sheet Generator
- *
- * Weaves missing JD keywords (e.g. Kafka, TypeScript, Unit/Integration Testing, Git/GitHub, System Design)
- * into matching experience bullets or synthesizes crisp domain-accurate bullets (< 28 words),
- * while enforcing strict active present tense on current roles and past tense on completed roles.
- *
- * Uses llmGateway mini-agent when available, with a battle-tested deterministic fallback.
- */
-
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { toPresentTense } from '../signals/patterns.js'
 
-/**
- * Deterministic fallback keyword weaver with tense discipline and synthetic bullet generation.
- */
-export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywords = [], targetRole = '' }) {
-  const experiences = JSON.parse(JSON.stringify(canonicalResume?.experiences || canonicalResume?.experience || []))
+export function isRoleCurrent(exp = {}) {
+  return Boolean(
+    exp?.isCurrent === true ||
+    /present|current|now/i.test(exp?.duration || '') ||
+    /present|current|now/i.test(exp?.endDate || '') ||
+    /present|current|now/i.test(exp?.dates || '')
+  )
+}
+
+export function cleanBoilerplateAndTense(bullets = [], isCurrent = false) {
+  return bullets.map((b) => {
+    let text = typeof b === 'string' ? b : (b?.text || '')
+    if (!text) return text
+
+    text = text.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '.')
+    text = text.replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '.')
+    text = text.replace(/\s{2,}/g, ' ').replace(/\.+$/, '.').trim()
+
+    if (isCurrent) {
+      const m = text.match(/^(\*{0,2})([A-Za-z]+)(\*{0,2})(.*)$/s)
+      if (m) {
+        const pres = toPresentTense(m[2])
+        if (pres && pres.toLowerCase() !== m[2].toLowerCase()) {
+          text = `${m[1]}${pres}${m[3]}${m[4]}`
+        }
+      }
+    }
+    return text
+  })
+}
+
+export function deterministicWeave(experiences, targetKws, targetRole = '') {
   const keywordLedger = []
   const usedKeywords = new Set()
+  const expClones = JSON.parse(JSON.stringify(experiences || []))
 
-  const targetKws = (Array.isArray(missingKeywords) ? missingKeywords : [])
-    .map((k) => (typeof k === 'string' ? k : k?.skill || k?.name || k?.keyword || ''))
-    .map((s) => s.trim())
-    .filter(Boolean)
+  if (expClones.length === 0 || targetKws.length === 0) {
+    return {
+      tailoredExperiences: expClones,
+      interviewLedger: [],
+      totalKeywordsWoven: 0,
+    }
+  }
 
-  experiences.forEach((exp, expIdx) => {
-    const isCurrent = exp.isCurrent === true ||
-      /present|current|now/i.test(exp.endDate || '') ||
-      /present|current|now/i.test(exp.dates || '') ||
-      /present|current|now/i.test(exp.duration || '')
+  const expProfiles = expClones.map((exp, idx) => {
+    const rawBullets = (exp.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || ''))
+    const combinedText = [exp.company, exp.role, ...rawBullets].join(' ').toLowerCase()
+    return {
+      index: idx,
+      company: exp.company || `Company ${idx + 1}`,
+      isCurrent: isRoleCurrent(exp),
+      bullets: [...rawBullets],
+      isDatabase: /database|sql|mysql|sync|orm|backend|graphql|sequelize|query|postgres|redis|nosql|schema/i.test(combinedText),
+      isCloud: /cloud|aws|azure|gcp|serverless|lambda|docker|kubernetes|k8s|devops|infrastructure|jenkins/i.test(combinedText),
+      isAi: /ai|ml|machine\s*learning|nlp|langchain|llm|agent|gemini|embeddings|pytorch|tensorflow/i.test(combinedText),
+      isFrontend: /react|frontend|ui|typescript|javascript|next|web|components/i.test(combinedText),
+      modifiedCount: 0,
+      synthesizedCount: 0,
+    }
+  })
 
-    const bullets = exp.bullets || []
+  for (const kw of targetKws) {
+    const kwLower = kw.toLowerCase()
+    if (usedKeywords.has(kwLower)) continue
 
-    bullets.forEach((b, bIdx) => {
-      let text = typeof b === 'string' ? b : (b?.text || '')
-      const initialWordCount = text.split(/\s+/).filter(Boolean).length
-      // Strict Length Guard: Do not append secondary clauses to already dense bullets (35+ words)
-      if (initialWordCount >= 35) return
+    const isDbKw = /sql|postgres|mysql|redis|nosql|orm|sequelize|graphql|rest|node/i.test(kwLower)
+    const isCloudKw = /azure|gcp|aws|docker|kubernetes|terraform|ci\/cd|git|github|jenkins/i.test(kwLower)
+    const isAiKw = /pytorch|tensorflow|ml|embeddings|rag|fine-tuning|mlops|model/i.test(kwLower)
+    const isLangKw = /typescript|javascript|python|java|go/i.test(kwLower)
+    const isTestKw = /testing|unit|integration|jest|pytest|code review/i.test(kwLower)
 
-      for (const kw of targetKws) {
-        const kwLower = kw.toLowerCase()
-        if (usedKeywords.has(kwLower)) continue
+    let candidateProfiles = expProfiles.filter((p) => (p.modifiedCount + p.synthesizedCount) < 2)
+    if (candidateProfiles.length === 0) candidateProfiles = expProfiles
 
-        // 1. Static Typing & Contract Safety slot (TypeScript)
-        if (kwLower === 'typescript' && /react|frontend|api|endpoint|service|javascript|node|web|ui/i.test(text)) {
-          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            const clean = text.replace(/[.!?]+$/, '').trim()
-            const candidate = isCurrent
-              ? `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
-              : `${clean}, adopting TypeScript to enforce strict API payload contracts, eliminating runtime type errors across service boundaries.`
-            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
-              text = candidate
-            } else {
-              text = `${clean}, enforcing strict TypeScript API contracts.`
-            }
-            usedKeywords.add(kwLower)
-            keywordLedger.push({
-              keyword: kw,
-              company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Static Typing & Contract Safety Clause',
-              bulletText: text,
-              exactBullet: text,
-              wovenBullet: text,
-              talkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
-              interviewTalkingScript: `Explain that you adopted ${kw} to enforce static typing and contract validation, preventing runtime payload errors across microservices.`,
-            })
-            break
-          }
-        }
-
-        // 2. Event Streaming & Messaging slot (Kafka, SQS, RabbitMQ)
-        if (['kafka', 'sqs', 'rabbitmq'].includes(kwLower) && /event|stream|queue|sync|message|serverless|worker|pipeline/i.test(text)) {
-          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            const clean = text.replace(/[.!?]+$/, '').trim()
-            const candidate = `${clean}, utilizing Kafka event topics to decouple asynchronous workers, eliminating request drops during high-volume spikes.`
-            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
-              text = candidate
-            } else {
-              text = `${clean}, utilizing Kafka event topics to decouple asynchronous workers.`
-            }
-            usedKeywords.add(kwLower)
-            keywordLedger.push({
-              keyword: kw,
-              company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Event Streaming Architecture Clause',
-              bulletText: text,
-              exactBullet: text,
-              wovenBullet: text,
-              talkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
-              interviewTalkingScript: `Highlight how you used ${kw} for decoupled event streaming to prevent request drops during traffic spikes.`,
-            })
-            break
-          }
-        }
-
-        // 3. Read-Aside Caching slot (Redis) — Strictly DO NOT tack onto AI/Chatbot bullets!
-        if (kwLower === 'redis') {
-          const isChatbotOrAi = /chatbot|llm|copilot|rag|conversational|dialog|prompt|vector/i.test(text)
-          const isDbOrQuery = /cache|caching|latency|query|database|session|api|throughput|load|sql|postgres|postgresql|orm/i.test(text)
-          if (!isChatbotOrAi && isDbOrQuery) {
-            if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-              const clean = text.replace(/[.!?]+$/, '').trim()
-              const fullCandidate = `${clean}, implementing a Redis read-aside caching layer with TTL eviction, offloading 70% of read queries from the primary database.`
-              if (fullCandidate.split(/\s+/).filter(Boolean).length <= 38) {
-                text = fullCandidate
-              } else {
-                text = `${clean}, deploying Redis read-aside caching to cut p95 database query latency by 35%.`
-              }
-              usedKeywords.add(kwLower)
-              keywordLedger.push({
-                keyword: kw,
-                company: exp.company || `Company ${expIdx + 1}`,
-                placement: 'Read-Aside Caching Architecture',
-                bulletText: text,
-                exactBullet: text,
-                wovenBullet: text,
-                talkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
-                interviewTalkingScript: `Describe how introducing a Redis read-aside caching layer with TTL eviction offloaded heavy queries and reduced database read latency.`,
-              })
-              break
-            }
-          }
-        }
-
-        // 4. Container Orchestration slot (Docker, Kubernetes)
-        if (['docker', 'kubernetes', 'k8s'].includes(kwLower) && /deploy|container|cloud|ci\/cd|pipeline|backend|service|microservice|aws/i.test(text)) {
-          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            const clean = text.replace(/[.!?]+$/, '').trim()
-            const candidate = isCurrent
-              ? `${clean}, containerized using multi-stage Docker builds and deployed on Kubernetes with automated health probes and rolling updates.`
-              : `${clean}, containerized using multi-stage Docker builds and deployed on Kubernetes with automated health probes and rolling updates.`
-            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
-              text = candidate
-            } else {
-              text = `${clean}, containerized via Docker and deployed on Kubernetes.`
-            }
-            usedKeywords.add(kwLower)
-            keywordLedger.push({
-              keyword: kw,
-              company: exp.company || `Company ${expIdx + 1}`,
-              placement: 'Container Orchestration Clause',
-              bulletText: text,
-              exactBullet: text,
-              wovenBullet: text,
-              talkingScript: `Explain how multi-stage Docker builds and Kubernetes automated health probes ensured repeatable deployments and zero downtime.`,
-              interviewTalkingScript: `Explain how multi-stage Docker builds and Kubernetes automated health probes ensured repeatable deployments and zero downtime.`,
-            })
-            break
-          }
-        }
-
-        // 5. GraphQL / gRPC API slot
-        if (['graphql', 'grpc'].includes(kwLower) && /api|endpoint|service|interface|rest|backend/i.test(text)) {
-          if (!new RegExp(`\\b${kw}\\b`, 'i').test(text)) {
-            const clean = text.replace(/[.!?]+$/, '').trim()
-            const clause = kwLower === 'graphql'
-              ? 'architecting a unified GraphQL schema to eliminate over-fetching and consolidate multi-endpoint data retrieval'
-              : 'implementing high-performance gRPC service-to-service communication with Protocol Buffers'
-            const candidate = `${clean}, ${clause}.`
-            if (candidate.split(/\s+/).filter(Boolean).length <= 38) {
-              text = candidate
-            } else {
-              text = `${clean}, adopting ${kw} to optimize API network payloads.`
-            }
-            usedKeywords.add(kwLower)
-            keywordLedger.push({
-              keyword: kw,
-              company: exp.company || `Company ${expIdx + 1}`,
-              placement: `${kw} API Layer Clause`,
-              bulletText: text,
-              exactBullet: text,
-              wovenBullet: text,
-              talkingScript: `Discuss how you integrated ${kw} to optimize client-server communication efficiency and payload contracts.`,
-              interviewTalkingScript: `Discuss how you integrated ${kw} to optimize client-server communication efficiency and payload contracts.`,
-            })
-            break
-          }
-        }
-      }
-
-      // Enforce active present tense on current role bullets
-      if (isCurrent && text) {
-        const m = text.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
-        if (m) {
-          const prefix = m[1]
-          const firstWord = m[2]
-          const rest = m[3]
-          const presentWord = toPresentTense(firstWord)
-          if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
-            text = `${prefix}${presentWord}${rest}`
-          }
-        }
-      }
-
-      if (typeof exp.bullets[bIdx] === 'string') exp.bullets[bIdx] = text
-      else if (exp.bullets[bIdx] && typeof exp.bullets[bIdx] === 'object') exp.bullets[bIdx].text = text
-    })
-
-    // Synthesize Engineering Practice Bullet (Testing, Code Reviews, Git) if missing
-    const needsTesting = targetKws.some((k) => /testing|code review|git|system design/i.test(k))
-    if (expIdx === 0 && needsTesting && !usedKeywords.has('unit testing')) {
-      const practiceBullet = isCurrent
-        ? 'Establish comprehensive automated testing and release reliability with Jest and PyTest, driving peer code reviews and Git/GitHub CI/CD pull request review gates.'
-        : 'Established comprehensive automated testing and release reliability with Jest and PyTest, driving peer code reviews and Git/GitHub CI/CD pull request review gates.'
-      exp.bullets.push(practiceBullet)
-      usedKeywords.add('unit testing')
-      usedKeywords.add('code review')
-      usedKeywords.add('git')
-
-      keywordLedger.push({
-        keyword: 'Unit / Integration Testing & Git',
-        company: exp.company || 'Current Company',
-        placement: 'Dedicated Production Quality Bullet',
-        bulletText: practiceBullet,
-        exactBullet: practiceBullet,
-        wovenBullet: practiceBullet,
-        talkingScript: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
-        interviewTalkingScript: 'Discuss how you established automated PR test gating, branch protection rules, and team code review checklists.',
-      })
+    let targetProfile = null
+    if (isDbKw) {
+      targetProfile = candidateProfiles.find((p) => p.isDatabase) || candidateProfiles[candidateProfiles.length - 1]
+    } else if (isCloudKw) {
+      targetProfile = candidateProfiles.find((p) => p.isCloud) || candidateProfiles[0]
+    } else if (isAiKw) {
+      targetProfile = candidateProfiles.find((p) => p.isAi) || candidateProfiles[0]
+    } else if (isLangKw) {
+      targetProfile = candidateProfiles.find((p) => p.isFrontend || p.isDatabase) || candidateProfiles[candidateProfiles.length - 1]
+    } else if (isTestKw) {
+      targetProfile = candidateProfiles.find((p) => p.modifiedCount === 0) || candidateProfiles[0]
     }
 
-    // Synthesize crisp new bullet (< 28 words) if high-impact missing keyword could not be inserted directly
-    for (const kw of targetKws) {
-      const kwLower = kw.toLowerCase()
-      if (usedKeywords.has(kwLower)) continue
+    if (!targetProfile) targetProfile = candidateProfiles[0]
 
-      if (expIdx === 0 && (kwLower === 'docker' || kwLower === 'kubernetes')) {
-        const synBullet = isCurrent
-          ? 'Deploy containerized microservices via Docker and Kubernetes with automated health probes and rolling updates.'
-          : 'Deployed containerized microservices via Docker and Kubernetes with automated health probes and rolling updates.'
-        exp.bullets.push(synBullet)
+    let wovenInline = false
+    for (let bIdx = 0; bIdx < targetProfile.bullets.length; bIdx++) {
+      let bText = targetProfile.bullets[bIdx]
+
+      if (new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(bText)) {
+        usedKeywords.add(kwLower)
+        wovenInline = true
+        break
+      }
+
+      if (isDbKw && /mysql|ms sql|database synchronization|database sync/i.test(bText)) {
+        if (/postgres/i.test(kwLower) && !/postgres/i.test(bText)) {
+          bText = bText.replace(/between\s+MySQL\s+and\s+MS\s+SQL/i, 'between MySQL, PostgreSQL, and MS SQL')
+          wovenInline = true
+        } else if (/redis/i.test(kwLower) && !/redis/i.test(bText)) {
+          bText = bText.replace(/for\s+enterprise\s+clients/i, 'with Redis caching for enterprise clients')
+          wovenInline = true
+        }
+      }
+
+      if (!wovenInline && (isDbKw || isLangKw) && /graphql|sequelize|orm|backend/i.test(bText)) {
+        if (/typescript/i.test(kwLower) && !/typescript/i.test(bText)) {
+          bText = bText.replace(/using\s+GraphQL/i, 'using TypeScript, GraphQL')
+          wovenInline = true
+        } else if (/node/i.test(kwLower) && !/node/i.test(bText)) {
+          bText = bText.replace(/backend\s+services/i, 'Node.js backend microservices')
+          wovenInline = true
+        }
+      }
+
+      if (!wovenInline && isCloudKw && /monolith|serverless|azure|backend/i.test(bText)) {
+        if (/docker/i.test(kwLower) && !/docker/i.test(bText)) {
+          bText = bText.replace(/on\s+Azure/i, 'on Azure containerized with Docker')
+          wovenInline = true
+        }
+      }
+
+      if (!wovenInline && isAiKw && /chatbot|langchain|gemini/i.test(bText)) {
+        if (/pytorch/i.test(kwLower) && !/pytorch/i.test(bText)) {
+          bText = bText.replace(/using\s+LangChain/i, 'using LangChain, PyTorch embeddings')
+          wovenInline = true
+        }
+      }
+
+      if (!wovenInline && isCloudKw && /ci\/cd|deployment|jenkins/i.test(bText)) {
+        if (/git|github/i.test(kwLower) && !/git/i.test(bText)) {
+          bText = bText.replace(/deployment/i, 'deployment integrated with Git / GitHub')
+          wovenInline = true
+        } else if (/gcp/i.test(kwLower) && !/gcp/i.test(bText)) {
+          bText = bText.replace(/zero-downtime/i, 'zero-downtime releases across GCP and')
+          wovenInline = true
+        }
+      }
+
+      if (wovenInline) {
+        targetProfile.bullets[bIdx] = bText
+        targetProfile.modifiedCount++
         usedKeywords.add(kwLower)
         keywordLedger.push({
           keyword: kw,
-          company: exp.company || 'Current Company',
-          placement: 'Synthesized Containerization Bullet',
-          bulletText: synBullet,
-          exactBullet: synBullet,
-          wovenBullet: synBullet,
-          talkingScript: `Explain how containerizing services with ${kw} ensured repeatable deployments and high system availability.`,
-          interviewTalkingScript: `Explain how containerizing services with ${kw} ensured repeatable deployments and high system availability.`,
+          company: targetProfile.company,
+          placement: 'Woven into existing bullet',
+          exactBullet: bText,
+          wovenBullet: bText,
+          interviewTalkingScript: generateTalkingScript(kw, targetProfile.company),
+          talkingScript: generateTalkingScript(kw, targetProfile.company),
         })
         break
       }
     }
+  }
+
+  for (const kw of targetKws) {
+    const kwLower = kw.toLowerCase()
+    if (usedKeywords.has(kwLower)) continue
+
+    const availableProfile = expProfiles
+      .filter((p) => p.synthesizedCount === 0 && p.bullets.length < 5)
+      .sort((a, b) => a.bullets.length - b.bullets.length)[0]
+
+    if (!availableProfile) break
+
+    const isCurrent = availableProfile.isCurrent
+    let synthBullet = ''
+
+    if (/testing|unit|integration|jest|pytest|code review/i.test(kwLower)) {
+      synthBullet = isCurrent
+        ? `Maintain production reliability by establishing unit and integration test coverage with Jest and PyTest alongside peer code reviews to gate pull requests.`
+        : `Maintained production reliability by establishing unit and integration test coverage with Jest and PyTest alongside peer code reviews to gate pull requests.`
+      usedKeywords.add('unit / integration testing')
+      usedKeywords.add('unit testing')
+      usedKeywords.add('code review')
+    } else if (/java/i.test(kwLower)) {
+      synthBullet = isCurrent
+        ? `Engineer high-throughput enterprise RESTful API endpoints utilizing Java and Spring Boot for secure third-party client integrations.`
+        : `Engineered high-throughput enterprise RESTful API endpoints utilizing Java and Spring Boot for secure third-party client integrations.`
+      usedKeywords.add('java')
+    } else if (/gcp|cloud/i.test(kwLower)) {
+      synthBullet = isCurrent
+        ? `Deploy and monitor cloud workloads on GCP, automating resource scaling and pipeline telemetry to ensure high availability.`
+        : `Deployed and monitored cloud workloads on GCP, automating resource scaling and pipeline telemetry to ensure high availability.`
+      usedKeywords.add('gcp')
+    } else if (/typescript/i.test(kwLower)) {
+      synthBullet = isCurrent
+        ? `Standardize type safety and API contract integrity across microservices using TypeScript, eliminating runtime payload errors.`
+        : `Standardized type safety and API contract integrity across microservices using TypeScript, eliminating runtime payload errors.`
+      usedKeywords.add('typescript')
+    } else if (/sql|postgres|database/i.test(kwLower)) {
+      synthBullet = isCurrent
+        ? `Optimize database query performance and relational indexing using PostgreSQL for sub-second retrieval across high-volume transaction tables.`
+        : `Optimized database query performance and relational indexing using PostgreSQL for sub-second retrieval across high-volume transaction tables.`
+      usedKeywords.add('postgresql')
+    } else {
+      synthBullet = isCurrent
+        ? `Implement ${kw} across core backend workflows, enhancing system modularity, operational observability, and deployment velocity.`
+        : `Implemented ${kw} across core backend workflows, enhancing system modularity, operational observability, and deployment velocity.`
+      usedKeywords.add(kwLower)
+    }
+
+    if (synthBullet) {
+      availableProfile.bullets.push(synthBullet)
+      availableProfile.synthesizedCount++
+      keywordLedger.push({
+        keyword: kw,
+        company: availableProfile.company,
+        placement: 'Synthesized high-impact bullet',
+        exactBullet: synthBullet,
+        wovenBullet: synthBullet,
+        interviewTalkingScript: generateTalkingScript(kw, availableProfile.company),
+        talkingScript: generateTalkingScript(kw, availableProfile.company),
+      })
+    }
+  }
+
+  const tailoredExperiences = expClones.map((origExp, idx) => {
+    const prof = expProfiles[idx]
+    const isCurrent = prof.isCurrent
+    const finalBullets = cleanBoilerplateAndTense(prof.bullets, isCurrent)
+    return {
+      ...origExp,
+      isCurrent,
+      bullets: finalBullets,
+    }
   })
 
   return {
-    tailoredExperiences: experiences,
+    tailoredExperiences,
     interviewLedger: keywordLedger,
     totalKeywordsWoven: usedKeywords.size,
   }
 }
 
-/**
- * Natural Keyword Weaving Mini-Agent.
- * Generates context-aware, recruiter-grade keyword insertions via LLM gateway,
- * falling back gracefully to deterministic weaving when offline or keys are absent.
- */
-export async function weaveKeywordsAndBuildLedger({ canonicalResume = {}, missingKeywords = [], targetRole = '' }) {
+function generateTalkingScript(kw, company) {
+  const low = kw.toLowerCase()
+  if (low.includes('git')) {
+    return `In technical rounds, explain how you enforced trunk-based development, branch protection rules, and automated PR test gates in ${company}.`
+  }
+  if (low.includes('azure') || low.includes('gcp') || low.includes('aws')) {
+    return `Highlight your hands-on infrastructure provisioning, IAM roles, and serverless compute scaling on ${kw} to handle enterprise production traffic.`
+  }
+  if (low.includes('test') || low.includes('jest') || low.includes('review')) {
+    return `Discuss your testing philosophy: driving unit test coverage on core business logic and conducting mandatory peer code reviews to prevent regressions.`
+  }
+  if (low.includes('typescript')) {
+    return `Explain that you introduced ${kw} to enforce strict contract boundaries between microservices and eliminate null-pointer exceptions in production.`
+  }
+  if (low.includes('postgres') || low.includes('redis') || low.includes('sql')) {
+    return `Describe how you selected ${kw} to optimize query latency, indexing strategies, and caching for data synchronization at ${company}.`
+  }
+  if (low.includes('pytorch') || low.includes('ml')) {
+    return `Walk through how you applied ${kw} for model embedding generation and semantic search inference in live agent workflows.`
+  }
+  if (low.includes('java')) {
+    return `Discuss your experience designing performant, type-safe backend services in ${kw} to support high-concurrency enterprise client integrations.`
+  }
+  return `Explain your hands-on architectural implementation of ${kw} at ${company}, focusing on trade-offs, system reliability, and business impact.`
+}
+
+export async function weaveKeywordsAndBuildLedger({
+  canonicalResume = {},
+  missingKeywords = [],
+  targetRole = '',
+  skillsOnlyKeywords = [],
+}) {
   const experiences = JSON.parse(JSON.stringify(canonicalResume?.experiences || canonicalResume?.experience || []))
-  if (!experiences.length) {
-    return { tailoredExperiences: [], interviewLedger: [], totalKeywordsWoven: 0 }
+
+  const rawPool = [
+    ...(Array.isArray(missingKeywords) ? missingKeywords : []),
+    ...(Array.isArray(skillsOnlyKeywords) ? skillsOnlyKeywords : []),
+  ]
+
+  const seen = new Set()
+  const targetKws = []
+  for (const item of rawPool) {
+    const raw = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
+    const clean = raw.trim()
+    if (clean.length >= 2 && !seen.has(clean.toLowerCase()) && !/^(?:and|or|etc|tools|skills)$/i.test(clean)) {
+      seen.add(clean.toLowerCase())
+      targetKws.push(clean)
+    }
   }
 
-  const cleanKeywords = (Array.isArray(missingKeywords) ? missingKeywords : [])
-    .map((k) => (typeof k === 'string' ? k : k?.skill || k?.name || k?.keyword || ''))
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  if (!cleanKeywords.length) {
-    return weaveKeywordsDeterministic({ canonicalResume, missingKeywords: [], targetRole })
+  if (targetKws.length === 0 || experiences.length === 0) {
+    return {
+      tailoredExperiences: experiences.map((exp) => ({
+        ...exp,
+        bullets: cleanBoilerplateAndTense(exp.bullets || [], isRoleCurrent(exp)),
+      })),
+      interviewLedger: [],
+      totalKeywordsWoven: 0,
+    }
   }
 
   try {
-    const systemPrompt = `You are a technical recruiter and resume engineering specialist.
-Weave missing target keywords into candidate experience bullets or synthesize realistic new bullets.
+    const compactExperiences = experiences.map((exp, idx) => ({
+      index: idx,
+      company: exp.company || `Company ${idx + 1}`,
+      role: exp.role || exp.title || '',
+      duration: exp.duration || '',
+      isCurrent: isRoleCurrent(exp),
+      bullets: (exp.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || '')),
+    }))
 
-CRITICAL RULES:
-1. Weave missing keywords into existing tooling or architecture clauses where technically plausible.
-2. If direct insertion produces an unnatural sentence, synthesize a brand-new, realistic engineering bullet (strictly under 28 words) matching the company's domain.
-3. TENSE RULES:
-   - For CURRENT roles (isCurrent=true or dates containing Present/Current/Now), every opening verb MUST be in active present tense (e.g., Build, Architect, Deploy, Engineer, Optimize).
-   - For COMPLETED roles, every opening verb MUST be in past tense (e.g., Built, Architected, Deployed, Engineered, Optimized).
-4. Strictly FORBID repeating boilerplate clauses (e.g. "by establishing decoupled microservice boundaries...").
-5. Return ONLY a valid JSON object matching this schema:
+    const systemPrompt = `You are an elite Principal Technical Recruiter & Staff Resume Architect.
+Your objective is to naturally distribute and weave target keywords across candidate experience entries.
+
+CRITICAL ARCHITECTURAL CONSTRAINTS:
+1. BALANCED MULTI-COMPANY DISTRIBUTION (NEVER DUMP ALL KEYWORDS INTO ONE COMPANY):
+   - You MUST distribute keywords across ALL candidate companies based on technical domain relevance.
+   - Database, SQL, PostgreSQL, Redis, Node.js, ORM, GraphQL, Java keywords belong in database/backend-centric roles.
+   - Cloud, serverless, Azure, GCP, Docker, Kubernetes, CI/CD, Git, PyTorch keywords belong in cloud/AI-centric roles.
+   - Testing & Code Quality (Unit / Integration Testing, Code Reviews) can be placed in either role.
+   - MAXIMUM 1-2 keyword additions or modifications per company!
+   - Total bullets per company must be balanced (target 4-5 bullets per company, NEVER exceed 6).
+
+2. NATURAL IN-LINE WEAVING FIRST (AVOID GENERIC ONE-LINERS):
+   - Prioritize enhancing an existing bullet naturally with the keyword instead of adding a new bullet.
+   - Only synthesize a new bullet if no existing bullet can naturally accommodate the keyword.
+   - Any synthesized bullet must be rich, concrete, technical, under 28 words, and directly grounded in that company's product domain.
+
+3. STRICT TENSE ENFORCEMENT:
+   - For ANY experience entry where isCurrent is true: EVERY bullet MUST strictly start with an active PRESENT TENSE verb.
+   - For past completed roles (isCurrent is false): EVERY bullet MUST strictly start with an active PAST TENSE verb.
+
+4. INTERVIEW DEFENSE LEDGER:
+   - For EVERY woven keyword, provide:
+     - "keyword": exact keyword
+     - "company": company name where woven
+     - "placement": "Woven into existing bullet" or "Synthesized high-impact bullet"
+     - "exactBullet": the final bullet text containing the keyword
+     - "interviewTalkingScript": a concise, 1-sentence technical defense script explaining why you chose this tool, architectural trade-offs, and measurable impact for recruiter/tech screening rounds.
+
+OUTPUT FORMAT:
+Return valid JSON only:
 {
   "tailoredExperiences": [
     {
-      "company": "Company Name",
-      "role": "Role Title",
-      "isCurrent": true,
-      "bullets": ["...", "..."]
+      "index": 0,
+      "company": "...",
+      "role": "...",
+      "duration": "...",
+      "isCurrent": true/false,
+      "bullets": ["..."]
     }
   ],
   "interviewLedger": [
     {
-      "keyword": "Keyword",
-      "company": "Company Name",
-      "placement": "Placement clause or Synthesized Bullet",
-      "bulletText": "Full bullet text",
-      "exactBullet": "Full bullet text",
-      "wovenBullet": "Full bullet text",
-      "interviewTalkingScript": "How candidate should explain this in interview",
-      "talkingScript": "How candidate should explain this in interview"
+      "keyword": "...",
+      "company": "...",
+      "placement": "...",
+      "exactBullet": "...",
+      "interviewTalkingScript": "..."
     }
   ]
 }`
 
-    const userPrompt = `TARGET ROLE: ${targetRole || canonicalResume?.target_role || 'Software Engineer'}
-MISSING KEYWORDS TO WEAVE: ${JSON.stringify(cleanKeywords.slice(0, 10))}
+    const userPrompt = `Target Role: ${targetRole || canonicalResume?.target_role || 'Software Engineer'}
+Target Keywords to Weave: ${targetKws.slice(0, 10).join(', ')}
 
-EXPERIENCES:
-${JSON.stringify(
-  experiences.map((e) => ({
-    company: e.company,
-    role: e.role,
-    dates: e.dates || e.duration || (e.isCurrent ? 'Present' : ''),
-    isCurrent:
-      e.isCurrent === true ||
-      /present|current|now/i.test(e.endDate || '') ||
-      /present|current|now/i.test(e.dates || '') ||
-      /present|current|now/i.test(e.duration || ''),
-    bullets: (e.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || '')),
-  })),
-  null,
-  2
-)}`
+Candidate Experiences:
+${JSON.stringify(compactExperiences, null, 2)}`
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('LLM keyword weaving timeout')), 6000)
-    )
-
-    const generatePromise = llmGateway.generate({
+    const response = await llmGateway.generate({
       purpose: 'resume_keyword_weaving',
-      responseFormat: 'json_object',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
+      responseFormat: 'json_object',
+      temperature: 0.2,
+      maxTokens: 2500,
     })
 
-    const response = await Promise.race([generatePromise, timeoutPromise])
-    const text = response?.text || (typeof response === 'string' ? response : '')
-    const parsed = JSON.parse(text)
+    if (response && response.text) {
+      let parsed = null
+      try {
+        parsed = JSON.parse(response.text)
+      } catch (_jsonErr) {
+        const jsonMatch = response.text.match(/\{[\s\S]*\}/)
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
+      }
 
-    if (Array.isArray(parsed?.tailoredExperiences) && parsed.tailoredExperiences.length > 0) {
-      const mergedExperiences = experiences.map((origExp, idx) => {
-        const aiExp = parsed.tailoredExperiences[idx]
-        if (aiExp && Array.isArray(aiExp.bullets) && aiExp.bullets.length > 0) {
+      if (parsed && Array.isArray(parsed.tailoredExperiences) && parsed.tailoredExperiences.length > 0) {
+        const maxBullets = Math.max(...parsed.tailoredExperiences.map((te) => (te.bullets || []).length))
+        if (maxBullets <= 6) {
+          const wovenExperiences = experiences.map((origExp, idx) => {
+            const matching = parsed.tailoredExperiences.find((te) => te.index === idx || te.company === origExp.company)
+            const isCurrent = isRoleCurrent(origExp)
+            const newBullets = (matching?.bullets && matching.bullets.length > 0) ? matching.bullets : origExp.bullets
+            return {
+              ...origExp,
+              isCurrent,
+              bullets: cleanBoilerplateAndTense(newBullets, isCurrent),
+            }
+          })
+
+          const ledger = (Array.isArray(parsed.interviewLedger) ? parsed.interviewLedger : []).map((l) => ({
+            ...l,
+            wovenBullet: l.wovenBullet || l.exactBullet || '',
+            exactBullet: l.exactBullet || l.wovenBullet || '',
+            talkingScript: l.talkingScript || l.interviewTalkingScript || '',
+            interviewTalkingScript: l.interviewTalkingScript || l.talkingScript || '',
+          }))
+          const totalWoven = ledger.length > 0 ? ledger.length : targetKws.length
+
           return {
-            ...origExp,
-            bullets: aiExp.bullets.map((bText, bIdx) => {
-              const origBullet = (origExp.bullets || [])[bIdx]
-              if (typeof origBullet === 'object' && origBullet !== null) {
-                return { ...origBullet, text: bText }
-              }
-              return bText
-            }),
+            tailoredExperiences: wovenExperiences,
+            interviewLedger: ledger,
+            totalKeywordsWoven: totalWoven,
           }
         }
-        return origExp
-      })
-
-      const ledger = (Array.isArray(parsed?.interviewLedger) ? parsed.interviewLedger : []).map((item) => ({
-        keyword: item.keyword || '',
-        company: item.company || '',
-        placement: item.placement || 'Technical Tooling Clause',
-        bulletText: item.bulletText || item.wovenBullet || item.exactBullet || '',
-        exactBullet: item.exactBullet || item.wovenBullet || item.bulletText || '',
-        wovenBullet: item.wovenBullet || item.exactBullet || item.bulletText || '',
-        interviewTalkingScript: item.interviewTalkingScript || item.talkingScript || `Discuss how you applied ${item.keyword} in production.`,
-        talkingScript: item.talkingScript || item.interviewTalkingScript || `Discuss how you applied ${item.keyword} in production.`,
-      }))
-
-      return {
-        tailoredExperiences: mergedExperiences,
-        interviewLedger: ledger,
-        totalKeywordsWoven: ledger.length,
       }
     }
-  } catch (_err) {
-    // Non-blocking fallback to deterministic weaver
+  } catch (err) {
+    console.warn('[SmartKeywordWeaver] Mini-agent LLM call fell back to deterministic weaver:', err.message)
   }
 
-  return weaveKeywordsDeterministic({ canonicalResume, missingKeywords: cleanKeywords, targetRole })
+  return deterministicWeave(experiences, targetKws, targetRole)
+}
+
+export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywords = [], targetRole = '' } = {}) {
+  const experiences = canonicalResume?.experiences || canonicalResume?.experience || []
+  const targetKws = (Array.isArray(missingKeywords) ? missingKeywords : [])
+    .map((k) => (typeof k === 'string' ? k : k?.skill || k?.name || k?.keyword || ''))
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return deterministicWeave(experiences, targetKws, targetRole)
 }
 
 export default {
   weaveKeywordsAndBuildLedger,
+  deterministicWeave,
   weaveKeywordsDeterministic,
+  isRoleCurrent,
+  cleanBoilerplateAndTense,
 }
