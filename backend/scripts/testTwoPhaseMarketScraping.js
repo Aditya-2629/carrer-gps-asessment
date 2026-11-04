@@ -29,6 +29,10 @@ const mockJds = [
 const fastCatchResult = await fetchFastCatchJds({ role: 'Data Analyst', targetCount: 15, timeoutMs: 500, mockJds })
 assert(Array.isArray(fastCatchResult), 'fetchFastCatchJds must resolve to an array')
 assert.strictEqual(fastCatchResult.length, 3, 'Must return 3 mock JDs')
+
+// Verify dynamic role resolution from bucketKey when role is omitted
+const dynamicBucketResult = await fetchFastCatchJds({ bucketKey: 'data-analyst::3-5', targetCount: 2, mockJds })
+assert.strictEqual(dynamicBucketResult.length, 2, 'Must slice to targetCount 2')
 console.log('✔ Test 1 Passed: fetchFastCatchJds and enqueueFullBackgroundBucket interfaces verified.\n')
 
 // ---------------------------------------------------------
