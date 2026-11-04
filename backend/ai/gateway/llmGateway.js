@@ -101,6 +101,7 @@ export class LLMGateway {
     bypassCache = false,
     signal = null,
     totalDeadlineMs = null,
+    timeoutMs: callerTimeoutMs = null,
     excludeProvider = null,
     preferredProvider = null,
   }) {
@@ -113,7 +114,10 @@ export class LLMGateway {
       })
     }
 
-    const effectiveTotalDeadlineMs = totalDeadlineMs || this.config.totalDeadlineMs || 60000
+    const effectiveTotalDeadlineMs =
+      totalDeadlineMs ||
+      callerTimeoutMs ||
+      (purpose === 'bullet_batch_weave' ? 6000 : (this.config.totalDeadlineMs || 60000))
     const requestStartTime = Date.now()
 
     const requestedModelId = model || this.config.defaultResumeModel
@@ -145,7 +149,14 @@ export class LLMGateway {
     // quota/503 outage can be absorbed by NVIDIA/Groq models.
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
-      if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
+      if (purpose === 'bullet_batch_weave') {
+        modelsToTry = [
+          'llama-3.3-70b-versatile',
+          'openai/gpt-oss-120b',
+          'google/gemini-3.5-flash',
+          'google/gemini-2.5-flash',
+        ]
+      } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
         modelsToTry = [
           'llama-3.3-70b-versatile',
           'google/gemini-3.5-flash',
@@ -205,7 +216,7 @@ export class LLMGateway {
       let remainingDeadlineMs = effectiveTotalDeadlineMs - (Date.now() - requestStartTime)
       // When cascading to the next candidate, guarantee at least 25000ms timeout budget so upstream timeouts never starve fallback
       if (i > 0) {
-        remainingDeadlineMs = Math.max(remainingDeadlineMs, 25000)
+        remainingDeadlineMs = Math.max(remainingDeadlineMs, purpose === 'bullet_batch_weave' ? 6000 : 25000)
       }
       if (remainingDeadlineMs <= 0) {
         lastError = new ProviderError({
@@ -290,9 +301,11 @@ export class LLMGateway {
         const supportsJsonObject = isJsonFormat && Boolean(modelMetadata.supportsJsonObject)
 
         const configuredTimeout =
-          providerKey === 'gemini'
-            ? (this.config.gemini?.totalDeadlineMs || this.config.gemini?.timeoutMs || 60000)
-            : (this.config[providerKey]?.timeoutMs || 60000)
+          purpose === 'bullet_batch_weave'
+            ? (callerTimeoutMs || 6000)
+            : providerKey === 'gemini'
+              ? (this.config.gemini?.totalDeadlineMs || this.config.gemini?.timeoutMs || 60000)
+              : (this.config[providerKey]?.timeoutMs || 60000)
         const timeoutMs = Math.min(configuredTimeout, remainingDeadlineMs)
         const perAttemptTimeoutMs =
           providerKey === 'gemini'

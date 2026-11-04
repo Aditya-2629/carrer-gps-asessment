@@ -13,7 +13,7 @@ import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGe
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
-import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
+import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { handleChatMessage } from './chatController.js'
 
@@ -974,34 +974,30 @@ export const downloadAtsResumeDocx = async (req, res) => {
       })
     }
 
-    // 3. Smart Keyword Weaver & Interview Defense Sheet Integration
-    const { tailoredExperiences, interviewLedger } = await weaveKeywordsAndBuildLedger({
-      canonicalResume: canonical,
-      missingKeywords: missingSkillsList,
-      targetRole: canonical.target_role,
-      skillsOnlyKeywords: strandedSkillsOnly,
+    // 3. Smart Single-Batch Natural Bullet Weaver & Interview Defense Integration
+    const { tailoredExperiences, interviewLedger } = await batchWeaveBulletsWithLLM({
+      experiences: canonical.experiences || canonical.experience || [],
+      targetSkills: missingSkillsList,
+      targetRole: canonical.target_role || ra.targetRole || 'Data Analyst',
+      company: canonical.experiences?.[0]?.company || 'Enterprise',
+      timeoutMs: 5000, // 5s timeout guard
     })
+
     if (tailoredExperiences && tailoredExperiences.length > 0) {
-      canonical.experiences = tailoredExperiences.map((te, expIdx) => {
-        const origExp = canonical.experiences[expIdx]
-        const preservedBullets = (te.bullets || []).map((b, bIdx) => {
-          const origB = origExp?.bullets?.[bIdx]
-          const stableId = (typeof origB === 'object' && origB?.id)
-            ? origB.id
-            : (typeof b === 'object' && b?.id ? b.id : `exp_${String(expIdx + 1).padStart(3, '0')}_b${String(bIdx + 1).padStart(2, '0')}`)
-          const text = typeof b === 'string' ? b : b?.text || ''
-          return {
-            id: stableId,
-            text,
-            source: origB?.source || { page: 1, bbox: null },
-          }
-        })
-        return {
-          ...origExp,
-          ...te,
-          bullets: preservedBullets,
-        }
-      })
+      canonical.experiences = tailoredExperiences
+    }
+
+    // Cache updated interview defense ledger on user report
+    if (user?.aiReport && interviewLedger && interviewLedger.length > 0) {
+      user.aiReport.interview_ledger = interviewLedger
+      user.aiReport.interviewLedger = interviewLedger
+      if (user.aiReport.resume_agent) {
+        user.aiReport.resume_agent.interviewLedger = interviewLedger
+      }
+      user.markModified?.('aiReport')
+      if (typeof user.save === 'function') {
+        await user.save().catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
+      }
     }
 
     // 4. Bullet Audit wiring (prioritize dashboard, bulletRewrites, bulletAudit, bulletUpgrades, tailoredBullets)

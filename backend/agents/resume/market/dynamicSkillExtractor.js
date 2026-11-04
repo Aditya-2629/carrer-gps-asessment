@@ -139,6 +139,8 @@ export function isConcreteTechSkill(token) {
   return true
 }
 
+export const isGenuineTechnicalSkill = isConcreteTechSkill
+
 export const DYNAMIC_EXTRACTOR_SYSTEM_PROMPT = `You are a Universal ATS Skill & Technology Extractor.
 Your job is to read raw Job Description text from ANY industry domain (SWE, Data Analytics, Generative AI, Healthcare, Embedded, Salesforce, Finance, Biotech, etc.) and extract all specific technical skills, tools, frameworks, languages, and methodologies required.
 

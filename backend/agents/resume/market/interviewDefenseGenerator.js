@@ -39,3 +39,4 @@ export function getResumeSentence(skill, company = 'PwC USA') {
   }
   return `Applied ${skill} to automate reporting reconciliation and support cross-functional decision workflows.`
 }
+

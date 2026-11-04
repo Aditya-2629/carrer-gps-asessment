@@ -1,6 +1,217 @@
+import crypto from 'crypto'
+import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { toPresentTense } from '../signals/patterns.js'
-import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
+import { isConcreteTechSkill, isGenuineTechnicalSkill } from './dynamicSkillExtractor.js'
+
+// In-memory cache for rewritten bullets (hash -> rewritten result)
+export const BULLET_REWRITE_CACHE = new Map()
+const MAX_CACHE_SIZE = 1000
+
+export function getRewriteHash(bulletId, originalText, skills = []) {
+  const normSkills = [...skills].map((s) => (typeof s === 'string' ? s : s?.skill || s?.keyword || s?.name || '').toLowerCase().trim()).filter(Boolean).sort().join('|')
+  return crypto
+    .createHash('sha256')
+    .update(`${bulletId}:${(originalText || '').trim()}:${normSkills}`)
+    .digest('hex')
+    .slice(0, 24)
+}
+
+export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Resume Writer and Google XYZ Bullet Architect.
+Your task is to naturally re-engineer candidate experience bullets to incorporate missing target skills using verified Google XYZ impact framing (Accomplished [X], measured by [Y], by doing [Z]).
+
+CRITICAL ARCHITECTURAL RULES:
+1. NEVER append robotic, repetitive suffixes like ", leveraging [Tool] for scalable pipelines" or ", utilizing [Tool] to enhance execution".
+2. WEAVE THE TOOL ORGANICALLY as the primary engine or mechanism of the achievement.
+3. PRESERVE ALL ORIGINAL METRICS AND NUMBERS (e.g. if original says "68% cut in manual reporting", keep "68% reduction in manual reporting"). NEVER fabricate new unverified metrics.
+4. ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
+5. LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
+6. DOMAIN FIDELITY: Maintain strict domain realism (e.g. for Data Analyst roles, weave Snowflake/dbt into data modeling, ETL, or automated reconciliation; do not invent full-stack UI or unit testing frameworks).
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+{
+  "rewrittenBullets": [
+    {
+      "bulletId": "exp_001_b01",
+      "wovenSkill": "Snowflake",
+      "rewrittenText": "Engineered automated Snowflake-SQL pipelines to reconcile multi-source transaction data, cutting manual reporting turnaround by 68% and eliminating reporting discrepancies.",
+      "interviewTalkingScript": "Explain how you modeled the star-schema tables in Snowflake and optimized clustering keys to support high-throughput reporting queries."
+    }
+  ]
+}`
+
+/**
+ * Single-Batch Natural Bullet Re-Weaver
+ * Re-engineers candidate experience bullets in 1 single fast LLM request.
+ */
+export async function batchWeaveBulletsWithLLM({
+  experiences = [],
+  targetSkills = [],
+  targetRole = 'Data Analyst',
+  company = '',
+  timeoutMs = 6000,
+}) {
+  const cleanSkills = Array.from(new Set(targetSkills)).filter(isGenuineTechnicalSkill)
+  if (cleanSkills.length === 0 || !Array.isArray(experiences) || experiences.length === 0) {
+    return deterministicWeave(experiences, targetSkills, targetRole)
+  }
+
+  // Flatten candidate bullets into indexable batch
+  const candidateBullets = []
+  experiences.forEach((exp, expIdx) => {
+    const compName = exp.company || company || `Company ${expIdx + 1}`
+    ;(exp.bullets || []).forEach((b, bIdx) => {
+      const bId = (typeof b === 'object' && b?.id) ? b.id : `exp_${String(expIdx + 1).padStart(3, '0')}_b${String(bIdx + 1).padStart(2, '0')}`
+      const text = typeof b === 'string' ? b : (b?.text || '')
+      if (text && text.length >= 15) {
+        candidateBullets.push({
+          bulletId: bId,
+          originalText: text,
+          company: compName,
+          expIdx,
+          bIdx,
+        })
+      }
+    })
+  })
+
+  if (candidateBullets.length === 0) {
+    return deterministicWeave(experiences, targetSkills, targetRole)
+  }
+
+  // 1. Check Cache First (0ms, 0 cost)
+  const bulletsToRewrite = []
+  const cachedRewrites = new Map()
+
+  candidateBullets.forEach((item) => {
+    const hash = getRewriteHash(item.bulletId, item.originalText, cleanSkills)
+    if (BULLET_REWRITE_CACHE.has(hash)) {
+      cachedRewrites.set(item.bulletId, BULLET_REWRITE_CACHE.get(hash))
+    } else {
+      bulletsToRewrite.push(item)
+    }
+  })
+
+  // If all bullets are cached, assemble and return instantly!
+  if (bulletsToRewrite.length === 0) {
+    console.log('[SmartKeywordWeaver] Delivered tailored experiences in 0ms via lru_cache.')
+    const tailored = JSON.parse(JSON.stringify(experiences))
+    const ledger = []
+    candidateBullets.forEach((item) => {
+      const res = cachedRewrites.get(item.bulletId)
+      if (res && res.rewrittenText) {
+        if (typeof tailored[item.expIdx].bullets[item.bIdx] === 'string') {
+          tailored[item.expIdx].bullets[item.bIdx] = res.rewrittenText
+        } else if (tailored[item.expIdx].bullets[item.bIdx]) {
+          tailored[item.expIdx].bullets[item.bIdx].text = res.rewrittenText
+        }
+        ledger.push({
+          keyword: res.wovenSkill || 'Target Stack',
+          company: item.company,
+          exactBullet: res.rewrittenText,
+          interviewTalkingScript: res.interviewTalkingScript || `Explain how you leveraged ${res.wovenSkill} in production workflows.`,
+        })
+      }
+    })
+    return {
+      tailoredExperiences: tailored,
+      interviewLedger: ledger,
+      totalKeywordsWoven: ledger.length,
+      source: 'lru_cache',
+    }
+  }
+
+  // 2. Single-Batch LLM Call (Groq Primary -> OpenRouter Fallback)
+  const batchPromptInput = {
+    targetRole,
+    targetSkillsToWeave: cleanSkills.slice(0, 5),
+    bulletsToReengineer: bulletsToRewrite.slice(0, 6).map((b) => ({
+      bulletId: b.bulletId,
+      company: b.company,
+      currentText: b.originalText,
+    })),
+  }
+
+  try {
+    const startTime = Date.now()
+    const response = await llmGateway.generate({
+      purpose: 'bullet_batch_weave',
+      preferredProvider: 'groq',
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: BATCH_WEAVER_SYSTEM_PROMPT },
+        { role: 'user', content: `Re-engineer these experience bullets naturally:\n\n${JSON.stringify(batchPromptInput, null, 2)}` },
+      ],
+      responseFormat: { type: 'json_object' },
+      temperature: 0.2,
+      maxTokens: 1500,
+      timeoutMs,
+    })
+
+    const elapsed = Date.now() - startTime
+    const usedModel = response?.actualModel || response?.model || 'llama-3.3-70b-versatile'
+    const usedProv = response?.provider || 'groq'
+    console.log(`[SmartKeywordWeaver] Single-batch LLM re-weaver executed in ~${elapsed}ms via ${usedProv} (${usedModel}).`)
+
+    const raw = response?.text || '{}'
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = JSON.parse(jsonrepair(raw))
+    }
+
+    const rewrittenMap = new Map()
+    if (Array.isArray(parsed?.rewrittenBullets)) {
+      parsed.rewrittenBullets.forEach((item) => {
+        if (item?.bulletId && item?.rewrittenText && item.rewrittenText.length >= 20) {
+          rewrittenMap.set(item.bulletId, item)
+
+          // Store in LRU Cache
+          const original = bulletsToRewrite.find((b) => b.bulletId === item.bulletId)?.originalText || ''
+          const hash = getRewriteHash(item.bulletId, original, cleanSkills)
+          if (BULLET_REWRITE_CACHE.size >= MAX_CACHE_SIZE) {
+            const firstKey = BULLET_REWRITE_CACHE.keys().next().value
+            BULLET_REWRITE_CACHE.delete(firstKey)
+          }
+          BULLET_REWRITE_CACHE.set(hash, item)
+        }
+      })
+    }
+
+    // 3. Assemble Tailored Experiences
+    const tailored = JSON.parse(JSON.stringify(experiences))
+    const interviewLedger = []
+
+    candidateBullets.forEach((item) => {
+      const rewrite = rewrittenMap.get(item.bulletId) || cachedRewrites.get(item.bulletId)
+      if (rewrite && rewrite.rewrittenText) {
+        if (typeof tailored[item.expIdx].bullets[item.bIdx] === 'string') {
+          tailored[item.expIdx].bullets[item.bIdx] = rewrite.rewrittenText
+        } else if (tailored[item.expIdx].bullets[item.bIdx]) {
+          tailored[item.expIdx].bullets[item.bIdx].text = rewrite.rewrittenText
+        }
+        interviewLedger.push({
+          keyword: rewrite.wovenSkill || 'Target Stack',
+          company: item.company,
+          exactBullet: rewrite.rewrittenText,
+          interviewTalkingScript: rewrite.interviewTalkingScript || `Explain how you leveraged ${rewrite.wovenSkill} in production workflows.`,
+        })
+      }
+    })
+
+    return {
+      tailoredExperiences: tailored,
+      interviewLedger,
+      totalKeywordsWoven: interviewLedger.length,
+      source: 'single_batch_llm',
+    }
+  } catch (err) {
+    console.warn('[SmartKeywordWeaver] Single-batch LLM re-weaver failed or timed out. Falling back to deterministic weaver:', err.message)
+    // 4. Zero-Failure Fallback: Clean Deterministic Weaver
+    return deterministicWeave(experiences, targetSkills, targetRole)
+  }
+}
 
 export function isRoleCurrent(exp = {}) {
   return Boolean(
@@ -692,6 +903,8 @@ export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywor
 }
 
 export default {
+  batchWeaveBulletsWithLLM,
+  BULLET_REWRITE_CACHE,
   weaveKeywordsAndBuildLedger,
   deterministicWeave,
   weaveKeywordsDeterministic,
