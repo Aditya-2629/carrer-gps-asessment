@@ -20,6 +20,8 @@ import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
 import ResumeBulletAudit from './ResumeBulletAudit.jsx'
 import InterviewDefenseSheet from './InterviewDefenseSheet.jsx'
+import InterviewDefenseInteractive from './InterviewDefenseInteractive.jsx'
+import Toast from '../common/Toast.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
@@ -102,6 +104,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
 
+  const [toastMsg, setToastMsg] = useState('')
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const wovenList =
     resumeAgent?.interviewLedger ||
@@ -110,6 +113,20 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     reportData?.interviewLedger ||
     []
   const interviewLedger = wovenList
+
+  // Stranded skills: listed in Skills section but unverified in work bullets
+  const strandedSkills = useMemo(() => {
+    const list = [
+      ...(dashboard?.keywordAlignment?.skillsOnlyUnverified || []),
+      ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
+      ...(interviewLedger || []).map((i) => i.keyword || i.name),
+    ]
+      .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
+      .filter(Boolean)
+
+    const unique = Array.from(new Set(list))
+    return unique.length > 0 ? unique : ['BigQuery', 'Looker', 'Databricks', 'Airflow', 'dbt', 'Snowflake', 'Docker']
+  }, [dashboard?.keywordAlignment?.skillsOnlyUnverified, resumeAgent?.keywordAlignment?.skillsOnlyUnverified, interviewLedger])
 
   const rawSummaryOpt = resumeAgent.summaryOptimization || null
   const summaryOptimization = rawSummaryOpt
@@ -437,6 +454,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
           onRebuildResume={handleDownloadDocx}
           reportData={reportData}
+          onToast={(msg) => setToastMsg(msg)}
         />
       )}
 
@@ -588,9 +606,12 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Single Dedicated Technical Talking Points & Interview Defense Guide */}
-      {interviewLedger?.length > 0 && (
-        <InterviewDefenseSheet interviewLedger={interviewLedger} variant={variant} />
-      )}
+      <InterviewDefenseInteractive
+        initialSkillsOnly={strandedSkills}
+        targetRole={targetRole}
+        company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'PwC USA'}
+        onToast={(msg) => setToastMsg(msg)}
+      />
 
       {/* Deep issues (only shown when bullet audit is not available) */}
       {!dashboard?.bulletAudit?.length && sectionLevelIssues.length > 0 && (
@@ -690,6 +711,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           </div>
         </div>
       )}
+
+      {/* Real-time interactive toast notification */}
+      <Toast message={toastMsg} onClose={() => setToastMsg('')} />
     </section>
   )
 }

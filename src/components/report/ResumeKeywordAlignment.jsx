@@ -9,6 +9,8 @@ export default function ResumeKeywordAlignment({
   onRebuildResume = null,
   currentMatchRate: propMatchRate = null,
   reportData: propReportData = null,
+  onSkillToggle = null,
+  onToast = null,
 }) {
   if (!keywordAlignment) return null
 
@@ -32,8 +34,19 @@ export default function ResumeKeywordAlignment({
   const toggleSkillSelection = (skillName) => {
     setSelectedSkills((prev) => {
       const next = new Set(prev)
-      if (next.has(skillName)) next.delete(skillName)
-      else next.add(skillName)
+      let added = false
+      if (next.has(skillName)) {
+        next.delete(skillName)
+        added = false
+      } else {
+        next.add(skillName)
+        added = true
+      }
+      if (typeof onSkillToggle === 'function') {
+        onSkillToggle(skillName, added)
+      } else if (typeof onToast === 'function') {
+        onToast(added ? `Skill updated in report successfully! Added "${skillName}".` : `Removed "${skillName}" from selection`)
+      }
       return next
     })
   }
