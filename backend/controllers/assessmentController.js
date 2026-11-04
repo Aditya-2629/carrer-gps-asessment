@@ -15,6 +15,7 @@ import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
 import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
+import { handleChatMessage } from './chatController.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -452,6 +453,12 @@ export function formatQuantAnswer(val, unitLabel = '') {
 
 
 export const chatResume = async (req, res) => {
+  return handleChatMessage(req, res)
+}
+
+export { handleChatMessage }
+
+const _legacyChatResume = async (req, res) => {
   const { userId, question, history = [] } = req.body
 
   if (!userId || !question) {

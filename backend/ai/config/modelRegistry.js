@@ -59,6 +59,19 @@ export const MODEL_REGISTRY = {
     enabled: true,
   },
 
+  'google/gemini-2.5-flash': {
+    id: 'google/gemini-2.5-flash',
+    displayName: 'Google Gemini 2.5 Flash (OpenRouter)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
   'google/gemini-3-flash-preview': {
     id: 'google/gemini-3-flash-preview',
     displayName: 'Google Gemini 3 Flash Preview (OpenRouter)',

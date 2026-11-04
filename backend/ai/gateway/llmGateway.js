@@ -42,6 +42,7 @@ export const TRAP_MODELS = new Set([
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
     'google/gemini-3.5-flash',
+    'google/gemini-2.5-flash',
     'google/gemini-3-flash-preview',
     'google/gemini-3.1-pro-preview',
   ],
@@ -144,26 +145,35 @@ export class LLMGateway {
     // quota/503 outage can be absorbed by NVIDIA/Groq models.
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
-      const chain = new Set()
-      if (!model) {
-        for (const m of listModelsForPurpose(purpose)) {
-          if (!TRAP_MODELS.has(m.id)) chain.add(m.id)
-        }
-      }
-      if (requestedModelId && !TRAP_MODELS.has(requestedModelId)) {
-        chain.add(requestedModelId)
-      }
-      for (const entry of PRODUCTION_FALLBACK_CHAIN) {
-        if (entry === requestedModelId || TRAP_MODELS.has(entry)) continue
-        if (PROVIDER_MODEL_FALLBACKS[entry]) {
-          for (const m of PROVIDER_MODEL_FALLBACKS[entry]) {
-            if (m !== requestedModelId && !TRAP_MODELS.has(m)) chain.add(m)
+      if (purpose === 'career_chatbot' && !model) {
+        modelsToTry = [
+          'llama-3.3-70b-versatile',
+          'google/gemini-3.5-flash',
+          'google/gemini-2.5-flash',
+          'gemini-3.5-flash-lite',
+        ]
+      } else {
+        const chain = new Set()
+        if (!model) {
+          for (const m of listModelsForPurpose(purpose)) {
+            if (!TRAP_MODELS.has(m.id)) chain.add(m.id)
           }
-        } else {
-          chain.add(entry)
         }
+        if (requestedModelId && !TRAP_MODELS.has(requestedModelId)) {
+          chain.add(requestedModelId)
+        }
+        for (const entry of PRODUCTION_FALLBACK_CHAIN) {
+          if (entry === requestedModelId || TRAP_MODELS.has(entry)) continue
+          if (PROVIDER_MODEL_FALLBACKS[entry]) {
+            for (const m of PROVIDER_MODEL_FALLBACKS[entry]) {
+              if (m !== requestedModelId && !TRAP_MODELS.has(m)) chain.add(m)
+            }
+          } else {
+            chain.add(entry)
+          }
+        }
+        modelsToTry = Array.from(chain)
       }
-      modelsToTry = Array.from(chain)
     }
 
     // Provider isolation / preference ordering:
@@ -344,8 +354,17 @@ export class LLMGateway {
           totalTokens: result.tokens?.total,
         })
 
+        let finalText = result.text || ''
+        if (purpose === 'career_chatbot' && typeof finalText === 'string') {
+          const outerFenced = finalText.trim().match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
+          if (outerFenced) {
+            finalText = outerFenced[1].trim()
+          }
+        }
+
         const finalResponse = {
           ...result,
+          text: finalText,
           requestId: span.requestId,
           provider: providerKey,
           requestedModel: requestedModelId,

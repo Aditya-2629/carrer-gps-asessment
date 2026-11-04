@@ -37,6 +37,7 @@ router.post('/report/:userId/download-resume-docx', downloadAtsResumeDocx)
 router.get('/download-resume-docx', downloadAtsResumeDocx)
 router.post('/download-resume-docx', downloadAtsResumeDocx)
 router.post('/resume-talk', chatResume)
+router.post('/chat', chatResume)
 router.post('/book-call', bookCall)
 
 export default router

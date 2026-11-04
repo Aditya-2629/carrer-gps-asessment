@@ -138,7 +138,7 @@ export function deriveFunnelFromAnswers(answers = {}) {
  * shape. Ensures objects (funnel_stages, mission_board, risk_heatmap) retain
  * their object schemas and arrays are coerced safely.
  */
-function normalizeAtlasShapes(report, answers = {}) {
+export function normalizeAtlasShapes(report, answers = {}) {
   if (!report || typeof report !== 'object') return report
 
   // mission_board: wrap into object if returned as an array
@@ -222,6 +222,17 @@ function normalizeAtlasShapes(report, answers = {}) {
   if (Array.isArray(report.career_journey)) {
     report.career_journey = report.career_journey[0] || null
   }
+
+  // Step 4: Ensure "Execution Bridge" CTA is dynamically anchored to funnel_stages.biggest_leak_stage
+  if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
+    report.coach_intervention = {}
+  }
+  const leakStage = report.funnel_stages?.biggest_leak_stage || 'Technical Rounds'
+  report.coach_intervention.urgency_statement = 
+    `Polished bullet points and optimized headlines alone will not fix your drop-off at ${leakStage}. Bypassing cold portal black holes requires a targeted direct-referral protocol and live technical storytelling.`
+  report.coach_intervention.value_prop = 
+    `In your 1-on-1 Strategy Call, we will map out your exact 30-day hiring manager referral pipeline, resolve cross-document background flags, and conduct live mock storytelling for your top projects.`
+  report.coach_intervention.cta_text = 'Book Free 1-on-1 Strategy Session'
 
   return report
 }
