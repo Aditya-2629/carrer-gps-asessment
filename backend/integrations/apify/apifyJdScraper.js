@@ -27,7 +27,18 @@ export async function scrapeLiveJobDescriptions(searchParams, options = {}) {
     })
 
     const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
-    const run = await client.actor(actorId).call(searchParams)
+    const payload = typeof searchParams === 'object' && searchParams !== null
+      ? {
+          titles: Array.isArray(searchParams.titles) && searchParams.titles.length > 0
+            ? searchParams.titles
+            : [searchParams.role || searchParams.title || searchParams.query || 'Software Engineer'],
+          locations: Array.isArray(searchParams.locations) && searchParams.locations.length > 0
+            ? searchParams.locations
+            : ['United States'],
+          ...searchParams,
+        }
+      : searchParams
+    const run = await client.actor(actorId).call(payload)
     const { items } = await client.dataset(run.defaultDatasetId).listItems()
     return items || []
   }, { maxAttempts: options.maxRetries || 3 })
@@ -125,23 +136,28 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
   // Input contract supporting both legacy and modern bebity actor schemas
   const actorInput = {
+    titles: Array.isArray(options.titles) && options.titles.length > 0
+      ? options.titles
+      : [searchSpec.role || searchSpec.query || 'Software Engineer'],
+    locations: Array.isArray(options.locations) && options.locations.length > 0
+      ? options.locations
+      : ['United States'],
     queries: [searchSpec.query],
     query: searchSpec.query,
     title: searchSpec.query,
-    titles: [searchSpec.query],
     rows: maxCandidates,
     maxRowsPerUrl: maxCandidates,
     maxRows: maxCandidates,
     limit: maxCandidates,
     maxItems: maxCandidates,
     location: 'United States',
-    locations: ['United States'],
     country: 'us',
     companyProfile: false,
     enrichCompany: false,
     scrapeCompanyDetails: false,
     easyApply: false,
     under10Applicants: false,
+    ...(options.actorInput || {}),
   }
 
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {

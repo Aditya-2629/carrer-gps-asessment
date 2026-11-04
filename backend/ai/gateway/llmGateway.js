@@ -119,7 +119,7 @@ export class LLMGateway {
     const effectiveTotalDeadlineMs =
       totalDeadlineMs ||
       callerTimeoutMs ||
-      (purpose === 'bullet_batch_weave' ? 6000 : (this.config.totalDeadlineMs || 60000))
+      (purpose === 'bullet_batch_weave' ? 30000 : (this.config.totalDeadlineMs || 60000))
     const requestStartTime = Date.now()
 
     const requestedModelId = model || this.config.defaultResumeModel
@@ -152,12 +152,13 @@ export class LLMGateway {
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
       if (purpose === 'bullet_batch_weave') {
-        modelsToTry = [
-          'llama-3.3-70b-versatile',
+        modelsToTry = Array.from(new Set([
+          requestedModelId || 'google/gemini-3.5-flash-lite',
+          'google/gemini-3.5-flash-lite',
+          'deepseek/deepseek-chat',
+          'google/gemini-3-flash-preview',
           'openai/gpt-oss-120b',
-          'google/gemini-3.5-flash',
-          'google/gemini-2.5-flash',
-        ]
+        ].filter(Boolean)))
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
         modelsToTry = [
           'google/gemini-3.5-flash-lite',

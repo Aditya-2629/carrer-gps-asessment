@@ -64,7 +64,11 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
     })
 
     // 3. Fetch candidate pool via Apify adapter
-    const scrapeResult = await fetchMarketJdCandidates(searchSpec, options)
+    const scrapeResult = await fetchMarketJdCandidates(searchSpec, {
+      ...options,
+      titles: [bucket.roleName || 'Software Engineer'],
+      locations: ['United States'],
+    })
     const rawCandidates = scrapeResult.candidates || []
 
     // 4. Clean, validate quality, deduplicate, and select top 100 JDs

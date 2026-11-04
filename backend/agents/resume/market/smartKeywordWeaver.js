@@ -60,7 +60,7 @@ export async function batchWeaveBulletsWithLLM({
   targetSkills = [],
   targetRole = 'Data Analyst',
   company = '',
-  timeoutMs = 6000,
+  timeoutMs = 30000,
 }) {
   const cleanSkills = Array.from(new Set(targetSkills)).filter(isGenuineTechnicalSkill)
   if (cleanSkills.length === 0 || !Array.isArray(experiences) || experiences.length === 0) {
@@ -151,21 +151,21 @@ export async function batchWeaveBulletsWithLLM({
     const startTime = Date.now()
     const response = await llmGateway.generate({
       purpose: 'bullet_batch_weave',
-      preferredProvider: 'groq',
-      model: 'llama-3.3-70b-versatile',
+      preferredProvider: 'openrouter',
+      model: 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: BATCH_WEAVER_SYSTEM_PROMPT },
         { role: 'user', content: `Re-engineer these experience bullets naturally:\n\n${JSON.stringify(batchPromptInput, null, 2)}` },
       ],
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
-      maxTokens: 1500,
-      timeoutMs,
+      maxTokens: 2000,
+      timeoutMs: timeoutMs || 30000,
     })
 
     const elapsed = Date.now() - startTime
-    const usedModel = response?.actualModel || response?.model || 'llama-3.3-70b-versatile'
-    const usedProv = response?.provider || 'groq'
+    const usedModel = response?.actualModel || response?.model || 'google/gemini-3.5-flash-lite'
+    const usedProv = response?.provider || 'openrouter'
     console.log(`[SmartKeywordWeaver] Single-batch LLM re-weaver executed in ~${elapsed}ms via ${usedProv} (${usedModel}).`)
 
     const raw = response?.text || '{}'
@@ -807,7 +807,7 @@ export async function weaveKeywordsAndBuildLedger({
       targetSkills: targetKws,
       targetRole: role,
       company: experiences[0]?.company || 'Enterprise',
-      timeoutMs: 5000,
+      timeoutMs: 30000,
     })
     if (result && Array.isArray(result.tailoredExperiences) && result.tailoredExperiences.length > 0) {
       return result

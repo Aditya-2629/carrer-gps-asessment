@@ -612,6 +612,7 @@ Provide your expert coaching answer following the directives above.`
 
     let replyText = ''
     try {
+      // Priority 1: OpenRouter Paid Gemini (1.05M Context, Instant Response)
       const { text: responseText } = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
@@ -625,17 +626,17 @@ Provide your expert coaching answer following the directives above.`
         temperature: 0.3,
         maxTokens: 1024,
         maxRetries: 2,
-        timeoutMs: 25000,
+        timeoutMs: 30000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[AssessmentController] Chatbot OpenRouter primary (Gemini 3.5 Flash Lite) failed, routing to DeepSeek V3:', err.message)
+      console.warn('[AssessmentController] Chatbot primary model failed, falling back to OpenRouter flash-preview:', err.message)
       try {
         const { text: fallbackText } = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
           preferredProvider: 'openrouter',
-          model: 'deepseek/deepseek-chat',
+          model: 'google/gemini-3-flash-preview',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -643,53 +644,12 @@ Provide your expert coaching answer following the directives above.`
           responseFormat: 'text',
           temperature: 0.3,
           maxTokens: 1024,
-          timeoutMs: 25000,
-          bypassCache: true,
+          timeoutMs: 30000,
         })
         replyText = fallbackText
-      } catch (deepseekErr) {
-        console.warn('[AssessmentController] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
-        try {
-          const { text: gemini3Text } = await llmGateway.generate({
-            purpose: 'assessment_report',
-            task: 'report_chatbot',
-            preferredProvider: 'openrouter',
-            model: 'google/gemini-3-flash-preview',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            responseFormat: 'text',
-            temperature: 0.3,
-            maxTokens: 1024,
-            timeoutMs: 25000,
-            bypassCache: true,
-          })
-          replyText = gemini3Text
-        } catch (previewErr) {
-          console.warn('[AssessmentController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 3.5 Flash:', previewErr.message)
-          try {
-            const { text: flashText } = await llmGateway.generate({
-              purpose: 'assessment_report',
-              task: 'report_chatbot',
-              preferredProvider: 'openrouter',
-              model: 'google/gemini-3.5-flash',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt },
-              ],
-              responseFormat: 'text',
-              temperature: 0.3,
-              maxTokens: 1024,
-              timeoutMs: 25000,
-              bypassCache: true,
-            })
-            replyText = flashText
-          } catch (lastErr) {
-            console.error('[AssessmentController] All chatbot tiers failed:', lastErr.message)
-            replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background, the most critical priority is proving hands-on impact with **${verifiedKeywords || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
-          }
-        }
+      } catch (fallbackErr) {
+        console.error('[AssessmentController] Chatbot fallback model failed:', fallbackErr.message)
+        replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background, the most critical priority is proving hands-on impact with **${verifiedKeywords || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
       }
     }
 

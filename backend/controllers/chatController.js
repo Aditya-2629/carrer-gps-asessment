@@ -143,68 +143,38 @@ RULES:
     // Paid Priority Execution: Gemini 3.5 Flash Lite -> DeepSeek V3 -> Gemini 3 Flash Preview -> Gemini 3.5 Flash
     let replyText = ''
     try {
+      // Priority 1: OpenRouter Paid Gemini (1.05M Context, Instant Response)
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         preferredProvider: 'openrouter',
         model: 'google/gemini-3.5-flash-lite',
         messages,
+        responseFormat: 'text',
         temperature: 0.3,
         maxTokens: 1024,
         maxRetries: 2,
-        timeoutMs: 25000,
+        timeoutMs: 30000,
       })
       replyText = response.text
     } catch (openRouterErr) {
-      console.warn('[ChatController] OpenRouter primary (Gemini 3.5 Flash Lite) failed, routing to DeepSeek V3:', openRouterErr.message)
+      console.warn('[ChatController] Chatbot primary model failed, falling back to OpenRouter flash-preview:', openRouterErr.message)
       try {
         const fallbackResponse = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
           preferredProvider: 'openrouter',
-          model: 'deepseek/deepseek-chat',
+          model: 'google/gemini-3-flash-preview',
           messages,
+          responseFormat: 'text',
           temperature: 0.3,
           maxTokens: 1024,
-          timeoutMs: 25000,
-          bypassCache: true,
+          timeoutMs: 30000,
         })
         replyText = fallbackResponse.text
-      } catch (deepseekErr) {
-        console.warn('[ChatController] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
-        try {
-          const gemini3Response = await llmGateway.generate({
-            purpose: 'assessment_report',
-            task: 'report_chatbot',
-            preferredProvider: 'openrouter',
-            model: 'google/gemini-3-flash-preview',
-            messages,
-            temperature: 0.3,
-            maxTokens: 1024,
-            timeoutMs: 25000,
-            bypassCache: true,
-          })
-          replyText = gemini3Response.text
-        } catch (previewErr) {
-          console.warn('[ChatController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 3.5 Flash:', previewErr.message)
-          try {
-            const flashResponse = await llmGateway.generate({
-              purpose: 'assessment_report',
-              task: 'report_chatbot',
-              preferredProvider: 'openrouter',
-              model: 'google/gemini-3.5-flash',
-              messages,
-              temperature: 0.3,
-              maxTokens: 1024,
-              timeoutMs: 25000,
-              bypassCache: true,
-            })
-            replyText = flashResponse.text
-          } catch (lastErr) {
-            console.error('[ChatController] All chatbot tiers failed:', lastErr.message)
-            replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${currentCompany || 'your current company'}**, the most critical priority is proving hands-on impact with **${topSkills || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
-          }
-        }
+      } catch (fallbackErr) {
+        console.error('[ChatController] Chatbot fallback model failed:', fallbackErr.message)
+        replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${currentCompany || 'your current company'}**, the most critical priority is proving hands-on impact with **${topSkills || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
       }
     }
 
