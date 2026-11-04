@@ -704,7 +704,7 @@ export function computeKeywordAlignment({
         priorityColor,
         category: item.category || 'tools',
         badge: `${percentage}% of JDs`,
-        talkingScript: `Discuss how you can leverage ${skillName} for data pipeline reliability, performance tuning, and scalable workflow execution.`,
+        talkingScript: `Discuss how you can leverage ${skillName} in production workflows for ${roleName}.`,
       })
     }
   }
@@ -728,7 +728,7 @@ export function computeKeywordAlignment({
   }
 
   // Sort genuinely missing skills strictly by market percentage descending (ALL OF THEM, NO SLICE!)
-  missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage)
+  missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage || b.count - a.count)
 
   const uniqueMatched = Array.from(new Set(matchedInExperience))
   const uniqueSkillsOnly = Array.from(new Set(skillsOnlyUnverified)).filter(

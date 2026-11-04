@@ -439,8 +439,8 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
         preferredCount: s.preferredCount,
       }
     })
-    .filter((s) => (totalJds <= 5 ? s.count >= 1 : s.percentage >= 10)) // In small batches (<=5 JDs), retain all discovered skills; in large pools retain >= 10%
-    .sort((a, b) => b.percentage - a.percentage)
+    .filter((s) => (totalJds <= 5 ? s.count >= 1 : (totalJds <= 35 ? s.count >= 2 : s.percentage >= 10)))
+    .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
 
   console.log(
     `[LlmJdAnalyzer] Finished 2-step analysis for "${bucketKey}". Discovered ${marketSkills.length} unique canonical skills across ${totalJds} JDs.`

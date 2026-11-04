@@ -210,10 +210,10 @@ export async function ensureConfiguredBucketsExist() {
  * Never defaults blindly to 'Software Engineer'.
  */
 export async function fetchFastCatchJds({
-  role = 'Software Engineer',
+  role = '',
   bucketKey = '',
-  targetCount = 15,
-  timeoutMs = 60000,
+  targetCount = 30,
+  timeoutMs = 75000,
   mockJds = null,
 } = {}) {
   // If mock JDs are provided for testing, return immediately
@@ -224,7 +224,7 @@ export async function fetchFastCatchJds({
   // 1. Resolve role dynamically from parameters or bucketKey
   let resolvedRole = String(role || '').trim()
 
-  if ((!resolvedRole || resolvedRole === 'Software Engineer') && bucketKey) {
+  if (!resolvedRole && bucketKey) {
     // e.g. "data-analyst::3-5" -> "Data Analyst"
     const [rolePart] = bucketKey.split('::')
     if (rolePart && rolePart !== 'default') {
@@ -255,9 +255,10 @@ export async function fetchFastCatchJds({
     limit: targetCount,
     companyProfile: false,
     enrichCompany: false,
+    scrapeCompanyDetails: false,
   }
 
-  console.log(`[MarketJdJobs] Starting Fast-Catch scrape for role: "${targetRoleTitle}" (Budget: ${timeoutMs}ms)...`)
+  console.log(`[MarketJdJobs] Starting Fast-30 scrape for role: "${targetRoleTitle}" (Target: ${targetCount} JDs)...`)
 
   try {
     const actorId = process.env.APIFY_JOB_ACTOR_ID || 'bebity/linkedin-jobs-scraper'
@@ -270,18 +271,21 @@ export async function fetchFastCatchJds({
         waitSecs: Math.round(timeoutMs / 1000),
       })
       if (!run || !run.defaultDatasetId) return []
-      const { items: datasetItems = [] } = await client.dataset(run.defaultDatasetId).listItems({ limit: targetCount })
+      const { items: datasetItems = [] } = await client.dataset(run.defaultDatasetId).listItems({
+        limit: targetCount,
+        clean: true,
+      })
       return datasetItems
     }, { maxAttempts: 2 })
 
     return (items || []).map((item) => ({
       title: item.title || targetRoleTitle,
-      company: item.companyName || item.company || 'Enterprise',
+      company: item.companyName || item.company || 'Enterprise Employer',
       description: item.description || item.text || item.body || '',
       url: item.url || item.link || '',
-    }))
+    })).filter((j) => j.description && j.description.length >= 120)
   } catch (err) {
-    console.warn(`[MarketJdJobs] Fast-Catch error: ${err.message}`)
+    console.warn(`[MarketJdJobs] Fast-30 scrape failed: ${err.message}`)
     return []
   }
 }
