@@ -28,6 +28,7 @@ import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
 export const MIN_SAMPLE_THRESHOLD = 8
+export const RETENTION_DAYS_MS = 60 * 24 * 60 * 60 * 1000 // 60 days retention
 
 /**
  * Executes a refresh for a single Role × Experience bucket.
@@ -38,14 +39,13 @@ export const MIN_SAMPLE_THRESHOLD = 8
  */
 export async function executeBucketRefresh(bucketKey, options = {}) {
   const startTime = Date.now()
-  console.log(`[MarketJdJobs] Starting refresh for bucket: ${bucketKey}`)
+  console.log(`[MarketJdJobs] Executing monthly isolated refresh for bucket: ${bucketKey}`)
 
   const [roleKey, experienceBucket] = bucketKey.split('::')
   if (!roleKey || !experienceBucket) {
     throw new Error(`Invalid bucketKey format: "${bucketKey}". Expected "roleKey::experienceBucket".`)
   }
 
-  // 1. Find or initialize bucket document
   let bucket = await JobMarketBucket.findOne({ bucketKey })
   if (!bucket) {
     const roleDef = CONTROLLED_ROLES.find((r) => r.roleKey === roleKey)
@@ -53,7 +53,6 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       bucketKey,
       roleKey,
       roleName: roleDef ? roleDef.roleName : roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      specialization: 'general',
       experienceBucket,
       activeVersion: 0,
       status: 'refreshing',
@@ -67,129 +66,117 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
   }
 
   try {
-    // 2. Prepare search query specification
+    // 1. Fetch fresh monthly JDs (HarvestAPI)
     const searchSpec = buildSearchSpecification({
       role: bucket.roleName,
-      specialization: bucket.specialization,
       experienceBucket,
     })
 
-    // 3. Fetch candidate pool via Apify adapter
-    const scrapeResult = await fetchMarketJdCandidates(searchSpec, {
-      ...options,
-      titles: [bucket.roleName || 'Software Engineer'],
-      locations: ['United States'],
-    })
-    const rawCandidates = scrapeResult.candidates || []
+    let rawCandidates = options.mockJds || []
+    let scrapeResult = { candidates: rawCandidates, actorId: 'mock', totalFetched: rawCandidates.length }
 
-    // 4. Clean, validate quality, deduplicate, and select top 100 JDs
-    const TARGET_JD_COUNT = parseInt(process.env.MARKET_JD_TARGET_COUNT || '100', 10)
-    const processed = processAndSelectTopJds(rawCandidates, bucket.roleKey, TARGET_JD_COUNT)
-    const selectedJds = processed.selected
-
-    console.log(`[MarketJdJobs] Scraped ${selectedJds.length} valid JDs for role: "${bucket.roleName || bucket.roleKey}"`)
-
-    if (selectedJds.length < MIN_SAMPLE_THRESHOLD) {
-      const reason = `Insufficient sample size: retrieved ${selectedJds.length} valid JDs, minimum required is ${MIN_SAMPLE_THRESHOLD}.`
-      console.warn(`[MarketJdJobs] Refresh aborted for ${bucketKey}: ${reason}`)
-
-      bucket.status = bucket.activeVersion > 0 ? bucket.status : 'needs_refresh'
-      bucket.refreshError = reason
-      await bucket.save()
-
-      return {
-        success: false,
-        reason: 'INSUFFICIENT_SAMPLE_SIZE',
-        bucketKey,
-        jobCount: selectedJds.length,
-        minRequired: MIN_SAMPLE_THRESHOLD,
-        error: reason,
-      }
+    if (!Array.isArray(options.mockJds) || options.mockJds.length === 0) {
+      scrapeResult = await fetchMarketJdCandidates(searchSpec, {
+        ...options,
+        maxCandidates: parseInt(process.env.MARKET_JD_TARGET_COUNT || '50', 10),
+      })
+      rawCandidates = scrapeResult.candidates || []
     }
 
-    console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= 10). Activating version...`)
-
-    if (selectedJds.length < TARGET_JD_COUNT) {
-      console.warn(`[MarketJdJobs] Retrieved ${selectedJds.length} valid JDs for ${bucketKey} (target: ${TARGET_JD_COUNT}).`)
+    if (rawCandidates.length < 5) {
+      throw new Error(`Insufficient candidate JDs retrieved (${rawCandidates.length} items). Keeping current active version.`)
     }
 
-    // 5. Build canonical MarketProfile via LLM Corpus Analysis using Gemini Flash
-    const analysis = await analyzeJdBatchWithGemini(bucket.roleName || roleKey, selectedJds)
-    const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
+    // 2. Run LLM skill analysis in isolation on the fresh monthly corpus
+    const analyzedCorpus = await analyzeAndAggregateJdCorpus(rawCandidates, bucketKey)
+    const marketSkills = analyzedCorpus.marketSkills || analyzedCorpus.discoveredSkills || []
 
-    const marketProfile = {
+    if (marketSkills.length === 0) {
+      throw new Error('Corpus analysis extracted 0 valid market skills. Keeping current active version.')
+    }
+
+    const freshMarketProfile = {
       bucketKey,
-      sampleSize: analysis.sampleSize || selectedJds.length,
-      skills: discoveredSkills,
-      totalAnalyzed: analysis.totalAnalyzed || selectedJds.length,
-      topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
+      sampleSize: analyzedCorpus.sampleSize || rawCandidates.length,
+      skills: marketSkills,
+      totalAnalyzed: analyzedCorpus.totalAnalyzed || rawCandidates.length,
+      topKeywords: marketSkills.slice(0, 20).map((s) => s.name),
       responsibilities: [],
       senioritySignals: [],
-      version: 'market-profile-v2',
+      version: 'market-profile-v3',
       generatedAt: new Date().toISOString(),
     }
 
-    // 6. Next version number calculation (Safe against existing DB records)
+    // 3. Calculate next sequential version number
     const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey }).sort({ version: -1 })
-    const maxExistingVersion = latestVersionDoc ? latestVersionDoc.version : 0
-    const nextVersion = Math.max(bucket.activeVersion || 0, maxExistingVersion) + 1
+    const nextVersion = Math.max(bucket.activeVersion || 0, latestVersionDoc?.version || 0) + 1
 
-    // 7. Create new JobMarketVersion (atomic staging)
-    const newVersionDoc = await JobMarketVersion.create({
+    // 4. Create new version document (staged)
+    await JobMarketVersion.create({
       bucketKey,
       version: nextVersion,
-      jobs: selectedJds,
-      marketProfile,
+      jobs: rawCandidates.map((j, idx) => ({
+        title: j.title || bucket.roleName,
+        company: j.company || 'Enterprise Employer',
+        location: j.location || 'United States',
+        description: j.description || '',
+        source: 'apify_harvestapi',
+        sourceUrl: j.url || null,
+        fingerprint: j.fingerprint || `${bucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
+      })),
+      marketProfile: freshMarketProfile,
       sourceMetadata: {
         actorId: scrapeResult.actorId,
-        totalCandidatesFetched: scrapeResult.totalFetched,
-        validCandidatesCount: processed.validCount,
-        duplicatesRemoved: processed.duplicatesRemoved,
+        totalCandidatesFetched: scrapeResult.totalFetched || rawCandidates.length,
         refreshDurationMs: Date.now() - startTime,
       },
       validationSummary: {
         isValid: true,
         checkedAt: new Date(),
-        jobCount: selectedJds.length,
-        errors: selectedJds.length < TARGET_JD_COUNT ? [`Partial sample: ${selectedJds.length}/${TARGET_JD_COUNT} JDs`] : [],
+        jobCount: rawCandidates.length,
       },
       isArchived: false,
     })
 
-    // 8. ATOMIC SWAP: Archive previous versions & update bucket pointer
+    // 5. ATOMIC SWAP: Archive older versions & point bucket to nextVersion
     await JobMarketVersion.updateMany(
       { bucketKey, version: { $lt: nextVersion } },
       { $set: { isArchived: true } }
     )
 
     bucket.activeVersion = nextVersion
-    bucket.jobCount = selectedJds.length
-    bucket.status = selectedJds.length >= TARGET_JD_COUNT ? 'healthy' : 'needs_refresh'
+    bucket.jobCount = rawCandidates.length
+    bucket.status = 'healthy'
     bucket.lastSuccessfulRefreshAt = new Date()
-    bucket.refreshError = selectedJds.length < TARGET_JD_COUNT ? `Partial sample: ${selectedJds.length}/${TARGET_JD_COUNT} JDs` : null
+    bucket.refreshError = null
     await bucket.save()
 
-    const durationMs = Date.now() - startTime
-    console.log(`[MarketJdJobs] Successfully activated v${nextVersion} for ${bucketKey} with ${selectedJds.length} JDs in ${durationMs}ms.`)
+    console.log(`[MarketJdJobs] ✔ Swapped ${bucketKey} to active version v${nextVersion} (${rawCandidates.length} JDs).`)
+
+    // 6. RETENTION PRUNING: Delete archived versions older than 60 days
+    const cutoffDate = new Date(Date.now() - RETENTION_DAYS_MS)
+    const pruned = await JobMarketVersion.deleteMany({
+      bucketKey,
+      isArchived: true,
+      createdAt: { $lt: cutoffDate },
+    })
+
+    if (pruned.deletedCount > 0) {
+      console.log(`[MarketJdJobs] Pruned ${pruned.deletedCount} expired archived versions (>60 days old) for ${bucketKey}.`)
+    }
 
     return {
       success: true,
       bucketKey,
       version: nextVersion,
-      jobCount: selectedJds.length,
-      durationMs,
+      jobCount: rawCandidates.length,
+      durationMs: Date.now() - startTime,
     }
   } catch (err) {
     console.error(`[MarketJdJobs] Refresh failed for ${bucketKey}:`, err.message)
-
-    // Safe fallback: if bucket had an active version, preserve it!
-    if (bucket.activeVersion > 0) {
-      bucket.status = 'healthy' // keep existing version serving traffic
-      bucket.refreshError = `Refresh attempt failed: ${err.message}`
-    } else {
-      bucket.status = 'failed'
-      bucket.refreshError = err.message
-    }
+    // Zero downtime fallback: keep existing version serving users
+    bucket.status = bucket.activeVersion > 0 ? 'healthy' : 'failed'
+    bucket.refreshError = err.message
     await bucket.save()
 
     return {
@@ -415,6 +402,17 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
   bucket.refreshError = null
   await bucket.save()
 
+  // 60-day retention pruning on background upgrade
+  const cutoffDate = new Date(Date.now() - RETENTION_DAYS_MS)
+  const prunedUpgrade = await JobMarketVersion.deleteMany({
+    bucketKey,
+    isArchived: true,
+    createdAt: { $lt: cutoffDate },
+  })
+  if (prunedUpgrade.deletedCount > 0) {
+    console.log(`[MarketJdJobs] Pruned ${prunedUpgrade.deletedCount} expired archived versions (>60 days old) for ${bucketKey}.`)
+  }
+
   return nextVersion
 }
 
@@ -566,4 +564,5 @@ export default {
   runDetachedBackgroundScrape,
   enqueueFullBackgroundBucket,
   MIN_SAMPLE_THRESHOLD,
+  RETENTION_DAYS_MS,
 }

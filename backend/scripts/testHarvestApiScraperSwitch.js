@@ -127,3 +127,4 @@ assert(CORE_BUCKETS.includes('ai-ml-engineer::3-5'))
 console.log('✔ Test 5 Passed: All 8 core market buckets configured for instant seed caching.\n')
 
 console.log('ALL HARVESTAPI SWITCH & SEED CACHE TESTS COMPLETED SUCCESSFULLY! 🚀')
+

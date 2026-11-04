@@ -5,15 +5,20 @@
  * Pre-populates MongoDB once so live users get instant 0ms loads for popular market roles.
  */
 
-import mongoose from 'mongoose'
-import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { executeBucketRefresh } from '../jobs/marketJd/marketJdJobs.js'
+import dotenv from 'dotenv'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// 1. Load .env before initializing modules
 dotenv.config({ path: path.join(__dirname, '../.env') })
+dotenv.config({ path: path.join(__dirname, '../../.env') })
 dotenv.config()
+
+// 2. Import modules after env is configured
+const mongoose = (await import('mongoose')).default
+const { executeBucketRefresh } = await import('../jobs/marketJd/marketJdJobs.js')
 
 const CORE_BUCKETS = [
   'software-engineer::0-2',
@@ -27,32 +32,41 @@ const CORE_BUCKETS = [
 ]
 
 async function seed() {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/career-gps'
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI
+
+  if (!mongoUri) {
+    console.error('❌ Error: Neither MONGO_URI nor MONGODB_URI found in .env!')
+    process.exit(1)
+  }
+
   console.log(`Connecting to MongoDB at: ${mongoUri.replace(/:([^:@]+)@/, ':****@')}...`)
   await mongoose.connect(mongoUri)
+  console.log('✔ Successfully connected to MongoDB Atlas!\n')
   console.log('Seeding core market buckets into MongoDB...\n')
 
   for (const bucket of CORE_BUCKETS) {
     try {
-      console.log(`Scraping and analyzing ${bucket}...`)
+      console.log(`========================================`)
+      console.log(`[Seeder] Scraping & analyzing: "${bucket}"...`)
+      console.log(`========================================`)
       const result = await executeBucketRefresh(bucket)
       if (result?.success) {
-        console.log(`✔ Successfully cached ${bucket} in MongoDB! (Version v${result.version}, ${result.jobCount} JDs)\n`)
+        console.log(`✔ Successfully cached "${bucket}" in MongoDB! (Version v${result.version}, ${result.jobCount} JDs)\n`)
       } else {
-        console.warn(`⚠ ${bucket} refresh ended with: ${result?.reason || 'Unknown status'}\n`)
+        console.warn(`⚠ ${bucket} refresh ended with: ${result?.reason || result?.error || 'Unknown status'}\n`)
       }
     } catch (err) {
-      console.error(`Failed ${bucket}:`, err.message, '\n')
+      console.error(`❌ Failed ${bucket}:`, err.message, '\n')
     }
   }
 
-  console.log('All core buckets seeded! Users will now experience instant 0ms loads.')
+  console.log('🎉 All core buckets seeded! Users will now experience instant 0ms loads.')
   await mongoose.disconnect()
   process.exit(0)
 }
 
-// Allow direct execution or export for programmatic tests
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// Only execute seed() if invoked directly from CLI
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   seed().catch((err) => {
     console.error('Fatal seeding error:', err)
     process.exit(1)
