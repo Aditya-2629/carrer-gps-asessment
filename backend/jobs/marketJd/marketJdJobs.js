@@ -12,7 +12,13 @@
 
 import JobMarketBucket from '../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../models/JobMarketVersion.js'
-import { fetchMarketJdCandidates, buildSearchSpecification, DEFAULT_APIFY_JOB_ACTOR } from '../../integrations/apify/apifyJdScraper.js'
+import {
+  fetchMarketJdCandidates,
+  buildSearchSpecification,
+  buildApifyJdScraperInput,
+  runApifyActorScrape,
+  DEFAULT_APIFY_JOB_ACTOR,
+} from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
 import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
@@ -266,77 +272,63 @@ export async function fetchFastCatchJds({
   }
 
   const fastCatchCount = Math.max(30, targetCount)
-  const actorInput = {
-    titles: [targetRoleTitle],
-    locations: ['United States'],
-    rows: fastCatchCount,
-    maxJobs: fastCatchCount,
-    maxRows: fastCatchCount,
-    limit: fastCatchCount,
-    proxy: {
-      useApifyProxy: true,
-      apifyProxyGroups: ['RESIDENTIAL'],
-    },
-    companyProfile: false,
-    enrichCompany: false,
-    scrapeCompanyDetails: false,
+  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs)...`)
+
+  // Attempt 1: bebity/linkedin-jobs-scraper with residential proxy & multi-location hubs
+  let primaryItems = []
+  try {
+    const primaryInput = buildApifyJdScraperInput(targetRoleTitle, {
+      locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+      rows: fastCatchCount,
+    })
+    primaryItems = await runApifyActorScrape('bebity/linkedin-jobs-scraper', primaryInput, timeoutMs)
+  } catch (primErr) {
+    console.warn(`[MarketJdJobs] Primary scrape attempt encountered error: ${primErr.message}`)
   }
 
-  console.log(`[MarketJdJobs] Starting Fast-30 scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs)...`)
-  const fastCatchStartTime = Date.now()
+  // Filter valid text descriptions (at least 200 chars)
+  let validJds = (primaryItems || []).map((item) => ({
+    title: item.title || targetRoleTitle,
+    company: item.companyName || item.company || 'Enterprise Employer',
+    description: item.description || item.text || item.body || '',
+    url: item.url || item.link || '',
+  })).filter((j) => (j.description || '').length >= 200)
 
-  try {
-    const actorId = process.env.APIFY_JOB_ACTOR_ID || 'bebity/linkedin-jobs-scraper'
-    const items = await apifyKeyPool.executeWithRetry(async (activeToken) => {
-      const client = new ApifyClient({
-        token: activeToken,
-        timeoutSecs: Math.round(timeoutMs / 1000),
-      })
-      let run
-      try {
-        run = await client.actor(actorId).call(actorInput, {
-          waitSecs: Math.round(timeoutMs / 1000),
-        })
-      } catch (actorErr) {
-        if (/residential|proxy/i.test(actorErr.message) && actorInput?.proxy?.apifyProxyGroups) {
-          console.warn(`[MarketJdJobs] Fast-30 residential proxy rejected (${actorErr.message}). Retrying with default Apify proxy...`)
-          actorInput.proxy = { useApifyProxy: true }
-          run = await client.actor(actorId).call(actorInput, {
-            waitSecs: Math.round(timeoutMs / 1000),
-          })
-        } else {
-          throw actorErr
-        }
-      }
-      if (!run || !run.defaultDatasetId) return []
-      const { items: datasetItems = [] } = await client.dataset(run.defaultDatasetId).listItems({
-        limit: fastCatchCount,
-        clean: true,
-      })
-      return datasetItems
-    }, { maxAttempts: 2 })
+  // FAILSAFE RETRY: If LinkedIn throttled/blocked and returned < 10 JDs
+  if (validJds.length < 10) {
+    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length}). Switching to Rapid-Job-Scraper / Indeed fallback on Apify...`)
 
     try {
-      costTracker.trackApify({
-        stage: 'FAST_CATCH_JD_SCRAPE',
-        itemsScraped: items?.length || 0,
-        durationMs: Date.now() - fastCatchStartTime,
-      })
-    } catch (_) {}
+      const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
+        position: targetRoleTitle,
+        country: 'US',
+        location: 'United States',
+        maxItems: fastCatchCount,
+      }, Math.min(45000, timeoutMs))
 
-    const validJds = (items || []).map((item) => ({
-      title: item.title || targetRoleTitle,
-      company: item.companyName || item.company || 'Enterprise Employer',
-      description: item.description || item.text || item.body || '',
-      url: item.url || item.link || '',
-    })).filter((j) => j.description && j.description.length >= 120)
+      const validFallback = (fallbackItems || []).map((item) => ({
+        title: item.positionName || item.title || targetRoleTitle,
+        company: item.company || item.companyName || 'Enterprise Employer',
+        description: item.description || item.jobDescription || item.text || item.body || '',
+        url: item.url || item.link || '',
+      })).filter((j) => (j.description || '').length >= 200)
 
-    console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}"`)
-    return validJds
-  } catch (err) {
-    console.warn(`[MarketJdJobs] Fast-30 scrape failed: ${err.message}`)
-    return []
+      if (validFallback.length >= 10) {
+        validJds = validFallback
+        console.log(`[MarketJdJobs] Fallback scraper succeeded with ${validJds.length} real JDs.`)
+      }
+    } catch (fbErr) {
+      console.warn(`[MarketJdJobs] Fallback scraper also failed: ${fbErr.message}`)
+    }
   }
+
+  console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}"`)
+
+  if (validJds.length < 10) {
+    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 10 live JDs for "${targetRoleTitle}". Aborting to prevent fake data.`)
+  }
+
+  return validJds
 }
 
 /**

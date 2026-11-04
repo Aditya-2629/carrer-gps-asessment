@@ -597,15 +597,20 @@ export function computeKeywordAlignment({
     targetKeywords = [...extractedJdSkills]
   }
 
-  // Priority 2: Use ALL Live Scraped Skills from MongoDB marketProfile or Fast-Catch (Uncapped!)
-  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 3) {
+  const hasRealMarketProfile = Boolean(
+    marketProfile &&
+    Array.isArray(marketProfile.skills) &&
+    marketProfile.skills.length > 0 &&
+    ((marketProfile.sampleSize || 0) > 0 || (marketProfile.totalAnalyzed || 0) > 0)
+  )
+
+  if (hasRealMarketProfile) {
+    // 100% REAL DATA ONLY: Bypass static fallback packs completely when real market intelligence is present
     targetKeywords = marketProfile.skills
       .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
       .filter(isGenuineTechnicalSkill)
-  }
-
-  // Priority 3: Fallback pack only if no market data is present
-  if (targetKeywords.length < 6) {
+  } else if (!isJdProvided) {
+    // Priority 3: Fallback pack only if no market data is present
     const fallbackPack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['general-professional'] || []
     targetKeywords = Array.from(new Set([...targetKeywords, ...fallbackPack]))
   }
@@ -615,7 +620,7 @@ export function computeKeywordAlignment({
 
   // Build allMarketSkills mapping back to marketProfile metadata if present
   const marketSkillsMap = new Map()
-  if (marketProfile && Array.isArray(marketProfile.skills)) {
+  if (hasRealMarketProfile) {
     for (const item of marketProfile.skills) {
       const name = typeof item === 'string' ? item : (item?.name || item?.skill || '')
       if (name) {
@@ -624,25 +629,28 @@ export function computeKeywordAlignment({
     }
   }
 
-  const totalJds = marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 1
+  const totalRealJds = marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 1
 
   const allMarketSkills = targetKeywords.map((name, idx) => {
     const existing = marketSkillsMap.get(name.toLowerCase())
     if (existing && typeof existing === 'object') {
-      const percentage = existing.percentage != null
+      const realCount = existing.count || existing.frequency || 1
+      const realPercentage = existing.percentage != null
         ? existing.percentage
-        : Math.min(100, Math.round(((existing.count || existing.frequency || 1) / (marketProfile.sampleSize || totalJds || 10)) * 100))
+        : Math.min(100, Math.round((realCount / totalRealJds) * 100))
       return {
         ...existing,
         name,
-        frequency: existing.frequency || existing.count || Math.round((percentage / 100) * totalJds),
-        percentage,
+        frequency: realCount,
+        count: realCount,
+        totalJds: totalRealJds,
+        percentage: realPercentage,
       }
     }
     if (isJdProvided) {
       return {
         name,
-        frequency: totalJds || 1,
+        frequency: totalRealJds || 1,
         percentage: 100,
       }
     }
@@ -683,7 +691,7 @@ export function computeKeywordAlignment({
       const count = typeof item === 'object' ? (item.frequency || item.count || 1) : 1
       const percentage = typeof item === 'object' && item.percentage != null
         ? item.percentage
-        : Math.min(100, Math.round((count / totalJds) * 100))
+        : Math.min(100, Math.round((count / totalRealJds) * 100))
 
       let priority = 'LOW'
       let priorityColor = 'grey'
@@ -698,7 +706,7 @@ export function computeKeywordAlignment({
       missingMarketSkillsRanked.push({
         keyword: skillName,
         count,
-        totalJds,
+        totalJds: totalRealJds,
         percentage,
         priority,
         priorityColor,

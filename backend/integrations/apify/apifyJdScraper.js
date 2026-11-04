@@ -12,9 +12,106 @@ import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
 export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
+export const FALLBACK_APIFY_JOB_ACTOR = 'misceres/indeed-scraper'
 export const DEFAULT_MAX_CANDIDATES = 100 // Scaled to 100 JDs
 export const DEFAULT_TIMEOUT_MS = 300000  // 5 minutes for 100 items
 export const DEFAULT_MAX_RETRIES = 3
+
+/**
+ * Builds standard input payload for bebity/linkedin-jobs-scraper avoiding guest throttle.
+ */
+export function buildApifyJdScraperInput(targetRole = 'Software Engineer', options = {}) {
+  const rows = Math.max(35, options.rows || options.targetCount || options.maxCandidates || 40)
+  return {
+    titles: Array.isArray(options.titles) && options.titles.length > 0
+      ? options.titles
+      : [targetRole],
+    // "United States" pure country level par LinkedIn jaldi throttle karta hai. 
+    // Major US tech locations pass karne se actor pagination block bypass karta hai.
+    locations: Array.isArray(options.locations) && options.locations.length > 0
+      ? options.locations
+      : ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+    rows,
+    maxJobs: rows,
+    publishedAt: options.publishedAt || 'r2592000', // Past 1 month
+    proxy: {
+      useApifyProxy: true,
+      apifyProxyGroups: ['RESIDENTIAL'],
+    },
+    enrichCompany: false,
+    companyProfile: false,
+    scrapeCompanyDetails: false,
+    easyApply: false,
+    under10Applicants: false,
+    ...(options.actorInput || {}),
+  }
+}
+
+/**
+ * Generic runner for any Apify job scraping actor with proxy fallback and dataset retrieval.
+ */
+export async function runApifyActorScrape(actorId, inputPayload, timeoutMs = 60000) {
+  if (apifyKeyPool.getKeyCount() === 0) {
+    console.warn(`[Apify JdScraper] No Apify tokens configured in environment for "${actorId}".`)
+    return []
+  }
+
+  const startTime = Date.now()
+  const timeoutSecs = Math.max(30, Math.round(timeoutMs / 1000))
+
+  return await apifyKeyPool.executeWithRetry(async (activeToken) => {
+    const client = new ApifyClient({
+      token: activeToken,
+      timeoutSecs,
+      maxRetries: 2,
+    })
+
+    let currentInput = { ...inputPayload }
+    let run
+    try {
+      run = await client.actor(actorId).call(currentInput, {
+        waitSecs: timeoutSecs,
+        maxItems: currentInput.rows || currentInput.maxJobs || currentInput.maxItems || 40,
+      })
+    } catch (callErr) {
+      if (/residential|proxy/i.test(callErr.message) && currentInput?.proxy?.apifyProxyGroups) {
+        console.warn(`[Apify JdScraper] Residential proxy rejected on "${actorId}" (${callErr.message}). Retrying with default Apify proxy...`)
+        currentInput = {
+          ...currentInput,
+          proxy: { useApifyProxy: true },
+        }
+        run = await client.actor(actorId).call(currentInput, {
+          waitSecs: timeoutSecs,
+          maxItems: currentInput.rows || currentInput.maxJobs || currentInput.maxItems || 40,
+        })
+      } else {
+        throw callErr
+      }
+    }
+
+    if (!run || !run.defaultDatasetId) {
+      return []
+    }
+
+    const { items } = await client.dataset(run.defaultDatasetId).listItems({
+      limit: currentInput.rows || currentInput.maxJobs || currentInput.maxItems || 40,
+      clean: true,
+    })
+
+    const durationMs = Date.now() - startTime
+    console.log(`[Apify JdScraper] Actor "${actorId}" finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
+
+    try {
+      costTracker.trackApify({
+        stage: actorId.includes('indeed') ? 'INDEED_FALLBACK_SCRAPE' : 'APIFY_ACTOR_SCRAPE',
+        itemsScraped: items?.length || 0,
+        durationMs,
+      })
+    } catch (_) {}
+
+    return items || []
+  }, { maxAttempts: 2 })
+}
 
 /**
  * Scrapes live job descriptions using SmartKeyPool rotation with sticky success.
@@ -162,36 +259,14 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     || searchSpec.role
     || searchSpec.query
     || 'Software Engineer'
-  const resolvedLocation = (Array.isArray(options.locations) && options.locations[0])
-    || searchSpec.location
-    || options.location
-    || 'United States'
 
-  // Input contract adhering to modern bebity actor schema (titles list, locations list, proxy)
-  const actorInput = {
-    titles: Array.isArray(options.titles) && options.titles.length > 0
-      ? options.titles
-      : [resolvedRole],
-    locations: Array.isArray(options.locations) && options.locations.length > 0
-      ? options.locations
-      : [resolvedLocation],
+  // Input contract adhering to modern bebity actor schema (multi-location hubs, proxy)
+  const actorInput = buildApifyJdScraperInput(resolvedRole, {
+    titles: options.titles,
+    locations: options.locations || ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
     rows: targetCandidates,
-    maxJobs: targetCandidates,
-    maxRowsPerUrl: targetCandidates,
-    maxRows: targetCandidates,
-    limit: targetCandidates,
-    maxItems: targetCandidates,
-    proxy: {
-      useApifyProxy: true,
-      apifyProxyGroups: ['RESIDENTIAL'],
-    },
-    companyProfile: false,
-    enrichCompany: false,
-    scrapeCompanyDetails: false,
-    easyApply: false,
-    under10Applicants: false,
-    ...(options.actorInput || {}),
-  }
+    actorInput: options.actorInput,
+  })
 
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {
     // Set 300s (5-minute) timeout so LinkedIn scraper has time to paginate and retrieve 100 items without dropping
@@ -230,10 +305,30 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
       throw new Error(`Apify run failed or returned no datasetId. Status: ${run?.status}`)
     }
 
-    const { items } = await client.dataset(run.defaultDatasetId).listItems({
+    let { items } = await client.dataset(run.defaultDatasetId).listItems({
       limit: targetCandidates,
       clean: true,
     })
+
+    // Failsafe secondary actor fallback if primary actor returns < 10 descriptions
+    if ((items || []).length < 10) {
+      console.warn(`[Apify JdScraper] Primary scrape returned low sample (${items?.length || 0}). Trying secondary fallback (misceres/indeed-scraper)...`)
+      try {
+        const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
+          position: resolvedRole,
+          country: 'US',
+          location: 'United States',
+          maxItems: targetCandidates,
+        }, Math.min(45000, timeoutMs))
+
+        if (Array.isArray(fallbackItems) && fallbackItems.length >= 10) {
+          console.log(`[Apify JdScraper] Secondary fallback succeeded with ${fallbackItems.length} candidate items.`)
+          items = fallbackItems
+        }
+      } catch (fbErr) {
+        console.warn(`[Apify JdScraper] Secondary fallback also failed: ${fbErr.message}`)
+      }
+    }
 
     const durationMs = Date.now() - startTime
     console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
@@ -258,9 +353,12 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
 export default {
   buildSearchSpecification,
+  buildApifyJdScraperInput,
+  runApifyActorScrape,
   fetchMarketJdCandidates,
   scrapeLiveJobDescriptions,
   DEFAULT_APIFY_JOB_ACTOR,
+  FALLBACK_APIFY_JOB_ACTOR,
   DEFAULT_MAX_CANDIDATES,
   DEFAULT_TIMEOUT_MS,
   DEFAULT_MAX_RETRIES,
