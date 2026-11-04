@@ -108,3 +108,4 @@ assert.ok(typeof costTracker.printRunSummary === 'function')
 console.log('✔ Test 7 Passed: Singleton instance verified.\n')
 
 console.log('ALL COST TRACKER & TOKEN AUDIT INTEGRATION TESTS PASSED! 🚀')
+

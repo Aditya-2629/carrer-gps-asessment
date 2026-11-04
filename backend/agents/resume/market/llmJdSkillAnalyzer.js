@@ -52,6 +52,76 @@ export function buildSkillExtractionUserMessage(jobTitle = '', jobDescription = 
   return `Job Title: ${jobTitle || 'Professional'}\n\nJob Description:\n${jobDescription || ''}`
 }
 
+// --- 1.5. LEAN 1-SHOT BATCH JD EXTRACTION PROMPT ---
+
+export const buildBatchJdExtractionPrompt = (role, jdsTextList = []) => {
+  return `You are an expert Technical Recruiter.
+Target Role: "${role}"
+
+TASK:
+Analyze the following ${jdsTextList.length} Job Descriptions and extract top high-demand tech skills, tools, and methodologies. 
+
+RULES:
+- Extract ONLY concrete hard skills (Languages, Frameworks, Cloud, Databases, Core Concepts).
+- Do NOT extract generic soft skills (e.g., "team player", "communication").
+- Calculate accurate frequency count across these JDs.
+- Return ONLY a valid JSON object matching the schema below. No markdown wrapping, no fluff.
+
+SCHEMA:
+{
+  "totalJdsAnalyzed": ${jdsTextList.length},
+  "skills": [
+    {
+      "name": "Canonical Skill Name (e.g. TypeScript, AWS, Docker)",
+      "frequency": <number of JDs mentioning this skill>,
+      "category": "language" | "framework" | "cloud" | "database" | "tool" | "concept"
+    }
+  ]
+}
+
+JOB DESCRIPTIONS:
+${jdsTextList.map((jd, idx) => `--- JD #${idx + 1} ---\n${String(jd).slice(0, 1500)}`).join('\n\n')}`;
+};
+
+/**
+ * Executes a 1-shot batch LLM extraction across multiple JDs in a single request.
+ * Drastically reduces latency and token cost by replacing per-JD iterations.
+ */
+export async function extractSkillsFromBatch1Shot({ role = 'Professional', jdsTextList = [], timeoutMs = 35000 } = {}) {
+  if (!Array.isArray(jdsTextList) || jdsTextList.length === 0) {
+    return { totalJdsAnalyzed: 0, skills: [] }
+  }
+
+  const prompt = buildBatchJdExtractionPrompt(role, jdsTextList)
+  const response = await llmGateway.generate({
+    purpose: 'market_jd_analysis',
+    stage: 'BATCH_1SHOT_JD_EXTRACTION',
+    model: 'google/gemini-3.5-flash-lite',
+    preferredProvider: 'openrouter',
+    messages: [
+      { role: 'user', content: prompt },
+    ],
+    responseFormat: 'json_object',
+    temperature: 0.1,
+    maxTokens: 2500,
+    timeoutMs,
+  })
+
+  let parsed = null
+  try {
+    parsed = JSON.parse(jsonrepair(response.text || '{}'))
+  } catch (err) {
+    console.warn(`[LlmJdAnalyzer] Failed to parse 1-shot batch JSON: ${err.message}`)
+    return { totalJdsAnalyzed: jdsTextList.length, skills: [] }
+  }
+
+  const skills = Array.isArray(parsed?.skills) ? parsed.skills : []
+  return {
+    totalJdsAnalyzed: parsed?.totalJdsAnalyzed || jdsTextList.length,
+    skills,
+  }
+}
+
 // --- 2. CANONICAL MAPPING PROMPT (STEP 2 - TAXONOMY NORMALIZER) ---
 
 export const TAXONOMY_NORMALIZER_SYSTEM_PROMPT = `You are a technical taxonomy normalizer.
@@ -381,9 +451,67 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
   }
 
   const totalJds = rawJds.length
+
+  // 1. Try Lean 1-Shot Batch Extraction (1 clean LLM call instead of 15)
+  const [roleKey] = (bucketKey || '').split('::')
+  const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+
+  const jdsTextList = rawJds
+    .map((j) => (typeof j === 'string' ? j : j.description || j.text || j.normalizedDescription || ''))
+    .filter((t) => t && t.trim().length >= 30)
+
+  if (jdsTextList.length > 0 && !process.env.DISABLE_1SHOT_JD_EXTRACTION) {
+    try {
+      console.log(`[LlmJdAnalyzer] Attempting Lean 1-Shot Batch extraction for ${jdsTextList.length} JDs (${roleClean})...`)
+      const batchResult = await extractSkillsFromBatch1Shot({
+        role: roleClean,
+        jdsTextList: jdsTextList.slice(0, 30),
+      })
+
+      if (batchResult && Array.isArray(batchResult.skills) && batchResult.skills.length > 0) {
+        const marketSkills = batchResult.skills
+          .map((s) => {
+            const canonical = normalizeCanonicalSkill(s.name) || s.name
+            const rawCount = parseInt(s.frequency || s.count, 10) || 1
+            const count = Math.min(totalJds, Math.max(1, rawCount))
+            const percentage = Math.round((count / totalJds) * 100)
+            const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
+            return {
+              name: canonical,
+              category: s.category || 'tools',
+              count,
+              frequency: count,
+              percentage,
+              frequencyRatio: Math.round((count / totalJds) * 100) / 100,
+              priority,
+              requiredCount: count,
+              preferredCount: 0,
+            }
+          })
+          .filter((s) => s.name && !/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(s.name))
+          .filter((s) => (totalJds <= 5 ? s.count >= 1 : (totalJds <= 35 ? s.count >= 2 : s.percentage >= 10)))
+          .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
+
+        if (marketSkills.length > 0) {
+          console.log(`[LlmJdAnalyzer] Lean 1-Shot extraction succeeded! Extracted ${marketSkills.length} canonical skills in 1 call.`)
+          return {
+            totalAnalyzed: totalJds,
+            marketSkills,
+            analyzedAt: new Date().toISOString(),
+            method: '1_shot_batch',
+          }
+        }
+      }
+    } catch (oneShotErr) {
+      console.warn(`[LlmJdAnalyzer] 1-shot batch extraction failed (${oneShotErr.message}), falling back to deterministic batch pipeline...`)
+    }
+  }
+
   const skillOccurrences = new Map() // canonicalName -> { count, requiredCount, preferredCount, category, canonicalName }
 
-  console.log(`[LlmJdAnalyzer] Starting 2-step LLM analysis for ${totalJds} JDs in bucket "${bucketKey}"...`)
+  console.log(`[LlmJdAnalyzer] Starting fallback 2-step LLM analysis for ${totalJds} JDs in bucket "${bucketKey}"...`)
 
   // Process in batches of 10 to respect rate and token limits
   for (let i = 0; i < totalJds; i += BATCH_SIZE) {
@@ -465,4 +593,6 @@ export default {
   normalizeTaxonomyWithLLM,
   analyzeJdBatch,
   analyzeAndAggregateJdCorpus,
+  buildBatchJdExtractionPrompt,
+  extractSkillsFromBatch1Shot,
 }

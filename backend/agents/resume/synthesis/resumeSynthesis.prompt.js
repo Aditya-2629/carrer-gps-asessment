@@ -106,6 +106,58 @@ export function renderResumeSynthesisPromptV4(data = {}) {
   return rendered.replace(/\{\{[A-Za-z0-9_]+\}\}/g, 'N/A')
 }
 
+/**
+ * Lean Cost-Effective Resume Synthesis Prompt
+ * Strips down boilerplate instructions into concise structural guidance,
+ * reducing prompt token overhead while maintaining precise ATS diagnosis.
+ */
+export const buildLeanSynthesisPrompt = ({
+  candidateName = 'Candidate',
+  role = 'Professional',
+  experienceYears = '3+',
+  parsedFacts = {},
+  marketDemandSkills = [],
+} = {}) => {
+  return `You are CareerGPS Executive Resume Auditor.
+Analyze Candidate: ${candidateName} | Target: ${role} (${experienceYears} yrs exp).
+
+INPUT DATA:
+- Verified Experience Points: ${JSON.stringify(parsedFacts?.workBullets || [])}
+- Candidate Stated Skills: ${JSON.stringify(parsedFacts?.skillsList || [])}
+- Live Market Demand Skills: ${JSON.stringify((marketDemandSkills || []).slice(0, 25))}
+
+TASK:
+Generate a high-impact, ATS-calibrated career diagnosis. Return strictly valid JSON.
+
+EVALUATION CRITERIA:
+1. Impact Score (0-100): Metric density, commercial ownership, clear results.
+2. Market Alignment (0-100): Overlap with top market demand skills.
+3. Identified Gaps: High-priority missing skills required by market.
+4. Stranded Skills: Skills in skills section but missing concrete bullet proof.
+
+OUTPUT SCHEMA:
+{
+  "overallScore": <number 0-100>,
+  "verdict": "<2-sentence executive summary>",
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "criticalGaps": [
+    {
+      "skill": "<Skill Name>",
+      "marketDemandPct": <number>,
+      "recommendation": "<Actionable 1-line guidance>"
+    }
+  ],
+  "strandedSkills": ["<skill1>", "<skill2>"],
+  "bulletImprovements": [
+    {
+      "original": "<original bullet>",
+      "improved": "<ATS-optimized, metric-driven rewrite>",
+      "reason": "<why this improves conversion>"
+    }
+  ]
+}`;
+};
+
 export const RESUME_SYNTHESIS_PROMPT = RESUME_SYNTHESIS_PROMPT_V4
 
 // System prompt is the Senior Silicon Valley Executive Recruiter persona
@@ -815,4 +867,5 @@ export default {
   RESUME_SYNTHESIS_PROMPT,
   RESUME_SYNTHESIS_PROMPT_V4,
   renderResumeSynthesisPromptV4,
+  buildLeanSynthesisPrompt,
 }

@@ -52,6 +52,28 @@ export function classifyChatIntent(question = '') {
   return { id: 'general', section: 'overview', label: 'Executive Overview' }
 }
 
+/**
+ * High-Speed Chatbot System Prompt Builder
+ * Minimizes token usage with conversation context window control and strict brevity enforcement.
+ */
+export const buildChatbotSystemPrompt = (reportData = {}) => {
+  return `You are the CareerGPS Strategy Coach for candidate targeting "${reportData.role || 'your target role'}".
+Your job is to answer questions strictly based on the generated evaluation report.
+
+REPORT SNAPSHOT:
+- Target Role: ${reportData.role || 'N/A'}
+- Overall Score: ${reportData.overallScore ?? 79}/100
+- Verified Skills: ${reportData.verifiedSkills?.join(', ') || 'N/A'}
+- Missing Market Skills: ${reportData.missingSkills?.join(', ') || 'N/A'}
+- Primary Bottleneck: ${reportData.primaryBottleneck || 'N/A'}
+
+RULES:
+- Be concise, direct, and constructive (Max 3-4 sentences per response).
+- Do not repeat boilerplate greetings. Jump straight to the strategy.
+- If asked to rewrite a bullet, use the formula: [Action Verb] + [Context/Tech Stack] + [Measurable Business Outcome], and wrap it in triple backticks (\`\`\`text ... \`\`\`) for the 1-click copy button.
+- Do not invent experience or skills not present in the candidate profile.`;
+};
+
 export async function handleChatMessage(req, res) {
   try {
     const rawQuestion = req.body.message || req.body.question || ''
@@ -112,29 +134,21 @@ export async function handleChatMessage(req, res) {
       // non-fatal, continue without RAG
     }
 
-    const systemPrompt = `You are "Atlas", ${firstName}'s dedicated Executive Career Coach and Senior Technical Recruiter.
-You are chatting with ${firstName} in real time to diagnose their job search and guide their next moves.
+    const reportData = {
+      role: targetRole,
+      overallScore: report.overall_score || report.career_health_score || report.overallScore || 79,
+      verifiedSkills: Array.isArray(verifiedSkillsList) ? verifiedSkillsList.slice(0, 5) : (topSkills ? topSkills.split(', ') : []),
+      missingSkills: Array.isArray(missingSkillsList) ? missingSkillsList.slice(0, 5) : (missingSkills ? missingSkills.split(', ') : []),
+      primaryBottleneck: topRootCause,
+    }
 
-CANDIDATE ANCHORS:
-- Target Role: ${targetRole}
-- Current/Recent Company: ${currentCompany}
-- Verified Core Stack: ${topSkills}
-- Missing Target Keywords: ${missingSkills}
-- Stated Funnel Bottleneck: ${topRootCause}
+    const systemPrompt = buildChatbotSystemPrompt(reportData)
 
-RULES:
-1. Always address ${firstName} directly with warm, authoritative, peer-level guidance.
-2. Keep replies concise (100–160 words) using clean bullets ("- ") and bold key terms.
-3. When providing a rewritten bullet, cold message, or interview script, wrap the copy in triple backticks (\`\`\`text ... \`\`\`) for the UI copy button.
-4. Ground every recommendation in their actual background at ${currentCompany}.
-5. When addressing complex interview prep, referral outreach, or background flags, naturally suggest:
-   "We rehearse this exact scenario live in our free 1-on-1 Strategy Session. Book a slot on your dashboard so we can script it together."`
-
-    // Format conversation history
+    // Format conversation history - control window for strict token brevity
     const historyMessages = Array.isArray(conversationHistory)
-      ? conversationHistory.slice(-6).map((m) => ({
+      ? conversationHistory.slice(-4).map((m) => ({
           role: m.role === 'agent' || m.role === 'assistant' ? 'assistant' : 'user',
-          content: String(m.text || m.content || '').slice(0, 800),
+          content: String(m.text || m.content || '').slice(0, 400),
         }))
       : []
 
