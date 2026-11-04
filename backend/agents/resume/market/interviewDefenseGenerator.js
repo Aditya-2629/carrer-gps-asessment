@@ -40,3 +40,45 @@ export function getResumeSentence(skill, company = 'PwC USA') {
   return `Applied ${skill} to automate reporting reconciliation and support cross-functional decision workflows.`
 }
 
+export function getInterviewerQuestion(skill, company = 'PwC USA') {
+  const comp = company || 'your company'
+  const low = String(skill || '').toLowerCase()
+  if (/snowflake|bigquery|redshift/i.test(low)) {
+    return `How did you structure your ${skill} warehouse and optimize clustering and compute costs at ${comp}?`
+  }
+  if (/dbt/i.test(low)) {
+    return `How did you organize DAG dependencies, testing assertions, and incremental models in ${skill} at ${comp}?`
+  }
+  if (/power\s*bi|tableau|looker/i.test(low)) {
+    return `How did you manage high-concurrency dashboard performance, data model star-schemas, and RLS using ${skill} at ${comp}?`
+  }
+  if (/python|pandas/i.test(low)) {
+    return `How did you optimize memory usage and performance when processing large data frames with ${skill} at ${comp}?`
+  }
+  if (/airflow|spark/i.test(low)) {
+    return `How did you ensure idempotent pipeline execution and handle backfilling in ${skill} at ${comp}?`
+  }
+  return `How did you apply ${skill} in production workflows at ${comp}, and what technical challenges did you resolve?`
+}
+
+export function getTradeOffJustification(skill) {
+  const low = String(skill || '').toLowerCase()
+  if (/snowflake|bigquery/i.test(low)) {
+    return `Decoupled storage and compute to scale automated heavy ETL workloads independently without starving concurrent BI queries.`
+  }
+  if (/dbt/i.test(low)) {
+    return `Adopted dbt over legacy stored procedures to enforce version control, automated schema assertions, and modular DAG maintainability.`
+  }
+  if (/power\s*bi|tableau/i.test(low)) {
+    return `Built semantic models with centralized DAX measures and incremental refresh rather than fragmented ad-hoc spreadsheet reports.`
+  }
+  if (/python|pandas/i.test(low)) {
+    return `Used vectorized operations and chunked streaming over iterative loops to sustain sub-minute ingestion throughput on memory-constrained servers.`
+  }
+  if (/airflow|spark/i.test(low)) {
+    return `Used distributed execution and DAG dependency trees to eliminate brittle cron scripts and ensure fault-tolerant recovery on failure.`
+  }
+  return `Selected ${skill} over manual alternatives to improve execution speed, reliability, and architectural scalability.`
+}
+
+

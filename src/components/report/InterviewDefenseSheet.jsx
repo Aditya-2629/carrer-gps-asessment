@@ -25,6 +25,7 @@ export default function InterviewDefenseSheet({
   return (
     <InterviewDefenseInteractive
       initialSkillsOnly={skills}
+      interviewLedger={interviewLedger}
       targetRole={targetRole}
       company={company}
       onToast={onToast}

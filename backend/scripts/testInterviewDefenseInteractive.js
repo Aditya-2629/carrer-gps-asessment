@@ -11,6 +11,8 @@ import assert from 'assert'
 import {
   getTalkingScript,
   getResumeSentence,
+  getInterviewerQuestion,
+  getTradeOffJustification,
 } from '../agents/resume/market/interviewDefenseGenerator.js'
 
 console.log('=== RUNNING INTERVIEW DEFENSE INTERACTIVE VERIFICATION ===\n')
@@ -68,5 +70,20 @@ const powerBiSentence = getResumeSentence('Power BI', 'PwC USA')
 assert(powerBiSentence.includes('Power BI'))
 assert(/executive dashboards|dynamic filters/i.test(powerBiSentence))
 console.log('✔ Test 4 Passed: Resume sentences correctly structured.\n')
+
+// ---------------------------------------------------------
+// TEST 5: Expected Technical Question & Trade-Off Justification
+// ---------------------------------------------------------
+console.log('Test 5: Verifying Interviewer Questions & Trade-off Justifications...')
+const sfQ = getInterviewerQuestion('Snowflake', 'PwC USA')
+assert(sfQ.includes('Snowflake') && sfQ.includes('PwC USA'), 'Must cite tool and company in question')
+assert(/warehouse|clustering|compute/i.test(sfQ), 'Must address architectural depth')
+
+const sfTrade = getTradeOffJustification('Snowflake')
+assert(/compute|storage|queries|ETL/i.test(sfTrade), 'Must provide concrete architectural trade-off')
+
+const dbtTrade = getTradeOffJustification('dbt')
+assert(/version control|DAG|assertions|stored procedures/i.test(dbtTrade), 'Must contrast with alternatives')
+console.log('✔ Test 5 Passed: Expected questions and trade-offs verified.\n')
 
 console.log('ALL INTERVIEW DEFENSE INTERACTIVE TESTS PASSED! 🚀')

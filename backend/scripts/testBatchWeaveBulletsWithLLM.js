@@ -82,7 +82,20 @@ async function runTests() {
     fullText.includes('68%') || fullText.includes('1,500+'),
     'Must strictly preserve original quantitative metrics (68% or 1,500+)'
   )
-  console.log('✓ Natural Google XYZ framing and metric preservation verified.')
+
+  // Verify rich 3-tier interview defense payload
+  console.log('\nInterview Defense Ledger Payloads:')
+  result.interviewLedger.forEach((entry, idx) => {
+    console.log(`  [Ledger ${idx + 1}: ${entry.keyword}]`)
+    console.log(`    Question: "${entry.interviewerQuestion}"`)
+    console.log(`    Script:   "${entry.talkingScript}"`)
+    console.log(`    TradeOff: "${entry.tradeOffJustification}"`)
+
+    assert(entry.interviewerQuestion && entry.interviewerQuestion.length > 10, 'interviewerQuestion must be present')
+    assert(entry.talkingScript && entry.talkingScript.length > 20, 'talkingScript must be present')
+    assert(entry.tradeOffJustification && entry.tradeOffJustification.length > 15, 'tradeOffJustification must be present')
+  })
+  console.log('✓ Natural Google XYZ framing, metric preservation, and 3-Tier Interview Defense verified.')
 
   // TEST 3: In-Memory LRU Cache Hit (0ms)
   console.log('\n[Test 3] Testing In-Memory LRU Cache Hit (0ms)...')
@@ -100,7 +113,11 @@ async function runTests() {
   assert.strictEqual(cachedResult.source, 'lru_cache', 'Subsequent call MUST return from lru_cache')
   assert(cacheDuration < 50, `Cache hit must be near instantaneous (<50ms, was ${cacheDuration}ms)`)
   assert.strictEqual(cachedResult.tailoredExperiences.length, 1)
-  console.log('✓ LRU cache hit verified (0ms retrieval).')
+
+  // Verify cached result retains rich 3-tier payload
+  assert(cachedResult.interviewLedger[0].interviewerQuestion, 'Cached item must preserve interviewerQuestion')
+  assert(cachedResult.interviewLedger[0].tradeOffJustification, 'Cached item must preserve tradeOffJustification')
+  console.log('✓ LRU cache hit verified (0ms retrieval with full 3-tier defense payload).')
 
   // TEST 4: LRU Cache Eviction & Hash Generation
   console.log('\n[Test 4] Testing Cache Hash & LRU Eviction Limit...')
@@ -150,3 +167,4 @@ runTests().catch((err) => {
   console.error('Test Suite Failed:', err)
   process.exit(1)
 })
+

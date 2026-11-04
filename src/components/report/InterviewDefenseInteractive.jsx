@@ -1,11 +1,17 @@
 import React, { useState, useMemo } from 'react'
-import { ShieldCheck, ChevronDown, Building2, MessageSquare, Check, Plus, Copy, Sparkles } from 'lucide-react'
-import { getTalkingScript, getResumeSentence } from '../../../backend/agents/resume/market/interviewDefenseGenerator.js'
+import { ShieldCheck, ChevronDown, Check, Plus, Copy, Sparkles } from 'lucide-react'
+import {
+  getTalkingScript,
+  getResumeSentence,
+  getInterviewerQuestion,
+  getTradeOffJustification,
+} from '../../../backend/agents/resume/market/interviewDefenseGenerator.js'
 
-export { getTalkingScript, getResumeSentence }
+export { getTalkingScript, getResumeSentence, getInterviewerQuestion, getTradeOffJustification }
 
 export default function InterviewDefenseInteractive({
   initialSkillsOnly = [], // Skills in section but not in bullets
+  interviewLedger = [],
   targetRole = 'Data Analyst',
   company = 'PwC USA',
   onToast = (msg) => console.log(msg),
@@ -53,13 +59,23 @@ export default function InterviewDefenseInteractive({
 
   // Generate cards for currently selected skills
   const defenseCards = useMemo(() => {
-    return selectedSkills.map((skill) => ({
-      skill,
-      company,
-      resumeSentence: getResumeSentence(skill, company),
-      talkingScript: getTalkingScript(skill, targetRole, company),
-    }))
-  }, [selectedSkills, targetRole, company])
+    return selectedSkills.map((skill) => {
+      const fromLedger = Array.isArray(interviewLedger)
+        ? interviewLedger.find((l) => (l.keyword || l.skill || '').toLowerCase() === skill.toLowerCase())
+        : null
+
+      return {
+        keyword: skill,
+        skill,
+        company: fromLedger?.company || company,
+        exactBullet: fromLedger?.exactBullet || fromLedger?.wovenBullet || fromLedger?.bulletText || getResumeSentence(skill, company),
+        resumeSentence: fromLedger?.exactBullet || fromLedger?.wovenBullet || fromLedger?.bulletText || getResumeSentence(skill, company),
+        interviewerQuestion: fromLedger?.interviewerQuestion || getInterviewerQuestion(skill, company),
+        talkingScript: fromLedger?.talkingScript || fromLedger?.interviewTalkingScript || getTalkingScript(skill, targetRole, company),
+        tradeOffJustification: fromLedger?.tradeOffJustification || getTradeOffJustification(skill),
+      }
+    })
+  }, [selectedSkills, interviewLedger, targetRole, company])
 
   const visibleCards = defenseCards.slice(0, visibleCount)
   const remainingCount = Math.max(0, defenseCards.length - visibleCount)
@@ -133,29 +149,26 @@ export default function InterviewDefenseInteractive({
           </div>
         ) : (
           visibleCards.map((item, idx) => {
-            const isCopied = copiedSkill === item.skill
+            const isCopied = copiedSkill === (item.keyword || item.skill)
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)] p-4 sm:p-5 transition-all hover:border-emerald-500/40 hover:shadow-xs space-y-3"
+                className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs space-y-4 transition-all hover:border-emerald-300"
               >
-                {/* Card Header */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm sm:text-base text-[var(--text-primary)]">{item.skill}</span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
-                      Enhanced in Experience
+                    <span className="font-bold text-base text-gray-900">{item.keyword || item.skill}</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Verified in Experience
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-                      <Building2 className="h-3.5 w-3.5" />
-                      <span>{item.company}</span>
-                    </div>
+                    <span className="text-xs font-medium text-gray-500">{item.company}</span>
                     <button
                       type="button"
-                      onClick={() => handleCopy(item.talkingScript, item.skill)}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-emerald-500/10 hover:text-emerald-600 transition-all cursor-pointer"
+                      onClick={() => handleCopy(item.talkingScript, item.keyword || item.skill)}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border border-gray-200 bg-white hover:bg-emerald-50 hover:text-emerald-700 transition-all cursor-pointer"
                     >
                       {isCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-gray-400" />}
                       <span>{isCopied ? 'Copied' : 'Copy'}</span>
@@ -163,27 +176,47 @@ export default function InterviewDefenseInteractive({
                   </div>
                 </div>
 
-                {/* How it appears on resume */}
-                <div className="bg-[var(--surface-card)] rounded-lg border border-[var(--border-default)] p-3">
-                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-1">
-                    How It Appears On Your Resume:
+                {/* 1. How It Appears on Resume */}
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                    Tailored Resume Bullet:
                   </span>
-                  <p className="text-xs text-[var(--text-primary)] italic">
-                    "{item.resumeSentence}"
+                  <p className="text-xs text-gray-800 italic leading-relaxed">
+                    "{item.exactBullet || item.resumeSentence}"
                   </p>
                 </div>
 
-                {/* How to defend in interview */}
-                <div className="bg-emerald-500/10 rounded-lg border border-emerald-500/25 p-3">
-                  <div className="flex items-center gap-1.5 mb-1 text-emerald-800 dark:text-emerald-300">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      How To Defend This In Your Interview:
+                {/* 2. Expected Technical Interview Question */}
+                {item.interviewerQuestion && (
+                  <div className="bg-amber-50/60 rounded-lg p-3 border border-amber-200/70">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
+                      Target Interview Question:
                     </span>
+                    <p className="text-xs font-semibold text-amber-950">
+                      "{item.interviewerQuestion}"
+                    </p>
                   </div>
-                  <p className="text-xs text-emerald-950 dark:text-emerald-100 font-medium leading-relaxed">
-                    {item.talkingScript}
+                )}
+
+                {/* 3. Word-for-Word Verbal Defense Script */}
+                <div className="bg-emerald-50/60 rounded-lg p-3.5 border border-emerald-200/70 space-y-2">
+                  <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                    Word-for-Word Technical Talking Script:
+                  </span>
+                  <p className="text-xs font-medium text-emerald-950 leading-relaxed">
+                    "{item.talkingScript}"
                   </p>
+
+                  {item.tradeOffJustification && (
+                    <div className="pt-2 border-t border-emerald-200/50">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-0.5">
+                        Engineering Trade-off / "Why This Tool?":
+                      </span>
+                      <p className="text-[11px] text-emerald-900 leading-normal">
+                        {item.tradeOffJustification}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )

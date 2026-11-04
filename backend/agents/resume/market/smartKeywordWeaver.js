@@ -17,16 +17,23 @@ export function getRewriteHash(bulletId, originalText, skills = []) {
     .slice(0, 24)
 }
 
-export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Resume Writer and Google XYZ Bullet Architect.
-Your task is to naturally re-engineer candidate experience bullets to incorporate missing target skills using verified Google XYZ impact framing (Accomplished [X], measured by [Y], by doing [Z]).
+export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Interviewer, FAANG Bar Raiser, and Executive Resume Architect.
+Your task is twofold for each candidate experience bullet:
+1. NATURALLY RE-ENGINEER THE BULLET to weave the target skill using Google XYZ impact framing (Accomplished [X] measured by [Y] by doing [Z]).
+2. GENERATE AN ELITE TECHNICAL INTERVIEW DEFENSE SCRIPT so the candidate can defend this tool convincingly in deep technical rounds.
 
-CRITICAL ARCHITECTURAL RULES:
-1. NEVER append robotic, repetitive suffixes like ", leveraging [Tool] for scalable pipelines" or ", utilizing [Tool] to enhance execution".
-2. WEAVE THE TOOL ORGANICALLY as the primary engine or mechanism of the achievement.
-3. PRESERVE ALL ORIGINAL METRICS AND NUMBERS (e.g. if original says "68% cut in manual reporting", keep "68% reduction in manual reporting"). NEVER fabricate new unverified metrics.
-4. ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
-5. LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
-6. DOMAIN FIDELITY: Maintain strict domain realism (e.g. for Data Analyst roles, weave Snowflake/dbt into data modeling, ETL, or automated reconciliation; do not invent full-stack UI or unit testing frameworks).
+CRITICAL RULES:
+- NEVER output repetitive template phrases like "At [Company], I used [Skill] for scalable transformation pipelines".
+- FOR EACH SKILL, PROVIDE CONCRETE TECHNICAL MECHANISMS:
+  - If Snowflake/BigQuery: mention partitioning, clustering keys, query execution cost optimization, or zero-copy cloning.
+  - If dbt: mention modular DAG staging/marts models, incremental models, or schema test assertions.
+  - If Power BI/Tableau: mention DAX measures, row-level security (RLS), incremental refresh, or data model star-schemas.
+  - If Airflow/Spark: mention DAG orchestration, backfilling, idempotent tasks, or PySpark memory partitions.
+  - If Python/Pandas: mention vectorization, memory optimization (chunking), or automated API ingestion.
+- PRESERVE AND ANCHOR TO CANDIDATE DATA: Reference their real company (e.g. PwC USA), real numbers (e.g. 1,500+ SKUs, 68% turnaround), and real domain scope.
+- ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
+- LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
+- DOMAIN FIDELITY: Maintain strict domain realism (e.g. for Data Analyst roles, weave Snowflake/dbt into data modeling, ETL, or automated reconciliation; do not invent full-stack UI or unit testing frameworks).
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
@@ -34,8 +41,12 @@ OUTPUT FORMAT (STRICT JSON ONLY):
     {
       "bulletId": "exp_001_b01",
       "wovenSkill": "Snowflake",
-      "rewrittenText": "Engineered automated Snowflake-SQL pipelines to reconcile multi-source transaction data, cutting manual reporting turnaround by 68% and eliminating reporting discrepancies.",
-      "interviewTalkingScript": "Explain how you modeled the star-schema tables in Snowflake and optimized clustering keys to support high-throughput reporting queries."
+      "rewrittenText": "Engineered automated Snowflake-SQL transformation pipelines across 1,500+ SKUs, cutting manual reporting turnaround by 68% and establishing resilient star-schema models for enterprise analytics.",
+      "interviewDefense": {
+        "interviewerQuestion": "How did you structure your Snowflake warehouse and optimize query performance for high-concurrency dashboards at PwC?",
+        "talkingScript": "At PwC, I architected our core reporting layers using star-schema dimensional modeling in Snowflake, implementing clustering keys on SKU IDs and transaction dates. This eliminated full-table scans and reduced executive dashboard refresh latency from 45 minutes to sub-3 minutes.",
+        "tradeOffJustification": "We migrated from on-prem relational databases to Snowflake to decouple compute from storage, allowing our automated ETL jobs to scale independently without starving concurrent BI dashboard queries."
+      }
     }
   ]
 }`
@@ -105,11 +116,15 @@ export async function batchWeaveBulletsWithLLM({
         } else if (tailored[item.expIdx].bullets[item.bIdx]) {
           tailored[item.expIdx].bullets[item.bIdx].text = res.rewrittenText
         }
+        const defense = res.interviewDefense || {}
         ledger.push({
-          keyword: res.wovenSkill || 'Target Stack',
+          keyword: res.wovenSkill || 'Core Tech',
           company: item.company,
           exactBullet: res.rewrittenText,
-          interviewTalkingScript: res.interviewTalkingScript || `Explain how you leveraged ${res.wovenSkill} in production workflows.`,
+          interviewerQuestion: defense.interviewerQuestion || res.interviewerQuestion || `How did you apply ${res.wovenSkill} at ${item.company}?`,
+          talkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `Discuss your hands-on deployment of ${res.wovenSkill} for operational scaling at ${item.company}.`,
+          interviewTalkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `Discuss your hands-on deployment of ${res.wovenSkill} for operational scaling at ${item.company}.`,
+          tradeOffJustification: defense.tradeOffJustification || res.tradeOffJustification || `Selected ${res.wovenSkill} to optimize performance and prevent delivery bottlenecks.`,
         })
       }
     })
@@ -191,11 +206,15 @@ export async function batchWeaveBulletsWithLLM({
         } else if (tailored[item.expIdx].bullets[item.bIdx]) {
           tailored[item.expIdx].bullets[item.bIdx].text = rewrite.rewrittenText
         }
+        const defense = rewrite.interviewDefense || {}
         interviewLedger.push({
-          keyword: rewrite.wovenSkill || 'Target Stack',
+          keyword: rewrite.wovenSkill || 'Core Tech',
           company: item.company,
           exactBullet: rewrite.rewrittenText,
-          interviewTalkingScript: rewrite.interviewTalkingScript || `Explain how you leveraged ${rewrite.wovenSkill} in production workflows.`,
+          interviewerQuestion: defense.interviewerQuestion || rewrite.interviewerQuestion || `How did you apply ${rewrite.wovenSkill} at ${item.company}?`,
+          talkingScript: defense.talkingScript || rewrite.talkingScript || rewrite.interviewTalkingScript || `Discuss your hands-on deployment of ${rewrite.wovenSkill} for operational scaling at ${item.company}.`,
+          interviewTalkingScript: defense.talkingScript || rewrite.talkingScript || rewrite.interviewTalkingScript || `Discuss your hands-on deployment of ${rewrite.wovenSkill} for operational scaling at ${item.company}.`,
+          tradeOffJustification: defense.tradeOffJustification || rewrite.tradeOffJustification || `Selected ${rewrite.wovenSkill} to optimize performance and prevent delivery bottlenecks.`,
         })
       }
     })
@@ -544,8 +563,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
               bulletText: wovenText,
               exactBullet: wovenText,
               wovenBullet: wovenText,
+              interviewerQuestion: `How did you apply ${kw} at ${prof.company}?`,
               interviewTalkingScript: script,
               talkingScript: script,
+              tradeOffJustification: `Selected ${kw} to optimize execution performance and eliminate workflow bottlenecks at ${prof.company}.`,
             })
             break
           }
@@ -615,8 +636,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         bulletText: synthBullet,
         exactBullet: synthBullet,
         wovenBullet: synthBullet,
+        interviewerQuestion: `How did you leverage ${kw} at ${availableProfile.company}?`,
         interviewTalkingScript: script,
         talkingScript: script,
+        tradeOffJustification: `Selected ${kw} to support scalable operational workflows and improve system reliability.`,
       })
     }
   }
@@ -640,8 +663,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
             bulletText: practice.bullet,
             exactBullet: practice.bullet,
             wovenBullet: practice.bullet,
+            interviewerQuestion: `How did you enforce quality governance and review gates at ${prof0.company}?`,
             interviewTalkingScript: practice.script,
             talkingScript: practice.script,
+            tradeOffJustification: 'Established structured review gates to prevent production regressions and maintain SLA consistency across sprints.',
           })
         }
       }
@@ -661,8 +686,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
           bulletText: practice.bullet,
           exactBullet: practice.bullet,
           wovenBullet: practice.bullet,
+          interviewerQuestion: `How did you design automated testing and schema assertions for data pipelines at ${prof0.company}?`,
           interviewTalkingScript: practice.script,
           talkingScript: practice.script,
+          tradeOffJustification: 'Implemented dbt assertions over manual checks to detect corrupted source data before it propagates to executive BI dashboards.',
         })
       }
     } else {
@@ -683,8 +710,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
           bulletText: practice.bullet,
           exactBullet: practice.bullet,
           wovenBullet: practice.bullet,
+          interviewerQuestion: `How did you implement CI/CD test gates and code review standards at ${prof0.company}?`,
           interviewTalkingScript: practice.script,
           talkingScript: practice.script,
+          tradeOffJustification: 'Automated PR test gating to catch defects prior to merging, reducing post-release incidents and stabilizing deployments.',
         })
       }
     }
@@ -707,8 +736,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
       bulletText: `Added ${kw} to Technical Skills profile`,
       exactBullet: `Added ${kw} to Technical Skills profile`,
       wovenBullet: `Added ${kw} to Technical Skills profile`,
+      interviewerQuestion: `What production challenges did you solve using ${kw}?`,
       interviewTalkingScript: script,
       talkingScript: script,
+      tradeOffJustification: `Adopted ${kw} for its strong ecosystem support, efficiency, and seamless fit within our tech stack.`,
     })
     usedKeywords.add(kwLower)
   }
@@ -771,122 +802,18 @@ export async function weaveKeywordsAndBuildLedger({
   }
 
   try {
-    const compactExperiences = experiences.map((exp, idx) => ({
-      index: idx,
-      company: exp.company || `Company ${idx + 1}`,
-      role: exp.role || exp.title || '',
-      duration: exp.duration || '',
-      isCurrent: isRoleCurrent(exp),
-      bullets: (exp.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || '')),
-    }))
-
-    const systemPrompt = `You are an elite Principal Technical Recruiter & Staff Resume Architect.
-Your objective is to naturally distribute and weave target keywords across candidate experience entries based on technical domain relevance.
-
-CRITICAL DOMAIN-AWARE ARCHITECTURAL RULES:
-1. UNIVERSAL DOMAIN CALIBRATION:
-   - Data / Analytics roles: Weave warehouse pipelines, dimensional star schemas, dbt, SQL, and business metrics.
-   - Generative AI / ML roles: Weave RAG vector retrieval, LLM serving, agentic tool-calling (FastMCP/LangGraph), and prompt guardrails.
-   - DevOps / Cloud roles: Weave containerization, Kubernetes orchestration, Terraform IaC, and CI/CD zero-downtime rollouts.
-   - SWE / Backend roles: Weave decoupled microservices, API payload typing, caching, and automated testing.
-
-2. BALANCED MULTI-COMPANY DISTRIBUTION:
-   - You MUST distribute keywords across ALL candidate companies based on technical domain relevance.
-   - Target 5 high-impact bullets per company (e.g., exactly 5 bullets per company, never exceed 6, and never leave an experience with fewer than 5 bullets when target keywords are provided).
-   - Distribute keyword additions so each company receives meaningful technical enhancements.
-
-3. STRICT TENSE ENFORCEMENT:
-   - For ANY experience entry where isCurrent is true: EVERY bullet MUST strictly start with an active PRESENT TENSE verb.
-   - For past completed roles (isCurrent is false): EVERY bullet MUST strictly start with an active PAST TENSE verb.
-
-4. INTERVIEW DEFENSE LEDGER:
-   - Provide "keyword", "company", "placement", "exactBullet", and "interviewTalkingScript" (a natural first-person developer explanation).
-
-OUTPUT FORMAT (JSON ONLY):
-{
-  "tailoredExperiences": [
-    {
-      "index": 0,
-      "company": "...",
-      "role": "...",
-      "duration": "...",
-      "isCurrent": true/false,
-      "bullets": ["..."]
-    }
-  ],
-  "interviewLedger": [
-    {
-      "keyword": "...",
-      "company": "...",
-      "placement": "...",
-      "exactBullet": "...",
-      "interviewTalkingScript": "..."
-    }
-  ]
-}`
-
-    const userPrompt = `Target Role: ${role || 'Professional'}
-Target Keywords to Weave: ${targetKws.slice(0, 10).join(', ')}
-
-Candidate Experiences:
-${JSON.stringify(compactExperiences, null, 2)}`
-
-    const response = await llmGateway.generate({
-      purpose: 'resume_keyword_weaving',
-      model: 'gemini-3.5-flash-lite',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      responseFormat: { type: 'json_object' },
-      temperature: 0.2,
-      maxTokens: 2500,
-      preferredProvider: 'gemini',
+    const result = await batchWeaveBulletsWithLLM({
+      experiences,
+      targetSkills: targetKws,
+      targetRole: role,
+      company: experiences[0]?.company || 'Enterprise',
+      timeoutMs: 5000,
     })
-
-    if (response && response.text) {
-      let parsed = null
-      try {
-        parsed = JSON.parse(response.text)
-      } catch (_jsonErr) {
-        const jsonMatch = response.text.match(/\{[\s\S]*\}/)
-        if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
-      }
-
-      if (parsed && Array.isArray(parsed.tailoredExperiences) && parsed.tailoredExperiences.length > 0) {
-        const maxBullets = Math.max(...parsed.tailoredExperiences.map((te) => (te.bullets || []).length))
-        if (maxBullets <= 6) {
-          const wovenExperiences = experiences.map((origExp, idx) => {
-            const matching = parsed.tailoredExperiences.find((te) => te.index === idx || te.company === origExp.company)
-            const isCurrent = isRoleCurrent(origExp)
-            const newBullets = (matching?.bullets && matching.bullets.length > 0) ? matching.bullets : origExp.bullets
-            return {
-              ...origExp,
-              isCurrent,
-              bullets: cleanBoilerplateAndTense(newBullets, isCurrent),
-            }
-          })
-
-          const ledger = (Array.isArray(parsed.interviewLedger) ? parsed.interviewLedger : []).map((l) => ({
-            ...l,
-            wovenBullet: l.wovenBullet || l.exactBullet || l.bulletText || '',
-            exactBullet: l.exactBullet || l.wovenBullet || l.bulletText || '',
-            bulletText: l.bulletText || l.exactBullet || l.wovenBullet || '',
-            talkingScript: l.talkingScript || l.interviewTalkingScript || '',
-            interviewTalkingScript: l.interviewTalkingScript || l.talkingScript || '',
-          }))
-          const totalWoven = ledger.length > 0 ? ledger.length : targetKws.length
-
-          return {
-            tailoredExperiences: wovenExperiences,
-            interviewLedger: ledger,
-            totalKeywordsWoven: totalWoven,
-          }
-        }
-      }
+    if (result && Array.isArray(result.tailoredExperiences) && result.tailoredExperiences.length > 0) {
+      return result
     }
   } catch (err) {
-    console.warn('[SmartKeywordWeaver] Mini-agent LLM call fell back to deterministic weaver:', err.message)
+    console.warn('[SmartKeywordWeaver] batchWeaveBulletsWithLLM failed in weaveKeywordsAndBuildLedger, falling back:', err.message)
   }
 
   return deterministicWeave(experiences, targetKws, role)
