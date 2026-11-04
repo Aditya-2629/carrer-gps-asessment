@@ -17,6 +17,9 @@ import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
 import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from './llmJdSkillAnalyzer.js'
 
+export const MIN_SAMPLE_THRESHOLD = 10
+export const MIN_SKILLS_THRESHOLD = 5
+
 /**
  * Retrieves market intelligence for a specific bucket key.
  *
@@ -53,28 +56,34 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
   try {
     const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
 
-    // 1. If valid active version exists in MongoDB (>= 1 JD and >= 1 skill), serve instantly (0ms)
+    // 1. If valid active version exists in MongoDB (sampleSize >= 10 and skills >= 5), serve instantly (0ms)
     if (bucket && (bucket.activeVersion > 0 || bucket.status === 'refreshing' || bucket.status === 'healthy')) {
       const activeVersion =
         (await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion }).lean()) ||
         (await JobMarketVersion.findOne({ bucketKey, isArchived: false }).sort({ version: -1 }).lean())
 
+      const sampleSize = activeVersion?.jobs?.length || activeVersion?.marketProfile?.sampleSize || 0
+      const skillsCount = Array.isArray(activeVersion?.marketProfile?.skills) ? activeVersion.marketProfile.skills.length : 0
+
       if (
         activeVersion &&
         activeVersion.marketProfile &&
-        Array.isArray(activeVersion.marketProfile.skills) &&
-        activeVersion.marketProfile.skills.length >= 1 &&
-        (activeVersion.jobs?.length >= 1 || (activeVersion.marketProfile.sampleSize || 0) >= 1)
+        sampleSize >= MIN_SAMPLE_THRESHOLD &&
+        skillsCount >= MIN_SKILLS_THRESHOLD
       ) {
         return {
           status: 'available',
           bucketKey,
           version: activeVersion.version,
-          sampleSize: activeVersion.jobs?.length || activeVersion.marketProfile.sampleSize || 0,
+          sampleSize,
           marketProfile: activeVersion.marketProfile,
           jobs: activeVersion.jobs || [],
           lastRefreshedAt: bucket.lastSuccessfulRefreshAt,
         }
+      } else if (activeVersion) {
+        console.warn(
+          `[MarketJdRetriever] Bucket ${bucketKey} active version v${activeVersion.version} has insufficient sample (${sampleSize} JDs < ${MIN_SAMPLE_THRESHOLD} or ${skillsCount} skills < ${MIN_SKILLS_THRESHOLD}). Treating as cold to prevent cache poisoning.`
+        )
       }
     }
 
@@ -93,7 +102,8 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
           mockJds: options.mockJds || null,
         })
 
-        if (Array.isArray(fast30Jds) && fast30Jds.length >= 1) {
+        if (Array.isArray(fast30Jds) && fast30Jds.length >= MIN_SAMPLE_THRESHOLD) {
+          console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= 10). Activating version...`)
           console.log(`[MarketJdRetriever] Fast-30 captured ${fast30Jds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
           const analysis = await analyzeJdBatchWithGemini(roleClean, fast30Jds)
           const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
@@ -173,16 +183,17 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
             marketProfile: fastMarketProfile,
             jobs: fast30Jds,
           }
+        } else {
+          console.warn(
+            `[MarketJdRetriever] Fast-30 scrape returned insufficient sample (${fast30Jds?.length || 0} < ${MIN_SAMPLE_THRESHOLD}) for ${bucketKey}. Aborting version persistence to prevent skewed data.`
+          )
         }
       } catch (fastErr) {
         console.warn(`[MarketJdRetriever] Fast-30 failed: ${fastErr.message}. Enqueueing full background job.`)
-        if (autoRefresh) {
-          enqueueFullBackgroundBucket(bucketKey).catch(() => {})
-        }
       }
     }
 
-    // 3. Graceful fallback if fast-catch yielded < 3 JDs or was bypassed
+    // 3. Graceful fallback if fast-catch yielded < 10 JDs or was bypassed
     if (autoRefresh) {
       console.log(`[MarketJdRetriever] Enqueueing full background refresh for ${bucketKey}...`)
       enqueueFullBackgroundBucket(bucketKey).catch(() => {})
@@ -214,4 +225,6 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
 
 export default {
   getMarketDataForBucket,
+  MIN_SAMPLE_THRESHOLD,
+  MIN_SKILLS_THRESHOLD,
 }

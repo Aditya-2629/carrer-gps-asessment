@@ -28,18 +28,40 @@ export async function scrapeLiveJobDescriptions(searchParams, options = {}) {
     })
 
     const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
+    const resolvedRole = searchParams.role || searchParams.title || searchParams.query || 'Software Engineer'
+    const resolvedLocation = searchParams.location || 'United States'
+    const targetRows = Math.max(50, options.rows || searchParams.rows || 50)
+
     const payload = typeof searchParams === 'object' && searchParams !== null
       ? {
           titles: Array.isArray(searchParams.titles) && searchParams.titles.length > 0
             ? searchParams.titles
-            : [searchParams.role || searchParams.title || searchParams.query || 'Software Engineer'],
+            : [resolvedRole],
           locations: Array.isArray(searchParams.locations) && searchParams.locations.length > 0
             ? searchParams.locations
-            : ['United States'],
+            : [resolvedLocation],
+          rows: targetRows,
+          maxJobs: targetRows,
+          proxy: {
+            useApifyProxy: true,
+            apifyProxyGroups: ['RESIDENTIAL'],
+          },
           ...searchParams,
         }
       : searchParams
-    const run = await client.actor(actorId).call(payload)
+
+    let run
+    try {
+      run = await client.actor(actorId).call(payload)
+    } catch (callErr) {
+      if (/residential|proxy/i.test(callErr.message) && payload?.proxy?.apifyProxyGroups) {
+        console.warn(`[Apify JdScraper] Residential proxy rejected (${callErr.message}). Retrying with default Apify proxy...`)
+        payload.proxy = { useApifyProxy: true }
+        run = await client.actor(actorId).call(payload)
+      } else {
+        throw callErr
+      }
+    }
     const { items } = await client.dataset(run.defaultDatasetId).listItems()
     return items || []
   }, { maxAttempts: options.maxRetries || 3 })
@@ -135,24 +157,34 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
   const startTime = Date.now()
 
-  // Input contract supporting both legacy and modern bebity actor schemas
+  const targetCandidates = Math.max(50, maxCandidates)
+  const resolvedRole = (Array.isArray(options.titles) && options.titles[0])
+    || searchSpec.role
+    || searchSpec.query
+    || 'Software Engineer'
+  const resolvedLocation = (Array.isArray(options.locations) && options.locations[0])
+    || searchSpec.location
+    || options.location
+    || 'United States'
+
+  // Input contract adhering to modern bebity actor schema (titles list, locations list, proxy)
   const actorInput = {
     titles: Array.isArray(options.titles) && options.titles.length > 0
       ? options.titles
-      : [searchSpec.role || searchSpec.query || 'Software Engineer'],
+      : [resolvedRole],
     locations: Array.isArray(options.locations) && options.locations.length > 0
       ? options.locations
-      : ['United States'],
-    queries: [searchSpec.query],
-    query: searchSpec.query,
-    title: searchSpec.query,
-    rows: maxCandidates,
-    maxRowsPerUrl: maxCandidates,
-    maxRows: maxCandidates,
-    limit: maxCandidates,
-    maxItems: maxCandidates,
-    location: 'United States',
-    country: 'us',
+      : [resolvedLocation],
+    rows: targetCandidates,
+    maxJobs: targetCandidates,
+    maxRowsPerUrl: targetCandidates,
+    maxRows: targetCandidates,
+    limit: targetCandidates,
+    maxItems: targetCandidates,
+    proxy: {
+      useApifyProxy: true,
+      apifyProxyGroups: ['RESIDENTIAL'],
+    },
     companyProfile: false,
     enrichCompany: false,
     scrapeCompanyDetails: false,
@@ -169,19 +201,37 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
       timeoutSecs,
       maxRetries: 3,
     })
-    console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${searchSpec.query}" (Target: ${maxCandidates} JDs, Timeout: ${timeoutSecs}s)...`)
+    console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${resolvedRole}" (Target: ${targetCandidates} JDs, Timeout: ${timeoutSecs}s)...`)
 
-    const run = await client.actor(actorId).call(actorInput, {
-      waitSecs: timeoutSecs,
-      maxItems: maxCandidates,
-    })
+    let currentInput = { ...actorInput }
+    let run
+    try {
+      run = await client.actor(actorId).call(currentInput, {
+        waitSecs: timeoutSecs,
+        maxItems: targetCandidates,
+      })
+    } catch (callErr) {
+      if (/residential|proxy/i.test(callErr.message) && currentInput?.proxy?.apifyProxyGroups) {
+        console.warn(`[Apify JdScraper] Residential proxy rejected (${callErr.message}). Retrying with default Apify proxy...`)
+        currentInput = {
+          ...currentInput,
+          proxy: { useApifyProxy: true },
+        }
+        run = await client.actor(actorId).call(currentInput, {
+          waitSecs: timeoutSecs,
+          maxItems: targetCandidates,
+        })
+      } else {
+        throw callErr
+      }
+    }
 
     if (!run || !run.defaultDatasetId) {
       throw new Error(`Apify run failed or returned no datasetId. Status: ${run?.status}`)
     }
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems({
-      limit: maxCandidates,
+      limit: targetCandidates,
       clean: true,
     })
 

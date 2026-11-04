@@ -21,6 +21,8 @@ import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
+export const MIN_SAMPLE_THRESHOLD = 10
+
 /**
  * Executes a refresh for a single Role × Experience bucket.
  *
@@ -79,12 +81,30 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
     const processed = processAndSelectTopJds(rawCandidates, bucket.roleKey, TARGET_JD_COUNT)
     const selectedJds = processed.selected
 
-    if (selectedJds.length < TARGET_JD_COUNT) {
-      console.warn(`[MarketJdJobs] Retrieved ${selectedJds.length} valid JDs for ${bucketKey} (target: ${TARGET_JD_COUNT}).`)
+    console.log(`[MarketJdJobs] Scraped ${selectedJds.length} valid JDs for role: "${bucket.roleName || bucket.roleKey}"`)
+
+    if (selectedJds.length < MIN_SAMPLE_THRESHOLD) {
+      const reason = `Insufficient sample size: retrieved ${selectedJds.length} valid JDs, minimum required is ${MIN_SAMPLE_THRESHOLD}.`
+      console.warn(`[MarketJdJobs] Refresh aborted for ${bucketKey}: ${reason}`)
+
+      bucket.status = bucket.activeVersion > 0 ? bucket.status : 'needs_refresh'
+      bucket.refreshError = reason
+      await bucket.save()
+
+      return {
+        success: false,
+        reason: 'INSUFFICIENT_SAMPLE_SIZE',
+        bucketKey,
+        jobCount: selectedJds.length,
+        minRequired: MIN_SAMPLE_THRESHOLD,
+        error: reason,
+      }
     }
 
-    if (selectedJds.length === 0) {
-      throw new Error(`No valid market JDs could be extracted from candidate pool (${scrapeResult.totalFetched} items fetched).`)
+    console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= 10). Activating version...`)
+
+    if (selectedJds.length < TARGET_JD_COUNT) {
+      console.warn(`[MarketJdJobs] Retrieved ${selectedJds.length} valid JDs for ${bucketKey} (target: ${TARGET_JD_COUNT}).`)
     }
 
     // 5. Build canonical MarketProfile via LLM Corpus Analysis using Gemini Flash
@@ -245,22 +265,24 @@ export async function fetchFastCatchJds({
     return []
   }
 
+  const fastCatchCount = Math.max(30, targetCount)
   const actorInput = {
     titles: [targetRoleTitle],
-    title: targetRoleTitle,
-    queries: [targetRoleTitle],
-    query: targetRoleTitle,
     locations: ['United States'],
-    location: 'United States',
-    rows: targetCount,
-    maxRows: targetCount,
-    limit: targetCount,
+    rows: fastCatchCount,
+    maxJobs: fastCatchCount,
+    maxRows: fastCatchCount,
+    limit: fastCatchCount,
+    proxy: {
+      useApifyProxy: true,
+      apifyProxyGroups: ['RESIDENTIAL'],
+    },
     companyProfile: false,
     enrichCompany: false,
     scrapeCompanyDetails: false,
   }
 
-  console.log(`[MarketJdJobs] Starting Fast-30 scrape for role: "${targetRoleTitle}" (Target: ${targetCount} JDs)...`)
+  console.log(`[MarketJdJobs] Starting Fast-30 scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs)...`)
   const fastCatchStartTime = Date.now()
 
   try {
@@ -270,12 +292,25 @@ export async function fetchFastCatchJds({
         token: activeToken,
         timeoutSecs: Math.round(timeoutMs / 1000),
       })
-      const run = await client.actor(actorId).call(actorInput, {
-        waitSecs: Math.round(timeoutMs / 1000),
-      })
+      let run
+      try {
+        run = await client.actor(actorId).call(actorInput, {
+          waitSecs: Math.round(timeoutMs / 1000),
+        })
+      } catch (actorErr) {
+        if (/residential|proxy/i.test(actorErr.message) && actorInput?.proxy?.apifyProxyGroups) {
+          console.warn(`[MarketJdJobs] Fast-30 residential proxy rejected (${actorErr.message}). Retrying with default Apify proxy...`)
+          actorInput.proxy = { useApifyProxy: true }
+          run = await client.actor(actorId).call(actorInput, {
+            waitSecs: Math.round(timeoutMs / 1000),
+          })
+        } else {
+          throw actorErr
+        }
+      }
       if (!run || !run.defaultDatasetId) return []
       const { items: datasetItems = [] } = await client.dataset(run.defaultDatasetId).listItems({
-        limit: targetCount,
+        limit: fastCatchCount,
         clean: true,
       })
       return datasetItems
@@ -289,12 +324,15 @@ export async function fetchFastCatchJds({
       })
     } catch (_) {}
 
-    return (items || []).map((item) => ({
+    const validJds = (items || []).map((item) => ({
       title: item.title || targetRoleTitle,
       company: item.companyName || item.company || 'Enterprise Employer',
       description: item.description || item.text || item.body || '',
       url: item.url || item.link || '',
     })).filter((j) => j.description && j.description.length >= 120)
+
+    console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}"`)
+    return validJds
   } catch (err) {
     console.warn(`[MarketJdJobs] Fast-30 scrape failed: ${err.message}`)
     return []
@@ -317,4 +355,5 @@ export default {
   ensureConfiguredBucketsExist,
   fetchFastCatchJds,
   enqueueFullBackgroundBucket,
+  MIN_SAMPLE_THRESHOLD,
 }
