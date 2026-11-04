@@ -586,8 +586,28 @@ RULES:
     }
 
     let cleanAnswer = (replyText || '').trim()
+
+    // 1. Strip outer code fences if the model wrapped the entire JSON in ```
     const outerMatch = cleanAnswer.match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
-    if (outerMatch) cleanAnswer = outerMatch[1].trim()
+    if (outerMatch) {
+      cleanAnswer = outerMatch[1].trim()
+    }
+
+    // 2. Extract structured coach_response and format copy_block for CopyableSnippetCard
+    if (cleanAnswer.startsWith('{') && cleanAnswer.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(cleanAnswer)
+        if (parsed.coach_response || parsed.copy_block) {
+          const responseText = (parsed.coach_response || parsed.answer || parsed.reply || '').trim()
+          const copySnippet = parsed.copy_block
+            ? `\n\n\`\`\`text\n${parsed.copy_block.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()}\n\`\`\``
+            : ''
+          cleanAnswer = `${responseText}${copySnippet}`
+        } else if (parsed.answer || parsed.reply) {
+          cleanAnswer = (parsed.answer || parsed.reply).trim()
+        }
+      } catch (_) {}
+    }
 
     return res.status(200).json({
       answer: cleanAnswer,

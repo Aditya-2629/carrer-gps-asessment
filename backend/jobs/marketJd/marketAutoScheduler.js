@@ -23,13 +23,14 @@ export async function checkAndScheduleStaleBuckets() {
   try {
     const cutoffDate = new Date(Date.now() - SEVEN_DAYS_MS)
 
-    // Find buckets that haven't been successfully refreshed in the last 7 days
+    // Find buckets that haven't been successfully refreshed in the last 7 days or have a small sample (<20 JDs)
     const staleBuckets = await JobMarketBucket.find({
       $or: [
         { lastSuccessfulRefreshAt: { $lt: cutoffDate } },
         { lastSuccessfulRefreshAt: { $exists: false } },
         { lastSuccessfulRefreshAt: null },
         { activeVersion: 0 },
+        { jobCount: { $lt: 20 } }, // 👈 Trigger refresh if bucket has a small sample size (<20 JDs)
       ],
       status: { $ne: 'refreshing' }, // Don't pick currently running buckets
     }).sort({ lastSuccessfulRefreshAt: 1 }) // Oldest first

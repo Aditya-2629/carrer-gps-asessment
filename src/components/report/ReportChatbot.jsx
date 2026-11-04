@@ -348,11 +348,28 @@ export default function ReportChatbot() {
           history: historyPayload,
         })
 
+        let rawAnswer = String(res.data?.answer || res.data?.reply || '').trim()
+
+        if (rawAnswer.startsWith('{') && rawAnswer.endsWith('}')) {
+          try {
+            const parsed = JSON.parse(rawAnswer)
+            if (parsed.coach_response || parsed.copy_block) {
+              const resp = (parsed.coach_response || parsed.answer || parsed.reply || '').trim()
+              const copy = parsed.copy_block
+                ? `\n\n\`\`\`text\n${parsed.copy_block.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()}\n\`\`\``
+                : ''
+              rawAnswer = `${resp}${copy}`
+            } else if (parsed.answer || parsed.reply) {
+              rawAnswer = (parsed.answer || parsed.reply).trim()
+            }
+          } catch (_) {}
+        }
+
         setMessages((prev) => [
           ...prev,
           {
             role: 'agent',
-            text: res.data?.answer || 'Sorry — I could not generate an answer. Please try again.',
+            text: rawAnswer || 'Sorry — I could not generate an answer. Please try again.',
             routedIntent: res.data?.routedIntent || null,
             sectionLink: res.data?.sectionLink || null,
             suggestCall: Boolean(res.data?.suggestCall),
