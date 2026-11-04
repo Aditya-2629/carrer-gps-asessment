@@ -115,20 +115,40 @@ assert.strictEqual(generalIntent.id, 'general', 'Should route to general')
 console.log('✔ Test 3 Passed: Intent classification correctly maps candidate questions.\n')
 
 // ---------------------------------------------------------
-// TEST 4: OpenRouter gemini-2.5-flash Registration & LLMGateway Fallback
+// TEST 4: OpenRouter gemini-3.5-flash-lite, deepseek-chat & Fallback Model Chains
 // ---------------------------------------------------------
-console.log('Test 4: Verifying OpenRouter gemini-2.5-flash & Fallback Model Chains...')
+console.log('Test 4: Verifying OpenRouter gemini-3.5-flash-lite, deepseek-chat & Fallback Model Chains...')
+assert(MODEL_REGISTRY['google/gemini-3.5-flash-lite'], 'google/gemini-3.5-flash-lite must be registered')
+assert.strictEqual(MODEL_REGISTRY['google/gemini-3.5-flash-lite'].provider, 'openrouter')
+assert.strictEqual(MODEL_REGISTRY['google/gemini-3.5-flash-lite'].enabled, true)
+assert(MODEL_REGISTRY['google/gemini-3.5-flash-lite'].purpose.includes('career_chatbot'))
+
+assert(MODEL_REGISTRY['deepseek/deepseek-chat'], 'deepseek/deepseek-chat must be registered')
+assert.strictEqual(MODEL_REGISTRY['deepseek/deepseek-chat'].provider, 'openrouter')
+assert.strictEqual(MODEL_REGISTRY['deepseek/deepseek-chat'].enabled, true)
+assert(MODEL_REGISTRY['deepseek/deepseek-chat'].purpose.includes('career_chatbot'))
+
 assert(MODEL_REGISTRY['google/gemini-2.5-flash'], 'google/gemini-2.5-flash must be registered')
 assert.strictEqual(MODEL_REGISTRY['google/gemini-2.5-flash'].provider, 'openrouter')
 assert.strictEqual(MODEL_REGISTRY['google/gemini-2.5-flash'].enabled, true)
 assert(MODEL_REGISTRY['google/gemini-2.5-flash'].purpose.includes('career_chatbot'))
 
 assert(
+  PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-3.5-flash-lite'),
+  'google/gemini-3.5-flash-lite should be in PROVIDER_MODEL_FALLBACKS.openrouter'
+)
+assert(
+  PROVIDER_MODEL_FALLBACKS.openrouter.includes('deepseek/deepseek-chat'),
+  'deepseek/deepseek-chat should be in PROVIDER_MODEL_FALLBACKS.openrouter'
+)
+assert(
   PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-2.5-flash'),
   'google/gemini-2.5-flash should be in PROVIDER_MODEL_FALLBACKS.openrouter'
 )
 
 const chatbotModels = listModelsForPurpose('career_chatbot').map((m) => m.id)
+assert(chatbotModels.includes('google/gemini-3.5-flash-lite'), 'google/gemini-3.5-flash-lite must support career_chatbot')
+assert(chatbotModels.includes('deepseek/deepseek-chat'), 'deepseek/deepseek-chat must support career_chatbot')
 assert(chatbotModels.includes('llama-3.3-70b-versatile'), 'llama-3.3-70b-versatile must support career_chatbot')
 assert(chatbotModels.includes('google/gemini-3.5-flash'), 'google/gemini-3.5-flash must support career_chatbot')
 assert(chatbotModels.includes('google/gemini-2.5-flash'), 'google/gemini-2.5-flash must support career_chatbot')

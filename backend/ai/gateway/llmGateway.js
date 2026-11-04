@@ -41,9 +41,11 @@ export const TRAP_MODELS = new Set([
 
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
+    'google/gemini-3.5-flash-lite', // Primary: 1M context, 1.2s speed, $0.15/$0.60 per M
+    'deepseek/deepseek-chat',        // Secondary: DeepSeek V3 frontier reasoning, $0.20/$0.80 per M
+    'google/gemini-3-flash-preview',
     'google/gemini-3.5-flash',
     'google/gemini-2.5-flash',
-    'google/gemini-3-flash-preview',
     'google/gemini-3.1-pro-preview',
   ],
   groq: [
@@ -158,11 +160,12 @@ export class LLMGateway {
         ]
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
         modelsToTry = [
-          'llama-3.3-70b-versatile',
-          'openai/gpt-oss-120b',
+          'google/gemini-3.5-flash-lite',
+          'deepseek/deepseek-chat',
+          'google/gemini-3-flash-preview',
           'google/gemini-3.5-flash',
           'google/gemini-2.5-flash',
-          'gemini-3.5-flash-lite',
+          'openai/gpt-oss-120b',
         ]
       } else {
         const chain = new Set()
