@@ -53,8 +53,8 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
   try {
     const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
 
-    // 1. If valid active version exists in MongoDB (>= 10 JDs), serve instantly (0ms)
-    if (bucket && (bucket.activeVersion > 0 || bucket.status === 'refreshing')) {
+    // 1. If valid active version exists in MongoDB (>= 1 JD and >= 1 skill), serve instantly (0ms)
+    if (bucket && (bucket.activeVersion > 0 || bucket.status === 'refreshing' || bucket.status === 'healthy')) {
       const activeVersion =
         (await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion }).lean()) ||
         (await JobMarketVersion.findOne({ bucketKey, isArchived: false }).sort({ version: -1 }).lean())
@@ -63,8 +63,8 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         activeVersion &&
         activeVersion.marketProfile &&
         Array.isArray(activeVersion.marketProfile.skills) &&
-        activeVersion.marketProfile.skills.length >= 3 &&
-        (activeVersion.jobs?.length >= 10 || (activeVersion.marketProfile.sampleSize || 0) >= 10)
+        activeVersion.marketProfile.skills.length >= 1 &&
+        (activeVersion.jobs?.length >= 1 || (activeVersion.marketProfile.sampleSize || 0) >= 1)
       ) {
         return {
           status: 'available',
@@ -89,10 +89,10 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
           role: roleClean,
           bucketKey,
           targetCount: 15,
-          timeoutMs: 35000, // 35s budget for Apify live batch
+          timeoutMs: 60000, // 60s budget for Apify live batch
         })
 
-        if (Array.isArray(fastCatchJds) && fastCatchJds.length >= 3) {
+        if (Array.isArray(fastCatchJds) && fastCatchJds.length >= 1) {
           console.log(`[MarketJdRetriever] Fast-Catch acquired ${fastCatchJds.length} live JDs. Analyzing dynamically...`)
           const analyzed = await analyzeAndAggregateJdCorpus(fastCatchJds, bucketKey)
 
@@ -105,6 +105,60 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
             isFastCatch: true,
           }
 
+          // Persist staged JobMarketVersion to MongoDB so subsequent requests return instantly in 0ms
+          let stagedVersion = 1
+          try {
+            if (mongoose.connection && mongoose.connection.readyState === 1) {
+              const currentBucket = await JobMarketBucket.findOne({ bucketKey })
+              stagedVersion = (currentBucket?.activeVersion || 0) + 1
+
+              await JobMarketVersion.create({
+                bucketKey,
+                version: stagedVersion,
+                jobs: fastCatchJds.map((j, idx) => ({
+                  title: j.title || roleClean,
+                  company: j.company || 'Enterprise',
+                  location: 'United States',
+                  description: j.description || '',
+                  source: 'apify_fast_catch',
+                  sourceUrl: j.url || null,
+                  fingerprint: `${bucketKey}_fc_${stagedVersion}_${idx}_${Date.now()}`,
+                })),
+                marketProfile: fastMarketProfile,
+                metadata: {
+                  source: 'fast_catch',
+                  targetCount: fastCatchJds.length,
+                },
+                validationSummary: {
+                  isValid: true,
+                  checkedAt: new Date(),
+                  jobCount: fastCatchJds.length,
+                },
+                isArchived: false,
+              })
+
+              if (currentBucket) {
+                currentBucket.activeVersion = stagedVersion
+                currentBucket.jobCount = fastCatchJds.length
+                currentBucket.status = 'healthy'
+                currentBucket.lastSuccessfulRefreshAt = new Date()
+                await currentBucket.save()
+              } else {
+                await JobMarketBucket.create({
+                  bucketKey,
+                  roleName: roleClean,
+                  activeVersion: stagedVersion,
+                  jobCount: fastCatchJds.length,
+                  status: 'healthy',
+                  lastSuccessfulRefreshAt: new Date(),
+                })
+              }
+              console.log(`[MarketJdRetriever] Staged Fast-Catch version v${stagedVersion} persisted to MongoDB for ${bucketKey}.`)
+            }
+          } catch (persistErr) {
+            console.warn(`[MarketJdRetriever] Failed to persist fast-catch version: ${persistErr.message}`)
+          }
+
           // Enqueue Phase-2 full 100-JD background completion in parallel
           if (autoRefresh) {
             enqueueFullBackgroundBucket(bucketKey).catch(() => {})
@@ -113,7 +167,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
           return {
             status: 'available',
             bucketKey,
-            version: 1,
+            version: stagedVersion,
             sampleSize: fastCatchJds.length,
             marketProfile: fastMarketProfile,
             jobs: fastCatchJds,

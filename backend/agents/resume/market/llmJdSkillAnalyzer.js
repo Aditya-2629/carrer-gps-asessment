@@ -62,10 +62,12 @@ TASK:
 2. If an input term is generic noise, a soft skill, or not a concrete technical skill/tool/methodology (e.g., "communication", "insights", "analytics", "server"), map its canonical value to an empty string "".
 3. Return the mapping for EVERY single input term in the array.
 
-Output format must strictly be a JSON array of objects:
-[
-  { "term": "<exact input term>", "canonical": "<Standardized Name or ''>" }
-]`
+OUTPUT FORMAT (STRICT JSON OBJECT ONLY):
+{
+  "mappings": [
+    { "term": "<exact input term>", "canonical": "<Standardized Name or ''>" }
+  ]
+}`
 
 export function buildTaxonomyNormalizerUserMessage(terms = []) {
   return JSON.stringify(terms, null, 2)
@@ -176,8 +178,8 @@ export async function extractSkillsFromSingleJd({ jobTitle = '', jobDescription 
   try {
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
-      preferredProvider: 'groq',
-      model: 'llama-3.3-70b-versatile',
+      preferredProvider: 'openrouter',
+      model: 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: SKILL_EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: buildSkillExtractionUserMessage(jobTitle, jobDescription.slice(0, 3000)) },
@@ -248,8 +250,8 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
   try {
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
-      preferredProvider: 'groq',
-      model: 'llama-3.3-70b-versatile',
+      preferredProvider: 'openrouter',
+      model: 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: TAXONOMY_NORMALIZER_SYSTEM_PROMPT },
         { role: 'user', content: buildTaxonomyNormalizerUserMessage(uniqueUncached) },
@@ -260,7 +262,7 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
       timeoutMs,
     })
 
-    const raw = response?.text || '[]'
+    const raw = response?.text || '{}'
     let parsed
     try {
       parsed = JSON.parse(raw)
@@ -268,7 +270,13 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
       parsed = JSON.parse(jsonrepair(raw))
     }
 
-    const items = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.mappings) ? parsed.mappings : [])
+    const items = Array.isArray(parsed?.mappings)
+      ? parsed.mappings
+      : Array.isArray(parsed)
+      ? parsed
+      : (typeof parsed === 'object' && parsed !== null
+          ? Object.entries(parsed).map(([k, v]) => ({ term: k, canonical: typeof v === 'string' ? v : v?.canonical || '' }))
+          : [])
     for (const item of items) {
       if (item?.term) {
         const canonical = typeof item.canonical === 'string' ? item.canonical.trim() : ''
@@ -303,15 +311,21 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
 export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
   if (!Array.isArray(jobsBatch) || jobsBatch.length === 0) return []
 
-  // Step 1: Parallel extraction across batch
-  const extractionPromises = jobsBatch.map((job) =>
-    extractSkillsFromSingleJd({
-      jobTitle: job.title || 'Untitled',
-      jobDescription: job.description || job.text || job.normalizedDescription || '',
-    })
-  )
-
-  const extractedResults = await Promise.all(extractionPromises)
+  // Step 1: Throttled extraction across batch with concurrency limit of 3
+  const CONCURRENCY_LIMIT = 3
+  const extractedResults = []
+  for (let i = 0; i < jobsBatch.length; i += CONCURRENCY_LIMIT) {
+    const chunk = jobsBatch.slice(i, i + CONCURRENCY_LIMIT)
+    const chunkResults = await Promise.all(
+      chunk.map((job) =>
+        extractSkillsFromSingleJd({
+          jobTitle: job.title || 'Untitled',
+          jobDescription: job.description || job.text || job.normalizedDescription || '',
+        })
+      )
+    )
+    extractedResults.push(...chunkResults)
+  }
 
   // Collect all unique raw terms across the batch
   const allRawTerms = new Set()
@@ -425,7 +439,7 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
         preferredCount: s.preferredCount,
       }
     })
-    .filter((s) => s.percentage >= 10) // Appears in at least 10% of market postings
+    .filter((s) => (totalJds <= 5 ? s.count >= 1 : s.percentage >= 10)) // In small batches (<=5 JDs), retain all discovered skills; in large pools retain >= 10%
     .sort((a, b) => b.percentage - a.percentage)
 
   console.log(

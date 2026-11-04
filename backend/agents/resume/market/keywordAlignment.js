@@ -126,6 +126,90 @@ export const MARKET_ROLE_KEYWORD_PACKS = {
     'Cryptography',
     'SIEM',
   ],
+  'product-manager': [
+    'Product Strategy',
+    'Roadmapping',
+    'User Research',
+    'Agile / Scrum',
+    'A/B Testing',
+    'Data Analytics',
+    'Stakeholder Management',
+    'JIRA',
+    'SQL',
+    'PRD Authoring',
+    'Feature Prioritization',
+    'KPI Tracking',
+  ],
+  'project-manager': [
+    'Project Planning',
+    'Risk Management',
+    'Agile / Scrum',
+    'Process Optimization',
+    'Stakeholder Communication',
+    'Budgeting & Forecasting',
+    'Resource Allocation',
+    'JIRA',
+    'Cross-Functional Leadership',
+    'SLA Management',
+  ],
+  'sales': [
+    'Pipeline Management',
+    'B2B Sales',
+    'Salesforce',
+    'HubSpot',
+    'Contract Negotiation',
+    'Lead Qualification',
+    'Account Management',
+    'Revenue Forecasting',
+    'Discovery Calls',
+    'CRM',
+  ],
+  'marketing': [
+    'Digital Marketing',
+    'SEO / SEM',
+    'Content Strategy',
+    'Google Analytics',
+    'Campaign Management',
+    'Social Media Marketing',
+    'Email Marketing',
+    'Brand Strategy',
+    'A/B Testing',
+    'Marketing Automation',
+  ],
+  'finance': [
+    'Financial Modeling',
+    'DCF Valuation',
+    'Excel',
+    'Budgeting & Forecasting',
+    'Financial Reporting',
+    'Variance Analysis',
+    'GAAP',
+    'P&L Analysis',
+    'Capital Budgeting',
+    'ERP Systems',
+  ],
+  'clinical-healthcare': [
+    'Patient Care',
+    'Electronic Health Records (EHR)',
+    'Clinical Assessment',
+    'Medication Administration',
+    'Patient Advocacy',
+    'HIPAA Compliance',
+    'Triage & Vital Signs',
+    'Infection Control',
+    'Care Planning',
+    'BLS / ACLS Certification',
+  ],
+  'general-professional': [
+    'Process Improvement',
+    'Cross-Functional Collaboration',
+    'Project Coordination',
+    'Data Analysis',
+    'Performance Metrics / KPIs',
+    'Stakeholder Management',
+    'Reporting & Documentation',
+    'Operational Excellence',
+  ],
 }
 
 // Canonical synonym and concept mapping for accurate recruiter-grade verification
@@ -489,13 +573,21 @@ export function computeKeywordAlignment({
   )
 
   const roleLower = roleName.toLowerCase()
-  let packKey = 'software-engineer'
+  let packKey = 'general-professional'
   if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
   else if (/data\s*(&|\+|and|\/)?\s*(business\s*)?analyst|business\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
   else if (/devops|sre|cloud|platform|infrastructure/i.test(roleLower)) packKey = 'devops-engineer'
   else if (/data\s*engineer|big\s*data|data\s*platform/i.test(roleLower)) packKey = 'data-engineer'
   else if (/qa|sdet|test/i.test(roleLower)) packKey = 'qa-engineer'
   else if (/security|cyber/i.test(roleLower)) packKey = 'security-engineer'
+  else if (/software|developer|full\s*stack|backend|frontend|web\s*developer|programmer|engineer/i.test(roleLower)) packKey = 'software-engineer'
+  else if (/product\s*(manager|owner|lead)/i.test(roleLower)) packKey = 'product-manager'
+  else if (/project\s*(manager|lead)|operations|scrum\s*master/i.test(roleLower)) packKey = 'project-manager'
+  else if (/sales|account\s*exec|business\s*development|bdr|sdr/i.test(roleLower)) packKey = 'sales'
+  else if (/marketing|growth|seo|brand/i.test(roleLower)) packKey = 'marketing'
+  else if (/finance|financial|accounting|accountant|auditor/i.test(roleLower)) packKey = 'finance'
+  else if (/nurse|nursing|clinical|healthcare|patient|medical/i.test(roleLower)) packKey = 'clinical-healthcare'
+  else packKey = 'general-professional'
 
   // 2. Determine Target Keywords (12–16 Core High-Impact Keywords)
   let targetKeywords = []
@@ -513,7 +605,7 @@ export function computeKeywordAlignment({
 
   // Priority 3: Fallback pack only if no market data is present
   if (targetKeywords.length < 6) {
-    const fallbackPack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['data-analyst'] || MARKET_ROLE_KEYWORD_PACKS['data_analyst'] || []
+    const fallbackPack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['general-professional'] || []
     targetKeywords = Array.from(new Set([...targetKeywords, ...fallbackPack]))
   }
 

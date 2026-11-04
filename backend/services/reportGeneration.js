@@ -20,6 +20,7 @@ import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
 import { evaluateAssessmentPersona, parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
+import { inferRoleFromKeywordFrequency } from '../agents/resume/resumeAgent.normalizer.js'
 import AgentRun from '../models/AgentRun.js'
 import { jsonrepair } from 'jsonrepair'
 
@@ -376,11 +377,16 @@ export async function generateReportBundle({
       : user.answers?.targetRole) ||
     user.resumeJson?.target_role ||
     user.targetRole ||
-    'Software Engineer'
+    ''
 
-  const resumeTargetRole = typeof rawTargetRole === 'string' && rawTargetRole.trim()
+  const resumeTextForRole =
+    effectiveCanonicalResume?.summary?.text ||
+    (effectiveCanonicalResume?.experience || effectiveCanonicalResume?.experiences || []).map((e) => `${e.role || ''} ${e.title || ''}`).join(' ') ||
+    ''
+  const inferredRole = inferRoleFromKeywordFrequency(resumeTextForRole)
+  const resumeTargetRole = (typeof rawTargetRole === 'string' && rawTargetRole.trim())
     ? rawTargetRole.trim()
-    : 'Software Engineer'
+    : (inferredRole && inferredRole !== 'Professional' ? inferredRole : 'Technical Professional')
 
   // Evaluate rich assessment intelligence & directives across all agents
   const assessmentPersona = evaluateAssessmentPersona({

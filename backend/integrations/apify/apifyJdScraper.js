@@ -12,7 +12,7 @@ import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 
 export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
 export const DEFAULT_MAX_CANDIDATES = 100 // Scaled to 100 JDs
-export const DEFAULT_TIMEOUT_MS = 180000  // 3 minutes for 100 items
+export const DEFAULT_TIMEOUT_MS = 300000  // 5 minutes for 100 items
 export const DEFAULT_MAX_RETRIES = 3
 
 /**
@@ -161,16 +161,17 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
   }
 
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {
-    // Set 120s timeout so LinkedIn scraper has time to retrieve 100 items without dropping
+    // Set 300s (5-minute) timeout so LinkedIn scraper has time to paginate and retrieve 100 items without dropping
+    const timeoutSecs = Math.max(300, Math.round(timeoutMs / 1000))
     const client = new ApifyClient({
       token: activeToken,
-      timeoutSecs: 120,
+      timeoutSecs,
       maxRetries: 3,
     })
-    console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${searchSpec.query}" (Target: ${maxCandidates} JDs)...`)
+    console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${searchSpec.query}" (Target: ${maxCandidates} JDs, Timeout: ${timeoutSecs}s)...`)
 
     const run = await client.actor(actorId).call(actorInput, {
-      waitSecs: 120,
+      waitSecs: timeoutSecs,
       maxItems: maxCandidates,
     })
 
@@ -180,6 +181,7 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
     const { items } = await client.dataset(run.defaultDatasetId).listItems({
       limit: maxCandidates,
+      clean: true,
     })
 
     const durationMs = Date.now() - startTime

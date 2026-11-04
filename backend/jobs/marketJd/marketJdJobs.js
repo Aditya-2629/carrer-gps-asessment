@@ -213,7 +213,7 @@ export async function fetchFastCatchJds({
   role = 'Software Engineer',
   bucketKey = '',
   targetCount = 15,
-  timeoutMs = 35000,
+  timeoutMs = 60000,
   mockJds = null,
 } = {}) {
   // If mock JDs are provided for testing, return immediately
@@ -244,10 +244,12 @@ export async function fetchFastCatchJds({
   }
 
   const actorInput = {
+    titles: [targetRoleTitle],
+    title: targetRoleTitle,
     queries: [targetRoleTitle],
     query: targetRoleTitle,
-    location: 'United States',
     locations: ['United States'],
+    location: 'United States',
     rows: targetCount,
     maxRows: targetCount,
     limit: targetCount,
