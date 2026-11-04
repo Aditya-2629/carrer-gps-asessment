@@ -104,29 +104,23 @@ export async function handleChatMessage(req, res) {
       // non-fatal, continue without RAG
     }
 
-    const systemPrompt = `You are Atlas, ${candidateName}'s dedicated Executive Career Coach and Senior Technical Recruiter.
-You are speaking directly with ${candidateName} in their live 1-on-1 strategy chat.
+    const systemPrompt = `You are "Atlas", ${firstName}'s dedicated Executive Career Coach and Senior Technical Recruiter.
+You are chatting with ${firstName} in real time to diagnose their job search and guide their next moves.
 
-CANDIDATE GROUND TRUTH:
-- Name: ${candidateName}
+CANDIDATE ANCHORS:
 - Target Role: ${targetRole}
-- Current/Recent Anchor: ${currentCompany}
-- Core Verified Stack: ${topSkills}
-- Primary Search Bottleneck: ${topRootCause}
-- High-Priority Missing Market Skills: ${missingSkills}
-- Stated Weekly Application Pace: ${appsPace} applications/period
+- Current/Recent Company: ${currentCompany}
+- Verified Core Stack: ${topSkills}
+- Missing Target Keywords: ${missingSkills}
+- Stated Funnel Bottleneck: ${topRootCause}
 
-COACHING RULES:
-1. Always address ${firstName} with warmth, intensity, and deep personal context. Never speak in generic abstractions.
-2. When ${firstName} asks how to improve their resume, interview answers, or applications:
-   - Cite their actual projects and companies (e.g. at ${currentCompany}).
-   - Use Google XYZ framing (Accomplished [X], measured by [Y], by doing [Z]).
-   - Keep answers punchy, structured (use short bullets), and immediately actionable.
-3. Whenever you provide a ready-to-paste bullet rewrite, LinkedIn message, cold outreach, or interview answer, wrap it in a triple backtick block (\`\`\`text ... \`\`\`) so the UI renders a 1-click Copy card.
-4. Keep the tone empathetic but fiercely execution-oriented.
-5. When appropriate (e.g. complex interview prep, referral outreach, or background flags), naturally advise them:
-   "This is exactly what we rehearse in depth during our free 1-on-1 Strategy Session. Make sure you book your slot on the dashboard so we can script this out live."
-6. Never exceed 200 words unless explicitly asked for a complete script or template.`
+RULES:
+1. Always address ${firstName} directly with warm, authoritative, peer-level guidance.
+2. Keep replies concise (100–160 words) using clean bullets ("- ") and bold key terms.
+3. When providing a rewritten bullet, cold message, or interview script, wrap the copy in triple backticks (\`\`\`text ... \`\`\`) for the UI copy button.
+4. Ground every recommendation in their actual background at ${currentCompany}.
+5. When addressing complex interview prep, referral outreach, or background flags, naturally suggest:
+   "We rehearse this exact scenario live in our free 1-on-1 Strategy Session. Book a slot on your dashboard so we can script it together."`
 
     // Format conversation history
     const historyMessages = Array.isArray(conversationHistory)
@@ -146,68 +140,68 @@ COACHING RULES:
       { role: 'user', content: userMessageContent },
     ]
 
-    // Paid Priority Execution: OpenRouter paid tier (Gemini 3.5 Flash) -> Gemini 3 Flash Preview -> Groq/OpenRouter failover
+    // Paid Priority Execution: Gemini 3.5 Flash Lite -> DeepSeek V3 -> Gemini 3 Flash Preview -> Gemini 3.5 Flash
     let replyText = ''
     try {
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash',
+        model: 'google/gemini-3.5-flash-lite',
         messages,
         temperature: 0.3,
         maxTokens: 1024,
         maxRetries: 2,
-        timeoutMs: 30000,
+        timeoutMs: 25000,
       })
       replyText = response.text
     } catch (openRouterErr) {
-      console.warn('[ChatController] OpenRouter primary (Gemini 3.5 Flash) failed, falling back to Gemini 3 Flash Preview:', openRouterErr.message)
+      console.warn('[ChatController] OpenRouter primary (Gemini 3.5 Flash Lite) failed, routing to DeepSeek V3:', openRouterErr.message)
       try {
         const fallbackResponse = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
           preferredProvider: 'openrouter',
-          model: 'google/gemini-3-flash-preview',
+          model: 'deepseek/deepseek-chat',
           messages,
           temperature: 0.3,
           maxTokens: 1024,
-          timeoutMs: 30000,
+          timeoutMs: 25000,
           bypassCache: true,
         })
         replyText = fallbackResponse.text
-      } catch (previewErr) {
-        console.warn('[ChatController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 2.5 Flash:', previewErr.message)
+      } catch (deepseekErr) {
+        console.warn('[ChatController] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
         try {
-          const gemini25Response = await llmGateway.generate({
+          const gemini3Response = await llmGateway.generate({
             purpose: 'assessment_report',
             task: 'report_chatbot',
             preferredProvider: 'openrouter',
-            model: 'google/gemini-2.5-flash',
+            model: 'google/gemini-3-flash-preview',
             messages,
             temperature: 0.3,
             maxTokens: 1024,
             timeoutMs: 25000,
             bypassCache: true,
           })
-          replyText = gemini25Response.text
-        } catch (geminiErr) {
-          console.warn('[ChatController] OpenRouter Gemini 2.5 Flash failed, trying Groq fallback:', geminiErr.message)
+          replyText = gemini3Response.text
+        } catch (previewErr) {
+          console.warn('[ChatController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 3.5 Flash:', previewErr.message)
           try {
-            const groqResponse = await llmGateway.generate({
-              purpose: 'career_chatbot',
+            const flashResponse = await llmGateway.generate({
+              purpose: 'assessment_report',
               task: 'report_chatbot',
-              preferredProvider: 'groq',
-              model: 'openai/gpt-oss-120b',
+              preferredProvider: 'openrouter',
+              model: 'google/gemini-3.5-flash',
               messages,
-              temperature: 0.4,
-              maxTokens: 800,
-              timeoutMs: 15000,
+              temperature: 0.3,
+              maxTokens: 1024,
+              timeoutMs: 25000,
               bypassCache: true,
             })
-            replyText = groqResponse.text
-          } catch (groqErr) {
-            console.error('[ChatController] All chatbot tiers failed:', groqErr.message)
+            replyText = flashResponse.text
+          } catch (lastErr) {
+            console.error('[ChatController] All chatbot tiers failed:', lastErr.message)
             replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${currentCompany || 'your current company'}**, the most critical priority is proving hands-on impact with **${topSkills || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
           }
         }

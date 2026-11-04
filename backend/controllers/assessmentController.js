@@ -577,14 +577,23 @@ const _legacyChatResume = async (req, res) => {
       // non-fatal, continue without RAG
     }
 
-    const systemPrompt = `You are "Atlas", a sharp, warm $2,000/hr Executive Career Coach and Senior Technical Recruiter with 10+ years of engineering hiring experience.
-You are advising ${firstName} in real time.
+    const systemPrompt = `You are "Atlas", ${firstName}'s dedicated Executive Career Coach and Senior Technical Recruiter.
+You are chatting with ${firstName} in real time to diagnose their job search and guide their next moves.
 
-CORE DIRECTIVES:
-1. Address the candidate by their first name (${firstName}) and speak like a sharp, warm $2,000/hr Executive Career Coach.
-2. Cite their exact companies, metrics, missing keywords, and questionnaire numbers (appsWeek: ${formatQuantAnswer(ans?.appsWeek, 'apps')}, outreach: ${formatQuantAnswer(ans?.outreach, 'messages')}, interviews: ${formatQuantAnswer(ans?.interviews, 'responses')}, DropOffStage: ${ans?.DropOffStage || 'Application Black Hole'}).
-3. Whenever the candidate asks for a bullet rewrite, LinkedIn headline/about, cold DM, or interview answer, wrap the ready-to-paste copy inside triple backticks (\`\`\`text ... \`\`\`) so the UI renders a 1-click Copy card for them.
-4. Keep explanations concise (100–170 words max) using clean "- " bullet points and "**bold**" key terms.`
+CANDIDATE ANCHORS:
+- Target Role: ${targetRole}
+- Current/Recent Company: ${r?.resume_json?.experiences?.[0]?.company || r?.resume_agent?.canonicalResume?.experience?.[0]?.company || 'Enterprise'}
+- Verified Core Stack: ${verifiedKeywords || 'SQL, Python'}
+- Missing Target Keywords: ${missingKeywords || 'None'}
+- Stated Funnel Bottleneck: ${primaryBottleneck}
+
+RULES:
+1. Always address ${firstName} directly with warm, authoritative, peer-level guidance.
+2. Keep replies concise (100–160 words) using clean bullets ("- ") and bold key terms.
+3. When providing a rewritten bullet, cold message, or interview script, wrap the copy in triple backticks (\`\`\`text ... \`\`\`) for the UI copy button.
+4. Ground every recommendation in their actual background at ${r?.resume_json?.experiences?.[0]?.company || r?.resume_agent?.canonicalResume?.experience?.[0]?.company || 'their recent company'}.
+5. When addressing complex interview prep, referral outreach, or background flags, naturally suggest:
+   "We rehearse this exact scenario live in our free 1-on-1 Strategy Session. Book a slot on your dashboard so we can script it together."`
 
     const userPrompt = `CANDIDATE INTELLIGENCE & AGENT FINDINGS:
 [1. Assessment Agent & Funnel Context]
@@ -607,7 +616,7 @@ Provide your expert coaching answer following the directives above.`
         purpose: 'assessment_report',
         task: 'report_chatbot',
         preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash',
+        model: 'google/gemini-3.5-flash-lite',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
@@ -616,17 +625,17 @@ Provide your expert coaching answer following the directives above.`
         temperature: 0.3,
         maxTokens: 1024,
         maxRetries: 2,
-        timeoutMs: 30000,
+        timeoutMs: 25000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[AssessmentController] Chatbot OpenRouter primary (Gemini 3.5 Flash) failed, falling back to Gemini 3 Flash Preview:', err.message)
+      console.warn('[AssessmentController] Chatbot OpenRouter primary (Gemini 3.5 Flash Lite) failed, routing to DeepSeek V3:', err.message)
       try {
         const { text: fallbackText } = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
           preferredProvider: 'openrouter',
-          model: 'google/gemini-3-flash-preview',
+          model: 'deepseek/deepseek-chat',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -634,18 +643,18 @@ Provide your expert coaching answer following the directives above.`
           responseFormat: 'text',
           temperature: 0.3,
           maxTokens: 1024,
-          timeoutMs: 30000,
+          timeoutMs: 25000,
           bypassCache: true,
         })
         replyText = fallbackText
-      } catch (openRouterErr) {
-        console.warn('[AssessmentController] Chatbot OpenRouter fallback failed, trying OpenRouter Gemini 2.5 Flash:', openRouterErr.message)
+      } catch (deepseekErr) {
+        console.warn('[AssessmentController] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
         try {
-          const { text: gemini25Text } = await llmGateway.generate({
+          const { text: gemini3Text } = await llmGateway.generate({
             purpose: 'assessment_report',
             task: 'report_chatbot',
             preferredProvider: 'openrouter',
-            model: 'google/gemini-2.5-flash',
+            model: 'google/gemini-3-flash-preview',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
@@ -656,28 +665,28 @@ Provide your expert coaching answer following the directives above.`
             timeoutMs: 25000,
             bypassCache: true,
           })
-          replyText = gemini25Text
-        } catch (gemini25Err) {
-          console.warn('[AssessmentController] Gemini 2.5 Flash failed, trying Groq:', gemini25Err.message)
+          replyText = gemini3Text
+        } catch (previewErr) {
+          console.warn('[AssessmentController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 3.5 Flash:', previewErr.message)
           try {
-            const { text: groqText } = await llmGateway.generate({
-              purpose: 'career_chatbot',
+            const { text: flashText } = await llmGateway.generate({
+              purpose: 'assessment_report',
               task: 'report_chatbot',
-              preferredProvider: 'groq',
-              model: 'openai/gpt-oss-120b',
+              preferredProvider: 'openrouter',
+              model: 'google/gemini-3.5-flash',
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
               ],
               responseFormat: 'text',
-              temperature: 0.4,
-              maxTokens: 800,
-              timeoutMs: 15000,
+              temperature: 0.3,
+              maxTokens: 1024,
+              timeoutMs: 25000,
               bypassCache: true,
             })
-            replyText = groqText
-          } catch (groqErr) {
-            console.error('[AssessmentController] All chatbot tiers failed:', groqErr.message)
+            replyText = flashText
+          } catch (lastErr) {
+            console.error('[AssessmentController] All chatbot tiers failed:', lastErr.message)
             replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background, the most critical priority is proving hands-on impact with **${verifiedKeywords || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
           }
         }

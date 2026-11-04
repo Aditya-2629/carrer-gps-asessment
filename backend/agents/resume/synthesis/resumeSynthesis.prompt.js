@@ -32,27 +32,11 @@ CANDIDATE FACTS:
 {{experienceBullets}}
 
 RULES:
-1. ZERO GENERIC TEMPLATES: Do NOT mention generic "Phase 4", "Executive Alignment", or "Cultural Fit" unless the candidate's actual text proves it. Cite their exact company, exact tools, and exact projects.
-2. 6-SECOND RECRUITER VERDICT:
-   - State exactly what the recruiter's eye catches first.
-   - State the brutal red flag (e.g. "You claim Senior Full Stack, but your first 3 bullets at {{currentCompany}} describe manual accessibility testing, which looks like a junior QA role").
-   - Give the 1-sentence career-saving pivot.
-3. HUMANIZED BULLET REWRITES (GOOGLE XYZ + ARCHITECTURAL MECHANISM):
-   - BAN COSMETIC VERB SWAPS: Strictly forbid rewrites that only replace action verbs (e.g., "Implemented" -> "Secured") without injecting measurable scale, system throughput, or architectural mechanisms.
-   - MANDATORY BULLET STRUCTURE: Every rewritten bullet MUST follow:
-     [Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].
-   - DOMAIN ARCHETYPE ENFORCEMENT:
-     * Data & Business Analyst: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
-       Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by 40% by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
-     * Software / Backend Engineer: p99 latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
-       Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
-     * Generative AI & ML Engineer: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
-       Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
-     * DevOps & Cloud Platform Engineer: CI/CD deployment velocity, infrastructure-as-code automation, multi-stage Docker builds, Kubernetes cluster orchestration, and zero-downtime rollouts.
-       Example: "Reduced deployment lead time from 4 days to 45 minutes while sustaining 99.99% service availability by orchestrating multi-stage Docker container builds, automated Terraform infrastructure, and blue-green Kubernetes deployments."
-     * SECURITY & COMPLIANCE NON-ABSURDITY: For security, vulnerability remediation, sanitization, or auth/CVE bullets, anchor ONLY on eliminating high-severity CVEs, zero-day threat prevention, and achieving 100% security audit compliance (SOC2/HIPAA/PCI-DSS). NEVER claim security sanitization or input validation increased processing speed, system throughput, or execution latency.
-   - WEAVE KEYWORDS WITH RATIONALE: Naturally weave {{missingKeywords}} and {{skillsOnlyKeywords}} attaching their specific production purpose (never bare "using Python and Kafka").
-   - ZERO PLACEHOLDER LEAKS: Strictly NO "[ADD: ...]" in final rewrites. For unquantified bullets, generate 3 pre-calculated domain metric options (Option A: Conservative, Option B: Standard, Option C: High-Scale) inside metricOptions.
+1. Lead with active practitioner verbs (Architected, Engineered, Standardized).
+2. Preserve original metrics verbatim (never invent unverified revenue or percentage figures).
+3. Weave missing skills into the operational mechanism (how the work was achieved), never as trailing robotic comma clauses.
+4. Ensure bullets are between 18 and 30 words.
+5. Never output bracketed placeholders like [ADD: ...].
 
 OUTPUT JSON FORMAT ONLY:
 {
