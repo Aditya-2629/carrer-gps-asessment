@@ -618,7 +618,7 @@ Return ONLY a valid JSON object matching this structure:
       content: `TARGET ROLE: ${targetRole || 'Not specified'}
 
 TARGET JOB DESCRIPTION:
-${targetJobDescription ? targetJobDescription.slice(0, 1500) : 'None provided'}
+${targetJobDescription ? targetJobDescription.slice(0, 5000) : 'None provided'}
 
 CANDIDATE RESUME:
 ${compactResume}

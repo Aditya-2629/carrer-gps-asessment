@@ -89,10 +89,10 @@ function analyzeBullet(text, itemId, bulletId) {
   }
 
   // 4. Excessively long bullet (walls of text)
-  if (text.length > 250) {
+  if (text.length > 320) {
     observations.push({
       type: 'excessive_length',
-      description: `Bullet is ${text.length} characters long. Bullets over 250 characters are harder to scan in a 10-second resume review.`,
+      description: `Bullet is ${text.length} characters long. Bullets over 320 characters are harder to scan in a 10-second resume review.`,
       itemId,
       bulletId,
       sourceText: text.slice(0, 200) + '...',

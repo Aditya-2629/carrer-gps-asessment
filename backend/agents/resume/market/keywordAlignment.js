@@ -1096,14 +1096,19 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
       return `${cleaned}${trailingPunct}`
     }
 
-    // 3. Insert before primary clause / comma or append
-    const commaIndex = cleaned.indexOf(',')
-    if (commaIndex > 15) {
-      const head = cleaned.slice(0, commaIndex)
-      const tail = cleaned.slice(commaIndex)
-      cleaned = `${head} using ${kw}${tail}`
+    // 3. Natural domain-safe insertion
+    if (/\b((?:technology|tech)?\s*stack|tools?|technologies|frameworks?|libraries)\b/i.test(cleaned)) {
+      cleaned = cleaned.replace(/\b((?:technology|tech)?\s*stack|tools?|technologies|frameworks?|libraries)\b/i, (m) => `${m} including ${kw}`)
+    } else if (/\b(?:built|developed|engineered|implemented|designed)\b/i.test(cleaned) && !/\bwith\s+[A-Z]/i.test(cleaned)) {
+      const m = cleaned.match(/\b(built|developed|engineered|implemented|designed)\s+([a-zA-Z\s-]+?)(?=\s+(?:handling|processing|serving|cutting|reducing|delivering|supporting|achieving|generating|scaling|to|for|at|by|\d)|(?:,\s*[a-zA-Z])|$)/i)
+      if (m) {
+        cleaned = cleaned.replace(m[0], `${m[0].trim()} using ${kw}`)
+      } else {
+        cleaned = `${cleaned} (leveraging ${kw} for execution)`
+      }
     } else {
-      cleaned = `${cleaned} using ${kw}`
+      // Graceful trailing integration
+      cleaned = `${cleaned} (leveraging ${kw} for execution)`
     }
 
     return `${cleaned}${trailingPunct}`

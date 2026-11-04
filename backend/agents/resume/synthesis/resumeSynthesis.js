@@ -248,7 +248,7 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
 
   // Target Job Description (Primary Benchmark — Section 15 priority)
   if (state.targetJobDescription && state.targetJobDescription.trim()) {
-    userPrompt += `\n\nTARGET JOB DESCRIPTION (Primary Priority Goal):\n${state.targetJobDescription.trim().slice(0, 2500)}`
+    userPrompt += `\n\nTARGET JOB DESCRIPTION (Primary Priority Goal):\n${state.targetJobDescription.trim().slice(0, 5000)}`
   }
 
   // Sampled Market Intelligence block (V3 Market Intelligence — Section 18)

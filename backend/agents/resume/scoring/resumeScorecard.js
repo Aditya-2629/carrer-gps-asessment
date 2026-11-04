@@ -406,8 +406,8 @@ export function computeScorecard({
   // Brevity: bullet length stats + brevity issues + page count
   const len = bulletLengthStats(canonicalResume)
   let brevity = 100 - categoryPenalties.brevity
-  if (len.avg > 30) brevity -= Math.min((len.avg - 30) * 1.5, 20)
-  if (len.over35 > 0) brevity -= Math.min(len.over35 * 3, 12)
+  if (len.avg > 38) brevity -= Math.min((len.avg - 38) * 1.5, 20)
+  if (len.over35 > 0) brevity -= Math.min(len.over35 * 1.5, 8)
   if (typeof pageCount === 'number' && pageCount > 2) brevity -= 15
   scores.brevity = clamp(brevity, 5, 100)
 
@@ -423,11 +423,15 @@ export function computeScorecard({
   for (const meta of CATEGORY_META) {
     overall += scores[meta.key] * meta.weight
   }
-  // A resume can't be "A Excellent" while any category is failing — cap the
-  // overall so the worst category drags the verdict down visibly.
-  const worstCategory = Math.min(...CATEGORY_META.map((m) => scores[m.key]))
-  overall = Math.min(overall, worstCategory + 38)
-  const score = round(overall)
+
+  // Ensure non-formatting categories (impact, positioning, credibility) are preserved
+  // Only cap by worst category if the failing category is a CORE category (impact, positioning, credibility)
+  const coreCategories = ['impact', 'positioning', 'credibility']
+  const worstCoreCategory = Math.min(...coreCategories.map((k) => scores[k]))
+
+  // Cap overall score gracefully: worst core category + 45 (minimum 5, maximum 100)
+  overall = Math.min(overall, Math.max(worstCoreCategory + 45, 80))
+  const score = clamp(round(overall), 5, 100)
   const { grade, label } = gradeFor(score)
 
   const grades = {}

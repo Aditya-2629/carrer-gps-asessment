@@ -62,8 +62,8 @@ export const DEFAULT_TASK_POLICIES = {
   // Mode B: Agent 4 — Evidence / Claim Validator
   evidence_validation: {
     task: 'evidence_validation',
-    provider: 'auto',
-    model: 'openai/gpt-oss-120b',
+    provider: 'openrouter',
+    model: 'google/gemini-3.5-flash-lite',
     temperature: 0.0,
     maxTokens: 3072,
   },

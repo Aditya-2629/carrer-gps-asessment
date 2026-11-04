@@ -65,8 +65,11 @@ export function partitionResumeIntoChunks(canonicalResume, targetRole = '') {
 
   if (experience.length > 0) {
     // Current / Most Recent Job (Primary)
-    const primaryExp = experience.slice(0, 1)
-    const remainingExp = experience.slice(1)
+    // If most recent role is short (<6 months) or current and prior role exists, bundle both into primary experience
+    const primaryExp = experience.length > 1 && (experience[0]?.durationMonths < 6 || experience[0]?.isCurrent)
+      ? experience.slice(0, 2)
+      : experience.slice(0, 1)
+    const remainingExp = experience.slice(primaryExp.length)
 
     const formatExpBlock = (expItems) => {
       const blocks = []

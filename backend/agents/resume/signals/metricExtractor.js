@@ -73,10 +73,10 @@ export function extractMetricsFromText(text, source) {
     addMatch(match[0], METRIC_CATEGORIES.MULTIPLIER, match.index, match.index + match[0].length)
   }
 
-  // 4. Currency metrics (e.g. "$50M", "$100k", "$2.5 million")
-  const currencyRegex = /\$\s*\d+(?:[.,]\d+)?\s*(?:k|m|b|million|billion)?\b/gi
+  // 4. Currency metrics (Supports $, ₹, Rs, INR, €, £, CAD, AUD, lakhs, crores)
+  const currencyRegex = /(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?\s*(?:k|m|b|million|billion|lakhs?|crores?|cr|l)?\b|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/gi
   while ((match = currencyRegex.exec(clean)) !== null) {
-    addMatch(match[0], METRIC_CATEGORIES.CURRENCY, match.index, match.index + match[0].length)
+    addMatch(match[0].trim(), METRIC_CATEGORIES.CURRENCY, match.index, match.index + match[0].length)
   }
 
   // 5. Time & latency metrics (e.g. "<1 second", "< 1 second", "sub-50ms", "850ms", "120ms")

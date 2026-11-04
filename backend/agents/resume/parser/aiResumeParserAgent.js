@@ -86,18 +86,35 @@ ${rawText}
 `
 
   try {
-    const rawResponse = await llmGateway.generate({
-      purpose: 'resume-parsing',
-      preferredProvider: 'groq',
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: RESUME_PARSER_SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt },
-      ],
-      responseFormat: 'json_object',
-      temperature: 0.0,
-      timeoutMs: 30000,
-    })
+    let rawResponse
+    try {
+      rawResponse = await llmGateway.generate({
+        purpose: 'resume-parsing',
+        preferredProvider: 'openrouter',
+        model: 'google/gemini-3.5-flash-lite',
+        messages: [
+          { role: 'system', content: RESUME_PARSER_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        responseFormat: 'json_object',
+        temperature: 0.0,
+        timeoutMs: 30000,
+      })
+    } catch (openRouterErr) {
+      console.warn('[aiResumeParserAgent] OpenRouter primary parse failed, trying gemini fallback:', openRouterErr.message)
+      rawResponse = await llmGateway.generate({
+        purpose: 'resume-parsing',
+        preferredProvider: 'gemini',
+        model: 'gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: RESUME_PARSER_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        responseFormat: 'json_object',
+        temperature: 0.0,
+        timeoutMs: 30000,
+      })
+    }
 
     const textToParse = typeof rawResponse === 'string' ? rawResponse : rawResponse?.text || JSON.stringify(rawResponse)
     let parsed
