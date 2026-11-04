@@ -3,7 +3,7 @@
  * 
  * Verifies:
  * 1. Apify LinkedIn jobs scraper input payload schema (titles array, locations array, rows >= 50, proxy config)
- * 2. Hard minimum sample gate (MIN_SAMPLE_THRESHOLD = 10) in executeBucketRefresh & getMarketDataForBucket
+ * 2. Hard minimum sample gate (MIN_SAMPLE_THRESHOLD = 8) in executeBucketRefresh & getMarketDataForBucket
  * 3. Prevention of cache poisoning from tiny samples (e.g. 3 JDs yielding flat 33%)
  */
 
@@ -18,10 +18,10 @@ console.log('=== RUNNING MINIMUM SAMPLE GATE & APIFY PAYLOAD VERIFICATION ===\n'
 // TEST 1: Constant & Threshold Consistency
 // -------------------------------------------------------------
 console.log('Test 1: Verifying MIN_SAMPLE_THRESHOLD constants...')
-assert.strictEqual(MIN_SAMPLE_THRESHOLD, 10, 'MIN_SAMPLE_THRESHOLD in marketJdJobs must be 10')
-assert.strictEqual(RETRIEVER_MIN_THRESHOLD, 10, 'MIN_SAMPLE_THRESHOLD in marketJdRetriever must be 10')
-assert.strictEqual(MIN_SKILLS_THRESHOLD, 5, 'MIN_SKILLS_THRESHOLD in marketJdRetriever must be 5')
-console.log('✔ Test 1 Passed: Minimum sample thresholds are consistent (>= 10 JDs, >= 5 skills).\n')
+assert.strictEqual(MIN_SAMPLE_THRESHOLD, 8, 'MIN_SAMPLE_THRESHOLD in marketJdJobs must be 8')
+assert.strictEqual(RETRIEVER_MIN_THRESHOLD, 8, 'MIN_SAMPLE_THRESHOLD in marketJdRetriever must be 8')
+assert.strictEqual(MIN_SKILLS_THRESHOLD, 4, 'MIN_SKILLS_THRESHOLD in marketJdRetriever must be 4')
+console.log('✔ Test 1 Passed: Minimum sample thresholds are consistent (>= 8 JDs, >= 4 skills).\n')
 
 // -------------------------------------------------------------
 // TEST 2: Apify LinkedIn Jobs Scraper Modern Input Structure
@@ -82,7 +82,7 @@ assert.strictEqual(gateResultSmall.success, false, 'Sample of 3 JDs must fail ga
 assert.strictEqual(gateResultSmall.reason, 'INSUFFICIENT_SAMPLE_SIZE')
 assert.strictEqual(gateResultSmall.jobCount, 3)
 
-// Case B: 12 JDs (valid sample >= 10)
+// Case B: 12 JDs (valid sample >= 8)
 const validSample = Array.from({ length: 12 }, (_, i) => ({
   title: `AI Eng ${i + 1}`,
   description: `Valid job description ${i + 1} with required technologies and domain skills.`,
@@ -90,7 +90,7 @@ const validSample = Array.from({ length: 12 }, (_, i) => ({
 const gateResultValid = verifySampleGate(validSample)
 assert.strictEqual(gateResultValid.success, true, 'Sample of 12 JDs must pass gate')
 assert.strictEqual(gateResultValid.jobCount, 12)
-console.log('✔ Test 3 Passed: Hard sample gate blocks tiny samples (<10) and permits valid samples (>=10).\n')
+console.log('✔ Test 3 Passed: Hard sample gate blocks tiny samples (<8) and permits valid samples (>=8).\n')
 
 // -------------------------------------------------------------
 // TEST 4: Cache Poisoning Prevention in Retriever

@@ -27,7 +27,7 @@ import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
-export const MIN_SAMPLE_THRESHOLD = 10
+export const MIN_SAMPLE_THRESHOLD = 8
 
 /**
  * Executes a refresh for a single Role × Experience bucket.
@@ -234,14 +234,14 @@ export async function ensureConfiguredBucketsExist() {
 
 /**
  * Dynamic Fast-Catch Scraper for ANY Target Role
- * Automatically resolves role from targetRole, bucketKey, or candidate context.
- * Never defaults blindly to 'Software Engineer'.
+ * Initial rapid catch (10-12 JDs) with 8 JD minimum gate.
+ * Unblocks report generation in ~10-15s instead of waiting for full batches.
  */
 export async function fetchFastCatchJds({
   role = '',
   bucketKey = '',
-  targetCount = 30,
-  timeoutMs = 75000,
+  targetCount = 12,
+  timeoutMs = 45000,
   mockJds = null,
 } = {}) {
   // If mock JDs are provided for testing, return immediately
@@ -263,7 +263,6 @@ export async function fetchFastCatchJds({
     }
   }
 
-  // 2. Fallback to clean professional title if completely empty
   const targetRoleTitle = resolvedRole || 'Professional'
 
   if (apifyKeyPool.getKeyCount() === 0) {
@@ -271,8 +270,8 @@ export async function fetchFastCatchJds({
     return []
   }
 
-  const fastCatchCount = Math.max(30, targetCount)
-  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs)...`)
+  const fastCatchCount = targetCount || 12
+  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
 
   // Attempt 1: bebity/linkedin-jobs-scraper with residential proxy & multi-location hubs
   let primaryItems = []
@@ -280,6 +279,7 @@ export async function fetchFastCatchJds({
     const primaryInput = buildApifyJdScraperInput(targetRoleTitle, {
       locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
       rows: fastCatchCount,
+      maxJobs: fastCatchCount,
     })
     primaryItems = await runApifyActorScrape('bebity/linkedin-jobs-scraper', primaryInput, timeoutMs)
   } catch (primErr) {
@@ -294,9 +294,9 @@ export async function fetchFastCatchJds({
     url: item.url || item.link || '',
   })).filter((j) => (j.description || '').length >= 200)
 
-  // FAILSAFE RETRY: If LinkedIn throttled/blocked and returned < 10 JDs
-  if (validJds.length < 10) {
-    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length}). Switching to Rapid-Job-Scraper / Indeed fallback on Apify...`)
+  // FAILSAFE RETRY: If primary returned < 8 JDs, fall back to Indeed scraper
+  if (validJds.length < 8) {
+    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 8). Switching to Indeed fallback on Apify...`)
 
     try {
       const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
@@ -304,7 +304,7 @@ export async function fetchFastCatchJds({
         country: 'US',
         location: 'United States',
         maxItems: fastCatchCount,
-      }, Math.min(45000, timeoutMs))
+      }, Math.min(30000, timeoutMs))
 
       const validFallback = (fallbackItems || []).map((item) => ({
         title: item.positionName || item.title || targetRoleTitle,
@@ -313,7 +313,7 @@ export async function fetchFastCatchJds({
         url: item.url || item.link || '',
       })).filter((j) => (j.description || '').length >= 200)
 
-      if (validFallback.length >= 10) {
+      if (validFallback.length >= 8) {
         validJds = validFallback
         console.log(`[MarketJdJobs] Fallback scraper succeeded with ${validJds.length} real JDs.`)
       }
@@ -324,28 +324,222 @@ export async function fetchFastCatchJds({
 
   console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}"`)
 
-  if (validJds.length < 10) {
-    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 10 live JDs for "${targetRoleTitle}". Aborting to prevent fake data.`)
+  if (validJds.length < 8) {
+    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 8 live JDs for "${targetRoleTitle}". Aborting to prevent fake data.`)
   }
 
   return validJds
 }
 
 /**
- * Enqueues a full 100-JD background bucket refresh to complete the bucket asynchronously.
- *
- * @param {string} bucketKey
- * @returns {Promise<Object>}
+ * Persists an upgraded Market Version to MongoDB atomically swapping previous versions.
+ */
+export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, sourceMetadata = {}) {
+  const [roleKey, experienceBucket] = bucketKey.split('::')
+  let bucket = await JobMarketBucket.findOne({ bucketKey })
+  if (!bucket) {
+    const roleDef = CONTROLLED_ROLES.find((r) => r.roleKey === roleKey)
+    bucket = await JobMarketBucket.create({
+      bucketKey,
+      roleKey,
+      roleName: roleDef ? roleDef.roleName : roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      specialization: 'general',
+      experienceBucket,
+      activeVersion: 0,
+      status: 'refreshing',
+      jobCount: 0,
+    })
+  }
+
+  const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
+  const marketProfile = {
+    bucketKey,
+    sampleSize: analysis.sampleSize || validJds.length,
+    skills: discoveredSkills,
+    totalAnalyzed: analysis.totalAnalyzed || validJds.length,
+    topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
+    responsibilities: [],
+    senioritySignals: [],
+    version: 'market-profile-v2',
+    generatedAt: new Date().toISOString(),
+  }
+
+  const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey }).sort({ version: -1 })
+  const maxExistingVersion = latestVersionDoc ? latestVersionDoc.version : 0
+  const nextVersion = Math.max(bucket.activeVersion || 0, maxExistingVersion) + 1
+
+  await JobMarketVersion.create({
+    bucketKey,
+    version: nextVersion,
+    jobs: validJds.map((j, idx) => ({
+      title: j.title || bucket.roleName,
+      company: j.company || 'Enterprise Employer',
+      location: 'United States',
+      description: j.description || '',
+      source: sourceMetadata.source || 'apify_background_worker',
+      sourceUrl: j.url || null,
+      fingerprint: `${bucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
+    })),
+    marketProfile,
+    sourceMetadata,
+    validationSummary: {
+      isValid: true,
+      checkedAt: new Date(),
+      jobCount: validJds.length,
+    },
+    isArchived: false,
+  })
+
+  // Atomic swap: archive older versions
+  await JobMarketVersion.updateMany(
+    { bucketKey, version: { $lt: nextVersion } },
+    { $set: { isArchived: true } }
+  )
+
+  bucket.activeVersion = nextVersion
+  bucket.jobCount = validJds.length
+  bucket.status = 'healthy'
+  bucket.lastSuccessfulRefreshAt = new Date()
+  bucket.refreshError = null
+  await bucket.save()
+
+  return nextVersion
+}
+
+/**
+ * Detached Persistent Background Scraper (Full 60-80 JDs)
+ * Uses native Apify long-polling (.start() + .waitForFinish()) detached from HTTP request lifecycle.
+ */
+export async function runDetachedBackgroundScrape(bucketKey) {
+  console.log(`[MarketJdJobs] Starting detached background scrape for bucket: ${bucketKey}...`)
+  const [roleKey, experienceBucket] = bucketKey.split('::')
+  let bucket = await JobMarketBucket.findOne({ bucketKey })
+  const roleName = bucket?.roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+
+  if (apifyKeyPool.getKeyCount() === 0) {
+    console.warn('[MarketJdJobs] No Apify tokens configured for background runner.')
+    return null
+  }
+
+  return await apifyKeyPool.executeWithRetry(async (activeToken) => {
+    const apifyClient = new ApifyClient({
+      token: activeToken,
+      timeoutSecs: 360,
+    })
+
+    const bgPayload = buildApifyJdScraperInput(roleName, {
+      locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+      rows: 75,
+      maxJobs: 75,
+    })
+
+    let run
+    try {
+      run = await apifyClient.actor('bebity/linkedin-jobs-scraper').start(bgPayload)
+    } catch (callErr) {
+      if (/residential|proxy/i.test(callErr.message) && bgPayload.proxy?.apifyProxyGroups) {
+        console.warn('[MarketJdJobs] Background residential proxy rejected. Retrying with default proxy...')
+        bgPayload.proxy = { useApifyProxy: true }
+        run = await apifyClient.actor('bebity/linkedin-jobs-scraper').start(bgPayload)
+      } else {
+        throw callErr
+      }
+    }
+
+    if (!run || !run.id) {
+      throw new Error('Apify actor start did not return run ID')
+    }
+
+    console.log(`[MarketJdJobs] Background Apify Run started: ${run.id}. Awaiting completion...`)
+    const finishedRun = await apifyClient.run(run.id).waitForFinish({ waitSecs: 300 })
+
+    let items = []
+    if (finishedRun?.status === 'SUCCEEDED' && finishedRun.defaultDatasetId) {
+      const res = await apifyClient.dataset(finishedRun.defaultDatasetId).listItems({
+        limit: 75,
+        clean: true,
+      })
+      items = res.items || []
+    }
+
+    let validBackgroundJds = (items || []).map((j) => ({
+      title: j.title || roleName,
+      company: j.companyName || j.company || 'Enterprise Employer',
+      description: j.description || j.text || j.body || '',
+      url: j.url || j.link || '',
+    })).filter((j) => (j.description || '').length >= 200)
+
+    // Failsafe secondary fallback if primary returns < 15
+    if (validBackgroundJds.length < 15) {
+      console.warn(`[MarketJdJobs] Background LinkedIn scrape returned ${validBackgroundJds.length} JDs. Running Indeed fallback...`)
+      try {
+        const fallbackRun = await apifyClient.actor('misceres/indeed-scraper').start({
+          position: roleName,
+          country: 'US',
+          location: 'United States',
+          maxItems: 60,
+        })
+        const finishedFallback = await apifyClient.run(fallbackRun.id).waitForFinish({ waitSecs: 180 })
+        if (finishedFallback?.status === 'SUCCEEDED' && finishedFallback.defaultDatasetId) {
+          const fbRes = await apifyClient.dataset(finishedFallback.defaultDatasetId).listItems({
+            limit: 60,
+            clean: true,
+          })
+          const validFb = (fbRes.items || []).map((j) => ({
+            title: j.positionName || j.title || roleName,
+            company: j.company || 'Enterprise Employer',
+            description: j.description || j.jobDescription || j.text || '',
+            url: j.url || '',
+          })).filter((j) => (j.description || '').length >= 200)
+
+          if (validFb.length >= 15) {
+            validBackgroundJds = validFb
+            console.log(`[MarketJdJobs] Background fallback scraper succeeded with ${validFb.length} JDs.`)
+          }
+        }
+      } catch (fbErr) {
+        console.warn(`[MarketJdJobs] Background fallback scraper error: ${fbErr.message}`)
+      }
+    }
+
+    if (validBackgroundJds.length >= 15) {
+      console.log(`[MarketJdJobs] Analyzing ${validBackgroundJds.length} background JDs dynamically via Gemini Flash...`)
+      const bgAnalysis = await analyzeJdBatchWithGemini(roleName, validBackgroundJds)
+      const nextVersion = await saveUpgradedMarketVersion(bucketKey, validBackgroundJds, bgAnalysis, {
+        source: 'apify_background_worker',
+        actorId: 'bebity/linkedin-jobs-scraper',
+        runId: run.id,
+      })
+      console.log(`[MarketJdJobs] Background run successfully upgraded ${bucketKey} to v${nextVersion} with ${validBackgroundJds.length} real JDs.`)
+      return { success: true, version: nextVersion, jobCount: validBackgroundJds.length }
+    } else {
+      console.warn(`[MarketJdJobs] Background run yielded insufficient JDs (${validBackgroundJds.length} < 15). Keeping current version.`)
+      return { success: false, reason: 'INSUFFICIENT_BACKGROUND_SAMPLE' }
+    }
+  }, { maxAttempts: 2 })
+}
+
+/**
+ * Enqueues a full 60-80 JD background bucket refresh to complete the bucket asynchronously.
+ * Completely detached from Express request lifecycle.
  */
 export async function enqueueFullBackgroundBucket(bucketKey) {
-  const { enqueueBucketRefresh } = await import('./marketJdQueue.js')
-  return enqueueBucketRefresh(bucketKey, { priority: 'normal' })
+  setImmediate(async () => {
+    try {
+      await runDetachedBackgroundScrape(bucketKey)
+    } catch (err) {
+      console.warn(`[MarketJdJobs] Detached background scrape encountered error for ${bucketKey}: ${err.message}`)
+    }
+  })
+  return { status: 'queued', bucketKey }
 }
 
 export default {
   executeBucketRefresh,
   ensureConfiguredBucketsExist,
   fetchFastCatchJds,
+  saveUpgradedMarketVersion,
+  runDetachedBackgroundScrape,
   enqueueFullBackgroundBucket,
   MIN_SAMPLE_THRESHOLD,
 }

@@ -21,7 +21,7 @@ export const DEFAULT_MAX_RETRIES = 3
  * Builds standard input payload for bebity/linkedin-jobs-scraper avoiding guest throttle.
  */
 export function buildApifyJdScraperInput(targetRole = 'Software Engineer', options = {}) {
-  const rows = Math.max(35, options.rows || options.targetCount || options.maxCandidates || 40)
+  const rows = options.rows || options.targetCount || options.maxCandidates || 40
   return {
     titles: Array.isArray(options.titles) && options.titles.length > 0
       ? options.titles
