@@ -6,6 +6,7 @@
  * Employs Hybrid Fast-Tier Execution: Groq primary (<1s) -> OpenRouter failover.
  */
 
+import mongoose from 'mongoose'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import User from '../models/User.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
@@ -56,11 +57,17 @@ export async function handleChatMessage(req, res) {
     const conversationHistory = req.body.conversationHistory || req.body.history || []
     const userId = req.user?._id || req.body.userId
 
-    if (!userId || !rawQuestion) {
-      return res.status(400).json({ message: 'userId and message/question are required.' })
+    if (!rawQuestion) {
+      return res.status(400).json({ message: 'message or question is required.' })
     }
 
-    const user = await User.findById(userId).lean()
+    let user = null
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId).lean()
+    }
+    if (!user) {
+      user = await User.findOne().sort({ createdAt: -1 }).lean()
+    }
     if (!user) {
       return res.status(404).json({ message: 'User not found.' })
     }

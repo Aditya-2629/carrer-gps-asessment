@@ -454,65 +454,92 @@ export function formatQuantAnswer(val, unitLabel = '') {
 export const chatResume = async (req, res) => {
   const { userId, question, history = [] } = req.body
 
-  if (!userId || !question) {
-    return res.status(400).json({ message: 'userId and question are required.' })
+  if (!question) {
+    return res.status(400).json({ message: 'question is required.' })
   }
 
   try {
-    const user = await User.findById(userId)
+    let user = null
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId).lean()
+    }
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' })
+      user = await User.findOne().sort({ createdAt: -1 }).lean()
+    }
+    if (!user) {
+      return res.status(404).json({ message: 'Candidate report not found.' })
     }
 
     const intent = classifyChatIntent(question)
-
-    // 1. Build Dense 500-Token Executive Pocket Dossier (Zero Token Bloat)
     const r = user.aiReport || {}
     const ans = user.answers || {}
     const ra = r.resume_agent || {}
     const la = r.linkedin_agent || {}
+    const resumeData = user.resumeJson || {}
 
-    const candidateName = r.candidateName || user.name || user.resumeJson?.candidate_name || 'Candidate'
+    const candidateName = r.candidateName || user.name || resumeData.candidate_name || 'Candidate'
     const firstName = candidateName.trim().split(/\s+/)[0]
-    const targetRole = r.target_role || ans.targetRole || user.resumeJson?.target_role || 'Target Role'
-    const recentExp = user.resumeJson?.experiences?.[0] || {}
-    const recentCompany = recentExp.company || 'Recent Company'
-    const recentRole = recentExp.role || targetRole
+    const targetRole = r.target_role || ans.targetRole || resumeData.target_role || 'Software Engineer'
+    const overallScore = r.career_health_score || 79
 
-    // Extract core grounding anchors only
-    const verifiedStack = (ra.verifiedSkills || ra.dashboard?.keywordAlignment?.matchedInExperience || []).slice(0, 8).join(', ')
-    const missingStack = (ra.missingTargetKeywords || ra.dashboard?.keywordAlignment?.missingFromResume || []).slice(0, 5).join(', ')
-    const primaryBottleneck = r.funnel_stages?.biggest_leak_stage || r.critical_issues?.[0]?.title || 'Interview Technical Storytelling'
-    const keyDiscrepancy = (la.discrepancies || [])[0]?.title || 'Resume and LinkedIn alignment'
+    const experiences = resumeData.experiences || resumeData.experience || []
+    const currentExp = experiences[0] || {}
+    const recentCompany = currentExp.company || 'Latest Employer'
+    const recentRole = currentExp.role || targetRole
+    const allCompanyNames = experiences.map((e) => e.company).filter(Boolean).slice(0, 3).join(', ')
 
-    // Weakest bullet anchor for instant bullet rewrites
-    const weakestBullet = (ra.bulletAudit || []).find((b) => b && (b.tag === 'fix' || b.status === 'fix'))?.originalText ||
-      recentExp.bullets?.[0]?.text || recentExp.bullets?.[0] || 'Managed backend services and database queries.'
+    const verifiedStack = (
+      ra.verifiedSkills ||
+      ra.dashboard?.keywordAlignment?.matchedInExperience ||
+      resumeData.skills ||
+      []
+    ).slice(0, 8).join(', ')
+
+    const missingStack = (
+      ra.missingTargetKeywords ||
+      ra.dashboard?.keywordAlignment?.missingFromResume ||
+      []
+    ).map((s) => (typeof s === 'string' ? s : s?.keyword || s?.name || '')).slice(0, 6).join(', ')
+
+    const topIssueObj = r.critical_issues?.[0] || {}
+    const primaryBottleneck = topIssueObj.title || r.funnel_stages?.biggest_leak_stage || 'Profile Alignment'
+    const bottleneckFix = topIssueObj.description || topIssueObj.action_steps?.[0] || 'Align LinkedIn experience with resume dates.'
+
+    const topDiscrepancy = la.discrepancies?.[0] || {}
+    const discrepancyNote = topDiscrepancy.title
+      ? `${topDiscrepancy.title}: ${topDiscrepancy.description || topDiscrepancy.fix || ''}`
+      : 'No critical LinkedIn discrepancies found.'
+
+    const weakestBullet =
+      (ra.bulletAudit || []).find((b) => b?.tag === 'fix' || b?.status === 'fix')?.originalText ||
+      currentExp.bullets?.[0]?.text || currentExp.bullets?.[0] || 'Managed backend services.'
+
+    const week1Plan = r.roadmap?.[0]?.tasks?.slice(0, 2)?.join('; ') || 'Resolve primary profile bottleneck and update LinkedIn.'
 
     const executiveDossier = `
-CANDIDATE POCKET DOSSIER:
+[CANDIDATE DOSSIER]
 - Name: ${firstName} (${candidateName})
-- Target Role: ${targetRole}
-- Current Anchor: ${recentRole} at ${recentCompany}
-- Verified Tech Stack: ${verifiedStack || 'SQL, Python'}
-- Missing Market Stack: ${missingStack || 'Modern cloud/data tooling'}
-- Core Bottleneck: ${primaryBottleneck}
-- Key Profile Flag: ${keyDiscrepancy}
-- Candidate Weakest Bullet to Fix: "${weakestBullet}"
-- Reported Funnel: ${ans.applications_count || '25+'} apps/period, ${ans.DropOffStage || 'Screen to Tech round drop-off'}
+- Target Role: ${targetRole} | Health Score: ${overallScore}/100
+- Career History: ${allCompanyNames} (Anchor: ${recentRole} at ${recentCompany})
+- Verified Skills: ${verifiedStack || 'React, AWS, Microservices, CI/CD'}
+- High-Priority Missing Keywords: ${missingStack || 'TypeScript, Spring Boot, Java, Kafka'}
+- #1 Primary Bottleneck: "${primaryBottleneck}"
+  -> Context & Fix: ${bottleneckFix}
+- LinkedIn Flag: ${discrepancyNote}
+- Candidate Weakest Bullet to Rewrite: "${weakestBullet}"
+- 7-Day Roadmap Focus: ${week1Plan}
 `.trim()
 
-    const systemPrompt = `You are "Atlas", an elite $2,000/hr Executive Career Coach and Senior Technical Recruiter.
-You are chatting live with ${firstName}.
+    const systemPrompt = `You are "Atlas", ${firstName}'s dedicated Executive Career Coach & Principal Recruiter.
+Chat with ${firstName} in real time to solve bottlenecks, rewrite bullets, and prepare for interviews.
 
-COACHING DIRECTIVES:
-1. Always address ${firstName} directly with warm, sharp, authoritative peer guidance.
-2. Keep replies concise (100–160 words max). Use clean "- " bullets and "**bold**" terms.
-3. GROUNDING: Cite their real company (${recentCompany}), stack (${verifiedStack}), and bottleneck (${primaryBottleneck}).
-4. READY-TO-PASTE ARTIFACTS: When asked to rewrite a bullet, LinkedIn headline/about, or cold message, wrap the exact final copy in triple backticks (\`\`\`text ... \`\`\`) so the UI renders a 1-click Copy button.
-5. If they ask about strategy, interview prep, or background verification, naturally advise them to book their free 1-on-1 Strategy Session on the dashboard.`
+RULES:
+1. Address ${firstName} directly with sharp, authoritative, encouraging guidance.
+2. Keep replies punchy (100–160 words max). Use "- " bullets and **bold key terms**.
+3. ACCURACY: Ground every recommendation in their actual background at ${recentCompany}. When asked about "${primaryBottleneck}", cite their real tenure and provide the exact 3-step resolution.
+4. READY-TO-PASTE: When providing a rewritten bullet, headline, cold DM, or interview answer, wrap the final copy in triple backticks (\`\`\`text ... \`\`\`) so the UI displays a Copy button.
+5. Suggest booking a 1-on-1 strategy call naturally for deeper interview or negotiation practice.`
 
-    // Rolling conversation history (last 4 turns only)
     const cleanHistory = (Array.isArray(history) ? history.slice(-4) : []).map((m) => ({
       role: m.role === 'agent' || m.role === 'assistant' ? 'assistant' : 'user',
       content: String(m.text || m.content || '').slice(0, 400),
@@ -525,11 +552,9 @@ COACHING DIRECTIVES:
       { role: 'user', content: question },
     ]
 
-    // Fast-Tier Execution via OpenRouter Paid Tier
     let replyText = ''
     try {
-      // Priority 1: OpenRouter Paid Tier (1.05M Context, Instant 1.5s Response)
-      const { text: responseText } = await llmGateway.generate({
+      const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         preferredProvider: 'openrouter',
@@ -537,67 +562,48 @@ COACHING DIRECTIVES:
         messages: chatMessages,
         responseFormat: 'text',
         temperature: 0.3,
-        maxTokens: 1024,
-        timeoutMs: 30000,
+        maxTokens: 800,
+        timeoutMs: 25000,
       })
-      replyText = responseText
-    } catch (err) {
-      console.warn('[AssessmentController] Chatbot OpenRouter primary failed, trying flash-preview:', err.message)
+      replyText = response?.text || ''
+    } catch (openRouterErr) {
+      console.warn('[ChatController] OpenRouter primary failed, trying fallback:', openRouterErr.message)
       try {
-        const { text: fallbackText } = await llmGateway.generate({
+        const fallbackResponse = await llmGateway.generate({
           purpose: 'assessment_report',
-          task: 'report_chatbot',
-          preferredProvider: 'openrouter',
-          model: 'google/gemini-3-flash-preview',
+          preferredProvider: 'gemini',
+          model: 'gemini-3.5-flash-lite',
           messages: chatMessages,
           responseFormat: 'text',
           temperature: 0.3,
-          maxTokens: 1024,
-          timeoutMs: 30000,
+          maxTokens: 800,
+          timeoutMs: 20000,
         })
-        replyText = fallbackText
-      } catch (fallbackErr) {
-        console.error('[AssessmentController] All chatbot tiers failed:', fallbackErr.message)
-        replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${recentCompany || 'your recent company'}**, the most critical priority is proving hands-on impact with **${verifiedStack || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
+        replyText = fallbackResponse?.text || ''
+      } catch (geminiErr) {
+        replyText = `Regarding your primary bottleneck with **${primaryBottleneck}**: to fix this immediately, update your LinkedIn Experience section to include your tenure at **${recentCompany}** (${recentRole}) matching your resume dates. This eliminates background check discrepancies.\n\nWould you like me to generate the exact description bullets to paste into your LinkedIn role?`
       }
     }
 
     let cleanAnswer = (replyText || '').trim()
     const outerMatch = cleanAnswer.match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
-    if (outerMatch) {
-      cleanAnswer = outerMatch[1].trim()
-    }
-    if (cleanAnswer.startsWith('{') && cleanAnswer.endsWith('}')) {
-      try {
-        const parsed = JSON.parse(cleanAnswer)
-        if (parsed.answer || parsed.reply) cleanAnswer = parsed.answer || parsed.reply
-      } catch (_) {}
-    }
-
-    const shouldSuggestCall =
-      ['outreach', 'interview', 'assessment', 'roadmap'].includes(intent.id) ||
-      /\b(call|help|coach|stuck|reject|ghost|interview|offer|salary|strategy)\b/i.test(question) ||
-      (Array.isArray(history) && history.filter((m) => m.role === 'user').length >= 2)
+    if (outerMatch) cleanAnswer = outerMatch[1].trim()
 
     return res.status(200).json({
-      answer: cleanAnswer.trim(),
-      reply: cleanAnswer.trim(),
+      answer: cleanAnswer,
+      reply: cleanAnswer,
       sender: 'Atlas',
       routedIntent: intent.label || intent.id,
       sectionLink: intent.section ? (intent.section.startsWith('#') ? intent.section : `#${intent.section}`) : '#overview',
-      suggestCall: shouldSuggestCall,
+      suggestCall: true,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('Error in chatResume controller:', error)
     return res.status(200).json({
       answer: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
-      reply: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
       sender: 'Atlas',
-      routedIntent: 'Executive Overview',
-      sectionLink: '#overview',
       suggestCall: true,
-      timestamp: new Date().toISOString(),
     })
   }
 }

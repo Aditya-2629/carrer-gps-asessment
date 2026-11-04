@@ -17,6 +17,13 @@ const client = axios.create({
 })
 
 export const api = {
+  // Expose HTTP verbs for direct endpoint calls
+  post: (url, data, config) => client.post(url, data, config),
+  get: (url, config) => client.get(url, config),
+  put: (url, data, config) => client.put(url, data, config),
+  delete: (url, config) => client.delete(url, config),
+  patch: (url, data, config) => client.patch(url, data, config),
+
   // POST /api/otp/send-otp
   sendOtp: async ({ email }) => {
     try {

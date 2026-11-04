@@ -75,3 +75,4 @@ assert(inferredNurseRole.toLowerCase().includes('healthcare') || inferredNurseRo
 console.log('✔ Test 3 Passed: Role inference accurately detects domain from resume text.\n')
 
 console.log('ALL UNIVERSAL ROLE & CACHE FIX TESTS PASSED SUCCESSFULLY! 🚀')
+

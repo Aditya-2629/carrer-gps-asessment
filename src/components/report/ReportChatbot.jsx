@@ -199,10 +199,22 @@ function renderMessageContent(text) {
 }
 
 export default function ReportChatbot() {
-  const userId = useAppStore((s) => s.userId)
+  const storeUserId = useAppStore((s) => s.userId)
   const reportData = useAppStore((s) => s.reportData)
   const formData = useAppStore((s) => s.formData)
   const email = useAppStore((s) => s.email)
+
+  const effectiveUserId = useMemo(() => {
+    return (
+      storeUserId ||
+      reportData?.userId ||
+      reportData?._id ||
+      reportData?.user_answers?.userId ||
+      sessionStorage.getItem('career_gps_user_id') ||
+      localStorage.getItem('career_gps_user_id') ||
+      null
+    )
+  }, [storeUserId, reportData])
 
   // Dynamic context extraction
   const firstName = useMemo(() => {
@@ -331,7 +343,7 @@ export default function ReportChatbot() {
         }))
 
         const res = await api.post('/assessment/resume-talk', {
-          userId,
+          userId: effectiveUserId,
           question,
           history: historyPayload,
         })
@@ -359,7 +371,7 @@ export default function ReportChatbot() {
         setLoading(false)
       }
     },
-    [input, loading, messages, userId]
+    [input, loading, messages, effectiveUserId]
   )
 
   const handleStrategyCallCta = async () => {
