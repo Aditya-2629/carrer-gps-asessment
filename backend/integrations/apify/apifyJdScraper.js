@@ -11,11 +11,24 @@ import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
-export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
+export const DEFAULT_APIFY_JOB_ACTOR = 'harvestapi/linkedin-job-search'
 export const FALLBACK_APIFY_JOB_ACTOR = 'misceres/indeed-scraper'
 export const DEFAULT_MAX_CANDIDATES = 100 // Scaled to 100 JDs
 export const DEFAULT_TIMEOUT_MS = 300000  // 5 minutes for 100 items
 export const DEFAULT_MAX_RETRIES = 3
+
+/**
+ * Builds input payload for harvestapi/linkedin-job-search actor (fast API-based scraper).
+ */
+export function buildHarvestActorInput({ role, location = 'United States', maxItems = 30 } = {}) {
+  return {
+    jobTitles: [role || 'Software Engineer'],
+    locations: [location],
+    maxItems: Math.min(maxItems, 50),
+    postedLimit: 'month',
+    sortBy: 'relevance',
+  }
+}
 
 /**
  * Builds standard input payload for bebity/linkedin-jobs-scraper avoiding guest throttle.
@@ -254,19 +267,26 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
   const startTime = Date.now()
 
-  const targetCandidates = Math.max(50, maxCandidates)
+  const targetCandidates = Math.min(Math.max(12, maxCandidates), 50)
   const resolvedRole = (Array.isArray(options.titles) && options.titles[0])
     || searchSpec.role
     || searchSpec.query
     || 'Software Engineer'
+  const resolvedLocation = (Array.isArray(options.locations) && options.locations[0]) || 'United States'
+  const isHarvestApi = actorId.includes('harvestapi')
 
-  // Input contract adhering to modern bebity actor schema (multi-location hubs, proxy)
-  const actorInput = buildApifyJdScraperInput(resolvedRole, {
-    titles: options.titles,
-    locations: options.locations || ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
-    rows: targetCandidates,
-    actorInput: options.actorInput,
-  })
+  const actorInput = isHarvestApi
+    ? buildHarvestActorInput({
+        role: resolvedRole,
+        location: resolvedLocation,
+        maxItems: targetCandidates,
+      })
+    : buildApifyJdScraperInput(resolvedRole, {
+        titles: options.titles,
+        locations: options.locations || ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+        rows: targetCandidates,
+        actorInput: options.actorInput,
+      })
 
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {
     // Set 300s (5-minute) timeout so LinkedIn scraper has time to paginate and retrieve 100 items without dropping
@@ -280,9 +300,10 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
     let currentInput = { ...actorInput }
     let run
+    const waitSecs = isHarvestApi ? 45 : timeoutSecs
     try {
       run = await client.actor(actorId).call(currentInput, {
-        waitSecs: timeoutSecs,
+        waitSecs,
         maxItems: targetCandidates,
       })
     } catch (callErr) {
@@ -310,8 +331,17 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
       clean: true,
     })
 
-    // Failsafe secondary actor fallback if primary actor returns < 10 descriptions
-    if ((items || []).length < 10) {
+    // Normalize HarvestAPI & legacy schema to canonical candidate JD schema
+    let candidates = (items || []).map((item) => ({
+      title: item.title || item.jobTitle || resolvedRole,
+      company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
+      location: item.location || 'United States',
+      description: item.descriptionText || item.description || item.text || item.body || '',
+      url: item.linkedinUrl || item.url || item.link || '',
+    })).filter((j) => j.description && j.description.length >= 100)
+
+    // Failsafe secondary actor fallback if primary actor returns < 8 descriptions
+    if (candidates.length < 8) {
       console.warn(`[Apify JdScraper] Primary scrape returned low sample (${items?.length || 0}). Trying secondary fallback (misceres/indeed-scraper)...`)
       try {
         const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
@@ -321,9 +351,17 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
           maxItems: targetCandidates,
         }, Math.min(45000, timeoutMs))
 
-        if (Array.isArray(fallbackItems) && fallbackItems.length >= 10) {
-          console.log(`[Apify JdScraper] Secondary fallback succeeded with ${fallbackItems.length} candidate items.`)
-          items = fallbackItems
+        const fallbackCandidates = (fallbackItems || []).map((item) => ({
+          title: item.positionName || item.title || resolvedRole,
+          company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
+          location: item.location || 'United States',
+          description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
+          url: item.linkedinUrl || item.url || item.link || '',
+        })).filter((j) => j.description && j.description.length >= 100)
+
+        if (fallbackCandidates.length >= 8) {
+          console.log(`[Apify JdScraper] Secondary fallback succeeded with ${fallbackCandidates.length} candidate items.`)
+          candidates = fallbackCandidates
         }
       } catch (fbErr) {
         console.warn(`[Apify JdScraper] Secondary fallback also failed: ${fbErr.message}`)
@@ -331,19 +369,19 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     }
 
     const durationMs = Date.now() - startTime
-    console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
+    console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${candidates.length} candidate items.`)
 
     try {
       costTracker.trackApify({
         stage: 'FULL_BUCKET_JD_SCRAPE',
-        itemsScraped: items?.length || 0,
+        itemsScraped: candidates.length,
         durationMs,
       })
     } catch (_) {}
 
     return {
-      candidates: items || [],
-      totalFetched: items?.length || 0,
+      candidates,
+      totalFetched: candidates.length,
       actorId,
       runId: run.id,
       durationMs,
@@ -354,6 +392,7 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 export default {
   buildSearchSpecification,
   buildApifyJdScraperInput,
+  buildHarvestActorInput,
   runApifyActorScrape,
   fetchMarketJdCandidates,
   scrapeLiveJobDescriptions,

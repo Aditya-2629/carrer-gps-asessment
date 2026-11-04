@@ -140,3 +140,4 @@ assert.strictEqual(alignment.missingMarketSkillsRanked[2].keyword, 'Kubernetes',
 console.log('✔ Test 3 Passed: keywordAlignment derives purely from real market counts.\n')
 
 console.log('ALL RESILIENT SCRAPING & REAL DATA ALIGNMENT TESTS PASSED! 🚀')
+

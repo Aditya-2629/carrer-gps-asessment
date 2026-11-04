@@ -273,26 +273,38 @@ export async function fetchFastCatchJds({
   const fastCatchCount = targetCount || 12
   console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
 
-  // Attempt 1: bebity/linkedin-jobs-scraper with residential proxy & multi-location hubs
+  // Attempt 1: Fast API-based actor (harvestapi/linkedin-job-search) with 30s timeout
+  const actorId = process.env.APIFY_JOB_ACTOR_ID || 'harvestapi/linkedin-job-search'
+  const isHarvestApi = actorId.includes('harvestapi')
+
+  const actorInput = isHarvestApi
+    ? {
+        jobTitles: [targetRoleTitle],
+        locations: ['United States'],
+        maxItems: fastCatchCount,
+        postedLimit: 'month',
+        sortBy: 'relevance',
+      }
+    : buildApifyJdScraperInput(targetRoleTitle, {
+        locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+        rows: fastCatchCount,
+        maxJobs: fastCatchCount,
+      })
+
   let primaryItems = []
   try {
-    const primaryInput = buildApifyJdScraperInput(targetRoleTitle, {
-      locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
-      rows: fastCatchCount,
-      maxJobs: fastCatchCount,
-    })
-    primaryItems = await runApifyActorScrape('bebity/linkedin-jobs-scraper', primaryInput, timeoutMs)
+    primaryItems = await runApifyActorScrape(actorId, actorInput, Math.min(timeoutMs, 30000))
   } catch (primErr) {
     console.warn(`[MarketJdJobs] Primary scrape attempt encountered error: ${primErr.message}`)
   }
 
-  // Filter valid text descriptions (at least 200 chars)
+  // Filter valid text descriptions (at least 100 chars)
   let validJds = (primaryItems || []).map((item) => ({
-    title: item.title || targetRoleTitle,
-    company: item.companyName || item.company || 'Enterprise Employer',
-    description: item.description || item.text || item.body || '',
-    url: item.url || item.link || '',
-  })).filter((j) => (j.description || '').length >= 200)
+    title: item.title || item.jobTitle || targetRoleTitle,
+    company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
+    description: item.descriptionText || item.description || item.text || item.body || '',
+    url: item.linkedinUrl || item.url || item.link || '',
+  })).filter((j) => (j.description || '').length >= 100)
 
   // FAILSAFE RETRY: If primary returned < 8 JDs, fall back to Indeed scraper
   if (validJds.length < 8) {
@@ -308,10 +320,10 @@ export async function fetchFastCatchJds({
 
       const validFallback = (fallbackItems || []).map((item) => ({
         title: item.positionName || item.title || targetRoleTitle,
-        company: item.company || item.companyName || 'Enterprise Employer',
-        description: item.description || item.jobDescription || item.text || item.body || '',
-        url: item.url || item.link || '',
-      })).filter((j) => (j.description || '').length >= 200)
+        company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
+        description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
+        url: item.linkedinUrl || item.url || item.link || '',
+      })).filter((j) => (j.description || '').length >= 100)
 
       if (validFallback.length >= 8) {
         validJds = validFallback
@@ -421,26 +433,37 @@ export async function runDetachedBackgroundScrape(bucketKey) {
     return null
   }
 
+  const actorId = process.env.APIFY_JOB_ACTOR_ID || 'harvestapi/linkedin-job-search'
+  const isHarvestApi = actorId.includes('harvestapi')
+
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {
     const apifyClient = new ApifyClient({
       token: activeToken,
-      timeoutSecs: 360,
+      timeoutSecs: isHarvestApi ? 90 : 360,
     })
 
-    const bgPayload = buildApifyJdScraperInput(roleName, {
-      locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
-      rows: 75,
-      maxJobs: 75,
-    })
+    const bgPayload = isHarvestApi
+      ? {
+          jobTitles: [roleName],
+          locations: ['United States'],
+          maxItems: 50,
+          postedLimit: 'month',
+          sortBy: 'relevance',
+        }
+      : buildApifyJdScraperInput(roleName, {
+          locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+          rows: 75,
+          maxJobs: 75,
+        })
 
     let run
     try {
-      run = await apifyClient.actor('bebity/linkedin-jobs-scraper').start(bgPayload)
+      run = await apifyClient.actor(actorId).start(bgPayload)
     } catch (callErr) {
       if (/residential|proxy/i.test(callErr.message) && bgPayload.proxy?.apifyProxyGroups) {
         console.warn('[MarketJdJobs] Background residential proxy rejected. Retrying with default proxy...')
         bgPayload.proxy = { useApifyProxy: true }
-        run = await apifyClient.actor('bebity/linkedin-jobs-scraper').start(bgPayload)
+        run = await apifyClient.actor(actorId).start(bgPayload)
       } else {
         throw callErr
       }
@@ -450,24 +473,25 @@ export async function runDetachedBackgroundScrape(bucketKey) {
       throw new Error('Apify actor start did not return run ID')
     }
 
-    console.log(`[MarketJdJobs] Background Apify Run started: ${run.id}. Awaiting completion...`)
-    const finishedRun = await apifyClient.run(run.id).waitForFinish({ waitSecs: 300 })
+    console.log(`[MarketJdJobs] Background Apify Run started: ${run.id} (${actorId}). Awaiting completion...`)
+    const waitSecs = isHarvestApi ? 60 : 300
+    const finishedRun = await apifyClient.run(run.id).waitForFinish({ waitSecs })
 
     let items = []
     if (finishedRun?.status === 'SUCCEEDED' && finishedRun.defaultDatasetId) {
       const res = await apifyClient.dataset(finishedRun.defaultDatasetId).listItems({
-        limit: 75,
+        limit: 50,
         clean: true,
       })
       items = res.items || []
     }
 
     let validBackgroundJds = (items || []).map((j) => ({
-      title: j.title || roleName,
-      company: j.companyName || j.company || 'Enterprise Employer',
-      description: j.description || j.text || j.body || '',
-      url: j.url || j.link || '',
-    })).filter((j) => (j.description || '').length >= 200)
+      title: j.title || j.jobTitle || roleName,
+      company: j.company?.name || j.companyName || j.company || 'Enterprise Employer',
+      description: j.descriptionText || j.description || j.text || j.body || '',
+      url: j.linkedinUrl || j.url || j.link || '',
+    })).filter((j) => (j.description || '').length >= 100)
 
     // Failsafe secondary fallback if primary returns < 15
     if (validBackgroundJds.length < 15) {
