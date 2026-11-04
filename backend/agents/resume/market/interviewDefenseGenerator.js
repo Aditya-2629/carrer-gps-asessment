@@ -4,7 +4,7 @@
  * Zero API calls, zero latency, 100% deterministic & tailored.
  */
 
-export function getTalkingScript(skill, targetRole = 'Data Analyst', company = 'PwC USA') {
+export function getTalkingScript(skill, targetRole = 'Professional', company = 'my organization') {
   const comp = company || 'my organization'
   const low = String(skill || '').toLowerCase()
 
@@ -23,7 +23,7 @@ export function getTalkingScript(skill, targetRole = 'Data Analyst', company = '
   return `At ${comp}, I integrated ${skill} into our operational workflows, evaluating technical trade-offs to deliver measurable efficiency gains.`
 }
 
-export function getResumeSentence(skill, company = 'PwC USA') {
+export function getResumeSentence(skill, company = 'my organization') {
   const low = String(skill || '').toLowerCase()
   if (/snowflake|bigquery|dbt|redshift|spark|databricks|hadoop|airflow|sql|postgres/i.test(low)) {
     return `Engineered data pipeline transformations and automated validation schemas using ${skill}, cutting data delivery latency.`
@@ -40,7 +40,7 @@ export function getResumeSentence(skill, company = 'PwC USA') {
   return `Applied ${skill} to automate reporting reconciliation and support cross-functional decision workflows.`
 }
 
-export function getInterviewerQuestion(skill, company = 'PwC USA') {
+export function getInterviewerQuestion(skill, company = 'your company') {
   const comp = company || 'your company'
   const low = String(skill || '').toLowerCase()
   if (/snowflake|bigquery|redshift/i.test(low)) {

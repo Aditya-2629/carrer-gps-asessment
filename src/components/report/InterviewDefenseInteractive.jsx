@@ -13,7 +13,7 @@ export default function InterviewDefenseInteractive({
   initialSkillsOnly = [], // Skills in section but not in bullets
   interviewLedger = [],
   targetRole = 'Data Analyst',
-  company = 'PwC USA',
+  company = 'my organization',
   onToast = (msg) => console.log(msg),
   onSkillsChange = null,
 }) {

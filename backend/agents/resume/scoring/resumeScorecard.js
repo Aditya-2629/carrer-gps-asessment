@@ -165,7 +165,15 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
           // Domain-calibrated power verb replacement
           let domainVerb = isCurrentRole ? 'Engineer' : 'Engineered'
           const lower = clean.toLowerCase()
-          if (lower.includes('api') || lower.includes('microservice') || lower.includes('backend') || lower.includes('system') || lower.includes('service')) {
+          if (/nurse|nursing|clinical|health|patient|medical/i.test(targetRole) || /patient|clinical|triage|care/i.test(lower)) {
+            domainVerb = isCurrentRole ? 'Administer' : 'Administered'
+          } else if (/finance|accounting|accountant|cpa|auditor/i.test(targetRole) || /reconciliation|financial|audit|tax/i.test(lower)) {
+            domainVerb = isCurrentRole ? 'Reconcile' : 'Reconciled'
+          } else if (/sales|account\s+exec|b2b/i.test(targetRole) || /pipeline|quota|prospecting|deal/i.test(lower)) {
+            domainVerb = isCurrentRole ? 'Accelerate' : 'Accelerated'
+          } else if (/product/i.test(targetRole) || /roadmap|user stories|backlog/i.test(lower)) {
+            domainVerb = isCurrentRole ? 'Spearhead' : 'Spearheaded'
+          } else if (lower.includes('api') || lower.includes('microservice') || lower.includes('backend') || lower.includes('system') || lower.includes('service')) {
             domainVerb = isCurrentRole ? 'Architect' : 'Architected'
           } else if (lower.includes('security') || lower.includes('auth') || lower.includes('jwt') || lower.includes('oauth') || lower.includes('hipaa')) {
             domainVerb = isCurrentRole ? 'Harden' : 'Hardened'
@@ -194,16 +202,36 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
   }
 
   // 4. Domain Archetype & Google XYZ Architectural Mechanism Enforcement
-  const isDataRole = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(targetRole)
-  const isAiRole = /ai\b|artificial\s+intelligence|machine\s+learning|ml\b|llm|nlp|prompt|rag\b/i.test(targetRole)
-  const isDevopsRole = /devops|cloud|sre|infrastructure|platform|kubernetes/i.test(targetRole)
+  const isHealthcare = /nurse|nursing|clinical|health|patient|medical|hospital/i.test(targetRole) || /patient|clinical|triage|bedside|vitals|ehr|hipaa|medication/i.test(clean)
+  const isFinance = /finance|accounting|accountant|cpa|auditor|financial|tax|treasury|controller/i.test(targetRole) || /gaap|reconciliation|general ledger|month-end|financial statements|audit|tax|invoice|fp&a/i.test(clean)
+  const isSalesMarketing = /sales|marketing|account executive|business development|growth|crm/i.test(targetRole) || /pipeline|quota|crm|lead generation|conversion rate|campaign|b2b/i.test(clean)
+  const isProduct = /product\s*(manager|owner|lead)/i.test(targetRole) || /roadmap|backlog|user stories|prd\b|feature prioritization/i.test(clean)
+  const isOperations = /operations|supply\s+chain|logistics|procurement|warehouse/i.test(targetRole) || /inventory|supply chain|logistics|sla|procurement/i.test(clean)
+  const isDataRole = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(targetRole) || /tableau|power\s*bi|sql|looker|star-schema|dbt|bigquery|snowflake/i.test(clean)
+  const isAiRole = /ai\b|artificial\s+intelligence|machine\s+learning|ml\b|llm|nlp|prompt|rag\b/i.test(targetRole) || /llm|langchain|rag|pytorch|vector/i.test(clean)
+  const isDevopsRole = /devops|cloud|sre|infrastructure|platform|kubernetes/i.test(targetRole) || /kubernetes|docker|terraform|ci\/cd|aws|gcp|azure/i.test(clean)
 
   let domainMechanism = ''
   let domainOutcome = ''
 
-  if (/security|xss|vulnerabilit|cve|sanitize|input validation|auth|jwt|oauth|hipaa/i.test(clean)) {
+  if (/security|xss|vulnerabilit|cve|sanitize|input validation|auth|jwt|oauth/i.test(clean)) {
     domainMechanism = 'by implementing automated DevSecOps vulnerability scanning and strict payload validation'
     domainOutcome = 'eliminating high-severity CVEs and ensuring 100% security audit compliance across release pipelines'
+  } else if (isHealthcare) {
+    domainMechanism = 'by standardizing clinical documentation workflows and patient care protocols'
+    domainOutcome = 'improving patient safety outcomes, ensuring HIPAA compliance, and elevating quality of care scores'
+  } else if (isFinance) {
+    domainMechanism = 'by streamlining reconciliation controls and financial reporting workflows'
+    domainOutcome = 'accelerating month-end close velocity, reducing variance errors, and ensuring GAAP audit compliance'
+  } else if (isSalesMarketing) {
+    domainMechanism = 'by implementing targeted pipeline qualification frameworks and CRM automation'
+    domainOutcome = 'accelerating deal cycle velocity, increasing lead conversion rates, and exceeding quarterly quota targets'
+  } else if (isProduct) {
+    domainMechanism = 'by instituting data-driven user discovery sprints and cross-functional roadmap alignment'
+    domainOutcome = 'accelerating feature delivery velocity, driving user adoption, and aligning product execution with strategic KPIs'
+  } else if (isOperations) {
+    domainMechanism = 'by standardizing operational fulfillment processes and vendor SLAs'
+    domainOutcome = 'optimizing supply chain throughput, reducing cycle times, and sustaining high fulfillment reliability'
   } else if (isDataRole) {
     domainMechanism = 'by architecting automated star-schema data models and dbt test assertions'
     domainOutcome = 'enhancing reporting adoption, reducing turnaround time, and enabling data-driven executive decisions'

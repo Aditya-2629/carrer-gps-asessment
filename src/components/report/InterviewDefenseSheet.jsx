@@ -13,7 +13,7 @@ export default function InterviewDefenseSheet({
   variant = 'light',
   initialSkillsOnly = [],
   targetRole = 'Data Analyst',
-  company = 'PwC USA',
+  company = 'my organization',
   onToast = (msg) => console.log(msg),
 }) {
   const skills = Array.isArray(initialSkillsOnly) && initialSkillsOnly.length > 0

@@ -32,6 +32,7 @@ import {
   computeKeywordAlignment,
   weaveKeywordsIntoBullets,
 } from '../market/keywordAlignment.js'
+import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
 
 export {
   SYNTHESIS_PROMPT_VERSION,
@@ -199,6 +200,19 @@ export function buildSynthesisMessages(state) {
   // Format evidence classifications (V2.4 layer)
   const classificationSummary = evidenceClassifications ? formatCompactClassificationSummary(evidenceClassifications) : ''
 
+  // Resolve dynamic role without defaulting to Software Engineer
+  const experiences = state.canonicalResume?.experience || state.canonicalResume?.experiences || []
+  const resumeTextForRole = [
+    state.canonicalResume?.summary?.text || '',
+    experiences.map((e) => `${e.role || ''} ${e.title || ''} ${(e.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || '')).join(' ')}`).join(' '),
+    (state.canonicalResume?.skills || []).map((s) => (typeof s === 'string' ? s : s?.name || '')).join(' '),
+    compactResume || '',
+  ].filter(Boolean).join(' ')
+  const inferredRole = inferRoleFromKeywordFrequency(resumeTextForRole)
+  const resolvedTargetRole = (typeof targetRole === 'string' && targetRole.trim())
+    ? targetRole.trim()
+    : (inferredRole && inferredRole !== 'Professional' ? inferredRole : 'Professional')
+
   // Build user prompt — send only compact context
   let userPrompt = `CANDIDATE RESUME:\n${compactResume}`
 
@@ -212,6 +226,8 @@ export function buildSynthesisMessages(state) {
 
   if (targetRole) {
     userPrompt += `\n\nTARGET ROLE: ${targetRole}`
+  } else if (resolvedTargetRole && resolvedTargetRole !== 'Professional') {
+    userPrompt += `\n\nTARGET ROLE: ${resolvedTargetRole}`
   }
 
   const answers = state.answers || {}
@@ -261,7 +277,7 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   }
 
   // Role-specific context block (Phase 2.4 — V2.6 injection)
-  const roleContext = buildRoleContextBlock(targetRole)
+  const roleContext = buildRoleContextBlock(resolvedTargetRole)
   if (roleContext) {
     userPrompt += `\n\n${roleContext}`
   }
@@ -300,9 +316,8 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   }
 
   // ── Keyword Alignment & Keyword Weaver (V4 Dynamic Recruiter Roast Engine) ──
-  const experiences = state.canonicalResume?.experience || state.canonicalResume?.experiences || []
   const currentExp = experiences[0] || {}
-  const currentTitle = currentExp.role || currentExp.title || 'Senior Software Engineer'
+  const currentTitle = currentExp.role || currentExp.title || resolvedTargetRole || 'Professional'
   const currentCompany = currentExp.company || currentExp.employer || 'Recent Organization'
   const candidateName = state.canonicalResume?.candidate?.name || state.canonicalResume?.candidate_name || state.candidateSnapshot?.name || 'Candidate'
   const yearsOfExperience = state.canonicalResume?.years_of_experience || state.candidateSnapshot?.yearsOfExperience || '5+ years'
@@ -313,7 +328,7 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   if ((!missingKeywords.length && !skillsOnlyKeywords.length) && state.canonicalResume) {
     const computedKw = computeKeywordAlignment({
       canonicalResume: state.canonicalResume,
-      targetRole: targetRole || 'Software Engineer',
+      targetRole: resolvedTargetRole,
       targetJd: state.targetJobDescription || '',
     })
     state.keywordAlignment = computedKw
@@ -339,7 +354,7 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
 
   // Render V4 Silicon Valley Executive Recruiter Teardown block
   const v4RoastBlock = renderResumeSynthesisPromptV4({
-    targetRole: targetRole || 'Software Engineer',
+    targetRole: resolvedTargetRole,
     candidateName,
     currentTitle,
     currentCompany,

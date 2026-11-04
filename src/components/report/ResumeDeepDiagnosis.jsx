@@ -610,7 +610,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         initialSkillsOnly={strandedSkills}
         interviewLedger={interviewLedger}
         targetRole={targetRole}
-        company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'PwC USA'}
+        company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'my organization'}
         onToast={(msg) => setToastMsg(msg)}
       />
 

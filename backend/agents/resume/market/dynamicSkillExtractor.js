@@ -55,7 +55,8 @@ export const BANNED_GENERIC_WORDS = new Set([
 
 export const ALLOWED_LOWERCASE_TOOLS = new Set([
   'sql', 'aws', 'gcp', 'dbt', 'git', 'r', 'sas', 'etl', 'elt', 'dax',
-  'python', 'java', 'react', 'vue', 'node', 'scala', 'rust', 'redis', 'kafka', 'spark', 'linux', 'c', 'c++', 'c#', 'excel'
+  'python', 'java', 'react', 'vue', 'node', 'scala', 'rust', 'redis', 'kafka', 'spark', 'linux', 'c', 'c++', 'c#', 'excel',
+  'salesforce', 'hubspot', 'quickbooks', 'workday', 'figma', 'autocad', 'tableau', 'sap'
 ])
 
 /**
@@ -118,7 +119,9 @@ export function isConcreteTechSkill(token) {
       'ruby on rails', 'power bi', 'power apps', 'power automate', 'google cloud',
       'amazon web services', 'apache spark', 'apache kafka', 'apache flink', 'apache airflow',
       'apache cassandra', 'apache camel', 'spring boot', 'react native', 'rest api', 'rest apis',
-      'epic systems', 'sql server', 'big query', 'ci cd', 'ci/cd', 'scikit learn'
+      'epic systems', 'epic ehr', 'sql server', 'big query', 'ci cd', 'ci/cd', 'scikit learn',
+      'system design', 'machine learning', 'data modeling', 'financial modeling', 'patient care',
+      'clinical assessment', 'sap s/4hana', 'sap fico', 'bloomberg terminal'
     ])
     if (!allowedPhrases.has(low)) {
       const stopWordsInPhrase = [

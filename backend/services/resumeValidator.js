@@ -340,7 +340,7 @@ export function decodeHtmlEntities(str) {
  * Normalizes target role title to prevent duplicate prefixes (e.g. "Senior Senior Full Stack...")
  */
 export function cleanTargetRoleTitle(prefix, baseRole) {
-  if (!baseRole && !prefix) return 'Software Engineer'
+  if (!baseRole && !prefix) return 'Professional'
   if (!baseRole) return String(prefix).trim()
   if (!prefix) {
     return String(baseRole)

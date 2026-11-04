@@ -11,6 +11,7 @@
 import { extractSkillsFromJd } from './jdNormalizer.js'
 import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
+import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
 
 export const isGenuineTechnicalSkill = isConcreteTechSkill
 
@@ -511,9 +512,6 @@ export function computeKeywordAlignment({
   targetRole = '',
   marketProfile = null,
 }) {
-  const roleName = targetRole || canonicalResume?.candidate?.targetRole || 'Software Engineer'
-  const isJdProvided = Boolean(targetJobDescription && targetJobDescription.trim().length > 40)
-
   // 1. Gather Candidate Text Corpi including project tech headers & summaries
   const expAndProjBullets = [
     ...(canonicalResume?.experience || []).flatMap((e) => [
@@ -528,6 +526,9 @@ export function computeKeywordAlignment({
     ]),
   ].filter(Boolean)
   const expAndProjText = expAndProjBullets.join('\n')
+
+  const roleName = targetRole || canonicalResume?.candidate?.targetRole || inferRoleFromKeywordFrequency(expAndProjText) || 'Professional'
+  const isJdProvided = Boolean(targetJobDescription && targetJobDescription.trim().length > 40)
 
   const declaredSkills = []
   const rawSkillsArray = canonicalResume?.skills || []
@@ -817,7 +818,7 @@ export function determineSemanticSlot(kw, dynamicCategory = null) {
 }
 
 export function cleanTargetRoleTitle(prefix, baseRole) {
-  if (!baseRole && !prefix) return 'Software Engineer'
+  if (!baseRole && !prefix) return 'Professional'
   if (!baseRole) return String(prefix).trim()
   if (!prefix) {
     return String(baseRole)
@@ -999,7 +1000,7 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
   experiences.forEach((exp, expIdx) => {
     const expId = exp.id || `exp_${String(expIdx + 1).padStart(3, '0')}`
     const company = exp.company || exp.employer || `Company ${expIdx + 1}`
-    const role = exp.role || exp.title || 'Software Engineer'
+    const role = exp.role || exp.title || 'Professional'
     ;(exp.bullets || []).forEach((b, bIdx) => {
       const bId = (typeof b === 'object' && b?.id) ? b.id : `${expId}_b${String(bIdx + 1).padStart(2, '0')}`
       const origText = typeof b === 'string' ? b : b?.text || ''

@@ -74,9 +74,9 @@ OUTPUT JSON FORMAT ONLY:
 
 export function renderResumeSynthesisPromptV4(data = {}) {
   const {
-    targetRole = 'Software Engineer',
+    targetRole = 'Professional',
     candidateName = 'Candidate',
-    currentTitle = 'Software Engineer',
+    currentTitle = 'Professional',
     currentCompany = 'Recent Company',
     yearsOfExperience = '3+ years',
     missingKeywords = [],

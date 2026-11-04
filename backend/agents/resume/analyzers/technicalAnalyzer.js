@@ -27,15 +27,16 @@ export const TECHNICAL_ANALYZER_VERSION = '1.0'
 // Technical domain keyword mappings
 const TECH_DOMAINS = {
   backend_api: ['api', 'rest', 'graphql', 'grpc', 'websocket', 'fastapi', 'express', 'django', 'flask', 'spring', 'endpoint', 'service', 'microservice'],
-  frontend: ['react', 'vue', 'angular', 'next.js', 'svelte', 'ui', 'frontend', 'css', 'html', 'tailwind', 'component', 'rendering'],
+  frontend: ['react', 'vue', 'angular', 'next.js', 'svelte', 'ui', 'frontend', 'css', 'html', 'tailwind', 'component', 'rendering', 'figma'],
   cloud_infra: ['aws', 'gcp', 'azure', 'ec2', 's3', 'lambda', 'kubernetes', 'k8s', 'docker', 'container', 'cloud', 'serverless', 'terraform', 'ecs', 'eks'],
   ai_ml: ['llm', 'rag', 'embedding', 'vector', 'fine-tuning', 'transformer', 'langchain', 'openai', 'huggingface', 'model', 'inference', 'retrieval', 'mcp', 'agent'],
-  data_systems: ['sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'kafka', 'database', 'query', 'index', 'cache', 'data pipeline'],
+  data_systems: ['sql', 'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'kafka', 'database', 'query', 'index', 'cache', 'data pipeline', 'snowflake', 'bigquery', 'tableau', 'power bi', 'looker', 'dbt'],
   security: ['authentication', 'authorization', 'oauth', 'jwt', 'ssl', 'tls', 'encryption', 'xss', 'csrf', 'injection', 'vulnerability', 'secure', 'access control'],
   devops_cicd: ['ci/cd', 'jenkins', 'github actions', 'gitlab', 'pipeline', 'deployment', 'release', 'terraform', 'ansible', 'monitoring', 'alerting', 'observability'],
   architecture: ['architecture', 'design', 'pattern', 'scalable', 'distributed', 'event-driven', 'microservice', 'modular', 'system', 'schema'],
   testing: ['test', 'unit test', 'integration test', 'e2e', 'coverage', 'jest', 'pytest', 'evaluation', 'benchmark', 'regression'],
-  integrations: ['integration', 'webhook', 'sdk', 'third-party', 'api integration', 'oauth', 'stripe', 'twilio', 'sendgrid'],
+  integrations: ['integration', 'webhook', 'sdk', 'third-party', 'api integration', 'oauth', 'stripe', 'twilio', 'sendgrid', 'salesforce', 'hubspot', 'workday', 'sap'],
+  enterprise_systems: ['salesforce', 'hubspot', 'epic ehr', 'epic systems', 'sap s/4hana', 'sap fico', 'sap', 'quickbooks', 'figma', 'autocad', 'workday', 'bloomberg terminal'],
 }
 
 /**
