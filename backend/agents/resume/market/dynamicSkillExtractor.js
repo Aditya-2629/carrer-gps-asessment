@@ -55,7 +55,7 @@ export const BANNED_GENERIC_WORDS = new Set([
 
 export const ALLOWED_LOWERCASE_TOOLS = new Set([
   'sql', 'aws', 'gcp', 'dbt', 'git', 'r', 'sas', 'etl', 'elt', 'dax',
-  'python', 'java', 'react', 'vue', 'node', 'scala', 'rust', 'redis', 'kafka', 'spark', 'linux', 'c', 'c++', 'c#'
+  'python', 'java', 'react', 'vue', 'node', 'scala', 'rust', 'redis', 'kafka', 'spark', 'linux', 'c', 'c++', 'c#', 'excel'
 ])
 
 /**
@@ -105,7 +105,7 @@ export function isConcreteTechSkill(token) {
   if (/^[A-Z][a-z]{2,15}$/.test(clean) && !ALLOWED_LOWERCASE_TOOLS.has(low)) {
     if (
       BANNED_GENERIC_WORDS.has(low) ||
-      /^(?:must|should|could|would|can|may|will|have|has|had|been|were|was|are|is|collaborate|participate|contribute|deliver|ensure|support|provide|maintain|develop|build|create|manage|lead|drive|execute|work|join|learn|grow|thrive|excel)$/i.test(low)
+      /^(?:must|should|could|would|can|may|will|have|has|had|been|were|was|are|is|collaborate|participate|contribute|deliver|ensure|support|provide|maintain|develop|build|create|manage|lead|drive|execute|work|join|learn|grow|thrive)$/i.test(low)
     ) {
       return false
     }

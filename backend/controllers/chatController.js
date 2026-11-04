@@ -146,32 +146,72 @@ COACHING RULES:
       { role: 'user', content: userMessageContent },
     ]
 
-    // Hybrid Fast-Tier Execution: Groq primary (instant <1s response) -> OpenRouter failover
+    // Paid Priority Execution: OpenRouter paid tier (Gemini 3.5 Flash) -> Gemini 3 Flash Preview -> Groq/OpenRouter failover
     let replyText = ''
     try {
       const response = await llmGateway.generate({
-        purpose: 'career_chatbot',
-        preferredProvider: 'groq',
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: 0.4,
-        maxTokens: 600,
-        timeoutMs: 15000,
-      })
-      replyText = response.text
-    } catch (groqErr) {
-      console.warn('[ChatController] Groq fast tier failed, falling back to OpenRouter:', groqErr.message)
-      const fallbackResponse = await llmGateway.generate({
-        purpose: 'career_chatbot',
+        purpose: 'assessment_report',
+        task: 'report_chatbot',
         preferredProvider: 'openrouter',
         model: 'google/gemini-3.5-flash',
         messages,
-        temperature: 0.4,
-        maxTokens: 600,
-        timeoutMs: 25000,
-        bypassCache: true,
+        temperature: 0.3,
+        maxTokens: 1024,
+        maxRetries: 2,
+        timeoutMs: 30000,
       })
-      replyText = fallbackResponse.text
+      replyText = response.text
+    } catch (openRouterErr) {
+      console.warn('[ChatController] OpenRouter primary (Gemini 3.5 Flash) failed, falling back to Gemini 3 Flash Preview:', openRouterErr.message)
+      try {
+        const fallbackResponse = await llmGateway.generate({
+          purpose: 'assessment_report',
+          task: 'report_chatbot',
+          preferredProvider: 'openrouter',
+          model: 'google/gemini-3-flash-preview',
+          messages,
+          temperature: 0.3,
+          maxTokens: 1024,
+          timeoutMs: 30000,
+          bypassCache: true,
+        })
+        replyText = fallbackResponse.text
+      } catch (previewErr) {
+        console.warn('[ChatController] Gemini 3 Flash Preview failed, trying OpenRouter Gemini 2.5 Flash:', previewErr.message)
+        try {
+          const gemini25Response = await llmGateway.generate({
+            purpose: 'assessment_report',
+            task: 'report_chatbot',
+            preferredProvider: 'openrouter',
+            model: 'google/gemini-2.5-flash',
+            messages,
+            temperature: 0.3,
+            maxTokens: 1024,
+            timeoutMs: 25000,
+            bypassCache: true,
+          })
+          replyText = gemini25Response.text
+        } catch (geminiErr) {
+          console.warn('[ChatController] OpenRouter Gemini 2.5 Flash failed, trying Groq fallback:', geminiErr.message)
+          try {
+            const groqResponse = await llmGateway.generate({
+              purpose: 'career_chatbot',
+              task: 'report_chatbot',
+              preferredProvider: 'groq',
+              model: 'openai/gpt-oss-120b',
+              messages,
+              temperature: 0.4,
+              maxTokens: 800,
+              timeoutMs: 15000,
+              bypassCache: true,
+            })
+            replyText = groqResponse.text
+          } catch (groqErr) {
+            console.error('[ChatController] All chatbot tiers failed:', groqErr.message)
+            replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${currentCompany || 'your current company'}**, the most critical priority is proving hands-on impact with **${topSkills || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
+          }
+        }
+      }
     }
 
     let cleanAnswer = (replyText || '').trim()
@@ -204,9 +244,11 @@ COACHING RULES:
     })
   } catch (err) {
     console.error('[ChatController] Error generating chat response:', err.message)
-    return res.status(500).json({
-      error: 'Atlas is momentarily reviewing candidate files. Please try again in a moment.',
-      message: 'Atlas is momentarily reviewing candidate files. Please try again in a moment.',
+    return res.status(200).json({
+      answer: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
+      routedIntent: 'Executive Overview',
+      sectionLink: '#overview',
+      suggestCall: true,
     })
   }
 }

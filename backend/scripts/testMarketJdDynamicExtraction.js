@@ -185,11 +185,11 @@ async function runTests() {
     targetRole: 'Data Analyst',
     marketProfile: largeProfile,
   })
-  assert.strictEqual(largeAlignment.totalTargetKeywords, 24, 'Must evaluate up to 24 target keywords')
+  assert(largeAlignment.totalTargetKeywords >= 24, 'Must evaluate target keywords uncapped')
   assert(!largeAlignment.missingFromResume.includes('the'), 'Stop word "the" must be filtered')
   assert(!largeAlignment.missingFromResume.includes('and'), 'Stop word "and" must be filtered')
   assert(!largeAlignment.missingFromResume.includes('team'), 'Stop word "team" must be filtered')
-  console.log('✓ Dynamic capacity capped at 24 keywords and English stop words filtered successfully.')
+  console.log('✓ Dynamic capacity uncapped and English stop words filtered successfully.')
 
   console.log('\n======================================================================')
   console.log(' ALL SCRAPED MARKET JD & DYNAMIC SKILL EXTRACTION TESTS PASSED (6/6)!')

@@ -488,32 +488,63 @@ export function computeKeywordAlignment({
     declaredSkills.map((s) => s.toLowerCase().trim())
   )
 
-  // 2. Load ALL Scraped Market Skills uncapped (NO .slice(0, 25)!)
-  let allMarketSkills = []
-  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
-    allMarketSkills = marketProfile.skills
-  } else if (isJdProvided) {
-    allMarketSkills = extractSkillsFromJd(targetJobDescription).map((name) => ({
-      name,
-      frequency: 1,
-      percentage: 100,
-    }))
-  } else {
-    const roleLower = roleName.toLowerCase()
-    let packKey = 'software-engineer'
-    if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
-    else if (/data\s*(&|\+|and|\/)?\s*(business\s*)?analyst|business\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
-    else if (/devops|sre|cloud|platform|infrastructure/i.test(roleLower)) packKey = 'devops-engineer'
-    else if (/data\s*engineer|big\s*data|data\s*platform/i.test(roleLower)) packKey = 'data-engineer'
-    else if (/qa|sdet|test/i.test(roleLower)) packKey = 'qa-engineer'
-    else if (/security|cyber/i.test(roleLower)) packKey = 'security-engineer'
+  const roleLower = roleName.toLowerCase()
+  let packKey = 'software-engineer'
+  if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
+  else if (/data\s*(&|\+|and|\/)?\s*(business\s*)?analyst|business\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
+  else if (/devops|sre|cloud|platform|infrastructure/i.test(roleLower)) packKey = 'devops-engineer'
+  else if (/data\s*engineer|big\s*data|data\s*platform/i.test(roleLower)) packKey = 'data-engineer'
+  else if (/qa|sdet|test/i.test(roleLower)) packKey = 'qa-engineer'
+  else if (/security|cyber/i.test(roleLower)) packKey = 'security-engineer'
 
-    allMarketSkills = (MARKET_ROLE_KEYWORD_PACKS[packKey] || []).map((name) => ({
+  // 2. Determine Target Keywords (12–16 Core High-Impact Keywords)
+  let targetKeywords = []
+  if (isJdProvided) {
+    const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
+    targetKeywords = [...extractedJdSkills]
+  }
+
+  // Priority 2: Use ALL Live Scraped Skills from MongoDB marketProfile (Uncapped!)
+  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
+    targetKeywords = marketProfile.skills
+      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .filter(isGenuineTechnicalSkill)
+  }
+
+  // Priority 3: Fallback pack only if no market data is present
+  if (targetKeywords.length < 6) {
+    const fallbackPack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['data-analyst'] || MARKET_ROLE_KEYWORD_PACKS['data_analyst'] || []
+    targetKeywords = Array.from(new Set([...targetKeywords, ...fallbackPack]))
+  }
+
+  // Deduplicate & filter genuine technical skills (Uncapped!)
+  targetKeywords = Array.from(new Set(targetKeywords.filter(isGenuineTechnicalSkill)))
+
+  // Build allMarketSkills mapping back to marketProfile metadata if present
+  const marketSkillsMap = new Map()
+  if (marketProfile && Array.isArray(marketProfile.skills)) {
+    for (const item of marketProfile.skills) {
+      const name = typeof item === 'string' ? item : item?.name || ''
+      if (name) {
+        marketSkillsMap.set(name.toLowerCase(), item)
+      }
+    }
+  }
+
+  const allMarketSkills = targetKeywords.map((name) => {
+    const existing = marketSkillsMap.get(name.toLowerCase())
+    if (existing && typeof existing === 'object') {
+      return {
+        ...existing,
+        name,
+      }
+    }
+    return {
       name,
       frequency: 1,
-      percentage: 50,
-    }))
-  }
+      percentage: isJdProvided ? 100 : 50,
+    }
+  })
 
   const totalJds = marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 1
 
@@ -600,7 +631,7 @@ export function computeKeywordAlignment({
     source: isJdProvided ? 'active_jd' : 'market_intelligence',
     sourceLabel: isJdProvided ? 'Active Job Description' : 'Market Intelligence (Top Target Keywords)',
     targetRole: roleName,
-    targetKeywords: allMarketSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean),
+    targetKeywords,
     matchedCount,
     totalTargetKeywords,
     matchPercent,

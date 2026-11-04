@@ -604,57 +604,83 @@ Provide your expert coaching answer following the directives above.`
     let replyText = ''
     try {
       const { text: responseText } = await llmGateway.generate({
-        purpose: 'career_chatbot',
+        purpose: 'assessment_report',
         task: 'report_chatbot',
-        preferredProvider: 'groq',
-        model: 'llama-3.3-70b-versatile',
+        preferredProvider: 'openrouter',
+        model: 'google/gemini-3.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         responseFormat: 'text',
-        temperature: 0.4,
-        maxTokens: 800,
-        timeoutMs: 15000,
+        temperature: 0.3,
+        maxTokens: 1024,
+        maxRetries: 2,
+        timeoutMs: 30000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[AssessmentController] Chatbot fast tier (Groq) failed, falling back to OpenRouter:', err.message)
+      console.warn('[AssessmentController] Chatbot OpenRouter primary (Gemini 3.5 Flash) failed, falling back to Gemini 3 Flash Preview:', err.message)
       try {
         const { text: fallbackText } = await llmGateway.generate({
-          purpose: 'career_chatbot',
+          purpose: 'assessment_report',
           task: 'report_chatbot',
           preferredProvider: 'openrouter',
-          model: 'google/gemini-3.5-flash',
+          model: 'google/gemini-3-flash-preview',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
           responseFormat: 'text',
-          temperature: 0.4,
-          maxTokens: 800,
-          timeoutMs: 25000,
+          temperature: 0.3,
+          maxTokens: 1024,
+          timeoutMs: 30000,
           bypassCache: true,
         })
         replyText = fallbackText
       } catch (openRouterErr) {
-        console.warn('[AssessmentController] Chatbot OpenRouter fallback failed, trying Gemini 3.5 Flash Lite:', openRouterErr.message)
-        const { text: geminiText } = await llmGateway.generate({
-          purpose: 'career_chatbot',
-          task: 'report_chatbot',
-          preferredProvider: 'gemini',
-          model: 'gemini-3.5-flash-lite',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          responseFormat: 'text',
-          temperature: 0.4,
-          maxTokens: 800,
-          timeoutMs: 20000,
-          bypassCache: true,
-        })
-        replyText = geminiText
+        console.warn('[AssessmentController] Chatbot OpenRouter fallback failed, trying OpenRouter Gemini 2.5 Flash:', openRouterErr.message)
+        try {
+          const { text: gemini25Text } = await llmGateway.generate({
+            purpose: 'assessment_report',
+            task: 'report_chatbot',
+            preferredProvider: 'openrouter',
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            responseFormat: 'text',
+            temperature: 0.3,
+            maxTokens: 1024,
+            timeoutMs: 25000,
+            bypassCache: true,
+          })
+          replyText = gemini25Text
+        } catch (gemini25Err) {
+          console.warn('[AssessmentController] Gemini 2.5 Flash failed, trying Groq:', gemini25Err.message)
+          try {
+            const { text: groqText } = await llmGateway.generate({
+              purpose: 'career_chatbot',
+              task: 'report_chatbot',
+              preferredProvider: 'groq',
+              model: 'openai/gpt-oss-120b',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+              ],
+              responseFormat: 'text',
+              temperature: 0.4,
+              maxTokens: 800,
+              timeoutMs: 15000,
+              bypassCache: true,
+            })
+            replyText = groqText
+          } catch (groqErr) {
+            console.error('[AssessmentController] All chatbot tiers failed:', groqErr.message)
+            replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background, the most critical priority is proving hands-on impact with **${verifiedKeywords || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
+          }
+        }
       }
     }
 
@@ -679,7 +705,12 @@ Provide your expert coaching answer following the directives above.`
     })
   } catch (error) {
     console.error('Error in chatResume controller:', error)
-    return res.status(500).json({ message: 'Failed to process query.' })
+    return res.status(200).json({
+      answer: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
+      routedIntent: 'Executive Overview',
+      sectionLink: '#overview',
+      suggestCall: true,
+    })
   }
 }
 
