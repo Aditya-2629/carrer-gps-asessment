@@ -139,28 +139,28 @@ export default function FunnelGridInput({ value, onChange, error }) {
   return (
     <div className="space-y-5">
       {/* 7 Counter Stages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
         {NUMERIC_STAGES.map((stg) => {
           const Icon = stg.icon
           const count = funnelData[stg.key] ?? 0
           return (
             <div
               key={stg.key}
-              className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between space-y-2.5"
+              className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between shadow-xs"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${stg.color}18`, color: stg.color }}
                   >
-                    <Icon size={15} weight="bold" />
+                    <Icon size={17} weight="bold" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-[var(--text-primary)] leading-tight truncate">
+                    <h4 className="font-semibold text-sm text-[var(--text-primary)] leading-snug">
                       {stg.label}
                     </h4>
-                    <p className="text-[10px] text-[var(--text-muted)] leading-tight truncate">
+                    <p className="text-xs text-[var(--text-muted)] leading-tight">
                       {stg.sublabel}
                     </p>
                   </div>
@@ -169,18 +169,18 @@ export default function FunnelGridInput({ value, onChange, error }) {
                 <input
                   type="number"
                   min="0"
-                  max="999"
+                  max="9999"
                   value={count}
                   onChange={(e) => handleNumericChange(stg.key, e.target.value)}
-                  className="w-12 h-7 text-center text-xs font-bold font-mono rounded-lg bg-[var(--surface-base)] border border-[var(--border-default)] text-[var(--text-primary)] focus:border-[var(--primary)] focus:outline-none shrink-0"
+                  className="w-16 px-2 py-1.5 text-center font-bold font-mono text-sm rounded-lg bg-[var(--surface-base)] border border-[var(--border-default)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] focus:outline-none shrink-0"
                   aria-label={`${stg.label} count`}
                 />
               </div>
 
-              {/* Quick tap presets */}
-              <div className="flex items-center gap-1 pt-1.5 border-t border-[var(--border-subtle)]/50">
-                <span className="text-[9px] text-[var(--text-muted)] font-mono mr-0.5">Presets:</span>
-                <div className="flex flex-wrap gap-1">
+              {/* Presets Row */}
+              <div className="flex items-center gap-1.5 pt-2 border-t border-[var(--border-subtle)]/60">
+                <span className="text-[11px] text-[var(--text-muted)] font-mono mr-1">Presets:</span>
+                <div className="flex flex-wrap gap-1.5">
                   {stg.presets.map((preset) => {
                     const isSelected = count === preset
                     return (
@@ -188,10 +188,10 @@ export default function FunnelGridInput({ value, onChange, error }) {
                         key={preset}
                         type="button"
                         onClick={() => handleNumericChange(stg.key, preset)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium font-mono transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 text-xs rounded-md transition-colors font-medium font-mono cursor-pointer ${
                           isSelected
                             ? 'bg-[var(--primary)] text-white font-bold'
-                            : 'bg-[var(--surface-base)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--primary)]'
+                            : 'bg-[var(--surface-base)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-secondary)]'
                         }`}
                       >
                         {preset}
