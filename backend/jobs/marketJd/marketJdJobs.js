@@ -19,6 +19,7 @@ import { analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSki
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
+import { costTracker } from '../../utils/costTracker.js'
 
 /**
  * Executes a refresh for a single Role × Experience bucket.
@@ -259,6 +260,7 @@ export async function fetchFastCatchJds({
   }
 
   console.log(`[MarketJdJobs] Starting Fast-30 scrape for role: "${targetRoleTitle}" (Target: ${targetCount} JDs)...`)
+  const fastCatchStartTime = Date.now()
 
   try {
     const actorId = process.env.APIFY_JOB_ACTOR_ID || 'bebity/linkedin-jobs-scraper'
@@ -277,6 +279,14 @@ export async function fetchFastCatchJds({
       })
       return datasetItems
     }, { maxAttempts: 2 })
+
+    try {
+      costTracker.trackApify({
+        stage: 'FAST_CATCH_JD_SCRAPE',
+        itemsScraped: items?.length || 0,
+        durationMs: Date.now() - fastCatchStartTime,
+      })
+    } catch (_) {}
 
     return (items || []).map((item) => ({
       title: item.title || targetRoleTitle,

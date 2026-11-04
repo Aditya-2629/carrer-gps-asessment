@@ -7,6 +7,7 @@ import express from 'express'
 import multer from 'multer'
 import { ResumeAgent } from '../agents/resume/index.js'
 import { listModelsForPurpose, getModel } from '../ai/config/modelRegistry.js'
+import { costTracker } from '../utils/costTracker.js'
 
 const router = express.Router()
 
@@ -88,6 +89,9 @@ router.get('/market-context', async (req, res) => {
  * Evaluates candidate resume via either multipart file upload or direct JSON text.
  */
 router.post('/evaluate', upload.single('resume'), async (req, res) => {
+  const runId = `eval_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  costTracker.setActiveRunId(runId)
+
   try {
     const targetRole = req.body?.targetRole || ''
     const targetJobDescription = req.body?.targetJobDescription || req.body?.targetJd || ''
@@ -126,6 +130,9 @@ router.post('/evaluate', upload.single('resume'), async (req, res) => {
         telemetry: evaluationResult.telemetry,
       })
     }
+
+    // Print end-to-end cost and token breakdown
+    costTracker.printRunSummary(runId)
 
     // Return structured contract without internal prompts or secret keys
     return res.status(200).json({

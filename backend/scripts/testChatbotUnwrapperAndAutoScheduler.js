@@ -77,3 +77,4 @@ assert.ok(schedulerSource.includes('{ jobCount: { $lt: 20 } }'), 'marketAutoSche
 console.log('✔ Test 5 Passed: marketAutoScheduler queries small sample size buckets (<20 JDs).\n')
 
 console.log('ALL CHATBOT UNWRAPPER & AUTO-SCHEDULER TESTS PASSED SUCCESSFULLY! 🚀')
+

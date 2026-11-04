@@ -15,6 +15,7 @@ import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
 import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
+import { costTracker } from '../utils/costTracker.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -332,9 +333,13 @@ export const generateReport = async (req, res) => {
   }
 
   try {
+    const reportRunId = `report_${userId}_${Date.now()}`
+    costTracker.setActiveRunId(reportRunId)
+
     // Phase C: the generation engine lives in services/reportGeneration.js —
     // shared by this blocking controller and the async ReportJob worker.
     const { user, aiReport } = await generateReportBundle({ userId, semanticProfile })
+    costTracker.printRunSummary(reportRunId)
     return res.status(200).json(aiReport)
   } catch (error) {
     console.error('Error in generateReport controller:', error)
@@ -552,11 +557,17 @@ RULES:
       { role: 'user', content: question },
     ]
 
+    const chatReqId = `chat_${userId || 'anon'}_${Date.now()}`
+    costTracker.setActiveRunId(chatReqId)
+
     let replyText = ''
     try {
+      // Priority 1: OpenRouter Paid Tier (1.05M Context, Instant 1.5s Response)
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
+        stage: 'REPORT_CHATBOT',
+        reqId: chatReqId,
         preferredProvider: 'openrouter',
         model: 'google/gemini-3.5-flash-lite',
         messages: chatMessages,
@@ -571,6 +582,9 @@ RULES:
       try {
         const fallbackResponse = await llmGateway.generate({
           purpose: 'assessment_report',
+          task: 'report_chatbot',
+          stage: 'REPORT_CHATBOT',
+          reqId: chatReqId,
           preferredProvider: 'gemini',
           model: 'gemini-3.5-flash-lite',
           messages: chatMessages,
@@ -608,6 +622,8 @@ RULES:
         }
       } catch (_) {}
     }
+
+    costTracker.printRunSummary(chatReqId)
 
     return res.status(200).json({
       answer: cleanAnswer,

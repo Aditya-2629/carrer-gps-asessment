@@ -10,6 +10,7 @@ import mongoose from 'mongoose'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import User from '../models/User.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
+import { costTracker } from '../utils/costTracker.js'
 
 export const CHAT_INTENTS = [
   {
@@ -147,6 +148,9 @@ RULES:
       { role: 'user', content: userMessageContent },
     ]
 
+    const chatReqId = `chat_${user?._id || 'anon'}_${Date.now()}`
+    costTracker.setActiveRunId(chatReqId)
+
     // Paid Priority Execution: Gemini 3.5 Flash Lite -> DeepSeek V3 -> Gemini 3 Flash Preview -> Gemini 3.5 Flash
     let replyText = ''
     try {
@@ -154,6 +158,8 @@ RULES:
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
+        stage: 'REPORT_CHATBOT',
+        reqId: chatReqId,
         preferredProvider: 'openrouter',
         model: 'google/gemini-3.5-flash-lite',
         messages,
@@ -170,6 +176,8 @@ RULES:
         const fallbackResponse = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
+          stage: 'REPORT_CHATBOT',
+          reqId: chatReqId,
           preferredProvider: 'openrouter',
           model: 'google/gemini-3-flash-preview',
           messages,
@@ -213,6 +221,8 @@ RULES:
       /(\b(call|strategy session|book|coach|coaching|referral|mock|interview prep|negotiate|offer)\b)/i.test(
         rawQuestion + ' ' + cleanAnswer
       )
+
+    costTracker.printRunSummary(chatReqId)
 
     return res.status(200).json({
       answer: cleanAnswer,

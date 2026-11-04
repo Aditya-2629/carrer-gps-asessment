@@ -9,6 +9,7 @@
 
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
+import { costTracker } from '../../utils/costTracker.js'
 
 export const DEFAULT_APIFY_JOB_ACTOR = 'bebity/linkedin-jobs-scraper'
 export const DEFAULT_MAX_CANDIDATES = 100 // Scaled to 100 JDs
@@ -186,6 +187,14 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
 
     const durationMs = Date.now() - startTime
     console.log(`[Apify JdScraper] Run finished in ${durationMs}ms. Retrieved ${items?.length || 0} candidate items.`)
+
+    try {
+      costTracker.trackApify({
+        stage: 'FULL_BUCKET_JD_SCRAPE',
+        itemsScraped: items?.length || 0,
+        durationMs,
+      })
+    } catch (_) {}
 
     return {
       candidates: items || [],

@@ -18,6 +18,7 @@ import { AITelemetry } from '../telemetry/aiTelemetry.js'
 import { LLMCache, llmCache } from '../cache/llmCache.js'
 import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
+import { costTracker } from '../../utils/costTracker.js'
 
 // Production fallback chain in priority order:
 // 1. Primary: OpenRouter (Paid balance, 1.05M context, 100% SLA)
@@ -106,6 +107,10 @@ export class LLMGateway {
     timeoutMs: callerTimeoutMs = null,
     excludeProvider = null,
     preferredProvider = null,
+    stage = null,
+    task = null,
+    reqId = null,
+    runId = null,
   }) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new ProviderError({
@@ -371,6 +376,21 @@ export class LLMGateway {
           completionTokens: result.tokens?.completion,
           totalTokens: result.tokens?.total,
         })
+
+        // Cost & Token Tracking
+        try {
+          costTracker.trackLLM({
+            reqId: reqId || runId || span.requestId,
+            stage: stage || task || purpose || 'LLM_GENERATION',
+            provider: providerKey,
+            model: result.actualModel || currentModelId,
+            promptTokens: result.tokens?.prompt || 0,
+            completionTokens: result.tokens?.completion || 0,
+            directCost: result.tokens?.cost || result.usage?.cost || null,
+          })
+        } catch (_costErr) {
+          // Graceful handling: never break generation
+        }
 
         let finalText = result.text || ''
         if (purpose === 'career_chatbot' && typeof finalText === 'string') {

@@ -121,6 +121,7 @@ export class OpenRouterProvider {
           prompt: data.usage?.prompt_tokens ?? null,
           completion: data.usage?.completion_tokens ?? null,
           total: data.usage?.total_tokens ?? null,
+          cost: data.usage?.cost ?? null,
         },
         rawResponse: data,
       }
