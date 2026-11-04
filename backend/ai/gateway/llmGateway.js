@@ -460,7 +460,42 @@ export class LLMGateway {
       statusCode: 500,
     })
   }
+
+  /**
+   * Convenience execution interface compatible with standard aiGateway.execute calls.
+   */
+  async execute({
+    provider = null,
+    preferredProvider = null,
+    model = null,
+    systemPrompt = null,
+    prompt = null,
+    messages = null,
+    temperature = 0.2,
+    responseFormat = 'json',
+    stage = null,
+    task = null,
+    maxTokens = null,
+    timeoutMs = null,
+  } = {}) {
+    const formattedMessages = messages || [
+      ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+      ...(prompt ? [{ role: 'user', content: prompt }] : []),
+    ]
+
+    return this.generate({
+      preferredProvider: preferredProvider || provider,
+      model,
+      messages: formattedMessages,
+      temperature,
+      responseFormat: responseFormat === 'json' ? 'json_object' : responseFormat,
+      stage: stage || task || 'LLM_EXECUTE',
+      maxTokens,
+      timeoutMs,
+    })
+  }
 }
 
 export const llmGateway = new LLMGateway()
+export const aiGateway = llmGateway
 export default llmGateway

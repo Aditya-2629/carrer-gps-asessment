@@ -6,12 +6,26 @@
  * Step 2: Taxonomy Normalization -> Maps raw terms to standardized canonical industry names or rejects noise ("").
  */
 
-import { llmGateway } from '../../../ai/gateway/llmGateway.js'
+import { aiGateway, llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { jsonrepair } from 'jsonrepair'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 import { extractSkillsFromJd } from './jdNormalizer.js'
 
 export const BATCH_SIZE = 10
+
+/**
+ * Clean and prune JD text to remove boilerplate noise (EEO, benefits, culture)
+ */
+export function pruneJdText(text = '') {
+  if (!text) return ''
+  // Requirements / Qualifications / Tech Stack section dhoondhna
+  const match = text.match(/(?:requirements|qualifications|skills|technical skills|what you'll need|responsibilities)[\s\S]{300,2500}/i)
+  if (match) {
+    return match[0].trim()
+  }
+  // Fallback: Pehle 1500 characters
+  return text.slice(0, 1500).trim()
+}
 
 // --- 1. SKILL EXTRACTION PROMPT (PER-JD ANALYSIS) ---
 
@@ -445,77 +459,17 @@ export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
  * Analyzes an entire pool of scraped JDs (e.g. 90-100 JDs),
  * computes exact frequency counts and percentages, and produces a normalized skill matrix.
  */
-export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
-  if (!Array.isArray(rawJds) || rawJds.length === 0) {
-    return { totalAnalyzed: 0, marketSkills: [] }
-  }
+/**
+ * Deterministic fallback corpus extraction for offline tests or when LLM gateway is unavailable.
+ */
+export async function fallbackCorpusExtraction(jds = [], role = 'Professional') {
+  const totalJds = jds.length
+  const skillOccurrences = new Map()
 
-  const totalJds = rawJds.length
+  console.log(`[LlmJdAnalyzer] Running deterministic corpus extraction for ${totalJds} JDs (${role})...`)
 
-  // 1. Try Lean 1-Shot Batch Extraction (1 clean LLM call instead of 15)
-  const [roleKey] = (bucketKey || '').split('::')
-  const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-
-  const jdsTextList = rawJds
-    .map((j) => (typeof j === 'string' ? j : j.description || j.text || j.normalizedDescription || ''))
-    .filter((t) => t && t.trim().length >= 30)
-
-  if (jdsTextList.length > 0 && !process.env.DISABLE_1SHOT_JD_EXTRACTION) {
-    try {
-      console.log(`[LlmJdAnalyzer] Attempting Lean 1-Shot Batch extraction for ${jdsTextList.length} JDs (${roleClean})...`)
-      const batchResult = await extractSkillsFromBatch1Shot({
-        role: roleClean,
-        jdsTextList: jdsTextList.slice(0, 30),
-      })
-
-      if (batchResult && Array.isArray(batchResult.skills) && batchResult.skills.length > 0) {
-        const marketSkills = batchResult.skills
-          .map((s) => {
-            const canonical = normalizeCanonicalSkill(s.name) || s.name
-            const rawCount = parseInt(s.frequency || s.count, 10) || 1
-            const count = Math.min(totalJds, Math.max(1, rawCount))
-            const percentage = Math.round((count / totalJds) * 100)
-            const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
-            return {
-              name: canonical,
-              category: s.category || 'tools',
-              count,
-              frequency: count,
-              percentage,
-              frequencyRatio: Math.round((count / totalJds) * 100) / 100,
-              priority,
-              requiredCount: count,
-              preferredCount: 0,
-            }
-          })
-          .filter((s) => s.name && !/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(s.name))
-          .filter((s) => (totalJds <= 5 ? s.count >= 1 : (totalJds <= 35 ? s.count >= 2 : s.percentage >= 10)))
-          .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
-
-        if (marketSkills.length > 0) {
-          console.log(`[LlmJdAnalyzer] Lean 1-Shot extraction succeeded! Extracted ${marketSkills.length} canonical skills in 1 call.`)
-          return {
-            totalAnalyzed: totalJds,
-            marketSkills,
-            analyzedAt: new Date().toISOString(),
-            method: '1_shot_batch',
-          }
-        }
-      }
-    } catch (oneShotErr) {
-      console.warn(`[LlmJdAnalyzer] 1-shot batch extraction failed (${oneShotErr.message}), falling back to deterministic batch pipeline...`)
-    }
-  }
-
-  const skillOccurrences = new Map() // canonicalName -> { count, requiredCount, preferredCount, category, canonicalName }
-
-  console.log(`[LlmJdAnalyzer] Starting fallback 2-step LLM analysis for ${totalJds} JDs in bucket "${bucketKey}"...`)
-
-  // Process in batches of 10 to respect rate and token limits
   for (let i = 0; i < totalJds; i += BATCH_SIZE) {
-    const batch = rawJds.slice(i, i + BATCH_SIZE)
+    const batch = jds.slice(i, i + BATCH_SIZE)
     const analyzedJobs = await analyzeJdBatch(batch, i)
 
     for (const jobResult of analyzedJobs) {
@@ -525,8 +479,6 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
       for (const item of jobSkills) {
         const canonical = item.canonicalName
         if (!canonical || canonical.length < 2) continue
-
-        // Extra guard: Disallow banned non-skill tokens
         if (/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(canonical)) continue
 
         const key = canonical.toLowerCase()
@@ -550,8 +502,7 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
     }
   }
 
-  // Calculate percentages and sort descending by market demand
-  const marketSkills = Array.from(skillOccurrences.values())
+  const skills = Array.from(skillOccurrences.values())
     .map((s) => {
       const percentage = Math.round((s.count / totalJds) * 100)
       const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
@@ -570,15 +521,155 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
     .filter((s) => (totalJds <= 5 ? s.count >= 1 : (totalJds <= 35 ? s.count >= 2 : s.percentage >= 10)))
     .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
 
-  console.log(
-    `[LlmJdAnalyzer] Finished 2-step analysis for "${bucketKey}". Discovered ${marketSkills.length} unique canonical skills across ${totalJds} JDs.`
-  )
-
   return {
+    discoveredSkills: skills,
+    marketSkills: skills,
+    sampleSize: totalJds,
     totalAnalyzed: totalJds,
-    marketSkills,
     analyzedAt: new Date().toISOString(),
+    method: 'deterministic_fallback',
   }
+}
+
+/**
+ * Single-pass batch analysis of JDs using Gemini Flash
+ */
+export async function analyzeJdBatchWithGemini(role = 'Professional', jds = []) {
+  if (!jds || jds.length === 0) {
+    return { discoveredSkills: [], marketSkills: [], sampleSize: 0, totalAnalyzed: 0 }
+  }
+
+  // JDs ko prune aur format karna
+  const formattedJds = jds.map((jd, index) => {
+    const rawText = jd.description || jd.jobDescription || jd.text || jd.body || ''
+    const cleanText = pruneJdText(rawText)
+    const title = jd.title || jd.jobTitle || role
+    return `### Job #${index + 1}: ${title}\n${cleanText}`
+  }).join('\n\n---\n\n')
+
+  const systemInstruction = `You are an elite Technical Talent Intelligence Engine.
+Analyze the provided batch of ${jds.length} live Job Descriptions for the target role: "${role}".
+
+OBJECTIVE:
+Extract hard technical skills, libraries, frameworks, cloud services, and tools with their exact frequency count across these JDs.
+
+RULES:
+1. Extract ONLY hard tech skills (e.g., "React", "Node.js", "Docker", "AWS", "PostgreSQL", "Kafka", "TypeScript").
+2. DO NOT extract soft skills (e.g., "leadership", "communication", "teamwork", "problem solving").
+3. Normalize canonical names (e.g., use "TypeScript" instead of "ts", "PostgreSQL" instead of "postgres").
+4. "frequency" must represent the actual number of individual JDs that mention the skill.
+5. Filter out skills with frequency < 2 if total JDs > 5.
+6. Return strictly valid JSON object matching the schema below. No markdown fences.`
+
+  const prompt = `${systemInstruction}
+
+Target Role: "${role}"
+Total JDs: ${jds.length}
+
+JOB DESCRIPTIONS BATCH:
+${formattedJds}
+
+OUTPUT SCHEMA:
+{
+  "totalJdsAnalyzed": ${jds.length},
+  "skills": [
+    {
+      "name": "Exact Canonical Skill Name",
+      "frequency": <number>,
+      "category": "language" | "framework" | "database" | "cloud" | "tool" | "architecture"
+    }
+  ]
+}`
+
+  try {
+    console.log(`[LlmJdAnalyzer] Sending batch of ${jds.length} JDs to Gemini Flash...`)
+
+    // Provider explicitly "gemini" aur model "gemini-1.5-flash" ya "gemini-3.5-flash-lite"
+    const response = await aiGateway.execute({
+      provider: 'gemini',
+      preferredProvider: 'openrouter',
+      model: 'google/gemini-3.5-flash-lite',
+      systemPrompt: systemInstruction,
+      prompt: prompt,
+      temperature: 0.1,
+      responseFormat: 'json',
+      stage: 'MARKET_JD_DYNAMIC_ANALYSIS',
+      timeoutMs: 40000,
+    })
+
+    let resultJson = null
+    const rawOutput = response?.content || response?.text || response
+
+    if (typeof rawOutput === 'object' && rawOutput?.skills) {
+      resultJson = rawOutput
+    } else {
+      // Clean string JSON parsing
+      const cleaned = String(rawOutput || '')
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim()
+      try {
+        resultJson = JSON.parse(cleaned)
+      } catch (_jsonErr) {
+        resultJson = JSON.parse(jsonrepair(cleaned || '{}'))
+      }
+    }
+
+    const skills = (resultJson?.skills || []).map((s) => {
+      const canonical = normalizeCanonicalSkill(s.name) || s.name
+      const rawCount = parseInt(s.frequency || s.count, 10) || 1
+      const count = Math.min(jds.length, Math.max(1, rawCount))
+      const percentage = Math.round((count / jds.length) * 100)
+      const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
+      return {
+        name: canonical,
+        frequency: count,
+        count,
+        percentage,
+        priority,
+        category: s.category || 'tool',
+        requiredCount: count,
+        preferredCount: 0,
+      }
+    }).filter((s) => s.name && !/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(s.name))
+
+    // Highest frequency pehle sort karein
+    skills.sort((a, b) => b.frequency - a.frequency || b.percentage - a.percentage)
+
+    if (skills.length === 0) {
+      throw new Error('Zero valid skills returned from Gemini batch extraction.')
+    }
+
+    console.log(`[LlmJdAnalyzer] Successfully discovered ${skills.length} dynamic skills via Gemini Flash.`)
+    return {
+      discoveredSkills: skills,
+      marketSkills: skills,
+      sampleSize: jds.length,
+      totalAnalyzed: jds.length,
+    }
+
+  } catch (error) {
+    console.error(`[LlmJdAnalyzer] Gemini extraction failed:`, error.message)
+    console.warn(`[LlmJdAnalyzer] Falling back to deterministic corpus extraction for ${jds.length} JDs...`)
+    return await fallbackCorpusExtraction(jds, role)
+  }
+}
+
+/**
+ * Backward-compatible entrypoint: Analyzes an entire pool of JDs and produces a normalized skill matrix.
+ */
+export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
+  if (!Array.isArray(rawJds) || rawJds.length === 0) {
+    return { totalAnalyzed: 0, marketSkills: [], discoveredSkills: [], sampleSize: 0 }
+  }
+
+  const [roleKey] = (bucketKey || '').split('::')
+  const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+
+  return await analyzeJdBatchWithGemini(roleClean, rawJds)
 }
 
 export default {
@@ -595,4 +686,7 @@ export default {
   analyzeAndAggregateJdCorpus,
   buildBatchJdExtractionPrompt,
   extractSkillsFromBatch1Shot,
+  pruneJdText,
+  analyzeJdBatchWithGemini,
+  fallbackCorpusExtraction,
 }

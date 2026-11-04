@@ -15,7 +15,7 @@ import JobMarketVersion from '../../models/JobMarketVersion.js'
 import { fetchMarketJdCandidates, buildSearchSpecification, DEFAULT_APIFY_JOB_ACTOR } from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
-import { analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
@@ -87,15 +87,16 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       throw new Error(`No valid market JDs could be extracted from candidate pool (${scrapeResult.totalFetched} items fetched).`)
     }
 
-    // 5. Build canonical MarketProfile via LLM Corpus Analysis
-    const analyzedCorpus = await analyzeAndAggregateJdCorpus(selectedJds, bucketKey)
+    // 5. Build canonical MarketProfile via LLM Corpus Analysis using Gemini Flash
+    const analysis = await analyzeJdBatchWithGemini(bucket.roleName || roleKey, selectedJds)
+    const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
 
     const marketProfile = {
       bucketKey,
-      sampleSize: selectedJds.length,
-      skills: analyzedCorpus.marketSkills,
-      totalAnalyzed: analyzedCorpus.totalAnalyzed,
-      topKeywords: analyzedCorpus.marketSkills.slice(0, 20).map((s) => s.name),
+      sampleSize: analysis.sampleSize || selectedJds.length,
+      skills: discoveredSkills,
+      totalAnalyzed: analysis.totalAnalyzed || selectedJds.length,
+      topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
       responsibilities: [],
       senioritySignals: [],
       version: 'market-profile-v2',

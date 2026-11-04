@@ -15,7 +15,7 @@ import mongoose from 'mongoose'
 import JobMarketBucket from '../../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
-import { analyzeAndAggregateJdCorpus } from './llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from './llmJdSkillAnalyzer.js'
 
 /**
  * Retrieves market intelligence for a specific bucket key.
@@ -94,15 +94,16 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         })
 
         if (Array.isArray(fast30Jds) && fast30Jds.length >= 1) {
-          console.log(`[MarketJdRetriever] Fast-30 captured ${fast30Jds.length} real JDs. Analyzing dynamically...`)
-          const analyzed = await analyzeAndAggregateJdCorpus(fast30Jds, bucketKey)
+          console.log(`[MarketJdRetriever] Fast-30 captured ${fast30Jds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
+          const analysis = await analyzeJdBatchWithGemini(roleClean, fast30Jds)
+          const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
 
           const fastMarketProfile = {
             bucketKey,
-            sampleSize: fast30Jds.length,
-            skills: analyzed.marketSkills,
-            totalAnalyzed: analyzed.totalAnalyzed,
-            topKeywords: analyzed.marketSkills.slice(0, 20).map((s) => s.name),
+            sampleSize: analysis.sampleSize || fast30Jds.length,
+            skills: discoveredSkills,
+            totalAnalyzed: analysis.totalAnalyzed || fast30Jds.length,
+            topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
             isFastCatch: true,
             generatedAt: new Date().toISOString(),
           }
