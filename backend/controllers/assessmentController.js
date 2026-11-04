@@ -15,7 +15,6 @@ import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
 import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
-import { handleChatMessage } from './chatController.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -453,12 +452,6 @@ export function formatQuantAnswer(val, unitLabel = '') {
 
 
 export const chatResume = async (req, res) => {
-  return handleChatMessage(req, res)
-}
-
-export { handleChatMessage }
-
-const _legacyChatResume = async (req, res) => {
   const { userId, question, history = [] } = req.body
 
   if (!userId || !question) {
@@ -472,192 +465,111 @@ const _legacyChatResume = async (req, res) => {
     }
 
     const intent = classifyChatIntent(question)
+
+    // 1. Build Dense 500-Token Executive Pocket Dossier (Zero Token Bloat)
     const r = user.aiReport || {}
     const ans = user.answers || {}
+    const ra = r.resume_agent || {}
+    const la = r.linkedin_agent || {}
 
-    // 1. Assessment Agent & Funnel Context (Always Included)
-    const candidateName =
-      r?.resume_agent?.canonicalResume?.contact?.name ||
-      user.resumeJson?.candidate_name ||
-      ans?.name ||
-      'Candidate'
+    const candidateName = r.candidateName || user.name || user.resumeJson?.candidate_name || 'Candidate'
     const firstName = candidateName.trim().split(/\s+/)[0]
-    const targetRole =
-      r?.assessment_agent?.candidateProfile?.targetRole ||
-      ans?.targetRole ||
-      r?.resume_json?.target_role ||
-      'Target Role'
-    const careerHealthScore = `${r?.career_health_score ?? 65}/100 (${r?.score_label || 'Needs Work'})`
-    const primaryBottleneck = `${r?.assessment_agent?.primaryBottleneck?.title || r?.critical_issues?.[0]?.title || 'Conversion Bottleneck'} — ${r?.assessment_agent?.primaryBottleneck?.whyItMatters || r?.critical_issues?.[0]?.diagnosis || ''}`
+    const targetRole = r.target_role || ans.targetRole || user.resumeJson?.target_role || 'Target Role'
+    const recentExp = user.resumeJson?.experiences?.[0] || {}
+    const recentCompany = recentExp.company || 'Recent Company'
+    const recentRole = recentExp.role || targetRole
 
-    const questionnaireContext = [
-      `- Candidate Name: ${candidateName} (First Name: ${firstName})`,
-      `- Target Role: ${targetRole}`,
-      `- Overall Career Health Score: ${careerHealthScore}`,
-      `- Detected Hiring Phase: ${r?.phase?.name ? `Phase ${r.phase.id}: ${r.phase.name}` : `Phase ${r?.career_journey?.current_phase_id || '?'}`} (${r?.phase?.confidence || 'Active'} Confidence${r?.phase?.isProvisional ? ', Provisional Diagnosis' : ''})`,
-      `- Primary Bottleneck: ${primaryBottleneck}`,
-      `- Work Authorization / Visa: ${ans?.visa || ans?.visaStatus || 'US Citizen / Green Card'}`,
-      `- External Support / Consultancy: ${ans?.externalHelp || '100% Solo'}`,
-      `- 30-Day Applications: ${ans?.apps30d || formatQuantAnswer(ans?.appsWeek, 'applications')}`,
-      `- 90-Day 8-Stage Funnel: Apps (90d): ${ans?.applications90d || 'N/A'}, Recruiter Screens: ${ans?.recruiterScreens || '0'}, Online Assessments: ${ans?.assessments || '0'}, AI Interviews: ${ans?.aiInterviews || '0'}, Technical Rounds: ${ans?.technicalRounds || '0'}, Final Rounds: ${ans?.finalRounds || '0'}, Offers: ${ans?.offers || '0'}, Joining Status: ${ans?.joiningStatus || 'No Offer Yet'}`,
-      `- Primary Drop-Off Stage: ${ans?.DropOffStage || 'Application Black Hole'}`,
-      `- Primary Interview Challenge: ${ans?.biggestChallenge || 'N/A'}`,
-      `- Biggest Frustration: ${ans?.frustration || 'Low response rate'}`,
-      `- Help Needed: ${Array.isArray(ans?.helpNeed) ? ans.helpNeed.join(', ') : (ans?.helpNeed || 'End-to-end strategy')}`,
-      r?.assessment_agent?.chatbotContext ? `- Assessment Agent Coach Summary: ${r.assessment_agent.chatbotContext}` : '',
-    ].filter(Boolean).join('\n')
+    // Extract core grounding anchors only
+    const verifiedStack = (ra.verifiedSkills || ra.dashboard?.keywordAlignment?.matchedInExperience || []).slice(0, 8).join(', ')
+    const missingStack = (ra.missingTargetKeywords || ra.dashboard?.keywordAlignment?.missingFromResume || []).slice(0, 5).join(', ')
+    const primaryBottleneck = r.funnel_stages?.biggest_leak_stage || r.critical_issues?.[0]?.title || 'Interview Technical Storytelling'
+    const keyDiscrepancy = (la.discrepancies || [])[0]?.title || 'Resume and LinkedIn alignment'
 
-    // 2. Resume Agent Intelligence
-    const ra = r?.resume_agent
-    const resumeScore = `${ra?.dashboard?.score ?? r?.score_breakdown?.resume?.score ?? '?'}/100 (Grade: ${ra?.dashboard?.grade || 'B'})`
-    const summaryRewrite = ra?.summaryOptimization?.rewrittenSummary || ra?.overallReview?.summary || ''
-    const verifiedKeywords = (ra?.keywordAlignment?.verifiedKeywords || []).map((k) => k.keyword || k).slice(0, 10).join(', ')
-    const missingKeywords = (ra?.keywordAlignment?.missingKeywords || []).map((k) => k.keyword || k).join(', ')
-    const skillsOnlyKeywords = (ra?.keywordAlignment?.skillsOnlyKeywords || []).map((k) => k.keyword || k).join(', ')
+    // Weakest bullet anchor for instant bullet rewrites
+    const weakestBullet = (ra.bulletAudit || []).find((b) => b && (b.tag === 'fix' || b.status === 'fix'))?.originalText ||
+      recentExp.bullets?.[0]?.text || recentExp.bullets?.[0] || 'Managed backend services and database queries.'
 
-    const weakBullets = (ra?.bulletAudit || [])
-      .filter((b) => b && (b.tag === 'fix' || b.tag === 'improve' || b.status === 'fix' || b.status === 'warn'))
-      .slice(0, 5)
-      .map(
-        (b, idx) =>
-          `  ${idx + 1}. [${b.company || b.section || b.itemName || 'Role'} - ${b.role || ''}] Original: "${b.originalText || b.text || ''}" | Issue: ${b.issue || b.diagnosis || b.reason || ''} | Ready Rewrite: "${b.rewriteOption || b.rewrite || b.suggestedRewrite || ''}"`
-      )
-      .join('\n')
-
-    const resumeContext = [
-      `Score: ${resumeScore}`,
-      summaryRewrite ? `Executive Summary Rewrite: "${summaryRewrite}"` : '',
-      verifiedKeywords ? `Verified Skills: ${verifiedKeywords}` : '',
-      missingKeywords ? `Missing Target Keywords: ${missingKeywords}` : '',
-      skillsOnlyKeywords ? `Skills-Only (Unproven in Bullets): ${skillsOnlyKeywords}` : '',
-      weakBullets ? `Weak Bullets to Fix:\n${weakBullets}` : '',
-    ].filter(Boolean).join('\n')
-
-    // 3. LinkedIn Agent Intelligence
-    const la = r?.linkedin_agent
-    const linkedinScore = `${la?.score ?? r?.score_breakdown?.linkedin?.score ?? '?'}/100 (Grade: ${la?.grade || 'B'})`
-    const currentHeadline = la?.headline ? `"${la.headline}"` : '""'
-    const recommendedHeadline = la?.optimizations?.headlines?.[0]?.headline ? `"${la.optimizations.headlines[0].headline}"` : '""'
-    const top3PinnedSkills = (la?.optimizations?.top3PinnedSkills || []).join(', ')
-    const keyDiscrepancies = (la?.discrepancies || la?.issues || [])
-      .slice(0, 4)
-      .map((d) => `${d.title} (${d.recommendation || d.diagnosis || ''})`)
-      .join(' | ')
-
-    const linkedinContext = [
-      `Score: ${linkedinScore}`,
-      `Current Headline: ${currentHeadline}`,
-      `Recommended Headline #1: ${recommendedHeadline}`,
-      top3PinnedSkills ? `Top 3 Pinned Skills: ${top3PinnedSkills}` : '',
-      keyDiscrepancies ? `Key Discrepancies / Fixes: ${keyDiscrepancies}` : '',
-    ].filter(Boolean).join('\n')
-
-    // 4. Roadmap & Mission Board (Safely unwrapping r.mission_board)
-    const rawMissions = Array.isArray(r?.mission_board)
-      ? r.mission_board
-      : Array.isArray(r?.mission_board?.missions)
-      ? r.mission_board.missions
-      : []
-    const topMissions = rawMissions.slice(0, 4).map((m) => m.title || m.mission || '').filter(Boolean).join(' | ')
-
-    // Multi-turn conversation history
-    const recentHistory = Array.isArray(history)
-      ? history
-          .slice(-6)
-          .map((m) => `${m.role === 'user' ? 'CANDIDATE' : 'ATLAS'}:${String(m.text || '').slice(0, 600)}`)
-          .join('\n')
-      : ''
-
-    // RAG context using question + candidate profile as query
-    let ragKnowledgeContext = ''
-    try {
-      const ragQuery = `${question} ${targetRole} ${verifiedKeywords || ''}`
-      ragKnowledgeContext = await buildRAGContext(ragQuery)
-    } catch (_ragErr) {
-      // non-fatal, continue without RAG
-    }
-
-    const systemPrompt = `You are "Atlas", ${firstName}'s dedicated Executive Career Coach and Senior Technical Recruiter.
-You are chatting with ${firstName} in real time to diagnose their job search and guide their next moves.
-
-CANDIDATE ANCHORS:
+    const executiveDossier = `
+CANDIDATE POCKET DOSSIER:
+- Name: ${firstName} (${candidateName})
 - Target Role: ${targetRole}
-- Current/Recent Company: ${r?.resume_json?.experiences?.[0]?.company || r?.resume_agent?.canonicalResume?.experience?.[0]?.company || 'Enterprise'}
-- Verified Core Stack: ${verifiedKeywords || 'SQL, Python'}
-- Missing Target Keywords: ${missingKeywords || 'None'}
-- Stated Funnel Bottleneck: ${primaryBottleneck}
+- Current Anchor: ${recentRole} at ${recentCompany}
+- Verified Tech Stack: ${verifiedStack || 'SQL, Python'}
+- Missing Market Stack: ${missingStack || 'Modern cloud/data tooling'}
+- Core Bottleneck: ${primaryBottleneck}
+- Key Profile Flag: ${keyDiscrepancy}
+- Candidate Weakest Bullet to Fix: "${weakestBullet}"
+- Reported Funnel: ${ans.applications_count || '25+'} apps/period, ${ans.DropOffStage || 'Screen to Tech round drop-off'}
+`.trim()
 
-RULES:
-1. Always address ${firstName} directly with warm, authoritative, peer-level guidance.
-2. Keep replies concise (100–160 words) using clean bullets ("- ") and bold key terms.
-3. When providing a rewritten bullet, cold message, or interview script, wrap the copy in triple backticks (\`\`\`text ... \`\`\`) for the UI copy button.
-4. Ground every recommendation in their actual background at ${r?.resume_json?.experiences?.[0]?.company || r?.resume_agent?.canonicalResume?.experience?.[0]?.company || 'their recent company'}.
-5. When addressing complex interview prep, referral outreach, or background flags, naturally suggest:
-   "We rehearse this exact scenario live in our free 1-on-1 Strategy Session. Book a slot on your dashboard so we can script it together."`
+    const systemPrompt = `You are "Atlas", an elite $2,000/hr Executive Career Coach and Senior Technical Recruiter.
+You are chatting live with ${firstName}.
 
-    const userPrompt = `CANDIDATE INTELLIGENCE & AGENT FINDINGS:
-[1. Assessment Agent & Funnel Context]
-${questionnaireContext}
+COACHING DIRECTIVES:
+1. Always address ${firstName} directly with warm, sharp, authoritative peer guidance.
+2. Keep replies concise (100–160 words max). Use clean "- " bullets and "**bold**" terms.
+3. GROUNDING: Cite their real company (${recentCompany}), stack (${verifiedStack}), and bottleneck (${primaryBottleneck}).
+4. READY-TO-PASTE ARTIFACTS: When asked to rewrite a bullet, LinkedIn headline/about, or cold message, wrap the exact final copy in triple backticks (\`\`\`text ... \`\`\`) so the UI renders a 1-click Copy button.
+5. If they ask about strategy, interview prep, or background verification, naturally advise them to book their free 1-on-1 Strategy Session on the dashboard.`
 
-[2. Resume Agent Intelligence]
-${resumeContext || 'Resume analysis pending'}
+    // Rolling conversation history (last 4 turns only)
+    const cleanHistory = (Array.isArray(history) ? history.slice(-4) : []).map((m) => ({
+      role: m.role === 'agent' || m.role === 'assistant' ? 'assistant' : 'user',
+      content: String(m.text || m.content || '').slice(0, 400),
+    }))
 
-[3. LinkedIn Agent Intelligence]
-${linkedinContext || 'LinkedIn analysis pending'}
+    const chatMessages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'system', content: executiveDossier },
+      ...cleanHistory,
+      { role: 'user', content: question },
+    ]
 
-${topMissions ? `[4. Top Action Missions]\n${topMissions}\n\n` : ''}${ragKnowledgeContext ? `VERIFIED CAREER KNOWLEDGE BASE:\n${ragKnowledgeContext}\n\n` : ''}${recentHistory ? `CONVERSATION HISTORY:\n${recentHistory}\n\n` : ''}CURRENT CANDIDATE QUESTION:
-"${question}"
-
-Provide your expert coaching answer following the directives above.`
-
+    // Fast-Tier Execution via OpenRouter Paid (with Groq fallback)
     let replyText = ''
     try {
-      // Priority 1: OpenRouter Paid Gemini (1.05M Context, Instant Response)
       const { text: responseText } = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         preferredProvider: 'openrouter',
         model: 'google/gemini-3.5-flash-lite',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+        messages: chatMessages,
         responseFormat: 'text',
         temperature: 0.3,
-        maxTokens: 1024,
-        maxRetries: 2,
-        timeoutMs: 30000,
+        maxTokens: 600,
+        timeoutMs: 15000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[AssessmentController] Chatbot primary model failed, falling back to OpenRouter flash-preview:', err.message)
+      console.warn('[ChatResume] OpenRouter chat failed, trying Groq fallback:', err.message)
       try {
         const { text: fallbackText } = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
-          preferredProvider: 'openrouter',
-          model: 'google/gemini-3-flash-preview',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
+          preferredProvider: 'groq',
+          model: 'openai/gpt-oss-120b',
+          messages: chatMessages,
           responseFormat: 'text',
           temperature: 0.3,
-          maxTokens: 1024,
-          timeoutMs: 30000,
+          maxTokens: 600,
+          timeoutMs: 12000,
         })
         replyText = fallbackText
       } catch (fallbackErr) {
-        console.error('[AssessmentController] Chatbot fallback model failed:', fallbackErr.message)
-        replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background, the most critical priority is proving hands-on impact with **${verifiedKeywords || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
+        console.error('[ChatResume] All chatbot tiers failed:', fallbackErr.message)
+        replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${recentCompany || 'your recent company'}**, the most critical priority is proving hands-on impact with **${verifiedStack || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
       }
     }
 
     let cleanAnswer = (replyText || '').trim()
+    const outerMatch = cleanAnswer.match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
+    if (outerMatch) {
+      cleanAnswer = outerMatch[1].trim()
+    }
     if (cleanAnswer.startsWith('{') && cleanAnswer.endsWith('}')) {
       try {
         const parsed = JSON.parse(cleanAnswer)
-        if (parsed.answer) cleanAnswer = parsed.answer
+        if (parsed.answer || parsed.reply) cleanAnswer = parsed.answer || parsed.reply
       } catch (_) {}
     }
 
@@ -668,20 +580,28 @@ Provide your expert coaching answer following the directives above.`
 
     return res.status(200).json({
       answer: cleanAnswer.trim(),
-      routedIntent: intent.label,
-      sectionLink: `#${intent.section}`,
+      reply: cleanAnswer.trim(),
+      sender: 'Atlas',
+      routedIntent: intent.label || intent.id,
+      sectionLink: intent.section ? (intent.section.startsWith('#') ? intent.section : `#${intent.section}`) : '#overview',
       suggestCall: shouldSuggestCall,
+      timestamp: new Date().toISOString(),
     })
   } catch (error) {
     console.error('Error in chatResume controller:', error)
     return res.status(200).json({
       answer: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
+      reply: 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!',
+      sender: 'Atlas',
       routedIntent: 'Executive Overview',
       sectionLink: '#overview',
       suggestCall: true,
+      timestamp: new Date().toISOString(),
     })
   }
 }
+
+export const handleChatMessage = chatResume
 
 // Book a call lead notification
 export const bookCall = async (req, res) => {
