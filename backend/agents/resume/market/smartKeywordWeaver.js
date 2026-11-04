@@ -136,7 +136,7 @@ export async function batchWeaveBulletsWithLLM({
     }
   }
 
-  // 2. Single-Batch LLM Call (Groq Primary -> OpenRouter Fallback)
+  // 2. Single-Batch LLM Call (OpenRouter Paid Gemini Primary)
   const batchPromptInput = {
     targetRole,
     targetSkillsToWeave: cleanSkills.slice(0, 5),

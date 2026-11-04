@@ -210,16 +210,21 @@ export async function ensureConfiguredBucketsExist() {
  * Never defaults blindly to 'Software Engineer'.
  */
 export async function fetchFastCatchJds({
-  role = '',
+  role = 'Software Engineer',
   bucketKey = '',
   targetCount = 15,
-  timeoutMs = 25000,
+  timeoutMs = 35000,
   mockJds = null,
 } = {}) {
+  // If mock JDs are provided for testing, return immediately
+  if (Array.isArray(mockJds) && mockJds.length > 0) {
+    return mockJds.slice(0, targetCount)
+  }
+
   // 1. Resolve role dynamically from parameters or bucketKey
   let resolvedRole = String(role || '').trim()
 
-  if (!resolvedRole && bucketKey) {
+  if ((!resolvedRole || resolvedRole === 'Software Engineer') && bucketKey) {
     // e.g. "data-analyst::3-5" -> "Data Analyst"
     const [rolePart] = bucketKey.split('::')
     if (rolePart && rolePart !== 'default') {
@@ -230,13 +235,8 @@ export async function fetchFastCatchJds({
     }
   }
 
-  // 2. Fallback to clean professional title if completely empty (never hardcode SWE)
+  // 2. Fallback to clean professional title if completely empty
   const targetRoleTitle = resolvedRole || 'Professional'
-
-  // If mock JDs are provided for testing, return immediately
-  if (Array.isArray(mockJds) && mockJds.length > 0) {
-    return mockJds.slice(0, targetCount)
-  }
 
   if (apifyKeyPool.getKeyCount() === 0) {
     console.warn('[MarketJdJobs] No Apify tokens configured in environment for fast-catch.')
@@ -244,56 +244,44 @@ export async function fetchFastCatchJds({
   }
 
   const actorInput = {
-    titles: [targetRoleTitle],
     queries: [targetRoleTitle],
     query: targetRoleTitle,
-    locations: ['United States'],
     location: 'United States',
-    maxItems: targetCount,
+    locations: ['United States'],
     rows: targetCount,
+    maxRows: targetCount,
     limit: targetCount,
     companyProfile: false,
     enrichCompany: false,
-    scrapeCompanyDetails: false,
   }
 
-  console.log(`[MarketJdJobs] Starting dynamic fast-catch scrape for role: "${targetRoleTitle}" (Target: ${targetCount} JDs)...`)
+  console.log(`[MarketJdJobs] Starting Fast-Catch scrape for role: "${targetRoleTitle}" (Budget: ${timeoutMs}ms)...`)
 
-  const runPromise = (async () => {
-    try {
-      const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
-      const run = await apifyKeyPool.executeWithRetry(async (activeToken) => {
-        const client = new ApifyClient({ token: activeToken, timeoutSecs: Math.round(timeoutMs / 1000) })
-        return await client.actor(actorId).call(actorInput, {
-          waitSecs: Math.round(timeoutMs / 1000),
-          maxItems: targetCount,
-        })
-      }, { maxAttempts: 2 })
+  try {
+    const actorId = process.env.APIFY_JOB_ACTOR_ID || 'bebity/linkedin-jobs-scraper'
+    const items = await apifyKeyPool.executeWithRetry(async (activeToken) => {
+      const client = new ApifyClient({
+        token: activeToken,
+        timeoutSecs: Math.round(timeoutMs / 1000),
+      })
+      const run = await client.actor(actorId).call(actorInput, {
+        waitSecs: Math.round(timeoutMs / 1000),
+      })
+      if (!run || !run.defaultDatasetId) return []
+      const { items: datasetItems = [] } = await client.dataset(run.defaultDatasetId).listItems({ limit: targetCount })
+      return datasetItems
+    }, { maxAttempts: 2 })
 
-      if (!run || !run.defaultDatasetId) {
-        return []
-      }
-
-      const { items = [] } = await apifyKeyPool.executeWithRetry(async (activeToken) => {
-        const client = new ApifyClient({ token: activeToken })
-        return await client.dataset(run.defaultDatasetId).listItems({ limit: targetCount })
-      }, { maxAttempts: 2 })
-
-      return items.map((item) => ({
-        title: item.title || targetRoleTitle,
-        company: item.companyName || item.company || 'Market Sample',
-        description: item.description || item.text || item.body || '',
-        url: item.url || item.link || '',
-      }))
-    } catch (err) {
-      console.warn('[MarketJdJobs] Dynamic fast-catch error:', err.message)
-      return []
-    }
-  })()
-
-  // Guard with timeout
-  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), timeoutMs))
-  return Promise.race([runPromise, timeoutPromise])
+    return (items || []).map((item) => ({
+      title: item.title || targetRoleTitle,
+      company: item.companyName || item.company || 'Enterprise',
+      description: item.description || item.text || item.body || '',
+      url: item.url || item.link || '',
+    }))
+  } catch (err) {
+    console.warn(`[MarketJdJobs] Fast-Catch error: ${err.message}`)
+    return []
+  }
 }
 
 /**

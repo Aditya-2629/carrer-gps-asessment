@@ -89,7 +89,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
           role: roleClean,
           bucketKey,
           targetCount: 15,
-          timeoutMs: 25000, // 25s budget for Apify live batch
+          timeoutMs: 35000, // 35s budget for Apify live batch
         })
 
         if (Array.isArray(fastCatchJds) && fastCatchJds.length >= 3) {
