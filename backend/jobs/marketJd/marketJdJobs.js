@@ -15,6 +15,7 @@ import JobMarketVersion from '../../models/JobMarketVersion.js'
 import { fetchMarketJdCandidates, buildSearchSpecification } from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
+import { analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
 
 /**
@@ -79,8 +80,20 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       throw new Error(`No valid market JDs could be extracted from candidate pool (${scrapeResult.totalFetched} items fetched).`)
     }
 
-    // 5. Build deterministic MarketProfile
-    const marketProfile = buildMarketProfile(bucketKey, selectedJds)
+    // 5. Build canonical MarketProfile via LLM Corpus Analysis
+    const analyzedCorpus = await analyzeAndAggregateJdCorpus(selectedJds, bucketKey)
+
+    const marketProfile = {
+      bucketKey,
+      sampleSize: selectedJds.length,
+      skills: analyzedCorpus.marketSkills,
+      totalAnalyzed: analyzedCorpus.totalAnalyzed,
+      topKeywords: analyzedCorpus.marketSkills.slice(0, 20).map((s) => s.name),
+      responsibilities: [],
+      senioritySignals: [],
+      version: 'market-profile-v2',
+      generatedAt: new Date().toISOString(),
+    }
 
     // 6. Next version number calculation (Safe against existing DB records)
     const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey }).sort({ version: -1 })

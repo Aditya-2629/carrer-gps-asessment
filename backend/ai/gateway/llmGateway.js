@@ -145,7 +145,7 @@ export class LLMGateway {
     // quota/503 outage can be absorbed by NVIDIA/Groq models.
     let modelsToTry = [requestedModelId]
     if (allowFallback) {
-      if (purpose === 'career_chatbot' && !model) {
+      if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
         modelsToTry = [
           'llama-3.3-70b-versatile',
           'google/gemini-3.5-flash',

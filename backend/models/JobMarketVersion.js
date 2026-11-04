@@ -36,24 +36,29 @@ const jobMarketVersionSchema = new mongoose.Schema(
     marketProfile: {
       bucketKey: { type: String, required: true },
       sampleSize: { type: Number, default: 15 },
+      totalAnalyzed: { type: Number, default: 0 },
       skills: [
         {
           name: { type: String, required: true },
-          frequency: { type: Number, required: true },
-          frequencyRatio: { type: Number, required: true },
+          category: { type: String, default: 'tools' },
+          count: { type: Number, default: 0 },
+          frequency: { type: Number, default: 0 },
+          percentage: { type: Number, default: 0 },
+          frequencyRatio: { type: Number, default: 0 },
+          priority: { type: String, default: 'LOW' },
         },
       ],
       responsibilities: [
         {
-          name: { type: String, required: true },
-          frequency: { type: Number, required: true },
+          name: { type: String, required: false },
+          frequency: { type: Number, default: 0 },
           frequencyRatio: { type: Number, default: 1 },
         },
       ],
       senioritySignals: [
         {
-          name: { type: String, required: true },
-          frequency: { type: Number, required: true },
+          name: { type: String, required: false },
+          frequency: { type: Number, default: 0 },
           frequencyRatio: { type: Number, default: 1 },
         },
       ],

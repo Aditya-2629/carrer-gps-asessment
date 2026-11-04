@@ -484,7 +484,7 @@ export function computeKeywordAlignment({
   // 2. Determine Target Keywords dynamically (Scraped Market JDs > Target JD > Fallback Pack)
   let targetKeywords = []
 
-  // Priority 1: User pasted a specific target JD
+  // If user pasted a custom JD
   if (isJdProvided) {
     const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
     if (extractedJdSkills.length >= 6) {
@@ -492,14 +492,14 @@ export function computeKeywordAlignment({
     }
   }
 
-  // Priority 2: Use REAL Scraped Market JDs from MongoDB Bucket (marketProfile)
+  // Priority 1: Use REAL Scraped & LLM-Normalized Market JDs from MongoDB Bucket
   if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
     targetKeywords = marketProfile.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
       .filter((s) => Boolean(s) && s.length >= 2 && !/^(and|the|with|for|you|our|team)$/i.test(s))
   }
 
-  // Priority 3: Fallback to role pack ONLY if no scraped JDs and no pasted JD
+  // Priority 2: Fallback pack only if no market data exists
   if (targetKeywords.length < 6) {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'
@@ -517,7 +517,7 @@ export function computeKeywordAlignment({
   targetKeywords = targetKeywords
     .map((s) => (typeof s === 'string' ? s.trim() : s?.name || '').trim())
     .filter(isConcreteTechSkill)
-  targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 24)
+  targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 25)
 
   // 3. Classify target keywords into 3 buckets
   const matchedInExperience = []
@@ -581,26 +581,55 @@ export function computeKeywordAlignment({
   )
 
   // 5. Market JD Skill Demand Comparison (Benchmarked against live tech JDs)
-  const demandedSkills = getMarketDemandedSkills(roleName, marketProfile)
   const missingMarketSkillsRanked = []
 
-  for (const item of demandedSkills) {
-    if (!isConcreteTechSkill(item.skill)) continue
-    const inExperience = keywordMatchesText(item.skill, expAndProjText)
-    const inSkills = keywordMatchesText(item.skill, skillsText)
-    const inSummary = keywordMatchesText(item.skill, summaryText)
-    const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(item.skill, fullResumeText)
+  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
+    for (const item of marketProfile.skills) {
+      const skillName = typeof item === 'string' ? item : (item.name || item.skill || '')
+      if (!skillName || !isConcreteTechSkill(skillName)) continue
 
-    if (!inFullResume && (item.priority === 'HIGH' || item.priority === 'MEDIUM')) {
-      missingMarketSkillsRanked.push({
-        keyword: item.skill,
-        percentage: item.percentage,
-        priority: item.priority,
-        category: item.category,
-        badge: `${item.percentage}% of JDs`,
-      })
-      if (uniqueMissing.length < 24 && !uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
-        uniqueMissing.push(item.skill)
+      const inExperience = keywordMatchesText(skillName, expAndProjText)
+      const inSkills = keywordMatchesText(skillName, skillsText)
+      const inSummary = keywordMatchesText(skillName, summaryText)
+      const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(skillName, fullResumeText)
+
+      if (!inFullResume) {
+        const pct = item.percentage != null
+          ? item.percentage
+          : (item.frequencyRatio != null ? Math.round(item.frequencyRatio * 100) : 0)
+        const priority = item.priority || (pct >= 40 ? 'HIGH' : pct >= 20 ? 'MEDIUM' : 'LOW')
+        missingMarketSkillsRanked.push({
+          keyword: skillName,
+          percentage: pct,
+          priority,
+          category: item.category || 'tools',
+          badge: `${pct}% of JDs`,
+        })
+        if (uniqueMissing.length < 25 && !uniqueMissing.some((m) => m.toLowerCase() === skillName.toLowerCase())) {
+          uniqueMissing.push(skillName)
+        }
+      }
+    }
+  } else {
+    const demandedSkills = getMarketDemandedSkills(roleName, marketProfile)
+    for (const item of demandedSkills) {
+      if (!isConcreteTechSkill(item.skill)) continue
+      const inExperience = keywordMatchesText(item.skill, expAndProjText)
+      const inSkills = keywordMatchesText(item.skill, skillsText)
+      const inSummary = keywordMatchesText(item.skill, summaryText)
+      const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(item.skill, fullResumeText)
+
+      if (!inFullResume && (item.priority === 'HIGH' || item.priority === 'MEDIUM')) {
+        missingMarketSkillsRanked.push({
+          keyword: item.skill,
+          percentage: item.percentage,
+          priority: item.priority,
+          category: item.category,
+          badge: `${item.percentage}% of JDs`,
+        })
+        if (uniqueMissing.length < 25 && !uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
+          uniqueMissing.push(item.skill)
+        }
       }
     }
   }
