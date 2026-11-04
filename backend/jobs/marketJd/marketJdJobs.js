@@ -12,11 +12,13 @@
 
 import JobMarketBucket from '../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../models/JobMarketVersion.js'
-import { fetchMarketJdCandidates, buildSearchSpecification } from '../../integrations/apify/apifyJdScraper.js'
+import { fetchMarketJdCandidates, buildSearchSpecification, DEFAULT_APIFY_JOB_ACTOR } from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
 import { analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
+import { ApifyClient } from 'apify-client'
+import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 
 /**
  * Executes a refresh for a single Role × Experience bucket.
@@ -202,7 +204,82 @@ export async function ensureConfiguredBucketsExist() {
   return createdOrFound
 }
 
+/**
+ * Fast-catch scraper: fetches first 12-15 JDs synchronously under a strict budget (default 12s).
+ *
+ * @param {Object} params
+ * @param {string} [params.role='Software Engineer']
+ * @param {number} [params.targetCount=15]
+ * @param {number} [params.timeoutMs=12000]
+ * @returns {Promise<Array<Object>>} Scraped job items
+ */
+export async function fetchFastCatchJds({ role = 'Software Engineer', targetCount = 15, timeoutMs = 12000, mockJds = null } = {}) {
+  if (Array.isArray(mockJds)) {
+    return mockJds
+  }
+
+  if (apifyKeyPool.getKeyCount() === 0) {
+    console.warn('[MarketJdJobs] No Apify tokens configured in environment for fast-catch.')
+    return []
+  }
+
+  const actorInput = {
+    titles: [role],
+    locations: ['United States'],
+    maxItems: targetCount,
+    rows: targetCount,
+    limit: targetCount,
+    proxyConfiguration: { useApifyProxy: true },
+  }
+
+  const timeoutSecs = Math.max(1, Math.round(timeoutMs / 1000))
+
+  const runPromise = (async () => {
+    try {
+      return await apifyKeyPool.executeWithRetry(async (activeToken) => {
+        const client = new ApifyClient({
+          token: activeToken,
+          timeoutSecs,
+        })
+        const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
+        const run = await client.actor(actorId).call(actorInput, {
+          waitSecs: timeoutSecs,
+          maxItems: targetCount,
+        })
+        if (!run || !run.defaultDatasetId) return []
+        const { items = [] } = await client.dataset(run.defaultDatasetId).listItems({ limit: targetCount })
+        return items.map((item) => ({
+          title: item.title || role,
+          company: item.companyName || item.company || 'Enterprise',
+          description: item.description || item.text || '',
+          url: item.url || item.link || '',
+        }))
+      }, { maxAttempts: 2 })
+    } catch (err) {
+      console.warn('[MarketJdJobs] Fast-catch Apify call error:', err.message)
+      return []
+    }
+  })()
+
+  // Guard with strict timeout
+  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), timeoutMs))
+  return Promise.race([runPromise, timeoutPromise])
+}
+
+/**
+ * Enqueues a full 100-JD background bucket refresh to complete the bucket asynchronously.
+ *
+ * @param {string} bucketKey
+ * @returns {Promise<Object>}
+ */
+export async function enqueueFullBackgroundBucket(bucketKey) {
+  const { enqueueBucketRefresh } = await import('./marketJdQueue.js')
+  return enqueueBucketRefresh(bucketKey, { priority: 'normal' })
+}
+
 export default {
   executeBucketRefresh,
   ensureConfiguredBucketsExist,
+  fetchFastCatchJds,
+  enqueueFullBackgroundBucket,
 }

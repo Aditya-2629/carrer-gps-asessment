@@ -504,10 +504,10 @@ export function computeKeywordAlignment({
     targetKeywords = [...extractedJdSkills]
   }
 
-  // Priority 2: Use ALL Live Scraped Skills from MongoDB marketProfile (Uncapped!)
-  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
+  // Priority 2: Use ALL Live Scraped Skills from MongoDB marketProfile or Fast-Catch (Uncapped!)
+  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 3) {
     targetKeywords = marketProfile.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
       .filter(isGenuineTechnicalSkill)
   }
 
@@ -524,9 +524,9 @@ export function computeKeywordAlignment({
   const marketSkillsMap = new Map()
   if (marketProfile && Array.isArray(marketProfile.skills)) {
     for (const item of marketProfile.skills) {
-      const name = typeof item === 'string' ? item : item?.name || ''
+      const name = typeof item === 'string' ? item : (item?.name || item?.skill || '')
       if (name) {
-        marketSkillsMap.set(name.toLowerCase(), item)
+        marketSkillsMap.set(name.toLowerCase(), typeof item === 'string' ? { name: item, frequency: 1, percentage: 50 } : item)
       }
     }
   }
@@ -535,10 +535,15 @@ export function computeKeywordAlignment({
 
   const allMarketSkills = targetKeywords.map((name, idx) => {
     const existing = marketSkillsMap.get(name.toLowerCase())
-    if (existing && typeof existing === 'object' && existing.percentage != null) {
+    if (existing && typeof existing === 'object') {
+      const percentage = existing.percentage != null
+        ? existing.percentage
+        : Math.min(100, Math.round(((existing.count || existing.frequency || 1) / (marketProfile.sampleSize || totalJds || 10)) * 100))
       return {
         ...existing,
         name,
+        frequency: existing.frequency || existing.count || Math.round((percentage / 100) * totalJds),
+        percentage,
       }
     }
     if (isJdProvided) {
