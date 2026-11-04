@@ -36,12 +36,52 @@ export const MODEL_REGISTRY = {
     id: 'llama-3.3-70b-versatile',
     displayName: 'Groq Llama 3.3 70B Versatile (Primary/Failover)',
     provider: 'groq',
-    purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'resume-parsing', 'linkedin_analysis'],
     supportsJsonObject: true,
     supportsJsonSchema: true,
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 131072,
+    enabled: true,
+  },
+
+  // --- OpenRouter Paid Priority Tier ---
+  'google/gemini-3.5-flash': {
+    id: 'google/gemini-3.5-flash',
+    displayName: 'Google Gemini 3.5 Flash (OpenRouter Paid)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
+  'google/gemini-3-flash-preview': {
+    id: 'google/gemini-3-flash-preview',
+    displayName: 'Google Gemini 3 Flash Preview (OpenRouter)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
+  'google/gemini-3.1-pro-preview': {
+    id: 'google/gemini-3.1-pro-preview',
+    displayName: 'Google Gemini 3.1 Pro Preview (OpenRouter)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 2097152,
     enabled: true,
   },
 
@@ -240,6 +280,9 @@ export const MODEL_REGISTRY = {
  */
 export const getModel = (modelId) => {
   if (!modelId) return null
+  if (modelId === 'openrouter') return MODEL_REGISTRY['google/gemini-3.5-flash']
+  if (modelId === 'groq') return MODEL_REGISTRY['llama-3.3-70b-versatile']
+  if (modelId === 'gemini') return MODEL_REGISTRY['gemini-3.5-flash-lite']
   return MODEL_REGISTRY[modelId] || null
 }
 

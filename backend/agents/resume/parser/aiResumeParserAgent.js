@@ -88,12 +88,15 @@ ${rawText}
   try {
     const rawResponse = await llmGateway.generate({
       purpose: 'resume-parsing',
+      preferredProvider: 'groq',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: RESUME_PARSER_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
       responseFormat: 'json_object',
       temperature: 0.0,
+      timeoutMs: 30000,
     })
 
     const textToParse = typeof rawResponse === 'string' ? rawResponse : rawResponse?.text || JSON.stringify(rawResponse)

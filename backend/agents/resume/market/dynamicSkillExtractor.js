@@ -202,7 +202,7 @@ export async function extractSkillsDynamically(jdText = '', options = {}) {
     try {
       const response = await llmGateway.generate({
         purpose: 'resume-parsing',
-        model: options.model || 'gemini-3.5-flash-lite',
+        model: options.model || 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: DYNAMIC_EXTRACTOR_SYSTEM_PROMPT },
           { role: 'user', content: `Extract technical skills and tools from this Job Description:\n\n${cleanText}` },
@@ -210,7 +210,7 @@ export async function extractSkillsDynamically(jdText = '', options = {}) {
         temperature: 0.1,
         maxTokens: 1500,
         responseFormat: { type: 'json_object' },
-        preferredProvider: 'gemini',
+        preferredProvider: 'groq',
       })
 
       const rawJson = response?.text || '{}'

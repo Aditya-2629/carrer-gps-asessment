@@ -15,18 +15,27 @@ export const PROVIDER_ERROR_CODES = {
   DATA_PRIVACY_ERROR: 'DATA_PRIVACY_ERROR',
   PROVIDER_NOT_CONFIGURED: 'PROVIDER_NOT_CONFIGURED',
   MODEL_NOT_FOUND: 'MODEL_NOT_FOUND',
+  INVALID_AUTH: 'INVALID_AUTH',
 }
 
 export class ProviderError extends Error {
-  constructor({
-    code,
-    message,
-    provider = 'unknown',
-    model = 'unknown',
-    statusCode = 500,
-    details = null,
-    isRetryable = false,
-  }) {
+  constructor(arg1, arg2, arg3) {
+    let opts = {}
+    if (typeof arg1 === 'string') {
+      opts = { code: arg1, message: arg2, ...(arg3 || {}) }
+    } else if (arg1 && typeof arg1 === 'object') {
+      opts = arg1
+    }
+    const {
+      code,
+      message,
+      provider = 'unknown',
+      model = 'unknown',
+      statusCode = 500,
+      details = null,
+      isRetryable = false,
+    } = opts
+
     super(message || `Provider error: ${code}`)
     this.name = 'ProviderError'
     this.code = code || PROVIDER_ERROR_CODES.SERVER_ERROR

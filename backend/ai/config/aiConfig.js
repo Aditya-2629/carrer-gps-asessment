@@ -59,14 +59,14 @@ export const getAllGroqKeys = () => {
  */
 export const aiConfig = {
   get defaultProvider() {
-    return process.env.RESUME_AGENT_PROVIDER || process.env.AI_RESUME_PROVIDER || 'gemini'
+    return process.env.RESUME_AGENT_PROVIDER || process.env.AI_RESUME_PROVIDER || 'openrouter'
   },
   get fallbackEnabled() {
     return process.env.AI_RESUME_FALLBACK_ENABLED !== 'false'
   },
   get defaultResumeModel() {
     if (process.env.RESUME_PRIMARY_MODEL) return process.env.RESUME_PRIMARY_MODEL
-    return 'gemini-3.5-flash-lite'
+    return 'google/gemini-3.5-flash'
   },
   get defaultTimeoutMs() {
     return parseInt(process.env.AI_DEFAULT_TIMEOUT_MS || '20000', 10)

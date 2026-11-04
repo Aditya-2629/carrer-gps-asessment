@@ -20,34 +20,40 @@ import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 
 // Production fallback chain in priority order:
-// 1. Primary: Gemini 3.5 Flash Lite (Google fast inference)
-// 2. 1st Fallback: Gemini 3.8 Flash
-// 3. 2nd Fallback: Gemini 3.1 Pro
-// 4. 3rd Fallback: Groq (Llama 3.3 70B / GPT-OSS 120B / 20B)
+// 1. Primary: OpenRouter (Paid balance, 1.05M context, 100% SLA)
+// 2. Secondary: Groq (Blazing fast failover: Llama 3.3 70B / GPT-OSS 120B / 20B)
+// 3. Tertiary: Gemini 3.5 Flash Lite
 export const PRODUCTION_FALLBACK_CHAIN = [
+  'openrouter', // Priority 1: Paid balance, 1.05M context, 100% SLA
+  'groq',       // Priority 2: Blazing fast secondary failover
   'gemini-3.5-flash-lite',
-  'gemini-3.8-flash',
-  'gemini-3.1-pro',
-  'groq',
 ]
 
 export const MAX_CONCURRENT_PER_PROVIDER = 4
 
 export const TRAP_MODELS = new Set([
-  'gemini-3.7-flash',
-  'gemini-3.7',
-  'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
   'gemini-1.5-flash',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'google/gemma-4-26b-a4b-it:free',
+  'gemini-1.5-pro',
 ])
 
-const PROVIDER_MODEL_FALLBACKS = {
-  groq: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+export const PROVIDER_MODEL_FALLBACKS = {
+  openrouter: [
+    'google/gemini-3.5-flash',
+    'google/gemini-3-flash-preview',
+    'google/gemini-3.1-pro-preview',
+  ],
+  groq: [
+    'llama-3.3-70b-versatile',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+  ],
+  gemini: [
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+  ],
   nvidia: ['nvidia/nemotron-3-super-120b-a12b'],
   openai: ['openai/gpt-oss-120b'],
 }

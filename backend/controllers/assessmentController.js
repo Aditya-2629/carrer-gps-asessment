@@ -597,35 +597,58 @@ Provide your expert coaching answer following the directives above.`
     let replyText = ''
     try {
       const { text: responseText } = await llmGateway.generate({
-        purpose: 'assessment_report',
+        purpose: 'career_chatbot',
         task: 'report_chatbot',
-        model: 'gemini-3.5-flash-lite',
+        preferredProvider: 'groq',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
         responseFormat: 'text',
-        temperature: 0.3,
-        maxTokens: 1024,
-        maxRetries: 2,
+        temperature: 0.4,
+        maxTokens: 800,
+        timeoutMs: 15000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[AssessmentController] Chatbot primary model failed, falling back to Groq:', err.message)
-      const { text: fallbackText } = await llmGateway.generate({
-        purpose: 'assessment_report',
-        task: 'report_chatbot',
-        model: 'openai/gpt-oss-120b',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        responseFormat: 'text',
-        temperature: 0.3,
-        maxTokens: 1024,
-        bypassCache: true,
-      })
-      replyText = fallbackText
+      console.warn('[AssessmentController] Chatbot fast tier (Groq) failed, falling back to OpenRouter:', err.message)
+      try {
+        const { text: fallbackText } = await llmGateway.generate({
+          purpose: 'career_chatbot',
+          task: 'report_chatbot',
+          preferredProvider: 'openrouter',
+          model: 'google/gemini-3.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          responseFormat: 'text',
+          temperature: 0.4,
+          maxTokens: 800,
+          timeoutMs: 25000,
+          bypassCache: true,
+        })
+        replyText = fallbackText
+      } catch (openRouterErr) {
+        console.warn('[AssessmentController] Chatbot OpenRouter fallback failed, trying Gemini 3.5 Flash Lite:', openRouterErr.message)
+        const { text: geminiText } = await llmGateway.generate({
+          purpose: 'career_chatbot',
+          task: 'report_chatbot',
+          preferredProvider: 'gemini',
+          model: 'gemini-3.5-flash-lite',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          responseFormat: 'text',
+          temperature: 0.4,
+          maxTokens: 800,
+          timeoutMs: 20000,
+          bypassCache: true,
+        })
+        replyText = geminiText
+      }
     }
 
     let cleanAnswer = (replyText || '').trim()

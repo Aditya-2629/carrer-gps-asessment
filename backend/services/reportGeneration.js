@@ -240,68 +240,57 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + extraInstructions.length) / 4)
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
 
-  const isProduction = process.env.NODE_ENV === 'production'
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite'
-  const bypassCacheSetting = isProduction ? true : false
-
-  // 1. Primary Model: Gemini 3.5 Flash Lite
+  // 1. Primary: OpenRouter Paid Tier (google/gemini-3.5-flash)
   try {
-    const result = await llmGateway.generate({
+    const { text: responseText } = await llmGateway.generate({
       purpose: 'assessment_report',
       task: 'report_generation',
-      model: primaryModel,
+      preferredProvider: 'openrouter',
+      model: 'google/gemini-3.5-flash',
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
       responseFormat: 'json_object',
-      temperature: 0.4,
+      temperature: 0.3,
       maxTokens: 4096,
       maxRetries: 2,
-      treatLengthAsRetryable: true,
-      totalDeadlineMs: 45000,
-      bypassCache: bypassCacheSetting,
+      timeoutMs: 60000,
+      totalDeadlineMs: 60000,
     })
-    const actualTokens = result.tokens?.prompt || estimatedPromptTokens
-    console.log(`[ReportGeneration] Atlas report generated successfully via ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
-    return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
+    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
   } catch (primaryErr) {
-    console.warn(`[ReportGeneration] Atlas generation via primary model (${primaryModel}) failed/timed out. Falling back to Gemini 3.8 Flash:`, primaryErr.message)
+    console.warn('[ReportGeneration] Atlas generation via OpenRouter failed. Tripping failover to Groq:', primaryErr.message)
 
-    // 2. Secondary Fallback: Gemini 3.8 Flash
+    // 2. Secondary Failover: Groq Fast Tier (llama-3.3-70b-versatile)
     try {
-      const result = await llmGateway.generate({
+      const { text: responseText } = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_generation',
-        model: 'gemini-3.8-flash',
+        preferredProvider: 'groq',
+        model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
         responseFormat: 'json_object',
-        temperature: 0.4,
-        maxTokens: 4096,
-        maxRetries: 2,
-        treatLengthAsRetryable: true,
-        totalDeadlineMs: 45000,
-        bypassCache: bypassCacheSetting,
-      })
-      const actualTokens = result.tokens?.prompt || estimatedPromptTokens
-      console.log(`[ReportGeneration] Atlas report generated successfully via secondary ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
-      return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
-    } catch (secondaryErr) {
-      console.warn('[ReportGeneration] Atlas secondary model (gemini-3.8-flash) failed. Falling back to Groq (openai/gpt-oss-120b):', secondaryErr.message)
-
-      // 3. Tertiary Fallback: Groq (openai/gpt-oss-120b)
-      const result = await llmGateway.generate({
-        purpose: 'assessment_report',
-        task: 'report_generation',
-        model: 'openai/gpt-oss-120b',
-        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
-        responseFormat: 'json_object',
-        temperature: 0.4,
+        temperature: 0.3,
         maxTokens: 3500,
-        treatLengthAsRetryable: true,
+        timeoutMs: 45000,
         totalDeadlineMs: 45000,
-        bypassCache: bypassCacheSetting,
       })
-      const actualTokens = result.tokens?.prompt || estimatedPromptTokens
-      console.log(`[ReportGeneration] Atlas report generated successfully via tertiary fallback ${result.actualModel} in ${result.latencyMs}ms. Prompt tokens: ${actualTokens}`)
-      return normalizeAtlasShapes(parseAtlasJson(result.text), userAnswers)
+      return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+    } catch (groqErr) {
+      console.warn('[ReportGeneration] Atlas failover to Groq failed. Falling back to Gemini 3.5 Flash Lite:', groqErr.message)
+
+      // 3. Tertiary Fallback: Gemini 3.5 Flash Lite
+      const { text: responseText } = await llmGateway.generate({
+        purpose: 'assessment_report',
+        task: 'report_generation',
+        preferredProvider: 'gemini',
+        model: 'gemini-3.5-flash-lite',
+        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+        responseFormat: 'json_object',
+        temperature: 0.3,
+        maxTokens: 4096,
+        timeoutMs: 45000,
+        totalDeadlineMs: 45000,
+      })
+      return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
     }
   }
 }
