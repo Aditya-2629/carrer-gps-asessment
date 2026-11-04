@@ -25,7 +25,8 @@ export default function ResumeKeywordAlignment({
   } = keywordAlignment
 
   const [selectedSkills, setSelectedSkills] = useState(new Set())
-  const [showAllMissing, setShowAllMissing] = useState(false)
+  const [showMediumMissing, setShowMediumMissing] = useState(true)
+  const [showLowMissing, setShowLowMissing] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
 
   const toggleSkillSelection = (skillName) => {
@@ -49,12 +50,15 @@ export default function ResumeKeywordAlignment({
     if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
     const key = cleanName.toLowerCase()
     if (!missingMap.has(key)) {
+      const pct = item.percentage != null ? item.percentage : null
       missingMap.set(key, {
         keyword: cleanName,
-        percentage: item.percentage || null,
-        priority: item.priority || 'HIGH',
+        percentage: pct,
+        priority: item.priority || (pct >= 40 ? 'HIGH' : pct >= 20 ? 'MEDIUM' : 'LOW'),
+        priorityColor: item.priorityColor || (pct >= 40 ? 'red' : pct >= 20 ? 'yellow' : 'grey'),
         category: item.category || 'Tech',
-        badge: item.badge || (item.percentage ? `${item.percentage}% of JDs` : null),
+        badge: item.badge || (pct ? `${pct}% of JDs` : null),
+        talkingScript: item.talkingScript || null,
       })
     }
   }
@@ -66,12 +70,15 @@ export default function ResumeKeywordAlignment({
     if (!cleanName || cleanName.length < 2 || cleanName.split(/\s+/).length > 4 || /&(?:amp|lt|gt|quot|#39);/i.test(cleanName)) continue
     const key = cleanName.toLowerCase()
     if (!missingMap.has(key)) {
+      const pct = item?.percentage || null
       missingMap.set(key, {
         keyword: cleanName,
-        percentage: item?.percentage || null,
-        priority: item?.priority || 'MEDIUM',
+        percentage: pct,
+        priority: item?.priority || (pct >= 40 ? 'HIGH' : pct >= 20 ? 'MEDIUM' : 'LOW'),
+        priorityColor: item?.priorityColor || (pct >= 40 ? 'red' : pct >= 20 ? 'yellow' : 'grey'),
         category: item?.category || 'Tech',
-        badge: item?.badge || (item?.percentage ? `${item.percentage}% of JDs` : null),
+        badge: item?.badge || (pct ? `${pct}% of JDs` : null),
+        talkingScript: item?.talkingScript || null,
       })
     }
   }
@@ -81,12 +88,15 @@ export default function ResumeKeywordAlignment({
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && !/&(?:amp|lt|gt|quot|#39);/i.test(s) && !/&amp/i.test(s) && s.split(/\s+/).filter(Boolean).length <= 3)
 
-  const initialHigh = uniqueMissing.filter(
-    (item) => (item.percentage != null ? item.percentage >= 20 : item.priority === 'HIGH')
+  const highPriorityMissing = uniqueMissing.filter(
+    (item) => item.priorityColor === 'red' || (item.percentage != null ? item.percentage >= 40 : item.priority === 'HIGH')
   )
-  const highPriorityMissing =
-    initialHigh.length > 0 ? initialHigh : uniqueMissing.slice(0, Math.min(8, uniqueMissing.length))
-  const mediumPriorityMissing = uniqueMissing.filter((item) => !highPriorityMissing.includes(item))
+  const mediumPriorityMissing = uniqueMissing.filter(
+    (item) => !highPriorityMissing.includes(item) && (item.priorityColor === 'yellow' || (item.percentage != null ? item.percentage >= 20 : item.priority === 'MEDIUM'))
+  )
+  const lowPriorityMissing = uniqueMissing.filter(
+    (item) => !highPriorityMissing.includes(item) && !mediumPriorityMissing.includes(item)
+  )
 
   const verifiedCount = matchedCount || cleanMatched.length
   const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : ((cleanMatched.length + uniqueMissing.length) || 1)
@@ -371,60 +381,130 @@ export default function ResumeKeywordAlignment({
             </div>
           ) : (
             <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
-                  <XCircle size={15} weight="fill" />
-                  High-Priority Missing Market Skills ({highPriorityMissing.length})
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                  Ranked by % of 99 live JDs
-                </span>
-              </div>
+              {/* 🔴 High Priority Missing (Red, >40%) */}
+              {highPriorityMissing.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
+                      <XCircle size={15} weight="fill" />
+                      High-Priority Missing Market Skills ({highPriorityMissing.length})
+                    </span>
+                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                      &gt;40% of Analyzed JDs
+                    </span>
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                {highPriorityMissing.map((item, i) => {
-                  const isSelected = selectedSkills.has(item.keyword)
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => toggleSkillSelection(item.keyword)}
-                      className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25 hover:border-rose-500/50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
-                      />
-                      <span>{item.keyword}</span>
-                      {item.percentage && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
-                          {item.percentage}% of JDs
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+                  <div className="flex flex-wrap gap-2">
+                    {highPriorityMissing.map((item, i) => {
+                      const isSelected = selectedSkills.has(item.keyword)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => toggleSkillSelection(item.keyword)}
+                          className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
+                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25 hover:border-rose-500/50'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
+                          />
+                          <span>{item.keyword}</span>
+                          {item.percentage && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
+                              {item.percentage}% of JDs
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
+              {/* 🟡 Medium Priority Missing (Yellow, 20%-40%) */}
               {mediumPriorityMissing.length > 0 && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllMissing(!showAllMissing)}
-                    className="text-xs font-semibold text-[var(--primary)] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>{showAllMissing ? '– Collapse Additional Skills' : `+ View ${mediumPriorityMissing.length} More Medium-Demand Skills (10%–19% JDs)`}</span>
-                  </button>
+                <div className="pt-2 border-t border-[var(--border-default)]/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowMediumMissing(!showMediumMissing)}
+                      className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5 hover:underline cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                      Medium-Priority Missing Market Skills ({mediumPriorityMissing.length})
+                      <span className="text-[10px] font-mono opacity-70">
+                        {showMediumMissing ? '▲ Collapse' : '▼ Expand'}
+                      </span>
+                    </button>
+                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                      20%–40% of Analyzed JDs
+                    </span>
+                  </div>
 
-                  {showAllMissing && (
-                    <div className="flex flex-wrap gap-2 pt-3">
+                  {showMediumMissing && (
+                    <div className="flex flex-wrap gap-2 pt-1">
                       {mediumPriorityMissing.map((item, i) => {
+                        const isSelected = selectedSkills.has(item.keyword)
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => toggleSkillSelection(item.keyword)}
+                            className={`inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
+                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25 hover:border-amber-500/50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
+                            />
+                            <span>{item.keyword}</span>
+                            {item.percentage && (
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 font-bold">
+                                {item.percentage}% of JDs
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ⚪ Low Priority Missing (Grey, 10%-20%) */}
+              {lowPriorityMissing.length > 0 && (
+                <div className="pt-2 border-t border-[var(--border-default)]/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowLowMissing(!showLowMissing)}
+                      className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5 hover:underline cursor-pointer"
+                    >
+                      <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />
+                      Low-Priority Market Signals ({lowPriorityMissing.length})
+                      <span className="text-[10px] font-mono opacity-70">
+                        {showLowMissing ? '▲ Collapse' : '▼ Expand'}
+                      </span>
+                    </button>
+                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
+                      10%–20% of Analyzed JDs
+                    </span>
+                  </div>
+
+                  {showLowMissing && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {lowPriorityMissing.map((item, i) => {
                         const isSelected = selectedSkills.has(item.keyword)
                         return (
                           <button
@@ -434,7 +514,7 @@ export default function ResumeKeywordAlignment({
                             className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
                               isSelected
                                 ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                                : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]'
+                                : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20 hover:border-slate-500/40'
                             }`}
                           >
                             <input
@@ -445,7 +525,9 @@ export default function ResumeKeywordAlignment({
                             />
                             <span>{item.keyword}</span>
                             {item.percentage && (
-                              <span className="text-[10px] font-mono opacity-80">{item.percentage}%</span>
+                              <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-500/15 text-slate-700 dark:text-slate-300 font-semibold">
+                                {item.percentage}%
+                              </span>
                             )}
                           </button>
                         )

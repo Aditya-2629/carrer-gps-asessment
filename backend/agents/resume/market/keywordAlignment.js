@@ -12,6 +12,8 @@ import { extractSkillsFromJd } from './jdNormalizer.js'
 import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 
+export const isGenuineTechnicalSkill = isConcreteTechSkill
+
 // Curated high-frequency market intelligence keywords per controlled role category
 export const MARKET_ROLE_KEYWORD_PACKS = {
   'software-engineer': [
@@ -481,26 +483,22 @@ export function computeKeywordAlignment({
   const summaryText = canonicalResume?.summary?.text || ''
   const fullResumeText = `${expAndProjText}\n${skillsText}\n${summaryText}`
 
-  // 2. Determine Target Keywords dynamically (Scraped Market JDs > Target JD > Fallback Pack)
-  let targetKeywords = []
+  // 1. Gather all candidate text across experience, projects, skills, and summary
+  const candidateSkillsSet = new Set(
+    declaredSkills.map((s) => s.toLowerCase().trim())
+  )
 
-  // If user pasted a custom JD
-  if (isJdProvided) {
-    const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
-    if (extractedJdSkills.length >= 6) {
-      targetKeywords = extractedJdSkills
-    }
-  }
-
-  // Priority 1: Use REAL Scraped & LLM-Normalized Market JDs from MongoDB Bucket
-  if (targetKeywords.length < 6 && marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length >= 5) {
-    targetKeywords = marketProfile.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
-      .filter((s) => Boolean(s) && s.length >= 2 && !/^(and|the|with|for|you|our|team)$/i.test(s))
-  }
-
-  // Priority 2: Fallback pack only if no market data exists
-  if (targetKeywords.length < 6) {
+  // 2. Load ALL Scraped Market Skills uncapped (NO .slice(0, 25)!)
+  let allMarketSkills = []
+  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
+    allMarketSkills = marketProfile.skills
+  } else if (isJdProvided) {
+    allMarketSkills = extractSkillsFromJd(targetJobDescription).map((name) => ({
+      name,
+      frequency: 1,
+      percentage: 100,
+    }))
+  } else {
     const roleLower = roleName.toLowerCase()
     let packKey = 'software-engineer'
     if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
@@ -510,149 +508,106 @@ export function computeKeywordAlignment({
     else if (/qa|sdet|test/i.test(roleLower)) packKey = 'qa-engineer'
     else if (/security|cyber/i.test(roleLower)) packKey = 'security-engineer'
 
-    const pack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['software-engineer']
-    targetKeywords = Array.from(new Set([...targetKeywords, ...pack]))
+    allMarketSkills = (MARKET_ROLE_KEYWORD_PACKS[packKey] || []).map((name) => ({
+      name,
+      frequency: 1,
+      percentage: 50,
+    }))
   }
 
-  targetKeywords = targetKeywords
-    .map((s) => (typeof s === 'string' ? s.trim() : s?.name || '').trim())
-    .filter(isConcreteTechSkill)
-  targetKeywords = Array.from(new Set(targetKeywords)).slice(0, 25)
+  const totalJds = marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 1
 
-  // 3. Classify target keywords into 3 buckets
+  // 3. Separate candidate's verified skills vs GENUINELY missing skills (NO CAPPING)
   const matchedInExperience = []
   const skillsOnlyUnverified = []
-  const missingFromResume = []
+  const missingMarketSkillsRanked = []
 
-  for (const kw of targetKeywords) {
-    const inExperience = keywordMatchesText(kw, expAndProjText)
-    const inSkills = keywordMatchesText(kw, skillsText)
-    const inSummary = keywordMatchesText(kw, summaryText)
-    const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(kw, fullResumeText)
+  for (const item of allMarketSkills) {
+    const skillName = typeof item === 'string' ? item : item?.name || ''
+    if (!isGenuineTechnicalSkill(skillName)) continue
+
+    const inExperience = keywordMatchesText(skillName, expAndProjText)
+    const inSkills = keywordMatchesText(skillName, skillsText) || candidateSkillsSet.has(skillName.toLowerCase())
+    const inSummary = keywordMatchesText(skillName, summaryText) || keywordMatchesText(skillName, fullResumeText)
 
     if (inExperience) {
-      // Verified in Experience & Projects
-      matchedInExperience.push(kw)
-    } else if (inSkills || inSummary || inFullResume) {
-      // Present in Skills or Summary — NEVER marked as missing
-      skillsOnlyUnverified.push(kw)
+      matchedInExperience.push(skillName)
+    } else if (inSkills || inSummary) {
+      skillsOnlyUnverified.push(skillName)
     } else {
-      // Absent from entire resume
-      missingFromResume.push(kw)
+      // Genuinely missing from candidate's entire resume!
+      const count = typeof item === 'object' ? (item.frequency || item.count || 1) : 1
+      const percentage = typeof item === 'object' && item.percentage != null
+        ? item.percentage
+        : Math.min(100, Math.round((count / totalJds) * 100))
+
+      let priority = 'LOW'
+      let priorityColor = 'grey'
+      if (percentage >= 40) {
+        priority = 'HIGH'
+        priorityColor = 'red'
+      } else if (percentage >= 20) {
+        priority = 'MEDIUM'
+        priorityColor = 'yellow'
+      }
+
+      missingMarketSkillsRanked.push({
+        keyword: skillName,
+        count,
+        totalJds,
+        percentage,
+        priority,
+        priorityColor,
+        category: item.category || 'tools',
+        badge: `${percentage}% of JDs`,
+        talkingScript: `Discuss how you can leverage ${skillName} for data pipeline reliability, performance tuning, and scalable workflow execution.`,
+      })
     }
   }
 
-  // 4. Pick at most top 6–8 unverified skills from declared skills (never dump 30 raw skills)
-  const additionalUnverified = []
+  // Also process candidate's declared skills that were not in market skills
   for (const skill of declaredSkills) {
+    if (!isGenuineTechnicalSkill(skill)) continue
     const norm = skill.toLowerCase()
     const alreadyHandled =
       matchedInExperience.some((k) => k.toLowerCase() === norm) ||
-      skillsOnlyUnverified.some((k) => k.toLowerCase() === norm) ||
-      missingFromResume.some((k) => k.toLowerCase() === norm)
+      skillsOnlyUnverified.some((k) => k.toLowerCase() === norm)
 
     if (!alreadyHandled) {
       const inExperience = keywordMatchesText(skill, expAndProjText)
-      if (!inExperience) {
-        additionalUnverified.push(skill)
+      if (inExperience) {
+        matchedInExperience.push(skill)
+      } else {
+        skillsOnlyUnverified.push(skill)
       }
     }
   }
 
-  // Deduplicate and cap skillsOnlyUnverified to at most 6–8 items total
-  const uniqueMatched = Array.from(new Set(matchedInExperience.filter(isConcreteTechSkill)))
-  const rawSkillsOnly = [
-    ...skillsOnlyUnverified,
-    ...additionalUnverified.slice(0, 6),
-  ]
-  const uniqueSkillsOnly = Array.from(
-    new Set(
-      rawSkillsOnly
-        .map(decodeHtmlEntities)
-        .filter(isConcreteTechSkillChip)
-        .filter(isConcreteTechSkill)
-        .filter((s) => !/&amp/i.test(s) && s.split(/\s+/).length <= 3)
-        .filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase()))
-    )
-  ).slice(0, 8)
-
-  const uniqueMissing = Array.from(
-    new Set(missingFromResume.filter(isConcreteTechSkill).filter((s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())))
-  )
-
-  // 5. Market JD Skill Demand Comparison (Benchmarked against live tech JDs)
-  const missingMarketSkillsRanked = []
-
-  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
-    for (const item of marketProfile.skills) {
-      const skillName = typeof item === 'string' ? item : (item.name || item.skill || '')
-      if (!skillName || !isConcreteTechSkill(skillName)) continue
-
-      const inExperience = keywordMatchesText(skillName, expAndProjText)
-      const inSkills = keywordMatchesText(skillName, skillsText)
-      const inSummary = keywordMatchesText(skillName, summaryText)
-      const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(skillName, fullResumeText)
-
-      if (!inFullResume) {
-        const pct = item.percentage != null
-          ? item.percentage
-          : (item.frequencyRatio != null ? Math.round(item.frequencyRatio * 100) : 0)
-        const priority = item.priority || (pct >= 40 ? 'HIGH' : pct >= 20 ? 'MEDIUM' : 'LOW')
-        missingMarketSkillsRanked.push({
-          keyword: skillName,
-          percentage: pct,
-          priority,
-          category: item.category || 'tools',
-          badge: `${pct}% of JDs`,
-        })
-        if (uniqueMissing.length < 25 && !uniqueMissing.some((m) => m.toLowerCase() === skillName.toLowerCase())) {
-          uniqueMissing.push(skillName)
-        }
-      }
-    }
-  } else {
-    const demandedSkills = getMarketDemandedSkills(roleName, marketProfile)
-    for (const item of demandedSkills) {
-      if (!isConcreteTechSkill(item.skill)) continue
-      const inExperience = keywordMatchesText(item.skill, expAndProjText)
-      const inSkills = keywordMatchesText(item.skill, skillsText)
-      const inSummary = keywordMatchesText(item.skill, summaryText)
-      const inFullResume = inExperience || inSkills || inSummary || keywordMatchesText(item.skill, fullResumeText)
-
-      if (!inFullResume && (item.priority === 'HIGH' || item.priority === 'MEDIUM')) {
-        missingMarketSkillsRanked.push({
-          keyword: item.skill,
-          percentage: item.percentage,
-          priority: item.priority,
-          category: item.category,
-          badge: `${item.percentage}% of JDs`,
-        })
-        if (uniqueMissing.length < 25 && !uniqueMissing.some((m) => m.toLowerCase() === item.skill.toLowerCase())) {
-          uniqueMissing.push(item.skill)
-        }
-      }
-    }
-  }
-
-  // Sort ranked skills by percentage descending
+  // Sort genuinely missing skills strictly by market percentage descending (ALL OF THEM, NO SLICE!)
   missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage)
 
+  const uniqueMatched = Array.from(new Set(matchedInExperience))
+  const uniqueSkillsOnly = Array.from(new Set(skillsOnlyUnverified)).filter(
+    (s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())
+  )
+  const uniqueMissing = missingMarketSkillsRanked.map((m) => m.keyword)
+
   const matchedCount = uniqueMatched.length
-  const totalTargetKeywords = Math.min(24, uniqueMatched.length + uniqueMissing.length)
+  const totalTargetKeywords = uniqueMatched.length + uniqueSkillsOnly.length + missingMarketSkillsRanked.length
   const matchPercent = totalTargetKeywords > 0 ? Math.round((matchedCount / totalTargetKeywords) * 100) : 100
 
   return {
     source: isJdProvided ? 'active_jd' : 'market_intelligence',
     sourceLabel: isJdProvided ? 'Active Job Description' : 'Market Intelligence (Top Target Keywords)',
     targetRole: roleName,
-    targetKeywords,
+    targetKeywords: allMarketSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean),
     matchedCount,
     totalTargetKeywords,
     matchPercent,
     matchedInExperience: uniqueMatched,
     skillsOnlyUnverified: uniqueSkillsOnly,
-    missingFromResume: uniqueMissing,
-    missingMarketSkillsRanked,
+    missingFromResume: uniqueMissing, // 100% genuinely missing skills only, UNCAPPED!
+    missingMarketSkillsRanked,        // 100% genuinely missing skills only, UNCAPPED!
     isCompleteCoverage: uniqueMissing.length === 0,
     skillsOnlyGuidance: 'Listed in your Skills section, but not shown in your work bullets — mention in 1 bullet to prove hands-on usage.',
   }

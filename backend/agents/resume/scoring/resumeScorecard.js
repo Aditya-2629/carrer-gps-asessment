@@ -435,7 +435,10 @@ export function computeScorecard({
     grades,
     checks,
     bulletAudit,
-    keywordAlignment,
+    keywordAlignment: {
+      ...keywordAlignment,
+      missingMarketSkillsRanked: keywordAlignment?.missingMarketSkillsRanked || [], // Full uncapped list
+    },
     summary: {
       fix: bulletAudit.filter((b) => b.status === 'fix').length,
       warn: bulletAudit.filter((b) => b.status === 'warn').length,

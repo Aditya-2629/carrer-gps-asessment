@@ -216,3 +216,4 @@ assert.strictEqual(missingPowerBi.badge, '78% of JDs', 'Power BI badge must be "
 console.log('✔ Test 5 Passed: keywordAlignment loads pre-computed market percentages instantly.\n')
 
 console.log('ALL LLM JD SKILL ANALYZER & MARKET CACHE TESTS PASSED SUCCESSFULLY! 🚀')
+
