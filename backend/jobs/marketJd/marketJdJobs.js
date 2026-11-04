@@ -210,10 +210,10 @@ export async function ensureConfiguredBucketsExist() {
  * @param {Object} params
  * @param {string} [params.role='Software Engineer']
  * @param {number} [params.targetCount=15]
- * @param {number} [params.timeoutMs=12000]
+ * @param {number} [params.timeoutMs=25000]
  * @returns {Promise<Array<Object>>} Scraped job items
  */
-export async function fetchFastCatchJds({ role = 'Software Engineer', targetCount = 15, timeoutMs = 12000, mockJds = null } = {}) {
+export async function fetchFastCatchJds({ role = 'Software Engineer', targetCount = 15, timeoutMs = 25000, mockJds = null } = {}) {
   if (Array.isArray(mockJds)) {
     return mockJds
   }

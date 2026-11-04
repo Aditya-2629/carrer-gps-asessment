@@ -525,9 +525,10 @@ COACHING DIRECTIVES:
       { role: 'user', content: question },
     ]
 
-    // Fast-Tier Execution via OpenRouter Paid (with Groq fallback)
+    // Fast-Tier Execution via OpenRouter Paid Tier
     let replyText = ''
     try {
+      // Priority 1: OpenRouter Paid Tier (1.05M Context, Instant 1.5s Response)
       const { text: responseText } = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
@@ -536,27 +537,27 @@ COACHING DIRECTIVES:
         messages: chatMessages,
         responseFormat: 'text',
         temperature: 0.3,
-        maxTokens: 600,
-        timeoutMs: 15000,
+        maxTokens: 1024,
+        timeoutMs: 30000,
       })
       replyText = responseText
     } catch (err) {
-      console.warn('[ChatResume] OpenRouter chat failed, trying Groq fallback:', err.message)
+      console.warn('[AssessmentController] Chatbot OpenRouter primary failed, trying flash-preview:', err.message)
       try {
         const { text: fallbackText } = await llmGateway.generate({
           purpose: 'assessment_report',
           task: 'report_chatbot',
-          preferredProvider: 'groq',
-          model: 'openai/gpt-oss-120b',
+          preferredProvider: 'openrouter',
+          model: 'google/gemini-3-flash-preview',
           messages: chatMessages,
           responseFormat: 'text',
           temperature: 0.3,
-          maxTokens: 600,
-          timeoutMs: 12000,
+          maxTokens: 1024,
+          timeoutMs: 30000,
         })
         replyText = fallbackText
       } catch (fallbackErr) {
-        console.error('[ChatResume] All chatbot tiers failed:', fallbackErr.message)
+        console.error('[AssessmentController] All chatbot tiers failed:', fallbackErr.message)
         replyText = `I'm analyzing your profile for **${targetRole || 'your target role'}**. Based on your background at **${recentCompany || 'your recent company'}**, the most critical priority is proving hands-on impact with **${verifiedStack || 'your core technical tools'}** while targeting key market requirements.\n\nLet's dive into specifics—which section of your report would you like to drill down on first?`
       }
     }

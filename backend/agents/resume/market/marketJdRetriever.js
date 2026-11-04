@@ -88,7 +88,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         const fastCatchJds = await fetchFastCatchJds({
           role: roleClean,
           targetCount: 15,
-          timeoutMs: 12000, // 12s hard budget
+          timeoutMs: 25000, // 25s budget for Apify live batch
         })
 
         if (Array.isArray(fastCatchJds) && fastCatchJds.length >= 3) {

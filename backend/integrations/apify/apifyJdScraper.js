@@ -161,11 +161,16 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
   }
 
   return await apifyKeyPool.executeWithRetry(async (activeToken) => {
-    const client = new ApifyClient({ token: activeToken, timeoutSecs: Math.round(timeoutMs / 1000) })
+    // Set 120s timeout so LinkedIn scraper has time to retrieve 100 items without dropping
+    const client = new ApifyClient({
+      token: activeToken,
+      timeoutSecs: 120,
+      maxRetries: 3,
+    })
     console.log(`[Apify JdScraper] Starting Actor run "${actorId}" with key ...${activeToken.slice(-4)} for query: "${searchSpec.query}" (Target: ${maxCandidates} JDs)...`)
 
     const run = await client.actor(actorId).call(actorInput, {
-      waitSecs: Math.round(timeoutMs / 1000),
+      waitSecs: 120,
       maxItems: maxCandidates,
     })
 
