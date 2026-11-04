@@ -1,11 +1,9 @@
 /**
  * LLM-Powered JD Analyzer & Canonical Skill Normalizer — Career GPS Market Intelligence
  *
- * Analyzes scraped Job Descriptions in compact batches of 10 to extract genuine technical
- * skills, libraries, frameworks, cloud services, and technical methodologies.
- * Eliminates English noise, prepositions, and generic words.
- * Canonically normalizes synonyms (e.g. "Postgres" -> "PostgreSQL", "PowerBI" -> "Power BI")
- * and computes exact occurrence frequencies and market percentages across postings.
+ * Implements two-stage market intelligence pipeline:
+ * Step 1: Skill Extraction (Per-JD Analysis) -> Extracts raw resume-worthy technical skills (required vs preferred).
+ * Step 2: Taxonomy Normalization -> Maps raw terms to standardized canonical industry names or rejects noise ("").
  */
 
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
@@ -15,6 +13,65 @@ import { extractSkillsFromJd } from './jdNormalizer.js'
 
 export const BATCH_SIZE = 10
 
+// --- 1. SKILL EXTRACTION PROMPT (PER-JD ANALYSIS) ---
+
+export const SKILL_EXTRACTION_SYSTEM_PROMPT = `You are an expert technical recruiter and talent taxonomy engine. 
+Analyze the provided Job Description and extract ONLY concrete, resume-worthy technical skills.
+
+CATEGORIES TO EXTRACT:
+- Programming languages & runtimes (e.g., Python, SQL, R, TypeScript)
+- Frameworks & libraries (e.g., React, Pandas, PyTorch, Express)
+- Databases & storage (e.g., PostgreSQL, MongoDB, Redis, Snowflake, BigQuery)
+- Cloud platforms & infrastructure (e.g., AWS, Azure, GCP, Docker, Kubernetes)
+- Developer tools & platforms (e.g., Git, Jira, Postman, Airflow)
+- Methodologies (e.g., Agile, Scrum, CI/CD, ETL/ELT)
+- Technical certifications (e.g., AWS SAA, PMP, Databricks Certified)
+
+STRICT EXCLUSIONS:
+- Soft skills (e.g., communication, problem-solving, leadership, collaboration)
+- Job titles & seniority levels (e.g., Senior, Lead, Manager, Intern)
+- Generic nouns / tech buzzwords (e.g., data, cloud, backend, insights, dashboard, software, server, scalability)
+- Company names, benefits, education, and compensation details
+
+RULES:
+1. "required": Skills explicitly stated as mandatory, required, minimum qualifications, or essential.
+2. "preferred": Skills stated as bonus, nice-to-have, preferred qualifications, or plus points.
+3. Preserve the exact naming style as found in the text (do not guess normalization here).
+4. Do not include any preambles, explanations, or Markdown fences.
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+{
+  "required": ["Python", "SQL", "Snowflake"],
+  "preferred": ["Docker", "Airflow", "dbt"]
+}`
+
+// Backward-compatible alias
+export const JD_ANALYSIS_SYSTEM_PROMPT = SKILL_EXTRACTION_SYSTEM_PROMPT
+
+export function buildSkillExtractionUserMessage(jobTitle = '', jobDescription = '') {
+  return `Job Title: ${jobTitle || 'Professional'}\n\nJob Description:\n${jobDescription || ''}`
+}
+
+// --- 2. CANONICAL MAPPING PROMPT (STEP 2 - TAXONOMY NORMALIZER) ---
+
+export const TAXONOMY_NORMALIZER_SYSTEM_PROMPT = `You are a technical taxonomy normalizer.
+You will receive an array of raw technical terms extracted from various job descriptions.
+
+TASK:
+1. Map each raw input term to its official, canonical industry name (e.g., "postgres" -> "PostgreSQL", "k8s" -> "Kubernetes", "power bi" -> "Power BI", "node js" -> "Node.js", "gcp" -> "Google Cloud Platform").
+2. If an input term is generic noise, a soft skill, or not a concrete technical skill/tool/methodology (e.g., "communication", "insights", "analytics", "server"), map its canonical value to an empty string "".
+3. Return the mapping for EVERY single input term in the array.
+
+Output format must strictly be a JSON array of objects:
+[
+  { "term": "<exact input term>", "canonical": "<Standardized Name or ''>" }
+]`
+
+export function buildTaxonomyNormalizerUserMessage(terms = []) {
+  return JSON.stringify(terms, null, 2)
+}
+
+// Preserved high-frequency synonym dictionary for instant 0ms lookups
 export const CANONICAL_SYNONYMS = {
   'postgres': 'PostgreSQL',
   'postgresql': 'PostgreSQL',
@@ -32,12 +89,22 @@ export const CANONICAL_SYNONYMS = {
   'google bigquery': 'BigQuery',
   'dbt': 'dbt',
   'dbt core': 'dbt',
-  'react': 'React',
-  'react.js': 'React',
-  'reactjs': 'React',
   'node': 'Node.js',
   'node.js': 'Node.js',
   'nodejs': 'Node.js',
+  'node js': 'Node.js',
+  'react': 'React',
+  'react.js': 'React',
+  'reactjs': 'React',
+  'react js': 'React',
+  'vue': 'Vue.js',
+  'vue.js': 'Vue.js',
+  'vuejs': 'Vue.js',
+  'vue js': 'Vue.js',
+  'next': 'Next.js',
+  'next.js': 'Next.js',
+  'nextjs': 'Next.js',
+  'next js': 'Next.js',
   'k8s': 'Kubernetes',
   'kube': 'Kubernetes',
   'kubernetes': 'Kubernetes',
@@ -58,44 +125,16 @@ export const CANONICAL_SYNONYMS = {
   'microsoft excel': 'Excel',
 }
 
-export const JD_ANALYSIS_SYSTEM_PROMPT = `You are a Principal Talent Intelligence & ATS Skills Architect.
-Your task is to analyze raw Job Descriptions and extract all required technical skills, platforms, libraries, programming languages, databases, cloud services, and technical methodologies.
+// In-memory cache for normalized taxonomy terms
+export const TAXONOMY_CANONICAL_CACHE = new Map()
 
-CRITICAL NORMALIZATION RULES:
-1. Extract ONLY concrete technical tools, software, platforms, libraries, languages, and technical methodologies.
-2. NEVER extract English prepositions, pronouns, job levels, or generic nouns (e.g. NEVER extract "into", "your", "position", "overview", "senior", "insights", "server", "US", "data", "IT").
-3. CANONICAL NORMALIZATION: Normalize synonyms into their single industry standard canonical name:
-   - "Postgres" / "Postgre SQL" -> "PostgreSQL"
-   - "PowerBI" / "MS Power BI" / "Power-BI" -> "Power BI"
-   - "AWS" / "Amazon Web Services" -> "AWS"
-   - "GCP" / "Google Cloud Platform" -> "Google Cloud"
-   - "BigQuery" / "Google BigQuery" -> "BigQuery"
-   - "dbt" / "DBT Core" -> "dbt"
-   - "React.js" / "ReactJS" -> "React"
-   - "Node.js" / "NodeJS" -> "Node.js"
-   - "Kube" / "K8s" -> "Kubernetes"
-4. Assign each skill to a canonical category:
-   - "languages"
-   - "cloud_devops"
-   - "database_warehousing"
-   - "bi_visualization"
-   - "data_engineering"
-   - "ai_ml"
-   - "methodologies_processes"
-
-OUTPUT FORMAT (JSON ONLY):
-{
-  "analyzedJobs": [
-    {
-      "jobIndex": 0,
-      "skills": [
-        { "canonicalName": "SQL", "category": "database_warehousing" },
-        { "canonicalName": "Power BI", "category": "bi_visualization" },
-        { "canonicalName": "Snowflake", "category": "database_warehousing" }
-      ]
-    }
-  ]
-}`
+// Pre-seed known synonyms and noise terms into cache
+Object.entries(CANONICAL_SYNONYMS).forEach(([term, canon]) => {
+  TAXONOMY_CANONICAL_CACHE.set(term.toLowerCase(), canon)
+})
+;['communication', 'insights', 'analytics', 'server', 'data', 'cloud', 'backend', 'into', 'your', 'our', 'us', 'position', 'overview', 'senior'].forEach((noise) => {
+  TAXONOMY_CANONICAL_CACHE.set(noise, '')
+})
 
 /**
  * Normalizes a raw skill string to its canonical industry name
@@ -106,6 +145,11 @@ export function normalizeCanonicalSkill(rawName = '') {
   if (trimmed.length < 2) return null
 
   const lower = trimmed.toLowerCase()
+  if (TAXONOMY_CANONICAL_CACHE.has(lower)) {
+    const cached = TAXONOMY_CANONICAL_CACHE.get(lower)
+    return cached && cached.length > 0 ? cached : null
+  }
+
   if (CANONICAL_SYNONYMS[lower]) {
     return CANONICAL_SYNONYMS[lower]
   }
@@ -122,17 +166,12 @@ export function normalizeCanonicalSkill(rawName = '') {
 }
 
 /**
- * Analyzes a batch of JDs via Fast LLM Gateway (Groq / OpenRouter)
+ * Step 1: Extracts raw required and preferred technical skills from a single JD
  */
-export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
-  const formattedJds = jobsBatch
-    .map((job, idx) => {
-      const title = job.title || 'Untitled'
-      const company = job.company || 'Unknown'
-      const desc = (job.description || job.text || job.normalizedDescription || '').slice(0, 1500)
-      return `--- JOB #${startIndex + idx} (${title} at ${company}) ---\n${desc}\n`
-    })
-    .join('\n')
+export async function extractSkillsFromSingleJd({ jobTitle = '', jobDescription = '', timeoutMs = 15000 }) {
+  if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length < 20) {
+    return { required: [], preferred: [] }
+  }
 
   try {
     const response = await llmGateway.generate({
@@ -140,16 +179,13 @@ export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
       preferredProvider: 'groq',
       model: 'llama-3.3-70b-versatile',
       messages: [
-        { role: 'system', content: JD_ANALYSIS_SYSTEM_PROMPT },
-        {
-          role: 'user',
-          content: `Analyze these ${jobsBatch.length} Job Descriptions and extract canonical technical skills:\n\n${formattedJds}`,
-        },
+        { role: 'system', content: SKILL_EXTRACTION_SYSTEM_PROMPT },
+        { role: 'user', content: buildSkillExtractionUserMessage(jobTitle, jobDescription.slice(0, 3000)) },
       ],
       responseFormat: { type: 'json_object' },
       temperature: 0.1,
-      maxTokens: 2500,
-      timeoutMs: 30000,
+      maxTokens: 1000,
+      timeoutMs,
     })
 
     const raw = response?.text || '{}'
@@ -160,43 +196,165 @@ export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
       parsed = JSON.parse(jsonrepair(raw))
     }
 
-    return parsed?.analyzedJobs || []
+    const required = Array.isArray(parsed?.required) ? parsed.required : []
+    const preferred = Array.isArray(parsed?.preferred) ? parsed.preferred : []
+
+    return {
+      required: required.map((s) => (typeof s === 'string' ? s.trim() : (s?.name || '')).trim()).filter(Boolean),
+      preferred: preferred.map((s) => (typeof s === 'string' ? s.trim() : (s?.name || '')).trim()).filter(Boolean),
+    }
   } catch (err) {
-    console.warn(`[LlmJdAnalyzer] Batch ${startIndex} extraction via Groq failed, attempting OpenRouter:`, err.message)
-    try {
-      const response = await llmGateway.generate({
-        purpose: 'market_jd_analysis',
-        preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash',
-        messages: [
-          { role: 'system', content: JD_ANALYSIS_SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: `Analyze these ${jobsBatch.length} Job Descriptions and extract canonical technical skills:\n\n${formattedJds}`,
-          },
-        ],
-        responseFormat: { type: 'json_object' },
-        temperature: 0.1,
-        maxTokens: 2500,
-        timeoutMs: 30000,
-      })
-      const raw = response?.text || '{}'
-      return JSON.parse(jsonrepair(raw))?.analyzedJobs || []
-    } catch (openRouterErr) {
-      console.warn(`[LlmJdAnalyzer] Batch ${startIndex} OpenRouter extraction also failed:`, openRouterErr.message)
-      // Heuristic fallback for offline / test environments
-      return jobsBatch.map((job, idx) => {
-        const rawSkills = job.skills || extractSkillsFromJd(job.description || job.text || job.normalizedDescription || '')
-        const skills = rawSkills
-          .map((s) => ({ canonicalName: normalizeCanonicalSkill(s) || s, category: 'tools' }))
-          .filter((item) => Boolean(item.canonicalName))
-        return {
-          jobIndex: startIndex + idx,
-          skills,
-        }
-      })
+    console.warn(`[LlmJdAnalyzer] Step 1 extraction failed for "${jobTitle}":`, err.message)
+    // Heuristic fallback for offline/test environments
+    const heuristicSkills = extractSkillsFromJd(jobDescription)
+    return {
+      required: heuristicSkills,
+      preferred: [],
     }
   }
+}
+
+/**
+ * Step 2: Normalizes an array of raw technical terms into canonical industry names
+ */
+export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000) {
+  if (!Array.isArray(rawTerms) || rawTerms.length === 0) {
+    return new Map()
+  }
+
+  const resultMap = new Map()
+  const uncachedTerms = []
+
+  for (const term of rawTerms) {
+    if (!term || typeof term !== 'string') continue
+    const clean = term.trim()
+    const low = clean.toLowerCase()
+
+    if (CANONICAL_SYNONYMS[low]) {
+      resultMap.set(clean, CANONICAL_SYNONYMS[low])
+    } else if (TAXONOMY_CANONICAL_CACHE.has(low)) {
+      resultMap.set(clean, TAXONOMY_CANONICAL_CACHE.get(low))
+    } else {
+      uncachedTerms.push(clean)
+    }
+  }
+
+  if (uncachedTerms.length === 0) {
+    return resultMap
+  }
+
+  const uniqueUncached = Array.from(new Set(uncachedTerms))
+
+  try {
+    const response = await llmGateway.generate({
+      purpose: 'market_jd_analysis',
+      preferredProvider: 'groq',
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: TAXONOMY_NORMALIZER_SYSTEM_PROMPT },
+        { role: 'user', content: buildTaxonomyNormalizerUserMessage(uniqueUncached) },
+      ],
+      responseFormat: { type: 'json_object' },
+      temperature: 0.1,
+      maxTokens: 2000,
+      timeoutMs,
+    })
+
+    const raw = response?.text || '[]'
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = JSON.parse(jsonrepair(raw))
+    }
+
+    const items = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.mappings) ? parsed.mappings : [])
+    for (const item of items) {
+      if (item?.term) {
+        const canonical = typeof item.canonical === 'string' ? item.canonical.trim() : ''
+        TAXONOMY_CANONICAL_CACHE.set(item.term.toLowerCase(), canonical)
+        resultMap.set(item.term, canonical)
+      }
+    }
+  } catch (err) {
+    console.warn('[LlmJdAnalyzer] Step 2 taxonomy normalization failed, falling back to deterministic dictionary:', err.message)
+    for (const term of uniqueUncached) {
+      const fallback = normalizeCanonicalSkill(term) || ''
+      TAXONOMY_CANONICAL_CACHE.set(term.toLowerCase(), fallback)
+      resultMap.set(term, fallback)
+    }
+  }
+
+  // Ensure all requested terms have an entry
+  for (const term of rawTerms) {
+    if (!resultMap.has(term)) {
+      const low = term.toLowerCase()
+      resultMap.set(term, TAXONOMY_CANONICAL_CACHE.get(low) || normalizeCanonicalSkill(term) || '')
+    }
+  }
+
+  return resultMap
+}
+
+/**
+ * Analyzes a batch of JDs via Fast LLM Gateway (Groq / OpenRouter)
+ * Combines Step 1 (parallel extraction) and Step 2 (taxonomy normalization)
+ */
+export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
+  if (!Array.isArray(jobsBatch) || jobsBatch.length === 0) return []
+
+  // Step 1: Parallel extraction across batch
+  const extractionPromises = jobsBatch.map((job) =>
+    extractSkillsFromSingleJd({
+      jobTitle: job.title || 'Untitled',
+      jobDescription: job.description || job.text || job.normalizedDescription || '',
+    })
+  )
+
+  const extractedResults = await Promise.all(extractionPromises)
+
+  // Collect all unique raw terms across the batch
+  const allRawTerms = new Set()
+  const extractedPerJob = extractedResults.map((extracted, idx) => {
+    const combined = [
+      ...extracted.required.map((s) => ({ term: s, isRequired: true })),
+      ...extracted.preferred.map((s) => ({ term: s, isRequired: false })),
+    ]
+    combined.forEach((c) => allRawTerms.add(c.term))
+    return {
+      jobIndex: startIndex + idx,
+      rawSkills: combined,
+    }
+  })
+
+  // Step 2: Single batch taxonomy normalization
+  const taxonomyMap = await normalizeTaxonomyWithLLM(Array.from(allRawTerms))
+
+  // Map canonical skills back to each job
+  return extractedPerJob.map((job) => {
+    const seenCanon = new Set()
+    const skills = []
+
+    for (const item of job.rawSkills) {
+      const canonical = taxonomyMap.get(item.term) || normalizeCanonicalSkill(item.term)
+      if (canonical && canonical.length >= 2) {
+        const low = canonical.toLowerCase()
+        if (!seenCanon.has(low)) {
+          seenCanon.add(low)
+          skills.push({
+            canonicalName: canonical,
+            category: 'tools',
+            isRequired: item.isRequired,
+          })
+        }
+      }
+    }
+
+    return {
+      jobIndex: job.jobIndex,
+      skills,
+    }
+  })
 }
 
 /**
@@ -209,11 +367,11 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
   }
 
   const totalJds = rawJds.length
-  const skillOccurrences = new Map() // canonicalName -> { count, category, canonicalName }
+  const skillOccurrences = new Map() // canonicalName -> { count, requiredCount, preferredCount, category, canonicalName }
 
-  console.log(`[LlmJdAnalyzer] Starting LLM batch analysis for ${totalJds} JDs in bucket "${bucketKey}"...`)
+  console.log(`[LlmJdAnalyzer] Starting 2-step LLM analysis for ${totalJds} JDs in bucket "${bucketKey}"...`)
 
-  // Process in batches of 10 to respect token limits
+  // Process in batches of 10 to respect rate and token limits
   for (let i = 0; i < totalJds; i += BATCH_SIZE) {
     const batch = rawJds.slice(i, i + BATCH_SIZE)
     const analyzedJobs = await analyzeJdBatch(batch, i)
@@ -223,8 +381,7 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
       const jobSkills = jobResult?.skills || []
 
       for (const item of jobSkills) {
-        const rawName = String(item.canonicalName || '').trim()
-        const canonical = normalizeCanonicalSkill(rawName)
+        const canonical = item.canonicalName
         if (!canonical || canonical.length < 2) continue
 
         // Extra guard: Disallow banned non-skill tokens
@@ -238,9 +395,14 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
               canonicalName: canonical,
               category: item.category || 'tools',
               count: 0,
+              requiredCount: 0,
+              preferredCount: 0,
             })
           }
-          skillOccurrences.get(key).count += 1
+          const entry = skillOccurrences.get(key)
+          entry.count += 1
+          if (item.isRequired) entry.requiredCount += 1
+          else entry.preferredCount += 1
         }
       }
     }
@@ -259,13 +421,15 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
         percentage,
         frequencyRatio: Math.round((s.count / totalJds) * 100) / 100,
         priority,
+        requiredCount: s.requiredCount,
+        preferredCount: s.preferredCount,
       }
     })
     .filter((s) => s.percentage >= 10) // Appears in at least 10% of market postings
     .sort((a, b) => b.percentage - a.percentage)
 
   console.log(
-    `[LlmJdAnalyzer] Finished analysis for "${bucketKey}". Discovered ${marketSkills.length} unique canonical skills across ${totalJds} JDs.`
+    `[LlmJdAnalyzer] Finished 2-step analysis for "${bucketKey}". Discovered ${marketSkills.length} unique canonical skills across ${totalJds} JDs.`
   )
 
   return {
@@ -275,3 +439,16 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
   }
 }
 
+export default {
+  SKILL_EXTRACTION_SYSTEM_PROMPT,
+  buildSkillExtractionUserMessage,
+  TAXONOMY_NORMALIZER_SYSTEM_PROMPT,
+  buildTaxonomyNormalizerUserMessage,
+  CANONICAL_SYNONYMS,
+  TAXONOMY_CANONICAL_CACHE,
+  normalizeCanonicalSkill,
+  extractSkillsFromSingleJd,
+  normalizeTaxonomyWithLLM,
+  analyzeJdBatch,
+  analyzeAndAggregateJdCorpus,
+}

@@ -159,6 +159,7 @@ export class LLMGateway {
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
         modelsToTry = [
           'llama-3.3-70b-versatile',
+          'openai/gpt-oss-120b',
           'google/gemini-3.5-flash',
           'google/gemini-2.5-flash',
           'gemini-3.5-flash-lite',
