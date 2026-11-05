@@ -551,7 +551,12 @@ export class ResumeAgent {
           finishReason = gatewayResponse.finishReason || 'stop'
           if (promptCapture) promptCapture.generation.attempt = attempt
 
-          if (finishReason === 'length') break // fatal
+          if (finishReason === 'length') {
+            try {
+              validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
+            } catch (_e) {}
+            break
+          }
 
           validation = ResumeAgentValidator.validate(gatewayResponse.text, canonicalResume)
           if (validation.isValid) break
@@ -587,40 +592,62 @@ export class ResumeAgent {
 
       // ── Truncation Guard ──────────────────────────────────────────────────────
       if (finishReason === 'length') {
-        const telemetryRecord = span.finish({
-          actualModel: gatewayResponse.actualModel,
-          success: false,
-          error: { code: 'MODEL_OUTPUT_INCOMPLETE', message: 'Model output incomplete.' },
-          schemaValid: false,
-          evidenceValidationValid: false,
-          finishReason: 'length',
-          inputMode,
-        })
+        let parsedAnalysis = validation?.sanitizedAnalysis
+        if (!parsedAnalysis && rawModelOutput) {
+          try {
+            parsedAnalysis = ResumeAgentValidator.cleanAndParse(rawModelOutput)
+          } catch (_e) {}
+        }
 
-        return {
-          success: false,
-          status: 'MODEL_OUTPUT_INCOMPLETE',
-          classification: 'MODEL_OUTPUT_INCOMPLETE',
-          error: 'Model output incomplete (truncated due to token length limit).',
-          code: 'MODEL_OUTPUT_INCOMPLETE',
-          rawModelOutput,
-          metadata: gatewayMetadata,
-          canonicalResume,
-          signals,
-          state: state || null,
-          document: parsedDoc,
-          promptCapture,
-          inputMode,
-          inputSerializerVersion: INPUT_SERIALIZER_VERSION,
-          canonicalInputHash,
-          llmInputHash,
-          canonicalInputCharacters,
-          compactInputCharacters,
-          canonicalEstimatedTokens,
-          compactEstimatedTokens,
-          inputSizeReductionPercent,
-          llmInput,
-          telemetry: telemetryRecord,
+        // If jsonrepair already produced a valid parsed object with core sections, DO NOT FAIL!
+        const hasCoreData = Boolean(
+          parsedAnalysis &&
+          typeof parsedAnalysis === 'object' &&
+          (parsedAnalysis.candidateSnapshot || parsedAnalysis.strengths || parsedAnalysis.issues)
+        )
+
+        if (hasCoreData) {
+          console.warn('[ResumeAgent] Output was cut by length, but jsonrepair successfully recovered a valid analysis bundle. Proceeding with repaired output.')
+          if (!validation || !validation.sanitizedAnalysis) {
+            validation = ResumeAgentValidator.validate(parsedAnalysis, canonicalResume)
+          }
+          // Continue to Step 9 normalization instead of returning MODEL_OUTPUT_INCOMPLETE!
+        } else {
+          const telemetryRecord = span.finish({
+            actualModel: gatewayResponse?.actualModel,
+            success: false,
+            error: { code: 'MODEL_OUTPUT_INCOMPLETE', message: 'Model output incomplete and unrecoverable.' },
+            schemaValid: false,
+            evidenceValidationValid: false,
+            finishReason: 'length',
+            inputMode,
+          })
+
+          return {
+            success: false,
+            status: 'MODEL_OUTPUT_INCOMPLETE',
+            classification: 'MODEL_OUTPUT_INCOMPLETE',
+            error: 'Model output incomplete (truncated due to token length limit).',
+            code: 'MODEL_OUTPUT_INCOMPLETE',
+            rawModelOutput,
+            metadata: gatewayMetadata,
+            canonicalResume,
+            signals,
+            state: state || null,
+            document: parsedDoc,
+            promptCapture,
+            inputMode,
+            inputSerializerVersion: INPUT_SERIALIZER_VERSION,
+            canonicalInputHash,
+            llmInputHash,
+            canonicalInputCharacters,
+            compactInputCharacters,
+            canonicalEstimatedTokens,
+            compactEstimatedTokens,
+            inputSizeReductionPercent,
+            llmInput,
+            telemetry: telemetryRecord,
+          }
         }
       }
 

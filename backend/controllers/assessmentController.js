@@ -17,6 +17,7 @@ import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { costTracker } from '../utils/costTracker.js'
 import { DOCXParser } from '../services/documentParser/docxParser.js'
+import { PDFParser } from '../services/documentParser/pdfParser.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -111,40 +112,55 @@ Use this exact schema:
     cleanMime.includes('word') ||
     cleanMime.includes('officedocument')
 
-  let contents = []
+  let resumeText = ''
 
   if (isDocx) {
     // 1. DOCX Support: Extract structured text & bullets via Mammoth
     console.log(`[AssessmentController] Parsing Word document (${filename || 'resume.docx'}) via DOCXParser...`)
     const docxResult = await DOCXParser.parse(fileBuffer)
-    const extractedText = docxResult?.text?.trim() || ''
-
-    if (!extractedText || extractedText.length < 30) {
-      throw new Error('Could not extract text from Word document. The file may be empty, password-protected, or corrupted.')
-    }
-
-    contents = [
-      prompt,
-      `CANDIDATE WORD (.DOCX) RESUME TEXT CONTENT:\n\n${extractedText}`,
-    ]
+    resumeText = docxResult?.text?.trim() || ''
   } else {
-    // 2. PDF / Image Support via native Gemini inlineData
-    const filePart = {
-      inlineData: {
-        data: fileBuffer.toString('base64'),
-        mimeType: mimeType || 'application/pdf',
-      },
+    // 2. PDF Support: Extract text via PDFParser with pdf-parse fallback
+    try {
+      const pdfResult = await PDFParser.parse(fileBuffer)
+      resumeText = pdfResult?.text?.trim() || ''
+      if (!resumeText) {
+        const pdfParse = (await import('pdf-parse')).default || (await import('pdf-parse')).PDFParse
+        const pdfData = await pdfParse(fileBuffer)
+        resumeText = pdfData?.text?.trim() || ''
+      }
+    } catch (pdfErr) {
+      console.warn('[AssessmentController] PDF parser fallback, reading raw text:', pdfErr.message)
+      resumeText = fileBuffer.toString('latin1')
     }
-    contents = [prompt, filePart]
   }
 
-  const { text: responseText } = await generateContentWithFallback({
-    contents,
-    modelName: 'gemini-3.5-flash-lite',
+  if (!resumeText || resumeText.length < 30) {
+    throw new Error('Could not extract text from resume file. The file may be empty, password-protected, or scanned.')
+  }
+
+  const userPrompt = `${prompt}\n\nCANDIDATE RESUME TEXT CONTENT:\n\n${resumeText.slice(0, 15000)}`
+
+  // Use OpenRouter via LLMGateway (Bypasses Google direct 429 quota lockouts)
+  const { text: responseText } = await llmGateway.generate({
+    purpose: 'resume_parsing',
+    task: 'resume_synthesis',
+    preferredProvider: 'openrouter',
+    model: 'google/gemini-2.5-flash-lite',
+    messages: [{ role: 'user', content: userPrompt }],
+    responseFormat: 'json_object',
+    temperature: 0.1,
+    maxTokens: 4096,
   })
 
-  const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim()
-  const parsed = JSON.parse(cleanJson)
+  let parsed = null
+  const cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim()
+  try {
+    parsed = JSON.parse(cleanJson)
+  } catch (_e) {
+    const { jsonrepair } = await import('jsonrepair')
+    parsed = JSON.parse(jsonrepair(cleanJson))
+  }
 
   // Sanitize missing_ats_keywords to remove any placeholder values
   const placeholderPatterns = [

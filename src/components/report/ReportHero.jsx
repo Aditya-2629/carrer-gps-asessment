@@ -33,20 +33,19 @@ export default function ReportHero({ reportData }) {
   const formData = useAppStore((s) => s.formData)
   const email = useAppStore((s) => s.email)
 
-  const candidate = reportData?.resume_json || storeResumeAnalysis?.data?.canonicalResume || {}
-  const resumeAgent = reportData?.resume_agent || storeResumeAnalysis?.data?.analysis || {}
+  const candidate = reportData?.resume_json || {}
+  const resumeAgent = reportData?.resume_agent || {}
 
   const rawName =
-    resumeAgent?.candidateSnapshot?.name ||
-    candidate?.candidate?.name ||
-    candidate?.candidate_name ||
-    candidate?.name ||
+    reportData?.resume_agent?.candidateSnapshot?.name ||
+    reportData?.resume_json?.candidate_name ||
+    reportData?.resume_json?.name ||
     reportData?.candidate_name ||
-    formData?.name ||
+    reportData?.user_answers?.name ||
+    reportData?.user_answers?.fullName ||
     formData?.fullName ||
-    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.name ||
-    storeResumeAnalysis?.data?.canonicalResume?.candidate?.name ||
-    (email ? email.split('@')[0] : '')
+    formData?.name ||
+    (email ? email.split('@')[0] : 'Candidate')
 
   const firstName = decodeHtmlEntities((typeof rawName === 'string' && rawName.trim())
     ? rawName.trim().split(' ')[0]
@@ -61,8 +60,6 @@ export default function ReportHero({ reportData }) {
     formData?.target_role ||
     formData?.desiredRole ||
     formData?.role ||
-    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
-    storeResumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
     ''
   )
 
@@ -80,24 +77,18 @@ export default function ReportHero({ reportData }) {
   const presentRole = decodeHtmlEntities(
     resumeAgent?.candidateSnapshot?.presentRole ||
     candidate?.candidate?.presentRole ||
-    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentRole ||
-    storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentRole ||
     ''
   )
 
   const presentCompany = decodeHtmlEntities(
     resumeAgent?.candidateSnapshot?.presentCompany ||
     candidate?.candidate?.presentCompany ||
-    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.presentCompany ||
-    storeResumeAnalysis?.data?.canonicalResume?.candidate?.presentCompany ||
     ''
   )
 
   const rawPastRoles =
     resumeAgent?.candidateSnapshot?.pastRoles ||
     candidate?.candidate?.pastRoles ||
-    storeResumeAnalysis?.data?.analysis?.candidateSnapshot?.pastRoles ||
-    storeResumeAnalysis?.data?.canonicalResume?.candidate?.pastRoles ||
     []
 
   const pastRoles = Array.isArray(rawPastRoles)
