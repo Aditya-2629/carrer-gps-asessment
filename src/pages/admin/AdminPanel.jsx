@@ -204,6 +204,7 @@ function DetailDrawer({ userId, api, onClose }) {
                 ['Primary profile', user.primaryProfile],
                 ['Resume file', user.resumeName],
                 ['LinkedIn', user.linkedinUrl],
+                ['LinkedIn Activity', user.linkedinActivityTier || 'Unscraped'],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4">
                   <span className="text-slate-400 font-semibold shrink-0">{k}</span>
@@ -514,7 +515,22 @@ export default function AdminPanel({ onLogout }) {
                     </td>
                     <td className="px-4 py-3">{scoreChip(u.careerScore)}</td>
                     <td className="px-4 py-3">{scoreChip(u.resumeScore)}</td>
-                    <td className="px-4 py-3">{scoreChip(u.linkedinScore)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        {scoreChip(u.linkedinScore)}
+                        {u.linkedinActivityTier && (
+                          <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded shrink-0 w-fit ${
+                            u.linkedinActivityTier === 'Highly Active'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : u.linkedinActivityTier === 'Regular'
+                              ? 'bg-sky-50 text-sky-700'
+                              : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {u.isGhostProfile ? 'Ghost' : u.linkedinActivityTier}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <button onClick={() => setDetailId(u.id)} title="View details" className="p-1.5 rounded-lg hover:bg-indigo-50 text-indigo-500 cursor-pointer"><Eye size={15} weight="bold" /></button>

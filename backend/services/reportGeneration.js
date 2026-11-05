@@ -378,6 +378,8 @@ export async function generateReportBundle({
     user.linkedinData = precomputedLinkedinData
   }
 
+  let precomputedLinkedinActivityData = user.linkedinActivityData || user.answers?.linkedinActivityData || null
+
   const effectiveCanonicalResume =
     precomputedResumeJson ||
     precomputedResumeAgent?.canonicalResume ||
@@ -461,6 +463,7 @@ export async function generateReportBundle({
         answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
         linkedinUrl: effectiveLinkedinUrl,
         linkedinData: user.linkedinData || precomputedLinkedinData || null,
+        linkedinActivityData: user.linkedinActivityData || precomputedLinkedinActivityData || null,
         userId: user._id,
         assessmentPersona,
         skipResumeSynthesis: true,
@@ -486,6 +489,7 @@ export async function generateReportBundle({
       answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
       linkedinUrl: effectiveLinkedinUrl,
       linkedinData: user.linkedinData || precomputedLinkedinData || null,
+      linkedinActivityData: user.linkedinActivityData || precomputedLinkedinActivityData || null,
       userId: user._id,
       assessmentPersona,
       onProgress: (e) => {
@@ -525,10 +529,14 @@ export async function generateReportBundle({
   }
 
   // Persist LinkedIn Activity data & signals from orchestrator results
-  if (result?.linkedinActivityData) {
+  if (result?.activityData && !user.linkedinActivityData) {
+    user.linkedinActivityData = result.activityData
+  } else if (result?.linkedinActivityData) {
     user.linkedinActivityData = result.linkedinActivityData
   }
-  if (result?.linkedinActivitySignals) {
+  if (result?.activitySignals && !user.linkedinActivitySignals) {
+    user.linkedinActivitySignals = result.activitySignals
+  } else if (result?.linkedinActivitySignals) {
     user.linkedinActivitySignals = result.linkedinActivitySignals
   } else if (activeLinkedinAgent?.activitySignals) {
     user.linkedinActivitySignals = activeLinkedinAgent.activitySignals

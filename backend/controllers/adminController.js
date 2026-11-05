@@ -67,6 +67,8 @@ function extractScores(user) {
     careerScore: typeof r.career_health_score === 'number' ? r.career_health_score : null,
     resumeScore: r.resume_agent?.dashboard?.score ?? null,
     linkedinScore: r.linkedin_agent?.score ?? null,
+    linkedinActivityTier: r.linkedin_agent?.activitySignals?.recencyTier || (r.linkedin_agent?.activitySignals?.isGhostProfile ? 'Dormant' : null),
+    isGhostProfile: Boolean(r.linkedin_agent?.activitySignals?.isGhostProfile),
     targetRole: r.resume_json?.target_role || r.target_role || null,
     primaryProfile: r.resume_agent?.candidateSnapshot?.primaryProfile || null,
   }
@@ -87,7 +89,7 @@ export const listUsers = async (req, res) => {
         .sort(sort)
         .skip((page - 1) * limit)
         .limit(limit)
-        .select('email isVerified createdAt resumeName linkedinUrl aiReport.career_health_score aiReport.resume_agent.dashboard.score aiReport.linkedin_agent.score aiReport.resume_json.target_role aiReport.resume_agent.candidateSnapshot.primaryProfile')
+        .select('email isVerified createdAt resumeName linkedinUrl aiReport.career_health_score aiReport.resume_agent.dashboard.score aiReport.linkedin_agent.score aiReport.linkedin_agent.activitySignals aiReport.resume_json.target_role aiReport.resume_agent.candidateSnapshot.primaryProfile')
         .lean(),
     ])
 
@@ -263,10 +265,10 @@ export const exportUsersCsv = async (req, res) => {
     const users = await User.find(filters)
       .sort(sort)
       .limit(5000)
-      .select('email isVerified createdAt resumeName linkedinUrl aiReport.career_health_score aiReport.resume_agent.dashboard.score aiReport.linkedin_agent.score aiReport.resume_json.target_role aiReport.resume_agent.candidateSnapshot.primaryProfile')
+      .select('email isVerified createdAt resumeName linkedinUrl aiReport.career_health_score aiReport.resume_agent.dashboard.score aiReport.linkedin_agent.score aiReport.linkedin_agent.activitySignals aiReport.resume_json.target_role aiReport.resume_agent.candidateSnapshot.primaryProfile')
       .lean()
 
-    const header = ['Email', 'Joined', 'Verified', 'Has Resume', 'Resume File', 'LinkedIn URL', 'Target Role', 'Career Score', 'Resume Score', 'LinkedIn Score', 'Profile']
+    const header = ['Email', 'Joined', 'Verified', 'Has Resume', 'Resume File', 'LinkedIn URL', 'Target Role', 'Career Score', 'Resume Score', 'LinkedIn Score', 'LinkedIn Activity', 'Profile']
     const rows = users.map((u) => {
       const s = extractScores(u)
       return [
@@ -280,6 +282,7 @@ export const exportUsersCsv = async (req, res) => {
         s.careerScore ?? '',
         s.resumeScore ?? '',
         s.linkedinScore ?? '',
+        s.linkedinActivityTier || (s.isGhostProfile ? 'Ghost' : ''),
         s.primaryProfile || '',
       ]
     })

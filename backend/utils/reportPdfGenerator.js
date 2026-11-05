@@ -312,6 +312,36 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
         }
       }
 
+      // Activity & Social SEO Thought Leadership
+      const activitySignals = linkedinAgent?.activitySignals || null
+      const thoughtLeadership = linkedinAgent?.optimizations?.thoughtLeadership || linkedinAgent?.thoughtLeadership || null
+      const topBlueprint = thoughtLeadership?.actionablePostTemplates?.[0] || null
+
+      if (activitySignals) {
+        ensureSpace(doc, 48)
+        doc.moveDown(0.3)
+        const boxY = doc.y
+        const isGhost = Boolean(activitySignals.isGhostProfile || activitySignals.recencyTier === 'Dormant')
+
+        // Background container
+        doc.rect(28, boxY, pageWidth, 42).fillAndStroke(isGhost ? '#fffbeb' : '#f0fdf4', isGhost ? '#fde68a' : '#bbf7d0')
+
+        // Header status
+        doc.fillColor(isGhost ? '#b45309' : '#15803d').fontSize(7.5).font('Helvetica-Bold')
+           .text(`RECRUITER ACTIVITY AUDIT: ${isGhost ? 'GHOST PROFILE (>60d Inactive)' : `ACTIVE TALENT (${activitySignals.daysSinceLastPost || 0}d ago · ${activitySignals.weeklyPostingCadence || 0}/wk)`}`, 34, boxY + 5)
+
+        // Metric line
+        doc.fillColor('#334155').fontSize(6.5).font('Helvetica')
+           .text(`Domain Alignment: ${activitySignals.domainAlignment?.domainKeywordOverlapScore || 0}%  |  Avg Likes: ${activitySignals.engagement?.avgLikes || 0}  |  Substance Score: ${activitySignals.substance?.substanceScore || 0}/100`, 34, boxY + 15)
+
+        // Top Blueprint Hook
+        if (topBlueprint) {
+          doc.fillColor('#0369a1').fontSize(6.5).font('Helvetica-Bold')
+             .text(`Actionable Social SEO Hook: "${(topBlueprint.hook || '').slice(0, 140)}"`, 34, boxY + 25, { width: pageWidth - 12 })
+        }
+        doc.y = boxY + 46
+      }
+
       // ==========================================
       // SECTION 5: CANDIDATE ASSESSMENT PROFILE & VERIFIED ANSWERS
       // ==========================================
