@@ -92,7 +92,7 @@ export function mapApifyPostsToCanonical(rawItems = [], formattedUrl = '') {
       ? item.postComments
       : []
 
-    const normalizedComments = rawComments.map((c, cIdx) => {
+    const normalizedComments = rawComments.slice(0, 10).map((c, cIdx) => {
       const commentText = cleanPostText(c.text || c.content || c.comment || '')
       const commentAuthor = c.author || c.commenter || c.user || null
       const authorName = typeof commentAuthor === 'string'
@@ -100,18 +100,18 @@ export function mapApifyPostsToCanonical(rawItems = [], formattedUrl = '') {
         : (commentAuthor?.name || commentAuthor?.fullName || 'LinkedIn Member')
 
       return {
-        id: c.id || c.urn || `comment_${idx + 1}_${cIdx + 1}`,
-        text: commentText,
-        authorName,
-        authorUrl: commentAuthor?.profileUrl || commentAuthor?.url || '',
+        id: String(c.id || c.urn || `comment_${idx + 1}_${cIdx + 1}`),
+        text: typeof commentText === 'string' ? commentText.trim() : '',
+        authorName: String(authorName),
+        authorUrl: String(commentAuthor?.profileUrl || commentAuthor?.url || ''),
         postedAt: c.postedAt || c.createdAt || c.date || null,
         likesCount: Number(c.likesCount || c.numLikes || c.likes || 0),
       }
     })
 
-    const likesCount = Number(item.likesCount || item.numLikes || item.likes || item.reactionCount || 0)
-    const commentsCount = Number(item.commentsCount || item.numComments || normalizedComments.length || 0)
-    const repostsCount = Number(item.repostsCount || item.numShares || item.shares || item.numReposts || 0)
+    const likesCount = Number(item.likesCount || item.numLikes || item.likes || item.reactionCount || item.engagement?.likes || 0)
+    const commentsCount = Number(item.commentsCount || item.numComments || item.engagement?.comments || normalizedComments.length || 0)
+    const repostsCount = Number(item.repostsCount || item.numShares || item.shares || item.numReposts || item.engagement?.shares || 0)
 
     totalLikes += likesCount
     totalComments += commentsCount
@@ -124,30 +124,45 @@ export function mapApifyPostsToCanonical(rawItems = [], formattedUrl = '') {
     if (!authorMeta && (item.author || item.actor)) {
       const a = item.author || item.actor
       authorMeta = {
-        name: a.name || a.fullName || '',
-        headline: a.headline || a.description || '',
-        profileUrl: a.profileUrl || a.url || formattedUrl,
+        name: String(a.name || a.fullName || ''),
+        headline: String(a.headline || a.description || ''),
+        profileUrl: String(a.profileUrl || a.url || formattedUrl),
       }
     }
 
-    const isRepost = Boolean(item.isRepost || item.repostedPost || item.repost || item.sharedPost)
-    const postUrl = item.url || item.postUrl || item.link || item.shareUrl || ''
+    const isRepost = Boolean(item.isRepost || item.repostedPost || item.repost || item.sharedPost || (typeof text === 'string' && text.startsWith('Shared:')))
+    const postUrl = String(item.url || item.postUrl || item.link || item.shareUrl || item.linkedinUrl || '')
+
+    const cleanTimestamp = item.postedAt?.timestamp || (item.postedAt?.date ? new Date(item.postedAt.date).getTime() : (typeof item.postedAt === 'string' && !isNaN(Date.parse(item.postedAt)) ? new Date(item.postedAt).getTime() : null))
+    const cleanDate = item.postedAt?.date || (typeof item.postedAt === 'string' ? item.postedAt : (typeof item.postedDate === 'string' ? item.postedDate : null))
+    const postedAgoShort = String(item.postedAt?.postedAgoShort || item.postedAgo || '')
 
     posts.push({
-      id: item.id || item.urn || item.postUrn || `post_${idx + 1}`,
-      text,
-      postedAt: item.postedAt || item.postedDate || item.createdAt || item.time || item.date || null,
+      id: String(item.id || item.urn || item.postUrn || `post_${idx + 1}`),
+      linkedinUrl: postUrl,
       url: postUrl,
+      content: typeof text === 'string' ? text.trim() : '',
+      text: typeof text === 'string' ? text.trim() : '',
+      postedAt: (cleanTimestamp || cleanDate || postedAgoShort) ? {
+        timestamp: cleanTimestamp,
+        date: cleanDate,
+        postedAgoShort,
+      } : null,
+      engagement: {
+        likes: likesCount,
+        comments: commentsCount,
+        shares: repostsCount,
+      },
       likesCount,
       commentsCount,
       repostsCount,
       isRepost,
       media: Array.isArray(item.media)
-        ? item.media
+        ? item.media.map((m) => (typeof m === 'string' ? m : m?.url || '')).filter(Boolean)
         : Array.isArray(item.images)
-        ? item.images
+        ? item.images.map((m) => (typeof m === 'string' ? m : m?.url || '')).filter(Boolean)
         : item.image
-        ? [item.image]
+        ? [typeof item.image === 'string' ? item.image : item.image?.url || '']
         : [],
       comments: normalizedComments,
     })

@@ -87,9 +87,10 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
 
     // Single terminal event WITH the payload — clients close on report_ready,
     // so it must never arrive before the report is attached.
-    job.aiReport = aiReport
+    const cleanReport = JSON.parse(JSON.stringify(aiReport))
+    job.aiReport = cleanReport
     job.status = 'done'
-    const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: aiReport }
+    const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: cleanReport }
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message })
     await job.save()
     bus.emit(jobId, finalEvent)

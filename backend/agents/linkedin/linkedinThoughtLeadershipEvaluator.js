@@ -13,6 +13,7 @@ import { llmGateway } from '../../ai/gateway/llmGateway.js'
 import {
   buildThoughtLeadershipSystemPrompt,
   buildThoughtLeadershipUserPrompt,
+  safeExtractString,
 } from './linkedinSynthesis.prompt.js'
 
 /**
@@ -385,7 +386,11 @@ export async function evaluateThoughtLeadershipAndSocialSeo({
   const fallback = buildDeterministicThoughtLeadership(targetRole, coreSkills, projects, false)
 
   try {
-    const recentPosts = posts.slice(0, 5)
+    const recentPosts = (Array.isArray(posts) ? posts : []).slice(0, 5).map((p) => ({
+      ...p,
+      text: safeExtractString(p?.text || p?.content || p?.description || ''),
+      content: safeExtractString(p?.content || p?.text || p?.description || ''),
+    }))
     const systemPrompt = buildThoughtLeadershipSystemPrompt()
     const userPrompt = buildThoughtLeadershipUserPrompt({
       targetRole,

@@ -50,9 +50,9 @@ export const PROVIDER_MODEL_FALLBACKS = {
     'google/gemini-3.1-pro-preview',
   ],
   groq: [
-    'llama-3.3-70b-versatile',
+    'llama-3.1-70b-versatile',
+    'llama3-70b-8192',
     'openai/gpt-oss-120b',
-    'openai/gpt-oss-20b',
   ],
   gemini: [
     'gemini-3.5-flash-lite',

@@ -14,13 +14,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function safeExtractString(val) {
-  if (typeof val === 'string') return val.trim();
-  if (val && typeof val === 'object') {
-    if (typeof val.text === 'string') return val.text.trim();
-    if (Array.isArray(val)) return val.map(safeExtractString).filter(Boolean).join(' ');
-    return JSON.stringify(val);
+  if (!val) return ''
+  if (typeof val === 'string') return val.trim()
+  if (typeof val === 'number') return String(val)
+  if (Array.isArray(val)) {
+    return val.map(safeExtractString).filter(Boolean).join(' ').trim()
   }
-  return '';
+  if (typeof val === 'object') {
+    const raw = val.text || val.content || val.description || val.summary || val.paragraph || val.value || ''
+    if (typeof raw === 'string') return raw.trim()
+    if (raw && typeof raw === 'object') return safeExtractString(raw)
+    return ''
+  }
+  return String(val).trim()
 }
 
 /**
@@ -565,9 +571,10 @@ export function buildThoughtLeadershipUserPrompt({
   const cleanProjects = Array.isArray(projects) && projects.length > 0
     ? projects.slice(0, 2).map((p, idx) => {
         const title = typeof p === 'string' ? p : (p?.name || p?.title || `Project ${idx + 1}`)
-        const desc = typeof p === 'object'
+        const rawDesc = typeof p === 'object'
           ? (p.description || (Array.isArray(p.bullets) ? p.bullets[0] : '') || '')
           : ''
+        const desc = safeExtractString(rawDesc)
         return `- ${title}${desc ? `: ${desc.slice(0, 160)}` : ''}`
       }).join('\n')
     : 'Production delivery and domain execution'
@@ -581,9 +588,9 @@ export function buildThoughtLeadershipUserPrompt({
   // Format up to 5 recent posts truncated to 240 chars each
   const postsBlock = Array.isArray(recentPosts) && recentPosts.length > 0
     ? recentPosts.slice(0, 5).map((p, idx) => {
-        const text = String(p.text || p.content || p.commentary || '').trim().slice(0, 240)
-        const likes = p.likesCount ?? 0
-        const comments = p.commentsCount ?? 0
+        const text = safeExtractString(p.text || p.content || p.commentary || '').slice(0, 240)
+        const likes = p.likesCount ?? p.engagement?.likes ?? 0
+        const comments = p.commentsCount ?? p.engagement?.comments ?? 0
         return `Post ${idx + 1} (${likes} likes, ${comments} comments):\n"${text}"`
       }).join('\n\n')
     : 'No recent public posts available on LinkedIn.'

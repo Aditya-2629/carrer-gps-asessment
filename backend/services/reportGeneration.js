@@ -117,6 +117,23 @@ export function mergeReportSections(primary = {}, fallback = {}) {
   return merged
 }
 
+export function deCycle(obj) {
+  if (obj === null || typeof obj !== 'object') return obj
+  const seen = new WeakSet()
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) => {
+      if (key === 'resumeContext' || (typeof key === 'string' && key.startsWith('$')) || key === '_doc') {
+        return undefined
+      }
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) return undefined
+        seen.add(value)
+      }
+      return value
+    })
+  )
+}
+
 export { parseAtlasJson, atlasCompleteness }
 
 export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month') {
@@ -993,16 +1010,17 @@ export async function generateReportBundle({
     })
   }
 
-  // Save report to User DB
-  user.aiReport = aiReport
+  // Save report to User DB (sanitized POJO without circular references)
+  const sanitizedReport = deCycle(aiReport)
+  user.aiReport = sanitizedReport
   await user.save()
 
   // Trigger Admin Email asynchronously (so candidate doesn't wait)
-  sendAdminReportEmail(user.email, user.answers, aiReport, user.resumeData, user.resumeName)
+  sendAdminReportEmail(user.email, user.answers, sanitizedReport, user.resumeData, user.resumeName)
 
   report('done', 'Report ready.')
 
-  return { user, aiReport }
+  return { user, aiReport: sanitizedReport }
 }
 
 export default { generateReportBundle }
