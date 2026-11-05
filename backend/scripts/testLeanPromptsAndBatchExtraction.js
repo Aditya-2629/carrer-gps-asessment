@@ -72,9 +72,9 @@ assert.ok(chatPrompt.includes('Overall Score: 82/100'))
 assert.ok(chatPrompt.includes('Verified Skills: Kubernetes, Terraform, CI/CD'))
 assert.ok(chatPrompt.includes('Missing Market Skills: ArgoCD, Prometheus'))
 assert.ok(chatPrompt.includes('Primary Bottleneck: Lack of GitOps scale evidence'))
-assert.ok(chatPrompt.includes('Max 3-4 sentences per response'))
+assert.ok(!chatPrompt.includes('Max 3-4 sentences per response'), 'Prompt must eliminate obsolete sentence limits')
 assert.ok(chatPrompt.includes('[Action Verb] + [Context/Tech Stack] + [Measurable Business Outcome]'))
-console.log('✔ Test 3 Passed: buildChatbotSystemPrompt minimizes context tokens and enforces strict brevity.\n')
+console.log('✔ Test 3 Passed: buildChatbotSystemPrompt minimizes context tokens and enforces high-leverage coaching.\n')
 
 // -------------------------------------------------------------
 // TEST 4: extractSkillsFromBatch1Shot Safe Edge-Case Handling

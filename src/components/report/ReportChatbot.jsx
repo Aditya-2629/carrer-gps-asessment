@@ -9,6 +9,8 @@ import {
   Check,
   CalendarBlank,
   ArrowRight,
+  ArrowsOutSimple,
+  ArrowsInSimple,
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
@@ -31,47 +33,56 @@ const scrollToSection = (href) => {
 }
 
 /**
- * 1-click Copyable Snippet Card for bullet rewrites, headlines, or cold outreach scripts
+ * Enhanced 1-Click Copyable Snippet Card for bullet rewrites, headlines, or cold outreach scripts
+ * Displays header badge, character + word count, and smooth copy animation.
  */
 function CopyableSnippetCard({ snippet }) {
   const [copied, setCopied] = useState(false)
+  const trimmed = (snippet || '').trim()
+  const charCount = trimmed.length
+  const wordCount = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0
 
   const handleCopy = (e) => {
     e.stopPropagation()
     if (navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(snippet.trim())
+      navigator.clipboard.writeText(trimmed)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
   }
 
   return (
-    <div className="my-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-base)] overflow-hidden shadow-xs">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--surface-card)] border-b border-[var(--border-default)]">
-        <span className="text-[10px] font-bold text-[var(--text-muted)] tracking-wider uppercase">
-          Ready-to-Paste Template
-        </span>
+    <div className="my-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-base)] overflow-hidden shadow-xs">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface-card)] border-b border-[var(--border-default)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 tracking-wider uppercase">
+            Ready-to-Paste Template
+          </span>
+          <span className="text-[10px] text-[var(--text-muted)] font-mono">
+            {charCount} chars • {wordCount} words
+          </span>
+        </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--surface-base)] px-2 py-0.5 rounded border border-[var(--border-default)] cursor-pointer transition-all active:scale-95"
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--surface-base)] px-2.5 py-1 rounded-lg border border-[var(--border-default)] cursor-pointer transition-all active:scale-95 shadow-2xs"
           title="Copy to clipboard"
         >
           {copied ? (
             <>
-              <Check size={12} weight="bold" className="text-emerald-500" />
+              <Check size={13} weight="bold" className="text-emerald-500" />
               <span className="text-emerald-500 font-semibold">Copied!</span>
             </>
           ) : (
             <>
-              <Copy size={12} weight="bold" />
+              <Copy size={13} weight="bold" />
               <span>Copy</span>
             </>
           )}
         </button>
       </div>
-      <div className="p-3 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-all bg-[var(--surface-base)]">
-        {snippet.trim()}
+      <div className="p-3.5 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-all bg-[var(--surface-base)]">
+        {trimmed}
       </div>
     </div>
   )
@@ -95,7 +106,7 @@ function renderInlineFormatting(str) {
       return (
         <code
           key={i}
-          className="px-1 py-0.5 rounded bg-[var(--surface-base)] border border-[var(--border-default)] text-[11px] font-mono text-[var(--primary)]"
+          className="px-1.5 py-0.5 rounded bg-[var(--surface-base)] border border-[var(--border-default)] text-[11px] font-mono text-[var(--primary)]"
         >
           {token.slice(1, -1)}
         </code>
@@ -106,7 +117,7 @@ function renderInlineFormatting(str) {
 }
 
 /**
- * Parses markdown text chunks into paragraphs, bullet lists, blockquotes, and copyable snippets
+ * Parses markdown text chunks into paragraphs, bullet lists, styled executive blockquotes, and copyable snippets
  */
 function renderMessageContent(text) {
   if (!text) return null
@@ -129,10 +140,10 @@ function renderMessageContent(text) {
     const flushBulletList = () => {
       if (currentBulletList.length > 0) {
         elements.push(
-          <ul key={`ul-${elements.length}`} className="my-1.5 space-y-1 pl-1">
+          <ul key={`ul-${elements.length}`} className="my-2 space-y-1.5 pl-1">
             {currentBulletList.map((item, liIdx) => (
               <li key={liIdx} className="flex items-start gap-2 text-xs leading-relaxed text-[var(--text-primary)]">
-                <span className="text-[var(--primary)] font-bold text-xs select-none mt-0.5">•</span>
+                <span className="text-emerald-500 font-bold text-xs select-none mt-0.5">•</span>
                 <span className="flex-1">{renderInlineFormatting(item)}</span>
               </li>
             ))}
@@ -161,7 +172,7 @@ function renderMessageContent(text) {
       if (numMatch) {
         flushBulletList()
         elements.push(
-          <div key={`num-${lineIdx}`} className="flex items-start gap-2 text-xs leading-relaxed my-1">
+          <div key={`num-${lineIdx}`} className="flex items-start gap-2 text-xs leading-relaxed my-1.5">
             <span className="font-bold text-[var(--primary)] text-xs select-none">{numMatch[1]}.</span>
             <div className="flex-1 text-[var(--text-primary)]">{renderInlineFormatting(numMatch[2])}</div>
           </div>
@@ -169,14 +180,14 @@ function renderMessageContent(text) {
         return
       }
 
-      // Check blockquote (> text)
+      // Check executive blockquote (> text) with callout styling
       if (trimmed.startsWith('>')) {
         flushBulletList()
         const quoteContent = trimmed.replace(/^>\s*/, '')
         elements.push(
           <div
             key={`quote-${lineIdx}`}
-            className="my-2 pl-3 border-l-2 border-[var(--primary)] italic text-[var(--text-secondary)] text-xs leading-relaxed bg-[var(--surface-base)]/50 py-1.5 pr-2.5 rounded-r"
+            className="my-2.5 pl-3.5 pr-3 py-2 border-l-4 border-emerald-500 italic text-[var(--text-primary)] text-xs leading-relaxed bg-emerald-500/5 dark:bg-emerald-500/10 rounded-r-xl shadow-2xs"
           >
             {renderInlineFormatting(quoteContent)}
           </div>
@@ -187,7 +198,7 @@ function renderMessageContent(text) {
       // Regular paragraph
       flushBulletList()
       elements.push(
-        <p key={`p-${lineIdx}`} className="my-1 text-xs leading-relaxed text-[var(--text-primary)]">
+        <p key={`p-${lineIdx}`} className="my-1.5 text-xs leading-relaxed text-[var(--text-primary)]">
           {renderInlineFormatting(trimmed)}
         </p>
       )
@@ -237,12 +248,14 @@ export default function ReportChatbot() {
   const latestCompany = useMemo(() => {
     return (
       reportData?.resume_agent?.canonicalResume?.experience?.[0]?.company ||
+      reportData?.resume_json?.experiences?.[0]?.company ||
       'my latest company'
     )
   }, [reportData])
 
   const bottleneckTitle = useMemo(() => {
     return (
+      reportData?.primary_bottleneck?.title ||
       reportData?.assessment_agent?.primaryBottleneck?.title ||
       reportData?.critical_issues?.[0]?.title ||
       'my #1 bottleneck'
@@ -250,15 +263,26 @@ export default function ReportChatbot() {
   }, [reportData])
 
   const overallScore = useMemo(() => {
-    return reportData?.career_health_score || 65
+    return reportData?.career_health_score || reportData?.gps_score || 72
+  }, [reportData])
+
+  const topSkill = useMemo(() => {
+    const skills =
+      reportData?.resume_agent?.verifiedSkills ||
+      reportData?.resume_agent?.dashboard?.keywordAlignment?.matchedInExperience ||
+      reportData?.resume_json?.skills ||
+      []
+    const first = Array.isArray(skills) ? skills[0] : ''
+    return (typeof first === 'string' ? first : first?.name || '') || 'System Design'
   }, [reportData])
 
   // Dynamic initial greeting message
   const initialGreeting = useMemo(() => {
-    return `Hey **${firstName}**! I'm **Atlas**, your personal career strategist. I've audited your **${targetRole}** profile (**${overallScore}/100**), your resume bullets, and your LinkedIn. Your #1 priority right now is **${bottleneckTitle}**. What should we tackle first?`
-  }, [firstName, targetRole, overallScore, bottleneckTitle])
+    return `Hey **${firstName}**! I'm **Atlas**, your Executive Career Partner. I've analyzed your **${targetRole}** profile (**${overallScore}/100**), verified your track record at **${latestCompany}**, and isolated your primary funnel choke point: **${bottleneckTitle}**.\n\nWhether you need Google XYZ bullet rewrites, a 50-word InMail to target hiring managers, or mock interview drills on **${topSkill}**, let's build your competitive edge. Where should we start?`
+  }, [firstName, targetRole, overallScore, latestCompany, bottleneckTitle, topSkill])
 
   const [open, setOpen] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState([
     {
       role: 'agent',
@@ -270,8 +294,9 @@ export default function ReportChatbot() {
   const [loading, setLoading] = useState(false)
   const [usedPrompts, setUsedPrompts] = useState(new Set())
   const scrollRef = useRef(null)
+  const textareaRef = useRef(null)
 
-  // Sync greeting when reportData loads/updates
+  // Sync greeting when reportData updates
   useEffect(() => {
     setMessages((prev) => {
       if (prev.length === 1 && prev[0].role === 'agent') {
@@ -281,43 +306,51 @@ export default function ReportChatbot() {
     })
   }, [initialGreeting])
 
-  // Auto-scroll on new messages, opening, or loading state
+  // Auto-scroll on new message, open, or token arrival
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     }
   }, [messages, open, loading])
 
-  // 5 Dynamic Role-Specific Starter Chips
+  // Auto-resize textarea based on input content
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`
+    }
+  }, [input])
+
+  // 5 Dynamic Contextual Action Chips
   const STARTER_CHIPS = useMemo(
     () => [
       {
-        id: 'bottleneck',
-        label: '🎯 Fix my #1 bottleneck',
-        prompt: `How do I fix my primary bottleneck ("${bottleneckTitle}") this week?`,
-      },
-      {
-        id: 'bullet',
+        id: 'company-bullet',
         label: `✍️ Rewrite ${latestCompany} bullet`,
-        prompt: `Rewrite my weakest resume bullet at ${latestCompany} with stronger impact metrics.`,
+        prompt: `Rewrite my weakest bullet from ${latestCompany} using the Google XYZ formula with concrete architectural mechanisms and quantifiable impact.`,
       },
       {
-        id: 'cold-dm',
-        label: `📬 Cold DM for ${targetRole}`,
-        prompt: `Write a high-converting LinkedIn cold DM to a Hiring Manager for a ${targetRole} role using my top achievements.`,
+        id: 'bottleneck',
+        label: `🎯 Fix my #${bottleneckTitle}`,
+        prompt: `How do I systematically resolve my primary bottleneck ("${bottleneckTitle}") to raise my callback rate this week?`,
       },
       {
-        id: 'interview',
-        label: '🎤 Mock Interview Question',
-        prompt: `Ask me 1 tough interview question for a ${targetRole} role based on my resume and show me a strong STAR answer.`,
+        id: 'inmail',
+        label: `📬 50-word InMail for ${targetRole}`,
+        prompt: `Draft a high-converting, 50-75 word LinkedIn InMail to an Engineering Director hiring for a ${targetRole} role, referencing my recent work at ${latestCompany}.`,
       },
       {
-        id: 'plan',
-        label: '🚀 My 7-Day Action Plan',
-        prompt: 'Give me a concrete 7-day execution checklist based on my report diagnosis.',
+        id: 'mock-interview',
+        label: `🎤 Mock Interview on ${topSkill}`,
+        prompt: `Run a tough, technical interview drill on ${topSkill} for a ${targetRole} interview. Ask 1 question and outline the ideal STAR architectural answer.`,
+      },
+      {
+        id: 'salary-rails',
+        label: `💰 Salary Negotiation Rails`,
+        prompt: `What are the market compensation rails for a ${targetRole} in the US tech market, and how do I defend my top-of-band ask without getting screened out?`,
       },
     ],
-    [bottleneckTitle, latestCompany, targetRole]
+    [latestCompany, bottleneckTitle, targetRole, topSkill]
   )
 
   const remainingChips = useMemo(
@@ -325,66 +358,140 @@ export default function ReportChatbot() {
     [STARTER_CHIPS, usedPrompts]
   )
 
+  // Real-Time Token Streaming Consumer via /api/assessment/chat-stream
   const send = useCallback(
     async (text) => {
       const question = (text ?? input).trim()
       if (!question || loading) return
 
       setInput('')
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
+
       const nextUserMsg = { role: 'user', text: question }
       const updatedMessages = [...messages, nextUserMsg]
       setMessages(updatedMessages)
       setLoading(true)
 
-      try {
-        const historyPayload = updatedMessages.slice(-6).map((m) => ({
-          role: m.role,
-          text: m.text,
-        }))
+      const historyPayload = updatedMessages.slice(-6).map((m) => ({
+        role: m.role,
+        text: m.text,
+      }))
 
-        const res = await api.post('/assessment/resume-talk', {
-          userId: effectiveUserId,
-          question,
-          history: historyPayload,
+      // Prepare placeholder streaming agent message
+      const placeholderAgentMsg = {
+        role: 'agent',
+        text: '',
+        isStreaming: true,
+        suggestCall: false,
+      }
+      setMessages([...updatedMessages, placeholderAgentMsg])
+
+      let streamingCompleted = false
+      let accumulatedText = ''
+
+      try {
+        // Attempt SSE token streaming from /api/assessment/chat-stream
+        const response = await fetch('/api/assessment/chat-stream', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: effectiveUserId,
+            question,
+            history: historyPayload,
+          }),
         })
 
-        let rawAnswer = String(res.data?.answer || res.data?.reply || '').trim()
-
-        if (rawAnswer.startsWith('{') && rawAnswer.endsWith('}')) {
-          try {
-            const parsed = JSON.parse(rawAnswer)
-            if (parsed.coach_response || parsed.copy_block) {
-              const resp = (parsed.coach_response || parsed.answer || parsed.reply || '').trim()
-              const copy = parsed.copy_block
-                ? `\n\n\`\`\`text\n${parsed.copy_block.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()}\n\`\`\``
-                : ''
-              rawAnswer = `${resp}${copy}`
-            } else if (parsed.answer || parsed.reply) {
-              rawAnswer = (parsed.answer || parsed.reply).trim()
-            }
-          } catch (_) {}
+        if (!response.ok || !response.body) {
+          throw new Error(`Streaming failed with status: ${response.status}`)
         }
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'agent',
-            text: rawAnswer || 'Sorry — I could not generate an answer. Please try again.',
-            routedIntent: res.data?.routedIntent || null,
-            sectionLink: res.data?.sectionLink || null,
-            suggestCall: Boolean(res.data?.suggestCall),
-          },
-        ])
-      } catch (_e) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'agent',
-            text: 'Something went wrong reaching the agent. Please try again in a moment.',
-            suggestCall: false,
-          },
-        ])
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmed = line.trim()
+            if (!trimmed || trimmed.startsWith(':')) continue
+            if (trimmed === 'data: [DONE]') {
+              streamingCompleted = true
+              break
+            }
+            if (trimmed.startsWith('data: ')) {
+              const dataStr = trimmed.slice(6).trim()
+              if (dataStr === '[DONE]') {
+                streamingCompleted = true
+                break
+              }
+              try {
+                const parsed = JSON.parse(dataStr)
+                if (parsed.token) {
+                  accumulatedText += parsed.token
+                  setMessages((prev) => {
+                    const last = prev[prev.length - 1]
+                    if (last && last.role === 'agent' && last.isStreaming) {
+                      return [
+                        ...prev.slice(0, -1),
+                        { ...last, text: accumulatedText },
+                      ]
+                    }
+                    return prev
+                  })
+                }
+              } catch (_) {}
+            }
+          }
+        }
+        streamingCompleted = true
+      } catch (streamErr) {
+        console.warn('[ReportChatbot] Streaming connection failed, falling back to JSON API:', streamErr.message)
+        // Fallback to non-streaming endpoint
+        try {
+          const res = await api.post('/assessment/resume-talk', {
+            userId: effectiveUserId,
+            question,
+            history: historyPayload,
+          })
+
+          let rawAnswer = String(res.data?.answer || res.data?.reply || '').trim()
+          accumulatedText = rawAnswer
+          streamingCompleted = true
+        } catch (_jsonErr) {
+          accumulatedText = 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!'
+        }
       } finally {
+        // Finalize agent message
+        const shouldSuggestCall =
+          /(\b(call|strategy session|book|coach|coaching|referral|mock|interview prep|negotiate|offer)\b)/i.test(
+            question + ' ' + accumulatedText
+          )
+
+        setMessages((prev) => {
+          const last = prev[prev.length - 1]
+          if (last && last.role === 'agent') {
+            return [
+              ...prev.slice(0, -1),
+              {
+                role: 'agent',
+                text: accumulatedText || 'Sorry — I could not generate an answer. Please try again.',
+                isStreaming: false,
+                suggestCall: shouldSuggestCall,
+              },
+            ]
+          }
+          return prev
+        })
         setLoading(false)
       }
     },
@@ -395,9 +502,7 @@ export default function ReportChatbot() {
     if (email) {
       try {
         await api.post('/assessment/book-call', { email })
-      } catch (_e) {
-        // non-fatal
-      }
+      } catch (_e) {}
     }
     setOpen(false)
     scrollToSection('#final-cta')
@@ -405,61 +510,84 @@ export default function ReportChatbot() {
 
   return (
     <>
-      {/* Floating launcher */}
+      {/* Floating Copilot Pill Launcher */}
       {!open && (
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-xl shadow-[var(--primary-ring)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
-          aria-label="Open career chat"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-[var(--primary)] to-emerald-600 hover:from-[var(--primary-hover)] hover:to-emerald-500 text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-xl shadow-[var(--primary-ring)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+          aria-label="Open Atlas Copilot"
         >
-          <span className="relative flex h-2 w-2">
+          <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300"></span>
           </span>
-          <ChatCircleDots size={18} weight="fill" />
-          <span>Ask Atlas</span>
+          <ChatCircleDots size={20} weight="fill" />
+          <span>Ask Atlas Copilot</span>
+          <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-full">
+            {overallScore}/100
+          </span>
         </button>
       )}
 
-      {/* Chat panel */}
+      {/* Expandable Executive Workspace Drawer */}
       {open && (
         <div
-          className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-          style={{ height: 'min(590px, 80vh)' }}
+          className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+            isExpanded
+              ? 'w-[calc(100vw-2rem)] sm:w-[680px]'
+              : 'w-[calc(100vw-2rem)] sm:w-[440px]'
+          }`}
+          style={{ height: 'min(680px, 85vh)' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)] bg-[var(--surface-card)]">
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center border border-[var(--primary)]/20 shadow-2xs">
-                <Sparkle size={16} weight="fill" />
+                <Sparkle size={18} weight="fill" />
               </span>
               <div>
-                <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <span>Ask Atlas</span>
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-full border border-emerald-500/20">
-                    Active
+                <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <span>Atlas Executive Partner</span>
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Active Intelligence
                   </span>
                 </div>
-                <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[240px]">
-                  Knows your {targetRole} profile & resume
+                <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[280px]">
+                  {targetRole} • Health Score {overallScore}/100
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
-              aria-label="Close chat"
-            >
-              <X size={18} />
-            </button>
+
+            <div className="flex items-center gap-1.5">
+              {/* Maximize / Minimize Workspace Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsExpanded((prev) => !prev)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
+                title={isExpanded ? 'Restore width' : 'Expand workspace'}
+                aria-label={isExpanded ? 'Minimize width' : 'Expand width'}
+              >
+                {isExpanded ? <ArrowsInSimple size={17} /> : <ArrowsOutSimple size={17} />}
+              </button>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
+                aria-label="Close chat"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Messages container */}
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-4 py-3 space-y-3.5 bg-[var(--surface-base)]/50"
+            className="flex-1 overflow-y-auto px-4 py-3.5 space-y-4 bg-[var(--surface-base)]/50"
           >
             {messages.map((m, i) => {
               const isAgent = m.role === 'agent'
@@ -468,15 +596,22 @@ export default function ReportChatbot() {
               return (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[88%] text-xs leading-relaxed ${
+                    className={`text-xs leading-relaxed ${
                       m.role === 'user'
-                        ? 'bg-[var(--primary)] text-white px-3.5 py-2.5 rounded-2xl rounded-br-xs shadow-sm whitespace-pre-wrap'
-                        : 'bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] px-4 py-3 rounded-2xl rounded-bl-xs shadow-xs'
+                        ? 'max-w-[85%] bg-[var(--primary)] text-white px-4 py-2.5 rounded-2xl rounded-br-xs shadow-sm whitespace-pre-wrap'
+                        : isExpanded
+                        ? 'max-w-[94%] bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] px-4.5 py-3.5 rounded-2xl rounded-bl-xs shadow-xs'
+                        : 'max-w-[90%] bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-primary)] px-4 py-3 rounded-2xl rounded-bl-xs shadow-xs'
                     }`}
                   >
                     {/* Message Body */}
                     {isAgent ? (
-                      <div>{renderMessageContent(m.text)}</div>
+                      <div>
+                        {renderMessageContent(m.text)}
+                        {m.isStreaming && (
+                          <span className="inline-block w-1.5 h-3.5 bg-emerald-500 animate-pulse ml-1 align-middle"></span>
+                        )}
+                      </div>
                     ) : (
                       <div>{m.text}</div>
                     )}
@@ -495,15 +630,15 @@ export default function ReportChatbot() {
 
                     {/* Contextual 1-on-1 Strategy Call Callout */}
                     {showCallCta && (
-                      <div className="mt-3 p-3 rounded-xl bg-gradient-to-br from-[var(--primary-light)] via-[var(--surface-card)] to-[var(--surface-base)] border border-[var(--primary)]/30 space-y-2 shadow-xs">
+                      <div className="mt-3.5 p-3 rounded-xl bg-gradient-to-br from-[var(--primary-light)] via-[var(--surface-card)] to-[var(--surface-base)] border border-[var(--primary)]/30 space-y-2 shadow-xs">
                         <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-primary)]">
                           <CalendarBlank size={14} className="text-[var(--primary)]" weight="bold" />
-                          <span>Want hands-on help executing this for your {targetRole} search?</span>
+                          <span>Want hands-on execution help for your {targetRole} search?</span>
                         </div>
                         <button
                           type="button"
                           onClick={handleStrategyCallCta}
-                          className="w-full flex items-center justify-center gap-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-bold text-[11px] py-1.5 px-3 rounded-lg shadow-xs hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-[var(--primary)] to-emerald-600 hover:from-[var(--primary-hover)] hover:to-emerald-500 text-white font-bold text-[11px] py-1.5 px-3 rounded-lg shadow-xs hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
                         >
                           <span>📅 Book Free 1-on-1 Strategy Call ➔</span>
                         </button>
@@ -514,11 +649,13 @@ export default function ReportChatbot() {
               )
             })}
 
-            {loading && (
+            {loading && !messages.some((m) => m.isStreaming && m.text.length > 0) && (
               <div className="flex justify-start">
                 <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl rounded-bl-xs px-3.5 py-2.5 flex items-center gap-2 shadow-xs">
-                  <SpinnerGap size={14} className="animate-spin text-[var(--primary)]" />
-                  <span className="text-[11px] text-[var(--text-muted)] font-medium">Atlas is analyzing…</span>
+                  <SpinnerGap size={14} className="animate-spin text-emerald-500" />
+                  <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                    Atlas is formulating your strategy…
+                  </span>
                 </div>
               </div>
             )}
@@ -527,7 +664,7 @@ export default function ReportChatbot() {
           {/* Horizontal scrollable quick-action chips bar */}
           {remainingChips.length > 0 && (
             <div
-              className="px-3 pt-2 pb-1.5 flex items-center gap-1.5 overflow-x-auto border-t border-[var(--border-default)] bg-[var(--surface-card)]"
+              className="px-3 pt-2 pb-1.5 flex items-center gap-1.5 overflow-x-auto border-t border-[var(--border-default)] bg-[var(--surface-card)] shrink-0"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {remainingChips.map((chip) => (
@@ -547,9 +684,11 @@ export default function ReportChatbot() {
             </div>
           )}
 
-          {/* Chat input form */}
-          <div className="p-3 border-t border-[var(--border-default)] bg-[var(--surface-card)] flex items-center gap-2">
-            <input
+          {/* Chat input form with auto-resizing textarea */}
+          <div className="p-3 border-t border-[var(--border-default)] bg-[var(--surface-card)] flex items-end gap-2 shrink-0">
+            <textarea
+              ref={textareaRef}
+              rows={1}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -558,14 +697,14 @@ export default function ReportChatbot() {
                   send()
                 }
               }}
-              placeholder="Ask about your resume, LinkedIn, strategy…"
-              className="flex-1 bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors"
+              placeholder="Ask about your resume bullets, interview answers, InMails…"
+              className="flex-1 bg-[var(--surface-base)] border border-[var(--border-default)] rounded-xl px-3.5 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors resize-none max-h-[120px] leading-relaxed"
             />
             <button
               type="button"
               onClick={() => send()}
               disabled={loading || !input.trim()}
-              className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0"
+              className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0 mb-0.5"
               aria-label="Send message"
             >
               <PaperPlaneRight size={16} weight="fill" />
