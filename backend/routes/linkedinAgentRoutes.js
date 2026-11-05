@@ -8,6 +8,7 @@ import multer from 'multer'
 import { evaluateLinkedIn, analyzeLinkedInProfile, LINKEDIN_AGENT_VERSION } from '../agents/linkedin/index.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { listModelsForPurpose } from '../ai/config/modelRegistry.js'
 
 const router = express.Router()
@@ -65,6 +66,57 @@ router.post('/scrape', async (req, res) => {
     return res.status(200).json({
       success: false,
       profile: null,
+      error: err.message,
+    })
+  }
+})
+
+/**
+ * POST /api/linkedin-agent/scrape-posts
+ * Scrapes recent posts & comments for a given candidate LinkedIn profile URL.
+ * Accepts: { url, linkedinUrl, maxPosts, scrapeComments, maxComments, includeReposts, includeQuotePosts }
+ */
+router.post('/scrape-posts', async (req, res) => {
+  const url = req.body?.url || req.body?.linkedinUrl || req.body?.targetUrl || ''
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(200).json({
+      success: false,
+      data: {
+        posts: [],
+        comments: [],
+        isGhostProfile: true,
+        available: false,
+        error: 'INVALID_URL',
+      },
+      error: 'Missing or empty LinkedIn profile URL.',
+    })
+  }
+
+  try {
+    const result = await scrapeLinkedInPosts(url.trim(), {
+      maxPosts: req.body?.maxPosts,
+      scrapeComments: req.body?.scrapeComments,
+      maxComments: req.body?.maxComments,
+      includeReposts: req.body?.includeReposts,
+      includeQuotePosts: req.body?.includeQuotePosts,
+    })
+
+    return res.status(200).json({
+      success: Boolean(result?.available),
+      data: result,
+    })
+  } catch (err) {
+    console.warn('[LinkedInAgentRoute] scrape-posts endpoint non-fatal error:', err.message)
+    return res.status(200).json({
+      success: false,
+      data: {
+        posts: [],
+        comments: [],
+        isGhostProfile: true,
+        available: false,
+        error: err.message,
+        fallbackReason: 'ROUTE_ERROR',
+      },
       error: err.message,
     })
   }
