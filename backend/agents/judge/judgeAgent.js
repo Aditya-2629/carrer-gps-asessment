@@ -34,8 +34,18 @@ Score the report 0-10 overall and on these subscales (each 0-10):
 - safety: no fabricated numbers, no invented claims, no overpromising
 - structure: clear diagnosis → why it matters → concrete next step, per finding
 
+ANTI-AI-SLOP & HUMAN VOICE RULES (CRITICAL):
+- Deduct at least 2 points on the "tone" subscale if the report contains ANY of these banned robotic buzzwords or clichés:
+  "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate",
+  "dynamic", "pivotal", "instrumental", "testament to", "proven track record", "hands-on experience with",
+  "delved into", "thrives in fast-paced", "responsible for", or decorative em-dashes (—).
+- Deduct at least 2 points on "specificity" if bullet rewrites use generic unverified placeholders like "[ADD: ...]" or repeatedly invent ungrounded "by 40%" metrics without citing technical mechanisms.
+- The narrative must speak directly TO the candidate by first name with constructive peer empathy (like an ex-Google/Meta senior recruiter over coffee), NOT as a distant corporate auditor.
+- If any banned buzzword is detected, add an explicit fix instruction to "flags" (e.g. "Remove AI buzzword 'spearheaded' from experience bullet 2; replace with concrete engineering verb like 'Architected' or 'Migrated'").
+
 Strict Penalty Rules:
 - If generic corporate filler is detected ("navigating the job market", "delve", "testament to", "it is crucial", "in conclusion", "synergies"), cap "tone" at 4/10 and overall score at 5/10.
+- If robotic buzzwords ("spearheaded", "leveraged", "synergistic", "cutting-edge") are detected, cap "tone" at 5/10 and overall score at 6/10.
 - Be honest: generic output scores 4-6. Good output scores 7-8. Excellent 9-10.
 - flags: short actionable strings for what to fix (max 5). Empty array if score >= 9.
 - Return ONLY valid JSON.
@@ -47,24 +57,44 @@ registerPrompt('judge-quality', 'judge-quality-v1', JUDGE_SYSTEM_PROMPT)
 
 // ── Deterministic fallback ───────────────────────────────────────────────────
 
+export const BANNED_AI_SLOP_REGEX = /\b(spearheaded|leveraged|synerg(y|istic)|cutting-edge|results-driven|passionate|pivotal|instrumental|testament to|proven track record|delved|thrives in fast-paced|seamlessly integrated)\b/i
+
 function heuristicScore(digest) {
   const review = digest.review || ''
   const text = digest.text || ''
   const issues = digest.issues || []
   const withEvidence = issues.filter((i) => i.evidence && String(i.evidence).length > 10).length
   const groundingRate = issues.length ? withEvidence / issues.length : 0
+
   const fillerRegex = /(in conclusion|it is crucial|delve|navigate the (job )?market|leverage synergies|testament to)/i
   const filler = fillerRegex.test(review) || fillerRegex.test(text)
+
+  const hasAiSlop =
+    BANNED_AI_SLOP_REGEX.test(review) ||
+    BANNED_AI_SLOP_REGEX.test(text) ||
+    issues.some(
+      (i) =>
+        BANNED_AI_SLOP_REGEX.test(i.whyItMatters || '') ||
+        BANNED_AI_SLOP_REGEX.test(i.recommendation || '') ||
+        BANNED_AI_SLOP_REGEX.test(i.title || '') ||
+        BANNED_AI_SLOP_REGEX.test(i.evidence || '')
+    )
+
   const structureOk = issues.length > 0 && Boolean(review)
 
   let score = 3 + groundingRate * 4 + (structureOk ? 1.5 : 0) + (issues.length >= 3 ? 1 : 0)
+  if (hasAiSlop) score = Math.min(score, 6)
   if (filler) score = Math.min(score, 5)
   score = Math.max(1, Math.min(10, Math.round(score)))
+
+  let toneScore = 8
+  if (hasAiSlop) toneScore = Math.min(toneScore, 5)
+  if (filler) toneScore = Math.min(toneScore, 4)
 
   return {
     score,
     subscores: {
-      tone: filler ? 4 : 8,
+      tone: toneScore,
       specificity: Math.round(groundingRate * 10),
       mathematical_integrity: 8,
       us_market_fit: 8,
@@ -74,6 +104,9 @@ function heuristicScore(digest) {
     flags: [
       ...(issues.length === 0 ? ['Report has no diagnosable findings — regenerate'] : []),
       ...(filler ? ['Remove corporate filler phrases from narrative'] : []),
+      ...(hasAiSlop
+        ? ['Remove robotic AI buzzwords (spearheaded, leveraged, synergistic) and replace with grounded engineering verbs']
+        : []),
       ...(groundingRate < 0.8 && issues.length > 0 ? ['Findings must cite the candidate’s actual words/evidence'] : []),
     ],
     summary: `Deterministic fallback score (judge LLM unavailable): grounding ${(groundingRate * 100).toFixed(0)}%.`,
@@ -134,13 +167,27 @@ function buildDigest(aiReport) {
     correctedText: '',
   }))
 
+  const rawIssues = (Array.isArray(r.issues) ? r.issues : []).filter(Boolean).map((i) => ({
+    title: i.title || 'Issue',
+    whyItMatters: i.whyItMatters || i.diagnosis || '',
+    recommendation: i.recommendation || (Array.isArray(i.action_steps) ? i.action_steps.join('; ') : ''),
+    evidence: (typeof i.evidence === 'object' ? i.evidence?.originalText : i.evidence) || '',
+    severity: i.severity || 'medium',
+    category: i.category || 'general',
+    correctedText: i.correctedText || '',
+  }))
+
   const review =
+    r.executive_verdict ||
+    r.review ||
+    r.summary ||
     r.resume_agent?.overallReview?.summary ||
     [r.coach_intervention?.urgency_statement, r.coach_intervention?.value_prop].filter(Boolean).join(' ') ||
     r.market_reality_check?.headline ||
+    (typeof r.primary_bottleneck === 'string' ? r.primary_bottleneck : r.primary_bottleneck?.diagnosis || '') ||
     ''
 
-  const issues = [...atlasIssues, ...agentIssues, ...linkedinIssues, ...linkedinDiscrepancies]
+  const issues = [...atlasIssues, ...agentIssues, ...linkedinIssues, ...linkedinDiscrepancies, ...rawIssues]
   const rewrites = [
     ...issues.map((i) => i.correctedText).filter(Boolean),
     ...(r.linkedin_agent?.optimizations?.headlines || []).slice(0, 2),
