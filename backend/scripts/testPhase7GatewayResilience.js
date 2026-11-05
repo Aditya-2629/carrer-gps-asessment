@@ -234,10 +234,10 @@ async function runTests() {
 
     const report2 = await callAtlas('Prompt text', '', {})
     assert.strictEqual(modelsAttempted[0], 'google/gemini-2.5-flash-lite')
-    assert.strictEqual(modelsAttempted[1], 'deepseek/deepseek-chat', 'Secondary fallback must be deepseek/deepseek-chat')
-    assert.strictEqual(report2.telemetry.modelUsed, 'deepseek/deepseek-chat')
+    assert.strictEqual(modelsAttempted[1], 'google/gemini-3.5-flash-lite', 'Secondary fallback must be google/gemini-3.5-flash-lite')
+    assert.strictEqual(report2.telemetry.modelUsed, 'google/gemini-3.5-flash-lite')
     assert.strictEqual(report2.telemetry.fallbackTriggered, true)
-    console.log('  ✔ Secondary failover verified: gracefully routes to deepseek/deepseek-chat with fallbackTriggered=true')
+    console.log('  ✔ Secondary failover verified: gracefully routes to google/gemini-3.5-flash-lite with fallbackTriggered=true')
 
     // 4c. Verify Tertiary Failover (Gemini 3 Flash Preview)
     modelsAttempted.length = 0
@@ -246,8 +246,8 @@ async function runTests() {
       if (opts.model === 'google/gemini-2.5-flash-lite') {
         throw new Error('Primary failure')
       }
-      if (opts.model === 'deepseek/deepseek-chat') {
-        throw new Error('DeepSeek timeout')
+      if (opts.model === 'google/gemini-3.5-flash-lite') {
+        throw new Error('Gemini 3.5 timeout')
       }
       return {
         text: JSON.stringify(completeReport),
@@ -259,7 +259,7 @@ async function runTests() {
 
     const report3 = await callAtlas('Prompt text', '', {})
     assert.strictEqual(modelsAttempted[0], 'google/gemini-2.5-flash-lite')
-    assert.strictEqual(modelsAttempted[1], 'deepseek/deepseek-chat')
+    assert.strictEqual(modelsAttempted[1], 'google/gemini-3.5-flash-lite')
     assert.strictEqual(modelsAttempted[2], 'google/gemini-3-flash-preview', 'Tertiary fallback must be google/gemini-3-flash-preview')
     assert.strictEqual(report3.telemetry.modelUsed, 'google/gemini-3-flash-preview')
     assert.strictEqual(report3.telemetry.fallbackTriggered, true)

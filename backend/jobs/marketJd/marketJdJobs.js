@@ -336,14 +336,20 @@ export async function fetchFastCatchJds({
  * Persists an upgraded Market Version to MongoDB atomically swapping previous versions.
  */
 export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, sourceMetadata = {}) {
-  const [roleKey, experienceBucket] = bucketKey.split('::')
-  let bucket = await JobMarketBucket.findOne({ bucketKey })
+  const parts = String(bucketKey || '').split('::')
+  const roleKey = parts[0] || 'data-analyst'
+  const validBuckets = ['0-2', '3-5', '6-8', '8+']
+  const experienceBucket = validBuckets.includes(parts[1]) ? parts[1] : (parts[1] || '6-8')
+  const sanitizedBucketKey = `${roleKey}::${experienceBucket}`
+
+  let bucket = await JobMarketBucket.findOne({ bucketKey: sanitizedBucketKey })
   if (!bucket) {
     const roleDef = CONTROLLED_ROLES.find((r) => r.roleKey === roleKey)
+    const roleName = roleDef ? roleDef.roleName : roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
     bucket = await JobMarketBucket.create({
-      bucketKey,
+      bucketKey: sanitizedBucketKey,
       roleKey,
-      roleName: roleDef ? roleDef.roleName : roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      roleName: roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       specialization: 'general',
       experienceBucket,
       activeVersion: 0,
@@ -354,7 +360,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
 
   const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
   const marketProfile = {
-    bucketKey,
+    bucketKey: sanitizedBucketKey,
     sampleSize: analysis.sampleSize || validJds.length,
     skills: discoveredSkills,
     totalAnalyzed: analysis.totalAnalyzed || validJds.length,
@@ -365,12 +371,12 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
     generatedAt: new Date().toISOString(),
   }
 
-  const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey }).sort({ version: -1 })
+  const latestVersionDoc = await JobMarketVersion.findOne({ bucketKey: sanitizedBucketKey }).sort({ version: -1 })
   const maxExistingVersion = latestVersionDoc ? latestVersionDoc.version : 0
   const nextVersion = Math.max(bucket.activeVersion || 0, maxExistingVersion) + 1
 
   await JobMarketVersion.create({
-    bucketKey,
+    bucketKey: sanitizedBucketKey,
     version: nextVersion,
     jobs: validJds.map((j, idx) => ({
       title: j.title || bucket.roleName,
@@ -379,7 +385,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
       description: j.description || '',
       source: sourceMetadata.source || 'apify_background_worker',
       sourceUrl: j.url || null,
-      fingerprint: `${bucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
+      fingerprint: `${sanitizedBucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
     })),
     marketProfile,
     sourceMetadata,
@@ -393,7 +399,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
 
   // Atomic swap: archive older versions
   await JobMarketVersion.updateMany(
-    { bucketKey, version: { $lt: nextVersion } },
+    { bucketKey: sanitizedBucketKey, version: { $lt: nextVersion } },
     { $set: { isArchived: true } }
   )
 

@@ -162,10 +162,37 @@ export class SmartKeyPool {
         return result
       } catch (err) {
         lastError = err
-        const errMsg = err?.message || String(err)
-        const isAuthOrRateLimit = /401|402|429|quota|rate limit|exhausted|unauthorized|invalid token|insufficient balance|free users are limited|limited to \d+ runs/i.test(errMsg)
 
-        this.reportFailure(currentKey, isAuthOrRateLimit ? 'Quota/RateLimit' : errMsg.slice(0, 60))
+        const isProviderHttpError =
+          err.statusCode === 401 ||
+          err.statusCode === 403 ||
+          err.statusCode === 429 ||
+          /rate limit|quota exceeded|quota|invalid token|unauthorized|forbidden|cooldown|credit limit|exhausted|insufficient balance|free users are limited|limited to \d+ runs/i.test(err?.message || '')
+
+        if (!isProviderHttpError) {
+          // Local Mongoose validation error or JS syntax error — rethrow immediately!
+          // DO NOT penalize the Apify token!
+          throw err
+        }
+
+        // Safeguard single-key setups:
+        if (this.keys.length <= 1) {
+          console.warn(`[SmartKeyPool:${this.serviceName}] Single key encountered provider error (${err.message || err}). Retrying once after 3s backoff instead of setting 20-minute lockout.`)
+          const backoff = options.backoffMs !== undefined ? options.backoffMs : 3000
+          if (backoff > 0) {
+            await new Promise((resolve) => setTimeout(resolve, backoff))
+          }
+          try {
+            const retryResult = await taskFn(currentKey)
+            this.reportSuccess(currentKey)
+            return retryResult
+          } catch (retryErr) {
+            lastError = retryErr
+            break
+          }
+        }
+
+        this.reportFailure(currentKey, 'Quota/RateLimit')
       }
     }
 

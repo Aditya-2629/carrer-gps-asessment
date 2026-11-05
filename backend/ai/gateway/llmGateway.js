@@ -42,8 +42,8 @@ export const TRAP_MODELS = new Set([
 export const TASK_MODEL_ROUTING = {
   jd_extraction: 'google/gemini-2.5-flash-lite',
   fast_catch: 'google/gemini-2.5-flash-lite',
-  resume_synthesis: 'deepseek/deepseek-chat',
-  bullet_rewrites: 'deepseek/deepseek-chat',
+  resume_synthesis: 'google/gemini-2.5-flash-lite',
+  bullet_rewrites: 'google/gemini-2.5-flash-lite',
   linkedin_synthesis: 'meta-llama/llama-3.3-70b-instruct',
   thought_leadership: 'meta-llama/llama-3.3-70b-instruct',
   report_generation: 'google/gemini-2.5-flash-lite',
@@ -53,7 +53,7 @@ export const TASK_MODEL_ROUTING = {
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
     'google/gemini-2.5-flash-lite',
-    'deepseek/deepseek-chat',
+    'google/gemini-3.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
     'google/gemini-2.5-flash',
   ],
@@ -179,18 +179,17 @@ export class LLMGateway {
     if (allowFallback) {
       if (purpose === 'bullet_batch_weave') {
         modelsToTry = Array.from(new Set([
-          requestedModelId || 'google/gemini-3.5-flash-lite',
+          requestedModelId || 'google/gemini-2.5-flash-lite',
+          'google/gemini-2.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'deepseek/deepseek-chat',
           'google/gemini-3-flash-preview',
           'openai/gpt-oss-120b',
         ].filter(Boolean)))
-      } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model) {
+      } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model && !task) {
         modelsToTry = [
+          'google/gemini-2.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'deepseek/deepseek-chat',
           'google/gemini-3-flash-preview',
-          'google/gemini-3.5-flash',
           'google/gemini-2.5-flash',
           'openai/gpt-oss-120b',
         ]

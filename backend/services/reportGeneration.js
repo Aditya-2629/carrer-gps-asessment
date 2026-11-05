@@ -553,14 +553,14 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
     responseText = res.text
     modelUsed = res.actualModel || 'google/gemini-2.5-flash-lite'
   } catch (primaryErr) {
-    console.warn('[ReportGeneration] Gemini 2.5 Flash Lite failed, routing to DeepSeek V3:', primaryErr.message)
+    console.warn('[ReportGeneration] Gemini 2.5 Flash Lite failed, routing to Gemini 3.5 Flash Lite:', primaryErr.message)
     fallbackTriggered = true
     try {
       const res = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_generation',
         preferredProvider: 'openrouter',
-        model: 'deepseek/deepseek-chat',
+        model: 'google/gemini-3.5-flash-lite',
         systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
@@ -570,9 +570,9 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         timeoutMs: 50000,
       })
       responseText = res.text
-      modelUsed = res.actualModel || 'deepseek/deepseek-chat'
-    } catch (deepseekErr) {
-      console.warn('[ReportGeneration] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
+      modelUsed = res.actualModel || 'google/gemini-3.5-flash-lite'
+    } catch (fallback1Err) {
+      console.warn('[ReportGeneration] Gemini 3.5 Flash Lite failed, falling back to Gemini 3 Flash Preview:', fallback1Err.message)
       const res = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_generation',

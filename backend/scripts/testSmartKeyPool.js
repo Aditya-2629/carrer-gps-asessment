@@ -72,7 +72,7 @@ async function runTests() {
   console.log('✓ Second task immediately used promoted key without trying failed key.')
 
   console.log('\n--- TEST 4: Cooldown Handling When All Keys Cool Down ---')
-  // If only 1 key is configured and fails, retry still attempts it if no non-cooling alternatives exist
+  // If only 1 key is configured and fails with provider error, retry once with backoff without putting single key on cooldown
   const singleKeyPool = new SmartKeyPool('SingleKeyService', { cooldownMs: 10000 })
   singleKeyPool.keys = ['only_key_1']
   let attempts = 0
@@ -80,13 +80,28 @@ async function runTests() {
     await singleKeyPool.executeWithRetry(async (k) => {
       attempts++
       throw new Error('401 Unauthorized: Invalid token')
-    })
+    }, { backoffMs: 10 })
     assert.fail('Expected error')
   } catch (err) {
     assert(err.message.includes('All 1 key(s) failed'))
   }
-  assert.strictEqual(attempts, 1)
-  console.log('✓ Single key pool failure handled gracefully.')
+  assert.strictEqual(attempts, 2, 'Single key should retry once before failing')
+  assert.strictEqual(singleKeyPool.cooldowns.has('only_key_1'), false, 'Single key should NOT be put on cooldown lockout')
+  console.log('✓ Single key pool failure handled gracefully with retry and zero cooldown lockout.')
+
+  console.log('\n--- TEST 5: Local Non-Provider Errors Bypass Cooldown ---')
+  const localErrorPool = new SmartKeyPool('LocalErrorService', { cooldownMs: 10000 })
+  localErrorPool.keys = ['test_key_1', 'test_key_2']
+  try {
+    await localErrorPool.executeWithRetry(async (k) => {
+      throw new Error('JobMarketBucket validation failed: roleKey is required')
+    })
+    assert.fail('Expected local error to be rethrown')
+  } catch (err) {
+    assert.strictEqual(err.message, 'JobMarketBucket validation failed: roleKey is required')
+  }
+  assert.strictEqual(localErrorPool.cooldowns.size, 0, 'No keys should be put on cooldown for local error')
+  console.log('✓ Local non-provider errors rethrow immediately without penalizing keys.')
 
   console.log('\n========================================')
   console.log(' ALL SMART KEY POOL TESTS PASSED (4/4)! ')

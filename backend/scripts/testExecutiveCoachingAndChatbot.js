@@ -138,8 +138,8 @@ assert(
   'google/gemini-3.5-flash-lite should be in PROVIDER_MODEL_FALLBACKS.openrouter'
 )
 assert(
-  PROVIDER_MODEL_FALLBACKS.openrouter.includes('deepseek/deepseek-chat'),
-  'deepseek/deepseek-chat should be in PROVIDER_MODEL_FALLBACKS.openrouter'
+  PROVIDER_MODEL_FALLBACKS.openrouter.includes('meta-llama/llama-3.3-70b-instruct'),
+  'meta-llama/llama-3.3-70b-instruct should be in PROVIDER_MODEL_FALLBACKS.openrouter'
 )
 assert(
   PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-2.5-flash'),

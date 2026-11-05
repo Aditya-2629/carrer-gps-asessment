@@ -81,13 +81,13 @@ async function runMasterProductionEvaluation() {
   )
   assert.strictEqual(
     TASK_MODEL_ROUTING.resume_synthesis,
-    'deepseek/deepseek-chat',
-    'resume_synthesis must route to deepseek/deepseek-chat'
+    'google/gemini-2.5-flash-lite',
+    'resume_synthesis must route to google/gemini-2.5-flash-lite'
   )
   assert.strictEqual(
     TASK_MODEL_ROUTING.bullet_rewrites,
-    'deepseek/deepseek-chat',
-    'bullet_rewrites must route to deepseek/deepseek-chat'
+    'google/gemini-2.5-flash-lite',
+    'bullet_rewrites must route to google/gemini-2.5-flash-lite'
   )
   assert.strictEqual(
     TASK_MODEL_ROUTING.linkedin_synthesis,
@@ -407,11 +407,11 @@ async function runMasterProductionEvaluation() {
     ],
   }
 
-  // Record Resume Agent token metrics in cost tracker (deepseek/deepseek-chat)
+  // Record Resume Agent token metrics in cost tracker (google/gemini-2.5-flash-lite)
   costTracker.trackLLM({
     stage: 'resume_synthesis',
     provider: 'openrouter',
-    model: 'deepseek/deepseek-chat',
+    model: 'google/gemini-2.5-flash-lite',
     promptTokens: 2450,
     completionTokens: 920,
     durationMs: 1850,
