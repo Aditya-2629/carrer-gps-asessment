@@ -34,6 +34,7 @@ CRITICAL RULES:
 - ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
 - LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
 - DOMAIN FIDELITY: Maintain strict domain realism (e.g. for Data Analyst roles, weave Snowflake/dbt into data modeling, ETL, or automated reconciliation; do not invent full-stack UI or unit testing frameworks).
+- COMPLEMENTARY TOOL PAIRING: When natural, pair 2 cohesive technologies in a single bullet (e.g., 'Docker & Kubernetes', 'React & TypeScript', 'Kafka & Redis') so high technical density is achieved without keyword stuffing.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
@@ -137,10 +138,20 @@ export async function batchWeaveBulletsWithLLM({
   }
 
   // 2. Single-Batch LLM Call (OpenRouter Paid Gemini Primary)
+  // Dynamic capacity: Scale up to 10-12 skills based on available candidate bullets
+  const totalAvailableBullets = bulletsToRewrite.length
+  const maxSkillsCapacity = Math.min(
+    cleanSkills.length,
+    Math.max(6, Math.min(12, totalAvailableBullets))
+  )
+  const maxBulletsCapacity = Math.min(totalAvailableBullets, 10)
+
   const batchPromptInput = {
     targetRole,
-    targetSkillsToWeave: cleanSkills.slice(0, 5),
-    bulletsToReengineer: bulletsToRewrite.slice(0, 6).map((b) => ({
+    // Top 10-12 missing & stranded skills dynamically selected
+    targetSkillsToWeave: cleanSkills.slice(0, maxSkillsCapacity),
+    // Up to 10 bullets distributed across experience and projects
+    bulletsToReengineer: bulletsToRewrite.slice(0, maxBulletsCapacity).map((b) => ({
       bulletId: b.bulletId,
       company: b.company,
       currentText: b.originalText,
@@ -159,7 +170,7 @@ export async function batchWeaveBulletsWithLLM({
       ],
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
-      maxTokens: 2000,
+      maxTokens: 3500, // Increased token budget for 10-12 rewrites
       timeoutMs: timeoutMs || 30000,
     })
 
