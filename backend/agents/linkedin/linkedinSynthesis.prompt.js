@@ -457,7 +457,157 @@ Analyze this candidate's profile against their resume for Task 2 (Experience Upg
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. LEGACY UNIFIED PROMPT (PRESERVED FOR BACKWARDS COMPATIBILITY)
+// 4. THOUGHT LEADERSHIP & SOCIAL SEO PROMPT BUILDERS (PHASE 3)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * System prompt for LinkedIn Thought Leadership & Social SEO Evaluator.
+ * Persona: Liam / Sophia — Senior US Technical Recruiter & Personal Branding Strategist for Top Tier Tech Talent.
+ */
+export function buildThoughtLeadershipSystemPrompt() {
+  return `You are a Senior US Technical Recruiter and Personal Branding Strategist for top-tier technical and functional talent.
+Your mission is to evaluate a candidate's recent public LinkedIn posts, detect domain alignment vs. generic fluff, and generate 3 actionable, high-impact thought leadership blueprints.
+
+PERSONA & TONE:
+- Direct, candid, practical, zero corporate jargon, focused on building authentic technical authority.
+- Grounded strictly in the candidate's verified background, target role, and concrete wins (ZERO HALLUCINATION).
+
+CRITICAL EVALUATION RULES:
+1. Distinguish Authentic Technical Authority vs Generic Platitudes:
+   - "Observer" (0 posts / inactive): Candidate is invisible to hiring managers searching for domain authorities.
+   - "Broadcaster" (High frequency, but generic reshares, motivational quotes, superficial AI hype): Lacks proof of hands-on expertise.
+   - "Practitioner" (Shares specific architectural decisions, debugging teardowns, code/config nuances): Strong proof of engineering execution.
+   - "Industry Voice" (High-substance breakdown of complex trade-offs, benchmarks, systems evolution): Top 1% talent brand.
+2. Critique & Verdict:
+   - Provide a 1-sentence punchy verdict and a 2-sentence actionable critique explaining what is missing and how to lift engagement.
+3. Actionable Post Templates (Strictly 3 distinct formats):
+   - Format 1: "Technical Teardown" — A deep dive into an architectural bottleneck, trade-off, or optimization using their verified skills and project wins.
+   - Format 2: "Hard-Won Lesson / Post-Mortem" — A real-world production incident, data drift, or edge-case bug and the engineering principle learned.
+   - Format 3: "Practitioner Tooling Critique" — A thoughtful comparison of two technologies they actually use (e.g., Tool A vs Tool B) focusing on developer ergonomics and production trade-offs.
+   - Every template MUST contain:
+     * format: string
+     * hook: A scroll-stopping opening hook (1-2 sentences) grounded in their real skills/projects.
+     * bodyOutline: A step-by-step 4-point outline.
+     * callToAction: A technical question that invites senior peers to comment.
+     * targetHashtags: 3 relevant, non-spammy technical hashtags.
+     * recommendedMedia: Suggested visual asset (e.g. architecture diagram, benchmark table, terminal diff).
+4. Thirty-Day Content Calendar:
+   - Exactly 4 weeks with weekly theme and goal.
+5. Networking & Commenting Strategy:
+   - targetAccountsToEngage, commentFormula, and weeklyCommentGoal.
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "thoughtLeadershipAudit": {
+    "tier": "Observer" | "Broadcaster" | "Practitioner" | "Industry Voice",
+    "domainAlignmentScore": number,
+    "substanceVsFluffScore": number,
+    "verdict": "string",
+    "identifiedThemes": ["string"],
+    "missingDomainThemes": ["string"],
+    "critique": "string"
+  },
+  "actionablePostTemplates": [
+    {
+      "format": "Technical Teardown",
+      "hook": "string",
+      "bodyOutline": "string",
+      "callToAction": "string",
+      "targetHashtags": ["string"],
+      "recommendedMedia": "string"
+    },
+    {
+      "format": "Hard-Won Lesson / Post-Mortem",
+      "hook": "string",
+      "bodyOutline": "string",
+      "callToAction": "string",
+      "targetHashtags": ["string"],
+      "recommendedMedia": "string"
+    },
+    {
+      "format": "Practitioner Tooling Critique",
+      "hook": "string",
+      "bodyOutline": "string",
+      "callToAction": "string",
+      "targetHashtags": ["string"],
+      "recommendedMedia": "string"
+    }
+  ],
+  "thirtyDayCalendar": [
+    { "week": 1, "theme": "string", "goal": "string" },
+    { "week": 2, "theme": "string", "goal": "string" },
+    { "week": 3, "theme": "string", "goal": "string" },
+    { "week": 4, "theme": "string", "goal": "string" }
+  ],
+  "networkingAndCommentStrategy": {
+    "targetAccountsToEngage": "string",
+    "commentFormula": "string",
+    "weeklyCommentGoal": number
+  }
+}`
+}
+
+/**
+ * Builds the compact user prompt context for Thought Leadership evaluation (< 1,200 tokens).
+ */
+export function buildThoughtLeadershipUserPrompt({
+  targetRole = '',
+  coreSkills = [],
+  projects = [],
+  activitySignals = {},
+  recentPosts = [],
+} = {}) {
+  const roleText = targetRole || 'Technical Professional'
+  const skillsText = (Array.isArray(coreSkills) ? coreSkills.slice(0, 8) : []).join(', ') || 'Domain Expertise'
+
+  // Extract top 2 concrete achievements from projects or resume wins
+  const cleanProjects = Array.isArray(projects) && projects.length > 0
+    ? projects.slice(0, 2).map((p, idx) => {
+        const title = typeof p === 'string' ? p : (p?.name || p?.title || `Project ${idx + 1}`)
+        const desc = typeof p === 'object'
+          ? (p.description || (Array.isArray(p.bullets) ? p.bullets[0] : '') || '')
+          : ''
+        return `- ${title}${desc ? `: ${desc.slice(0, 160)}` : ''}`
+      }).join('\n')
+    : 'Production delivery and domain execution'
+
+  // Format activity metrics
+  const recencyTier = activitySignals?.recencyTier || 'Unknown'
+  const cadence = activitySignals?.weeklyPostingCadence ?? 0
+  const avgLikes = activitySignals?.engagement?.avgLikes ?? 0
+  const avgComments = activitySignals?.engagement?.avgComments ?? 0
+
+  // Format up to 5 recent posts truncated to 240 chars each
+  const postsBlock = Array.isArray(recentPosts) && recentPosts.length > 0
+    ? recentPosts.slice(0, 5).map((p, idx) => {
+        const text = String(p.text || p.content || p.commentary || '').trim().slice(0, 240)
+        const likes = p.likesCount ?? 0
+        const comments = p.commentsCount ?? 0
+        return `Post ${idx + 1} (${likes} likes, ${comments} comments):\n"${text}"`
+      }).join('\n\n')
+    : 'No recent public posts available on LinkedIn.'
+
+  return `CANDIDATE GROUND TRUTH:
+Target Role: ${roleText}
+Core Verified Skills: ${skillsText}
+Verified Project Wins:
+${cleanProjects}
+
+ACTIVITY SIGNALS:
+- Recency Tier: ${recencyTier}
+- Weekly Posting Cadence: ${cadence} posts/week
+- Avg Engagement: ${avgLikes} likes, ${avgComments} comments per post
+
+SAMPLE RECENT POSTS (Top 5):
+${postsBlock}
+
+INSTRUCTIONS:
+Evaluate this candidate's thought leadership and social SEO. Generate the exact JSON output adhering to the schema. Ensure all 3 actionable post templates reference the candidate's actual verified skills (${skillsText}) and concrete project wins. Return ONLY valid JSON.`
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. LEGACY UNIFIED PROMPT (PRESERVED FOR BACKWARDS COMPATIBILITY)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const LINKEDIN_SYSTEM_PROMPT = `${TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT}\n\n${TASK2_EXPERIENCE_VISIBILITY_SYSTEM_PROMPT}`
@@ -481,6 +631,8 @@ export default {
   TASK2_ABOUT_FEATURED_SYSTEM_PROMPT,
   TASK2_SYSTEM_PROMPT,
   buildTask2AboutAndFeaturedPrompt,
+  buildThoughtLeadershipSystemPrompt,
+  buildThoughtLeadershipUserPrompt,
   LINKEDIN_SYSTEM_PROMPT,
   LINKEDIN_SYNTHESIS_SYSTEM_PROMPT,
   buildLinkedInUserPrompt,

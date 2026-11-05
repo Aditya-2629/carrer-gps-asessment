@@ -14,6 +14,11 @@
 
 import { normalizeLinkedInProfile } from './linkedinNormalizer.js'
 import { extractLinkedInSignals } from './linkedinSignalEngine.js'
+import { extractLinkedInActivitySignals } from './linkedinActivityEngine.js'
+import {
+  evaluateThoughtLeadershipAndSocialSeo,
+  buildDeterministicThoughtLeadership,
+} from './linkedinThoughtLeadershipEvaluator.js'
 import { analyzeCrossAgentDiscrepancies } from './linkedinCrossAnalyzer.js'
 import { computeLinkedInScorecard } from './linkedinScorecard.js'
 import {
@@ -47,6 +52,8 @@ function makeNoDataResult() {
     missingSkills: [],
     missingSections: [],
     visualAudit: { hasPicture: false, hasBanner: false, issues: [] },
+    activitySignals: null,
+    thoughtLeadership: null,
     optimizations: null,
     summary: { fix: 0, warn: 0, pass: 0 },
   }
@@ -244,6 +251,8 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}) {
     missingSkills: crossAnalysis.missingSkills,
     missingSections: crossAnalysis.missingSections || [],
     visualAudit: crossAnalysis.visualAudit || { hasPicture: false, hasBanner: false, issues: [] },
+    activitySignals: null,
+    thoughtLeadership: null,
     optimizations: null,
     summary: {
       ...scorecard.summary,
@@ -265,12 +274,14 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}) {
 export async function evaluateLinkedIn({
   linkedinData = null,
   profile = null,
+  activityData = null,
   resumeContext = {},
   answers = null,
   runLlm = true,
   onProgress = null,
   excludeProvider = null,
   preferredProvider = null,
+  options = {},
 }) {
   const effectiveAnswers = answers || resumeContext?.answers || null
   const rawData = linkedinData || profile || null
@@ -298,6 +309,32 @@ export async function evaluateLinkedIn({
       return makeNoDataResult()
     }
   }
+
+  // Extract candidate ground truth for signals & thought leadership
+  const rawTargetRole =
+    resumeContext?.targetRole ||
+    resumeContext?.canonicalResume?.candidate?.targetRole ||
+    normalized?.headline ||
+    ''
+  const targetRole = (
+    typeof rawTargetRole === 'string'
+      ? rawTargetRole
+      : (rawTargetRole?.title || rawTargetRole?.value || rawTargetRole?.label || rawTargetRole?.name || rawTargetRole?.targetRole || String(rawTargetRole || ''))
+  ).trim()
+
+  const canonical = resumeContext?.canonicalResume || {}
+  const rawSkills = canonical?.skills || canonical?.top_skills || canonical?.technical_skills || []
+  const coreSkills = (Array.isArray(rawSkills) ? rawSkills : [])
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
+    .filter(Boolean)
+  const resumeProjects = Array.isArray(canonical?.projects)
+    ? canonical.projects
+    : Array.isArray(canonical?.featuredProjects)
+    ? canonical.featuredProjects
+    : []
+
+  // Extract deterministic activity signals (Phase 2)
+  const activitySignals = extractLinkedInActivitySignals(activityData, targetRole, coreSkills)
 
   // 1. Run deterministic base (scorecard + cross-analysis)
   if (onProgress) {
@@ -350,10 +387,47 @@ export async function evaluateLinkedIn({
     }
   }
 
+  // 3. Evaluate Thought Leadership & Social SEO (Phase 3)
+  let thoughtLeadership = null
+  if (onProgress) {
+    onProgress({
+      stage: 'thought_leadership',
+      agent: 'linkedin',
+      message: 'Evaluating thought leadership authority, cadence velocity, and social SEO blueprints…',
+    })
+  }
+
+  try {
+    thoughtLeadership = await evaluateThoughtLeadershipAndSocialSeo({
+      activitySignals,
+      posts: Array.isArray(activityData?.posts) ? activityData.posts : [],
+      resumeContext,
+      options: {
+        runLlm,
+        preferredProvider: preferredProvider || resumeContext?.preferredProvider,
+        excludeProvider: excludeProvider || resumeContext?.excludeProvider,
+        ...options,
+      },
+    })
+  } catch (tlErr) {
+    console.warn('[LinkedInAgent] Thought leadership evaluation failed:', tlErr.message)
+    thoughtLeadership = buildDeterministicThoughtLeadership(
+      targetRole,
+      coreSkills,
+      resumeProjects,
+      activitySignals?.isGhostProfile
+    )
+  }
+
   return {
     ...baseResult,
     inferredFromResume: Boolean(normalized.inferredFromResume),
-    optimizations,
+    activitySignals,
+    thoughtLeadership,
+    optimizations: {
+      ...(optimizations || {}),
+      thoughtLeadership,
+    },
   }
 }
 

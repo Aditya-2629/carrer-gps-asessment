@@ -16,6 +16,11 @@ export {
   FLUFF_PATTERNS,
 } from './linkedinActivityEngine.js'
 
+export {
+  evaluateThoughtLeadershipAndSocialSeo,
+  buildDeterministicThoughtLeadership,
+} from './linkedinThoughtLeadershipEvaluator.js'
+
 export { analyzeCrossAgentDiscrepancies } from './linkedinCrossAnalyzer.js'
 
 export { computeLinkedInScorecard } from './linkedinScorecard.js'
