@@ -477,7 +477,7 @@ export async function runCareerAgents(bundle) {
     linkedinJobPromise || Promise.resolve(null),
   ])
 
-  const activeResumeAgent = resumeSettled?.analysis || null
+  const activeResumeAgent = resumeSettled?.analysis || bundle.precomputedResumeAgent || null
   const activeLinkedinAgent = linkedinSettled?.analysis || null
 
   // Re-run evaluation with resolved agents to compute exact 100-Point Career GPS Score and 5-Phase Root Cause

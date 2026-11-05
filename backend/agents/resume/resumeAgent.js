@@ -638,55 +638,21 @@ export class ResumeAgent {
           const match = err.match(/^issues\[(\d+)\]/)
           if (match) failingIndices.add(parseInt(match[1], 10))
         }
-        if (failingIndices.size > 0) {
-          if (validation.sanitizedAnalysis.issues.length - failingIndices.size >= 3) {
-            const recoveredIssues = validation.sanitizedAnalysis.issues.filter((_, idx) => !failingIndices.has(idx))
-            console.warn(
-              `[ResumeAgent] Safe recovery applied: pruned ${failingIndices.size} ungrounded issues; ${recoveredIssues.length} valid issues retained.`
+        if (failingIndices.size > 0 && validation.sanitizedAnalysis.issues.length - failingIndices.size >= 3) {
+          const recoveredIssues = validation.sanitizedAnalysis.issues.filter((_, idx) => !failingIndices.has(idx))
+          console.warn(
+            `[ResumeAgent] Safe recovery applied: pruned ${failingIndices.size} ungrounded issues; ${recoveredIssues.length} valid issues retained.`
+          )
+          const recoveredAnalysis = {
+            ...validation.sanitizedAnalysis,
+            issues: recoveredIssues,
+          }
+          const revalidated = ResumeAgentValidator.validate(recoveredAnalysis, canonicalResume)
+          if (revalidated.isValid) {
+            validation = revalidated
+            validation.warnings.push(
+              `Safe recovery applied: pruned ${failingIndices.size} issues with invalid evidence; ${recoveredIssues.length} verified issues retained.`
             )
-            const recoveredAnalysis = {
-              ...validation.sanitizedAnalysis,
-              issues: recoveredIssues,
-            }
-            const revalidated = ResumeAgentValidator.validate(recoveredAnalysis, canonicalResume)
-            if (revalidated.isValid) {
-              validation = revalidated
-              validation.warnings.push(
-                `Safe recovery applied: pruned ${failingIndices.size} issues with invalid evidence; ${recoveredIssues.length} verified issues retained.`
-              )
-            }
-          } else {
-            // Auto-heal failing issues using canonical bullet grounding
-            const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
-            const unusedBullets = []
-            for (const [bId, text] of bulletMap.entries()) {
-              if (!validation.sanitizedAnalysis.issues.some((i) => i.evidence?.[0]?.bulletId === bId)) {
-                unusedBullets.push({ bId, text })
-              }
-            }
-            for (const idx of failingIndices) {
-              const iss = validation.sanitizedAnalysis.issues[idx]
-              if (iss && unusedBullets.length > 0) {
-                const rep = unusedBullets.shift()
-                const itemId = rep.bId.startsWith('exp_') ? rep.bId.slice(0, 7) : (rep.bId.startsWith('proj_') ? rep.bId.slice(0, 8) : rep.bId)
-                iss.evidence = [{
-                  section: rep.bId.startsWith('proj') ? 'projects' : (rep.bId.startsWith('exp') ? 'experience' : 'summary'),
-                  itemId,
-                  bulletId: rep.bId,
-                  originalText: rep.text,
-                }]
-                if (iss.correctedText) {
-                  iss.correctedText = ResumeAgentValidator.buildGoogleXYZRewrite(rep.text)
-                }
-              }
-            }
-            const revalidated = ResumeAgentValidator.validate(validation.sanitizedAnalysis, canonicalResume)
-            if (revalidated.isValid) {
-              validation = revalidated
-              validation.warnings.push(
-                `Safe recovery applied: auto-grounded ${failingIndices.size} issues with canonical resume bullets.`
-              )
-            }
           }
         }
       }
