@@ -15,6 +15,7 @@ import {
   buildDeterministicThoughtLeadership,
 } from '../agents/linkedin/linkedinThoughtLeadershipEvaluator.js'
 import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
+import { llmGateway } from '../ai/gateway/llmGateway.js'
 
 function assert(condition, message) {
   if (!condition) {
@@ -27,6 +28,16 @@ function assert(condition, message) {
 console.log('====================================================')
 console.log('🧪 Starting Thought Leadership & Social SEO Evaluator Tests')
 console.log('====================================================\n')
+
+// ----------------------------------------------------
+// Spy on llmGateway to guarantee zero unauthorized calls
+// ----------------------------------------------------
+let llmGatewayCallCount = 0
+const originalGenerate = llmGateway.generate.bind(llmGateway)
+llmGateway.generate = async (params) => {
+  llmGatewayCallCount++
+  return originalGenerate(params)
+}
 
 // ----------------------------------------------------
 // Test 1: Ghost Profile Fast-Path (< 2ms & No LLM call)
@@ -66,6 +77,7 @@ const ghostElapsedMs = performance.now() - t0
 
 console.log(`  ⏱️ Ghost fast-path evaluated in ${ghostElapsedMs.toFixed(3)}ms`)
 assert(ghostElapsedMs < 5.0, `Fast-path executes well under 5ms (actual: ${ghostElapsedMs.toFixed(3)}ms)`)
+assert(llmGatewayCallCount === 0, 'Passing empty posts array NEVER triggered an API call to llmGateway')
 
 // Assert Schema & Values
 assert(ghostResult.thoughtLeadershipAudit.tier === 'Observer', 'Audit tier is "Observer"')
@@ -119,9 +131,9 @@ const financeHooks = financeResult.actionablePostTemplates.map((t) => t.hook).jo
 assert(financeHooks.includes('DCF') || financeHooks.includes('variance forecasting'), 'Finance templates include DCF / variance forecasting')
 
 // ----------------------------------------------------
-// Test 3: Live/Mock Posts Fast-Path with runLlm: false & Schema Validation
+// Test 3: Live/Mock Posts Path with 3 sample posts & LLM Synthesis
 // ----------------------------------------------------
-console.log('\nTest 3: Active Profile deterministic evaluation when runLlm: false')
+console.log('\nTest 3: Live/Mock Posts Path with 3 sample posts & LLM Schema validation')
 
 const samplePosts = [
   {
@@ -136,14 +148,21 @@ const samplePosts = [
     likesCount: 85,
     commentsCount: 15,
   },
+  {
+    id: 'p3',
+    text: 'AWS ECS Fargate deployment pipelines with Terraform and Docker. Continuous delivery simplified.',
+    likesCount: 35,
+    commentsCount: 6,
+  },
 ]
 
+// 3a. Deterministic evaluation when runLlm: false
 const activeResult = await evaluateThoughtLeadershipAndSocialSeo({
   activitySignals: {
     status: 'active',
     available: true,
     isGhostProfile: false,
-    postsAnalyzedCount: 2,
+    postsAnalyzedCount: 3,
     recencyTier: 'Highly Active',
     weeklyPostingCadence: 2.0,
   },
@@ -157,6 +176,81 @@ assert(activeResult.thoughtLeadershipAudit.domainAlignmentScore > 70, 'Domain al
 assert(activeResult.thoughtLeadershipAudit.substanceVsFluffScore > 70, 'Substance score > 70')
 assert(activeResult.actionablePostTemplates.length === 3, '3 post templates returned')
 assert(activeResult.thirtyDayCalendar.length === 4, '4-week calendar returned')
+
+// 3b. LLM Pathway with mock gateway response
+llmGateway.generate = async () => ({
+  text: JSON.stringify({
+    thoughtLeadershipAudit: {
+      tier: 'Industry Voice',
+      domainAlignmentScore: 92,
+      substanceVsFluffScore: 88,
+      verdict: 'Candidate showcases outstanding distributed systems execution.',
+      identifiedThemes: ['Kafka Event Streaming', 'High Concurrency Architecture'],
+      missingDomainThemes: ['Public Benchmark Comparisons'],
+      critique: 'Great content. Add explicit open questions at the end of posts to triple comment engagement.',
+    },
+    actionablePostTemplates: [
+      {
+        format: 'Technical Teardown',
+        hook: 'Scaling Kafka consumers under 100k events/sec in Node.js:',
+        bodyOutline: '1. Thread starvation\n2. Rebalancing latency\n3. Sticky assignor tuning\n4. Latency results',
+        callToAction: 'How are you handling partition rebalance storms?',
+        targetHashtags: ['#Kafka', '#DistributedSystems', '#NodeJS'],
+        recommendedMedia: 'Partition throughput benchmark chart',
+      },
+      {
+        format: 'Hard-Won Lesson / Post-Mortem',
+        hook: 'How connection leaks brought down our database under Black Friday loads:',
+        bodyOutline: '1. Connection pool exhaustion\n2. PgBouncer integration\n3. Defensive timeouts\n4. Zero downtime result',
+        callToAction: 'Do you run PgBouncer in session or transaction pooling mode?',
+        targetHashtags: ['#PostgreSQL', '#DatabaseEngineering', '#HighAvailability'],
+        recommendedMedia: 'Connection pool architecture flow',
+      },
+      {
+        format: 'Practitioner Tooling Critique',
+        hook: 'Running ECS Fargate vs EKS Kubernetes in production: our 1-year verdict:',
+        bodyOutline: '1. Operational overhead comparison\n2. Cost per workload\n3. Developer ergonomics\n4. Final recommendation',
+        callToAction: 'At what scale did your team transition from ECS to Kubernetes?',
+        targetHashtags: ['#AWS', '#DevOps', '#CloudInfrastructure'],
+        recommendedMedia: 'Cost vs complexity comparison quadrant',
+      },
+    ],
+    thirtyDayCalendar: [
+      { week: 1, theme: 'Kafka Architecture Teardown', goal: 'Establish domain authority' },
+      { week: 2, theme: 'PostgreSQL Post-Mortem', goal: 'Demonstrate debugging depth' },
+      { week: 3, theme: 'ECS vs EKS Tooling Critique', goal: 'Spark discussion with leads' },
+      { week: 4, theme: 'Developer Workflow Teardown', goal: 'Broaden social reach' },
+    ],
+    networkingAndCommentStrategy: {
+      targetAccountsToEngage: 'Staff Engineers and VPs at Stripe and Datadog.',
+      commentFormula: 'Validate premise + Concrete metric + Open question',
+      weeklyCommentGoal: 3,
+    },
+  }),
+})
+
+const liveLlmResult = await evaluateThoughtLeadershipAndSocialSeo({
+  activitySignals: {
+    status: 'active',
+    available: true,
+    isGhostProfile: false,
+    postsAnalyzedCount: 3,
+    recencyTier: 'Highly Active',
+    weeklyPostingCadence: 3.0,
+  },
+  posts: samplePosts,
+  resumeContext: mockResumeContext,
+  options: { runLlm: true },
+})
+
+assert(liveLlmResult.thoughtLeadershipAudit.tier === 'Industry Voice', 'LLM output tier parsed correctly as "Industry Voice"')
+assert(liveLlmResult.thoughtLeadershipAudit.domainAlignmentScore === 92, 'LLM domainAlignmentScore parsed correctly')
+assert(liveLlmResult.actionablePostTemplates.length === 3, 'LLM returned exactly 3 post templates')
+assert(liveLlmResult.thirtyDayCalendar.length === 4, 'LLM returned exactly 4-week calendar')
+assert(liveLlmResult.networkingAndCommentStrategy.weeklyCommentGoal === 3, 'Networking comment goal is 3')
+
+// Restore original llmGateway
+llmGateway.generate = originalGenerate
 
 // ----------------------------------------------------
 // Test 4: evaluateLinkedIn Integration Test
@@ -200,7 +294,7 @@ const fullResult = await evaluateLinkedIn({
 
 assert(fullResult.dataAvailable === true, 'Profile evaluated successfully')
 assert(fullResult.activitySignals !== null, 'activitySignals is present on evaluation bundle')
-assert(fullResult.activitySignals.postsAnalyzedCount === 2, 'activitySignals posts count is 2')
+assert(fullResult.activitySignals.postsAnalyzedCount === 3, 'activitySignals posts count is 3')
 assert(fullResult.thoughtLeadership !== null, 'thoughtLeadership is present at root of bundle')
 assert(fullResult.optimizations.thoughtLeadership !== null, 'thoughtLeadership is attached to optimizations')
 assert(fullResult.thoughtLeadership.actionablePostTemplates.length === 3, 'Templates populated in full result')
