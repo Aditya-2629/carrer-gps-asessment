@@ -269,6 +269,10 @@ export function deriveFunnelFromAnswers(answers = {}) {
   let leak_title = 'Top-of-Funnel Application Black Hole'
   let diagnosis_message = `You submitted ${totalApps90d} applications yielding only ${totalScreens} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
 
+  if (totalApps90d > 80 && totalScreens < 3) {
+    diagnosis_message = 'The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization.'
+  }
+
   if (totalApps90d < 15 && totalScreens === 0) {
     biggest_leak_stage = 'readiness_stall'
     leak_title = 'Application Readiness & Search Inactivity'
@@ -281,6 +285,10 @@ export function deriveFunnelFromAnswers(answers = {}) {
     biggest_leak_stage = 'final_round_drop'
     leak_title = 'Final Executive & Hiring Manager Conversion'
     diagnosis_message = 'Reaching final rounds indicates strong technical baseline, but converting to written offers requires sharper executive alignment and strategic business ROI demonstration.'
+  } else if (totalScreens > 5 && technicalRounds === 0) {
+    biggest_leak_stage = 'recruiter_screen'
+    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
+    diagnosis_message = 'The Elevator Pitch / Storytelling Deficit — Getting the call but failing to articulate architectural trade-offs during the initial 15-minute phone screen.'
   } else if (totalScreens >= 4 && technicalRounds <= 1 && screenToTechRate <= 20) {
     biggest_leak_stage = 'recruiter_screen'
     leak_title = 'Recruiter Screen to Hiring Manager Handoff'
@@ -350,12 +358,21 @@ export function normalizeAtlasShapes(report, answers = {}) {
     report.roadmap = buildStandard4WeekRoadmap(report.career_journey?.current_phase_id || 1)
   }
 
-  // risk_heatmap / risk_matrix fallback
+  // risk_heatmap / risk_matrix normalization and fallback
+  if (Array.isArray(report.risk_matrix) && report.risk_matrix.length > 0) {
+    report.risk_matrix = report.risk_matrix.map((r) => ({
+      risk: r.risk || r.factor || 'Market Friction & Application Stall',
+      factor: r.factor || r.risk || 'Market Friction & Application Stall',
+      severity: r.severity || 'Medium',
+      mitigation: r.mitigation || 'Activate direct hiring manager outbound immediately.',
+    }))
+  }
   if (!report.risk_heatmap && Array.isArray(report.risk_matrix) && report.risk_matrix.length > 0) {
     const primaryRisk = report.risk_matrix[0]
+    const riskText = primaryRisk.risk || primaryRisk.factor || 'Market Friction and Application Stall'
     report.risk_heatmap = {
-      critical_risk: primaryRisk.factor ? `${primaryRisk.factor}: ${primaryRisk.mitigation || 'Active mitigation required'}` : 'Market Friction and Application Stall',
-      high_impact_low_likelihood: report.risk_matrix.slice(1, 3).map((r) => r.factor || 'Extended hiring team deliberation'),
+      critical_risk: `${riskText}: ${primaryRisk.mitigation || 'Active mitigation required'}`,
+      high_impact_low_likelihood: report.risk_matrix.slice(1, 3).map((r) => r.risk || r.factor || 'Extended hiring team deliberation'),
       low_impact_high_likelihood: ['Delayed recruiter screening feedback'],
       mitigation_plan: primaryRisk.mitigation || 'Activate direct hiring manager outbound immediately.',
     }
@@ -434,9 +451,52 @@ export function normalizeAtlasShapes(report, answers = {}) {
   return report
 }
 
+// Executive Coach Persona & Tone Directives (David / Elena — Tough-Love Managing Partner)
+export const ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT = `
+==================================================
+PERSONA & TONE DIRECTIVE:
+==================================================
+You are David / Elena — Managing Partner at an elite US executive career search firm. You have guided 1,500+ engineers from senior individual contributors to Staff Engineers, Engineering Leads, and VPs.
+
+Your coaching philosophy is TOUGH LOVE:
+- Warm, grounded, and deeply empathetic to the candidate's hard work and enterprise grit.
+- Brutally honest and candid about why their current pipeline is stalling. No sugarcoating, no corporate jargon.
+- Address the candidate directly by first name in the second person ("you", "your").
+- Never sound like an algorithmic ATS bot, a stiff corporate audit, or an academic researcher.
+
+==================================================
+3-PART EXECUTIVE DIAGNOSTIC FRAMEWORK:
+==================================================
+Enforce this 3-Part Diagnostic Framework across executive_verdict, primary_bottleneck, and critical_issues:
+- Part 1: Validate the Enterprise Foundation: Acknowledge their real accomplishments, recognized company logos (e.g. Bank of America, Abbott), and core technical stack so they know you have actually reviewed their career.
+- Part 2: The Brutal Bottleneck Truth: Explain the exact human screening reality causing drop-offs.
+  Example: "Alekya, your resume proves you can write solid code at enterprise scale. But hiring managers are passing in 6 seconds because your experience reads like an instruction manual of tools you touched, rather than the business outcomes and system architecture you owned. They see a developer executing tickets, not a Senior Engineer driving solutions."
+- Part 3: The Immediate High-Leverage Pivot: Give them the single most impactful tactical shift they must make tomorrow morning to unblock recruiter callbacks.
+
+==================================================
+BEHAVIORAL FUNNEL LEAK & RISK MATRIX DIRECTIVES:
+==================================================
+1. Funnel Leak Diagnosis (funnel_stages.diagnosis_message):
+   - Prohibit generic math repetitions like "Conversion rate is 5.6% which is low".
+   - Enforce behavioral diagnosis:
+     * If applications > 80 and recruiter screens < 3: Diagnose as "The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization."
+     * If recruiter screens > 5 and technical rounds = 0: Diagnose as "The Elevator Pitch / Storytelling Deficit — Getting the call but failing to articulate architectural trade-offs during the initial 15-minute phone screen."
+2. Risk Matrix (What Are My Biggest Job Search Risks?):
+   - Frame risks with real career implications (e.g. F1 OPT timeline pressure, market compensation mismatch, recruiter misinterpretation of contract staffing vs client framing).
+   - Each risk item in risk_matrix MUST include:
+     * "risk": Clear, un-minced threat statement.
+     * "mitigation": 1 pragmatic, immediately executable counter-measure.
+
+==================================================
+BANNED ROBOTIC CLICHÉS & AI BUZZWORDS:
+==================================================
+Strictly FORBID using: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate", "pivotal", "delve", "testament to", "navigating the job market", "in conclusion", "it is crucial", "synergies", "holistic".
+`
+
 // Every Atlas call carries this contract — array sections are non-negotiable
 // for the dashboard widgets, and models deviate without it.
-const ATLAS_FORMAT_CONTRACT = `
+export const ATLAS_FORMAT_CONTRACT = `
+${ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT}
 
 FORMAT CONTRACT (strict):
 - critical_issues, rejection_factors, recommended_tools MUST be JSON ARRAYS of objects.
@@ -445,8 +505,28 @@ FORMAT CONTRACT (strict):
 - career_journey MUST be a single object: {"current_phase_id": "...", "guide_message": "..."}.
 - Never merge sections. Return valid JSON only.`
 
+/**
+ * Renders the complete Atlas Master Report prompt combining candidate profile context
+ * and executive coach formatting contracts.
+ */
+export function renderAtlasPrompt(userData = {}, resumeData = null, options = {}) {
+  const promptText = getGeminiPrompt(
+    userData,
+    resumeData,
+    options.linkedinData || null,
+    options.dynamicKnowledgeBase || null,
+    options.semanticProfile || null,
+    options.resumeAgent || null,
+    options.linkedinAgent || null,
+    options.assessmentPersona || null,
+    options.userAnswers || userData?.answers || userData,
+    options.compactDigest || null
+  )
+  return promptText + ATLAS_FORMAT_CONTRACT
+}
+
 export async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
-  const executiveDirective = '\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks. Write with the authoritative voice of an executive technical recruiter.'
+  const executiveDirective = '\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks. Write with the authoritative tough-love voice of David / Elena — elite executive career coach.'
   const combinedInstructions = `${extraInstructions}${executiveDirective}`
   const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + combinedInstructions.length) / 4)
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
@@ -462,6 +542,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       task: 'report_generation',
       preferredProvider: 'openrouter',
       model: 'google/gemini-2.5-flash-lite',
+      systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
@@ -480,6 +561,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         task: 'report_generation',
         preferredProvider: 'openrouter',
         model: 'deepseek/deepseek-chat',
+        systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
@@ -496,6 +578,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         task: 'report_generation',
         preferredProvider: 'openrouter',
         model: 'google/gemini-3-flash-preview',
+        systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
