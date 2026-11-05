@@ -17,24 +17,24 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
 
   const ROADMAP_STEPS = [
     {
-      ...getStepData(0, 'Positioning', ['Resume Optimization', 'ATS Keyword Alignment', 'LinkedIn Setup']),
-      active: currentPhaseId === 1 || currentPhaseId === 2,
-      badge: 'Phase 1',
+      ...getStepData(0, 'Positioning & Asset Calibration', ['ATS Keyword Alignment', 'Google XYZ Bullet Rewrites', 'LinkedIn Authority & SEO']),
+      active: currentPhaseId === 1 || currentPhaseId === 6 || currentPhaseId <= 1,
+      badge: 'Step 1',
     },
     {
-      ...getStepData(1, 'Visibility', ['Targeted Networking', 'Cold Outreach', 'Employee Referrals']),
+      ...getStepData(1, 'Sourcing Velocity & Multi-Channel Outbound', ['Direct ATS Portals', 'Recruiter InMail Outreach', 'Target Employee Referrals']),
+      active: currentPhaseId === 2,
+      badge: 'Step 2',
+    },
+    {
+      ...getStepData(2, 'Technical Defense & System Architecture Mastery', ['Live Coding & Algorithms', 'System Architecture One-Pagers', 'Behavioral STAR Mocks']),
       active: currentPhaseId === 3,
-      badge: 'Phase 2',
+      badge: 'Step 3',
     },
     {
-      ...getStepData(2, 'Conversion', ['Technical Interviews', 'STAR Story Prep', 'Follow-up Cadence']),
-      active: currentPhaseId === 4,
-      badge: 'Phase 3',
-    },
-    {
-      ...getStepData(3, 'Offer & Success', ['Official Job Offer', 'Onboarding Strategy', 'Career Advancement']),
-      active: currentPhaseId === 5,
-      badge: 'Your Goal 🏆',
+      ...getStepData(3, 'Executive Closing, Negotiation & Offer Clearance', ['VP/Director Reverse Q&A', 'Total Comp Benchmarking', 'Offer Clearance & Onboarding']),
+      active: currentPhaseId >= 4,
+      badge: 'The Goal 🏆',
       isGoal: true,
     },
   ]
@@ -46,7 +46,7 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
       {/* Executive Section Header */}
       <div className="space-y-1.5">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
-          <span>Strategic Career Roadmap</span>
+          <span>Strategic Offer Pathway</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
           What Is My Step-By-Step Roadmap To The Offer?
