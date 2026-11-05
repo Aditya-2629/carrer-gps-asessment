@@ -203,7 +203,7 @@ ${effectiveDirectives}` : ''}`
 export const TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience.
 Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 1. Search-Optimized Headline: Role Title + Top 4 Recruiter Search Keywords + Scope Hook (<220 chars).
-2. Story-Driven About Section: 3-paragraph executive narrative (The Hook -> Quantified Proof & Architecture Scale -> Next Role Focus & Call to Connect; NEVER copy-paste resume bullets, synthesize into 3 thematic domain pillars).
+2. Story-Driven About Section: 3-paragraph executive narrative in high-agency First-Person ("I") voice (Technical Identity & Obsession -> Quantified Architecture Pillars -> Where I'm Headed & Peer Invitation to Connect; NEVER copy-paste resume bullets, synthesize into 3 thematic domain pillars, NO trailing tag clouds).
 3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (ZERO-HALLUCINATION GUARDRAIL: zero hallucination).
 
 HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
@@ -212,11 +212,19 @@ HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
 - Avoid generic phrases like "Actively seeking" or "Open to work".
 - In "whyItWorks", explain how this ranks in LinkedIn Recruiter boolean search and hooks hiring managers.
 
-ABOUT SECTION DELIVERABLE (180–250 WORDS, 3 PARAGRAPHS):
-- Paragraph 1 (Hook): Executive identity, years of experience, core technical stack, and scale delivered.
-- Paragraph 2 (Proof): 3 thematic domain pillars with quantified architecture wins (NEVER copy-paste resume bullets).
-- Paragraph 3 (Call to Connect): Engineering philosophy and invitation to connect for target role opportunities.
-- "fullText": Complete copy-paste ready 3-paragraph executive narrative (180–250 words).
+ABOUT SECTION HUMANIZED ARCHITECTURE (180–240 WORDS, 3 PARAGRAPHS):
+- VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. NEVER write in the third-person (e.g. "Alex is an engineer with..."). Speak as a high-agency builder: "I spend most of my time thinking about...", "I build...", "My focus is...".
+- PARAGRAPH 1 (Technical Identity & Engineering Obsession):
+  * State the engineering problems you genuinely enjoy solving, total verified years of experience, core technical stack, and enterprise or high-scale domain.
+  * ZERO corporate mission statements or generic buzzwords ("synergy", "spearheaded", "passionate coder").
+- PARAGRAPH 2 (Architecture Proof & Engineering Pillars):
+  * Synthesize 2–3 distinct technical pillars with verifiable operational scale (e.g., distributed state, high-throughput caching, latency reduction, reliability under load).
+  * NEVER copy-paste raw resume bullets. Frame achievements through architectural decisions and technical mechanisms.
+- PARAGRAPH 3 (Where I'm Headed & Engineering Philosophy):
+  * Explicitly define the caliber and class of technical problems you want to own next.
+  * Conclude with a warm peer-to-peer invitation to connect for engineering leaders, founders, and hiring teams.
+- PURGE TRAILING KEYWORD LISTS: Strictly FORBID appending raw keyword lists or tag clouds at the bottom of the About section (e.g. "Core Competencies: React, Redux, Docker..."). Keywords must live naturally inside the narrative prose for LinkedIn SEO and human readability.
+- "fullText": Complete copy-paste ready 3-paragraph executive narrative in first-person voice (180–240 words).
 
 TOP 3 PINNED SKILLS & RED FLAGS:
 - Top 3 highest-leverage verified skills visible in recruiter search cards.
@@ -242,10 +250,10 @@ REQUIRED JSON SCHEMA (RETURN ONLY VALID JSON):
     }
   ],
   "aboutRewrite": {
-    "hook": "2-3 punchy first-person sentences establishing architectural identity and scale (<210 chars)",
-    "proof": "3 thematic domain pillars (▸ Pillar 1: ... \\n▸ Pillar 2: ... \\n▸ Pillar 3: ...) synthesizing career wins without raw resume bullets",
-    "callToAction": "Forward-looking engineering focus + invitation to connect + Core Specialties: keyword line",
-    "fullText": "Full 3-paragraph copy-paste ready LinkedIn About narrative"
+    "hook": "2-3 punchy first-person sentences establishing engineering obsession, stack, and scale (<210 chars)",
+    "proof": "3 thematic domain pillars synthesizing career wins without raw resume bullets",
+    "callToAction": "Forward-looking engineering focus + peer-to-peer invitation to connect (strictly NO trailing keyword lists or tag clouds)",
+    "fullText": "Full 3-paragraph copy-paste ready LinkedIn About narrative in high-agency first-person voice (180–240 words)"
   },
   "top3PinnedSkills": ["Skill 1", "Skill 2", "Skill 3"],
   "profileRedFlags": [
@@ -486,17 +494,22 @@ CRITICAL EVALUATION RULES:
    - "Industry Voice" (High-substance breakdown of complex trade-offs, benchmarks, systems evolution): Top 1% talent brand.
 2. Critique & Verdict:
    - Provide a 1-sentence punchy verdict and a 2-sentence actionable critique explaining what is missing and how to lift engagement.
-3. Actionable Post Templates (Strictly 3 distinct formats):
-   - Format 1: "Technical Teardown" — A deep dive into an architectural bottleneck, trade-off, or optimization using their verified skills and project wins.
-   - Format 2: "Hard-Won Lesson / Post-Mortem" — A real-world production incident, data drift, or edge-case bug and the engineering principle learned.
-   - Format 3: "Practitioner Tooling Critique" — A thoughtful comparison of two technologies they actually use (e.g., Tool A vs Tool B) focusing on developer ergonomics and production trade-offs.
+3. Actionable Post Templates (Strictly 3 High-Converting Technical Archetypes):
+   - Archetype 1: "The Production Post-Mortem & Silent Bug"
+     * Anatomy: A subtle bug/edge-case that bypassed tests -> how it was diagnosed in production/staging -> the exact root cause mechanism -> the preventative policy/monitoring created.
+   - Archetype 2: "The Tooling Trade-Off & Migration Reality"
+     * Anatomy: Tool A vs Tool B -> why you chose the less hyped/uglier option -> 1 concrete benchmark or production constraint -> real-world operational caveat.
+   - Archetype 3: "The Architecture Deep-Dive / Counter-Intuitive Lesson"
+     * Anatomy: What 90% of tutorials teach -> why it breaks under concurrent load/scale -> the architectural counter-measure implemented.
+   - ZERO-FLUFF RULE: Strictly forbid engagement bait or corporate platitudes ("Happy Monday!", "Always keep learning!", "Agree? Thoughts?"). Speak as an active hands-on practitioner.
+   - CONCRETE TECHNOLOGY CITATION: Every template hook MUST cite at least 2 real technologies from the candidate's verified skills (e.g., PostgreSQL, Docker, Kafka, Redis, Node.js).
    - Every template MUST contain:
-     * format: string
-     * hook: A scroll-stopping opening hook (1-2 sentences) grounded in their real skills/projects.
-     * bodyOutline: A step-by-step 4-point outline.
-     * callToAction: A technical question that invites senior peers to comment.
+     * format: Must be one of: "The Production Post-Mortem & Silent Bug", "The Tooling Trade-Off & Migration Reality", "The Architecture Deep-Dive / Counter-Intuitive Lesson".
+     * hook: A scroll-stopping opening hook (1-2 sentences) citing at least 2 concrete technologies without platitudes.
+     * bodyOutline: A step-by-step 4-point technical outline.
+     * callToAction: A technical practitioner question that invites senior peers to comment (never "Thoughts?").
      * targetHashtags: 3 relevant, non-spammy technical hashtags.
-     * recommendedMedia: Suggested visual asset (e.g. architecture diagram, benchmark table, terminal diff).
+     * recommendedMedia: Suggested visual asset (e.g. architecture diagram, benchmark table, terminal diff, flamegraph).
 4. Thirty-Day Content Calendar:
    - Exactly 4 weeks with weekly theme and goal.
 5. Networking & Commenting Strategy:
@@ -516,7 +529,7 @@ Return ONLY a valid JSON object matching this exact schema:
   },
   "actionablePostTemplates": [
     {
-      "format": "Technical Teardown",
+      "format": "The Production Post-Mortem & Silent Bug",
       "hook": "string",
       "bodyOutline": "string",
       "callToAction": "string",
@@ -524,7 +537,7 @@ Return ONLY a valid JSON object matching this exact schema:
       "recommendedMedia": "string"
     },
     {
-      "format": "Hard-Won Lesson / Post-Mortem",
+      "format": "The Tooling Trade-Off & Migration Reality",
       "hook": "string",
       "bodyOutline": "string",
       "callToAction": "string",
@@ -532,7 +545,7 @@ Return ONLY a valid JSON object matching this exact schema:
       "recommendedMedia": "string"
     },
     {
-      "format": "Practitioner Tooling Critique",
+      "format": "The Architecture Deep-Dive / Counter-Intuitive Lesson",
       "hook": "string",
       "bodyOutline": "string",
       "callToAction": "string",

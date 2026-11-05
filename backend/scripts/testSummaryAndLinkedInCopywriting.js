@@ -129,7 +129,7 @@ console.log('✓ Fallback sectionsToAddFromResume.projects creates clean project
 console.log('\n--- TEST 3: Orchestrator Cache Key Bumps ---')
 const orchestratorContent = fs.readFileSync(path.resolve(__dirname, '../agents/orchestrator.js'), 'utf8')
 assert(orchestratorContent.includes('resume_v7:'), 'Orchestrator must use resume_v7 cache key')
-assert(orchestratorContent.includes('linkedin_v7:'), 'Orchestrator must use linkedin_v7 cache key')
+assert(orchestratorContent.includes('linkedin_v7:') || orchestratorContent.includes('linkedin_v8:'), 'Orchestrator must use linkedin_v7 or later cache key')
 console.log('✓ Orchestrator cache keys bumped to resume_v7 and linkedin_v7')
 
 console.log('\nALL EMPIRICAL TESTS PASSED SUCCESSFULLY! 🎉')

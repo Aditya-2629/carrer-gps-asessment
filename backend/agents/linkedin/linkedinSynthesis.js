@@ -270,7 +270,7 @@ export function buildDeterministicOptimizations(
     domainFocus = `I am currently exploring ${targetRole} roles where I can optimize analytics pipelines and deliver decision-critical intelligence.`
   }
 
-  const callToAction = `${domainMission} ${domainFocus} If you are expanding your team or looking for proven domain execution, let's connect!\n\nCore Competencies: ${effectiveSkills.slice(0, 8).join(' · ')}`
+  const callToAction = `${domainMission} ${domainFocus} If you are expanding your team or looking for proven domain execution, let's connect!`
   const fullText = `${hook}\n\n${proof}\n\n${callToAction}`
 
   const bannerStrategy = {
