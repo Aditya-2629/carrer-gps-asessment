@@ -11,7 +11,8 @@
     "start": "node --dns-result-order=ipv4first server.js",
     "dev": "nodemon --dns-result-order=ipv4first server.js",
     "test:golden": "node scripts/runGoldenCareerGpsSuite.js",
-    "test:all-phases": "node scripts/testPhase1DataIntegrity.js && node scripts/testPhase2USPersona.js && node scripts/testPhase3LayoutIntegration.js && node scripts/testPhase4ActionEngine.js && node scripts/testPhase5AtlasAndJudge.js && node scripts/runGoldenCareerGpsSuite.js"
+    "test:phase7": "node scripts/testPhase7GatewayResilience.js",
+    "test:all-phases": "node scripts/testPhase1DataIntegrity.js && node scripts/testPhase2USPersona.js && node scripts/testPhase3LayoutIntegration.js && node scripts/testPhase4ActionEngine.js && node scripts/testPhase5AtlasAndJudge.js && node scripts/runGoldenCareerGpsSuite.js && node scripts/testPhase7GatewayResilience.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

@@ -22,40 +22,99 @@ import { evaluateAssessmentPersona, parseRangeOrNumber } from '../agents/assessm
 import { weaveKeywordsAndBuildLedger } from '../agents/resume/market/smartKeywordWeaver.js'
 import { inferRoleFromKeywordFrequency } from '../agents/resume/resumeAgent.normalizer.js'
 import AgentRun from '../models/AgentRun.js'
+import ReportJob from '../models/ReportJob.js'
 import { jsonrepair } from 'jsonrepair'
 
 // ── Atlas completeness machinery (fixes truncated/incomplete reports) ───────
-// The Atlas JSON is large (13+ sections); without an explicit output budget
-// Gemini truncates it and whole widgets (funnel, risk heatmap, mission board)
-// silently vanish. We now: budget the output, repair-parse, verify section
-// completeness, and retry once when the draft is incomplete.
+// The Atlas JSON is large (14 sections); without an explicit output budget
+// models truncate it and whole widgets (funnel, risk heatmap, mission board)
+// silently vanish. We now: budget 6144 output tokens, repair-parse, verify
+// 14-section completeness, and retry once when the draft is incomplete.
 
-const REQUIRED_ATLAS_FIELDS = ['career_health_score', 'score_label', 'score_breakdown', 'market_reality_check', 'critical_issues', 'roadmap']
-const ATLAS_ARRAY_SECTIONS = ['roadmap', 'critical_issues', 'rejection_factors', 'recommended_tools']
-const ATLAS_OBJECT_SECTIONS = ['score_breakdown', 'market_reality_check', 'career_journey', 'funnel_stages', 'risk_heatmap', 'mission_board', 'coach_intervention']
+export const ATLAS_SCHEMA_KEYS = [
+  'career_health_score',
+  'score_label',
+  'score_breakdown',
+  'market_reality_check',
+  'career_journey',
+  'funnel_stages',
+  'rejection_factors',
+  'rejection_insight',
+  'risk_heatmap',
+  'mission_board',
+  'critical_issues',
+  'roadmap',
+  'recommended_tools',
+  'coach_intervention',
+]
+
+export const ATLAS_ARRAY_SECTIONS = ['roadmap', 'critical_issues', 'rejection_factors', 'recommended_tools']
 
 function atlasCompleteness(report) {
   if (!report || typeof report !== 'object') return 0
   let score = 0
-  for (const key of REQUIRED_ATLAS_FIELDS) {
-    if (report[key] !== undefined && report[key] !== null) score += 1
-  }
-  for (const key of ATLAS_OBJECT_SECTIONS) {
-    if (report[key] && typeof report[key] === 'object' && !Array.isArray(report[key])) score += 1
-  }
-  for (const key of ATLAS_ARRAY_SECTIONS) {
-    if (Array.isArray(report[key]) && report[key].length > 0) score += 1
-  }
+
+  if (report.career_health_score !== undefined && report.career_health_score !== null && report.career_health_score !== '') score += 1
+  if (typeof report.score_label === 'string' && report.score_label.trim().length > 0) score += 1
+  if (report.score_breakdown && typeof report.score_breakdown === 'object' && !Array.isArray(report.score_breakdown) && Object.keys(report.score_breakdown).length > 0) score += 1
+  if (report.market_reality_check && typeof report.market_reality_check === 'object' && !Array.isArray(report.market_reality_check) && Object.keys(report.market_reality_check).length > 0) score += 1
+  if (report.career_journey && typeof report.career_journey === 'object' && !Array.isArray(report.career_journey) && Object.keys(report.career_journey).length > 0) score += 1
+  if (report.funnel_stages && typeof report.funnel_stages === 'object' && !Array.isArray(report.funnel_stages) && Object.keys(report.funnel_stages).length > 0) score += 1
+  if (Array.isArray(report.rejection_factors) && report.rejection_factors.length > 0) score += 1
+  if (typeof report.rejection_insight === 'string' && report.rejection_insight.trim().length > 0) score += 1
+  if (report.risk_heatmap && typeof report.risk_heatmap === 'object' && !Array.isArray(report.risk_heatmap) && Object.keys(report.risk_heatmap).length > 0) score += 1
+  if (report.mission_board && typeof report.mission_board === 'object' && !Array.isArray(report.mission_board) && Object.keys(report.mission_board).length > 0) score += 1
+  if (Array.isArray(report.critical_issues) && report.critical_issues.length > 0) score += 1
+  if (Array.isArray(report.roadmap) && report.roadmap.length > 0) score += 1
+  if (Array.isArray(report.recommended_tools) && report.recommended_tools.length > 0) score += 1
+  if (report.coach_intervention && typeof report.coach_intervention === 'object' && !Array.isArray(report.coach_intervention) && Object.keys(report.coach_intervention).length > 0) score += 1
+
   return score
 }
 
 function parseAtlasJson(text) {
-  const cleaned = String(text).replace(/```json/g, '').replace(/```/g, '').trim()
+  let cleaned = String(text).replace(/```json/gi, '').replace(/```/g, '').trim()
+  const firstBrace = cleaned.indexOf('{')
+  if (firstBrace > 0) {
+    cleaned = cleaned.slice(firstBrace)
+  }
   try {
     return JSON.parse(cleaned)
   } catch (_e) {
-    return JSON.parse(jsonrepair(cleaned)) // truncation artifacts
+    return JSON.parse(jsonrepair(cleaned)) // truncation artifacts & auto-healing
   }
+}
+
+export function mergeReportSections(primary = {}, fallback = {}) {
+  if (!primary || typeof primary !== 'object') return fallback || {}
+  if (!fallback || typeof fallback !== 'object') return primary
+
+  const merged = { ...primary }
+
+  for (const key of ATLAS_SCHEMA_KEYS) {
+    const val = merged[key]
+    const isMissing =
+      val === undefined ||
+      val === null ||
+      (typeof val === 'string' && val.trim().length === 0) ||
+      (Array.isArray(val) && val.length === 0) ||
+      (typeof val === 'object' && !Array.isArray(val) && Object.keys(val).length === 0)
+
+    if (isMissing && fallback[key] !== undefined && fallback[key] !== null) {
+      const fbVal = fallback[key]
+      const fbValid =
+        (typeof fbVal === 'string' && fbVal.trim().length > 0) ||
+        (Array.isArray(fbVal) && fbVal.length > 0) ||
+        (typeof fbVal === 'object' && !Array.isArray(fbVal) && Object.keys(fbVal).length > 0) ||
+        typeof fbVal === 'number'
+
+      if (fbValid) {
+        merged[key] = fbVal
+      }
+    }
+  }
+
+  return merged
 }
 
 export { parseAtlasJson, atlasCompleteness }
@@ -310,14 +369,19 @@ FORMAT CONTRACT (strict):
 - career_journey MUST be a single object: {"current_phase_id": "...", "guide_message": "..."}.
 - Never merge sections. Return every section fully populated.`
 
-async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
+export async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   const executiveDirective = '\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks. Write with the authoritative voice of an executive technical recruiter.'
   const combinedInstructions = `${extraInstructions}${executiveDirective}`
   const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + combinedInstructions.length) / 4)
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
 
+  const startTime = Date.now()
+  let modelUsed = 'google/gemini-3.5-flash-lite'
+  let fallbackTriggered = false
+  let responseText = null
+
   try {
-    const { text: responseText } = await llmGateway.generate({
+    const res = await llmGateway.generate({
       purpose: 'assessment_report',
       task: 'report_generation',
       preferredProvider: 'openrouter',
@@ -325,15 +389,17 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
-      maxTokens: 4096,
+      maxTokens: 6144,
       maxRetries: 2,
-      timeoutMs: 45000,
+      timeoutMs: 50000,
     })
-    return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+    responseText = res.text
+    modelUsed = res.actualModel || 'google/gemini-3.5-flash-lite'
   } catch (primaryErr) {
     console.warn('[ReportGeneration] Gemini 3.5 Flash Lite failed, routing to DeepSeek V3:', primaryErr.message)
+    fallbackTriggered = true
     try {
-      const { text: responseText } = await llmGateway.generate({
+      const res = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_generation',
         preferredProvider: 'openrouter',
@@ -341,14 +407,15 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 4096,
+        maxTokens: 6144,
         maxRetries: 2,
-        timeoutMs: 45000,
+        timeoutMs: 50000,
       })
-      return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+      responseText = res.text
+      modelUsed = res.actualModel || 'deepseek/deepseek-chat'
     } catch (deepseekErr) {
       console.warn('[ReportGeneration] DeepSeek V3 failed, falling back to Gemini 3 Flash Preview:', deepseekErr.message)
-      const { text: responseText } = await llmGateway.generate({
+      const res = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_generation',
         preferredProvider: 'openrouter',
@@ -356,13 +423,26 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 4096,
+        maxTokens: 6144,
         maxRetries: 2,
-        timeoutMs: 45000,
+        timeoutMs: 50000,
       })
-      return normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+      responseText = res.text
+      modelUsed = res.actualModel || 'google/gemini-3-flash-preview'
     }
   }
+
+  const durationMs = Date.now() - startTime
+  const normalized = normalizeAtlasShapes(parseAtlasJson(responseText), userAnswers)
+  const telemetry = {
+    durationMs,
+    modelUsed,
+    fallbackTriggered,
+  }
+  normalized._telemetry = telemetry
+  normalized.telemetry = telemetry
+  normalized.report = normalized
+  return normalized
 }
 
 export async function generateReportBundle({
@@ -373,6 +453,7 @@ export async function generateReportBundle({
   precomputedLinkedinData = null,
   onProgress = () => {},
 }) {
+  const totalStart = Date.now()
   const report = (stage, message) => {
     try {
       onProgress({ stage, message, at: new Date().toISOString() })
@@ -597,20 +678,34 @@ export async function generateReportBundle({
   // (missing sections), retry ONCE with an explicit completeness instruction
   // and keep whichever draft is more complete.
   report('atlas_roadmap', 'Generating Atlas strategic career roadmap & executive diagnostic…')
-  let aiReport = await callAtlas(promptText, '', user.answers)
+  let atlasResult = await callAtlas(promptText, '', user.answers)
+  let aiReport = atlasResult.report || atlasResult
+  let atlasTelemetry = atlasResult.telemetry || atlasResult._telemetry || {
+    durationMs: 0,
+    modelUsed: 'google/gemini-3.5-flash-lite',
+    fallbackTriggered: false,
+  }
   let draftCompleteness = atlasCompleteness(aiReport)
-  if (draftCompleteness < REQUIRED_ATLAS_FIELDS.length + ATLAS_ARRAY_SECTIONS.length + ATLAS_OBJECT_SECTIONS.length - 4) {
+  if (draftCompleteness < 11) {
     report('composing', 'First draft was incomplete — asking Atlas for the full report…')
     try {
-      const retryDraft = await callAtlas(
+      const retryResult = await callAtlas(
         promptText,
         '\n\nIMPORTANT: Your previous response was incomplete. Return the COMPLETE JSON object with EVERY section fully populated — especially funnel_stages, risk_heatmap, mission_board, rejection_factors, career_journey, and recommended_tools. Do not skip or shorten any array. If a section is long, prioritize completeness over prose length.',
         user.answers
       )
-      const retryCompleteness = atlasCompleteness(retryDraft)
-      if (retryCompleteness > draftCompleteness) {
-        aiReport = retryDraft
-        draftCompleteness = retryCompleteness
+      const retryReport = retryResult.report || retryResult
+      const retryTelemetry = retryResult.telemetry || retryResult._telemetry
+      if (retryTelemetry) {
+        atlasTelemetry = retryTelemetry
+      }
+      const retryCompleteness = atlasCompleteness(retryReport)
+      if (retryCompleteness >= draftCompleteness) {
+        aiReport = mergeReportSections(retryReport, aiReport)
+        draftCompleteness = atlasCompleteness(aiReport)
+      } else {
+        aiReport = mergeReportSections(aiReport, retryReport)
+        draftCompleteness = atlasCompleteness(aiReport)
       }
     } catch (retryErr) {
       console.warn('[ReportGeneration] Atlas completeness retry failed, using first draft:', retryErr.message)
@@ -806,15 +901,16 @@ export async function generateReportBundle({
         try {
           const repairNotes = (judge.flags || []).join('; ') || 'Be more specific and warmer; cite the candidate’s actual words.'
           const retryPrompt = `${promptText}\n\nQUALITY NOTES FROM YOUR REVIEWER (fix these in your JSON):\n- ${repairNotes}`
-          const retryReport = await callAtlas(retryPrompt, '', user.answers)
+          const retryResult = await callAtlas(retryPrompt, '', user.answers)
+          const retryReport = retryResult.report || retryResult
           // Anti-degradation guard: a regeneration that LOSES sections (truncation,
           // lazy model) is worse than a below-threshold complete report — keep the
           // current draft unless the retry is at least as complete.
           const retryCompleteness = atlasCompleteness(retryReport)
           if (retryCompleteness >= draftCompleteness) {
             keepAgentBundle(aiReport, retryReport)
-            aiReport = retryReport
-            draftCompleteness = retryCompleteness
+            aiReport = mergeReportSections(retryReport, aiReport)
+            draftCompleteness = atlasCompleteness(aiReport)
             regenerated = true
             judgeRun = await judgeReport(aiReport)
             judge = judgeRun.result
@@ -852,6 +948,49 @@ export async function generateReportBundle({
     } catch (judgeErr) {
       console.warn('[ReportGeneration] Judge gate failed (non-fatal):', judgeErr.message)
     }
+  }
+
+  const totalDurationMs = Date.now() - totalStart
+
+  aiReport._meta = {
+    generatedAt: new Date().toISOString(),
+    engineVersion: '2.5.0-executive',
+    totalDurationMs,
+    atlasModelUsed: atlasTelemetry.modelUsed || 'google/gemini-3.5-flash-lite',
+    atlasDurationMs: atlasTelemetry.durationMs || 0,
+    fallbackTriggered: Boolean(atlasTelemetry.fallbackTriggered),
+    completenessScore: atlasCompleteness(aiReport),
+    judgeScore: aiReport.judge?.score ?? null,
+  }
+
+  // Update running ReportJob if available
+  if (mongoose.connection.readyState === 1 && user._id) {
+    try {
+      await ReportJob.updateMany(
+        { userId: user._id, status: 'running' },
+        { $set: { 'aiReport._meta': aiReport._meta } }
+      ).catch(() => {})
+    } catch (_e) {}
+  }
+
+  // Save overall AgentRun telemetry row
+  if (mongoose.connection.readyState === 1) {
+    AgentRun.create({
+      agent: 'overall',
+      agentVersion: '2.5.0-executive',
+      inputHash: `report:${user._id || 'anon'}:${Date.now()}`,
+      userId: user._id,
+      status: 'SUCCESS',
+      model: aiReport._meta.atlasModelUsed,
+      latencyMs: totalDurationMs,
+      judgeScore: aiReport._meta.judgeScore,
+      output: {
+        _meta: aiReport._meta,
+        completenessScore: aiReport._meta.completenessScore,
+      },
+    }).catch((err) => {
+      console.warn('[ReportGeneration] AgentRun overall save failed:', err.message)
+    })
   }
 
   // Save report to User DB
