@@ -204,16 +204,16 @@ async function runTests() {
   try {
     const report1 = await callAtlas('Prompt text', '', { targetRole: 'Senior Platform Engineer' })
     assert.ok(capturedOptions, 'llmGateway.generate should have been called')
-    assert.strictEqual(capturedOptions.model, 'google/gemini-3.5-flash-lite', 'Primary model must be google/gemini-3.5-flash-lite')
+    assert.strictEqual(capturedOptions.model, 'google/gemini-2.5-flash-lite', 'Primary model must be google/gemini-2.5-flash-lite')
     assert.strictEqual(capturedOptions.maxTokens, 6144, 'maxTokens must be 6144')
     assert.strictEqual(capturedOptions.timeoutMs, 50000, 'timeoutMs must be 50000 (50s)')
     assert.strictEqual(capturedOptions.maxRetries, 2, 'maxRetries must be 2')
     assert.strictEqual(capturedOptions.responseFormat, 'json_object', 'responseFormat must be json_object')
     assert.strictEqual(capturedOptions.preferredProvider, 'openrouter', 'preferredProvider must be openrouter')
-    assert.strictEqual(report1.telemetry.modelUsed, 'google/gemini-3.5-flash-lite')
+    assert.strictEqual(report1.telemetry.modelUsed, 'google/gemini-2.5-flash-lite')
     assert.strictEqual(report1.telemetry.fallbackTriggered, false)
     assert.ok(report1.telemetry.durationMs >= 0)
-    console.log('  ✔ Primary tier verified: 6144 maxTokens, 50s timeout, gemini-3.5-flash-lite, telemetry recorded')
+    console.log('  ✔ Primary tier verified: 6144 maxTokens, 50s timeout, gemini-2.5-flash-lite, telemetry recorded')
 
     // 4b. Verify Secondary Failover (DeepSeek V3)
     let callCount = 0
@@ -221,8 +221,8 @@ async function runTests() {
     llmGateway.generate = async (opts) => {
       callCount++
       modelsAttempted.push(opts.model)
-      if (opts.model === 'google/gemini-3.5-flash-lite') {
-        throw new Error('OpenRouter 503 Service Unavailable: Gemini 3.5 rate limited')
+      if (opts.model === 'google/gemini-2.5-flash-lite') {
+        throw new Error('OpenRouter 503 Service Unavailable: Gemini 2.5 rate limited')
       }
       return {
         text: JSON.stringify(completeReport),
@@ -233,7 +233,7 @@ async function runTests() {
     }
 
     const report2 = await callAtlas('Prompt text', '', {})
-    assert.strictEqual(modelsAttempted[0], 'google/gemini-3.5-flash-lite')
+    assert.strictEqual(modelsAttempted[0], 'google/gemini-2.5-flash-lite')
     assert.strictEqual(modelsAttempted[1], 'deepseek/deepseek-chat', 'Secondary fallback must be deepseek/deepseek-chat')
     assert.strictEqual(report2.telemetry.modelUsed, 'deepseek/deepseek-chat')
     assert.strictEqual(report2.telemetry.fallbackTriggered, true)
@@ -243,7 +243,7 @@ async function runTests() {
     modelsAttempted.length = 0
     llmGateway.generate = async (opts) => {
       modelsAttempted.push(opts.model)
-      if (opts.model === 'google/gemini-3.5-flash-lite') {
+      if (opts.model === 'google/gemini-2.5-flash-lite') {
         throw new Error('Primary failure')
       }
       if (opts.model === 'deepseek/deepseek-chat') {
@@ -258,7 +258,7 @@ async function runTests() {
     }
 
     const report3 = await callAtlas('Prompt text', '', {})
-    assert.strictEqual(modelsAttempted[0], 'google/gemini-3.5-flash-lite')
+    assert.strictEqual(modelsAttempted[0], 'google/gemini-2.5-flash-lite')
     assert.strictEqual(modelsAttempted[1], 'deepseek/deepseek-chat')
     assert.strictEqual(modelsAttempted[2], 'google/gemini-3-flash-preview', 'Tertiary fallback must be google/gemini-3-flash-preview')
     assert.strictEqual(report3.telemetry.modelUsed, 'google/gemini-3-flash-preview')

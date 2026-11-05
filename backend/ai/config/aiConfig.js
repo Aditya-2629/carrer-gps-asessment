@@ -66,7 +66,7 @@ export const aiConfig = {
   },
   get defaultResumeModel() {
     if (process.env.RESUME_PRIMARY_MODEL) return process.env.RESUME_PRIMARY_MODEL
-    return 'google/gemini-3.5-flash-lite'
+    return 'google/gemini-2.5-flash-lite'
   },
   get defaultTimeoutMs() {
     return parseInt(process.env.AI_DEFAULT_TIMEOUT_MS || '20000', 10)
@@ -81,6 +81,9 @@ export const aiConfig = {
     get apiKey() {
       const keys = getAllGroqKeys()
       return keys.length > 0 ? keys[0] : (process.env.GROQ_API_KEY || '').trim()
+    },
+    get defaultModel() {
+      return 'openai/gpt-oss-120b'
     },
     get primaryModel() {
       const configured = (process.env.GROQ_RESUME_MODEL_PRIMARY || '').trim()

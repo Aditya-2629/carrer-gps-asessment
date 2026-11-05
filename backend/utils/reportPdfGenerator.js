@@ -280,6 +280,34 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('4. LINKEDIN RECRUITER AUDIT & CROSS-CHANNEL DISCREPANCIES')
       doc.moveDown(0.3)
 
+      // Live Scraped LinkedIn Profile Summary Banner
+      let rawLinkedinProfile = aiReport.linkedin_json || aiReport.linkedin_agent?.scrapedProfile || answers?.linkedinData || null
+      if (typeof rawLinkedinProfile === 'string') {
+        try {
+          rawLinkedinProfile = JSON.parse(rawLinkedinProfile)
+        } catch {
+          rawLinkedinProfile = null
+        }
+      }
+
+      if (rawLinkedinProfile && typeof rawLinkedinProfile === 'object') {
+        ensureSpace(doc, 45)
+        const snapY = doc.y
+        doc.rect(28, snapY, pageWidth, 38).fillAndStroke('#f0f9ff', '#bae6fd')
+
+        const pName = rawLinkedinProfile.fullName || rawLinkedinProfile.name || 'Candidate'
+        const pConns = rawLinkedinProfile.connectionsCount || rawLinkedinProfile.connections || '500+'
+        const pHeadline = (rawLinkedinProfile.headline || 'Profile Scraped').trim().slice(0, 110)
+        const pUrl = rawLinkedinProfile.url || rawLinkedinProfile.linkedinUrl || answers?.linkedin || answers?.linkedinUrl || 'N/A'
+        const pExpCount = (rawLinkedinProfile.experiences || rawLinkedinProfile.positions || []).length
+
+        doc.fillColor('#0369a1').fontSize(7.5).font('Helvetica-Bold').text(`LIVE LINKEDIN PROFILE: ${pName} (${pConns} connections)`, 34, snapY + 4)
+        doc.fillColor('#0f172a').fontSize(6.5).font('Helvetica-Oblique').text(`Live Headline: "${pHeadline}"`, 34, snapY + 15, { width: pageWidth - 14 })
+        doc.fillColor('#475569').fontSize(6.5).font('Helvetica').text(`Verified URL: ${pUrl}  |  Scraped Experience: ${pExpCount} entries`, 34, snapY + 26, { width: pageWidth - 14 })
+
+        doc.y = snapY + 42
+      }
+
       const discrepancies = (linkedinAgent?.discrepancies || [])
         .filter(Boolean)
         .filter((d) => d && typeof d === 'object')

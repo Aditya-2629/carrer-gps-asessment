@@ -393,7 +393,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
 
   const startTime = Date.now()
-  let modelUsed = 'google/gemini-3.5-flash-lite'
+  let modelUsed = 'google/gemini-2.5-flash-lite'
   let fallbackTriggered = false
   let responseText = null
 
@@ -402,7 +402,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       purpose: 'assessment_report',
       task: 'report_generation',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash-lite',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
@@ -411,9 +411,9 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       timeoutMs: 50000,
     })
     responseText = res.text
-    modelUsed = res.actualModel || 'google/gemini-3.5-flash-lite'
+    modelUsed = res.actualModel || 'google/gemini-2.5-flash-lite'
   } catch (primaryErr) {
-    console.warn('[ReportGeneration] Gemini 3.5 Flash Lite failed, routing to DeepSeek V3:', primaryErr.message)
+    console.warn('[ReportGeneration] Gemini 2.5 Flash Lite failed, routing to DeepSeek V3:', primaryErr.message)
     fallbackTriggered = true
     try {
       const res = await llmGateway.generate({

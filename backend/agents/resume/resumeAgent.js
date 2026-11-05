@@ -535,6 +535,8 @@ export class ResumeAgent {
         for (let attempt = 1; attempt <= maxSynthesisAttempts; attempt++) {
           gatewayResponse = await llmGateway.generate({
             purpose: RESUME_AGENT.purpose,
+            task: 'resume_synthesis',
+            preferredProvider: 'openrouter',
             messages,
             model,
             isSynthetic,

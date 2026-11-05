@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   LinkedinLogo,
   WarningCircle,
@@ -18,6 +18,12 @@ import {
   FolderSimple,
   Globe,
   Star,
+  Users,
+  MapPin,
+  ArrowSquareOut,
+  CaretDown,
+  CaretUp,
+  Article,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
@@ -193,6 +199,159 @@ function isValidSkill(skill) {
   return true
 }
 
+function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
+  const [isBioExpanded, setIsBioExpanded] = useState(false)
+  if (!profileData || typeof profileData !== 'object') return null
+
+  const fullName =
+    profileData.fullName ||
+    profileData.name ||
+    [profileData.firstName, profileData.lastName].filter(Boolean).join(' ') ||
+    'LinkedIn Member'
+  const headline = (profileData.headline || '').trim()
+  const pictureUrl = profileData.pictureUrl || profileData.avatar || profileData.photoUrl || profileData.profilePicture || ''
+  const url = profileData.url || profileData.linkedinUrl || ''
+  const connections = profileData.connectionsCount || profileData.connections || '500+'
+  const location = typeof profileData.location === 'string'
+    ? profileData.location
+    : (profileData.location?.name || profileData.location?.text || 'Not Specified')
+  const experiencesCount = (profileData.experiences || profileData.positions || []).length
+  const postsCount = activitySignals?.postCount ?? (profileData.publicPosts?.length ?? profileData.posts?.length ?? 0)
+  const about = (profileData.about || profileData.summary || '').trim()
+
+  const initials = fullName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase() || 'LI'
+
+  return (
+    <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-4 shadow-xs">
+      {/* Top row: Avatar + Name + Live Badge + Verified URL */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-14 h-14 rounded-full border-2 border-[#0a66c2]/30 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+            {pictureUrl ? (
+              <img
+                src={pictureUrl}
+                alt={fullName}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                  if (e.currentTarget.parentElement) {
+                    e.currentTarget.parentElement.innerText = initials
+                  }
+                }}
+              />
+            ) : (
+              <span className="font-bold text-[#0a66c2] text-lg">{initials}</span>
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">{fullName}</h3>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                ✓ Live Scraped via Apify
+              </span>
+            </div>
+            {url && (
+              <a
+                href={url.startsWith('http') ? url : `https://${url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#0a66c2] hover:underline inline-flex items-center gap-1 mt-0.5 break-all"
+              >
+                {url}
+                <ArrowSquareOut size={13} />
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Sunken Headline Container */}
+      {headline && (
+        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-default)] p-3.5 space-y-1">
+          <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-tertiary)]">
+            Current Live Headline
+          </div>
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] italic leading-relaxed">
+            "{headline}"
+          </p>
+        </div>
+      )}
+
+      {/* 4-Column Metadata Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+          <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
+            <Users size={14} className="text-[#0a66c2]" />
+            Connections
+          </div>
+          <div className="text-sm font-bold text-[var(--text-primary)] mt-1">
+            {connections}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+          <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
+            <MapPin size={14} className="text-[#0a66c2]" />
+            Location
+          </div>
+          <div className="text-sm font-bold text-[var(--text-primary)] mt-1 truncate" title={location}>
+            {location}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+          <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
+            <Briefcase size={14} className="text-[#0a66c2]" />
+            Roles Scraped
+          </div>
+          <div className="text-sm font-bold text-[var(--text-primary)] mt-1">
+            {experiencesCount} Experience{experiencesCount === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+          <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
+            <Article size={14} className="text-[#0a66c2]" />
+            Public Posts Analyzed
+          </div>
+          <div className="text-sm font-bold text-[var(--text-primary)] mt-1">
+            {postsCount} Post{postsCount === 1 ? '' : 's'}
+          </div>
+        </div>
+      </div>
+
+      {/* Collapsible About Bio */}
+      {about && about !== 'Not Specified' && (
+        <div className="rounded-xl border border-[var(--border-default)] p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
+              Current Live About Section
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsBioExpanded(!isBioExpanded)}
+              className="text-xs text-[#0a66c2] hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+            >
+              {isBioExpanded ? 'Hide Scraped Bio' : 'View Scraped Bio'}
+              {isBioExpanded ? <CaretUp size={12} /> : <CaretDown size={12} />}
+            </button>
+          </div>
+          {isBioExpanded && (
+            <p className="text-xs text-[var(--text-secondary)] whitespace-pre-line leading-relaxed pt-2 border-t border-[var(--border-default)]">
+              {about}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propReportData }) {
   const theme = useAppStore((s) => s.theme)
   const resumeAnalysis = useAppStore((s) => s.resumeAnalysis)
@@ -200,6 +359,20 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const reportData = propReportData || storeReportData
   const variant = theme === 'dark' ? 'dark' : 'light'
   const [copiedId, setCopiedId] = useState(null)
+
+  const activitySignals = linkedinAgent?.activitySignals || reportData?.linkedin_agent?.activitySignals || reportData?.linkedin_activity_signals || null
+
+  const profileData = useMemo(() => {
+    let p = reportData?.linkedin_json || reportData?.user_answers?.linkedinData || linkedinAgent?.scrapedProfile || null
+    if (typeof p === 'string') {
+      try {
+        p = JSON.parse(p)
+      } catch {
+        p = null
+      }
+    }
+    return p
+  }, [reportData, linkedinAgent])
 
   const hasUserLinkedinUrl = Boolean(
     reportData?.user_answers?.linkedin ||
@@ -784,6 +957,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           </p>
         </div>
       )}
+
+      {/* ── 0. Live Scraped Profile Snapshot (if profile data is available) ────── */}
+      <LiveScrapedProfileSnapshot profileData={profileData} activitySignals={activitySignals} />
 
       {/* ── 1. Scorecard at the top ────────────────────────────────────────── */}
       <ResumeScoreCard

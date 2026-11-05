@@ -569,9 +569,9 @@ export async function runLinkedInSynthesis(
     profile?.headline ||
     'Senior Software Engineer'
 
-  // Route to high-throughput, low-latency OpenRouter Gemini Flash Lite
+  // Route via task-based OpenRouter model routing
   const preferredProvider = options?.preferredProvider || 'openrouter'
-  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : 'google/gemini-3.5-flash-lite')
+  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : null)
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
@@ -597,6 +597,7 @@ export async function runLinkedInSynthesis(
       try {
         const response = await llmGateway.generate({
           purpose: 'linkedin_analysis',
+          task: 'linkedin_synthesis',
           preferredProvider,
           model: effectiveModel,
           messages,

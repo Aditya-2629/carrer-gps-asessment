@@ -22,39 +22,46 @@ import { costTracker } from '../../utils/costTracker.js'
 
 // Production fallback chain in priority order:
 // 1. Primary: OpenRouter (Paid balance, 1.05M context, 100% SLA)
-// 2. Secondary: Groq (Blazing fast failover: Llama 3.3 70B / GPT-OSS 120B / 20B)
-// 3. Tertiary: Gemini 3.5 Flash Lite
+// 2. Secondary: Groq (Blazing fast failover: GPT-OSS 120B)
+// 3. Tertiary: Gemini fallback
 export const PRODUCTION_FALLBACK_CHAIN = [
   'openrouter', // Priority 1: Paid balance, 1.05M context, 100% SLA
   'groq',       // Priority 2: Blazing fast secondary failover
-  'gemini-3.5-flash-lite',
+  'gemini',     // Priority 3: Gemini fallback
 ]
 
 export const MAX_CONCURRENT_PER_PROVIDER = 4
 
 export const TRAP_MODELS = new Set([
-  'gemini-2.5-flash-lite',
   'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
   'gemini-1.5-pro',
 ])
 
+export const TASK_MODEL_ROUTING = {
+  jd_extraction: 'google/gemini-2.5-flash-lite',
+  fast_catch: 'google/gemini-2.5-flash-lite',
+  resume_synthesis: 'deepseek/deepseek-chat',
+  bullet_rewrites: 'deepseek/deepseek-chat',
+  linkedin_synthesis: 'meta-llama/llama-3.3-70b-instruct',
+  thought_leadership: 'meta-llama/llama-3.3-70b-instruct',
+  report_generation: 'google/gemini-2.5-flash-lite',
+  judge_gate: 'google/gemini-2.5-flash-lite',
+}
+
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
-    'google/gemini-3.5-flash-lite', // Primary: 1M context, 1.2s speed, $0.15/$0.60 per M
-    'deepseek/deepseek-chat',        // Secondary: DeepSeek V3 frontier reasoning, $0.20/$0.80 per M
-    'google/gemini-3-flash-preview',
-    'google/gemini-3.5-flash',
+    'google/gemini-2.5-flash-lite',
+    'deepseek/deepseek-chat',
+    'meta-llama/llama-3.3-70b-instruct',
     'google/gemini-2.5-flash',
-    'google/gemini-3.1-pro-preview',
   ],
   groq: [
     'openai/gpt-oss-120b',
   ],
   gemini: [
-    'gemini-3.5-flash-lite',
-    'gemini-3.8-flash',
+    'gemini-2.5-flash-lite',
   ],
   nvidia: ['nvidia/nemotron-3-super-120b-a12b'],
   openai: ['openai/gpt-oss-120b'],
@@ -125,8 +132,21 @@ export class LLMGateway {
       (purpose === 'bullet_batch_weave' ? 30000 : (this.config.totalDeadlineMs || 60000))
     const requestStartTime = Date.now()
 
-    let requestedModelId = model || this.config.defaultResumeModel
-    if (typeof requestedModelId === 'string' && (requestedModelId.includes('llama') || requestedModelId === 'openai/gpt-oss-20b')) {
+    let requestedModelId = model
+    if (!requestedModelId && task && TASK_MODEL_ROUTING[task]) {
+      requestedModelId = TASK_MODEL_ROUTING[task]
+    }
+    if (!requestedModelId) {
+      requestedModelId = this.config.defaultResumeModel
+    }
+
+    if (
+      typeof requestedModelId === 'string' &&
+      (requestedModelId.startsWith('llama-') ||
+       requestedModelId.startsWith('llama3-') ||
+       requestedModelId === 'openai/gpt-oss-20b' ||
+       (preferredProvider === 'groq' && requestedModelId.includes('llama')))
+    ) {
       requestedModelId = 'openai/gpt-oss-120b'
     }
 
@@ -176,13 +196,13 @@ export class LLMGateway {
         ]
       } else {
         const chain = new Set()
-        if (!model) {
+        if (requestedModelId && !TRAP_MODELS.has(requestedModelId)) {
+          chain.add(requestedModelId)
+        }
+        if (!model && !task) {
           for (const m of listModelsForPurpose(purpose)) {
             if (!TRAP_MODELS.has(m.id)) chain.add(m.id)
           }
-        }
-        if (requestedModelId && !TRAP_MODELS.has(requestedModelId)) {
-          chain.add(requestedModelId)
         }
         for (const entry of PRODUCTION_FALLBACK_CHAIN) {
           if (entry === requestedModelId || TRAP_MODELS.has(entry)) continue

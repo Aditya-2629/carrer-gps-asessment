@@ -11,7 +11,8 @@
 export const DEFAULT_PRICING = {
   // Rates per 1M tokens in USD ($)
   models: {
-    // Gemini Flash & Flash-Lite ($0.075 input / $0.30 output)
+    // Gemini Flash & Flash-Lite
+    'google/gemini-2.5-flash-lite': { input: 0.10, output: 0.40 },
     'google/gemini-3.5-flash-lite': { input: 0.075, output: 0.30 },
     'gemini-3.5-flash-lite': { input: 0.075, output: 0.30 },
     'gemini-1.5-flash': { input: 0.075, output: 0.30 },
@@ -22,13 +23,12 @@ export const DEFAULT_PRICING = {
     'gemini-2.5-flash': { input: 0.075, output: 0.30 },
     'google/gemini-3.5-flash': { input: 0.075, output: 0.30 },
 
-    // Groq / Llama ($0.59 input / $0.79 output)
+    // OpenRouter Specialized & Groq models
+    'meta-llama/llama-3.3-70b-instruct': { input: 0.13, output: 0.50 },
     'llama-3.3-70b-versatile': { input: 0.59, output: 0.79 },
-
-    // GPT-OSS & DeepSeek
     'openai/gpt-oss-120b': { input: 0.15, output: 0.60 },
     'openai/gpt-oss-20b': { input: 0.08, output: 0.20 },
-    'deepseek/deepseek-chat': { input: 0.20, output: 0.80 },
+    'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
 
     // Fallback default for unspecified models
     default: { input: 0.10, output: 0.40 },

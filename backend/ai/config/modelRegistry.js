@@ -74,6 +74,32 @@ export const MODEL_REGISTRY = {
   },
 
   // --- OpenRouter Paid Priority Tier ---
+  'google/gemini-2.5-flash-lite': {
+    id: 'google/gemini-2.5-flash-lite',
+    displayName: 'Google Gemini 2.5 Flash Lite (OpenRouter Paid Primary)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 1048576,
+    enabled: true,
+  },
+
+  'meta-llama/llama-3.3-70b-instruct': {
+    id: 'meta-llama/llama-3.3-70b-instruct',
+    displayName: 'Meta Llama 3.3 70B Instruct (OpenRouter)',
+    provider: 'openrouter',
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    allowPersonalData: true,
+    contextWindow: 131072,
+    enabled: true,
+  },
+
   'google/gemini-3.5-flash-lite': {
     id: 'google/gemini-3.5-flash-lite',
     displayName: 'Google Gemini 3.5 Flash Lite (OpenRouter Paid Primary)',
@@ -276,7 +302,7 @@ export const MODEL_REGISTRY = {
 
   'gemini-2.5-flash-lite': {
     id: 'gemini-2.5-flash-lite',
-    displayName: 'Google Gemini 2.5 Flash Lite (Discontinued)',
+    displayName: 'Google Gemini 2.5 Flash Lite',
     provider: 'gemini',
     purpose: ['resume_analysis', 'assessment_report', 'linkedin_analysis'],
     supportsJsonObject: true,
@@ -284,7 +310,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 1048576,
-    enabled: false,
+    enabled: true,
   },
 
   'gemini-2.5-flash': {
@@ -347,9 +373,9 @@ export const MODEL_REGISTRY = {
  */
 export const getModel = (modelId) => {
   if (!modelId) return null
-  if (modelId === 'openrouter') return MODEL_REGISTRY['google/gemini-3.5-flash-lite'] || MODEL_REGISTRY['google/gemini-3.5-flash']
+  if (modelId === 'openrouter') return MODEL_REGISTRY['google/gemini-2.5-flash-lite'] || MODEL_REGISTRY['google/gemini-3.5-flash-lite'] || MODEL_REGISTRY['google/gemini-3.5-flash']
   if (modelId === 'groq') return MODEL_REGISTRY['openai/gpt-oss-120b']
-  if (modelId === 'gemini') return MODEL_REGISTRY['gemini-3.5-flash-lite']
+  if (modelId === 'gemini') return MODEL_REGISTRY['gemini-2.5-flash-lite'] || MODEL_REGISTRY['gemini-3.5-flash-lite']
   return MODEL_REGISTRY[modelId] || null
 }
 

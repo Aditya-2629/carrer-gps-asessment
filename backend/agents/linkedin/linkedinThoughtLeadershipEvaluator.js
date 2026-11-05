@@ -407,7 +407,8 @@ export async function evaluateThoughtLeadershipAndSocialSeo({
 
     const response = await llmGateway.generate({
       purpose: 'resume_analysis',
-      preferredProvider: options?.preferredProvider,
+      task: 'thought_leadership',
+      preferredProvider: options?.preferredProvider || 'openrouter',
       excludeProvider: options?.excludeProvider,
       model: options?.model,
       messages,
