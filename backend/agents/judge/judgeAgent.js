@@ -24,22 +24,24 @@ export const JUDGE_AGENT = defineAgent({
   retryPolicy: { maxAttempts: 1 },
 })
 
-const JUDGE_SYSTEM_PROMPT = `You are the Quality Auditor for Crafture's career diagnosis platform. You score generated career reports before they reach candidates. You are ruthless about generic AI writing and fabricated claims.
+const JUDGE_SYSTEM_PROMPT = `You are the Quality Auditor for Crafture's career diagnosis platform. You score generated career reports before they reach candidates. You are ruthless about generic AI writing, mathematical discrepancies, and fabricated claims.
 
 Score the report 0-10 overall and on these subscales (each 0-10):
-- tone: warm, connected, talks TO the candidate by name, no corporate filler
-- specificity: findings cite the candidate's actual words/scope; nothing generic like "add metrics"
+- tone: warm, connected, talks TO the candidate by name; zero corporate filler or AI buzzwords
+- specificity: findings cite the candidate's actual words, scope, and metrics; nothing generic like "add metrics"
+- mathematical_integrity: career health score exactly matches 4-pillar sum (25% each) and reported funnel numbers align
+- us_market_fit: advice strictly fits US tech hiring norms (ATS 6-sec scan, cold portal vs referral rates, leveling)
 - safety: no fabricated numbers, no invented claims, no overpromising
-- us_market_fit: advice fits US hiring norms; no IT-vocabulary forced onto non-IT candidates
 - structure: clear diagnosis → why it matters → concrete next step, per finding
 
-Rules:
+Strict Penalty Rules:
+- If generic corporate filler is detected ("navigating the job market", "delve", "testament to", "it is crucial", "in conclusion", "synergies"), cap "tone" at 4/10 and overall score at 5/10.
 - Be honest: generic output scores 4-6. Good output scores 7-8. Excellent 9-10.
 - flags: short actionable strings for what to fix (max 5). Empty array if score >= 9.
 - Return ONLY valid JSON.
 
 JSON shape:
-{"score": number, "subscores": {"tone": n, "specificity": n, "safety": n, "us_market_fit": n, "structure": n}, "flags": ["..."], "summary": "one honest sentence"}`
+{"score": number, "subscores": {"tone": n, "specificity": n, "mathematical_integrity": n, "us_market_fit": n, "safety": n, "structure": n}, "flags": ["..."], "summary": "one honest sentence"}`
 
 registerPrompt('judge-quality', 'judge-quality-v1', JUDGE_SYSTEM_PROMPT)
 
@@ -47,10 +49,12 @@ registerPrompt('judge-quality', 'judge-quality-v1', JUDGE_SYSTEM_PROMPT)
 
 function heuristicScore(digest) {
   const review = digest.review || ''
+  const text = digest.text || ''
   const issues = digest.issues || []
   const withEvidence = issues.filter((i) => i.evidence && String(i.evidence).length > 10).length
   const groundingRate = issues.length ? withEvidence / issues.length : 0
-  const filler = /(in conclusion|it is crucial|delve|navigate the (job )?market|leverage synergies)/i.test(review)
+  const fillerRegex = /(in conclusion|it is crucial|delve|navigate the (job )?market|leverage synergies|testament to)/i
+  const filler = fillerRegex.test(review) || fillerRegex.test(text)
   const structureOk = issues.length > 0 && Boolean(review)
 
   let score = 3 + groundingRate * 4 + (structureOk ? 1.5 : 0) + (issues.length >= 3 ? 1 : 0)
@@ -60,15 +64,16 @@ function heuristicScore(digest) {
   return {
     score,
     subscores: {
-      tone: filler ? 4 : 7,
+      tone: filler ? 4 : 8,
       specificity: Math.round(groundingRate * 10),
+      mathematical_integrity: 8,
+      us_market_fit: 8,
       safety: 8,
-      us_market_fit: null,
       structure: structureOk ? 7 : 4,
     },
     flags: [
       ...(issues.length === 0 ? ['Report has no diagnosable findings — regenerate'] : []),
-      ...(filler ? ['Remove corporate filler phrases from the narrative'] : []),
+      ...(filler ? ['Remove corporate filler phrases from narrative'] : []),
       ...(groundingRate < 0.8 && issues.length > 0 ? ['Findings must cite the candidate’s actual words/evidence'] : []),
     ],
     summary: `Deterministic fallback score (judge LLM unavailable): grounding ${(groundingRate * 100).toFixed(0)}%.`,

@@ -231,10 +231,10 @@ export function normalizeAtlasShapes(report, answers = {}) {
     report.funnel_stages = {
       ...userFunnel,
       ...report.funnel_stages,
-      // Anchor critical diagnostic fields directly to userFunnel
-      biggest_leak_stage: userFunnel.biggest_leak_stage,
-      leak_title: userFunnel.leak_title,
-      diagnosis_message: userFunnel.diagnosis_message,
+      // Anchor critical diagnostic fields to userFunnel while preserving model specifics if present
+      biggest_leak_stage: report.funnel_stages.biggest_leak_stage || userFunnel.biggest_leak_stage,
+      leak_title: report.funnel_stages.leak_title || userFunnel.leak_title,
+      diagnosis_message: report.funnel_stages.diagnosis_message || userFunnel.diagnosis_message,
       rates: userFunnel.rates,
     }
   }
@@ -246,9 +246,9 @@ export function normalizeAtlasShapes(report, answers = {}) {
       fApps = Math.min(Math.round(fApps / 10), 300)
     }
     report.funnel_stages.applications_count = fApps
-    report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
-    report.funnel_stages.leak_title = userFunnel.leak_title
-    report.funnel_stages.diagnosis_message = userFunnel.diagnosis_message
+    report.funnel_stages.biggest_leak_stage = report.funnel_stages.biggest_leak_stage || userFunnel.biggest_leak_stage
+    report.funnel_stages.leak_title = report.funnel_stages.leak_title || userFunnel.leak_title
+    report.funnel_stages.diagnosis_message = report.funnel_stages.diagnosis_message || userFunnel.diagnosis_message
     report.funnel_stages.rates = userFunnel.rates
   }
 
@@ -269,16 +269,22 @@ export function normalizeAtlasShapes(report, answers = {}) {
     report.career_journey = report.career_journey[0] || null
   }
 
-  // Ensure "Execution Bridge" CTA is dynamically anchored to funnel_stages.leak_title and candidate target role
+  // Ensure "Execution Bridge" CTA is dynamically anchored to funnel_stages.leak_title with overwrite protection
   if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
     report.coach_intervention = {}
   }
-  const leakTitle = userFunnel.leak_title || report.funnel_stages?.leak_title || report.funnel_stages?.biggest_leak_stage || 'Technical Rounds'
-  const targetRole = answers.targetRole || answers.role || report.target_role || 'your target role'
-  report.coach_intervention.urgency_statement = 
-    `Polished bullet points and optimized headlines alone will not fix your drop-off at ${leakTitle} for ${targetRole}. Bypassing cold portal black holes requires a targeted direct-referral protocol and live technical storytelling.`
-  report.coach_intervention.value_prop = 
-    `In your 1-on-1 Strategy Call, we will map out your exact 30-day hiring manager referral pipeline, resolve cross-document background flags, and conduct live mock storytelling for your top projects.`
+  const leakTitle =
+    report.funnel_stages?.biggest_leak_stage ||
+    report.funnel_stages?.leak_title ||
+    userFunnel.leak_title ||
+    'Technical & System Design Rounds'
+
+  if (!report.coach_intervention.urgency_statement || report.coach_intervention.urgency_statement.length < 30) {
+    report.coach_intervention.urgency_statement = `Polished resume bullets alone cannot solve interview drop-offs at ${leakTitle}. Bypassing cold portal filters requires an active hiring manager referral engine and live project architecture defense.`
+  }
+  if (!report.coach_intervention.value_prop || report.coach_intervention.value_prop.length < 30) {
+    report.coach_intervention.value_prop = `In your 1-on-1 Strategy Call, we map your 30-day direct outbound pipeline to verified engineering leads, resolve cross-document verification flags, and run live mock evaluations on your top architecture projects.`
+  }
   report.coach_intervention.cta_text = 'Book Free 1-on-1 Strategy Session'
 
   return report
@@ -295,7 +301,9 @@ FORMAT CONTRACT (strict):
 - Never merge sections. Return every section fully populated.`
 
 async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
-  const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + extraInstructions.length) / 4)
+  const executiveDirective = '\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks. Write with the authoritative voice of an executive technical recruiter.'
+  const combinedInstructions = `${extraInstructions}${executiveDirective}`
+  const estimatedPromptTokens = Math.round((promptText.length + ATLAS_FORMAT_CONTRACT.length + combinedInstructions.length) / 4)
   console.log(`[ReportGeneration] Calling Atlas with prompt size ~${estimatedPromptTokens} tokens (${promptText.length} chars)`)
 
   try {
@@ -304,7 +312,7 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
       task: 'report_generation',
       preferredProvider: 'openrouter',
       model: 'google/gemini-3.5-flash-lite',
-      messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+      messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
       maxTokens: 4096,
@@ -320,7 +328,7 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
         task: 'report_generation',
         preferredProvider: 'openrouter',
         model: 'deepseek/deepseek-chat',
-        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
         maxTokens: 4096,
@@ -335,7 +343,7 @@ async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
         task: 'report_generation',
         preferredProvider: 'openrouter',
         model: 'google/gemini-3-flash-preview',
-        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + extraInstructions }],
+        messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
         maxTokens: 4096,
