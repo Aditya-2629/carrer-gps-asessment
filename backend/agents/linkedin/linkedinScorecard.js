@@ -22,17 +22,17 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
 const gradeFor = (score) => GRADE_BANDS.find((b) => score >= b.min) || GRADE_BANDS[GRADE_BANDS.length - 1]
 const round = (v) => Math.round(v)
 
-export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, targetRole = '') {
+export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, targetRole = '', activitySignals = null) {
   const headline = signals?.headline || {}
   const about = signals?.about || {}
   const visibility = signals?.visibility || {}
   const completeness = signals?.completeness || {}
 
-  const penalties = { branding: 0, visibility: 0, completeness: 0, consistency: 0 }
+  const penalties = { branding: 0, visibility: 0, completeness: 0, consistency: 0, activity: 0 }
   const issues = []
-  const addIssue = (severity, category, title, diagnosis, recommendation) => {
+  const addIssue = (severity, category, title, diagnosis, recommendation, customId = null) => {
     issues.push({
-      id: `li_${String(issues.length + 1).padStart(3, '0')}`,
+      id: customId || `li_${String(issues.length + 1).padStart(3, '0')}`,
       severity,
       category,
       title,
@@ -289,20 +289,119 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
     }
   }
 
+  // ── 5. Activity & Engagement (15% rebalanced if activitySignals provided) ──
+  const effectiveActivity =
+    activitySignals ||
+    signals?.activitySignals ||
+    signals?.activity ||
+    (signals?.isGhostProfile !== undefined || signals?.postsAnalyzedCount !== undefined ? signals : null)
+
+  const hasActivitySignals = Boolean(
+    effectiveActivity &&
+    typeof effectiveActivity === 'object' &&
+    effectiveActivity.available !== false &&
+    effectiveActivity.status !== 'unscraped'
+  )
+
+  let activityScore = 100
+  if (hasActivitySignals) {
+    if (effectiveActivity.isGhostProfile || effectiveActivity.postsAnalyzedCount === 0 || effectiveActivity.recencyTier === 'Dormant') {
+      activityScore = 40
+      penalties.activity += 60
+      addIssue(
+        'high',
+        'activity',
+        'Dormant LinkedIn Activity (Ghost Profile)',
+        'Your profile has zero recent posts or public technical discussions. Modern technical recruiters and hiring managers view inactive profiles as dormant, reducing inbound recruiter reach by up to 40%.',
+        'Share 1-2 focused technical insights, architectural decisions, or lessons learned per month to signal active domain expertise.',
+        'li_act_001'
+      )
+    } else {
+      // Active or semi-active profile evaluation
+      const recencyPts =
+        effectiveActivity.recencyTier === 'Highly Active' ? 35 :
+        effectiveActivity.recencyTier === 'Regular' ? 25 :
+        effectiveActivity.recencyTier === 'Occasional' ? 15 : 5
+
+      const substanceScore = Number(effectiveActivity.substance?.substanceScore ?? 50)
+      const substancePts = Math.round(substanceScore * 0.35)
+
+      const domainScore = Number(effectiveActivity.domainAlignment?.domainKeywordOverlapScore ?? 50)
+      const domainPts = Math.round(domainScore * 0.20)
+
+      const hasNetworking = Boolean(
+        effectiveActivity.networking?.hasActiveDiscussions ||
+        (effectiveActivity.networking?.outboundCommentsCount || 0) > 0
+      )
+      const networkingPts = hasNetworking ? 10 : 0
+
+      activityScore = clamp(recencyPts + substancePts + domainPts + networkingPts, 5, 100)
+
+      if (effectiveActivity.weeklyPostingCadence < 0.3 && effectiveActivity.recencyTier !== 'Highly Active') {
+        activityScore = Math.max(25, activityScore - 10)
+        penalties.activity += 10
+        addIssue(
+          'low',
+          'activity',
+          'Low or Inconsistent Posting Cadence',
+          'Your activity cadence is sporadic (less than 1 post per month). Consistent visibility requires a predictable publishing rhythm.',
+          'Establish a regular cadence of sharing 1 engineering reflection or project update every 1-2 weeks.',
+          'li_act_002'
+        )
+      }
+
+      if ((effectiveActivity.substance?.fluffIndicatorCount || 0) >= 2) {
+        activityScore = Math.max(25, activityScore - 25)
+        penalties.activity += 25
+        addIssue(
+          'medium',
+          'activity',
+          'Generic / Low-Substance Content Detected',
+          'Multiple posts contain generic platitudes or engagement hooks ("Thoughts?", "Agree?") without engineering substance or concrete project takeaways.',
+          'Replace generic motivational quotes with technical breakdowns: explain an architecture bottleneck, a migration trade-off, or a debugging war story.',
+          'li_act_003'
+        )
+      }
+
+      const domainOverlap = effectiveActivity.domainAlignment?.domainKeywordOverlapScore ?? 100
+      if (domainOverlap < 30) {
+        activityScore = Math.max(20, activityScore - 25)
+        penalties.activity += 25
+        addIssue(
+          'medium',
+          'activity',
+          'Posts Lack Target Domain Keywords',
+          'Your public posts and comments do not mention your core technical skills or target role technologies. Recruiters scouring your activity feed find no evidence of relevant domain depth.',
+          'Anchor future posts in your core stack and target role domains to boost profile relevance in technical recruiter searches.',
+          'li_act_004'
+        )
+      }
+    }
+  }
+
   const scores = {
     branding: clamp(branding, 5, 100),
     visibility: clamp(visScore, 5, 100),
     completeness: clamp(compScore, 5, 100),
     alignment: clamp(consistency, 5, 100),
     consistency: clamp(consistency, 5, 100),
+    ...(hasActivitySignals ? { activity: clamp(activityScore, 5, 100) } : {}),
   }
 
-  const CATEGORY_META = [
-    { key: 'branding', label: 'Branding & Story', weight: 0.30 },
-    { key: 'visibility', label: 'Search Visibility & SEO', weight: 0.25 },
-    { key: 'completeness', label: 'Profile Completeness', weight: 0.20 },
-    { key: 'alignment', label: 'Resume Alignment', weight: 0.25 },
-  ]
+  const CATEGORY_META = hasActivitySignals
+    ? [
+        { key: 'branding', label: 'Branding & Story', weight: 0.25 },
+        { key: 'visibility', label: 'Search Visibility & SEO', weight: 0.20 },
+        { key: 'completeness', label: 'Profile Completeness', weight: 0.20 },
+        { key: 'alignment', label: 'Resume Alignment', weight: 0.20 },
+        { key: 'activity', label: 'Activity & Engagement', weight: 0.15 },
+      ]
+    : [
+        { key: 'branding', label: 'Branding & Story', weight: 0.30 },
+        { key: 'visibility', label: 'Search Visibility & SEO', weight: 0.25 },
+        { key: 'completeness', label: 'Profile Completeness', weight: 0.20 },
+        { key: 'alignment', label: 'Resume Alignment', weight: 0.25 },
+      ]
 
   let overall = 0
   for (const m of CATEGORY_META) overall += scores[m.key] * m.weight
@@ -330,6 +429,10 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
           ? `${visibility.connectionsCount ?? 'Unknown'} connections`
           : m.key === 'completeness'
           ? `${completeness.experienceCount} experiences, ${completeness.skillsCount} skills`
+          : m.key === 'activity'
+          ? (effectiveActivity.isGhostProfile
+              ? 'No public posts or comments in last 60-90 days'
+              : `${effectiveActivity.postsAnalyzedCount} posts (${effectiveActivity.weeklyPostingCadence} posts/wk, ${effectiveActivity.recencyTier})`)
           : crossAnalysis?.hasResumeContext
           ? `${crossAnalysis.discrepancies?.length || 0} cross-channel discrepancies`
           : 'Resume not provided for cross-comparison',
@@ -409,6 +512,19 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
       detail: `${crossAnalysis?.missingSkills?.length || 0} verified resume skills missing on LinkedIn`,
       category: 'consistency',
     },
+    ...(hasActivitySignals
+      ? [
+          {
+            id: 'li_activity',
+            label: 'Recent Professional Activity',
+            status: scores.activity >= 70 ? 'pass' : scores.activity >= 50 ? 'warn' : 'fail',
+            detail: effectiveActivity.isGhostProfile
+              ? 'No public posts or comments detected'
+              : `${effectiveActivity.postsAnalyzedCount} posts analyzed (${effectiveActivity.recencyTier})`,
+            category: 'activity',
+          },
+        ]
+      : []),
   ]
 
   return {
@@ -418,6 +534,8 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
     grades,
     checks,
     issues,
+    categoryWeights: Object.fromEntries(CATEGORY_META.map((m) => [m.key, m.weight])),
+    weights: Object.fromEntries(CATEGORY_META.map((m) => [m.key, m.weight])),
     summary: {
       fix: issues.filter((i) => i.severity === 'high' || i.severity === 'medium').length,
       warn: issues.filter((i) => i.severity === 'low').length,

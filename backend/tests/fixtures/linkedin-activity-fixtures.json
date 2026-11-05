@@ -1,0 +1,145 @@
+{
+  "ghostCandidate": {
+    "posts": [],
+    "comments": [],
+    "targetRole": "Senior Full Stack Engineer",
+    "coreSkills": [
+      "Node.js",
+      "React",
+      "PostgreSQL",
+      "AWS"
+    ]
+  },
+  "activeTechLead": {
+    "posts": [
+      {
+        "id": "post_atl_1",
+        "text": "When scaling Apache Kafka consumers across multiple Kubernetes pods, consumer rebalance storms can cripple partition throughput. We decoupled consumer offset commits and tuned max.poll.interval.ms, cutting consumer lag from 45,000 to under 500 messages per second. #Kafka #DistributedSystems #Kubernetes",
+        "postedAt": "2026-11-03T14:30:00Z",
+        "likesCount": 38,
+        "commentsCount": 11,
+        "repostsCount": 4,
+        "media": ["https://media.licdn.com/dms/image/kafka-architecture.png"]
+      },
+      {
+        "id": "post_atl_2",
+        "text": "Redis cluster key eviction under sudden memory pressure: volatile-lru vs allkeys-lru in distributed caching layers. Documenting how we tuned maxmemory-samples to eliminate 99th percentile latency spikes in Go microservices. #Redis #Go #DistributedSystems",
+        "postedAt": "2026-11-01T09:15:00Z",
+        "likesCount": 29,
+        "commentsCount": 8,
+        "repostsCount": 3,
+        "media": []
+      },
+      {
+        "id": "post_atl_3",
+        "text": "Blue-green deployment rollouts on AWS EKS with Kubernetes: why automated health check probes alone aren't enough to prevent 502 bad gateway drops during ingress controller DNS cutover. #Kubernetes #AWS #CloudArchitecture",
+        "postedAt": "2026-10-29T16:00:00Z",
+        "likesCount": 34,
+        "commentsCount": 9,
+        "repostsCount": 5,
+        "media": ["https://media.licdn.com/dms/image/k8s-blue-green.png"]
+      },
+      {
+        "id": "post_atl_4",
+        "text": "Debugging cross-region data replication lag across Go microservices on AWS. Lessons learned on network throughput limits, VPC peering congestion, and TCP buffer window sizing. #Go #DistributedSystems #AWS",
+        "postedAt": "2026-10-26T11:45:00Z",
+        "likesCount": 24,
+        "commentsCount": 6,
+        "repostsCount": 2,
+        "media": []
+      },
+      {
+        "id": "post_atl_5",
+        "text": "High-throughput message pipeline post-mortem: how partition skew in Kafka brokers caused silent OOM kills in downstream consumer pods. #Kafka #Kubernetes #DistributedSystems",
+        "postedAt": "2026-10-23T13:20:00Z",
+        "likesCount": 22,
+        "commentsCount": 5,
+        "repostsCount": 1,
+        "media": []
+      }
+    ],
+    "comments": [
+      {
+        "id": "comm_atl_1",
+        "text": "Agreed on avoiding sync RPC for cross-boundary queries. In Go, we found event-driven Kafka topics with schema registry gave us significantly better decoupling than gRPC for inter-service state updates.",
+        "postedAt": "2026-11-04T10:00:00Z",
+        "likesCount": 4
+      },
+      {
+        "id": "comm_atl_2",
+        "text": "For Redis cluster eviction under memory spikes, switching to volatile-lfu reduced cache stampede significantly during morning peak traffic across our microservices.",
+        "postedAt": "2026-11-02T15:30:00Z",
+        "likesCount": 2
+      },
+      {
+        "id": "comm_atl_3",
+        "text": "Have you considered using Kubernetes pod topology spread constraints to avoid co-locating critical consumer replicas on the same node pool during cluster scaling events?",
+        "postedAt": "2026-10-30T14:10:00Z",
+        "likesCount": 3
+      },
+      {
+        "id": "comm_atl_4",
+        "text": "Our experience with AWS cross-region networking showed that tuning MTU and TCP window sizes saved almost 18% in tail latency for distributed replication pipelines.",
+        "postedAt": "2026-10-28T09:25:00Z",
+        "likesCount": 5
+      }
+    ],
+    "targetRole": "Staff Distributed Systems Engineer",
+    "coreSkills": [
+      "Go",
+      "Kubernetes",
+      "Kafka",
+      "Distributed Systems",
+      "AWS"
+    ]
+  },
+  "genericFluffPoster": {
+    "posts": [
+      {
+        "id": "post_fluff_1",
+        "text": "Success isn't about how much money you make, it's about the difference you make in people's lives. Positive vibes only! Agree? Thoughts?",
+        "postedAt": "2026-11-03T11:00:00Z",
+        "likesCount": 12,
+        "commentsCount": 3,
+        "repostsCount": 0,
+        "media": []
+      },
+      {
+        "id": "post_fluff_2",
+        "text": "The grind never stops! Excited to announce that hard work always pays off. What do you think? Drop your thoughts below!",
+        "postedAt": "2026-10-31T08:30:00Z",
+        "likesCount": 8,
+        "commentsCount": 2,
+        "repostsCount": 0,
+        "media": []
+      },
+      {
+        "id": "post_fluff_3",
+        "text": "Happy Monday everyone! Wishing everyone an inspired week of productivity and positive energy. Type amen in the comments!",
+        "postedAt": "2026-10-28T09:00:00Z",
+        "likesCount": 5,
+        "commentsCount": 1,
+        "repostsCount": 0,
+        "media": []
+      },
+      {
+        "id": "post_fluff_4",
+        "text": "Humbled and honored to celebrate another year of professional growth. Let that sink in. Do you agree?",
+        "postedAt": "2026-10-25T14:00:00Z",
+        "likesCount": 14,
+        "commentsCount": 4,
+        "repostsCount": 1,
+        "media": []
+      }
+    ],
+    "comments": [],
+    "targetRole": "Senior Data Engineer",
+    "coreSkills": [
+      "Python",
+      "Snowflake",
+      "dbt",
+      "Airflow",
+      "BigQuery"
+    ]
+  }
+}

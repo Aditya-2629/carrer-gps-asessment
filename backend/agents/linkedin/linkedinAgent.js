@@ -229,7 +229,7 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}, activityS
 
   const signals = extractLinkedInSignals(profile, resumeContext)
   const crossAnalysis = analyzeCrossAgentDiscrepancies(profile, resumeContext, signals)
-  const scorecard = computeLinkedInScorecard(signals, crossAnalysis, targetRole)
+  const scorecard = computeLinkedInScorecard(signals, crossAnalysis, targetRole, activitySignals)
 
   return {
     agent: 'linkedin',
