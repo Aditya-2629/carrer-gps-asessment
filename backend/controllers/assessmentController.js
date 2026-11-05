@@ -16,6 +16,7 @@ import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume }
 import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents/resume/market/smartKeywordWeaver.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { costTracker } from '../utils/costTracker.js'
+import { DOCXParser } from '../services/documentParser/docxParser.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -43,7 +44,7 @@ export function decodeHtmlEntities(str) {
 }
 
 // Helper function to parse uploaded resume to JSON using Gemini API with multi-key & model fallback
-const parseResumeToJSON = async (fileBuffer, mimeType, filename) => {
+const parseResumeToJSON = async (fileBuffer, mimeType = '', filename = '') => {
   if (!fileBuffer || fileBuffer.length === 0) {
     throw new Error('Resume file is empty or corrupted. Please upload a valid document.')
   }
@@ -102,15 +103,43 @@ Use this exact schema:
 }
 `
 
-  const filePart = {
-    inlineData: {
-      data: fileBuffer.toString('base64'),
-      mimeType: mimeType || 'application/pdf',
-    },
+  const cleanFilename = String(filename || '').toLowerCase()
+  const cleanMime = String(mimeType || '').toLowerCase()
+  const isDocx =
+    cleanFilename.endsWith('.docx') ||
+    cleanFilename.endsWith('.doc') ||
+    cleanMime.includes('word') ||
+    cleanMime.includes('officedocument')
+
+  let contents = []
+
+  if (isDocx) {
+    // 1. DOCX Support: Extract structured text & bullets via Mammoth
+    console.log(`[AssessmentController] Parsing Word document (${filename || 'resume.docx'}) via DOCXParser...`)
+    const docxResult = await DOCXParser.parse(fileBuffer)
+    const extractedText = docxResult?.text?.trim() || ''
+
+    if (!extractedText || extractedText.length < 30) {
+      throw new Error('Could not extract text from Word document. The file may be empty, password-protected, or corrupted.')
+    }
+
+    contents = [
+      prompt,
+      `CANDIDATE WORD (.DOCX) RESUME TEXT CONTENT:\n\n${extractedText}`,
+    ]
+  } else {
+    // 2. PDF / Image Support via native Gemini inlineData
+    const filePart = {
+      inlineData: {
+        data: fileBuffer.toString('base64'),
+        mimeType: mimeType || 'application/pdf',
+      },
+    }
+    contents = [prompt, filePart]
   }
 
   const { text: responseText } = await generateContentWithFallback({
-    contents: [prompt, filePart],
+    contents,
     modelName: 'gemini-3.5-flash-lite',
   })
 

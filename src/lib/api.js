@@ -24,6 +24,9 @@ export const api = {
   delete: (url, config) => client.delete(url, config),
   patch: (url, data, config) => client.patch(url, data, config),
 
+  // Background evaluation method called by FileUpload.jsx
+  analyzeResumeFile: async (file) => api.evaluateResume({ file }),
+
   // POST /api/otp/send-otp
   sendOtp: async ({ email }) => {
     try {

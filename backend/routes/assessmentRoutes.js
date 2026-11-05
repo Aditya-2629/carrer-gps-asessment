@@ -8,14 +8,20 @@ const router = express.Router()
 const storage = multer.memoryStorage()
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: (req, file, cb) => {
     const allowedMimeTypes = [
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/octet-stream',
+      'application/x-zip-compressed',
+      'text/plain',
     ]
-    if (allowedMimeTypes.includes(file.mimetype)) {
+    const ext = (file.originalname || '').toLowerCase()
+    const isAllowedExt = ext.endsWith('.pdf') || ext.endsWith('.docx') || ext.endsWith('.doc') || ext.endsWith('.txt')
+
+    if (allowedMimeTypes.includes(file.mimetype) || isAllowedExt) {
       cb(null, true)
     } else {
       cb(new Error('Only PDF, DOC, and DOCX files are allowed.'), false)
