@@ -11,6 +11,11 @@ export {
 
 export { extractLinkedInSignals } from './linkedinSignalEngine.js'
 
+export {
+  extractLinkedInActivitySignals,
+  FLUFF_PATTERNS,
+} from './linkedinActivityEngine.js'
+
 export { analyzeCrossAgentDiscrepancies } from './linkedinCrossAnalyzer.js'
 
 export { computeLinkedInScorecard } from './linkedinScorecard.js'
