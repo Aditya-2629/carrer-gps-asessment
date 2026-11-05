@@ -214,37 +214,96 @@ export function buildDeterministicOptimizations(
 
   // Full 180–250 Word 3-Paragraph Executive LinkedIn Storytelling
   const yoeText = canonical.years_of_experience || '3+ years'
-  const hook = isDataRole
-    ? `I am a ${targetRole} with ${yoeText} of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${topStack} to eliminate organizational reporting bottlenecks.`
-    : `I am a ${targetRole} with ${yoeText} of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${topStack} across resilient production environments.`
+  let hook = `I am a ${targetRole} with ${yoeText} of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${topStack} across resilient production environments.`
+  if (isDataRole) {
+    hook = `I am a ${targetRole} with ${yoeText} of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${topStack} to eliminate organizational reporting bottlenecks.`
+  } else if (isHealthRole) {
+    hook = `I am a ${targetRole} with ${yoeText} of dedicated clinical experience providing empathetic patient care, executing acute clinical protocols, and driving patient advocacy across multidisciplinary healthcare environments. My practice centers on clinical safety, meticulous EHR documentation, and collaborative care coordination using ${topStack} to optimize patient recovery outcomes.`
+  } else if (isFinanceRole) {
+    hook = `I am a ${targetRole} with ${yoeText} of quantitative financial experience in comprehensive reporting, variance modeling, GAAP/IFRS adherence, and strategic capital planning. My focus centers on building resilient financial models, automating month-end close reconciliations, and delivering executive dashboards using ${topStack} to guide sound fiscal decisions.`
+  } else if (isSalesRole) {
+    hook = `I am a ${targetRole} with ${yoeText} of enterprise sales experience accelerating B2B pipeline, closing strategic accounts, and aligning complex customer challenges with measurable business value. My expertise centers on consultative value-selling, predictable revenue forecasting, and executive relationship management using ${topStack} to exceed quota targets.`
+  }
 
-  const pillar1 = isDataRole
-    ? `▸ Data Architecture & Analytics: Engineered scalable data models and automated BI pipelines across ${topStack} that eliminate organizational reporting bottlenecks.`
-    : `▸ System Architecture & Scale: Engineered scalable microservices and distributed event-driven pipelines at ${topCompany} that sustain high throughput and low-latency performance.`
-  const pillar2 = isDataRole
-    ? `▸ Enterprise Intelligence & Pipelines: Deployed automated analytics workflows and dbt transformation models across modern cloud data infrastructure.`
-    : `▸ Cloud & Production Engineering: Containerized multi-stage builds and automated CI/CD release gating on Kubernetes, maintaining 99.99% production availability.`
+  let pillar1 = `▸ System Architecture & Scale: Engineered scalable microservices and distributed event-driven pipelines at ${topCompany} that sustain high throughput and low-latency performance.`
+  let pillar2 = `▸ Cloud & Production Engineering: Containerized multi-stage builds and automated CI/CD release gating on Kubernetes, maintaining 99.99% production availability.`
+  if (isDataRole) {
+    pillar1 = `▸ Data Architecture & Analytics: Engineered scalable data models and automated BI pipelines across ${topStack} that eliminate organizational reporting bottlenecks.`
+    pillar2 = `▸ Enterprise Intelligence & Pipelines: Deployed automated analytics workflows and dbt transformation models across modern cloud data infrastructure.`
+  } else if (isHealthRole) {
+    pillar1 = `▸ Clinical Excellence & Quality Care: Executed rigorous patient assessments, medication administration, and emergency response procedures under strict safety standards.`
+    pillar2 = `▸ Care Coordination & EHR Workflow: Managed patient charts and cross-functional handoffs across enterprise EHR systems, ensuring 100% HIPAA compliance.`
+  } else if (isFinanceRole) {
+    pillar1 = `▸ Financial Analysis & Modeling: Built dynamic financial models and multi-year variance forecasts that identified high-ROI efficiency opportunities.`
+    pillar2 = `▸ Compliance & Financial Controls: Enforced GAAP/IFRS accounting standards, managed audit trail readiness, and streamlined month-end close schedules.`
+  } else if (isSalesRole) {
+    pillar1 = `▸ Pipeline Generation & Account Strategy: Sourced and nurtured high-value B2B enterprise pipelines, consistently surpassing outbound acquisition targets.`
+    pillar2 = `▸ Contract Negotiation & Deal Execution: Orchestrated full-cycle sales engagements from discovery to final contract signing across C-suite buyers.`
+  }
+
   const pillar3 = metricPhrase
-    ? `▸ Measurable Business Impact: Drove tangible engineering velocity and system reliability, including ${metricPhrase}.`
-    : `▸ Engineering Excellence & Mentorship: Established clean modular architecture, automated test gating, and continuous cross-functional engineering standards.`
+    ? `▸ Measurable Business Impact: Drove tangible performance and operational reliability, including ${metricPhrase}.`
+    : (isHealthRole
+      ? `▸ Patient Advocacy & Team Leadership: Championed multidisciplinary care alignment and family education, driving high patient satisfaction ratings.`
+      : (isFinanceRole
+        ? `▸ Strategic Impact & Optimization: Automated ledger reconciliation workflows, reducing reporting cycle times and eliminating reporting discrepancies.`
+        : (isSalesRole
+          ? `▸ Revenue Execution: Consistently outperformed pipeline milestones, maintaining high deal conversion velocity across core territories.`
+          : `▸ Engineering Excellence & Mentorship: Established clean modular architecture, automated test gating, and continuous cross-functional engineering standards.`)))
 
   const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 
-  const callToAction = `My engineering philosophy is rooted in clean modular architecture, automated test gating, and continuous cross-functional mentorship. I am currently exploring ${targetRole} roles where I can drive scalable system architecture and meaningful operational impact. If you are building high-scale systems or looking to expand your technical leadership, let's connect!\n\nCore Stack: ${effectiveSkills.slice(0, 10).join(' · ')}`
+  // 1. Domain-Adaptive Call-To-Action
+  let domainMission = 'My professional philosophy is rooted in clean system architecture, automated test gating, and technical mentorship.'
+  let domainFocus = `I am currently exploring ${targetRole} roles where I can drive scalable system architecture and meaningful operational impact.`
+  if (isHealthRole) {
+    domainMission = 'My clinical practice is centered on empathetic patient advocacy, clinical safety protocols, and cross-functional care delivery.'
+    domainFocus = `I am actively exploring ${targetRole} opportunities where I can elevate patient care standards and clinical outcomes.`
+  } else if (isFinanceRole) {
+    domainMission = 'My financial philosophy focuses on analytical precision, rigorous GAAP compliance, and strategic capital management.'
+    domainFocus = `I am open to ${targetRole} roles where I can drive operational efficiencies and strategic financial planning.`
+  } else if (isSalesRole) {
+    domainMission = 'My sales philosophy centers on consultative value-selling, strategic account alignment, and predictable pipeline execution.'
+    domainFocus = `I am exploring ${targetRole} opportunities where I can accelerate enterprise revenue growth and build strategic partnerships.`
+  } else if (isDataRole) {
+    domainMission = 'My professional philosophy focuses on data integrity, scalable dimensional modeling, and actionable business intelligence.'
+    domainFocus = `I am currently exploring ${targetRole} roles where I can optimize analytics pipelines and deliver decision-critical intelligence.`
+  }
+
+  const callToAction = `${domainMission} ${domainFocus} If you are expanding your team or looking for proven domain execution, let's connect!\n\nCore Competencies: ${effectiveSkills.slice(0, 8).join(' · ')}`
   const fullText = `${hook}\n\n${proof}\n\n${callToAction}`
 
   const bannerStrategy = {
-    bannerTagline: `${targetRole} | ${isDataRole ? 'Data Architecture & Analytics' : 'Scalable Systems & High-Impact Architecture'}`,
-    bannerSecondaryText: `${topStack} · ${isDataRole ? 'Scalable Pipelines · Business Intelligence' : 'Distributed Microservices · Clean Code Delivery'}`,
-    designAdvice: 'Design a clean 1584x396px canvas in Canva. Keep key text in the center-right to avoid the circular profile avatar on mobile. Use dark background with bold typography.',
+    bannerTagline: `${targetRole} | ${isHealthRole ? 'Clinical Excellence & Patient Care' : (isFinanceRole ? 'Financial Strategy & Analytical Modeling' : (isSalesRole ? 'Enterprise Revenue Growth & Strategic Sales' : (isDataRole ? 'Data Architecture & Analytics' : 'Scalable Systems & High-Impact Architecture')))}`,
+    bannerSecondaryText: `${topStack} · ${isHealthRole ? 'Clinical Protocols · Care Delivery' : (isFinanceRole ? 'GAAP / IFRS · Variance Modeling' : (isSalesRole ? 'B2B Pipeline · Deal Execution' : (isDataRole ? 'Scalable Pipelines · Business Intelligence' : 'Distributed Microservices · Clean Code Delivery')))}`,
+    designAdvice: 'Design a clean 1584x396px canvas in Canva. Keep key text in the center-right to avoid the circular profile avatar on mobile. Use professional background with bold typography.',
   }
 
   const rawProjects = canonical.projects || []
   const liProjects = profile?.projects || []
   const liExp = profile?.experiences || []
 
-  // Experience Upgrades comparing LinkedIn vs Resume
+  // 2. Domain-Adaptive Experience Bullet Prefixes & Upgrades
   const experienceUpgrades = exp.slice(0, 3).map((e) => {
+    let p0 = 'Strategic Delivery'
+    let p1 = 'Operational Impact'
+    if (isSoftwareRole) {
+      p0 = 'Distributed Architecture'
+      p1 = 'Engineering Impact'
+    } else if (isHealthRole) {
+      p0 = 'Clinical Excellence'
+      p1 = 'Patient Care & Safety'
+    } else if (isFinanceRole) {
+      p0 = 'Financial Analysis'
+      p1 = 'Process Optimization'
+    } else if (isDataRole) {
+      p0 = 'Data Architecture'
+      p1 = 'Analytics Impact'
+    } else if (isSalesRole) {
+      p0 = 'Revenue Growth'
+      p1 = 'Account Strategy'
+    }
+
     const rawBullets = Array.isArray(e.bullets)
       ? e.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean)
       : []
@@ -261,7 +320,6 @@ export function buildDeterministicOptimizations(
 
     const rawMatchedComp = matchedLi ? (matchedLi.company || matchedLi.companyName || '') : ''
     const matchedCompName = typeof rawMatchedComp === 'string' ? rawMatchedComp : (rawMatchedComp?.name || '')
-    const compMatch = matchedLi ? matchCompany(e.company, matchedCompName) : null
 
     let linkedinGap = `LinkedIn Optimization Focus: Align vendor/client naming ('${e.company}') with your LinkedIn experience entry and replace task-heavy descriptions with the quantified executive bullets below.`
     const matchedLiTitle = typeof matchedLi?.title === 'string' ? matchedLi.title : (matchedLi?.title?.text || '')
@@ -270,18 +328,18 @@ export function buildDeterministicOptimizations(
     }
 
     const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
-    const b0Clean = rawBullets[0] ? rawBullets[0].replace(/^[•\-*▪–—\s]+/, '') : ''
-    const b1Clean = rawBullets[1] ? rawBullets[1].replace(/^[•\-*▪–—\s]+/, '') : ''
+    const b0Clean = (rawBullets[0] ? rawBullets[0].replace(/^[•\-*▪–—\s]+/, '') : '').trim()
+    const b1Clean = (rawBullets[1] ? rawBullets[1].replace(/^[•\-*▪–—\s]+/, '') : '').trim()
+
     const upgraded = [
-      `Role Mandate: Spearheaded engineering architecture and product delivery for ${e.role} systems at ${e.company}, scaling ${topStack} capabilities.`,
-      b0Clean ? `Distributed Architecture: Overcame performance constraints by re-architecting workflows (${b0Clean.slice(0, 110)}), unlocking higher throughput.` : `Distributed Architecture: Engineered resilient microservices using ${topStack}, slashing API response times.`,
-      b1Clean ? `Engineering Impact: Streamlined deployment velocity and reliability across cross-functional sprints (${b1Clean.slice(0, 110)}).` : `Operational Scalability: Instituted automated testing and observability pipelines, sustaining 99.9% uptime.`,
+      b0Clean ? `${p0}: ${b0Clean.slice(0, 120)}` : `${p0}: Led core initiatives using ${topStack}, driving measurable delivery turnaround.`,
+      b1Clean ? `${p1}: ${b1Clean.slice(0, 120)}` : `${p1}: Optimized operational workflows, sustaining high delivery reliability.`,
     ]
 
     return {
       company: e.company || 'Company',
       role: e.role || e.title || targetRole,
-      dates: e.dates || '',
+      dates: e.dates || 'Recent',
       linkedinGap,
       beforeText,
       afterText: upgraded.join('\n'),
@@ -511,10 +569,9 @@ export async function runLinkedInSynthesis(
     profile?.headline ||
     'Senior Software Engineer'
 
-  const resumeProvider = resumeContext?.provider || options?.resumeProvider || null
-  const excludeProvider = options?.excludeProvider || (resumeProvider === 'gemini' ? 'gemini' : (resumeProvider === 'groq' ? 'groq' : null))
-  const preferredProvider = options?.preferredProvider || (excludeProvider === 'gemini' ? 'groq' : (excludeProvider === 'groq' ? 'gemini' : 'groq'))
-
+  // Route to high-throughput, low-latency OpenRouter Gemini Flash Lite
+  const preferredProvider = options?.preferredProvider || 'openrouter'
+  const effectiveModel = options?.model || 'google/gemini-3.5-flash-lite'
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
@@ -540,40 +597,21 @@ export async function runLinkedInSynthesis(
       try {
         const response = await llmGateway.generate({
           purpose: 'linkedin_analysis',
+          preferredProvider,
+          model: effectiveModel,
           messages,
           temperature: 0.25,
           maxTokens,
           responseFormat: { type: 'json_object' },
-          excludeProvider,
-          preferredProvider,
+          timeoutMs: 25000,
         })
 
         let parsed = tryParseJson(response?.text)
-
-        // Retry once if invalid JSON
         if (!parsed && response?.text) {
-          console.warn(`[LinkedInSynthesis] ${taskName} output not valid JSON — retrying once`)
           try {
-            const retryResponse = await llmGateway.generate({
-              purpose: 'linkedin_analysis',
-              messages: [
-                ...messages,
-                { role: 'assistant', content: response.text },
-                {
-                  role: 'user',
-                  content: 'Your previous response was not valid JSON. Return ONLY the complete corrected JSON object now with no markdown formatting or extra text.',
-                },
-              ],
-              temperature: 0.1,
-              maxTokens,
-              responseFormat: { type: 'json_object' },
-              excludeProvider,
-              preferredProvider,
-            })
-            parsed = tryParseJson(retryResponse?.text)
-          } catch (_retryErr) {
-            // Fall back gracefully
-          }
+            const repaired = jsonrepair(response.text)
+            parsed = JSON.parse(repaired)
+          } catch {}
         }
         return parsed
       } catch (err) {
@@ -582,14 +620,12 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // Run Task 1 (maxTokens: 2048) and Task 2 (maxTokens: 2200) in parallel via Promise.all
-    const [task1Result, task2Result] = await Promise.all([
-      executeTask('Task 1 (Headlines & About)', task1Messages, 2048),
-      executeTask('Task 2 (Experience & Tricks)', task2Messages, 2200),
-    ])
+    // Run Task 1 then Task 2 sequentially to avoid rate-limit burst collisions
+    const task1Result = await executeTask('Task 1 (Headlines & About)', task1Messages, 2048)
+    const task2Result = await executeTask('Task 2 (Experience & Tricks)', task2Messages, 2200)
 
     if (!task1Result && !task2Result) {
-      console.warn('[LinkedInSynthesis] Both chunked tasks failed, using deterministic fallback')
+      console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')
       return fallback
     }
 

@@ -180,35 +180,17 @@ export function matchCompany(rComp, lComp) {
 }
 
 export const PRIORITY_TECH = [
-  'LangGraph',
-  'LangChain',
-  'RAG',
-  'ChromaDB',
-  'FastAPI',
-  'Spring AI',
-  'Next.js',
-  'TypeScript',
-  'GraphQL',
-  'Redis',
-  'Kubernetes',
-  'AWS',
-  'Azure',
-  'Docker',
-  'PostgreSQL',
-  'MongoDB',
-  'Microservices',
-  'REST APIs',
-  // Data, Analytics & BI Priority Tools
-  'SQL',
-  'Python',
-  'Power BI',
-  'Tableau',
-  'Snowflake',
-  'BigQuery',
-  'Looker Studio',
-  'dbt',
-  'Databricks',
-  'Excel',
+  // Programming & Cloud Tech
+  'Python', 'Java', 'Go', 'TypeScript', 'GraphQL', 'Redis', 'Kubernetes', 'AWS', 'Azure', 'Docker', 'PostgreSQL', 'MongoDB', 'Microservices', 'REST APIs',
+  'LangGraph', 'LangChain', 'FastAPI', 'Next.js',
+  // Data & BI
+  'SQL', 'Power BI', 'Tableau', 'Snowflake', 'BigQuery', 'Looker Studio', 'dbt', 'Databricks', 'Excel',
+  // Healthcare & Clinical
+  'EHR', 'Epic Systems', 'HIPAA', 'Patient Care', 'Triage', 'Care Coordination', 'Clinical Documentation',
+  // Finance & Accounting
+  'GAAP', 'IFRS', 'Financial Modeling', 'Variance Analysis', 'General Ledger', 'QuickBooks', 'SAP FICO', 'SOX Compliance',
+  // Sales & Product
+  'Salesforce', 'CRM', 'B2B Sales', 'Product Roadmap', 'User Stories', 'Agile / Scrum',
 ]
 
 /**

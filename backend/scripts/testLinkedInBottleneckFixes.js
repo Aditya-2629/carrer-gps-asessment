@@ -1,20 +1,21 @@
 /**
  * testLinkedInBottleneckFixes.js
  * 
- * Verifies all 7 fixes for LinkedIn bottlenecks:
+ * Verifies all LinkedIn architecture & bottleneck fixes:
  * 1. "500+" connections parsing and 0 visibility penalty
- * 2. Non-SWE domain headlines (Registered Nurse, Financial Analyst) without Cloud Architecture bias
+ * 2. Non-SWE domain headlines, CTAs, and experience bullet prefixes (Nurse & Financial Analyst)
  * 3. Modern data warehouse tools (Snowflake, BigQuery, dbt) retained for Software Engineers
  * 4. Timeline year-boundary resilience (Jan 2024 vs Dec 2023: no false timeline_drift)
  * 5. Normalized scorecard floor cap (minFloor 75 when branding & completeness >= 85/80)
  * 6. Skeleton / private profile graceful inference without false role omissions
+ * 7. Expanded PRIORITY_TECH array for non-SWE domains
  */
 
 import assert from 'assert'
 import { extractLinkedInSignals } from '../agents/linkedin/linkedinSignalEngine.js'
 import { computeLinkedInScorecard } from '../agents/linkedin/linkedinScorecard.js'
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
-import { analyzeCrossAgentDiscrepancies } from '../agents/linkedin/linkedinCrossAnalyzer.js'
+import { analyzeCrossAgentDiscrepancies, PRIORITY_TECH } from '../agents/linkedin/linkedinCrossAnalyzer.js'
 import { resolveEffectiveProfile, inferProfileFromResume } from '../agents/linkedin/linkedinAgent.js'
 
 console.log('================================================================')
@@ -52,7 +53,7 @@ assert.strictEqual(
 console.log('✔ Test 1 Passed: "500+" connections resolves to bracket "500+" with 0 penalty.\n')
 
 // -----------------------------------------------------------------
-// 2. Non-Tech Domain Playbooks (Nurse & Financial Analyst)
+// 2. Non-Tech Domain Playbooks, CTAs & Experience Bullet Prefixes
 // -----------------------------------------------------------------
 console.log('--- Test 2: Non-Tech Domain Playbooks (Nurse & Financial Analyst) ---')
 
@@ -62,7 +63,7 @@ const nurseResumeContext = {
   canonicalResume: {
     candidate: { name: 'Sarah Connor', targetRole: 'Registered Nurse' },
     skills: ['Patient Assessment', 'EHR Systems', 'HIPAA Protocol', 'Acute Care'],
-    experiences: [{ company: 'General Hospital', role: 'Registered Nurse', dates: '2020 - Present' }],
+    experiences: [{ company: 'General Hospital', role: 'Registered Nurse', dates: '2020 - Present', bullets: [{ text: 'Assessed 20+ patients per shift.' }] }],
   },
 }
 const nurseOpts = buildDeterministicOptimizations(
@@ -80,7 +81,20 @@ assert(
   nurseHeadlines.includes('Clinical Operations') || nurseHeadlines.includes('Patient'),
   'Nurse headlines must feature healthcare clinical domain'
 )
+assert(
+  nurseOpts.aboutRewrite.callToAction.includes('clinical') || nurseOpts.aboutRewrite.callToAction.includes('patient'),
+  'Nurse About CTA must feature clinical/patient mission'
+)
+assert(
+  !nurseOpts.aboutRewrite.callToAction.includes('clean system architecture'),
+  'Nurse About CTA must NOT include clean system architecture'
+)
+assert(
+  nurseOpts.experienceUpgrades[0].bullets[0].startsWith('Clinical Excellence:'),
+  `Nurse bullet prefix must be Clinical Excellence: (got ${nurseOpts.experienceUpgrades[0].bullets[0]})`
+)
 console.log('✔ Nurse headline output:', nurseOpts.headlines[2].headline)
+console.log('✔ Nurse bullet prefix:', nurseOpts.experienceUpgrades[0].bullets[0].slice(0, 50))
 
 // Financial Analyst
 const financeResumeContext = {
@@ -88,7 +102,7 @@ const financeResumeContext = {
   canonicalResume: {
     candidate: { name: 'David Miller', targetRole: 'Financial Analyst' },
     skills: ['Financial Modeling', 'Variance Analysis', 'ERP Systems', 'GAAP / IFRS'],
-    experiences: [{ company: 'Apex Capital', role: 'Financial Analyst', dates: '2021 - Present' }],
+    experiences: [{ company: 'Apex Capital', role: 'Financial Analyst', dates: '2021 - Present', bullets: [{ text: 'Built 5-year DCF models.' }] }],
   },
 }
 const financeOpts = buildDeterministicOptimizations(
@@ -106,8 +120,17 @@ assert(
   financeHeadlines.includes('Financial Reporting') || financeHeadlines.includes('Variance Modeling'),
   'Finance headlines must feature financial domain expertise'
 )
+assert(
+  financeOpts.aboutRewrite.callToAction.includes('financial') || financeOpts.aboutRewrite.callToAction.includes('GAAP'),
+  'Finance CTA must feature financial/GAAP philosophy'
+)
+assert(
+  financeOpts.experienceUpgrades[0].bullets[0].startsWith('Financial Analysis:'),
+  `Finance bullet prefix must be Financial Analysis: (got ${financeOpts.experienceUpgrades[0].bullets[0]})`
+)
 console.log('✔ Finance headline output:', financeOpts.headlines[2].headline)
-console.log('✔ Test 2 Passed: Non-tech domains receive authentic domain headlines without cloud bias.\n')
+console.log('✔ Finance bullet prefix:', financeOpts.experienceUpgrades[0].bullets[0].slice(0, 50))
+console.log('✔ Test 2 Passed: Non-tech domains receive authentic domain headlines, CTAs, and bullet prefixes.\n')
 
 // -----------------------------------------------------------------
 // 3. Modern Data Warehouse Tools Retained for Software Engineers
@@ -128,7 +151,6 @@ const sweOpts = buildDeterministicOptimizations(
 )
 
 const sweTopSkills = sweOpts.top3PinnedSkills.join(' ')
-const allRecommended = sweOpts.recommendedSkillsToAdd.join(' ')
 assert(
   sweTopSkills.includes('Snowflake') || sweTopSkills.includes('BigQuery') || sweTopSkills.includes('dbt'),
   'Software Engineer candidate skills must retain verified Snowflake/BigQuery/dbt'
@@ -187,7 +209,6 @@ const signalsStrongProfile = {
   visibility: { connectionBracket: '500+', connectionsCount: '500+', hasRecommendations: true, hasCustomUrl: true },
   completeness: { experienceCount: 4, skillsCount: 20, hasExperiences: true, hasEducation: true, expWithDescription: 4 },
 }
-// Simulated crossAnalysis with low consistency (e.g. 1 title drift)
 const mockCrossLowAlignment = {
   hasResumeContext: true,
   discrepancies: [
@@ -237,6 +258,25 @@ assert.strictEqual(
 )
 console.log('✔ Test 6 Passed: Skeleton profile inferred cleanly from resume with 0 false role omissions.\n')
 
+// -----------------------------------------------------------------
+// 7. Expanded PRIORITY_TECH Validation for Non-SWE Domains
+// -----------------------------------------------------------------
+console.log('--- Test 7: Expanded PRIORITY_TECH Validation for Non-SWE Domains ---')
+const prioritySet = new Set(PRIORITY_TECH.map(s => s.toLowerCase()))
+const expectedDomainTech = [
+  'ehr', 'epic systems', 'hipaa', 'patient care', 'triage', 'care coordination',
+  'gaap', 'ifrs', 'financial modeling', 'variance analysis', 'quickbooks', 'sap fico',
+  'salesforce', 'crm', 'b2b sales',
+]
+
+for (const tech of expectedDomainTech) {
+  assert(
+    prioritySet.has(tech),
+    `PRIORITY_TECH must contain "${tech}"`
+  )
+}
+console.log(`✔ Test 7 Passed: PRIORITY_TECH contains all ${expectedDomainTech.length} healthcare, finance, and sales domain tools.\n`)
+
 console.log('================================================================')
-console.log('ALL 6 LINKEDIN BOTTLENECK FIX VERIFICATION TESTS PASSED! 🚀')
+console.log('ALL 7 LINKEDIN ARCHITECTURE & BOTTLENECK TESTS PASSED! 🚀')
 console.log('================================================================')
