@@ -55,7 +55,8 @@ export const getAllGroqKeys = () => {
 }
 
 /**
- * AI Gateway Configuration with dynamic environment resolution
+ * AI Gateway Configuration with dynamic environment resolution.
+ * Strictly locked to OpenRouter (Primary) and Groq (Secondary Fallback).
  */
 export const aiConfig = {
   get defaultProvider() {
@@ -82,22 +83,27 @@ export const aiConfig = {
       const keys = getAllGroqKeys()
       return keys.length > 0 ? keys[0] : (process.env.GROQ_API_KEY || '').trim()
     },
+    get fallbackKeys() {
+      return [
+        process.env.GROQ_API_KEY_FALLBACK_1,
+        process.env.GROQ_API_KEY_FALLBACK_2,
+        process.env.GROQ_API_KEY_FALLBACK_3,
+        process.env.GROQ_API_KEY_FALLBACK_4,
+      ].filter(Boolean)
+    },
     get defaultModel() {
       return 'openai/gpt-oss-120b'
     },
     get primaryModel() {
-      const configured = (process.env.GROQ_RESUME_MODEL_PRIMARY || '').trim()
-      if (configured && !configured.includes('gemini') && !configured.includes('llama') && !configured.includes('20b')) return configured
       return 'openai/gpt-oss-120b'
     },
     get fallbackModel() {
-      const configured = (process.env.GROQ_RESUME_MODEL_FALLBACK || '').trim()
-      if (configured && !configured.includes('gemini') && !configured.includes('llama') && !configured.includes('20b')) return configured
       return 'openai/gpt-oss-120b'
     },
     get timeoutMs() {
-      return parseInt(process.env.GROQ_TIMEOUT_MS || '60000', 10)
+      return parseInt(process.env.GROQ_TIMEOUT_MS || '35000', 10)
     },
+    maxRetries: 2,
   },
   openRouter: {
     get baseUrl() {
@@ -106,29 +112,19 @@ export const aiConfig = {
     get apiKey() {
       return (process.env.OPENROUTER_API_KEY || '').trim()
     },
+    get defaultModel() {
+      return 'google/gemini-2.5-flash-lite'
+    },
     get appUrl() {
       return process.env.APP_URL || 'https://crafture.com'
     },
     get appName() {
-      return 'Crafture Career GPS - Resume Agent V1'
+      return 'Crafture Career GPS'
     },
     get timeoutMs() {
-      return parseInt(process.env.OPENROUTER_TIMEOUT_MS || '60000', 10)
+      return parseInt(process.env.OPENROUTER_TIMEOUT_MS || '45000', 10)
     },
-  },
-  grok: {
-    get baseUrl() {
-      return process.env.GROK_BASE_URL || 'https://api.x.ai/v1'
-    },
-    get apiKey() {
-      return (process.env.GROK_API_KEY || '').trim()
-    },
-    get defaultModel() {
-      return process.env.GROK_RESUME_MODEL || 'grok-beta'
-    },
-    get timeoutMs() {
-      return parseInt(process.env.GROK_TIMEOUT_MS || '60000', 10)
-    },
+    maxRetries: 2,
   },
   get totalDeadlineMs() {
     return parseInt(process.env.AI_TOTAL_DEADLINE_MS || '120000', 10)
@@ -145,20 +141,6 @@ export const aiConfig = {
     },
     get totalDeadlineMs() {
       return parseInt(process.env.GEMINI_TOTAL_DEADLINE_MS || process.env.AI_TOTAL_DEADLINE_MS || '25000', 10)
-    },
-  },
-  nvidia: {
-    get baseUrl() {
-      return process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1'
-    },
-    get apiKey() {
-      return (process.env.NVIDIA_API_KEY || '').trim()
-    },
-    get defaultModel() {
-      return process.env.NVIDIA_RESUME_MODEL || 'nvidia/nemotron-3-super-120b-a12b'
-    },
-    get timeoutMs() {
-      return parseInt(process.env.NVIDIA_TIMEOUT_MS || '60000', 10)
     },
   },
 }

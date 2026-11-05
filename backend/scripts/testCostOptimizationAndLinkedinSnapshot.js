@@ -45,7 +45,7 @@ console.log('✔ Test 2 Passed: Model registry entries and trap model exclusions
 
 // Test 3: Provider Fallbacks and Fallback Chain
 console.log('Test 3: Verifying Fallback Chains...')
-assert.deepEqual(PRODUCTION_FALLBACK_CHAIN, ['openrouter', 'groq', 'gemini'])
+assert.deepEqual(PRODUCTION_FALLBACK_CHAIN, ['openrouter', 'groq'])
 assert.ok(PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-2.5-flash-lite'))
 assert.ok(PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-3.5-flash-lite'))
 assert.ok(PROVIDER_MODEL_FALLBACKS.openrouter.includes('meta-llama/llama-3.3-70b-instruct'))

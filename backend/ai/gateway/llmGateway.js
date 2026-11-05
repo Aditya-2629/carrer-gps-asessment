@@ -10,9 +10,6 @@ import { aiConfig } from '../config/aiConfig.js'
 import { getModel, isModelAllowedForData, listModelsForPurpose } from '../config/modelRegistry.js'
 import { GroqProvider } from './groqProvider.js'
 import { OpenRouterProvider } from './openrouterProvider.js'
-import { GeminiProvider } from './geminiProvider.js'
-import { GrokProvider } from './grokProvider.js'
-import { NvidiaProvider } from './nvidiaProvider.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
 import { AITelemetry } from '../telemetry/aiTelemetry.js'
 import { LLMCache, llmCache } from '../cache/llmCache.js'
@@ -21,13 +18,11 @@ import { liteLlmRouter } from './liteLlmRouter.js'
 import { costTracker } from '../../utils/costTracker.js'
 
 // Production fallback chain in priority order:
-// 1. Primary: OpenRouter (Paid balance, 1.05M context, 100% SLA)
-// 2. Secondary: Groq (Blazing fast failover: GPT-OSS 120B)
-// 3. Tertiary: Gemini fallback
+// 1. Primary: OpenRouter (100% SLA, multi-model task routing)
+// 2. Secondary: Groq (Multi-key fallback locked to gpt-oss-120b)
 export const PRODUCTION_FALLBACK_CHAIN = [
-  'openrouter', // Priority 1: Paid balance, 1.05M context, 100% SLA
-  'groq',       // Priority 2: Blazing fast secondary failover
-  'gemini',     // Priority 3: Gemini fallback
+  'openrouter', // Priority 1: 100% SLA, multi-model task routing
+  'groq',       // Priority 2: Multi-key fallback locked to gpt-oss-120b
 ]
 
 export const MAX_CONCURRENT_PER_PROVIDER = 4
@@ -55,27 +50,18 @@ export const PROVIDER_MODEL_FALLBACKS = {
     'google/gemini-2.5-flash-lite',
     'google/gemini-3.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
-    'google/gemini-2.5-flash',
   ],
   groq: [
-    'openai/gpt-oss-120b',
+    'openai/gpt-oss-120b', // ONLY active model for Groq
   ],
-  gemini: [
-    'gemini-2.5-flash-lite',
-  ],
-  nvidia: ['nvidia/nemotron-3-super-120b-a12b'],
-  openai: ['openai/gpt-oss-120b'],
 }
 
 export class LLMGateway {
   constructor(config = aiConfig) {
     this.config = config
     this.providers = {
-      groq: new GroqProvider(config.groq),
-      gemini: new GeminiProvider(),
       openrouter: new OpenRouterProvider(config.openRouter),
-      grok: new GrokProvider(config.grok),
-      nvidia: new NvidiaProvider(config.nvidia),
+      groq: new GroqProvider(config.groq),
     }
   }
 
@@ -336,14 +322,9 @@ export class LLMGateway {
         const configuredTimeout =
           purpose === 'bullet_batch_weave'
             ? (callerTimeoutMs || 6000)
-            : providerKey === 'gemini'
-              ? (this.config.gemini?.totalDeadlineMs || this.config.gemini?.timeoutMs || 60000)
-              : (this.config[providerKey]?.timeoutMs || 60000)
+            : (this.config[providerKey]?.timeoutMs || 45000)
         const timeoutMs = Math.min(configuredTimeout, remainingDeadlineMs)
-        const perAttemptTimeoutMs =
-          providerKey === 'gemini'
-            ? (this.config.gemini?.perAttemptTimeoutMs || this.config.gemini?.timeoutMs || 20000)
-            : timeoutMs
+        const perAttemptTimeoutMs = timeoutMs
 
         // Provider deadline is bounded slightly within router timeout (1500ms safety buffer)
         // to allow internal provider error handling and telemetry cleanup before router-level abort

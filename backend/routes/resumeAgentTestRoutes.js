@@ -68,11 +68,11 @@ router.get('/models', (req, res) => {
   const geminiKeys = getAllGeminiKeys()
 
   const providerConfigured = {
-    groq: Boolean(aiConfig.groq.apiKey),
+    groq: Boolean(aiConfig.groq?.apiKey),
     gemini: geminiKeys.length > 0,
-    openrouter: Boolean(aiConfig.openRouter.apiKey),
-    grok: Boolean(aiConfig.grok.apiKey),
-    nvidia: Boolean(aiConfig.nvidia.apiKey),
+    openrouter: Boolean(aiConfig.openRouter?.apiKey),
+    grok: Boolean(aiConfig.grok?.apiKey),
+    nvidia: Boolean(aiConfig.nvidia?.apiKey),
   }
 
   return res.status(200).json({
