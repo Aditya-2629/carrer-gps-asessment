@@ -229,11 +229,22 @@ export default function ReportChatbot() {
 
   // Dynamic context extraction
   const firstName = useMemo(() => {
-    const raw =
-      reportData?.resume_agent?.canonicalResume?.contact?.name ||
+    const rawName =
+      reportData?.resume_agent?.candidateSnapshot?.name ||
+      reportData?.resume_json?.candidate?.name ||
+      reportData?.resume_json?.candidate_name ||
+      reportData?.resume_json?.name ||
+      reportData?.candidate_name ||
+      reportData?.resume_agent?.canonicalResume?.candidate?.name ||
       formData?.name ||
-      'there'
-    return String(raw).trim().split(' ')[0]
+      formData?.fullName ||
+      ''
+
+    if (typeof rawName === 'string' && rawName.trim()) {
+      const clean = rawName.trim().replace(/^(mr|ms|mrs|dr)\.?\s+/i, '')
+      return clean.split(/\s+/)[0]
+    }
+    return 'there'
   }, [reportData, formData])
 
   const targetRole = useMemo(() => {
@@ -241,25 +252,44 @@ export default function ReportChatbot() {
       reportData?.assessment_agent?.candidateProfile?.targetRole ||
       formData?.targetRole ||
       reportData?.resume_json?.target_role ||
+      reportData?.target_role ||
       'your target role'
     )
   }, [reportData, formData])
 
-  const latestCompany = useMemo(() => {
-    return (
-      reportData?.resume_agent?.canonicalResume?.experience?.[0]?.company ||
-      reportData?.resume_json?.experiences?.[0]?.company ||
-      'my latest company'
-    )
+  const { latestCompany, shortCompany } = useMemo(() => {
+    const experiences =
+      reportData?.resume_agent?.canonicalResume?.experiences ||
+      reportData?.resume_agent?.canonicalResume?.experience ||
+      reportData?.resume_json?.experiences ||
+      reportData?.resume_json?.experience ||
+      []
+
+    const rawComp =
+      reportData?.resume_agent?.candidateSnapshot?.presentCompany ||
+      experiences[0]?.company ||
+      experiences[0]?.employer ||
+      reportData?.present_company ||
+      ''
+
+    const full = typeof rawComp === 'string' ? rawComp.trim() : ''
+    // For chip labels, pick the primary brand before slashes or dashes (e.g. "Collabera / Bank of America" -> "Collabera")
+    const short = full ? full.split(/[\/\-–|]/)[0].trim() : ''
+
+    return {
+      latestCompany: full,
+      shortCompany: short
+    }
   }, [reportData])
 
   const bottleneckTitle = useMemo(() => {
-    return (
+    const raw =
       reportData?.primary_bottleneck?.title ||
+      reportData?.primary_bottleneck ||
       reportData?.assessment_agent?.primaryBottleneck?.title ||
       reportData?.critical_issues?.[0]?.title ||
-      'my #1 bottleneck'
-    )
+      ''
+    return typeof raw === 'string' && raw.trim() ? raw.trim() : 'Application & Targeting Alignment'
   }, [reportData])
 
   const overallScore = useMemo(() => {
@@ -268,17 +298,24 @@ export default function ReportChatbot() {
 
   const topSkill = useMemo(() => {
     const skills =
-      reportData?.resume_agent?.verifiedSkills ||
-      reportData?.resume_agent?.dashboard?.keywordAlignment?.matchedInExperience ||
+      reportData?.resume_agent?.canonicalResume?.skills ||
+      reportData?.resume_json?.top_skills ||
       reportData?.resume_json?.skills ||
       []
-    const first = Array.isArray(skills) ? skills[0] : ''
-    return (typeof first === 'string' ? first : first?.name || '') || 'System Design'
+    if (skills.length > 0) {
+      const first = skills[0]
+      return typeof first === 'string' ? first : first?.name || 'System Architecture'
+    }
+    return 'System Architecture'
   }, [reportData])
 
   // Dynamic initial greeting message
   const initialGreeting = useMemo(() => {
-    return `Hey **${firstName}**! I'm **Atlas**, your Executive Career Partner. I've analyzed your **${targetRole}** profile (**${overallScore}/100**), verified your track record at **${latestCompany}**, and isolated your primary funnel choke point: **${bottleneckTitle}**.\n\nWhether you need Google XYZ bullet rewrites, a 50-word InMail to target hiring managers, or mock interview drills on **${topSkill}**, let's build your competitive edge. Where should we start?`
+    const companyClause = latestCompany
+      ? `verified your track record at **${latestCompany}**`
+      : `verified your technical experience`
+
+    return `Hey **${firstName}**! I'm **Atlas**, your Executive Career Partner. I've analyzed your **${targetRole}** profile (**${overallScore}/100**), ${companyClause}, and isolated your primary funnel choke point: **${bottleneckTitle}**.\n\nWhether you need Google XYZ bullet rewrites, a 50-word InMail to target hiring managers, or mock interview drills on **${topSkill}**, let's build your competitive edge. Where should we start?`
   }, [firstName, targetRole, overallScore, latestCompany, bottleneckTitle, topSkill])
 
   const [open, setOpen] = useState(false)
@@ -325,32 +362,34 @@ export default function ReportChatbot() {
   const STARTER_CHIPS = useMemo(
     () => [
       {
-        id: 'company-bullet',
-        label: `✍️ Rewrite ${latestCompany} bullet`,
-        prompt: `Rewrite my weakest bullet from ${latestCompany} using the Google XYZ formula with concrete architectural mechanisms and quantifiable impact.`,
-      },
-      {
         id: 'bottleneck',
-        label: `🎯 Fix my #${bottleneckTitle}`,
-        prompt: `How do I systematically resolve my primary bottleneck ("${bottleneckTitle}") to raise my callback rate this week?`,
+        label: `🎯 Fix "${bottleneckTitle.slice(0, 24)}${bottleneckTitle.length > 24 ? '...' : ''}"`,
+        prompt: `How do I fix my primary bottleneck ("${bottleneckTitle}") this week?`,
       },
       {
-        id: 'inmail',
-        label: `📬 50-word InMail for ${targetRole}`,
-        prompt: `Draft a high-converting, 50-75 word LinkedIn InMail to an Engineering Director hiring for a ${targetRole} role, referencing my recent work at ${latestCompany}.`,
+        id: 'bullet',
+        label: shortCompany ? `✍️ Rewrite ${shortCompany} bullet` : '✍️ Rewrite top impact bullet',
+        prompt: latestCompany
+          ? `Rewrite my weakest resume bullet at ${latestCompany} with stronger Google XYZ impact metrics.`
+          : 'Rewrite my weakest resume bullet with stronger Google XYZ impact metrics.',
       },
       {
-        id: 'mock-interview',
+        id: 'cold-dm',
+        label: `📬 50-word InMail for ${targetRole.slice(0, 20)}`,
+        prompt: `Write a high-converting 50-word LinkedIn message to an Engineering Manager for a ${targetRole} opening using my verified achievements.`,
+      },
+      {
+        id: 'interview',
         label: `🎤 Mock Interview on ${topSkill}`,
-        prompt: `Run a tough, technical interview drill on ${topSkill} for a ${targetRole} interview. Ask 1 question and outline the ideal STAR architectural answer.`,
+        prompt: `Ask me 1 tough technical interview question for a ${targetRole} role focusing on ${topSkill} and show me a strong STAR answer with architectural trade-offs.`,
       },
       {
-        id: 'salary-rails',
-        label: `💰 Salary Negotiation Rails`,
-        prompt: `What are the market compensation rails for a ${targetRole} in the US tech market, and how do I defend my top-of-band ask without getting screened out?`,
+        id: 'plan',
+        label: '🚀 My 7-Day Rapid Triage',
+        prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
       },
     ],
-    [latestCompany, bottleneckTitle, targetRole, topSkill]
+    [bottleneckTitle, latestCompany, shortCompany, targetRole, topSkill]
   )
 
   const remainingChips = useMemo(

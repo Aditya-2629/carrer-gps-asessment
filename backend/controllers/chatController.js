@@ -69,7 +69,19 @@ export function extractCandidateDossier(user = {}) {
   const resume = user?.resumeJson || report?.resume_json || {}
   const answers = user?.answers || {}
 
-  const rawExp = resume.experiences || resume.experience || []
+  const rawExp =
+    report.resume_agent?.canonicalResume?.experiences ||
+    report.resume_agent?.canonicalResume?.experience ||
+    resume.experiences ||
+    resume.experience ||
+    []
+
+  const currentCompany =
+    report.resume_agent?.candidateSnapshot?.presentCompany ||
+    rawExp[0]?.company ||
+    rawExp[0]?.employer ||
+    'your previous company'
+
   const topExperiences = rawExp.slice(0, 3).map((e) => ({
     company: e.company || e.employer || '',
     role: e.role || e.title || '',
@@ -99,8 +111,22 @@ export function extractCandidateDossier(user = {}) {
     biggestLeak: report.funnel_stages?.biggest_leak_stage || report.phase?.name || 'Top of Funnel',
   }
 
+  const candidateName =
+    report.resume_agent?.candidateSnapshot?.name ||
+    report.resume_json?.candidate?.name ||
+    report.resume_json?.candidate_name ||
+    resume.candidate?.name ||
+    resume.candidate_name ||
+    resume.name ||
+    report.candidate_name ||
+    user?.name ||
+    'there'
+  const firstName = candidateName.split(' ')[0] || 'there'
+
   return {
-    candidateName: user?.name || resume.candidate?.name || 'Candidate',
+    candidateName,
+    firstName,
+    currentCompany,
     targetRole: report.target_role || resume.candidate?.targetRole || answers.targetRole || answers.target_role || 'Software Professional',
     seniorityTier: report.assessment_agent?.seniorityTier || 'Senior',
     careerHealthScore: report.career_health_score || report.gps_score || report.overallScore || 70,
