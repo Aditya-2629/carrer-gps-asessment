@@ -4,11 +4,11 @@ import { FileText, LinkedinLogo, MagnifyingGlass, Code, UserCheck, Lightning, Ta
 export default function MissionBoard({ data }) {
   const safeData = data || {}
   const xpLevel = safeData.xp_level || "Level 4: Career Explorer"
-  const xpCurrent = safeData.xp_current || 410
+  const xpCurrent = Math.max(0, Number(safeData.xp_current || safeData.xpCurrent || 410))
   const xpGoal = 1000
-  const xpPct = Math.min((xpCurrent / xpGoal) * 100, 100).toFixed(0)
+  const xpPct = Math.min(Math.max((xpCurrent / xpGoal) * 100, 0), 100).toFixed(0)
   
-  const missions = safeData.missions || [
+  const missions = Array.isArray(safeData.missions) && safeData.missions.length > 0 ? safeData.missions : [
     { title: 'Rebuild Resume', xp: '+18 XP', impact: 'High Impact' },
     { title: 'Optimize LinkedIn', xp: '+12 XP', impact: 'High Impact' },
     { title: 'Fix ATS Issues', xp: '+15 XP', impact: 'High Impact' },
@@ -18,7 +18,7 @@ export default function MissionBoard({ data }) {
 
   // Map keywords to Phosphor icons and colors
   const getIconConfig = (title) => {
-    const t = title.toLowerCase()
+    const t = String(title || '').toLowerCase()
     if (t.includes('resume') || t.includes('cv')) return { icon: FileText, color: 'text-blue-400', border: 'border-blue-500/30' }
     if (t.includes('linkedin') || t.includes('profile')) return { icon: LinkedinLogo, color: 'text-sky-400', border: 'border-sky-500/30' }
     if (t.includes('ats') || t.includes('search')) return { icon: MagnifyingGlass, color: 'text-amber-400', border: 'border-amber-500/30' }
@@ -32,13 +32,11 @@ export default function MissionBoard({ data }) {
 
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
-      {/* Slide Header */}
+      {/* Executive Section Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
-            <span>Slide 07</span>
-            <span className="text-[var(--text-muted)]">•</span>
-            <span>Priority Action Board</span>
+            <span>High-ROI Mission Board</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
             What Are My Top Strategic Priorities?

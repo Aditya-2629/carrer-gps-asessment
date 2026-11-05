@@ -56,6 +56,29 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
   const techToFinalRate = technicalRounds > 0 ? ((finalRounds / technicalRounds) * 100).toFixed(0) : '0'
   const finalToOfferRate = finalRounds > 0 ? ((offers / finalRounds) * 100).toFixed(0) : '0'
 
+  const numScreenRate = Number(screenRate)
+  const screenRateColor = numScreenRate >= 5.0
+    ? 'text-emerald-500'
+    : numScreenRate >= 2.0
+    ? 'text-amber-500'
+    : 'text-rose-500'
+
+  const numTechRate = Number(techToFinalRate)
+  const techRateColor = numTechRate >= 40
+    ? 'text-emerald-500'
+    : numTechRate >= 25
+    ? 'text-amber-500'
+    : 'text-rose-500'
+
+  const numOfferRate = Number(finalToOfferRate)
+  const offerRateColor = numOfferRate >= 30
+    ? 'text-emerald-500'
+    : numOfferRate >= 15
+    ? 'text-amber-500'
+    : numOfferRate > 0
+    ? 'text-rose-500'
+    : 'text-[var(--text-muted)]'
+
   // 3. Drop-Off Gate Resolution
   const phaseId = Number(storeReport?.phase?.id ?? 1)
   const phaseName = storeReport?.phase?.name ?? 'Application → Screening'
@@ -257,7 +280,7 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
                 }`}
               >
                 {stg.isDropOffGate && (
-                  <span className="absolute -top-2.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-rose-600 text-white shadow-2xs">
+                  <span className="absolute -top-2.5 left-2 px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-rose-600 text-white shadow-2xs animate-pulse ring-2 ring-rose-500/40">
                     Drop-off Gate
                   </span>
                 )}
@@ -287,6 +310,32 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
           })}
         </div>
 
+        {/* Active Leak Alert Banner */}
+        {(() => {
+          const activeGate = FUNNEL_STAGES.find((s) => s.isDropOffGate) || FUNNEL_STAGES[0]
+          const leakTitle = storeReport?.phase?.shortName || activeGate.name
+          const leakDiagnosis =
+            rejectionData?.insight ||
+            activeGate.dropOffLabel ||
+            storeReport?.phase?.stuckDescription ||
+            storeReport?.primary_bottleneck ||
+            'Candidate pipeline experiences significant conversion friction at this stage.'
+          return (
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3">
+              <WarningCircle size={20} weight="fill" className="text-rose-500 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+                  Detected Funnel Leak: {leakTitle}
+                </span>
+                <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
+                  {leakDiagnosis}
+                </p>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* 3-Pillar Conversion Velocity Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[var(--border-default)]">
           <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
@@ -294,10 +343,10 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
               Application → Screen Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${Number(screenRate) >= 5 ? 'text-emerald-500' : 'text-amber-500'}`}>
+              <span className={`text-xl font-black font-mono ${screenRateColor}`}>
                 {screenRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;5.0%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;5.0% (US Benchmark)</span>
             </div>
           </div>
 
@@ -306,10 +355,10 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
               Technical → Final Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${Number(techToFinalRate) >= 40 ? 'text-emerald-500' : 'text-[var(--text-primary)]'}`}>
+              <span className={`text-xl font-black font-mono ${techRateColor}`}>
                 {techToFinalRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;40%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;40% (US Benchmark)</span>
             </div>
           </div>
 
@@ -318,10 +367,10 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
               Final Round → Offer Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${Number(finalToOfferRate) > 0 ? 'text-emerald-500' : 'text-[var(--text-primary)]'}`}>
+              <span className={`text-xl font-black font-mono ${offerRateColor}`}>
                 {finalToOfferRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;30%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;30% (US Benchmark)</span>
             </div>
           </div>
         </div>

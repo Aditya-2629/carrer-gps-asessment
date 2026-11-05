@@ -22,6 +22,8 @@ import StickyReportNav from './StickyReportNav'
 import CareerHealthSnapshot from './CareerHealthSnapshot'
 import PrimaryBottleneck from './PrimaryBottleneck'
 import FunnelAndConversionSection from './FunnelAndConversionSection'
+import RiskHeatMap from './RiskHeatMap'
+import MissionBoard from './MissionBoard'
 import ResumeDeepDiagnosis from './ResumeDeepDiagnosis'
 import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
 import RoadmapTimeline from './RoadmapTimeline'
@@ -998,6 +1000,8 @@ function ReportDashboardContent() {
       if (tabId === 'linkedin' || targetId === 'linkedin') targetId = 'linkedin-ai'
       else if (tabId === 'interview' || targetId === 'funnel') targetId = 'funnel-risks'
       else targetId = 'resume-ai'
+    } else if (targetId === 'missions' || targetId === 'risk-matrix' || targetId === 'risks') {
+      targetId = 'risk-matrix'
     }
     const element = document.getElementById(targetId)
     if (element) {
@@ -1169,6 +1173,17 @@ function ReportDashboardContent() {
           }}
           riskData={reportData.risk_heatmap}
         />
+
+        {/* SECTION 5B: RISK HEATMAP & GAMIFIED MISSIONS */}
+        <div id="risk-matrix" className="space-y-6 break-before-page page-break-before-always">
+          {reportData.risk_heatmap && (
+            <RiskHeatMap data={reportData.risk_heatmap} />
+          )}
+
+          {reportData.mission_board && (
+            <MissionBoard data={reportData.mission_board} />
+          )}
+        </div>
 
         {/* SECTION 6: 7-DAY ACTION PLAN & 30/60/90 ROADMAP */}
         <RoadmapTimeline

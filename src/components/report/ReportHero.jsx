@@ -311,11 +311,22 @@ export default function ReportHero({ reportData }) {
 
             {/* Coach One-Line Key Diagnosis Card */}
             {(cleanAdvantage || cleanBottleneck || hasExtractedExperienceGaps) && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2.5 break-inside-avoid page-break-inside-avoid">
-                <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
-                  <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
-                  <span>Coach Executive Diagnosis</span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3.5 break-inside-avoid page-break-inside-avoid shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
+                    <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
+                    <span>Coach Executive Diagnosis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      Key Advantage
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30">
+                      Primary Bottleneck
+                    </span>
+                  </div>
                 </div>
+
                 <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
                   {hasExtractedExperienceGaps ? (
                     <>
@@ -338,7 +349,7 @@ export default function ReportHero({ reportData }) {
                   )}
                 </p>
 
-                {/* Hidden Gem #1: 6-Second Human Recruiter Scan Verdict */}
+                {/* 6-Second Human Recruiter Scan Verdict */}
                 {(() => {
                   const concreteTechSkills = (skillsList || [])
                     .map(decodeHtmlEntities)
@@ -353,12 +364,33 @@ export default function ReportHero({ reportData }) {
                     ? concreteTechSkills.slice(0, 2).join(' and ')
                     : (skillsList.slice(0, 2).map(decodeHtmlEntities).join(' and ') || 'SQL and Python')
 
+                  const exactSkipReason = hasExtractedExperienceGaps
+                    ? 'missing extracted bullets under verified employer roles due to layout parsing blocks'
+                    : (reportData?.primary_bottleneck
+                      ? String(reportData.primary_bottleneck).toLowerCase()
+                      : (reportData?.linkedin_agent?.discrepancies?.[0]?.title
+                        ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase()
+                        : (cleanBottleneck
+                          ? cleanBottleneck.toLowerCase()
+                          : 'missing cloud/infrastructure mechanisms and low outcome metrics in resume bullets')))
+
                   return (
-                    <div className="mt-3 pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-start gap-2 bg-[var(--surface-card)] p-3 rounded-xl">
-                      <span className="text-amber-500 font-bold shrink-0">⏱️ 6-Second Recruiter Verdict:</span>
-                      <span>
-                        A recruiter scanning your profile immediately anchors on {presentCompany ? `your work at ${presentCompany}` : 'your recent experience'}, verified delivery in {topTwoSkills}; however, recruiter conversion risks stalling due to {hasExtractedExperienceGaps ? 'missing extracted bullets under verified employer roles' : (reportData?.linkedin_agent?.discrepancies?.[0]?.title ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase() : 'missing keyword alignment with target boolean searches')}.
+                    <div className="pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex flex-col sm:flex-row items-start gap-2.5 bg-[var(--surface-card)] p-3.5 rounded-xl border border-[var(--border-default)]">
+                      <span className="inline-flex items-center gap-1.5 text-amber-500 font-bold shrink-0 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-mono text-[11px] uppercase tracking-wide">
+                        ⏱️ 6-Second Recruiter Verdict
                       </span>
+                      <div className="space-y-1">
+                        <p className="leading-relaxed">
+                          <strong>Anchor 1 (Proven Core):</strong> Recruiter immediately registers{' '}
+                          <span className="text-[var(--text-primary)] font-semibold">{presentCompany ? `work at ${presentCompany}` : 'recent track record'}</span>{' '}
+                          with verified delivery in{' '}
+                          <span className="text-[var(--emerald)] font-semibold">{topTwoSkills}</span>.
+                        </p>
+                        <p className="leading-relaxed">
+                          <strong>Anchor 2 (Conversion Risk):</strong> Application risks stalling because recruiters skip over{' '}
+                          <span className="text-red-500 dark:text-red-400 font-semibold">{exactSkipReason}</span>.
+                        </p>
+                      </div>
                     </div>
                   )
                 })()}

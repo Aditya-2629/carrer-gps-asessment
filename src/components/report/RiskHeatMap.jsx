@@ -5,17 +5,19 @@ export default function RiskHeatMap({ data }) {
   const safeData = data || {}
   const criticalRisk = safeData.critical_risk || "Visa Sponsorship Timeline"
   const mitigationPlan = safeData.mitigation_plan || "Target employers with verified e-Verify certification and explicit H-1B sponsorship history to prevent late-stage interview dropouts."
-  const highImpactLowLikelihood = safeData.high_impact_low_likelihood || ["Recruiter Ghosting"]
-  const lowImpactHighLikelihood = safeData.low_impact_high_likelihood || ["ATS Parsing Errors", "Interview Nervousness"]
+  const highImpactLowLikelihood = Array.isArray(safeData.high_impact_low_likelihood)
+    ? safeData.high_impact_low_likelihood
+    : (safeData.high_impact_low_likelihood ? [safeData.high_impact_low_likelihood] : ["Recruiter Ghosting"])
+  const lowImpactHighLikelihood = Array.isArray(safeData.low_impact_high_likelihood)
+    ? safeData.low_impact_high_likelihood
+    : (safeData.low_impact_high_likelihood ? [safeData.low_impact_high_likelihood] : ["ATS Parsing Errors", "Interview Nervousness"])
 
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
-      {/* Slide Header */}
+      {/* Executive Section Header */}
       <div className="space-y-1.5">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
-          <span>Slide 06</span>
-          <span className="text-[var(--text-muted)]">•</span>
-          <span>Risk Assessment</span>
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-xs font-bold uppercase tracking-wider text-red-500 border border-red-500/20 shadow-2xs">
+          <span>Vulnerability & Risk Matrix</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
           What Are My Biggest Job Search Risks?

@@ -31,13 +31,11 @@ export default function CareerJourneyPhases({ data }) {
 
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
-      {/* Slide Header */}
+      {/* Executive Section Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
-            <span>Slide 02</span>
-            <span className="text-[var(--text-muted)]">•</span>
-            <span>Journey Tracker</span>
+            <span>Career Journey Architecture</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
             Where Am I In My Career Journey?
