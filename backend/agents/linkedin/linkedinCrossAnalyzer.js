@@ -63,6 +63,25 @@ function levenshtein(a, b) {
   return matrix[b.length][a.length]
 }
 
+export function cleanCompanyEntityName(name = '') {
+  return String(name || '')
+    .toLowerCase()
+    .replace(/\b(private\s+limited|pvt\.?\s*ltd\.?|ltd\.?|llc|inc\.?|incorporated|corp\.?|corporation|technologies|services|solutions|group|holdings)\b/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim()
+}
+
+export function normalizeDegreeTitle(deg = '') {
+  let clean = String(deg || '').toLowerCase()
+  clean = clean.replace(/\bb\.?\s*tech\b|\bbachelor\s+of\s+technology\b/gi, 'bachelor of technology')
+  clean = clean.replace(/\bb\.?\s*e\b|\bbachelor\s+of\s+engineering\b/gi, 'bachelor of engineering')
+  clean = clean.replace(/\bm\.?\s*s\b|\bmaster\s+of\s+science\b/gi, 'master of science')
+  clean = clean.replace(/\bm\.?\s*tech\b|\bmaster\s+of\s+technology\b/gi, 'master of technology')
+  clean = clean.replace(/\bb\.?\s*s\b|\bbachelor\s+of\s+science\b/gi, 'bachelor of science')
+  clean = clean.replace(/\bm\.?\s*b\.?\s*a\b|\bmaster\s+of\s+business\s+administration\b/gi, 'mba')
+  return clean.replace(/[^a-z0-9]/g, '')
+}
+
 export function getCompanySegments(comp) {
   if (!comp) return []
   const norm = normalizeName(comp)
@@ -137,6 +156,13 @@ export function matchCompany(rComp, lComp) {
   // 1. Exact match
   if (rNorm === lNorm) {
     return { matched: true, exact: true, diff: 0, isVendorClientMatch: false }
+  }
+
+  // 1.5. Clean legal entity match (e.g. "Google LLC" vs "Google", "Accenture" vs "Accenture Services Pvt Ltd")
+  const entityR = cleanCompanyEntityName(rComp)
+  const entityL = cleanCompanyEntityName(lComp)
+  if (entityR && entityL && (entityR === entityL || (entityR.length >= 4 && entityL.includes(entityR)) || (entityL.length >= 4 && entityR.includes(entityL)))) {
+    return { matched: true, exact: entityR === entityL, diff: 0, isVendorClientMatch: isMultiSegment }
   }
 
   // 2. Substring match with vendor/client check
@@ -617,13 +643,16 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     const normL = normalizeName(lExp.company)
     const normR = normalizeName(rExp.company)
     const isSameOrSubstring = normL === normR || (normL.length >= 4 && normR.includes(normL)) || (normR.length >= 4 && normL.includes(normR))
-    const hasSpellingMismatch = Boolean(matchMeta?.diff > 0 && !isSameOrSubstring)
+    const entityLCheck = cleanCompanyEntityName(lExp.company)
+    const entityRCheck = cleanCompanyEntityName(rExp.company)
+    const isSubEntityMatch = (entityLCheck.length >= 3 && entityRCheck.includes(entityLCheck)) || (entityRCheck.length >= 3 && entityLCheck.includes(entityRCheck))
+    const hasSpellingMismatch = Boolean(matchMeta?.diff > 0 && !isSameOrSubstring && !isSubEntityMatch)
 
     const rCompClean = typeof rExp?.company === 'string' ? rExp.company.trim().toLowerCase() : (rExp?.company?.name || '').trim().toLowerCase()
     const lCompClean = typeof lExp?.company === 'string' ? lExp.company.trim().toLowerCase() : (lExp?.company?.name || '').trim().toLowerCase()
     const rCompDisplay = typeof rExp?.company === 'string' ? rExp.company : (rExp?.company?.name || 'Company')
     const lCompDisplay = typeof lExp?.company === 'string' ? lExp.company : (lExp?.company?.name || 'Company')
-    if (hasSpellingMismatch && rCompClean !== lCompClean && normL !== normR) {
+    if (hasSpellingMismatch && !isSubEntityMatch && rCompClean !== lCompClean && normL !== normR) {
       const typoObs = {
         id: `company_typo_${timelineMismatches.length + 1}`,
         type: 'company_typo_unlinked_logo',
@@ -893,7 +922,11 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         const rSchoolNorm = normalizeName(re.institution || re.school || re.degree)
         const rInstNorm = normalizeName(re.institution || re.school)
         const rDegNorm = normalizeName(re.degree)
+        const normDegR = normalizeDegreeTitle(re.degree)
+        const normDegL = normalizeDegreeTitle(lEdu.degree)
+        const degreesMatch = Boolean(normDegR && normDegL && (normDegR === normDegL || normDegR.includes(normDegL) || normDegL.includes(normDegR)))
         return (
+          degreesMatch ||
           (rSchoolNorm &&
             (rSchoolNorm.includes(lSchoolNorm) ||
               lSchoolNorm.includes(rSchoolNorm) ||
@@ -946,7 +979,7 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
       } else {
         // Red Flag 5: Incomplete Education Metadata on LinkedIn — Missing fieldOfStudy
         const hasFieldOfStudy = Boolean(typeof lEdu?.fieldOfStudy === 'string' && lEdu.fieldOfStudy.trim())
-        const degreeHasField = /\b(computer science|engineering|software|electrical|data|information|business|mathematics)\b/i.test(lEdu.degree || '')
+        const degreeHasField = /\b(computer science|engineering|software|electrical|data|information|business|mathematics|technology|b\.?\s*tech|bachelor)\b/i.test(lEdu.degree || '')
         if (!hasFieldOfStudy && !degreeHasField) {
           const missingFieldObs = {
             id: `edu_missing_field_${missingSections.length + 1}`,

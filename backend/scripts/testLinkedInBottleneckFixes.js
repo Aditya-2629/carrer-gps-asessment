@@ -9,13 +9,21 @@
  * 5. Normalized scorecard floor cap (minFloor 75 when branding & completeness >= 85/80)
  * 6. Skeleton / private profile graceful inference without false role omissions
  * 7. Expanded PRIORITY_TECH array for non-SWE domains
+ * 8. Company name normalization for legal suffixes & entities (Accenture vs Accenture Services Pvt Ltd)
+ * 9. Degree acronym normalization in education cross-analysis (B.Tech == Bachelor of Technology)
  */
 
 import assert from 'assert'
 import { extractLinkedInSignals } from '../agents/linkedin/linkedinSignalEngine.js'
 import { computeLinkedInScorecard } from '../agents/linkedin/linkedinScorecard.js'
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
-import { analyzeCrossAgentDiscrepancies, PRIORITY_TECH } from '../agents/linkedin/linkedinCrossAnalyzer.js'
+import {
+  analyzeCrossAgentDiscrepancies,
+  PRIORITY_TECH,
+  cleanCompanyEntityName,
+  normalizeDegreeTitle,
+  matchCompany,
+} from '../agents/linkedin/linkedinCrossAnalyzer.js'
 import { resolveEffectiveProfile, inferProfileFromResume } from '../agents/linkedin/linkedinAgent.js'
 
 console.log('================================================================')
@@ -277,6 +285,72 @@ for (const tech of expectedDomainTech) {
 }
 console.log(`✔ Test 7 Passed: PRIORITY_TECH contains all ${expectedDomainTech.length} healthcare, finance, and sales domain tools.\n`)
 
+// -----------------------------------------------------------------
+// 8. Company Name Legal Suffixes & Entity Normalization
+// -----------------------------------------------------------------
+console.log('--- Test 8: Company Name Legal Suffixes Normalization (Accenture vs Accenture Services Pvt Ltd) ---')
+assert.strictEqual(cleanCompanyEntityName('Google LLC'), 'google')
+assert.strictEqual(cleanCompanyEntityName('Accenture Services Pvt Ltd'), 'accenture')
+assert.strictEqual(cleanCompanyEntityName('Microsoft Corporation'), 'microsoft')
+
+const matchRes = matchCompany('Accenture', 'Accenture Services Pvt Ltd')
+assert(matchRes && matchRes.matched, 'Accenture should match Accenture Services Pvt Ltd')
+
+const companyCrossTest = analyzeCrossAgentDiscrepancies(
+  {
+    isValid: true,
+    fullName: 'Rahul Sharma',
+    experiences: [{ company: 'Accenture Services Pvt Ltd', title: 'Consultant', dates: '2021 - Present' }],
+  },
+  {
+    canonicalResume: {
+      candidate: { name: 'Rahul Sharma' },
+      experience: [{ company: 'Accenture', role: 'Consultant', dates: '2021 - Present' }],
+    },
+    targetRole: 'Consultant',
+  }
+)
+
+const companyTypoDiscrepancies = companyCrossTest.discrepancies.filter(d => d.type === 'company_typo_unlinked_logo')
+assert.strictEqual(
+  companyTypoDiscrepancies.length,
+  0,
+  `Accenture vs Accenture Services Pvt Ltd must NOT trigger company_typo_unlinked_logo (got ${companyTypoDiscrepancies.length})`
+)
+console.log('✔ Test 8 Passed: Legal suffixes stripped cleanly, preventing false typo warnings.\n')
+
+// -----------------------------------------------------------------
+// 9. Degree Acronym Normalization (B.Tech == Bachelor of Technology)
+// -----------------------------------------------------------------
+console.log('--- Test 9: Degree Acronym Normalization (B.Tech == Bachelor of Technology) ---')
+assert.strictEqual(normalizeDegreeTitle('B.Tech'), normalizeDegreeTitle('Bachelor of Technology'))
+assert.strictEqual(normalizeDegreeTitle('M.S'), normalizeDegreeTitle('Master of Science'))
+assert.strictEqual(normalizeDegreeTitle('B.E'), normalizeDegreeTitle('Bachelor of Engineering'))
+assert.strictEqual(normalizeDegreeTitle('MBA'), normalizeDegreeTitle('Master of Business Administration'))
+
+const eduCrossTest = analyzeCrossAgentDiscrepancies(
+  {
+    isValid: true,
+    fullName: 'Priya Patel',
+    education: [{ school: 'IIT Bombay', degree: 'Bachelor of Technology', dates: '2016 - 2020' }],
+  },
+  {
+    canonicalResume: {
+      candidate: { name: 'Priya Patel' },
+      education: [{ school: 'IIT Bombay', degree: 'B.Tech', dates: '2016 - 2020' }],
+    },
+    targetRole: 'Software Engineer',
+  }
+)
+
+const eduMismatches = eduCrossTest.discrepancies.filter(d => d.type === 'education_mismatch')
+assert.strictEqual(
+  eduMismatches.length,
+  0,
+  `B.Tech vs Bachelor of Technology must NOT trigger education_mismatch (got ${eduMismatches.length})`
+)
+console.log('✔ Test 9 Passed: Degree acronyms normalized cleanly, matching equivalent degree credentials.\n')
+
 console.log('================================================================')
-console.log('ALL 7 LINKEDIN ARCHITECTURE & BOTTLENECK TESTS PASSED! 🚀')
+console.log('ALL 9 LINKEDIN ARCHITECTURE & 360-DEGREE TESTS PASSED! 🚀')
 console.log('================================================================')
