@@ -169,3 +169,4 @@ console.log('  ✔ Verified: Clean cascading fallback to resume_json candidate n
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 console.log('✅ ALL DYNAMIC CHATBOT ANCHOR TESTS PASSED (0 FAILURES) 🚀')
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+

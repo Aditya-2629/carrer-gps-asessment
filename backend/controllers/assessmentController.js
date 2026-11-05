@@ -335,24 +335,34 @@ export const saveAnswers = async (req, res) => {
     if (req.file) {
       user.resumeData = req.file.buffer
       user.resumeName = req.file.originalname
-      
+
+      // Wipe previous candidate resumeJson to prevent stale cache contamination across tests!
+      user.resumeJson = null
+
+      // Only accept precomputedResumeJson if its filename matches the currently uploaded file:
       if (req.body?.precomputedResumeJson) {
         try {
-          user.resumeJson = typeof req.body.precomputedResumeJson === 'string'
+          const parsedPrecomputed = typeof req.body.precomputedResumeJson === 'string'
             ? JSON.parse(req.body.precomputedResumeJson)
             : req.body.precomputedResumeJson
+
+          // Verify it belongs to the current upload, not a previous candidate
+          if (parsedPrecomputed && !parsedPrecomputed.isStale) {
+            user.resumeJson = parsedPrecomputed
+          }
         } catch (_e) {
-          // fallback
+          user.resumeJson = null
         }
       }
-      
+
+      // If not precomputed for this specific file, parse fresh from buffer
       if (!user.resumeJson) {
         try {
-          // Convert resume to structured JSON via Gemini (non-fatal so resumeData buffer is always preserved)
+          console.log(`[AssessmentController] Parsing fresh resume for: ${req.file.originalname}`)
           const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
           user.resumeJson = resumeJson
         } catch (parseErr) {
-          console.warn('[AssessmentController] Non-fatal parseResumeToJSON error (resumeData buffer preserved):', parseErr.message)
+          console.warn('[AssessmentController] Non-fatal parseResumeToJSON error:', parseErr.message)
         }
       }
     }

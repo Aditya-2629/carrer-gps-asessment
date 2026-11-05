@@ -176,8 +176,25 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         window.__uploadedResumeFile = file
       }
 
-      // 1. Clear previous Phone & LinkedIn on new upload
-      useAppStore.getState().setBulkFormData({ phone: '', linkedin: '', linkedinData: null })
+      // 1. Clear all previous candidate session storage entries immediately when a new file is selected
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('craftureResumeReport')
+        sessionStorage.removeItem('craftureLinkedinScrape')
+      }
+
+      // 2. Reset the store state to ensure no previous candidate metadata is sent
+      useAppStore.getState().setResumeAnalysis({
+        status: 'idle',
+        data: null,
+        error: null,
+        filename: file.name,
+      })
+      useAppStore.getState().setBulkFormData({
+        linkedin: '',
+        linkedinData: null,
+        targetRole: '',
+        phone: '',
+      })
 
       // 2. Client-side scan for clean LinkedIn URL
       let fastLinkedIn = ''

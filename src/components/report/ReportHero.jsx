@@ -376,15 +376,27 @@ export default function ReportHero({ reportData }) {
                     ? concreteTechSkills.slice(0, 2).join(' and ')
                     : (skillsList.slice(0, 2).map(decodeHtmlEntities).join(' and ') || 'SQL and Python')
 
+                  const safeText = (val) => {
+                    if (!val) return ''
+                    if (typeof val === 'string') return val
+                    if (typeof val === 'number') return String(val)
+                    if (typeof val === 'object') return val.title || val.text || val.name || val.recommendation || ''
+                    return String(val)
+                  }
+
+                  const rawDiscrepancyTitle =
+                    reportData?.linkedin_agent?.discrepancies?.[0]?.title ||
+                    reportData?.linkedin_agent?.discrepancies?.[0] ||
+                    reportData?.primary_bottleneck?.title ||
+                    reportData?.primary_bottleneck ||
+                    cleanBottleneck
+                  const cleanDiscrepancy =
+                    safeText(rawDiscrepancyTitle).toLowerCase() ||
+                    'missing keyword alignment with target boolean searches'
+
                   const exactSkipReason = hasExtractedExperienceGaps
                     ? 'missing extracted bullets under verified employer roles due to layout parsing blocks'
-                    : (reportData?.primary_bottleneck
-                      ? String(reportData.primary_bottleneck).toLowerCase()
-                      : (reportData?.linkedin_agent?.discrepancies?.[0]?.title
-                        ? String(reportData.linkedin_agent.discrepancies[0].title).toLowerCase()
-                        : (cleanBottleneck
-                          ? cleanBottleneck.toLowerCase()
-                          : 'missing cloud/infrastructure mechanisms and low outcome metrics in resume bullets')))
+                    : cleanDiscrepancy
 
                   return (
                     <div className="pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex flex-col sm:flex-row items-start gap-2.5 bg-[var(--surface-card)] p-3.5 rounded-xl border border-[var(--border-default)]">
