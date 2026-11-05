@@ -519,6 +519,7 @@ export function synthesizeRootCauseAndActions({
   answers = {},
   resumeAgent = null,
   linkedinAgent = null,
+  seniorityTier = 'Mid-Level',
 } = {}) {
   const ans = { ...answers }
   const areas = scores?.areas || {}
@@ -711,14 +712,22 @@ export function synthesizeRootCauseAndActions({
               : 'Offer Verification')))),
     whyItMatters: primary_bottleneck.whyItMatters,
     whatToDo: next_best_action,
-    resourceTool: phase.id === 1 || phase.id === 6
-      ? 'Crafture STAR Bullet Builder'
-      : (phase.id === 2
-        ? 'Recruiter Scripting Framework'
-        : (phase.id === 4
-          ? 'Executive Alignment Matrix & Closing Playbook'
-          : 'System Design Primer & LeetCode')),
-    duration: phase.id === 4 ? '2–3 hours' : '3–5 hours',
+    resourceTool: seniorityTier === 'Staff / Principal / Lead'
+      ? (phase.id === 4 ? 'Executive Alignment Matrix & Architecture Trade-off Playbook' : 'System Design Primer & Executive Alignment Matrix')
+      : (seniorityTier === 'Junior'
+        ? (phase.id === 1 || phase.id === 6 ? 'Production GitHub Repo Proof & Single-Column ATS Template' : 'LeetCode Fundamentals & Starter Projects')
+        : (phase.id === 1 || phase.id === 6
+          ? 'Crafture STAR Bullet Builder'
+          : (phase.id === 2
+            ? 'Recruiter Scripting Framework'
+            : (phase.id === 4
+              ? 'Executive Alignment Matrix & Closing Playbook'
+              : 'System Design Primer & LeetCode')))),
+    duration: seniorityTier === 'Staff / Principal / Lead'
+      ? '4–6 hours'
+      : (seniorityTier === 'Junior'
+        ? '2–3 hours'
+        : (phase.id === 4 ? '2–3 hours' : '3–5 hours')),
     successMetric: phase.id === 1 || phase.id === 6
       ? '100% of top role bullets include quantified metrics'
       : (phase.id === 4
@@ -849,27 +858,57 @@ export function getExternalContext({ targetRole = '', answers = {}, semanticProf
     priorityRoles = 'Referral Pipeline, Contract/Burst Staffing'
   }
 
-  // Recruiter Priority Funnel position based on candidate's primary sourcing method
-  const methods = Array.isArray(answers.searchMethods) ? answers.searchMethods : [String(answers.searchMethods || '')]
-  let funnelTier = 'Tier 5: Public Job Boards & Easy Apply'
-  let funnelAdvise = 'Lowest recruiter conversion channel. Pivot at least 50% of your weekly volume to Tier 2 (Employee Referrals) and Tier 3 (Direct Company ATS).'
+  // Recruiter Priority Funnel position based on candidate's primary sourcing method & US conversion hierarchy
+  const rawMethods = Array.isArray(answers.searchMethods) ? answers.searchMethods : [String(answers.searchMethods || '')]
+  const methods = rawMethods.map((m) => String(m).trim()).filter(Boolean)
 
-  if (methods.some((m) => /Referral/i.test(m))) {
-    funnelTier = 'Tier 2: Employee Referrals & Warm Introductions'
-    funnelAdvise = 'Highest conversion channel. Prioritize warm coffee chats and alumni introductions.'
-  } else if (methods.some((m) => /Career Pages|Direct ATS/i.test(m))) {
-    funnelTier = 'Tier 3: Direct Career Page ATS Submissions'
-    funnelAdvise = 'Strong direct enterprise channel. Ensure single-column ATS formatted resumes with high keyword density.'
-  } else if (methods.some((m) => /Recruiter|Hiring Manager Outreach/i.test(m))) {
-    funnelTier = 'Tier 2: Direct Outreach to Talent Partners'
-    funnelAdvise = 'High leverage. Focus notes on recent company engineering initiatives.'
+  const sourcingHierarchy = [
+    'Tier 1: Internal Mobility & Promotions',
+    'Tier 2: Employee Referrals & Direct Engineering Hiring Manager Outreach (18–25% response rate)',
+    'Tier 3: Direct Career Page ATS Submissions (5–8% response rate)',
+    'Tier 4: Exclusive Direct-Hire Staffing Agencies (W2)',
+    'Tier 5: Public Job Boards & LinkedIn Easy Apply (<2% response rate — The "Black Hole")',
+  ]
+
+  const hasTier2 = methods.some((m) => /referral|coffee chat|hiring manager|alumni|direct outreach/i.test(m))
+  const hasTier3 = methods.some((m) => /career page|company website|direct ats/i.test(m) && !/easy apply/i.test(m))
+  const hasTier4 = methods.some((m) => /staffing|agency/i.test(m))
+  const isTier5Dominant =
+    methods.length === 0 ||
+    methods.every((m) => /easy apply|job board|portal|indeed|ziprecruiter|monster|cold blast/i.test(m)) ||
+    (methods.length === 1 && /easy apply/i.test(methods[0]))
+
+  let funnelTier = 'Tier 5: Public Job Boards & LinkedIn Easy Apply (<2% response rate — The "Black Hole")'
+  let funnelAdvise = 'Lowest recruiter conversion channel (<2% callback). Pivot at least 50% of your weekly volume to Tier 2 (Employee Referrals & Direct HM Outreach) and Tier 3 (Direct Company ATS).'
+  let channelWarning = null
+
+  if (isTier5Dominant || (methods.some((m) => /easy apply/i.test(m)) && !hasTier2 && !hasTier3)) {
+    funnelTier = 'Tier 5: Public Job Boards & LinkedIn Easy Apply (<2% response rate — The "Black Hole")'
+    funnelAdvise = 'WARNING: Sourcing relies heavily on Tier 5 (<2% callback rate). Immediately reallocate at least 50% of weekly volume to Tier 2 (Employee Referrals & HM Outreach, 18–25%) and Tier 3 (Direct Career Pages, 5–8%).'
+    channelWarning = 'Pipeline relies >=70% on public job boards / Easy Apply ("Black Hole" <2% conversion). Reallocate 50% of outreach to Tier 2 (Referrals) and Tier 3 (Direct ATS).'
+  } else if (hasTier2) {
+    funnelTier = 'Tier 2: Employee Referrals & Direct Engineering Hiring Manager Outreach (18–25% response rate)'
+    funnelAdvise = 'Highest conversion channel (18–25% response rate). Prioritize warm coffee chats and direct engineering lead introductions.'
+  } else if (hasTier3) {
+    funnelTier = 'Tier 3: Direct Career Page ATS Submissions (5–8% response rate)'
+    funnelAdvise = 'Strong direct enterprise channel (5–8% response rate). Ensure single-column ATS formatted resumes with high keyword density.'
+  } else if (hasTier4) {
+    funnelTier = 'Tier 4: Exclusive Direct-Hire Staffing Agencies (W2)'
+    funnelAdvise = 'Agency channel. Partner with 2-3 niche tech staffing account executives with direct client exclusivity.'
   }
 
-  // Constraints note (Never penalizing GPS score!)
-  const rawVisa = String(answers.visa || semanticProfile?.visa?.rawAnswer || '').trim()
-  let constraintsNote = 'Unrestricted market mobility across enterprise and federal sectors.'
-  if (/CPT|OPT|H-?1B/i.test(rawVisa)) {
-    constraintsNote = `Candidate has ${rawVisa || 'visa sponsorship'} requirements. Focus outbound pipeline on verified E-Verify tech employers without lowering GPS execution standards.`
+  // Constraints note calibrated to US Work Authorization (Never penalizing GPS score!)
+  const rawVisa = String(answers.visa || semanticProfile?.visa?.rawAnswer || answers.workAuthorization || '').trim()
+  let constraintsNote = 'US Citizen / Green Card: Unrestricted federal, defense, and healthcare enterprise mobility without corporate sponsorship overhead.'
+
+  if (/stem\s*opt|opt\s*stem|f-?1\s*stem/i.test(rawVisa)) {
+    constraintsNote = 'Candidate is on F-1 STEM OPT (subject to 90-day maximum cumulative unemployment clock and mandatory employer E-Verify registration). Focus outbound 75% on verified sponsor tech firms.'
+  } else if (/opt|f-?1/i.test(rawVisa)) {
+    constraintsNote = 'Candidate is on F-1 Initial OPT (subject to 90-day maximum cumulative unemployment clock and mandatory employer E-Verify registration). Focus outbound 75% on verified sponsor tech firms.'
+  } else if (/h-?1b/i.test(rawVisa)) {
+    constraintsNote = 'Candidate requires H-1B Transfer (subject to 60-day grace period between employers and USCIS prevailing wage compliance). Focus on direct Tier-1/Tier-2 enterprise sponsors.'
+  } else if (/cpt/i.test(rawVisa)) {
+    constraintsNote = 'Candidate is on F-1 CPT (subject to curricular practical training authorization and mandatory employer E-Verify registration). Focus outbound 75% on verified sponsor tech firms.'
   }
 
   // Consultancy & External Support Tracking (never penalizing score!)
@@ -909,14 +948,8 @@ export function getExternalContext({ targetRole = '', answers = {}, semanticProf
     recruiter_priority_funnel: {
       currentTier: funnelTier,
       recommendation: funnelAdvise,
-      hierarchy: [
-        '1. Internal Promotions & Team Moves',
-        '2. Employee Referrals & Warm Introductions (Best external channel)',
-        '3. Direct Career Page ATS Submissions',
-        '4. Exclusive Staffing Agency Vendors',
-        '5. Public Job Boards & LinkedIn Easy Apply (Lowest conversion)',
-        '6. Sub-Contracting Bench Lists',
-      ],
+      hierarchy: sourcingHierarchy,
+      warning: channelWarning,
     },
     constraints_note: constraintsNote,
     consultancy_context: consultancyContext,
@@ -951,28 +984,38 @@ export function evaluateAssessmentPersona({
     linkedinAgent,
   })
 
-  // 3. Synthesize Root Cause & Prioritized Actions
+  // 3. Resolve Market Perimeter, Seniority Leveling, and Trajectory
+  const rawTargetRole = resumeContext?.targetRole || ans.targetRole || 'Software Professional'
+  const targetRole = cleanTargetRoleTitle('', rawTargetRole)
+  const canonicalResume = resumeContext?.canonicalResume || resumeContext?.resumeJson || {}
+  const perimeter = resolveMarketPerimeter(
+    { answers: ans, user_answers: ans, targetRole: rawTargetRole, ...resumeContext },
+    canonicalResume
+  )
+  const seniorityTier = perimeter.seniorityTier
+  const trajectoryArchetype = perimeter.trajectoryArchetype
+
+  // 4. Synthesize Root Cause & Prioritized Actions (Level-aware)
   const rootCauses = synthesizeRootCauseAndActions({
     phase,
     scores,
     answers: ans,
     resumeAgent,
     linkedinAgent,
+    seniorityTier,
   })
 
-  // 4. External SDLC Market Cycle Context
-  const rawTargetRole = resumeContext?.targetRole || ans.targetRole || 'Software Professional'
-  const targetRole = cleanTargetRoleTitle('', rawTargetRole)
+  // 5. External SDLC Market Cycle Context
   const externalContext = getExternalContext({
     targetRole,
     answers: ans,
     semanticProfile,
   })
 
-  // 5. Preserved Persona & Directives
+  // 6. Preserved Persona & Directives
   const rawVisa = String(ans.visa || semanticProfile?.visa?.rawAnswer || '').trim()
   let visaCategory = 'Other'
-  let requiresSponsorship = true
+  let requiresSponsorship = perimeter.requiresSponsorship
   let isStudentOrOpt = false
   let urgencyNote = 'Candidate requires clarity on US work authorization pathways.'
 
@@ -1000,18 +1043,52 @@ export function evaluateAssessmentPersona({
   const rawOutreach = extractQuantMetric(ans.outreach, 5, 'week')
   const rawScreens = Number(ans.funnel90d?.screens ?? ans.interviews ?? ans.humanScreen ?? 0)
 
-  // Directives for Downstream LLM Agents
+  // Seniority & Trajectory Level-Specific Directives for Downstream LLM Agents
+  let seniorityDirective = ''
+  if (seniorityTier === 'Staff / Principal / Lead') {
+    seniorityDirective = 'Focus on multi-team technical strategy, business-critical architectural trade-offs, executive presence, and organizational leverage.'
+  } else if (seniorityTier === 'Senior') {
+    seniorityDirective = 'Focus on system architecture, concurrency, distributed caching, cross-team impact, and mentorship.'
+  } else if (seniorityTier === 'Mid-Level') {
+    seniorityDirective = 'Focus on end-to-end service ownership, business metrics, and database/API performance tuning.'
+  } else {
+    seniorityDirective = 'Focus on verifiable production repositories, unit test coverage, and avoiding generic tutorial clones.'
+  }
+
+  let trajectoryDirective = ''
+  if (trajectoryArchetype === 'Career Transitioner / Pivot') {
+    trajectoryDirective = 'TRAJECTORY GUIDANCE: Candidate is executing a career pivot/transition. Direct resume and LinkedIn agents to highlight transferable domain logic and bridge technical projects.'
+  } else if (trajectoryArchetype === 'Scaling Technical Leader') {
+    trajectoryDirective = 'TRAJECTORY GUIDANCE: Candidate is a scaling technical leader. Direct resume and LinkedIn agents to emphasize organizational leverage, architecture trade-offs, and multi-team technical vision.'
+  } else if (trajectoryArchetype === 'High-Velocity Accelerator') {
+    trajectoryDirective = 'TRAJECTORY GUIDANCE: Candidate is an accelerator aiming for higher leveling. Highlight end-to-end service ownership, system design, and production velocity.'
+  } else if (trajectoryArchetype === 'Stalled / Re-Entering Professional') {
+    trajectoryDirective = 'TRAJECTORY GUIDANCE: Candidate is re-entering or overcoming search momentum friction. Emphasize modern production stack proof, recent hands-on projects, and high-velocity outbound channels.'
+  }
+
   const resumeDirectives = [
-    `TARGET ROLE FOCUS: Align bullet achievements directly with ${targetRole}.`,
+    `TARGET ROLE FOCUS: Align bullet achievements directly with ${targetRole} (${seniorityTier} Level).`,
+    `SENIORITY LEVEL DIRECTIVE (${seniorityTier}): ${seniorityDirective}`,
+    trajectoryDirective,
     `HIRING PHASE DIRECTIVE: Candidate is in Phase ${phase.id} (${phase.name}). ${rootCauses.next_best_action}`,
-  ]
+  ].filter(Boolean)
 
   const linkedInDirectives = [
-    `ALIGNMENT: Match headline and skills with target role "${targetRole}".`,
+    `ALIGNMENT: Match headline and skills with target role "${targetRole}" at ${seniorityTier} tier.`,
+    `SENIORITY LEVEL DIRECTIVE: ${seniorityDirective}`,
+    trajectoryDirective,
     `CONSISTENCY BADGE: Consistency is classified as "${scores.areas.linkedin.consistencyTier.badge}".`,
-  ]
+  ].filter(Boolean)
 
-  const candidateContextBrief = `Candidate is a ${targetRole} targeting ${ans.opportunityType || 'Full-Time roles'}. Currently in Hiring Phase ${phase.id} (${phase.name}) with confidence: ${phase.confidence}. Primary bottleneck: ${rootCauses.primary_bottleneck.title}. Total Career GPS Score: ${scores.gps_score}/100.`
+  const atlasDirectives = [
+    `EXECUTIVE SUMMARY PERSONA: Candidate target: ${targetRole} | Seniority: ${seniorityTier} | Trajectory: ${trajectoryArchetype}.`,
+    `SENIORITY TONE DIRECTIVE: ${seniorityDirective}`,
+    trajectoryDirective,
+    `US MARKET SOURCING CONSTRAINT: ${externalContext.constraints_note}`,
+    `RECRUITER SOURCING FUNNEL: ${externalContext.recruiter_priority_funnel.recommendation}`,
+  ].filter(Boolean).join('\n')
+
+  const candidateContextBrief = `Candidate is a ${targetRole} (${seniorityTier}) targeting ${ans.opportunityType || 'Full-Time roles'}. Trajectory: ${trajectoryArchetype}. Work Authorization: ${perimeter.workAuthStatus}. Currently in Hiring Phase ${phase.id} (${phase.name}) with confidence: ${phase.confidence}. Primary bottleneck: ${rootCauses.primary_bottleneck.title}. Total Career GPS Score: ${scores.gps_score}/100.`
 
   return {
     gpsScore: scores.gps_score,
@@ -1029,21 +1106,33 @@ export function evaluateAssessmentPersona({
 
     candidateProfile: {
       targetRole,
-      opportunityType: ans.opportunityType || 'Full-Time W2',
-      experienceLevel: ans.experience || 'Mid-Level',
+      opportunityType: ans.opportunityType || 'Full-Time W2 Role 🏢',
+      experienceLevel: ans.experience || seniorityTier,
+      seniorityTier,
+      trajectoryArchetype,
+      effectiveYoe: perimeter.effectiveYoe,
       visa: ans.visa || 'Not specified',
+      workAuthDetails: {
+        status: perimeter.workAuthStatus,
+        requiresSponsorship: perimeter.requiresSponsorship,
+        searchPipelineModel: perimeter.searchPipelineModel,
+      },
     },
     candidatePersona: {
       archetype: phase.shortName,
       summary: phase.stuckDescription,
       confidence: phase.confidence === 'High' ? 0.95 : (phase.confidence === 'Medium' ? 0.75 : 0.55),
+      seniorityTier,
+      trajectoryArchetype,
     },
     workAuthContext: {
       visa: visaCategory,
       rawVisa,
-      requiresSponsorship,
+      requiresSponsorship: perimeter.requiresSponsorship,
       isStudentOrOpt,
       urgencyNote,
+      status: perimeter.workAuthStatus,
+      searchPipelineModel: perimeter.searchPipelineModel,
     },
     funnelMetrics: {
       applications_count: rawApps.rawNum,
@@ -1053,6 +1142,7 @@ export function evaluateAssessmentPersona({
       phaseName: phase.name,
     },
     agentDirectives: {
+      forAtlas: atlasDirectives,
       forResumeAgent: resumeDirectives.join('\n'),
       forLinkedInAgent: linkedInDirectives.join('\n'),
       forChatbotAgent: candidateContextBrief,
@@ -1061,16 +1151,65 @@ export function evaluateAssessmentPersona({
 }
 
 /**
+ * Helper to classify domain divergence for Career Transitioner / Pivot archetype.
+ */
+export function detectDomainDivergence(targetRole = '', pastTitles = []) {
+  if (!targetRole || pastTitles.length === 0) return false
+  const tr = targetRole.toLowerCase()
+  const ptText = pastTitles.map((t) => (typeof t === 'string' ? t : t?.title || t?.role || '')).join(' ').toLowerCase()
+
+  const isTargetData = /data|analytics|bi\b|ai\b|machine learning|ml\b/i.test(tr)
+  const isTargetSWE = /software|full stack|backend|frontend|web developer|swe/i.test(tr)
+  const isTargetCloud = /cloud|devops|sre|infrastructure/i.test(tr)
+  const isTargetQA = /qa|sdet|test automation|quality assurance/i.test(tr)
+  const isTargetPM = /product manager|program manager|technical product/i.test(tr)
+
+  const pastHasData = /data|analytics|bi\b|machine learning/i.test(ptText)
+  const pastHasSWE = /software engineer|developer|full stack|backend|frontend/i.test(ptText)
+  const pastHasCloud = /cloud|devops|sre|infrastructure/i.test(ptText)
+  const pastHasQA = /qa|sdet|tester|quality assurance/i.test(ptText)
+  const pastHasNonTech = /mechanical|civil|chemical|manufacturing|sales|support|helpdesk|operations|finance|accounting/i.test(ptText)
+
+  // Explicit transitions:
+  // 1. SWE to Data Engineer / AI
+  if (isTargetData && pastHasSWE && !pastHasData) return true
+  // 2. QA to SWE / Data / Cloud
+  if (pastHasQA && (isTargetSWE || isTargetData || isTargetCloud) && !pastHasSWE) return true
+  // 3. Support / Helpdesk to Cloud / SWE
+  if (/support|helpdesk/i.test(ptText) && (isTargetSWE || isTargetCloud) && !pastHasSWE && !pastHasCloud) return true
+  // 4. Non-Tech / Engineering Pivot (Mechanical/Civil -> Tech)
+  if (pastHasNonTech && (isTargetSWE || isTargetData || isTargetCloud) && !pastHasSWE && !pastHasData && !pastHasCloud) return true
+  // 5. SWE to Product Management
+  if (isTargetPM && pastHasSWE && !/product manager|pm\b/i.test(ptText)) return true
+
+  return false
+}
+
+/**
  * Reconciles parsed resume timeline, questionnaire answers, and work authorization
  * to calculate accurate career perimeter and sourcing constraints.
  */
 export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
-  const experiences = canonicalResume?.experiences || canonicalResume?.experience || user?.resume_json?.experiences || []
+  const experiences =
+    canonicalResume?.experiences ||
+    canonicalResume?.experience ||
+    user?.resume_json?.experiences ||
+    user?.resume_json?.experience ||
+    user?.experiences ||
+    []
+
   let earliestYear = Infinity
   let latestYear = -Infinity
+  let mostRecentEndDate = null
+  let hasCurrentRole = false
   const currentYear = new Date().getFullYear()
 
-  experiences.forEach((exp) => {
+  const allTitles = []
+
+  experiences.forEach((exp, idx) => {
+    const title = exp.title || exp.role || exp.position || ''
+    if (title) allTitles.push(title)
+
     const dateStr = [exp.duration, exp.dates, exp.startDate, exp.endDate].filter(Boolean).join(' ')
     const matches = dateStr.match(/\b(19\d\d|20\d\d)\b/g)
     if (matches) {
@@ -1082,8 +1221,12 @@ export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
         }
       })
     }
-    if (/present|current/i.test(dateStr) || exp.isCurrent) {
+    const isCurrent = /present|current/i.test(dateStr) || Boolean(exp.isCurrent)
+    if (isCurrent) {
+      hasCurrentRole = true
       latestYear = currentYear
+    } else if (idx === 0 && matches && matches.length > 0) {
+      mostRecentEndDate = matches[matches.length - 1]
     }
   })
 
@@ -1096,21 +1239,82 @@ export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
     user?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
     user?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
     user?.resume_json?.years_of_experience ||
+    user?.yearsOfExperience ||
+    user?.yoe ||
     0
   )
 
-  const effectiveYoe = Math.max(parsedYoe, timelineYoe)
+  const answeredYoe = parseRangeOrNumber(
+    user?.answers?.experience ||
+    user?.user_answers?.experience ||
+    user?.experience ||
+    ''
+  )
 
+  const effectiveYoe = Math.max(parsedYoe, timelineYoe, answeredYoe)
+
+  const recentTitles = experiences.slice(0, 3).map((e) => e?.title || e?.role || e?.position || '').filter(Boolean)
+  const titlesStr = allTitles.join(' ')
+  const isStaffTitle = /staff|principal|lead architect|head of engineering|director/i.test(titlesStr) ||
+    /staff|principal|lead architect|head of engineering|director/i.test(recentTitles.join(' '))
+
+  // 4 Distinct Seniority Tiers:
+  // - Staff / Principal / Lead: >= 10 YOE or principal/lead titles
+  // - Senior: >= 6 YOE
+  // - Mid-Level: >= 3 YOE
+  // - Junior: 0–2 YOE
   let seniorityTier = 'Junior'
-  if (effectiveYoe >= 6) {
+  if (effectiveYoe >= 10 || isStaffTitle) {
+    seniorityTier = 'Staff / Principal / Lead'
+  } else if (effectiveYoe >= 6) {
     seniorityTier = 'Senior'
   } else if (effectiveYoe >= 3) {
     seniorityTier = 'Mid-Level'
-  } else if (effectiveYoe >= 1) {
-    seniorityTier = 'Junior-Mid'
+  } else {
+    seniorityTier = 'Junior'
   }
 
-  const rawAuth =
+  // Target role resolution
+  const targetRole = String(
+    user?.targetRole ||
+    user?.answers?.targetRole ||
+    user?.user_answers?.targetRole ||
+    canonicalResume?.candidate?.targetRole ||
+    ''
+  ).trim()
+
+  // 4 Distinct Trajectory Archetypes:
+  // 1. Career Transitioner / Pivot
+  // 2. Stalled / Re-Entering Professional
+  // 3. Scaling Technical Leader
+  // 4. High-Velocity Accelerator
+  let trajectoryArchetype = 'High-Velocity Accelerator'
+
+  const rawApps30 = parseRangeOrNumber(
+    user?.answers?.apps30d ?? user?.answers?.appsWeek ?? user?.user_answers?.apps30d ?? 30
+  )
+  const isPivotAnswer = /pivot|transition|switch|changing career|new field/i.test(
+    String(user?.answers?.biggestChallenge || user?.answers?.DropOffStage || user?.user_answers?.biggestChallenge || '')
+  )
+  const isDomainDivergent = detectDomainDivergence(targetRole, allTitles)
+
+  // Employment gap (> 6 months) detection:
+  const hasEmploymentGap = Boolean(
+    !hasCurrentRole && mostRecentEndDate && (currentYear - parseInt(mostRecentEndDate, 10)) >= 1
+  )
+  const isLowMomentum = rawApps30 > 0 && rawApps30 < 8
+
+  if (isDomainDivergent || isPivotAnswer) {
+    trajectoryArchetype = 'Career Transitioner / Pivot'
+  } else if (hasEmploymentGap || (isLowMomentum && seniorityTier !== 'Staff / Principal / Lead')) {
+    trajectoryArchetype = 'Stalled / Re-Entering Professional'
+  } else if (seniorityTier === 'Staff / Principal / Lead' || (seniorityTier === 'Senior' && (effectiveYoe >= 7 || /lead|architect|staff/i.test(targetRole)))) {
+    trajectoryArchetype = 'Scaling Technical Leader'
+  } else {
+    trajectoryArchetype = 'High-Velocity Accelerator'
+  }
+
+  const rawAuth = String(
     user?.user_answers?.workAuthorization ||
     user?.user_answers?.visa ||
     user?.answers?.workAuthorization ||
@@ -1118,13 +1322,25 @@ export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
     user?.workAuthorization ||
     user?.visa ||
     ''
+  ).trim()
 
-  const requiresSponsorship = /opt|cpt|h-?1b|sponsor|visa|f-?1|stem/i.test(rawAuth)
-  const workAuthStatus = rawAuth
-    ? rawAuth
-    : requiresSponsorship
-    ? 'Requires Visa Sponsorship'
-    : 'US Citizen / Permanent Resident'
+  const isCitizenOrGc = /citizen|permanent resident|green card|usc|us citizen/i.test(rawAuth)
+  const requiresSponsorship = !isCitizenOrGc && /opt|cpt|h-?1b|sponsor|visa|f-?1|stem/i.test(rawAuth)
+
+  let workAuthStatus = 'US Citizen / Permanent Resident'
+  if (/stem\s*opt|opt\s*stem/i.test(rawAuth)) {
+    workAuthStatus = 'F-1 STEM OPT'
+  } else if (/opt/i.test(rawAuth)) {
+    workAuthStatus = 'F-1 Initial OPT'
+  } else if (/h-?1b/i.test(rawAuth)) {
+    workAuthStatus = 'H-1B Transfer'
+  } else if (/cpt/i.test(rawAuth)) {
+    workAuthStatus = 'F-1 CPT'
+  } else if (isCitizenOrGc) {
+    workAuthStatus = /citizen|usc/i.test(rawAuth) ? 'US Citizen' : 'Permanent Resident (Green Card)'
+  } else if (rawAuth) {
+    workAuthStatus = rawAuth
+  }
 
   const searchPipelineModel = requiresSponsorship ? 'Sponsorship-Optimized Direct Sourcing' : 'Standard Market Inbound/Outbound'
 
@@ -1133,6 +1349,7 @@ export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
     timelineYoe,
     effectiveYoe,
     seniorityTier,
+    trajectoryArchetype,
     workAuthStatus,
     requiresSponsorship,
     searchPipelineModel,
