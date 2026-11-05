@@ -19,34 +19,34 @@ export function getRewriteHash(bulletId, originalText, skills = []) {
 
 export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Interviewer, FAANG Bar Raiser, and Executive Resume Architect.
 Your task is twofold for each candidate experience bullet:
-1. NATURALLY RE-ENGINEER THE BULLET to weave the target skill using Google XYZ impact framing (Accomplished [X] measured by [Y] by doing [Z]).
-2. GENERATE AN ELITE TECHNICAL INTERVIEW DEFENSE SCRIPT so the candidate can defend this tool convincingly in deep technical rounds.
+1. NATURALLY RE-ENGINEER THE BULLET to weave the target skills using Google XYZ impact framing (Accomplished [X] measured by [Y] by doing [Z]).
+2. GENERATE AN ELITE TECHNICAL INTERVIEW DEFENSE SCRIPT so the candidate can defend every woven tool convincingly in technical rounds.
 
 CRITICAL RULES:
-- NEVER output repetitive template phrases like "At [Company], I used [Skill] for scalable transformation pipelines".
-- FOR EACH SKILL, PROVIDE CONCRETE TECHNICAL MECHANISMS:
-  - If Snowflake/BigQuery: mention partitioning, clustering keys, query execution cost optimization, or zero-copy cloning.
-  - If dbt: mention modular DAG staging/marts models, incremental models, or schema test assertions.
-  - If Power BI/Tableau: mention DAX measures, row-level security (RLS), incremental refresh, or data model star-schemas.
-  - If Airflow/Spark: mention DAG orchestration, backfilling, idempotent tasks, or PySpark memory partitions.
-  - If Python/Pandas: mention vectorization, memory optimization (chunking), or automated API ingestion.
-- PRESERVE AND ANCHOR TO CANDIDATE DATA: Reference their real company (e.g. PwC USA), real numbers (e.g. 1,500+ SKUs, 68% turnaround), and real domain scope.
+- NATURAL COMPLEMENTARY PAIRING: When cohesive, weave up to 2 complementary tools into a single bullet (e.g. "Docker & Kubernetes", "React & TypeScript", "Kafka & Redis", "FastAPI & Python", "PostgreSQL & SQL") so technical depth is maximized without sounding stuffed.
+- DISTRIBUTE ACROSS EXPERIENCES: Do not overload a single job. Balance woven tools across current and previous roles/projects.
+- PRESERVE AND ANCHOR TO CANDIDATE DATA: Reference their real company, real metrics (e.g. percentages, turnaround times, record counts), and real domain scope.
 - ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
 - LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
-- DOMAIN FIDELITY: Maintain strict domain realism (e.g. for Data Analyst roles, weave Snowflake/dbt into data modeling, ETL, or automated reconciliation; do not invent full-stack UI or unit testing frameworks).
-- COMPLEMENTARY TOOL PAIRING: When natural, pair 2 cohesive technologies in a single bullet (e.g., 'Docker & Kubernetes', 'React & TypeScript', 'Kafka & Redis') so high technical density is achieved without keyword stuffing.
+- TECHNICAL MECHANISMS: Provide concrete technical implementations:
+  - If Snowflake/BigQuery: mention partitioning, clustering keys, or query cost reduction.
+  - If dbt: mention modular DAG staging/marts models or schema test assertions.
+  - If Power BI/Tableau: mention DAX measures, row-level security (RLS), or star-schemas.
+  - If Airflow/Spark: mention DAG orchestration, idempotent tasks, or PySpark partitions.
+  - If Kafka/RabbitMQ: mention consumer offsets, event streaming, or decoupled worker queues.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "rewrittenBullets": [
     {
       "bulletId": "exp_001_b01",
-      "wovenSkill": "Snowflake",
-      "rewrittenText": "Engineered automated Snowflake-SQL transformation pipelines across 1,500+ SKUs, cutting manual reporting turnaround by 68% and establishing resilient star-schema models for enterprise analytics.",
+      "wovenSkills": ["Docker", "Kubernetes"],
+      "wovenSkill": "Docker, Kubernetes",
+      "rewrittenText": "Orchestrated multi-stage Docker container builds and automated Kubernetes deployments across production clusters, cutting release turnaround by 45% and ensuring zero-downtime rollouts.",
       "interviewDefense": {
-        "interviewerQuestion": "How did you structure your Snowflake warehouse and optimize query performance for high-concurrency dashboards at PwC?",
-        "talkingScript": "At PwC, I architected our core reporting layers using star-schema dimensional modeling in Snowflake, implementing clustering keys on SKU IDs and transaction dates. This eliminated full-table scans and reduced executive dashboard refresh latency from 45 minutes to sub-3 minutes.",
-        "tradeOffJustification": "We migrated from on-prem relational databases to Snowflake to decouple compute from storage, allowing our automated ETL jobs to scale independently without starving concurrent BI dashboard queries."
+        "interviewerQuestion": "How did you manage container lifecycle and cluster resource limits using Docker and Kubernetes?",
+        "talkingScript": "At my company, I containerized our microservices with multi-stage Docker builds to reduce image attack surface by 60%, then defined Kubernetes deployment manifests with horizontal pod autoscaling and rolling updates to sustain 99.99% uptime under peak traffic.",
+        "tradeOffJustification": "We adopted Kubernetes container orchestration over standalone VM instances to automate self-healing replicas and ensure rapid, deterministic rollback during bad releases."
       }
     }
   ]
@@ -118,14 +118,20 @@ export async function batchWeaveBulletsWithLLM({
           tailored[item.expIdx].bullets[item.bIdx].text = res.rewrittenText
         }
         const defense = res.interviewDefense || {}
-        ledger.push({
-          keyword: res.wovenSkill || 'Core Tech',
-          company: item.company,
-          exactBullet: res.rewrittenText,
-          interviewerQuestion: defense.interviewerQuestion || res.interviewerQuestion || `How did you apply ${res.wovenSkill} at ${item.company}?`,
-          talkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `Discuss your hands-on deployment of ${res.wovenSkill} for operational scaling at ${item.company}.`,
-          interviewTalkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `Discuss your hands-on deployment of ${res.wovenSkill} for operational scaling at ${item.company}.`,
-          tradeOffJustification: defense.tradeOffJustification || res.tradeOffJustification || `Selected ${res.wovenSkill} to optimize performance and prevent delivery bottlenecks.`,
+        const skillsList = Array.isArray(res.wovenSkills) && res.wovenSkills.length > 0
+          ? res.wovenSkills
+          : (res.wovenSkill ? res.wovenSkill.split(/[,/]/).map(s => s.trim()) : ['Core Tech'])
+
+        skillsList.filter(Boolean).forEach((skill) => {
+          ledger.push({
+            keyword: String(skill).trim(),
+            company: item.company,
+            exactBullet: res.rewrittenText,
+            interviewerQuestion: defense.interviewerQuestion || res.interviewerQuestion || `How did you apply ${skill} at ${item.company}?`,
+            talkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
+            interviewTalkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
+            tradeOffJustification: defense.tradeOffJustification || res.tradeOffJustification || `Selected ${skill} to ensure architectural scalability and operational reliability.`,
+          })
         })
       }
     })
@@ -138,11 +144,11 @@ export async function batchWeaveBulletsWithLLM({
   }
 
   // 2. Single-Batch LLM Call (OpenRouter Paid Gemini Primary)
-  // Dynamic capacity: Scale up to 10-12 skills based on available candidate bullets
+  // Dynamic capacity: scale skills proportionally with candidate's available bullets
   const totalAvailableBullets = bulletsToRewrite.length
   const maxSkillsCapacity = Math.min(
     cleanSkills.length,
-    Math.max(6, Math.min(12, totalAvailableBullets))
+    Math.max(6, Math.min(12, totalAvailableBullets * 2))
   )
   const maxBulletsCapacity = Math.min(totalAvailableBullets, 10)
 
@@ -217,15 +223,22 @@ export async function batchWeaveBulletsWithLLM({
         } else if (tailored[item.expIdx].bullets[item.bIdx]) {
           tailored[item.expIdx].bullets[item.bIdx].text = rewrite.rewrittenText
         }
+
         const defense = rewrite.interviewDefense || {}
-        interviewLedger.push({
-          keyword: rewrite.wovenSkill || 'Core Tech',
-          company: item.company,
-          exactBullet: rewrite.rewrittenText,
-          interviewerQuestion: defense.interviewerQuestion || rewrite.interviewerQuestion || `How did you apply ${rewrite.wovenSkill} at ${item.company}?`,
-          talkingScript: defense.talkingScript || rewrite.talkingScript || rewrite.interviewTalkingScript || `Discuss your hands-on deployment of ${rewrite.wovenSkill} for operational scaling at ${item.company}.`,
-          interviewTalkingScript: defense.talkingScript || rewrite.talkingScript || rewrite.interviewTalkingScript || `Discuss your hands-on deployment of ${rewrite.wovenSkill} for operational scaling at ${item.company}.`,
-          tradeOffJustification: defense.tradeOffJustification || rewrite.tradeOffJustification || `Selected ${rewrite.wovenSkill} to optimize performance and prevent delivery bottlenecks.`,
+        const skillsList = Array.isArray(rewrite.wovenSkills) && rewrite.wovenSkills.length > 0
+          ? rewrite.wovenSkills
+          : (rewrite.wovenSkill ? rewrite.wovenSkill.split(/[,/]/).map(s => s.trim()) : ['Core Tech'])
+
+        skillsList.filter(Boolean).forEach((skill) => {
+          interviewLedger.push({
+            keyword: String(skill).trim(),
+            company: item.company,
+            exactBullet: rewrite.rewrittenText,
+            interviewerQuestion: defense.interviewerQuestion || `How did you apply ${skill} at ${item.company}?`,
+            talkingScript: defense.talkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
+            interviewTalkingScript: defense.talkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
+            tradeOffJustification: defense.tradeOffJustification || `Selected ${skill} to ensure architectural scalability and operational reliability.`,
+          })
         })
       }
     })

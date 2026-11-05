@@ -970,9 +970,9 @@ export const downloadAtsResumeDocx = async (req, res) => {
     const { tailoredExperiences, interviewLedger } = await batchWeaveBulletsWithLLM({
       experiences: canonical.experiences || canonical.experience || [],
       targetSkills: missingSkillsList,
-      targetRole: canonical.target_role || ra.targetRole || 'Data Analyst',
-      company: canonical.experiences?.[0]?.company || 'Enterprise',
-      timeoutMs: 5000, // 5s timeout guard
+      targetRole: canonical.target_role || ra.targetRole || user?.answers?.targetRole || 'Software Engineer',
+      company: canonical.experiences?.[0]?.company || 'my organization',
+      timeoutMs: 15000, // 15s budget ensures LLM finishes without script fallback
     })
 
     if (tailoredExperiences && tailoredExperiences.length > 0) {
