@@ -262,8 +262,17 @@ export function validateJdQuality(candidate, targetRoleKey = '') {
     return { valid: false, isValid: false, reason, reasons: [reason] }
   }
 
-  const title = (candidate.title || '').trim()
-  const description = (candidate.description || candidate.text || '').trim()
+  const safeStr = (val, fallback = '') => {
+    if (!val) return fallback
+    if (typeof val === 'string') return val.trim()
+    if (typeof val === 'object') {
+      return (val.name || val.text || val.city || val.label || Object.values(val).filter(v => typeof v === 'string').join(', ') || fallback).trim()
+    }
+    return String(val).trim()
+  }
+
+  const title = safeStr(candidate.title || candidate.position || candidate.jobTitle)
+  const description = safeStr(candidate.description || candidate.jobDescription || candidate.descriptionText || candidate.text || candidate.body)
 
   if (!title || title.length < 3) {
     const reason = 'Title is missing or too short.'
@@ -290,12 +299,22 @@ export function validateJdQuality(candidate, targetRoleKey = '') {
  * Normalizes an individual candidate JD.
  */
 export function normalizeSingleJd(rawJob, targetRoleKey = '') {
-  const cleanTitle = (rawJob.title || rawJob.position || rawJob.jobTitle || 'Untitled Position').trim()
-  const cleanCompany = (rawJob.company || rawJob.companyName || rawJob.organization || 'Not Disclosed').trim()
-  const cleanLocation = (rawJob.location || rawJob.jobLocation || 'Remote / Not Disclosed').trim()
-  const rawDescription = rawJob.description || rawJob.jobDescription || rawJob.text || rawJob.body || ''
-  const cleanDesc = cleanJdText(rawDescription)
-  const sourceUrl = rawJob.url || rawJob.link || rawJob.sourceUrl || null
+  // Helper to safely extract string from string/object/null
+  const safeStr = (val, fallback = '') => {
+    if (!val) return fallback
+    if (typeof val === 'string') return val.trim()
+    if (typeof val === 'object') {
+      return (val.name || val.text || val.city || val.label || Object.values(val).filter(v => typeof v === 'string').join(', ') || fallback).trim()
+    }
+    return String(val).trim()
+  }
+
+  const cleanTitle = safeStr(rawJob.title || rawJob.position || rawJob.jobTitle, 'Untitled Position')
+  const cleanCompany = safeStr(rawJob.company || rawJob.companyName || rawJob.organization, 'Not Disclosed')
+  const cleanLocation = safeStr(rawJob.location || rawJob.jobLocation, 'Remote / Not Disclosed')
+  const rawDescription = rawJob.description || rawJob.jobDescription || rawJob.text || rawJob.body || rawJob.descriptionText || ''
+  const cleanDesc = cleanJdText(typeof rawDescription === 'string' ? rawDescription : safeStr(rawDescription))
+  const sourceUrl = rawJob.url || rawJob.link || rawJob.sourceUrl || rawJob.linkedinUrl || null
   const sourceJobId = rawJob.id || rawJob.jobId || null
 
   const fingerprint = computeJdFingerprint({

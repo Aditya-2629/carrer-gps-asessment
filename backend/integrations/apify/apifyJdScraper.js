@@ -335,7 +335,7 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
     let candidates = (items || []).map((item) => ({
       title: item.title || item.jobTitle || resolvedRole,
       company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
-      location: item.location || 'United States',
+      location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
       description: item.descriptionText || item.description || item.text || item.body || '',
       url: item.linkedinUrl || item.url || item.link || '',
     })).filter((j) => j.description && j.description.length >= 100)
@@ -354,7 +354,7 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
         const fallbackCandidates = (fallbackItems || []).map((item) => ({
           title: item.positionName || item.title || resolvedRole,
           company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
-          location: item.location || 'United States',
+          location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
           description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
           url: item.linkedinUrl || item.url || item.link || '',
         })).filter((j) => j.description && j.description.length >= 100)

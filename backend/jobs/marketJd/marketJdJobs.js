@@ -289,6 +289,7 @@ export async function fetchFastCatchJds({
   let validJds = (primaryItems || []).map((item) => ({
     title: item.title || item.jobTitle || targetRoleTitle,
     company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
+    location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
     description: item.descriptionText || item.description || item.text || item.body || '',
     url: item.linkedinUrl || item.url || item.link || '',
   })).filter((j) => (j.description || '').length >= 100)
@@ -308,6 +309,7 @@ export async function fetchFastCatchJds({
       const validFallback = (fallbackItems || []).map((item) => ({
         title: item.positionName || item.title || targetRoleTitle,
         company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
+        location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
         description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
         url: item.linkedinUrl || item.url || item.link || '',
       })).filter((j) => (j.description || '').length >= 100)
@@ -487,6 +489,7 @@ export async function runDetachedBackgroundScrape(bucketKey) {
     let validBackgroundJds = (items || []).map((j) => ({
       title: j.title || j.jobTitle || roleName,
       company: j.company?.name || j.companyName || j.company || 'Enterprise Employer',
+      location: typeof j.location === 'object' ? (j.location?.name || j.location?.city || j.location?.label || 'United States') : (j.location || 'United States'),
       description: j.descriptionText || j.description || j.text || j.body || '',
       url: j.linkedinUrl || j.url || j.link || '',
     })).filter((j) => (j.description || '').length >= 100)
