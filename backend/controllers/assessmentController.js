@@ -17,7 +17,6 @@ import { weaveKeywordsAndBuildLedger, batchWeaveBulletsWithLLM } from '../agents
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { costTracker } from '../utils/costTracker.js'
 import { DOCXParser } from '../services/documentParser/docxParser.js'
-import { handleChatMessage } from './chatController.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
