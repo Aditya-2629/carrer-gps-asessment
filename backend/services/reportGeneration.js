@@ -166,6 +166,10 @@ export function deriveFunnelFromAnswers(answers = {}) {
     biggest_leak_stage = 'final_round_drop'
     leak_title = 'Final Executive & Hiring Manager Conversion'
     diagnosis_message = 'Reaching final rounds indicates strong technical baseline, but converting to written offers requires sharper executive alignment and strategic business ROI demonstration.'
+  } else if (totalScreens >= 4 && technicalRounds <= 1 && screenToTechRate <= 20) {
+    biggest_leak_stage = 'recruiter_screen'
+    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
+    diagnosis_message = 'Recruiter screens are occurring, but failure to advance to technical rounds signals a disconnect in salary alignment, visa sponsorship clarity, or behavioral positioning.'
   } else if (technicalRounds >= 1 && finalRounds === 0) {
     biggest_leak_stage = 'technical_round'
     leak_title = 'Technical Architecture & Coding Assessments'
@@ -274,13 +278,19 @@ export function normalizeAtlasShapes(report, answers = {}) {
     report.coach_intervention = {}
   }
   const leakTitle =
-    report.funnel_stages?.biggest_leak_stage ||
     report.funnel_stages?.leak_title ||
     userFunnel.leak_title ||
+    report.funnel_stages?.biggest_leak_stage ||
     'Technical & System Design Rounds'
+  const leakStage = report.funnel_stages?.biggest_leak_stage || userFunnel.biggest_leak_stage || ''
+  const targetRole = answers.targetRole || answers.role || report.target_role || ''
 
   if (!report.coach_intervention.urgency_statement || report.coach_intervention.urgency_statement.length < 30) {
-    report.coach_intervention.urgency_statement = `Polished resume bullets alone cannot solve interview drop-offs at ${leakTitle}. Bypassing cold portal filters requires an active hiring manager referral engine and live project architecture defense.`
+    const roleClause = targetRole ? ` for ${targetRole}` : ''
+    const stageCitation = (leakStage && leakStage !== leakTitle && !leakTitle.toLowerCase().includes(leakStage.toLowerCase()))
+      ? `${leakTitle} [${leakStage}]`
+      : leakTitle
+    report.coach_intervention.urgency_statement = `Polished resume bullets alone cannot solve interview drop-offs at ${stageCitation}${roleClause}. Bypassing cold portal filters requires an active hiring manager referral engine and live project architecture defense.`
   }
   if (!report.coach_intervention.value_prop || report.coach_intervention.value_prop.length < 30) {
     report.coach_intervention.value_prop = `In your 1-on-1 Strategy Call, we map your 30-day direct outbound pipeline to verified engineering leads, resolve cross-document verification flags, and run live mock evaluations on your top architecture projects.`

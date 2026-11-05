@@ -427,18 +427,22 @@ export function detectHiringPhase({ answers = {}, resumeAgent = null, linkedinAg
 
   // 2. Detection Priority Rule:
   // Gate 1: Offer / Onboarding Gate (Phase 5)
-  if (offers90d >= 1 && (joiningStatus.toLowerCase().includes('delayed') || joiningStatus.toLowerCase().includes('blocked') || selfReportedPhase === 5 || dropOffStage.includes('joining'))) {
+  if (offers90d >= 1 && (joiningStatus.toLowerCase().includes('delayed') || joiningStatus.toLowerCase().includes('blocked') || selfReportedPhase === 5 || dropOffStage.includes('offer') || dropOffStage.includes('joining') || finals90d >= 1)) {
     detectedPhaseId = 5
   }
   // Gate 2: Final Round -> Offer (Phase 4): If finalRounds >= 1 and offers === 0
   else if ((finals90d >= 1 || finals30d >= 1) && offers90d === 0) {
     detectedPhaseId = 4
   }
-  // Gate 3: Technical -> Final Round (Phase 3): If technicalRounds >= 1 and finalRounds === 0
+  // Gate 3: Screening -> Technical Round Choke Point (Phase 2): High screens (>=4) but low technical conversion (<=20%)
+  else if (totalScreens >= 4 && techs90d <= 1 && (techs90d / totalScreens) <= 0.2) {
+    detectedPhaseId = 2
+  }
+  // Gate 4: Technical -> Final Round (Phase 3): If technicalRounds >= 1 and finalRounds === 0
   else if (techs90d >= 1 || techs30d >= 1) {
     detectedPhaseId = 3
   }
-  // Gate 4: Screening -> Technical Round (Phase 2): If totalScreens >= 3 and technicalRounds < 1
+  // Gate 5: Screening -> Technical Round (Phase 2): If totalScreens >= 3 and technicalRounds < 1
   else if (totalScreens >= 3 || screens30d >= 2) {
     detectedPhaseId = 2
   }
