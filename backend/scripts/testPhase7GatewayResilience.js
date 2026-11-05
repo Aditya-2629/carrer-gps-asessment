@@ -205,7 +205,7 @@ async function runTests() {
     const report1 = await callAtlas('Prompt text', '', { targetRole: 'Senior Platform Engineer' })
     assert.ok(capturedOptions, 'llmGateway.generate should have been called')
     assert.strictEqual(capturedOptions.model, 'google/gemini-2.5-flash-lite', 'Primary model must be google/gemini-2.5-flash-lite')
-    assert.strictEqual(capturedOptions.maxTokens, 6144, 'maxTokens must be 6144')
+    assert.strictEqual(capturedOptions.maxTokens, 3000, 'maxTokens must be 3000')
     assert.strictEqual(capturedOptions.timeoutMs, 50000, 'timeoutMs must be 50000 (50s)')
     assert.strictEqual(capturedOptions.maxRetries, 2, 'maxRetries must be 2')
     assert.strictEqual(capturedOptions.responseFormat, 'json_object', 'responseFormat must be json_object')
@@ -213,7 +213,7 @@ async function runTests() {
     assert.strictEqual(report1.telemetry.modelUsed, 'google/gemini-2.5-flash-lite')
     assert.strictEqual(report1.telemetry.fallbackTriggered, false)
     assert.ok(report1.telemetry.durationMs >= 0)
-    console.log('  ✔ Primary tier verified: 6144 maxTokens, 50s timeout, gemini-2.5-flash-lite, telemetry recorded')
+    console.log('  ✔ Primary tier verified: 3000 maxTokens, 50s timeout, gemini-2.5-flash-lite, telemetry recorded')
 
     // 4b. Verify Secondary Failover (DeepSeek V3)
     let callCount = 0

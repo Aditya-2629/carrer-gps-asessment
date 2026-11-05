@@ -277,7 +277,8 @@ export default (
   resumeAgent = null,
   linkedinAgent = null,
   assessmentPersona = null,
-  userAnswers = null
+  userAnswers = null,
+  compactDigest = null
 ) => {
   // Support flexible signatures (e.g. tests passing persona or answers at index 6 or 7)
   let effectivePersona = assessmentPersona
@@ -389,6 +390,7 @@ ${linkedinAgent ? safeJson({
   headlineAudit: linkedinAgent.optimizations?.headline,
 }) : 'LinkedIn audit pending.'}
 
+${compactDigest ? `\n${compactDigest}\n` : `
 ### VERIFIED WORK HISTORY:
 ${resumeData ? safeJson(compactResumeForAtlas(resumeData)) : 'No resume provided.'}
 
@@ -396,6 +398,7 @@ ${resumeData ? safeJson(compactResumeForAtlas(resumeData)) : 'No resume provided
 ${linkedinData ? safeJson(compactLinkedInForAtlas(linkedinData)) : 'No LinkedIn provided.'}
 
 ${semanticProfile ? `### CANDIDATE AI-SEMANTIC ASSESSMENT PROFILE:\n${safeJson(compactSemanticProfile(semanticProfile))}\n` : ''}
+`}
 
 REQUIRED JSON SCHEMA (OUTPUT ONLY VALID RAW JSON, ZERO MARKDOWN CODE FENCES):
 {
@@ -444,7 +447,18 @@ REQUIRED JSON SCHEMA (OUTPUT ONLY VALID RAW JSON, ZERO MARKDOWN CODE FENCES):
     "low_impact_high_likelihood": ["<Scenario 1>", "<Scenario 2>"],
     "mitigation_plan": "<2-3 sentence protocol to systematically defuse this risk>"
   },
-  "mission_board": {
+${compactDigest ? `  "executive_verdict": "<2-3 sentence candid executive recruiter verdict on their positioning and market viability>",
+  "key_advantage": "<Single biggest verified technical advantage from resume/experience>",
+  "primary_bottleneck": "<Single biggest leak in their funnel and why>",
+  "risk_matrix": [
+    { "factor": "Market Friction", "severity": "High", "mitigation": "<Actionable fix>" },
+    { "factor": "Technical Defense", "severity": "Medium", "mitigation": "<Actionable fix>" }
+  ],
+  "top_priorities": [
+    "<Priority 1 with specific tool/metric target>",
+    "<Priority 2 with specific tool/metric target>",
+    "<Priority 3 with specific tool/metric target>"
+  ],` : `  "mission_board": {
     "xp_level": "<Gamified level based on score, e.g. Level 2: Strategic Positioner>",
     "xp_current": 250,
     "missions": [
@@ -455,6 +469,14 @@ REQUIRED JSON SCHEMA (OUTPUT ONLY VALID RAW JSON, ZERO MARKDOWN CODE FENCES):
       { "title": "<Mission tailored to mock interview defense>", "xp": "+20 XP", "impact": "High Impact" }
     ]
   },
+  "roadmap": [
+    {
+      "week": "Week 1",
+      "theme": "Phase 1: Positioning",
+      "goal": "<Clear measurable objective tied to their specific situation>",
+      "tasks": ["<Specific task with tool name>", "<Task 2 with deadline>", "<Task 3 with outcome>"]
+    }
+  ],`}
   "critical_issues": [
     {
       "title": "<Punchy 3-5 word title>",
@@ -462,14 +484,6 @@ REQUIRED JSON SCHEMA (OUTPUT ONLY VALID RAW JSON, ZERO MARKDOWN CODE FENCES):
       "icon_suggestion": "alert-triangle",
       "diagnosis": "<1-2 sentences citing exact candidate data, companies, or tools>",
       "action_steps": ["<Step 1 with tool names>", "<Step 2 with measurable target>"]
-    }
-  ],
-  "roadmap": [
-    {
-      "week": "Week 1",
-      "theme": "Phase 1: Positioning",
-      "goal": "<Clear measurable objective tied to their specific situation>",
-      "tasks": ["<Specific task with tool name>", "<Task 2 with deadline>", "<Task 3 with outcome>"]
     }
   ],
   "recommended_tools": [
@@ -482,7 +496,9 @@ REQUIRED JSON SCHEMA (OUTPUT ONLY VALID RAW JSON, ZERO MARKDOWN CODE FENCES):
   }
 }
 
-Ensure exactly 3 critical_issues, exactly 4 weeks in roadmap, exactly 3 recommended_tools, exactly 4 rejection_factors summing to 100%, and exactly 3 brutal_facts.
+${compactDigest
+  ? 'Focus dynamic output on candid diagnostic analysis, executive verdict, and high-ROI custom actions. Ensure exactly 3 critical_issues, exactly 3 recommended_tools, exactly 4 rejection_factors summing to 100%, and exactly 3 brutal_facts.'
+  : 'Ensure exactly 3 critical_issues, exactly 4 weeks in roadmap, exactly 3 recommended_tools, exactly 4 rejection_factors summing to 100%, and exactly 3 brutal_facts.'}
 Return a valid, raw JSON object following the required Atlas schema with zero markdown backticks.
 `
 }

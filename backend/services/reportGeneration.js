@@ -24,6 +24,45 @@ import { inferRoleFromKeywordFrequency } from '../agents/resume/resumeAgent.norm
 import AgentRun from '../models/AgentRun.js'
 import ReportJob from '../models/ReportJob.js'
 import { jsonrepair } from 'jsonrepair'
+import {
+  build7DayRapidTriageSprint,
+  buildGamifiedMissionBoard,
+  build30_60_90MilestonePathway,
+  buildStandard4WeekRoadmap,
+} from './atlasDeterministicBuilders.js'
+
+/**
+ * Builds a dense, standardized candidate executive digest (~350 tokens)
+ * replacing massive raw answer JSON dumps and saving ~70% prompt tokens.
+ */
+export function buildCompactAtlasDigest({ user, activeResumeAgent, activeLinkedinAgent, targetRole, phase }) {
+  const ans = user?.answers || user || {}
+  const canonical = activeResumeAgent?.canonicalResume || user?.resumeJson || {}
+  const rawSkills = canonical?.skills || activeResumeAgent?.verifiedSkills || []
+  const verifiedSkills = (Array.isArray(rawSkills) ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || s?.skill)).filter(Boolean) : []).slice(0, 15).join(', ')
+
+  const rawMissing = activeResumeAgent?.keywordAlignment?.missingKeywords || activeResumeAgent?.missingTargetKeywords || []
+  const missingSkills = (Array.isArray(rawMissing) ? rawMissing.map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name)).filter(Boolean) : []).slice(0, 6).join(', ')
+
+  const topDiscrepancy = activeLinkedinAgent?.discrepancies?.[0]?.title || 'None'
+
+  const apps30d = ans.apps30d || ans.applications30d || ans.applications_count || 0
+  const screens = ans.funnel90d?.recruiterScreens || ans.recruiterScreens || ans.recruiter_calls_count || 0
+  const oas = ans.funnel90d?.assessments || ans.assessments || 0
+  const offers = ans.funnel90d?.offers || ans.offers || ans.offers_count || 0
+  const visa = ans.visa || ans.visaStatus || 'Citizen / Unrestricted'
+  const dropOff = ans.DropOffStage || ans.primaryBottleneck || 'Low recruiter callback rate'
+
+  return `### CANDIDATE EXECUTIVE DIGEST
+Target Role: ${targetRole || 'Software Professional'}
+Detected Bottleneck Phase: Phase ${phase?.id || 1} (${phase?.name || 'Resume Screen'})
+90-Day Funnel: ${apps30d} apps/mo | ${screens} screens | ${oas} OAs | ${offers} offers
+Visa / Work Auth: ${visa}
+Top Verified Skills: ${verifiedSkills || 'Engineering fundamentals'}
+Critical Skill Gaps: ${missingSkills || 'None'}
+Primary LinkedIn Flag: ${topDiscrepancy}
+Candidate Drop-off Note: "${dropOff}"`
+}
 
 // ── Atlas completeness machinery (fixes truncated/incomplete reports) ───────
 // The Atlas JSON is large (14 sections); without an explicit output budget
@@ -294,12 +333,31 @@ export function deriveFunnelFromAnswers(answers = {}) {
 export function normalizeAtlasShapes(report, answers = {}) {
   if (!report || typeof report !== 'object') return report
 
-  // mission_board: wrap into object if returned as an array
+  // mission_board: wrap into object if array, or build if missing
   if (Array.isArray(report.mission_board)) {
     report.mission_board = {
       xp_level: 'Level 3: Active Strategist',
       xp_current: 500,
+      xp_progress: '500 / 1000 XP',
       missions: report.mission_board,
+    }
+  } else if (!report.mission_board || typeof report.mission_board !== 'object') {
+    report.mission_board = buildGamifiedMissionBoard([], report.career_journey?.current_phase_id || 1, report.career_health_score || 70)
+  }
+
+  // roadmap: ensure 4-week roadmap is present
+  if (!report.roadmap || !Array.isArray(report.roadmap) || report.roadmap.length === 0) {
+    report.roadmap = buildStandard4WeekRoadmap(report.career_journey?.current_phase_id || 1)
+  }
+
+  // risk_heatmap / risk_matrix fallback
+  if (!report.risk_heatmap && Array.isArray(report.risk_matrix) && report.risk_matrix.length > 0) {
+    const primaryRisk = report.risk_matrix[0]
+    report.risk_heatmap = {
+      critical_risk: primaryRisk.factor ? `${primaryRisk.factor}: ${primaryRisk.mitigation || 'Active mitigation required'}` : 'Market Friction and Application Stall',
+      high_impact_low_likelihood: report.risk_matrix.slice(1, 3).map((r) => r.factor || 'Extended hiring team deliberation'),
+      low_impact_high_likelihood: ['Delayed recruiter screening feedback'],
+      mitigation_plan: primaryRisk.mitigation || 'Activate direct hiring manager outbound immediately.',
     }
   }
 
@@ -381,10 +439,11 @@ export function normalizeAtlasShapes(report, answers = {}) {
 const ATLAS_FORMAT_CONTRACT = `
 
 FORMAT CONTRACT (strict):
-- critical_issues, roadmap, rejection_factors, recommended_tools MUST be JSON ARRAYS of objects.
-- funnel_stages, risk_heatmap, mission_board, career_journey, market_reality_check, score_breakdown, coach_intervention MUST be JSON OBJECTS matching the exact keys in the prompt schema.
+- critical_issues, rejection_factors, recommended_tools MUST be JSON ARRAYS of objects.
+- funnel_stages, risk_heatmap, career_journey, market_reality_check, score_breakdown, coach_intervention MUST be JSON OBJECTS matching the exact keys in the prompt schema.
+- Synthesize dynamic strategic sections: career_health_score, score_label, key_advantage, primary_bottleneck, executive_verdict, risk_matrix, top_priorities, critical_issues, market_reality_check.
 - career_journey MUST be a single object: {"current_phase_id": "...", "guide_message": "..."}.
-- Never merge sections. Return every section fully populated.`
+- Never merge sections. Return valid JSON only.`
 
 export async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   const executiveDirective = '\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks. Write with the authoritative voice of an executive technical recruiter.'
@@ -406,7 +465,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
-      maxTokens: 6144,
+      maxTokens: 3000,
       maxRetries: 2,
       timeoutMs: 50000,
     })
@@ -424,7 +483,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 6144,
+        maxTokens: 3000,
         maxRetries: 2,
         timeoutMs: 50000,
       })
@@ -440,7 +499,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 6144,
+        maxTokens: 3000,
         maxRetries: 2,
         timeoutMs: 50000,
       })
@@ -680,6 +739,14 @@ export async function generateReportBundle({
     }
   }
 
+  const compactDigest = buildCompactAtlasDigest({
+    user,
+    activeResumeAgent,
+    activeLinkedinAgent,
+    targetRole: resumeTargetRole,
+    phase: assessmentPersona?.phase,
+  })
+
   const promptText = getGeminiPrompt(
     user.answers,
     effectiveCanonicalResume || user.resumeJson,
@@ -688,7 +755,9 @@ export async function generateReportBundle({
     effectiveSemanticProfile,
     activeResumeAgent,
     activeLinkedinAgent,
-    assessmentPersona
+    assessmentPersona,
+    null,
+    compactDigest
   )
 
   // Atlas draft with completeness guard: if the model returns a partial JSON
@@ -830,6 +899,17 @@ export async function generateReportBundle({
   aiReport.gps_scores = effectiveAssessmentAgent?.scores ?? null
   aiReport.external_context = effectiveAssessmentAgent?.external_context ?? null
 
+  // Merge deterministic hybrid templates (7-Day Sprint, XP mission board, 30-60-90 milestone pathway)
+  const rawSkills = activeResumeAgent?.canonicalResume?.skills || activeResumeAgent?.verifiedSkills || []
+  const verifiedSkillsList = (Array.isArray(rawSkills) ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || s?.skill)).filter(Boolean) : []).slice(0, 10)
+
+  aiReport.seven_day_sprint = build7DayRapidTriageSprint(aiReport.phase, resumeTargetRole, verifiedSkillsList)
+  aiReport.mission_board = buildGamifiedMissionBoard(aiReport.top_actions, aiReport.phase?.id, aiReport.career_health_score)
+  aiReport.milestone_pathway = build30_60_90MilestonePathway(aiReport.phase?.id, resumeTargetRole, verifiedSkillsList)
+  if (!aiReport.roadmap || !Array.isArray(aiReport.roadmap) || aiReport.roadmap.length === 0) {
+    aiReport.roadmap = buildStandard4WeekRoadmap(aiReport.phase?.id, resumeTargetRole, verifiedSkillsList)
+  }
+
   // Synchronize score_breakdown across all 4 balanced pillars (25% each)
   const fourPillars = effectiveAssessmentAgent?.scores?.four_pillars || {}
   if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
@@ -906,7 +986,8 @@ export async function generateReportBundle({
           'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile',
           'gps_score', 'career_health_score', 'phase', 'primary_bottleneck',
           'secondary_problem', 'strongest_area', 'next_best_action', 'top_actions',
-          'gps_scores', 'external_context', 'interview_ledger'
+          'gps_scores', 'external_context', 'interview_ledger',
+          'seven_day_sprint', 'mission_board', 'milestone_pathway', 'roadmap'
         ]) {
           if (source[key] !== undefined) target[key] = source[key]
         }

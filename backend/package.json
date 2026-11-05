@@ -17,7 +17,8 @@
     "test:hardening": "node scripts/testPdfAndGatewayFixes.js",
     "test:bug-fixes": "node scripts/testBugFixesAndGroq120b.js",
     "test:cost-optimization": "node scripts/testCostOptimizationAndLinkedinSnapshot.js",
-    "test:all-phases": "node scripts/testPhase1DataIntegrity.js && node scripts/testPhase2USPersona.js && node scripts/testPhase3LayoutIntegration.js && node scripts/testPhase4ActionEngine.js && node scripts/testPhase5AtlasAndJudge.js && node scripts/runGoldenCareerGpsSuite.js && node scripts/testPhase7GatewayResilience.js && node scripts/testUiAndAssessmentFixes.js && node scripts/testPipelineCrashResistance.js && node scripts/testPdfAndGatewayFixes.js && node scripts/testBugFixesAndGroq120b.js && node scripts/testCostOptimizationAndLinkedinSnapshot.js"
+    "test:atlas-compaction": "node scripts/testAtlasPromptCompaction.js",
+    "test:all-phases": "node scripts/testPhase1DataIntegrity.js && node scripts/testPhase2USPersona.js && node scripts/testPhase3LayoutIntegration.js && node scripts/testPhase4ActionEngine.js && node scripts/testPhase5AtlasAndJudge.js && node scripts/runGoldenCareerGpsSuite.js && node scripts/testPhase7GatewayResilience.js && node scripts/testUiAndAssessmentFixes.js && node scripts/testPipelineCrashResistance.js && node scripts/testPdfAndGatewayFixes.js && node scripts/testBugFixesAndGroq120b.js && node scripts/testCostOptimizationAndLinkedinSnapshot.js && node scripts/testAtlasPromptCompaction.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
