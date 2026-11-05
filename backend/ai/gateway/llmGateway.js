@@ -50,8 +50,6 @@ export const PROVIDER_MODEL_FALLBACKS = {
     'google/gemini-3.1-pro-preview',
   ],
   groq: [
-    'llama-3.3-70b-versatile',
-    'llama3-70b-8192',
     'openai/gpt-oss-120b',
   ],
   gemini: [
@@ -127,7 +125,10 @@ export class LLMGateway {
       (purpose === 'bullet_batch_weave' ? 30000 : (this.config.totalDeadlineMs || 60000))
     const requestStartTime = Date.now()
 
-    const requestedModelId = model || this.config.defaultResumeModel
+    let requestedModelId = model || this.config.defaultResumeModel
+    if (typeof requestedModelId === 'string' && (requestedModelId.includes('llama') || requestedModelId === 'openai/gpt-oss-20b')) {
+      requestedModelId = 'openai/gpt-oss-120b'
+    }
 
     // 1. Request Fingerprinting & Cache Lookup
     let fingerprint = null
@@ -239,7 +240,10 @@ export class LLMGateway {
         throw lastError
       }
 
-      const currentModelId = modelsToTry[i]
+      let currentModelId = modelsToTry[i]
+      if (typeof currentModelId === 'string' && (currentModelId.includes('llama') || currentModelId === 'openai/gpt-oss-20b')) {
+        currentModelId = 'openai/gpt-oss-120b'
+      }
       const modelMetadata = getModel(currentModelId)
 
       if (!modelMetadata) {

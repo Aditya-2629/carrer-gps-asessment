@@ -382,7 +382,7 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
       </div>
 
       {/* 2. Personalization Context Strip (SDLC Wave, Visa, Experience, Consultancy) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-3">
+      <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-3 break-inside-avoid page-break-inside-avoid">
         <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] block">
           Strategic Market Perimeter & Sourcing Context
         </span>

@@ -153,21 +153,17 @@ async function runTests() {
 
   assert.strictEqual(PRODUCTION_FALLBACK_CHAIN[0], 'openrouter', 'Priority 1 must remain OpenRouter to protect TPM budget')
   assert.ok(
-    PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.3-70b-versatile'),
-    'Groq fallbacks must include active llama-3.3-70b-versatile endpoint'
-  )
-  assert.ok(
-    PROVIDER_MODEL_FALLBACKS.groq.includes('llama3-70b-8192'),
-    'Groq fallbacks must include llama3-70b-8192'
+    PROVIDER_MODEL_FALLBACKS.groq.includes('openai/gpt-oss-120b'),
+    'Groq fallbacks must strictly use openai/gpt-oss-120b'
   )
 
-  const groqModel = getModel('llama-3.3-70b-versatile')
-  assert.ok(groqModel, 'llama-3.3-70b-versatile must be defined in MODEL_REGISTRY')
+  const groqModel = getModel('openai/gpt-oss-120b')
+  assert.ok(groqModel, 'openai/gpt-oss-120b must be defined in MODEL_REGISTRY')
   assert.strictEqual(groqModel.provider, 'groq')
 
   const groqAlias = getModel('groq')
-  assert.strictEqual(groqAlias.id, 'llama-3.3-70b-versatile')
-  console.log('  ✔ Groq model registry and fallbacks updated to active endpoints (llama-3.3-70b-versatile, llama3-70b-8192)')
+  assert.strictEqual(groqAlias.id, 'openai/gpt-oss-120b')
+  console.log('  ✔ Groq model registry and fallbacks consolidated to openai/gpt-oss-120b')
 
   console.log('\n================================================================')
   console.log('✅ ALL PIPELINE CRASH RESISTANCE & ROUTING TESTS PASSED (0 FAILURES)')

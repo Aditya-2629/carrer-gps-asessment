@@ -56,16 +56,23 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           const bulkUpdates = {}
           if (detectedLinkedin) {
             bulkUpdates.linkedin = detectedLinkedin
-            if (typeof window !== 'undefined' && !window.__linkedinScrapePromise) {
-              window.__linkedinScrapePromise = api.scrapeLinkedInProfile(detectedLinkedin).then((res) => {
-                if (res?.profile) {
-                  useAppStore.getState().setFormData('linkedinData', res.profile)
-                  try {
-                    sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
-                  } catch (_e) {}
-                }
-                return res?.profile || null
-              }).catch(() => null)
+            if (typeof window !== 'undefined') {
+              if (window.__linkedinScrapeInProgress !== detectedLinkedin && !window.__linkedinScrapePromise) {
+                window.__linkedinScrapeInProgress = detectedLinkedin
+                window.__linkedinScrapePromise = api.scrapeLinkedInProfile(detectedLinkedin).then((res) => {
+                  window.__linkedinScrapeInProgress = null
+                  if (res?.profile) {
+                    useAppStore.getState().setFormData('linkedinData', res.profile)
+                    try {
+                      sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+                    } catch (_e) {}
+                  }
+                  return res?.profile || null
+                }).catch(() => {
+                  window.__linkedinScrapeInProgress = null
+                  return null
+                })
+              }
             }
           }
           if (detectedName && !formData.name && !formData.fullName) {
@@ -187,15 +194,22 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         if (fastLinkedIn) {
           useAppStore.getState().setFormData('linkedin', fastLinkedIn)
           if (typeof window !== 'undefined') {
-            window.__linkedinScrapePromise = api.scrapeLinkedInProfile(fastLinkedIn).then((res) => {
-              if (res?.profile) {
-                useAppStore.getState().setFormData('linkedinData', res.profile)
-                try {
-                  sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
-                } catch (_e) {}
-              }
-              return res?.profile || null
-            }).catch(() => null)
+            if (window.__linkedinScrapeInProgress !== fastLinkedIn && !window.__linkedinScrapePromise) {
+              window.__linkedinScrapeInProgress = fastLinkedIn
+              window.__linkedinScrapePromise = api.scrapeLinkedInProfile(fastLinkedIn).then((res) => {
+                window.__linkedinScrapeInProgress = null
+                if (res?.profile) {
+                  useAppStore.getState().setFormData('linkedinData', res.profile)
+                  try {
+                    sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+                  } catch (_e) {}
+                }
+                return res?.profile || null
+              }).catch(() => {
+                window.__linkedinScrapeInProgress = null
+                return null
+              })
+            }
           }
         }
       } catch (scanErr) {

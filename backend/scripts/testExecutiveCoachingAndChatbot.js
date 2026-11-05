@@ -149,7 +149,7 @@ assert(
 const chatbotModels = listModelsForPurpose('career_chatbot').map((m) => m.id)
 assert(chatbotModels.includes('google/gemini-3.5-flash-lite'), 'google/gemini-3.5-flash-lite must support career_chatbot')
 assert(chatbotModels.includes('deepseek/deepseek-chat'), 'deepseek/deepseek-chat must support career_chatbot')
-assert(chatbotModels.includes('llama-3.3-70b-versatile'), 'llama-3.3-70b-versatile must support career_chatbot')
+assert(chatbotModels.includes('openai/gpt-oss-120b'), 'openai/gpt-oss-120b must support career_chatbot')
 assert(chatbotModels.includes('google/gemini-3.5-flash'), 'google/gemini-3.5-flash must support career_chatbot')
 assert(chatbotModels.includes('google/gemini-2.5-flash'), 'google/gemini-2.5-flash must support career_chatbot')
 console.log('✔ Test 4 Passed: Model registry and provider fallback chains verified.\n')

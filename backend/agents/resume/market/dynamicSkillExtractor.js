@@ -207,7 +207,7 @@ export async function extractSkillsDynamically(jdText = '', options = {}) {
     try {
       const response = await llmGateway.generate({
         purpose: 'resume-parsing',
-        model: options.model || 'llama-3.3-70b-versatile',
+        model: options.model || 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: DYNAMIC_EXTRACTOR_SYSTEM_PROMPT },
           { role: 'user', content: `Extract technical skills and tools from this Job Description:\n\n${cleanText}` },

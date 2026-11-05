@@ -631,7 +631,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       </div>
 
       {/* ── 7-Day Quick-Win Action Plan Card ── */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-[var(--primary-light)]/40 via-[var(--surface-card)] to-emerald-500/10 border-2 border-[var(--primary)]/40 shadow-sm relative overflow-hidden">
+      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-[var(--primary-light)]/40 via-[var(--surface-card)] to-emerald-500/10 border-2 border-[var(--primary)]/40 shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-sm">

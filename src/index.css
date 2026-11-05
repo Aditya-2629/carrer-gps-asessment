@@ -660,6 +660,21 @@ h1, h2, h3, h4, h5, h6 {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
+  /* Eliminate blank page 1 */
+  #overview {
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+  }
+  /* Prevent trailing blank page */
+  body, html {
+    height: auto !important;
+    min-height: auto !important;
+  }
+  footer {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    break-after: avoid !important;
+  }
   a {
     text-decoration: none !important;
     color: inherit !important;

@@ -27,9 +27,8 @@ async function runTests() {
   assert(PROVIDER_MODEL_FALLBACKS.openrouter.includes('google/gemini-3.1-pro-preview'))
 
   assert(PROVIDER_MODEL_FALLBACKS.groq, 'PROVIDER_MODEL_FALLBACKS.groq must be defined')
-  assert.strictEqual(PROVIDER_MODEL_FALLBACKS.groq[0], 'llama-3.3-70b-versatile')
+  assert.strictEqual(PROVIDER_MODEL_FALLBACKS.groq[0], 'openai/gpt-oss-120b')
   assert(PROVIDER_MODEL_FALLBACKS.groq.includes('openai/gpt-oss-120b'))
-  assert(PROVIDER_MODEL_FALLBACKS.groq.includes('openai/gpt-oss-20b'))
 
   assert(PROVIDER_MODEL_FALLBACKS.gemini, 'PROVIDER_MODEL_FALLBACKS.gemini must be defined')
   assert.strictEqual(PROVIDER_MODEL_FALLBACKS.gemini[0], 'gemini-3.5-flash-lite')
@@ -68,8 +67,8 @@ async function runTests() {
   assert.strictEqual(groqLlama.provider, 'groq')
 
   // Aliases check
-  assert.strictEqual(getModel('openrouter').id, 'google/gemini-3.5-flash')
-  assert.strictEqual(getModel('groq').id, 'llama-3.3-70b-versatile')
+  assert.strictEqual(getModel('openrouter').id, 'google/gemini-3.5-flash-lite')
+  assert.strictEqual(getModel('groq').id, 'openai/gpt-oss-120b')
 
   console.log('✓ Model registry contains OpenRouter paid tier models with full capabilities.')
 

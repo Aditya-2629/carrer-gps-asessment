@@ -83,10 +83,14 @@ export const aiConfig = {
       return keys.length > 0 ? keys[0] : (process.env.GROQ_API_KEY || '').trim()
     },
     get primaryModel() {
-      return process.env.GROQ_RESUME_MODEL_PRIMARY || 'openai/gpt-oss-120b'
+      const configured = (process.env.GROQ_RESUME_MODEL_PRIMARY || '').trim()
+      if (configured && !configured.includes('gemini') && !configured.includes('llama') && !configured.includes('20b')) return configured
+      return 'openai/gpt-oss-120b'
     },
     get fallbackModel() {
-      return process.env.GROQ_RESUME_MODEL_FALLBACK || 'openai/gpt-oss-20b'
+      const configured = (process.env.GROQ_RESUME_MODEL_FALLBACK || '').trim()
+      if (configured && !configured.includes('gemini') && !configured.includes('llama') && !configured.includes('20b')) return configured
+      return 'openai/gpt-oss-120b'
     },
     get timeoutMs() {
       return parseInt(process.env.GROQ_TIMEOUT_MS || '60000', 10)

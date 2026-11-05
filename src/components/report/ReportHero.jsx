@@ -122,20 +122,28 @@ export default function ReportHero({ reportData }) {
     return decodeHtmlEntities(String(s || ''))
   }).filter(Boolean)
 
-  const healthScore = Math.max(
+  // Compute deterministic scorecard sum from 6 areas or 4 pillars to ensure 100% mathematical consistency
+  const computedSum = reportData?.gps_scores?.areas
+    ? Object.values(reportData.gps_scores.areas).reduce((sum, a) => sum + (Number(a.points) || 0), 0)
+    : reportData?.gps_scores?.four_pillars
+    ? Object.values(reportData.gps_scores.four_pillars).reduce((sum, p) => sum + (Number(p.points) || 0), 0)
+    : null
+
+  const healthScore = Math.min(100, Math.max(
     0,
     Number(
+      computedSum ??
+      reportData?.gps_score ??
       reportData?.career_health_score ??
       resumeAgent?.dashboard?.score ??
-      reportData?.score ??
-      0
-    ) || 45
-  )
+      60
+    )
+  ))
 
   const scoreLabel =
-    typeof reportData?.score_label === 'string'
-      ? reportData.score_label
-      : resumeAgent?.dashboard?.gradeLabel || (healthScore >= 75 ? 'Strong' : healthScore >= 50 ? 'Developing' : 'Emerging')
+    reportData?.gps_scores?.gradeLabel ||
+    reportData?.score_label ||
+    (healthScore >= 85 ? 'Elite Positioning' : healthScore >= 70 ? 'Competitive' : healthScore >= 55 ? 'Needs Optimization' : 'Critical Focus Required')
 
   const reportDate = new Date().toLocaleDateString('en-US', {
     month: 'short',
@@ -147,7 +155,11 @@ export default function ReportHero({ reportData }) {
   const [displayedScore, setDisplayedScore] = useState(0)
   useEffect(() => {
     let start = 0
-    const end = Math.min(100, Math.max(1, healthScore))
+    const end = Math.min(100, Math.max(0, healthScore))
+    if (end === 0) {
+      setDisplayedScore(0)
+      return
+    }
     const stepTime = Math.max(10, Math.floor(1200 / end))
     const timer = setInterval(() => {
       start += 1
@@ -459,8 +471,8 @@ export default function ReportHero({ reportData }) {
         </div>
       </div>
 
-      {/* Standalone Executive GPS Diagnostic Summary (Enclosed to start cleanly on Page 2) */}
-      <div className="mt-6 p-6 print:p-4 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] print:border-none shadow-sm break-before-page page-break-before-always break-inside-avoid page-break-inside-avoid print:mt-2">
+      {/* Standalone Executive GPS Diagnostic Summary */}
+      <div className="mt-6 p-6 print:p-4 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm break-inside-avoid page-break-inside-avoid print:mt-2">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)]">
             Executive GPS Diagnostic Summary

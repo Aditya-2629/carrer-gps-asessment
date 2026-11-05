@@ -171,17 +171,17 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('2. TOP PRIORITIES & 90-DAY EXECUTION ROADMAP')
       doc.moveDown(0.3)
 
-      const priorities = (aiReport.critical_issues || []).slice(0, 3)
+      const priorities = (aiReport.critical_issues || []).filter(Boolean).slice(0, 3)
       const pCardW = (pageWidth - 12) / 3
       const pStartY = doc.y
 
       priorities.forEach((p, idx) => {
         const x = 28 + idx * (pCardW + 6)
         doc.rect(x, pStartY, pCardW, 76).fillAndStroke('#f1f5f9', '#cbd5e1')
-        doc.fillColor('#ef4444').fontSize(8).font('Helvetica-Bold').text(`PRIORITY #${idx + 1} (${p.severity || 'HIGH'})`, x + 6, pStartY + 6)
-        doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold').text((p.title || 'Action Item').slice(0, 38), x + 6, pStartY + 18, { width: pCardW - 12 })
-        doc.fillColor('#475569').fontSize(7).font('Helvetica').text((p.diagnosis || '').slice(0, 110), x + 6, pStartY + 32, { width: pCardW - 12 })
-        if (p.action_steps?.[0]) {
+        doc.fillColor('#ef4444').fontSize(8).font('Helvetica-Bold').text(`PRIORITY #${idx + 1} (${p?.severity || 'HIGH'})`, x + 6, pStartY + 6)
+        doc.fillColor('#0f172a').fontSize(8).font('Helvetica-Bold').text((p?.title || 'Action Item').slice(0, 38), x + 6, pStartY + 18, { width: pCardW - 12 })
+        doc.fillColor('#475569').fontSize(7).font('Helvetica').text((p?.diagnosis || '').slice(0, 110), x + 6, pStartY + 32, { width: pCardW - 12 })
+        if (p?.action_steps?.[0]) {
           doc.fillColor('#0369a1').fontSize(6.5).font('Helvetica-Bold').text(`• ${(p.action_steps[0]).slice(0, 85)}`, x + 6, pStartY + 58, { width: pCardW - 12 })
         }
       })
@@ -281,6 +281,7 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.moveDown(0.3)
 
       const discrepancies = (linkedinAgent?.discrepancies || [])
+        .filter(Boolean)
         .filter((d) => d && typeof d === 'object')
         .slice(0, 4)
 
@@ -290,14 +291,14 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
           const dY = doc.y
           doc.rect(28, dY, pageWidth, 30).fillAndStroke('#f8fafc', '#e2e8f0')
 
-          const severity = String(d.severity || 'WARN').toLowerCase()
+          const severity = String(d?.severity || 'WARN').toLowerCase()
           const isHigh = severity === 'high'
-          const title = String(d.title || 'Cross-Platform Discrepancy').trim()
-          const resumeClaim = String(d.resumeClaim || d.resume || 'N/A').trim()
-          const linkedinClaim = String(d.linkedinClaim || d.linkedin || 'N/A').trim()
-          const recommendation = String(d.recommendation || d.fix || '').trim().slice(0, 140)
+          const title = String(d?.title || 'Cross-Platform Discrepancy').trim()
+          const resumeClaim = String(d?.resumeClaim || d?.resume || 'N/A').trim()
+          const linkedinClaim = String(d?.linkedinClaim || d?.linkedin || 'N/A').trim()
+          const recommendation = String(d?.recommendation || d?.fix || '').trim().slice(0, 140)
 
-          doc.fillColor(isHigh ? '#dc2626' : '#d97706').fontSize(7).font('Helvetica-Bold').text(`[${(d.severity || 'WARN').toUpperCase()}] ${title}`, 34, dY + 4)
+          doc.fillColor(isHigh ? '#dc2626' : '#d97706').fontSize(7).font('Helvetica-Bold').text(`[${(d?.severity || 'WARN').toUpperCase()}] ${title}`, 34, dY + 4)
           doc.fillColor('#334155').fontSize(6.5).font('Helvetica').text(`Resume: ${resumeClaim}  vs  LinkedIn: ${linkedinClaim}`, 34, dY + 13, { width: pageWidth - 14 })
           if (recommendation) {
             doc.fillColor('#059669').fontSize(6.5).font('Helvetica-Bold').text(`Fix: ${recommendation}`, 34, dY + 21, { width: pageWidth - 14 })
@@ -400,4 +401,16 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       reject(err)
     }
   })
+}
+
+/**
+ * Convenience wrapper returning report PDF buffer.
+ * Supports both (user, answers, aiReport, semanticProfile) positional arguments
+ * and single options object { user, answers, aiReport, semanticProfile }.
+ */
+export async function generateReportPdfBuffer(userOrOpts = {}, answers = {}, aiReport = {}, semanticProfile = null) {
+  if (userOrOpts && typeof userOrOpts === 'object' && userOrOpts.aiReport) {
+    return generateStandardReportPdf(userOrOpts)
+  }
+  return generateStandardReportPdf({ user: userOrOpts, answers, aiReport, semanticProfile })
 }

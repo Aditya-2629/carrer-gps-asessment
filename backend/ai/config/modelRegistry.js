@@ -5,15 +5,17 @@
  */
 
 export const MODEL_REGISTRY = {
-  // --- Groq Primary & Fallback Models for Resume Agent V1.2 ---
+  // --- Groq Primary & Consolidated Model for Career GPS ---
   'openai/gpt-oss-120b': {
     id: 'openai/gpt-oss-120b',
-    displayName: 'Groq GPT-OSS 120B (Primary)',
+    displayName: 'Groq GPT-OSS 120B (Consolidated Groq Engine)',
     provider: 'groq',
-    purpose: ['resume_analysis', 'linkedin_analysis', 'market_jd_analysis', 'career_chatbot', 'bullet_batch_weave'],
+    purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'resume-parsing', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
     supportsJsonObject: true,
     supportsJsonSchema: true,
     supportsReasoning: true,
+    supportsSystemRole: true,
+    maxOutputTokens: 4096,
     allowPersonalData: true,
     contextWindow: 131072,
     enabled: true,
@@ -21,7 +23,7 @@ export const MODEL_REGISTRY = {
 
   'openai/gpt-oss-20b': {
     id: 'openai/gpt-oss-20b',
-    displayName: 'Groq GPT-OSS 20B (Fallback)',
+    displayName: 'Groq GPT-OSS 20B (Decommissioned)',
     provider: 'groq',
     purpose: ['resume_analysis', 'linkedin_analysis'],
     supportsJsonObject: true,
@@ -29,7 +31,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 131072,
-    enabled: true,
+    enabled: false,
   },
 
   'llama-3.1-70b-versatile': {
@@ -47,7 +49,7 @@ export const MODEL_REGISTRY = {
 
   'llama3-70b-8192': {
     id: 'llama3-70b-8192',
-    displayName: 'Groq Llama 3 70B 8192 (Failover)',
+    displayName: 'Groq Llama 3 70B 8192 (Decommissioned)',
     provider: 'groq',
     purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'resume-parsing', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
     supportsJsonObject: true,
@@ -55,12 +57,12 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 8192,
-    enabled: true,
+    enabled: false,
   },
 
   'llama-3.3-70b-versatile': {
     id: 'llama-3.3-70b-versatile',
-    displayName: 'Groq Llama 3.3 70B Versatile (Primary/Failover)',
+    displayName: 'Groq Llama 3.3 70B Versatile (Decommissioned)',
     provider: 'groq',
     purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'resume-parsing', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
     supportsJsonObject: true,
@@ -68,7 +70,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 131072,
-    enabled: true,
+    enabled: false,
   },
 
   // --- OpenRouter Paid Priority Tier ---
@@ -346,7 +348,7 @@ export const MODEL_REGISTRY = {
 export const getModel = (modelId) => {
   if (!modelId) return null
   if (modelId === 'openrouter') return MODEL_REGISTRY['google/gemini-3.5-flash-lite'] || MODEL_REGISTRY['google/gemini-3.5-flash']
-  if (modelId === 'groq') return MODEL_REGISTRY['llama-3.3-70b-versatile'] || MODEL_REGISTRY['llama3-70b-8192']
+  if (modelId === 'groq') return MODEL_REGISTRY['openai/gpt-oss-120b']
   if (modelId === 'gemini') return MODEL_REGISTRY['gemini-3.5-flash-lite']
   return MODEL_REGISTRY[modelId] || null
 }

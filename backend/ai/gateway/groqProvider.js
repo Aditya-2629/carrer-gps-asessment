@@ -93,20 +93,25 @@ export class GroqProvider {
     totalDeadlineMs = 60000,
     _sleepFn = null,
   }) {
+    let effectiveModel = model || 'openai/gpt-oss-120b'
+    if (typeof effectiveModel === 'string' && (effectiveModel.includes('llama') || effectiveModel.includes('gpt-oss-20b'))) {
+      effectiveModel = 'openai/gpt-oss-120b'
+    }
+
     const keys = this.getKeys()
     if (keys.length === 0) {
       throw new ProviderError({
         code: PROVIDER_ERROR_CODES.PROVIDER_NOT_CONFIGURED,
         message: 'Groq API key is missing. Please set GROQ_API_KEY in environment variables.',
         provider: this.name,
-        model,
+        model: effectiveModel,
         statusCode: 500,
         isRetryable: false,
       })
     }
 
     const payload = {
-      model,
+      model: effectiveModel,
       messages,
       temperature,
       max_tokens: maxTokens,
@@ -338,7 +343,7 @@ export class GroqProvider {
 
         return {
           text: text.trim(),
-          actualModel: data?.model || model,
+          actualModel: data?.model || effectiveModel,
           finishReason,
           requestId,
           tokens: {
@@ -361,7 +366,7 @@ export class GroqProvider {
             code: PROVIDER_ERROR_CODES.TIMEOUT,
             message: 'Groq request aborted by caller.',
             provider: this.name,
-            model,
+            model: effectiveModel,
             statusCode: 408,
             isRetryable: false,
           })

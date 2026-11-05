@@ -28,24 +28,25 @@ async function runTestSuite() {
 
   assert.strictEqual(
     PROVIDER_MODEL_FALLBACKS.groq[0],
-    'llama-3.3-70b-versatile',
-    'Primary Groq fallback model must be llama-3.3-70b-versatile'
+    'openai/gpt-oss-120b',
+    'Primary Groq fallback model must be openai/gpt-oss-120b'
   )
   assert.ok(
-    !PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.1-70b-versatile'),
-    'Decommissioned llama-3.1-70b-versatile must NOT be in active Groq fallbacks'
+    !PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.1-70b-versatile') &&
+    !PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.3-70b-versatile'),
+    'Decommissioned llama models must NOT be in active Groq fallbacks'
   )
 
   const groqDefault = getModel('groq')
   assert.ok(groqDefault, 'Default groq alias must resolve')
-  assert.strictEqual(groqDefault.id, 'llama-3.3-70b-versatile', 'groq alias must resolve to llama-3.3-70b-versatile')
-  assert.strictEqual(groqDefault.enabled, true, 'llama-3.3-70b-versatile must be enabled')
+  assert.strictEqual(groqDefault.id, 'openai/gpt-oss-120b', 'groq alias must resolve to openai/gpt-oss-120b')
+  assert.strictEqual(groqDefault.enabled, true, 'openai/gpt-oss-120b must be enabled')
 
   const decommissioned = getModel('llama-3.1-70b-versatile')
   assert.ok(decommissioned, 'llama-3.1-70b-versatile entry should exist in registry')
   assert.strictEqual(decommissioned.enabled, false, 'llama-3.1-70b-versatile must be marked enabled: false')
 
-  console.log('  ✔ Groq model registry correctly routes to active llama-3.3-70b-versatile and disables decommissioned endpoint')
+  console.log('  ✔ Groq model registry correctly routes to active openai/gpt-oss-120b and disables decommissioned endpoints')
 
   // -----------------------------------------------------------------
   // TEST 2: PDF Generator Null-Safety with Corrupted/Sparse Discrepancies

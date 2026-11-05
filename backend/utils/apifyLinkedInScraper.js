@@ -1,6 +1,8 @@
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from './smartKeyPool.js'
 
+export const activeScrapes = new Map() // url -> Promise<profile>
+
 /**
  * Scrapes a complete LinkedIn profile using Apify's cookieless actor:
  * Default: "BHzefUZlZRKWxkTck" (configurable via APIFY_LINKEDIN_ACTOR_ID)
@@ -215,9 +217,9 @@ export function getApifyTokens() {
  * If all tokens fail or quota is reached, gracefully returns null so linkedinAgent
  * falls back to Resume-Bridged LLM synthesis instead of crashing.
  */
-export const scrapeLinkedInProfile = async (linkedinUrl, options = {}) => {
+export const scrapeLinkedInProfile = (linkedinUrl, options = {}) => {
   if (!linkedinUrl || typeof linkedinUrl !== 'string' || !linkedinUrl.trim()) {
-    return null
+    return Promise.resolve(null)
   }
 
   let formattedUrl = linkedinUrl.trim()
@@ -237,84 +239,101 @@ export const scrapeLinkedInProfile = async (linkedinUrl, options = {}) => {
     throw new Error('Invalid LinkedIn URL format. Must be a valid profile link (e.g. https://www.linkedin.com/in/username).')
   }
 
-  if (apifyKeyPool.getKeyCount() === 0) {
-    console.warn('[Apify Warning] No APIFY_API_TOKEN or APIFY_API_TOKENS configured in backend/.env. Skipping live LinkedIn profile scraping.')
-    return null
+  const cleanUrl = formattedUrl.trim().toLowerCase()
+  if (activeScrapes.has(cleanUrl)) {
+    console.log(`[ApifyScraper] Deduplicating concurrent scrape for: ${cleanUrl}`)
+    return activeScrapes.get(cleanUrl)
   }
 
-  const actorId = process.env.APIFY_LINKEDIN_ACTOR_ID || 'harvestapi/linkedin-profile-scraper'
-  const maxItemsLimit = Number(process.env.APIFY_LINKEDIN_MAX_ITEMS) || 100
+  const scrapePromise = (async () => {
+    try {
+      if (apifyKeyPool.getKeyCount() === 0) {
+        console.warn('[Apify Warning] No APIFY_API_TOKEN or APIFY_API_TOKENS configured in backend/.env. Skipping live LinkedIn profile scraping.')
+        return null
+      }
 
-  try {
-    return await apifyKeyPool.executeWithRetry(
-      async (activeToken) => {
-        const tokenMask = activeToken.length > 8 ? `${activeToken.slice(0, 4)}...${activeToken.slice(-4)}` : 'token'
-        const client = new ApifyClient({ token: activeToken })
+      const actorId = process.env.APIFY_LINKEDIN_ACTOR_ID || 'harvestapi/linkedin-profile-scraper'
+      const maxItemsLimit = Number(process.env.APIFY_LINKEDIN_MAX_ITEMS) || 100
 
-        // Execute Apify actor with token, item, row, and memory limits
-        const run = await client.actor(actorId).call(
-          {
-            urls: [formattedUrl],
-            profileUrls: [formattedUrl],
-            rows: maxItemsLimit,
-            maxRowsPerUrl: maxItemsLimit,
-            maxRows: maxItemsLimit,
-            maxItems: maxItemsLimit,
-            limit: maxItemsLimit,
-            maxSkills: 100,
-            maxProfiles: 1,
-            companyProfile: false, // Disables company sub-crawls!
-            enrichCompany: false,
-            scrapeCompanyDetails: false,
+      try {
+        return await apifyKeyPool.executeWithRetry(
+          async (activeToken) => {
+            const tokenMask = activeToken.length > 8 ? `${activeToken.slice(0, 4)}...${activeToken.slice(-4)}` : 'token'
+            const client = new ApifyClient({ token: activeToken })
+
+            // Execute Apify actor with token, item, row, and memory limits
+            const run = await client.actor(actorId).call(
+              {
+                urls: [formattedUrl],
+                profileUrls: [formattedUrl],
+                rows: maxItemsLimit,
+                maxRowsPerUrl: maxItemsLimit,
+                maxRows: maxItemsLimit,
+                maxItems: maxItemsLimit,
+                limit: maxItemsLimit,
+                maxSkills: 100,
+                maxProfiles: 1,
+                companyProfile: false, // Disables company sub-crawls!
+                enrichCompany: false,
+                scrapeCompanyDetails: false,
+              },
+              {
+                maxItems: maxItemsLimit,
+                waitSecs: 90,
+              }
+            )
+
+            // Retrieve items from dataset
+            const { items } = await client.dataset(run.defaultDatasetId).listItems({
+              limit: maxItemsLimit,
+            })
+
+            if (!items || items.length === 0) {
+              throw new Error('Empty dataset returned from Apify actor run.')
+            }
+
+            const firstItem = items[0]
+            const itemStr = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem || {})
+
+            // Quota / rate limit / run limit detection
+            const isQuotaHit =
+              typeof firstItem === 'string' ||
+              /limited to \d+ runs|upgrade to a paid plan|rate limit|quota exceeded|free users are limited/i.test(itemStr)
+
+            const hasBasicFields = Boolean(
+              firstItem &&
+              typeof firstItem === 'object' &&
+              (firstItem.fullName ||
+                firstItem.firstName ||
+                firstItem.name ||
+                firstItem.headline ||
+                (Array.isArray(firstItem.experience) && firstItem.experience.length > 0) ||
+                (Array.isArray(firstItem.experiences) && firstItem.experiences.length > 0) ||
+                (Array.isArray(firstItem.positions) && firstItem.positions.length > 0))
+            )
+
+            if (isQuotaHit || !hasBasicFields) {
+              console.warn(`[Apify Quota/Limit Reached]: Free 50-run limit hit on current token (${tokenMask}): ${itemStr.slice(0, 160)}`)
+              throw new Error(`Apify quota or invalid dataset returned on token ${tokenMask}: ${itemStr.slice(0, 80)}`)
+            }
+
+            // Valid profile extracted successfully
+            return mapApifyProfileToCanonical(firstItem, formattedUrl, actorId)
           },
-          {
-            maxItems: maxItemsLimit,
-            waitSecs: 90,
-          }
+          { maxAttempts: options.maxRetries || apifyKeyPool.getKeyCount() }
         )
+      } catch (err) {
+        console.warn(`[Apify Exhausted]: All Apify tokens failed or hit quota limits (${err.message}). Falling back to Resume-Bridged profile.`)
+        return null
+      }
+    } finally {
+      // Retain in cache for 60 seconds to prevent rapid double-runs
+      const timer = setTimeout(() => activeScrapes.delete(cleanUrl), 60000)
+      if (timer?.unref) timer.unref()
+    }
+  })()
 
-        // Retrieve items from dataset
-        const { items } = await client.dataset(run.defaultDatasetId).listItems({
-          limit: maxItemsLimit,
-        })
-
-        if (!items || items.length === 0) {
-          throw new Error('Empty dataset returned from Apify actor run.')
-        }
-
-        const firstItem = items[0]
-        const itemStr = typeof firstItem === 'string' ? firstItem : JSON.stringify(firstItem || {})
-
-        // Quota / rate limit / run limit detection
-        const isQuotaHit =
-          typeof firstItem === 'string' ||
-          /limited to \d+ runs|upgrade to a paid plan|rate limit|quota exceeded|free users are limited/i.test(itemStr)
-
-        const hasBasicFields = Boolean(
-          firstItem &&
-          typeof firstItem === 'object' &&
-          (firstItem.fullName ||
-            firstItem.firstName ||
-            firstItem.name ||
-            firstItem.headline ||
-            (Array.isArray(firstItem.experience) && firstItem.experience.length > 0) ||
-            (Array.isArray(firstItem.experiences) && firstItem.experiences.length > 0) ||
-            (Array.isArray(firstItem.positions) && firstItem.positions.length > 0))
-        )
-
-        if (isQuotaHit || !hasBasicFields) {
-          console.warn(`[Apify Quota/Limit Reached]: Free 50-run limit hit on current token (${tokenMask}): ${itemStr.slice(0, 160)}`)
-          throw new Error(`Apify quota or invalid dataset returned on token ${tokenMask}: ${itemStr.slice(0, 80)}`)
-        }
-
-        // Valid profile extracted successfully
-        return mapApifyProfileToCanonical(firstItem, formattedUrl, actorId)
-      },
-      { maxAttempts: options.maxRetries || apifyKeyPool.getKeyCount() }
-    )
-  } catch (err) {
-    console.warn(`[Apify Exhausted]: All Apify tokens failed or hit quota limits (${err.message}). Falling back to Resume-Bridged profile.`)
-    return null
-  }
+  activeScrapes.set(cleanUrl, scrapePromise)
+  return scrapePromise
 }
 

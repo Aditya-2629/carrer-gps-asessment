@@ -571,7 +571,7 @@ export async function runLinkedInSynthesis(
 
   // Route to high-throughput, low-latency OpenRouter Gemini Flash Lite
   const preferredProvider = options?.preferredProvider || 'openrouter'
-  const effectiveModel = options?.model || 'google/gemini-3.5-flash-lite'
+  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : 'google/gemini-3.5-flash-lite')
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
