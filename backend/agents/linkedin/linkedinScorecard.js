@@ -110,8 +110,8 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
   // ── 2. Search Visibility & SEO (25%) ─────────────────────────────────────
   let visScore = 100
   if (visibility.connectionBracket === '<200') {
-    visScore -= 25
-    penalties.visibility += 25
+    visScore -= 20
+    penalties.visibility += 20
     addIssue(
       'medium',
       'visibility',
@@ -119,9 +119,9 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
       `${visibility.connectionsCount ?? 0} connections is below the 200 threshold where LinkedIn algorithms grant full search distribution.`,
       'Send personalized connection requests to colleagues, alumni, and tech recruiters to reach 200-500 connections.'
     )
-  } else if (visibility.connectionBracket === '200-499') {
-    visScore -= 10
-    penalties.visibility += 10
+  } else if (visibility.connectionBracket === '200-500' || visibility.connectionBracket === '200-499') {
+    visScore -= 5
+    penalties.visibility += 5
     addIssue(
       'low',
       'visibility',
@@ -306,9 +306,12 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
 
   let overall = 0
   for (const m of CATEGORY_META) overall += scores[m.key] * m.weight
-  // Floor with worst category so severe gaps reflect on the overall score
+
+  // Cap gracefully: worst category + 50 (floor at 75 if branding and completeness are strong >= 85)
   const worst = Math.min(...CATEGORY_META.map((m) => scores[m.key]))
-  overall = Math.min(overall, worst + 40)
+  const minFloor = (scores.branding >= 85 && scores.completeness >= 80) ? 75 : 60
+  overall = Math.min(overall, Math.max(worst + 50, minFloor))
+
   const score = round(clamp(overall, 5, 100))
   const { grade, label } = gradeFor(score)
 

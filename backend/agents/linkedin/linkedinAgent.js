@@ -61,19 +61,7 @@ function makeNoDataResult() {
  * @param {Object} resumeContext
  * @returns {Object} Normalized profile (isValid: true or false)
  */
-export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
-  let profile = normalizeLinkedInProfile(rawProfile)
-  const isPoisoned =
-    !profile.isValid ||
-    (profile.fullName === 'Not Specified' && (!profile.experiences || profile.experiences.length === 0))
-
-  if (profile.isValid && !isPoisoned && !profile.inferredFromResume) {
-    return profile
-  }
-
-  // Fallback: Infer profile structure from canonical resume & target role
-  // Supports BOTH canonicalResume (canonical.candidate.name, canonical.experience)
-  // AND resumeJson / resumeAgent (canonical.candidate_name, canonical.experiences, canonical.top_skills)
+export function inferProfileFromResume(rawProfile, resumeContext = {}) {
   const canonical =
     resumeContext?.canonicalResume ||
     resumeContext?.resumeJson ||
@@ -140,57 +128,71 @@ export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
     ? canonical.featuredProjects
     : []
 
-  if (candidateName || targetRole || resumeExperiences.length > 0 || resumeSkills.length > 0) {
-    const rawObj = rawProfile && typeof rawProfile === 'object' ? rawProfile : {}
-    const rawUrl = rawObj.url || rawObj.linkedinUrl || rawObj.profileUrl || ''
+  const rawObj = rawProfile && typeof rawProfile === 'object' ? rawProfile : {}
+  const rawUrl = rawObj.url || rawObj.linkedinUrl || rawObj.profileUrl || ''
 
-    const headline = `${targetRole || 'Professional'} | ${resumeSkills.slice(0, 4).join(' · ')}`
-    const about =
-      canonical?.summary?.text ||
-      (typeof canonical?.summary === 'string' ? canonical.summary : '') ||
-      canonical?.professional_summary ||
-      canonical?.executive_ai_critique ||
-      ''
+  const headline = `${targetRole || 'Professional'} | ${resumeSkills.slice(0, 4).join(' · ')}`
+  const about =
+    canonical?.summary?.text ||
+    (typeof canonical?.summary === 'string' ? canonical.summary : '') ||
+    canonical?.professional_summary ||
+    canonical?.executive_ai_critique ||
+    ''
 
-    return {
-      fullName: candidateName || 'Candidate',
-      headline,
-      about,
-      experiences: resumeExperiences.map((exp) => ({
-        title: exp.role || exp.title || exp.position || 'Role Not Specified',
-        company: exp.company || exp.companyName || 'Company Not Specified',
-        dates: exp.dates || exp.duration || exp.dateRange || '',
-        description: Array.isArray(exp.bullets)
-          ? exp.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).join('\n')
-          : (exp.description || ''),
-        location: exp.location || '',
-        isCurrent: Boolean(exp.isCurrent || /present|current/i.test(exp.dates || exp.duration || '')),
-      })),
-      education: resumeEducation.map((edu) => ({
-        school: edu.institution || edu.school || edu.university || '',
-        degree: edu.degree || '',
-        fieldOfStudy: edu.field || edu.fieldOfStudy || edu.major || '',
-        dates: edu.dates || edu.year || '',
-      })),
-      certifications: resumeCerts,
-      projects: resumeProjects,
-      skills: resumeSkills,
-      connectionsCount: null,
-      recommendationsCount: null,
-      pictureUrl: '',
-      bannerUrl: '',
-      hasPicture: false,
-      hasBanner: false,
-      url: rawUrl,
-      hasCustomUrl: Boolean(rawUrl && /linkedin\.com\/in\/[^/]+/i.test(rawUrl)),
-      isValid: true,
-      inferredFromResume: true,
-      apifyQuotaFallback: true,
-      profileSource: 'resume_inferred',
-    }
+  return {
+    fullName: candidateName || 'Candidate',
+    headline,
+    about,
+    experiences: resumeExperiences.map((exp) => ({
+      title: exp.role || exp.title || exp.position || 'Role Not Specified',
+      company: exp.company || exp.companyName || 'Company Not Specified',
+      dates: exp.dates || exp.duration || exp.dateRange || '',
+      description: Array.isArray(exp.bullets)
+        ? exp.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).join('\n')
+        : (exp.description || ''),
+      location: exp.location || '',
+      isCurrent: Boolean(exp.isCurrent || /present|current/i.test(exp.dates || exp.duration || '')),
+    })),
+    education: resumeEducation.map((edu) => ({
+      school: edu.institution || edu.school || edu.university || '',
+      degree: edu.degree || '',
+      fieldOfStudy: edu.field || edu.fieldOfStudy || edu.major || '',
+      dates: edu.dates || edu.year || '',
+    })),
+    certifications: resumeCerts,
+    projects: resumeProjects,
+    skills: resumeSkills,
+    connectionsCount: null,
+    recommendationsCount: null,
+    pictureUrl: '',
+    bannerUrl: '',
+    hasPicture: false,
+    hasBanner: false,
+    url: rawUrl,
+    hasCustomUrl: Boolean(rawUrl && /linkedin\.com\/in\/[^/]+/i.test(rawUrl)),
+    isValid: true,
+    inferredFromResume: true,
+    isPrivateProfile: true,
+    apifyQuotaFallback: true,
+    profileSource: 'resume_inferred',
+  }
+}
+
+export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
+  let profile = normalizeLinkedInProfile(rawProfile)
+  const isPoisonedOrPrivate =
+    !profile.isValid ||
+    (profile.fullName === 'Not Specified' && (!profile.experiences || profile.experiences.length === 0))
+
+  if (profile.isValid && !isPoisonedOrPrivate && !profile.inferredFromResume) {
+    return profile
   }
 
-  return profile
+  // Profile is private or unscraped: infer clean baseline from verified resume
+  const inferred = inferProfileFromResume(rawProfile, resumeContext)
+  inferred.inferredFromResume = true
+  inferred.isPrivateProfile = true
+  return inferred
 }
 
 /**

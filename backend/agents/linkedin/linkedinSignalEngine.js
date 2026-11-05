@@ -83,10 +83,17 @@ export function extractLinkedInSignals(rawOrNormalizedProfile = {}, resumeContex
 
   // ── 3. Social Proof Brackets ──────────────────────────────────────────────
   let connectionBracket = 'unknown'
-  if (connections !== null) {
-    if (connections >= 500) connectionBracket = '500+'
-    else if (connections >= 200) connectionBracket = '200-500'
-    else connectionBracket = '<200'
+  const rawConnStr = String(connections || '').replace(/[^0-9]/g, '')
+  const parsedConnections = rawConnStr ? parseInt(rawConnStr, 10) : null
+
+  if (parsedConnections !== null && !isNaN(parsedConnections)) {
+    if (parsedConnections >= 500 || String(connections).includes('500+')) {
+      connectionBracket = '500+'
+    } else if (parsedConnections >= 200) {
+      connectionBracket = '200-500'
+    } else {
+      connectionBracket = '<200'
+    }
   }
 
   // ── 4. Completeness & Experience Signals ──────────────────────────────────

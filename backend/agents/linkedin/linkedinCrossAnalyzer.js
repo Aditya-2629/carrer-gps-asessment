@@ -610,8 +610,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
         continue
       }
 
-      // Role present on resume but omitted on LinkedIn
-      if (rExp.isCurrent || (rExp.bullets && rExp.bullets.length >= 2)) {
+      // Role present on resume but omitted on LinkedIn (suppressed for private or inferred profiles)
+      if (!profile.inferredFromResume && !profile.isPrivateProfile && (rExp.isCurrent || (rExp.bullets && rExp.bullets.length >= 2))) {
         const omission = {
           id: `timeline_omission_${timelineMismatches.length + 1}`,
           type: 'role_omission',
@@ -708,7 +708,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
     if (rYears.length > 0 && lYears.length > 0) {
       const rStart = rYears[0]
       const lStart = lYears[0]
-      if (Math.abs(rStart - lStart) >= 1) {
+      // Only flag if difference is strictly greater than 1 full year (avoids Dec/Jan boundary collisions)
+      if (Math.abs(rStart - lStart) > 1) {
         const timelineObs = {
           id: `timeline_drift_${timelineMismatches.length + 1}`,
           type: 'timeline_drift',
@@ -717,8 +718,8 @@ export function analyzeCrossAgentDiscrepancies(rawOrNormalizedProfile = {}, resu
           company: rExp.company,
           resumeClaim: rExp.dates || `${rStart}`,
           linkedinClaim: lExp.dates || `${lStart}`,
-          diagnosis: `Start year at ${rExp.company} differs between Resume (${rStart}) and LinkedIn (${lStart}). Automated employment verification and recruiter screenings flag differing employment spans as high-risk discrepancies.`,
-          recommendation: `Align the start and end dates for ${rExp.company} exactly across your resume and LinkedIn profile.`,
+          diagnosis: `Start year at ${rExp.company} differs between Resume (${rStart}) and LinkedIn (${lStart}) by more than a year. Automated background check systems flag multi-year employment differences as inconsistencies.`,
+          recommendation: `Align the start and end dates for ${rExp.company} identically across your resume and LinkedIn profile.`,
         }
         timelineMismatches.push(timelineObs)
         discrepancies.push(timelineObs)

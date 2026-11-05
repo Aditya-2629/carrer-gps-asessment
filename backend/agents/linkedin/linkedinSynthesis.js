@@ -90,23 +90,22 @@ export function buildDeterministicOptimizations(
     profile?.headline ||
     'Software Engineer'
 
+  const isHealthRole = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(targetRole)
+  const isFinanceRole = /finance|financial|accountant|accounting|audit|tax|cpa|banking|bank/i.test(targetRole)
+  const isSalesRole = /sales|account executive|b2b|marketing|revenue|bizdev|business dev/i.test(targetRole)
   const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web/i.test(targetRole)
-  const isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)
+  const isDataRole = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(targetRole)) && !isFinanceRole
   const isDevopsRole = /devops|cloud|sre|infrastructure/i.test(targetRole)
 
   const exp = canonical.experience || canonical.experiences || []
   const topCompany = exp[0]?.company || 'Tech'
 
-  // Extract candidate verified skills
+  // Extract candidate verified skills (modern data warehouse tools preserved for SWEs)
   const candidateSkills = (canonical.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.name))
     .filter(Boolean)
     .filter(isValidSkill)
     .map(formatSkillName)
-    .filter((s) => {
-      if (isSoftwareRole && /^(power\s*bi|tableau|snowflake|bigquery|looker|dbt)$/i.test(s)) return false
-      return true
-    })
     .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
 
   // Role-appropriate stacks
@@ -116,29 +115,40 @@ export function buildDeterministicOptimizations(
       ? ['SQL', 'Python', 'Power BI', 'Tableau', 'PostgreSQL']
       : isDevopsRole
         ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD']
-        : ['Product Strategy', 'Agile Methodologies', 'User Research', 'Roadmapping']
+        : isHealthRole
+          ? ['Patient Assessment', 'EHR Systems', 'HIPAA Protocol', 'Acute Care', 'Care Coordination']
+          : isFinanceRole
+            ? ['Financial Modeling', 'GAAP / IFRS', 'Variance Analysis', 'ERP Systems', 'Month-End Close']
+            : isSalesRole
+              ? ['B2B Pipeline', 'Salesforce CRM', 'Enterprise Accounts', 'Contract Negotiation']
+              : ['Cross-functional Leadership', 'Strategic Planning', 'Process Optimization', 'KPI Dashboards']
 
   const effectiveSkills = candidateSkills.length >= 3 ? candidateSkills : defaultStack
   const topStack = effectiveSkills.slice(0, 3).join(' | ')
 
-  // Dynamic Headline options
+  // Dynamic Specialist Headline formula
+  let specialistTopic = 'Strategic Planning, Process Optimization & Operational Leadership'
+  if (isSoftwareRole || isDevopsRole) specialistTopic = 'Cloud Architecture, Distributed Services & System Performance'
+  else if (isDataRole) specialistTopic = 'Data Architecture, Analytics Pipelines & Decision Systems'
+  else if (isHealthRole) specialistTopic = 'Clinical Operations, Patient Care Excellence & Healthcare Compliance'
+  else if (isFinanceRole) specialistTopic = 'Financial Reporting, Variance Modeling & Capital Strategy'
+  else if (isSalesRole) specialistTopic = 'Enterprise Revenue Growth, Strategic Partnerships & Pipeline Acceleration'
+
   const fallbackHeadlines = [
     {
       formula: 'Search-Optimized',
-      headline: `${targetRole} | ${topStack} | Scalable Production Systems`.slice(0, 220),
+      headline: `${targetRole} | ${topStack} | Scalable Execution`.slice(0, 220),
       whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
     },
     {
       formula: 'Impact-Driven',
-      headline: `${targetRole} @ Scale | Delivering High-Throughput Architecture & Clean Code Delivery`.slice(0, 220),
-      whyItWorks: 'Anchors on measurable engineering velocity and architectural outcomes to differentiate from generic applicant pool.',
+      headline: `${targetRole} | Driving Measurable Operational & Strategic Impact`.slice(0, 220),
+      whyItWorks: 'Anchors on concrete outcomes and domain execution to stand out from generic applicant profiles.',
     },
     {
       formula: 'Specialist',
-      headline: isDataRole
-        ? `Specialist in Data Architecture, Analytics Pipelines & System Performance`.slice(0, 220)
-        : `Specialist in Cloud Architecture, Distributed Services & System Performance`.slice(0, 220),
-      whyItWorks: 'Appeals to specialized hiring managers seeking deep domain expertise and reliable production execution.',
+      headline: `Specialist in ${specialistTopic}`.slice(0, 220),
+      whyItWorks: 'Appeals directly to specialized hiring managers looking for proven functional expertise.',
     },
   ]
 
@@ -150,15 +160,17 @@ export function buildDeterministicOptimizations(
       ? ['BigQuery', 'Tableau', 'Snowflake', 'dbt', 'Data Modeling']
       : isDevopsRole
         ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD Pipelines']
-        : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards']
+        : isHealthRole
+          ? ['Patient Assessment', 'EHR Systems', 'HIPAA Protocol', 'Acute Care', 'Care Coordination']
+          : isFinanceRole
+            ? ['Financial Modeling', 'GAAP / IFRS', 'Variance Analysis', 'ERP Systems', 'Month-End Close']
+            : isSalesRole
+              ? ['B2B Pipeline', 'Salesforce CRM', 'Enterprise Accounts', 'Contract Negotiation']
+              : ['Cross-functional Leadership', 'Strategic Planning', 'Process Optimization', 'KPI Dashboards']
 
   const filteredMissing = (Array.isArray(missingSkills) ? missingSkills : [])
     .filter(isValidSkill)
     .map(formatSkillName)
-    .filter((s) => {
-      if (isSoftwareRole && /^(power\s*bi|tableau|snowflake|bigquery|looker|dbt)$/i.test(s)) return false
-      return true
-    })
 
   const finalSkillsToAdd = filteredMissing.length > 0
     ? Array.from(new Set([...filteredMissing, ...recommendedSkillsToAdd])).slice(0, 10)

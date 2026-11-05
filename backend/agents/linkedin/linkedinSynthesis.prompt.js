@@ -460,7 +460,7 @@ Analyze this candidate's profile against their resume for Task 2 (Experience Upg
 // 4. LEGACY UNIFIED PROMPT (PRESERVED FOR BACKWARDS COMPATIBILITY)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const LINKEDIN_SYSTEM_PROMPT = TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT
+export const LINKEDIN_SYSTEM_PROMPT = `${TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT}\n\n${TASK2_EXPERIENCE_VISIBILITY_SYSTEM_PROMPT}`
 export const LINKEDIN_SYNTHESIS_SYSTEM_PROMPT = LINKEDIN_SYSTEM_PROMPT
 
 export function buildLinkedInUserPrompt(params = {}) {
