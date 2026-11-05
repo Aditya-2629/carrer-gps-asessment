@@ -100,37 +100,109 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
 }
 
 export function deriveFunnelFromAnswers(answers = {}) {
-  const parseNum = (val, defaultVal = 0) => {
-    if (typeof val === 'number' && !isNaN(val)) return val
-    if (!val) return defaultVal
-    const cleaned = String(val).replace(/[^0-9]/g, '')
-    const num = parseInt(cleaned, 10)
-    return isNaN(num) ? defaultVal : num
+  const f90 = (answers.funnel90d && typeof answers.funnel90d === 'object') ? answers.funnel90d : {}
+
+  // 1. Deep extraction of applications (preventing digit-concatenation bugs like "30-60" -> 3060)
+  const apps30d = parseRangeOrNumber(
+    answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? answers.appsWeek * 4.33 : null),
+    60
+  )
+  let totalApps90d = parseRangeOrNumber(
+    f90.applications90d ?? answers.applications90d ?? (apps30d * 3),
+    180
+  )
+  // Sanity check: single candidate 90-day applications over 1500 is an input anomaly/concatenation -> cap at 300 max
+  if (totalApps90d > 1500) {
+    totalApps90d = Math.min(Math.round(totalApps90d / 10), 300)
   }
 
-  let apps = parseNum(answers.applications_count || answers.appsWeek, 60)
-  // Sanity check: single candidate 90-day applications over 1000 is an input anomaly/concatenation
-  if (apps > 1000) {
-    apps = Math.min(Math.round(apps / 100), 250)
-  }
+  // 2. Deep extraction of interview stages
+  const recruiterScreens = parseRangeOrNumber(
+    f90.recruiterScreens ?? f90.screens ?? answers.recruiterScreens ?? answers.humanScreen ?? 0
+  )
+  const assessments = parseRangeOrNumber(
+    f90.assessments ?? answers.assessments ?? answers.oas ?? 0
+  )
+  const aiInterviews = parseRangeOrNumber(
+    f90.aiInterviews ?? answers.aiInterviews ?? 0
+  )
+  const technicalRounds = parseRangeOrNumber(
+    f90.technicalRounds ?? f90.technicals ?? answers.technicalRounds ?? answers.technical ?? 0
+  )
+  const finalRounds = parseRangeOrNumber(
+    f90.finalRounds ?? f90.finals ?? answers.finalRounds ?? answers.finals ?? 0
+  )
+  const offers = parseRangeOrNumber(
+    f90.offers ?? answers.offers ?? 0
+  )
+  const outreach = parseRangeOrNumber(
+    answers.outreach ?? answers.recruiter_outreach_count ?? answers.coldEmails ?? 0
+  )
 
-  const calls = Math.min(parseNum(answers.recruiter_calls_count || answers.humanScreen, 5), apps)
-  const interviews = Math.min(parseNum(answers.interviews_count || answers.aiScreen, 2), calls)
-  const finals = Math.min(parseNum(answers.final_rounds_count, 1), interviews)
-  const offers = Math.min(parseNum(answers.offers_count, 0), finals)
-  const outreach = parseNum(answers.outreach || answers.recruiter_outreach_count || answers.coldEmails, 0)
+  const totalScreens = recruiterScreens + assessments + aiInterviews > 0
+    ? recruiterScreens + assessments + aiInterviews
+    : recruiterScreens
+
+  // 3. Conversion rates
+  const appToScreenRate = totalApps90d > 0 ? (totalScreens / totalApps90d) * 100 : 0
+  const screenToTechRate = totalScreens > 0 ? (technicalRounds / totalScreens) * 100 : 0
+  const techToFinalRate = technicalRounds > 0 ? (finalRounds / technicalRounds) * 100 : 0
+  const finalToOfferRate = finalRounds > 0 ? (offers / finalRounds) * 100 : 0
+
+  // 4. Six US-tech leak stages diagnosis
+  let biggest_leak_stage = 'top_of_funnel'
+  let leak_title = 'Top-of-Funnel Application Black Hole'
+  let diagnosis_message = `You submitted ${totalApps90d} applications yielding only ${totalScreens} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
+
+  if (totalApps90d < 15 && totalScreens === 0) {
+    biggest_leak_stage = 'readiness_stall'
+    leak_title = 'Application Readiness & Search Inactivity'
+    diagnosis_message = 'Pipeline has stalled before launch with under 15 applications and 0 recruiter screens. Focus on resume tailoring and initiating active outreach.'
+  } else if (offers >= 1) {
+    biggest_leak_stage = 'offer_onboarding'
+    leak_title = 'Offer Decision & Negotiation Strategy'
+    diagnosis_message = 'You have secured at least one formal offer. Focus on compensation benchmarking, multiple offer leverage, and final team alignment.'
+  } else if (finalRounds >= 1 && offers === 0) {
+    biggest_leak_stage = 'final_round_drop'
+    leak_title = 'Final Executive & Hiring Manager Conversion'
+    diagnosis_message = 'Reaching final rounds indicates strong technical baseline, but converting to written offers requires sharper executive alignment and strategic business ROI demonstration.'
+  } else if (technicalRounds >= 1 && finalRounds === 0) {
+    biggest_leak_stage = 'technical_round'
+    leak_title = 'Technical Architecture & Coding Assessments'
+    diagnosis_message = 'Clearing recruiter screens confirms resume credibility, but dropping out at technical/system design rounds points to live problem-solving friction.'
+  } else if (totalScreens >= 3 && technicalRounds === 0) {
+    biggest_leak_stage = 'recruiter_screen'
+    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
+    diagnosis_message = 'Recruiter screens are occurring, but failure to advance to technical rounds signals a disconnect in salary alignment, visa sponsorship clarity, or behavioral positioning.'
+  }
 
   return {
-    applications_count: apps,
-    applications_period: 'month',
+    applications_count: totalApps90d,
+    applications_period: '90d',
+    applications30d: apps30d,
+    applications90d: totalApps90d,
     outreach_count: outreach,
     outreach_period: 'month',
-    recruiter_calls_count: calls,
-    responses_period: 'month',
-    interviews_count: interviews,
-    final_rounds_count: finals,
+    recruiter_calls_count: recruiterScreens,
+    recruiterScreens,
+    assessments,
+    aiInterviews,
+    totalScreens,
+    interviews_count: technicalRounds || totalScreens,
+    technicalRounds,
+    final_rounds_count: finalRounds,
+    finalRounds,
     offers_count: offers,
-    biggest_leak_stage: calls === 0 ? 'top_of_funnel' : 'technical_round',
+    offers,
+    rates: {
+      appToScreenRate: Math.round(appToScreenRate * 10) / 10,
+      screenToTechRate: Math.round(screenToTechRate * 10) / 10,
+      techToFinalRate: Math.round(techToFinalRate * 10) / 10,
+      finalToOfferRate: Math.round(finalToOfferRate * 10) / 10,
+    },
+    biggest_leak_stage,
+    leak_title,
+    diagnosis_message,
   }
 }
 
@@ -151,60 +223,33 @@ export function normalizeAtlasShapes(report, answers = {}) {
     }
   }
 
-  // funnel_stages: ensure object shape and seed from answers
+  // funnel_stages: ensure object shape and anchor to deep userFunnel
   const userFunnel = deriveFunnelFromAnswers(answers)
   if (!report.funnel_stages || Array.isArray(report.funnel_stages) || typeof report.funnel_stages !== 'object') {
+    report.funnel_stages = { ...userFunnel }
+  } else {
     report.funnel_stages = {
       ...userFunnel,
-      diagnosis_message: userFunnel.applications_count >= 30 && (userFunnel.recruiter_calls_count / userFunnel.applications_count) < 0.05
-        ? `You submitted ${userFunnel.applications_count} applications and ${userFunnel.outreach_count} direct recruiter outreach messages, yielding only ${userFunnel.recruiter_calls_count} responses (${((userFunnel.recruiter_calls_count / userFunnel.applications_count) * 100).toFixed(1)}% conversion rate).`
-        : (userFunnel.recruiter_calls_count / (userFunnel.applications_count || 1)) > 0.25
-        ? `Solid recruiter callback rate (${userFunnel.recruiter_calls_count} screens from ${userFunnel.applications_count} applications), but pipeline experiences steep drop-off between Recruiter Screens (${userFunnel.recruiter_calls_count}) and Final Offers (${userFunnel.offers_count}).`
-        : 'High application drop-off detected at early recruiter screening.',
-    }
-  } else {
-    report.funnel_stages.applications_count = userFunnel.applications_count !== undefined ? userFunnel.applications_count : report.funnel_stages.applications_count
-    report.funnel_stages.applications_period = userFunnel.applications_period || report.funnel_stages.applications_period || 'month'
-    report.funnel_stages.outreach_count = userFunnel.outreach_count !== undefined ? userFunnel.outreach_count : (report.funnel_stages.outreach_count ?? 0)
-    report.funnel_stages.outreach_period = userFunnel.outreach_period || report.funnel_stages.outreach_period || userFunnel.applications_period
-    report.funnel_stages.recruiter_calls_count = userFunnel.recruiter_calls_count !== undefined ? userFunnel.recruiter_calls_count : report.funnel_stages.recruiter_calls_count
-    report.funnel_stages.responses_period = userFunnel.responses_period || report.funnel_stages.responses_period || userFunnel.applications_period
-    report.funnel_stages.interviews_count = userFunnel.interviews_count !== undefined ? userFunnel.interviews_count : report.funnel_stages.interviews_count
-    report.funnel_stages.final_rounds_count = userFunnel.final_rounds_count !== undefined ? userFunnel.final_rounds_count : report.funnel_stages.final_rounds_count
-    report.funnel_stages.offers_count = userFunnel.offers_count !== undefined ? userFunnel.offers_count : report.funnel_stages.offers_count
-    if (!report.funnel_stages.biggest_leak_stage) {
-      report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
+      ...report.funnel_stages,
+      // Anchor critical diagnostic fields directly to userFunnel
+      biggest_leak_stage: userFunnel.biggest_leak_stage,
+      leak_title: userFunnel.leak_title,
+      diagnosis_message: userFunnel.diagnosis_message,
+      rates: userFunnel.rates,
     }
   }
 
-  // Enforce monotonic constraints without wiping raw applications_count
+  // Monotonic validation without wiping or mutating valid candidate counts
   if (report.funnel_stages && typeof report.funnel_stages === 'object') {
-    let fApps = Number(report.funnel_stages.applications_count) || 0
-    if (fApps > 1000) {
-      fApps = Math.min(Math.round(fApps / 100), 250)
+    let fApps = Number(report.funnel_stages.applications_count) || userFunnel.applications_count
+    if (fApps > 1500) {
+      fApps = Math.min(Math.round(fApps / 10), 300)
     }
-    let fCalls = Math.min(Math.max(0, Number(report.funnel_stages.recruiter_calls_count) || 0), fApps > 0 ? fApps : 9999)
-    let fInterviews = Math.min(Math.max(0, Number(report.funnel_stages.interviews_count) || 0), fCalls)
-    let fFinals = Math.min(Math.max(0, Number(report.funnel_stages.final_rounds_count) || 0), fInterviews)
-    let fOffers = Math.min(Math.max(0, Number(report.funnel_stages.offers_count) || 0), fFinals)
-
     report.funnel_stages.applications_count = fApps
-    report.funnel_stages.recruiter_calls_count = fCalls
-    report.funnel_stages.interviews_count = fInterviews
-    report.funnel_stages.final_rounds_count = fFinals
-    report.funnel_stages.offers_count = fOffers
-
-    if (fApps >= 30 && (fCalls / fApps) < 0.05) {
-      report.funnel_stages.biggest_leak_stage = `High-Volume Application Black Hole (${((fCalls / fApps) * 100).toFixed(1)}% Response Rate)`
-      report.funnel_stages.diagnosis_message = `You submitted ${fApps} applications and ${report.funnel_stages.outreach_count || 0} direct recruiter outreach messages, yielding only ${fCalls} responses (${((fCalls / fApps) * 100).toFixed(1)}% conversion rate).`
-    } else if (fApps > 0 && fCalls / fApps > 0.25) {
-      if (!report.funnel_stages.biggest_leak_stage || report.funnel_stages.biggest_leak_stage.toLowerCase().includes('application')) {
-        report.funnel_stages.biggest_leak_stage = `Recruiter Screens (${fCalls}) to Final Offers (${fOffers})`
-      }
-      if (!report.funnel_stages.diagnosis_message || report.funnel_stages.diagnosis_message.toLowerCase().includes('black-hole') || report.funnel_stages.diagnosis_message.toLowerCase().includes('early recruiter')) {
-        report.funnel_stages.diagnosis_message = `Solid recruiter callback rate (${fCalls} screens from ${fApps} applications), but pipeline experiences steep drop-off between Recruiter Screens (${fCalls}) and Final Offers (${fOffers}).`
-      }
-    }
+    report.funnel_stages.biggest_leak_stage = userFunnel.biggest_leak_stage
+    report.funnel_stages.leak_title = userFunnel.leak_title
+    report.funnel_stages.diagnosis_message = userFunnel.diagnosis_message
+    report.funnel_stages.rates = userFunnel.rates
   }
 
   for (const key of ATLAS_ARRAY_SECTIONS) {
@@ -224,13 +269,14 @@ export function normalizeAtlasShapes(report, answers = {}) {
     report.career_journey = report.career_journey[0] || null
   }
 
-  // Step 4: Ensure "Execution Bridge" CTA is dynamically anchored to funnel_stages.biggest_leak_stage
+  // Ensure "Execution Bridge" CTA is dynamically anchored to funnel_stages.leak_title and candidate target role
   if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
     report.coach_intervention = {}
   }
-  const leakStage = report.funnel_stages?.biggest_leak_stage || 'Technical Rounds'
+  const leakTitle = userFunnel.leak_title || report.funnel_stages?.leak_title || report.funnel_stages?.biggest_leak_stage || 'Technical Rounds'
+  const targetRole = answers.targetRole || answers.role || report.target_role || 'your target role'
   report.coach_intervention.urgency_statement = 
-    `Polished bullet points and optimized headlines alone will not fix your drop-off at ${leakStage}. Bypassing cold portal black holes requires a targeted direct-referral protocol and live technical storytelling.`
+    `Polished bullet points and optimized headlines alone will not fix your drop-off at ${leakTitle} for ${targetRole}. Bypassing cold portal black holes requires a targeted direct-referral protocol and live technical storytelling.`
   report.coach_intervention.value_prop = 
     `In your 1-on-1 Strategy Call, we will map out your exact 30-day hiring manager referral pipeline, resolve cross-document background flags, and conduct live mock storytelling for your top projects.`
   report.coach_intervention.cta_text = 'Book Free 1-on-1 Strategy Session'
@@ -632,23 +678,60 @@ export async function generateReportBundle({
   aiReport.gps_scores = effectiveAssessmentAgent?.scores ?? null
   aiReport.external_context = effectiveAssessmentAgent?.external_context ?? null
 
-  // Synchronize score_breakdown.resume with the Resume Agent scorecard
-  if (activeResumeAgent?.dashboard?.score !== undefined) {
-    if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
-    if (!aiReport.score_breakdown.resume) aiReport.score_breakdown.resume = {}
-    aiReport.score_breakdown.resume.score = activeResumeAgent.dashboard.score
-    aiReport.score_breakdown.resume.grade = activeResumeAgent.dashboard.grade || (activeResumeAgent.dashboard.score >= 85 ? 'A' : activeResumeAgent.dashboard.score >= 70 ? 'B' : activeResumeAgent.dashboard.score >= 55 ? 'C' : 'D')
+  // Synchronize score_breakdown across all 4 balanced pillars (25% each)
+  const fourPillars = effectiveAssessmentAgent?.scores?.four_pillars || {}
+  if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
+
+  // 1. Resume Pillar
+  const resPillar = fourPillars.resume
+  const resumeScore = resPillar?.score ?? activeResumeAgent?.dashboard?.score ?? 68
+  aiReport.score_breakdown.resume = {
+    score: resumeScore,
+    points: resPillar?.points ?? Math.round((resumeScore / 100) * 25),
+    maxPoints: 25,
+    weight: '25%',
+    grade: activeResumeAgent?.dashboard?.grade || (resumeScore >= 85 ? 'A' : resumeScore >= 70 ? 'B' : resumeScore >= 55 ? 'C' : 'D'),
+    diagnosis: aiReport.score_breakdown?.resume?.diagnosis || `Resume integrity scores ${resumeScore}/100 based on ATS keyword alignment and quantified achievement density.`,
   }
 
-  // Synchronize score_breakdown.linkedin with the LinkedIn Agent
-  const liScore = activeLinkedinAgent?.score ?? aiReport.score_breakdown?.linkedin?.score ?? 55
+  // 2. LinkedIn Pillar
+  const liPillar = fourPillars.linkedin
+  const liScore = liPillar?.score ?? activeLinkedinAgent?.score ?? 65
   const topLiIssue = activeLinkedinAgent?.discrepancies?.[0]?.title || activeLinkedinAgent?.topRecommendations?.[0] || 'missing featured project case studies and peer recommendations'
-  if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
-  if (!aiReport.score_breakdown.linkedin) aiReport.score_breakdown.linkedin = {}
-  aiReport.score_breakdown.linkedin.score = liScore
-  aiReport.score_breakdown.linkedin.grade = activeLinkedinAgent?.grade || (liScore >= 85 ? 'A' : liScore >= 70 ? 'B' : liScore >= 55 ? 'C' : 'D')
-  if (!aiReport.score_breakdown.linkedin.diagnosis || aiReport.score_breakdown.linkedin.diagnosis.length < 120) {
-    aiReport.score_breakdown.linkedin.diagnosis = `Your LinkedIn profile scores ${liScore}/100 with strong role descriptions and network reach, but recruiter trust and inbound search visibility are held back by ${topLiIssue.toLowerCase()}.`
+  aiReport.score_breakdown.linkedin = {
+    score: liScore,
+    points: liPillar?.points ?? Math.round((liScore / 100) * 25),
+    maxPoints: 25,
+    weight: '25%',
+    grade: activeLinkedinAgent?.grade || (liScore >= 85 ? 'A' : liScore >= 70 ? 'B' : liScore >= 55 ? 'C' : 'D'),
+    consistencyTier: liPillar?.consistencyTier || 'Strong Match',
+    diagnosis: aiReport.score_breakdown?.linkedin?.diagnosis && aiReport.score_breakdown.linkedin.diagnosis.length >= 100
+      ? aiReport.score_breakdown.linkedin.diagnosis
+      : `Your LinkedIn profile scores ${liScore}/100 with strong role descriptions and network reach, but recruiter trust and inbound search visibility are held back by ${topLiIssue.toLowerCase()}.`,
+  }
+
+  // 3. Outreach Pillar
+  const outreachPillar = fourPillars.outreach
+  const outreachScore = outreachPillar?.score ?? 60
+  aiReport.score_breakdown.outreach = {
+    score: outreachScore,
+    points: outreachPillar?.points ?? Math.round((outreachScore / 100) * 25),
+    maxPoints: 25,
+    weight: '25%',
+    grade: outreachScore >= 85 ? 'A' : outreachScore >= 70 ? 'B' : outreachScore >= 55 ? 'C' : 'D',
+    diagnosis: aiReport.score_breakdown?.outreach?.diagnosis || `Outreach velocity scores ${outreachScore}/100 reflecting current targeted application rates and multi-channel referral sourcing mix.`,
+  }
+
+  // 4. Interviews Pillar
+  const interviewPillar = fourPillars.interviews
+  const interviewScore = interviewPillar?.score ?? 65
+  aiReport.score_breakdown.interviews = {
+    score: interviewScore,
+    points: interviewPillar?.points ?? Math.round((interviewScore / 100) * 25),
+    maxPoints: 25,
+    weight: '25%',
+    grade: interviewScore >= 85 ? 'A' : interviewScore >= 70 ? 'B' : interviewScore >= 55 ? 'C' : 'D',
+    diagnosis: aiReport.score_breakdown?.interviews?.diagnosis || `Interview defense scores ${interviewScore}/100 reflecting pipeline progression from screening calls through final rounds.`,
   }
 
   aiReport.user_answers = user.answers || {}

@@ -105,9 +105,9 @@ export function computeCareerGpsScore({
 } = {}) {
   const ans = { ...answers }
 
-  // ── Area 1: Resume (Max 25 pts, 12 checks) ──
-  const resumeScore100 = resumeAgent?.dashboard?.score ?? 68
-  const resumeTargetPts = Math.round((resumeScore100 / 100) * 25)
+  // ── Pillar 1: Resume & ATS Integrity (Max 25 pts, Weight: 25%) ──
+  const resumeScore100 = resumeAgent?.dashboard?.score ?? resumeAgent?.score ?? 68
+  const resumeEarned = Math.min(25, Math.max(0, Math.round((resumeScore100 / 100) * 25)))
   const resumeRatio = resumeScore100 / 100
 
   const resumeChecks = [
@@ -124,20 +124,12 @@ export function computeCareerGpsScore({
     { name: 'Section completeness', max: 1, points: Math.round(1 * resumeRatio * 10) / 10 },
     { name: 'Overall resume relevance', max: 1, points: Math.round(1 * resumeRatio * 10) / 10 },
   ]
-  // Adjust sum to precisely match resumeTargetPts
-  let resumeSum = resumeChecks.reduce((acc, c) => acc + c.points, 0)
-  const diffResume = Math.round(resumeTargetPts - resumeSum)
-  if (diffResume !== 0 && resumeChecks.length > 0) {
-    resumeChecks[0].points = Math.max(0, Math.min(resumeChecks[0].max, resumeChecks[0].points + diffResume))
-  }
-  const resumeEarned = resumeTargetPts
 
-  // ── Area 2: LinkedIn (Max 15 pts, 9 checks) ──
+  // ── Pillar 2: LinkedIn & Cross-Channel Consistency (Max 25 pts, Weight: 25%) ──
   const liScore100 = linkedinAgent?.score ?? 65
-  const liTargetPts = Math.round((liScore100 / 100) * 15)
-  const liRatio = liScore100 / 100
+  const liBasePts = Math.round((liScore100 / 100) * 20) // Scaled to 20 pts
 
-  // Resume ↔ LinkedIn consistency
+  // Resume ↔ LinkedIn consistency (up to 5 pts)
   const crossSummary = linkedinAgent?.discrepanciesAnalysis?.summary || {}
   const consistencyClassifier = classifyConsistencyTier({
     summary: crossSummary,
@@ -145,28 +137,28 @@ export function computeCareerGpsScore({
     timelineMismatches: linkedinAgent?.discrepanciesAnalysis?.timelineMismatches || [],
     titleDrift: linkedinAgent?.discrepanciesAnalysis?.titleDrift || [],
   })
-  const consistencyPts = consistencyClassifier.points ?? 1.5
+  const rawConsistencyPts = consistencyClassifier.points ?? 1.5 // 0 to 2
+  const consistencyPts = Math.min(5, Math.max(0, Math.round((rawConsistencyPts / 2) * 5 * 10) / 10))
+  const liEarned = Math.min(25, Math.max(0, Math.round(liBasePts + consistencyPts)))
+  const liRatio = liScore100 / 100
 
   const liChecks = [
-    { name: 'Headline & positioning', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
-    { name: 'About section', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
-    { name: 'Experience quality', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
-    { name: 'Target-role alignment', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
-    { name: 'Skills & expertise', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
-    { name: 'Profile completeness', max: 1, points: Math.min(1, Math.round(1 * liRatio * 10) / 10) },
-    { name: 'Featured / proof of work', max: 1, points: Math.min(1, Math.round(1 * liRatio * 10) / 10) },
-    { name: 'Recommendations / social proof', max: 1, points: Math.min(1, Math.round(1 * liRatio * 10) / 10) },
-    { name: 'Resume ↔ LinkedIn consistency', max: 2, points: consistencyPts },
+    { name: 'Headline & positioning', max: 4, points: Math.min(4, Math.round(4 * liRatio * 10) / 10) },
+    { name: 'About section', max: 4, points: Math.min(4, Math.round(4 * liRatio * 10) / 10) },
+    { name: 'Experience quality', max: 4, points: Math.min(4, Math.round(4 * liRatio * 10) / 10) },
+    { name: 'Target-role alignment', max: 3, points: Math.min(3, Math.round(3 * liRatio * 10) / 10) },
+    { name: 'Skills & expertise', max: 3, points: Math.min(3, Math.round(3 * liRatio * 10) / 10) },
+    { name: 'Profile completeness', max: 2, points: Math.min(2, Math.round(2 * liRatio * 10) / 10) },
+    { name: 'Resume ↔ LinkedIn consistency', max: 5, points: consistencyPts },
   ]
-  const liEarned = liTargetPts
 
-  // ── Area 3: Job Search (Max 20 pts, 8 checks) ──
+  // ── Pillar 3: Outreach & Pipeline Sourcing Velocity (Max 25 pts, Weight: 25%) ──
   const matchPctStr = String(ans.targetedMatchPct || '')
-  let targetedAppPts = 2
-  if (/80%|Highly/i.test(matchPctStr)) targetedAppPts = 4
-  else if (/50%|Moderately/i.test(matchPctStr)) targetedAppPts = 3
-  else if (/20%|Broad/i.test(matchPctStr)) targetedAppPts = 2
-  else if (/Under/i.test(matchPctStr)) targetedAppPts = 1
+  let targetedAppPts = 3
+  if (/80%|Highly/i.test(matchPctStr)) targetedAppPts = 6
+  else if (/50%|Moderately/i.test(matchPctStr)) targetedAppPts = 4.5
+  else if (/20%|Broad/i.test(matchPctStr)) targetedAppPts = 3
+  else if (/Under/i.test(matchPctStr)) targetedAppPts = 1.5
 
   const methods = Array.isArray(ans.searchMethods) ? ans.searchMethods : [String(ans.searchMethods || '')]
   const hasDirectAts = methods.some((m) => /Career Pages|Direct ATS/i.test(m))
@@ -174,106 +166,69 @@ export function computeCareerGpsScore({
   const hasDirectOutreach = methods.some((m) => /Recruiter|Hiring Manager Outreach/i.test(m))
   const hasOnlyJobBoards = methods.length === 1 && /Easy Apply|Job Boards/i.test(methods[0])
 
-  let appStrategyPts = hasOnlyJobBoards ? 1 : (hasDirectAts && (hasReferrals || hasDirectOutreach) ? 3 : 2)
-  let qualitySourcesPts = hasDirectAts || hasReferrals ? 2 : 1.5
+  let channelMixPts = 4
+  if (hasDirectAts && (hasReferrals || hasDirectOutreach)) channelMixPts = 8
+  else if (hasDirectAts || hasReferrals || hasDirectOutreach) channelMixPts = 6
+  else if (hasOnlyJobBoards) channelMixPts = 2
 
-  const alreadyTried = Array.isArray(ans.alreadyTried) ? ans.alreadyTried : [String(ans.alreadyTried || '')]
-  let resumeCustomizationPts = alreadyTried.some((t) => /Rewrote|resume/i.test(t)) || targetedAppPts >= 3 ? 2 : 1
-
-  let searchConsistencyPts = 2.5
-  let companyResearchPts = targetedAppPts >= 3 ? 2 : 1
-
-  // Application volume relative to goal (evaluates quality + sustainable pace, not raw blast)
-  const rawApps30d = extractQuantMetric(ans.apps30d ?? (ans.appsWeek ? ans.appsWeek * 4.33 : null), 30, 'month').rawNum
-  let volumeRelativePts = 1.5
-  if (rawApps30d >= 15 && rawApps30d <= 80 && targetedAppPts >= 3) {
-    volumeRelativePts = 2 // Quality + sustainable pace
-  } else if (rawApps30d > 150 && targetedAppPts <= 2) {
-    volumeRelativePts = 1 // High volume spray
-  } else if (rawApps30d === 0) {
-    volumeRelativePts = 0.5
-  }
-
-  // Strategy effectiveness based on screen conversion rate
-  const screensMetric = ans.funnel90d?.screens ?? ans.interviews ?? ans.humanScreen ?? 0
-  const screenConversionRate = rawApps30d > 0 ? (Number(screensMetric) / rawApps30d) * 100 : 0
-  let strategyEffectivenessPts = screenConversionRate >= 5 ? 2 : (screenConversionRate >= 2 ? 1.5 : 1)
-
-  const jobSearchChecks = [
-    { name: 'Targeted application percentage', max: 4, points: targetedAppPts },
-    { name: 'Application strategy', max: 3, points: appStrategyPts },
-    { name: 'Quality of job sources', max: 2, points: qualitySourcesPts },
-    { name: 'Resume customization', max: 2, points: resumeCustomizationPts },
-    { name: 'Search consistency', max: 3, points: searchConsistencyPts },
-    { name: 'Company / role research', max: 2, points: companyResearchPts },
-    { name: 'Application volume relative to goal', max: 2, points: volumeRelativePts },
-    { name: 'Strategy effectiveness', max: 2, points: strategyEffectivenessPts },
-  ]
-  const jobSearchEarned = Math.min(20, Math.round(jobSearchChecks.reduce((a, c) => a + c.points, 0)))
-
-  // ── Area 4: Networking (Max 15 pts, 7 checks) ──
   const outreachRaw = extractQuantMetric(ans.outreach, 5, 'week').rawNum
-  let personalizedOutreachPts = 1
-  if (outreachRaw >= 30) personalizedOutreachPts = 3
-  else if (outreachRaw >= 15) personalizedOutreachPts = 2.5
-  else if (outreachRaw >= 5) personalizedOutreachPts = 2
-  else if (outreachRaw > 0) personalizedOutreachPts = 1.5
+  let outreachVolPts = 1
+  if (outreachRaw >= 25) outreachVolPts = 6
+  else if (outreachRaw >= 15) outreachVolPts = 5
+  else if (outreachRaw >= 5) outreachVolPts = 4
+  else if (outreachRaw > 0) outreachVolPts = 2.5
 
   const refStr = String(ans.referralsMonth || '')
-  let referralActivityPts = 1
-  if (/10\+/i.test(refStr)) referralActivityPts = 3
-  else if (/4[–-]10/i.test(refStr)) referralActivityPts = 2.5
-  else if (/1[–-]3/i.test(refStr)) referralActivityPts = 1.5
-  else if (/0/i.test(refStr)) referralActivityPts = 0.5
+  let referralPts = 1
+  if (/10\+/i.test(refStr)) referralPts = 5
+  else if (/4[–-]10/i.test(refStr)) referralPts = 4
+  else if (/1[–-]3/i.test(refStr)) referralPts = 2.5
 
-  const recruiterOutreachPts = hasDirectOutreach ? 2 : 1
-  const newConnectionsPts = outreachRaw >= 10 ? 2 : 1
-  const industryEngagementPts = hasReferrals || outreachRaw >= 15 ? 2 : 1
-  const followUpPts = outreachRaw >= 5 ? 2 : 1
-  const networkingStrategyPts = hasDirectOutreach && hasReferrals ? 1 : 0.5
+  const outreachEarned = Math.min(25, Math.max(0, Math.round(targetedAppPts + channelMixPts + outreachVolPts + referralPts)))
 
-  const networkingChecks = [
-    { name: 'New professional connections', max: 2, points: newConnectionsPts },
-    { name: 'Personalized outreach', max: 3, points: personalizedOutreachPts },
-    { name: 'Recruiter / hiring-manager outreach', max: 2, points: recruiterOutreachPts },
-    { name: 'Referral activity', max: 3, points: referralActivityPts },
-    { name: 'Industry engagement', max: 2, points: industryEngagementPts },
-    { name: 'Follow-up', max: 2, points: followUpPts },
-    { name: 'Networking strategy', max: 1, points: networkingStrategyPts },
+  const jobSearchChecks = [
+    { name: 'Targeted application percentage', max: 6, points: targetedAppPts },
+    { name: 'Channel distribution mix', max: 8, points: channelMixPts },
+    { name: 'Weekly outreach volume', max: 6, points: outreachVolPts },
+    { name: 'Referral frequency', max: 5, points: referralPts },
   ]
-  const networkingEarned = Math.min(15, Math.round(networkingChecks.reduce((a, c) => a + c.points, 0)))
+  const networkingChecks = jobSearchChecks
 
-  // ── Area 5: Hiring Funnel (Max 20 pts, 7 checks) ──
-  const funnelScreens = Number(ans.funnel90d?.screens ?? ans.interviews ?? ans.humanScreen ?? 0)
-  const funnelTechs = Number(ans.funnel90d?.assessments ?? ans.assessments ?? 0)
-  const funnelFinals = Number(ans.funnel90d?.finals ?? ans.finalRounds ?? 0)
-  const funnelOffers = Number(ans.funnel90d?.offers ?? ans.offers ?? 0)
+  // ── Pillar 4: Interview Defense & Funnel Conversion (Max 25 pts, Weight: 25%) ──
+  const rawApps30d = extractQuantMetric(ans.apps30d ?? (ans.appsWeek ? ans.appsWeek * 4.33 : null), 30, 'month').rawNum
+  const f90 = (ans.funnel90d && typeof ans.funnel90d === 'object') ? ans.funnel90d : {}
 
+  const screens = parseRangeOrNumber(f90.recruiterScreens ?? f90.screens ?? ans.recruiterScreens ?? ans.interviews ?? ans.humanScreen ?? 0)
+  const techs = parseRangeOrNumber(f90.technicalRounds ?? f90.technicals ?? f90.assessments ?? ans.technicalRounds ?? ans.assessments ?? 0)
+  const finals = parseRangeOrNumber(f90.finalRounds ?? f90.finals ?? ans.finalRounds ?? 0)
+  const offers = parseRangeOrNumber(f90.offers ?? ans.offers ?? 0)
+
+  const appToScreenRate = rawApps30d > 0 ? (screens / rawApps30d) * 100 : 0
   let appToScreenPts = 1.5
-  if (screenConversionRate >= 8) appToScreenPts = 4
-  else if (screenConversionRate >= 4) appToScreenPts = 3
-  else if (screenConversionRate >= 2) appToScreenPts = 2
+  if (appToScreenRate >= 8) appToScreenPts = 7
+  else if (appToScreenRate >= 4) appToScreenPts = 5.5
+  else if (appToScreenRate >= 2) appToScreenPts = 4
+  else if (screens >= 1) appToScreenPts = 2.5
 
-  let screenToTechPts = funnelScreens > 0 ? (funnelTechs / funnelScreens >= 0.5 ? 3 : 2) : 1.5
-  let techToFinalPts = funnelTechs > 0 ? (funnelFinals / funnelTechs >= 0.4 ? 3 : 2) : 1.5
-  let finalToOfferPts = funnelOffers >= 1 ? 4 : (funnelFinals >= 1 ? 2.5 : 1.5)
+  const screenToTechRate = screens > 0 ? (techs / screens) * 100 : 0
+  let screenToTechPts = screens > 0 ? (screenToTechRate >= 50 ? 6 : screenToTechRate >= 25 ? 4.5 : (techs >= 1 ? 3 : 1.5)) : (techs >= 1 ? 3 : 2)
 
-  let prepPts = alreadyTried.some((t) => /mock|LeetCode/i.test(t)) ? 2 : 1
-  let understandingRejectionPts = ans.DropOffStage ? 2 : 1
-  let feedbackImprovementPts = alreadyTried.length >= 2 ? 2 : 1
+  const techToFinalRate = techs > 0 ? (finals / techs) * 100 : 0
+  let techToFinalPts = techs > 0 ? (techToFinalRate >= 40 ? 6 : techToFinalRate >= 20 ? 4.5 : (finals >= 1 ? 3 : 1.5)) : (finals >= 1 ? 3 : 2)
+
+  let finalToOfferPts = offers >= 1 ? 6 : (finals >= 1 ? 3.5 : 2)
+
+  const interviewEarned = Math.min(25, Math.max(0, Math.round(appToScreenPts + screenToTechPts + techToFinalPts + finalToOfferPts)))
 
   const hiringFunnelChecks = [
-    { name: 'Application → Screening', max: 4, points: appToScreenPts },
-    { name: 'Screening → Technical/Assessment', max: 3, points: screenToTechPts },
-    { name: 'Technical/Interview → Final', max: 3, points: techToFinalPts },
-    { name: 'Final → Offer', max: 4, points: finalToOfferPts },
-    { name: 'Interview preparation', max: 2, points: prepPts },
-    { name: 'Understanding rejection point', max: 2, points: understandingRejectionPts },
-    { name: 'Feedback & improvement', max: 2, points: feedbackImprovementPts },
+    { name: 'App-to-Screen callback rate', max: 7, points: appToScreenPts },
+    { name: 'Screen-to-Tech conversion', max: 6, points: screenToTechPts },
+    { name: 'Tech-to-Final conversion', max: 6, points: techToFinalPts },
+    { name: 'Final-to-Offer closing rate', max: 6, points: finalToOfferPts },
   ]
-  const hiringFunnelEarned = Math.min(20, Math.round(hiringFunnelChecks.reduce((a, c) => a + c.points, 0)))
 
-  // ── Area 6: Career Readiness (Max 5 pts, 5 checks) ──
+  // ── Area 6: Career Readiness (Preserved for backward compatibility) ──
+  const alreadyTried = Array.isArray(ans.alreadyTried) ? ans.alreadyTried : [String(ans.alreadyTried || '')]
   const hasClarity = Boolean(ans.opportunityType && ans.targetRole)
   const careerReadinessChecks = [
     { name: 'Career clarity', max: 1, points: hasClarity ? 1 : 0.5 },
@@ -284,18 +239,53 @@ export function computeCareerGpsScore({
   ]
   const careerReadinessEarned = Math.min(5, Math.round(careerReadinessChecks.reduce((a, c) => a + c.points, 0)))
 
-  // Total GPS Score out of 100
+  // Total GPS Score out of 100 (Exact sum of the 4 balanced pillars)
   const gps_score = Math.min(100, Math.max(0,
-    resumeEarned + liEarned + jobSearchEarned + networkingEarned + hiringFunnelEarned + careerReadinessEarned
+    resumeEarned + liEarned + outreachEarned + interviewEarned
   ))
 
   const grade = gps_score >= 85 ? 'A' : gps_score >= 70 ? 'B' : gps_score >= 55 ? 'C' : 'D'
   const gradeLabel = gps_score >= 85 ? 'Excellent' : gps_score >= 70 ? 'Good' : gps_score >= 55 ? 'Needs Optimization' : 'Critical Focus Required'
 
+  // Four Balanced Pillars (25% Each)
+  const four_pillars = {
+    resume: {
+      score: Math.round((resumeEarned / 25) * 100),
+      points: resumeEarned,
+      maxPoints: 25,
+      weight: '25%',
+      title: 'Resume & ATS Integrity',
+    },
+    linkedin: {
+      score: Math.round((liEarned / 25) * 100),
+      points: liEarned,
+      maxPoints: 25,
+      weight: '25%',
+      title: 'LinkedIn & Cross-Channel Consistency',
+      consistencyTier: consistencyClassifier.tier,
+      consistencyDetails: consistencyClassifier,
+    },
+    outreach: {
+      score: Math.round((outreachEarned / 25) * 100),
+      points: outreachEarned,
+      maxPoints: 25,
+      weight: '25%',
+      title: 'Outreach & Pipeline Sourcing Velocity',
+    },
+    interviews: {
+      score: Math.round((interviewEarned / 25) * 100),
+      points: interviewEarned,
+      maxPoints: 25,
+      weight: '25%',
+      title: 'Interview Defense & Funnel Conversion',
+    },
+  }
+
   return {
     gps_score,
     grade,
     gradeLabel,
+    four_pillars,
     areas: {
       resume: {
         points: resumeEarned,
@@ -305,32 +295,32 @@ export function computeCareerGpsScore({
         checks: resumeChecks,
       },
       linkedin: {
-        points: liEarned,
+        points: Math.round((liEarned / 25) * 15),
         maxPoints: 15,
-        percentage: Math.round((liEarned / 15) * 100),
+        percentage: Math.round((liEarned / 25) * 100),
         title: 'LinkedIn & Professional Brand',
         consistencyTier: consistencyClassifier.tier,
         consistencyDetails: consistencyClassifier,
         checks: liChecks,
       },
       jobSearch: {
-        points: jobSearchEarned,
+        points: Math.round((outreachEarned / 25) * 20),
         maxPoints: 20,
-        percentage: Math.round((jobSearchEarned / 20) * 100),
+        percentage: Math.round((outreachEarned / 25) * 100),
         title: 'Job Search & Application Strategy',
         checks: jobSearchChecks,
       },
       networking: {
-        points: networkingEarned,
+        points: Math.round((outreachEarned / 25) * 15),
         maxPoints: 15,
-        percentage: Math.round((networkingEarned / 15) * 100),
+        percentage: Math.round((outreachEarned / 25) * 100),
         title: 'Networking & Referral Velocity',
         checks: networkingChecks,
       },
       hiringFunnel: {
-        points: hiringFunnelEarned,
+        points: Math.round((interviewEarned / 25) * 20),
         maxPoints: 20,
-        percentage: Math.round((hiringFunnelEarned / 20) * 100),
+        percentage: Math.round((interviewEarned / 25) * 100),
         title: 'Interview & Hiring Funnel',
         checks: hiringFunnelChecks,
       },
