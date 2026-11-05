@@ -280,29 +280,42 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
       doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text('4. LINKEDIN RECRUITER AUDIT & CROSS-CHANNEL DISCREPANCIES')
       doc.moveDown(0.3)
 
-      const discrepancies = (linkedinAgent?.discrepancies || []).slice(0, 4)
+      const discrepancies = (linkedinAgent?.discrepancies || [])
+        .filter((d) => d && typeof d === 'object')
+        .slice(0, 4)
+
       if (discrepancies.length > 0) {
         discrepancies.forEach((d) => {
           ensureSpace(doc, 34)
           const dY = doc.y
           doc.rect(28, dY, pageWidth, 30).fillAndStroke('#f8fafc', '#e2e8f0')
-          const isHigh = d.severity === 'high'
-          doc.fillColor(isHigh ? '#dc2626' : '#d97706').fontSize(7).font('Helvetica-Bold').text(`[${(d.severity || 'WARN').toUpperCase()}] ${d.title}`, 34, dY + 4)
-          doc.fillColor('#334155').fontSize(6.5).font('Helvetica').text(`Resume: ${d.resumeClaim || 'N/A'}  vs  LinkedIn: ${d.linkedinClaim || 'N/A'}`, 34, dY + 13, { width: pageWidth - 14 })
-          doc.fillColor('#059669').fontSize(6.5).font('Helvetica-Bold').text(`Fix: ${(d.recommendation || d.fix || '').slice(0, 140)}`, 34, dY + 21, { width: pageWidth - 14 })
+
+          const severity = String(d.severity || 'WARN').toLowerCase()
+          const isHigh = severity === 'high'
+          const title = String(d.title || 'Cross-Platform Discrepancy').trim()
+          const resumeClaim = String(d.resumeClaim || d.resume || 'N/A').trim()
+          const linkedinClaim = String(d.linkedinClaim || d.linkedin || 'N/A').trim()
+          const recommendation = String(d.recommendation || d.fix || '').trim().slice(0, 140)
+
+          doc.fillColor(isHigh ? '#dc2626' : '#d97706').fontSize(7).font('Helvetica-Bold').text(`[${(d.severity || 'WARN').toUpperCase()}] ${title}`, 34, dY + 4)
+          doc.fillColor('#334155').fontSize(6.5).font('Helvetica').text(`Resume: ${resumeClaim}  vs  LinkedIn: ${linkedinClaim}`, 34, dY + 13, { width: pageWidth - 14 })
+          if (recommendation) {
+            doc.fillColor('#059669').fontSize(6.5).font('Helvetica-Bold').text(`Fix: ${recommendation}`, 34, dY + 21, { width: pageWidth - 14 })
+          }
           doc.y = dY + 34
         })
       }
 
       // Headline & About Optimizations
-      const headlines = linkedinAgent?.optimizations?.headlines || []
+      const headlines = (linkedinAgent?.optimizations?.headlines || []).filter(Boolean)
       const aboutRewrite = linkedinAgent?.optimizations?.aboutRewrite || null
       if (headlines.length > 0 || aboutRewrite) {
         ensureSpace(doc, 60)
         doc.moveDown(0.2)
         if (headlines[0]) {
           doc.fillColor('#0369a1').fontSize(7.5).font('Helvetica-Bold').text('Recommended 220-Char LinkedIn Headline:')
-          doc.fillColor('#0f172a').fontSize(7).font('Helvetica').text(headlines[0].headline || headlines[0], { width: pageWidth })
+          const headlineText = typeof headlines[0] === 'string' ? headlines[0] : (headlines[0].headline || headlines[0].text || '')
+          doc.fillColor('#0f172a').fontSize(7).font('Helvetica').text(headlineText, { width: pageWidth })
           doc.moveDown(0.2)
         }
         if (aboutRewrite?.hook || typeof aboutRewrite === 'string') {

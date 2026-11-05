@@ -6,6 +6,9 @@
 import { generateContentWithFallback } from '../../utils/geminiClient.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
 
+export const DEFAULT_ATTEMPT_TIMEOUT_MS = 12000
+export const DEFAULT_TOTAL_DEADLINE_MS = 25000
+
 export class GeminiProvider {
   constructor() {
     this.name = 'gemini'
@@ -20,8 +23,8 @@ export class GeminiProvider {
     temperature = 0.2,
     topP = 0.9,
     maxTokens = null,
-    timeoutMs = 45000,
-    totalDeadlineMs = 60000,
+    timeoutMs = DEFAULT_ATTEMPT_TIMEOUT_MS,
+    totalDeadlineMs = DEFAULT_TOTAL_DEADLINE_MS,
     signal = null,
     requestId = null,
   }) {

@@ -360,9 +360,10 @@ export const generateContentWithFallback = async ({
   modelName = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
   fallbackModels = DEFAULT_MODELS,
   generationConfig = {},
-  timeoutMs = process.env.GEMINI_TIMEOUT_MS ? parseInt(process.env.GEMINI_TIMEOUT_MS, 10) : 15000,
-  totalDeadlineMs = 60000,
-  maxRetries = 2,
+  timeoutMs = process.env.GEMINI_TIMEOUT_MS ? parseInt(process.env.GEMINI_TIMEOUT_MS, 10) : 12000,
+  totalDeadlineMs = 25000,
+  maxRetries = 1,
+  maxAttempts = null,
   baseBackoffMs = 500,
   maxBackoffMs = 3000,
   signal = null,
@@ -370,6 +371,7 @@ export const generateContentWithFallback = async ({
   _clientFactory = null,
   _sleepFn = null,
 }) => {
+  const effectiveMaxRetries = typeof maxAttempts === 'number' ? Math.max(0, maxAttempts - 1) : maxRetries
   const allKeys = getAllGeminiKeys()
 
   if (allKeys.length === 0) {
@@ -466,7 +468,7 @@ export const generateContentWithFallback = async ({
       const keyDisplay = `key #${keyIdx + 1}`
 
       // Transient retry loop for this model & key
-      for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      for (let attempt = 1; attempt <= effectiveMaxRetries + 1; attempt++) {
         const attemptStartTime = Date.now()
         const remainingDeadlineMs = deadline - attemptStartTime
 
@@ -511,7 +513,7 @@ export const generateContentWithFallback = async ({
 
         try {
           console.log(
-            `[Gemini] Attempting generation with key index #${keyIdx + 1} using model: ${currentModel} (attempt ${attempt}/${maxRetries + 1})`
+            `[Gemini] Attempting generation with key index #${keyIdx + 1} using model: ${currentModel} (attempt ${attempt}/${effectiveMaxRetries + 1})`
           )
 
           const genAI = makeGenAI(currentKey)
@@ -640,7 +642,30 @@ export const generateContentWithFallback = async ({
 
           // 2. Transient model / service errors (503, 502, timeout, network error):
           if (classification.isTransient) {
-            const isLastAttempt = attempt >= maxRetries + 1
+            // Fast-fail HTTP 503 (Model Overloaded) immediately (maxAttempts=1)
+            // Gemini 503 is a Google-side server overload; spinning keys or retrying
+            // causes 88+ second stalls. Fast-fail directly so LLM Gateway can cascade to OpenRouter.
+            if (classification.status === 503 || classification.isServiceUnavailable) {
+              const cooldownMs = 30 * 1000
+              projectModelQuotaMap.set(currentModel, Date.now() + cooldownMs)
+              console.warn(
+                `[Gemini 503 Fast-Fail] Model "${currentModel}" is overloaded (HTTP 503). Fast-failing attempt (maxAttempts=1) to allow gateway failover to OpenRouter.`
+              )
+              AITelemetry.logAttempt?.({
+                requestId: reqId,
+                model: currentModel,
+                attempt,
+                durationMs,
+                httpStatus: 503,
+                timeoutSource,
+                fallbackOutcome: '503_fast_fail',
+              })
+              modelFailedWithTransient = true
+              breakKeysForModel = true
+              break
+            }
+
+            const isLastAttempt = attempt >= effectiveMaxRetries + 1
             const remainingAfterAttempt = deadline - Date.now()
 
             AITelemetry.logAttempt?.({
@@ -667,7 +692,7 @@ export const generateContentWithFallback = async ({
 
               if (safeSleepMs > 0) {
                 console.log(
-                  `[Gemini] Transient error (${classification.status || 408}) on ${currentModel}. Retrying in ${safeSleepMs}ms (attempt ${attempt}/${maxRetries + 1})...`
+                  `[Gemini] Transient error (${classification.status || 408}) on ${currentModel}. Retrying in ${safeSleepMs}ms (attempt ${attempt}/${effectiveMaxRetries + 1})...`
                 )
                 await waitFn(safeSleepMs, signal)
                 continue // retry next attempt on same key & model

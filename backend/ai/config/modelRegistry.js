@@ -34,7 +34,7 @@ export const MODEL_REGISTRY = {
 
   'llama-3.1-70b-versatile': {
     id: 'llama-3.1-70b-versatile',
-    displayName: 'Groq Llama 3.1 70B Versatile (Primary/Failover)',
+    displayName: 'Groq Llama 3.1 70B Versatile (Decommissioned)',
     provider: 'groq',
     purpose: ['resume_analysis', 'assessment_report', 'career_chatbot', 'resume-parsing', 'linkedin_analysis', 'market_jd_analysis', 'bullet_batch_weave'],
     supportsJsonObject: true,
@@ -42,7 +42,7 @@ export const MODEL_REGISTRY = {
     supportsReasoning: true,
     allowPersonalData: true,
     contextWindow: 131072,
-    enabled: true,
+    enabled: false,
   },
 
   'llama3-70b-8192': {
@@ -346,7 +346,7 @@ export const MODEL_REGISTRY = {
 export const getModel = (modelId) => {
   if (!modelId) return null
   if (modelId === 'openrouter') return MODEL_REGISTRY['google/gemini-3.5-flash-lite'] || MODEL_REGISTRY['google/gemini-3.5-flash']
-  if (modelId === 'groq') return MODEL_REGISTRY['llama-3.1-70b-versatile'] || MODEL_REGISTRY['llama-3.3-70b-versatile']
+  if (modelId === 'groq') return MODEL_REGISTRY['llama-3.3-70b-versatile'] || MODEL_REGISTRY['llama3-70b-8192']
   if (modelId === 'gemini') return MODEL_REGISTRY['gemini-3.5-flash-lite']
   return MODEL_REGISTRY[modelId] || null
 }

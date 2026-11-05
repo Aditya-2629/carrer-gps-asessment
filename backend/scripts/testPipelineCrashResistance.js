@@ -6,7 +6,7 @@
  * 1. safeExtractString handles strings, nested objects, arrays, and undefined without throwing.
  * 2. deCycle strips circular references, Mongoose $ properties, and resumeContext without stack overflow.
  * 3. mapApifyPostsToCanonical creates pure POJOs without prototype leakage.
- * 4. Groq model fallback list uses active models (llama-3.1-70b-versatile, llama3-70b-8192).
+ * 4. Groq model fallback list uses active models (llama-3.3-70b-versatile, llama3-70b-8192).
  */
 
 import assert from 'assert'
@@ -153,21 +153,21 @@ async function runTests() {
 
   assert.strictEqual(PRODUCTION_FALLBACK_CHAIN[0], 'openrouter', 'Priority 1 must remain OpenRouter to protect TPM budget')
   assert.ok(
-    PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.1-70b-versatile'),
-    'Groq fallbacks must include active llama-3.1-70b-versatile endpoint'
+    PROVIDER_MODEL_FALLBACKS.groq.includes('llama-3.3-70b-versatile'),
+    'Groq fallbacks must include active llama-3.3-70b-versatile endpoint'
   )
   assert.ok(
     PROVIDER_MODEL_FALLBACKS.groq.includes('llama3-70b-8192'),
     'Groq fallbacks must include llama3-70b-8192'
   )
 
-  const groqModel = getModel('llama-3.1-70b-versatile')
-  assert.ok(groqModel, 'llama-3.1-70b-versatile must be defined in MODEL_REGISTRY')
+  const groqModel = getModel('llama-3.3-70b-versatile')
+  assert.ok(groqModel, 'llama-3.3-70b-versatile must be defined in MODEL_REGISTRY')
   assert.strictEqual(groqModel.provider, 'groq')
 
   const groqAlias = getModel('groq')
-  assert.strictEqual(groqAlias.id, 'llama-3.1-70b-versatile')
-  console.log('  ✔ Groq model registry and fallbacks updated to active endpoints (llama-3.1-70b-versatile, llama3-70b-8192)')
+  assert.strictEqual(groqAlias.id, 'llama-3.3-70b-versatile')
+  console.log('  ✔ Groq model registry and fallbacks updated to active endpoints (llama-3.3-70b-versatile, llama3-70b-8192)')
 
   console.log('\n================================================================')
   console.log('✅ ALL PIPELINE CRASH RESISTANCE & ROUTING TESTS PASSED (0 FAILURES)')
@@ -178,3 +178,4 @@ runTests().catch((err) => {
   console.error('\n❌ Crash resistance test failed:', err)
   process.exit(1)
 })
+
