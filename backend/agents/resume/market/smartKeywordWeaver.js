@@ -35,6 +35,14 @@ CRITICAL RULES:
   - If Airflow/Spark: mention DAG orchestration, idempotent tasks, or PySpark partitions.
   - If Kafka/RabbitMQ: mention consumer offsets, event streaming, or decoupled worker queues.
 
+SPOKEN INTERVIEW CADENCE & 3-SENTENCE SPOKEN FORMULA:
+- Spoken Cadence: Use natural first-person spoken English with conversational contractions ("we'd", "wasn't", "I've", "we're").
+- The 3-Sentence Spoken Interview Formula:
+  1. The Practical Problem: "In our microservices layer at [Company], we ran into a bottleneck where [specific issue]."
+  2. The Technical Trade-off: "I evaluated [Tool A] vs [Tool B], and we chose [Tool A] specifically because [concrete technical reason, e.g. lower memory overhead / better concurrency support]."
+  3. The Verified Result: "That brought our [latency/build time/query time] down to [metric] and kept the deployment stable."
+- Banned in Spoken Scripts: Purge phrases like "integrated into our operational workflows to deliver measurable efficiency gains", "spearheaded", "leveraged", "synergistic", "cutting-edge".
+
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
   "rewrittenBullets": [
@@ -45,7 +53,7 @@ OUTPUT FORMAT (STRICT JSON ONLY):
       "rewrittenText": "Orchestrated multi-stage Docker container builds and automated Kubernetes deployments across production clusters, cutting release turnaround by 45% and ensuring zero-downtime rollouts.",
       "interviewDefense": {
         "interviewerQuestion": "How did you manage container lifecycle and cluster resource limits using Docker and Kubernetes?",
-        "talkingScript": "At my company, I containerized our microservices with multi-stage Docker builds to reduce image attack surface by 60%, then defined Kubernetes deployment manifests with horizontal pod autoscaling and rolling updates to sustain 99.99% uptime under peak traffic.",
+        "talkingScript": "In our microservices layer at my company, we ran into a bottleneck where manual VM deployments caused inconsistent builds and slow release cycles. I evaluated standalone containers versus Kubernetes orchestration, and we chose Kubernetes specifically because horizontal pod autoscaling and rolling updates handled peak spikes without manual intervention. That brought our release turnaround down by 45% and kept our production uptime at 99.99%.",
         "tradeOffJustification": "We adopted Kubernetes container orchestration over standalone VM instances to automate self-healing replicas and ensure rapid, deterministic rollback during bad releases."
       }
     }
@@ -123,14 +131,15 @@ export async function batchWeaveBulletsWithLLM({
           : (res.wovenSkill ? res.wovenSkill.split(/[,/]/).map(s => s.trim()) : ['Core Tech'])
 
         skillsList.filter(Boolean).forEach((skill) => {
+          const fallbackPoint = buildHumanizedTalkingPoint(skill, item.company, targetRole)
           ledger.push({
             keyword: String(skill).trim(),
             company: item.company,
             exactBullet: res.rewrittenText,
-            interviewerQuestion: defense.interviewerQuestion || res.interviewerQuestion || `How did you apply ${skill} at ${item.company}?`,
-            talkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
-            interviewTalkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
-            tradeOffJustification: defense.tradeOffJustification || res.tradeOffJustification || `Selected ${skill} to ensure architectural scalability and operational reliability.`,
+            interviewerQuestion: defense.interviewerQuestion || res.interviewerQuestion || fallbackPoint.targetInterviewQuestion,
+            talkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || fallbackPoint.wordForWordTalkingScript,
+            interviewTalkingScript: defense.talkingScript || res.talkingScript || res.interviewTalkingScript || fallbackPoint.wordForWordTalkingScript,
+            tradeOffJustification: defense.tradeOffJustification || res.tradeOffJustification || fallbackPoint.engineeringTradeOff,
           })
         })
       }
@@ -230,14 +239,15 @@ export async function batchWeaveBulletsWithLLM({
           : (rewrite.wovenSkill ? rewrite.wovenSkill.split(/[,/]/).map(s => s.trim()) : ['Core Tech'])
 
         skillsList.filter(Boolean).forEach((skill) => {
+          const fallbackPoint = buildHumanizedTalkingPoint(skill, item.company, targetRole)
           interviewLedger.push({
             keyword: String(skill).trim(),
             company: item.company,
             exactBullet: rewrite.rewrittenText,
-            interviewerQuestion: defense.interviewerQuestion || `How did you apply ${skill} at ${item.company}?`,
-            talkingScript: defense.talkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
-            interviewTalkingScript: defense.talkingScript || `At ${item.company}, I deployed ${skill} to optimize technical execution and eliminate performance bottlenecks.`,
-            tradeOffJustification: defense.tradeOffJustification || `Selected ${skill} to ensure architectural scalability and operational reliability.`,
+            interviewerQuestion: defense.interviewerQuestion || fallbackPoint.targetInterviewQuestion,
+            talkingScript: defense.talkingScript || fallbackPoint.wordForWordTalkingScript,
+            interviewTalkingScript: defense.talkingScript || fallbackPoint.wordForWordTalkingScript,
+            tradeOffJustification: defense.tradeOffJustification || fallbackPoint.engineeringTradeOff,
           })
         })
       }
@@ -339,9 +349,9 @@ export function weaveToolIntoSentence(text, kw, category) {
   switch (category) {
     case 'data_warehouse':
       if (/(?:sql|query|queries|data|pipeline|report|dashboard|analytics|warehouse)/i.test(clean)) {
-        return `${clean}, leveraging ${kw} for scalable transformation pipelines, dimensional modeling, and automated reporting refresh.`
+        return `${clean}, using ${kw} for scalable transformation pipelines, dimensional modeling, and automated reporting refresh.`
       }
-      return `${clean}, utilizing ${kw} for scalable analytical data processing.`
+      return `${clean}, using ${kw} for scalable analytical data processing.`
 
     case 'ai_ml':
       if (/(?:ai|model|search|query|chat|assistant|retrieval|nlp|agent)/i.test(clean)) {
@@ -351,7 +361,7 @@ export function weaveToolIntoSentence(text, kw, category) {
 
     case 'messaging_streaming':
       if (/(?:event|stream|queue|sync|message|worker|async|transaction|ingestion|database|queries)/i.test(clean)) {
-        return `${clean}, utilizing ${kw} event streams to decouple asynchronous workers and eliminate message drops during high-volume spikes.`
+        return `${clean}, using ${kw} event streams to decouple asynchronous workers and eliminate message drops during high-volume spikes.`
       }
       return `${clean}, with ${kw} message queues for decoupled asynchronous processing.`
 
@@ -365,7 +375,7 @@ export function weaveToolIntoSentence(text, kw, category) {
       if (/(?:ui|frontend|component|page|view|interface|dashboard|client|web|react|node|service|api|backend)/i.test(clean)) {
         return `${clean}, adopting ${kw} to enforce strict payload contracts and eliminate runtime errors across service boundaries.`
       }
-      return `${clean}, utilizing ${kw} for modular, responsive interface delivery.`
+      return `${clean}, using ${kw} for modular, responsive interface delivery.`
 
     case 'testing_qa':
       if (/(?:test|quality|ci|pipeline|release|coverage|code|defect|review)/i.test(clean)) {
@@ -383,13 +393,28 @@ export function weaveToolIntoSentence(text, kw, category) {
       if (/(?:using|with|via)\s+([^,.;]+)/i.test(clean)) {
         return clean.replace(/(using|with|via)\s+([^,.;]+)/i, `$1 $2 and ${kw}`) + '.'
       }
-      return `${clean}, leveraging ${kw} to enhance production execution and reliability.`
+      return `${clean}, applying ${kw} to enhance production execution and reliability.`
+  }
+}
+
+/**
+ * Spoken Interview Talking Point Generator
+ * Follows the 3-Sentence Spoken Interview Formula (Problem -> Trade-off -> Result).
+ */
+export function buildHumanizedTalkingPoint(skill, company, role) {
+  const comp = company || 'my organization'
+  const targetRole = role || 'Full Stack Developer'
+  return {
+    targetInterviewQuestion: `How did you apply ${skill} in production at ${comp}, and what architectural challenges did you solve?`,
+    wordForWordTalkingScript: `When scaling our ${targetRole} deliverables at ${comp}, we needed ${skill} to handle reliable data exchange between distributed services. The main trade-off was avoiding unindexed query bottlenecks under peak loads, so I implemented strict schema boundaries and connection pooling to keep p99 latency predictable. That kept our deployment stable and gave us measurable throughput gains without service regressions.`,
+    engineeringTradeOff: `Selected ${skill} over custom in-memory alternatives to ensure standardized team maintainability and resilient horizontal scalability.`
   }
 }
 
 /**
  * Dynamic Interview Talking Script Generator
- * Quotes the tool directly and explains its real-world operational impact.
+ * Quotes the tool directly and explains its real-world operational impact
+ * following the 3-Sentence Spoken Interview Formula (Problem -> Trade-off -> Result).
  */
 export function generateInterviewScript(kw, category = '', targetRole = '', company = '') {
   const comp = company || 'my organization'
@@ -397,21 +422,21 @@ export function generateInterviewScript(kw, category = '', targetRole = '', comp
 
   switch (cat) {
     case 'data_warehouse':
-      return `At ${comp}, I leveraged ${kw} to model star schemas, optimize query runtimes, and automate business reporting SLAs.`
+      return `In our analytics layer at ${comp}, unindexed queries were slowing down dashboard refreshes and missing SLAs. I chose ${kw} to model star schemas, optimize query runtimes, and automate business reporting SLAs without manual intervention. That cut our reporting query latency by 40% and kept daily delivery consistent.`
     case 'ai_ml':
-      return `At ${comp}, I integrated ${kw} to optimize context retrieval precision, manage token latency, and enforce prompt defense guardrails.`
+      return `In our AI pipeline at ${comp}, our early prototypes struggled with token latency and context drift across multi-step prompts. I integrated ${kw} specifically to optimize context retrieval precision, manage token latency, and enforce prompt defense guardrails. That brought our response latency down to sub-second levels while keeping factual accuracy dependable.`
     case 'messaging_streaming':
-      return `At ${comp}, I configured ${kw} partitions, retention policies, and consumer offset handling for decoupled event streaming to eliminate message drops under load.`
+      return `In our event pipeline at ${comp}, synchronous HTTP endpoints were bottlenecking during peak traffic spikes. I implemented ${kw} to configure partitions, retention policies, and consumer offset handling for decoupled event streaming. That eliminated message drops under heavy load and kept our p99 latency flat.`
     case 'cloud_devops':
-      return `At ${comp}, I used ${kw} for reproducible environments, automated health probes, and zero-downtime deployment rollouts.`
+      return `In our deployment workflow at ${comp}, manual server provisioning caused configuration drift and slowed down releases. I introduced ${kw} for reproducible environments, automated health probes, and zero-downtime deployment rollouts. That cut our release turnaround time in half and kept our clusters resilient.`
     case 'frontend_ui':
-      return `At ${comp}, I used ${kw} to define strict interfaces, enforce static typing, and ensure interface state predictability, eliminating runtime errors.`
+      return `In our client application at ${comp}, untyped API payloads were causing subtle runtime regressions across views. I adopted ${kw} to define strict interfaces, enforce static typing, and ensure interface state predictability, eliminating runtime errors. That wiped out unexpected null exceptions and made refactoring significantly faster.`
     case 'testing_qa':
-      return `At ${comp}, I established comprehensive unit and integration test coverage using ${kw} with automated PR test gating to maintain code quality.`
+      return `In our release cycle at ${comp}, regression bugs were slipping into staging because test runs were manual and inconsistent. I established comprehensive unit and integration test coverage using ${kw} with automated PR test gating to maintain code quality. That caught defects before merging and gave the team confidence to deploy daily.`
     case 'backend_api':
-      return `At ${comp}, I implemented ${kw} to handle enterprise backend services, optimize throughput, and sustain resilient integrations.`
+      return `In our backend services at ${comp}, our monolithic endpoints were struggling with concurrency under increasing traffic. I implemented ${kw} to handle enterprise backend services, optimize throughput, and sustain resilient integrations. That kept response times under 200ms and prevented cascading failures during load spikes.`
     default:
-      return `At ${comp}, I applied ${kw} directly in production workflows, evaluating architectural trade-offs to deliver measurable operational gains.`
+      return `When scaling our deliverables at ${comp}, we ran into bottlenecks coordinating data exchange across distributed services. I brought in ${kw} with strict schema boundaries and connection pooling to keep p99 latency predictable. That kept our deployment stable and gave us measurable throughput gains without service regressions.`
   }
 }
 
@@ -627,8 +652,8 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
 
     if (category === 'data_warehouse') {
       synthBullet = isCurrent
-        ? `Architect scalable data pipelines and schema transformations leveraging ${kw}, optimizing query performance and ensuring automated reporting refresh.`
-        : `Architected scalable data pipelines and schema transformations leveraging ${kw}, optimizing query performance and ensuring automated reporting refresh.`
+        ? `Architect scalable data pipelines and schema transformations using ${kw}, optimizing query performance and ensuring automated reporting refresh.`
+        : `Architected scalable data pipelines and schema transformations using ${kw}, optimizing query performance and ensuring automated reporting refresh.`
     } else if (category === 'ai_ml') {
       synthBullet = isCurrent
         ? `Engineer production agentic workflows and context retrieval systems using ${kw}, sustaining sub-second latency and high retrieval precision.`
@@ -660,10 +685,10 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
         bulletText: synthBullet,
         exactBullet: synthBullet,
         wovenBullet: synthBullet,
-        interviewerQuestion: `How did you leverage ${kw} at ${availableProfile.company}?`,
+        interviewerQuestion: `How did you apply ${kw} at ${availableProfile.company}?`,
         interviewTalkingScript: script,
         talkingScript: script,
-        tradeOffJustification: `Selected ${kw} to support scalable operational workflows and improve system reliability.`,
+        tradeOffJustification: `Selected ${kw} over custom in-memory alternatives to ensure standardized maintainability and resilient scalability.`,
       })
     }
   }
@@ -863,6 +888,7 @@ export default {
   weaveToolIntoSentence,
   generateInterviewScript,
   generateTalkingScript,
+  buildHumanizedTalkingPoint,
   buildRolePracticeBullet,
   isRoleCurrent,
   cleanBoilerplateAndTense,

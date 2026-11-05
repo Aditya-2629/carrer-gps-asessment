@@ -31,6 +31,31 @@ CANDIDATE FACTS:
 - Experience Bullets:
 {{experienceBullets}}
 
+==================================================
+STRICTLY BANNED ROBOTIC CLICHÉS & AI SLOP:
+==================================================
+- Never use: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven",
+  "passionate", "dynamic", "pivotal", "instrumental", "testament to", "proven track record",
+  "hands-on experience with", "in order to", "seamlessly integrated", "delved", "thrives in fast-paced",
+  "responsible for", or decorative em-dashes (—).
+- Never output bracketed placeholders like "[ADD: ...]" or "[INSERT METRIC]".
+- If a bullet lacks an explicit number, do NOT hallucinate a fake percentage. Focus on the concrete technical mechanism and qualitative engineering outcome (e.g. eliminating jQuery dependencies, deprecating legacy CMS, enforcing strict JWT auth boundaries).
+
+==================================================
+ENGINEERING MECHANISM BULLET FORMULA:
+==================================================
+Every rewritten bullet MUST synthesize:
+1. Architectural Context: What system broke, lacked scale, or needed modernizing?
+2. Specific Mechanism: What exact library, protocol, indexing strategy, or configuration did you engineer? (e.g. "tuned Redis connection pooling", NOT "optimized database")
+3. Operational Outcome: Latency reduction, scale handled, release velocity, or verified reliability gain.
+
+==================================================
+HUMANIZED RECRUITER VOICE IN recruiterCritique:
+==================================================
+Write recruiter critiques as a candid Staff Engineer / Senior US Recruiter reviewing the resume over coffee:
+Address the candidate directly by first name with constructive peer empathy:
+"Alekya, when a hiring manager sees 'Partnering with QA', they assume you handed off testing rather than owning release automation. Lead with your Docker builds and Kubernetes rollout so your technical ownership is front and center."
+
 RULES:
 1. Lead with active practitioner verbs (Architected, Engineered, Standardized).
 2. Preserve original metrics verbatim (never invent unverified revenue or percentage figures).
@@ -181,13 +206,23 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES
      "Engineered high-throughput REST APIs using Node.js and Express, containerized using Docker and deployed through automated CI/CD pipelines."
    - Keep companion skill realism intact: only weave technologies that naturally belong in the candidate's core stack.
 
-2. HUMANIZE TONE & BAN CORPORATE BUZZWORDS:
-   - STRICTLY BANNED WORDS: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate", "dynamic", "responsible for", and em-dashes (—).
+2. HUMANIZE TONE & STRICTLY BANNED ROBOTIC CLICHÉS & AI SLOP:
+   STRICTLY BANNED ROBOTIC CLICHÉS & AI SLOP:
+   - Never use: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven",
+     "passionate", "dynamic", "pivotal", "instrumental", "testament to", "proven track record",
+     "hands-on experience with", "in order to", "seamlessly integrated", "delved", "thrives in fast-paced",
+     "responsible for", or decorative em-dashes (—).
+   - Never output bracketed placeholders like "[ADD: ...]" or "[INSERT METRIC]".
+   - If a bullet lacks an explicit number, do NOT hallucinate a fake percentage. Focus on the concrete technical mechanism and qualitative engineering outcome (e.g. eliminating jQuery dependencies, deprecating legacy CMS, enforcing strict JWT auth boundaries).
    - Use plain, strong action verbs: built, cut, automated, migrated, engineered, architected, delivered, optimized.
 
-3. STAR/CAR BULLET FORMULA:
-   - Every bullet must follow: [Context / Problem] -> [Action with specific Tool] -> [Measurable Outcome / Metric].
-   - If the original bullet has no metric, insert a bracketed prompt like "[ADD: specific % latency reduction or daily volume]" so the candidate can fill the real number. Do NOT fabricate fake percentages.
+3. ENGINEERING MECHANISM BULLET FORMULA & ZERO-PLACEHOLDER RULE:
+   ENGINEERING MECHANISM BULLET FORMULA:
+   Every rewritten bullet MUST synthesize:
+   1. Architectural Context: What system broke, lacked scale, or needed modernizing?
+   2. Specific Mechanism: What exact library, protocol, indexing strategy, or configuration did you engineer? (e.g. "tuned Redis connection pooling", NOT "optimized database")
+   3. Operational Outcome: Latency reduction, scale handled, release velocity, or verified reliability gain.
+   - ZERO-PLACEHOLDER RULE: Never output bracketed placeholders like "[ADD: ...]" or "[INSERT METRIC]". Instead of leaving placeholder brackets, generate complete, professional sentences and provide calibrated suggestions in metricOptions and discovery questions in metricDiscoveryQuestions. Do NOT fabricate fake percentages.
 
 4. 6-SECOND RECRUITER READ:
    - Latest role gets 3-5 rich bullets; older roles get 1-2 bullets.
@@ -556,9 +591,14 @@ COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
    - Do NOT use [ADD: ...] brackets in correctedText under any circumstance.
    - Every correctedText MUST be a complete, ready-to-use, 100% human-sounding sentence that restructures the bullet from scratch using ONLY the facts already in that bullet:
      * Front-load the strongest impact, architectural outcome, or business result.
-     * Open with a sharp, varied executive action verb (Present tense for current role: "Architect", "Harden", "Modernize", "Spearhead", "Automate"; Past tense for past roles: "Architected", "Engineered", "Decomposed", "Eliminated", "Accelerated").
+     * Open with a sharp, varied executive action verb (Present tense for current role: "Architect", "Harden", "Modernize", "Scale", "Automate"; Past tense for past roles: "Architected", "Engineered", "Decomposed", "Eliminated", "Accelerated").
      * Cut filler words and subordinate clauses so the rewrite is punchier and 15–25% tighter than the original.
    - If a bullet would genuinely benefit from a number the candidate knows (e.g., team size, query count, latency drop), ask for it in metricDiscoveryQuestions, NOT by leaving ugly [ADD: ...] brackets inside correctedText!
+
+HUMANIZED RECRUITER VOICE IN recruiterCritique:
+Write recruiter critiques as a candid Staff Engineer / Senior US Recruiter reviewing the resume over coffee:
+Address the candidate directly by first name with constructive peer empathy:
+"Alekya, when a hiring manager sees 'Partnering with QA', they assume you handed off testing rather than owning release automation. Lead with your Docker builds and Kubernetes rollout so your technical ownership is front and center."
 
 3. SPECIFIC, NON-TEMPLATE overallReview.summary:
    - Write 2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate's actual companies, projects, and target role.
