@@ -210,8 +210,13 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     : candidateYoe >= 3
     ? 'Mid–Senior / 3–5 Yrs Experience 🚀'
     : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience 🌱')
+  const helpArray = Array.isArray(answers.externalHelp) ? answers.externalHelp : [String(answers.externalHelp || '')]
   const consultancy = ext.consultancy_context || {
-    mode: /C2C/i.test(answers.externalHelp) ? 'C2C Consultancy / Bench' : 'Solo Search',
+    mode: helpArray.some((h) => /Freelanc/i.test(h))
+      ? 'Freelance / Direct Client Gigs'
+      : helpArray.some((h) => /C2C/i.test(h))
+      ? 'C2C Consultancy / Bench'
+      : 'Solo Search',
     description: '100% self-directed application pipeline',
   }
 

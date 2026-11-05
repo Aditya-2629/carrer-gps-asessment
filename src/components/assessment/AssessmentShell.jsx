@@ -30,7 +30,7 @@ const SAMPLE_TEST_DATA = {
   experience: '5–8 yrs (Senior)',
   apps30d: '60',
   appsWeek: 14,
-  targetedMatchPct: '80%–100% (Highly Targeted 🎯)',
+  targetedMatchPct: ['80%–100% (Highly Targeted 🎯)'],
   searchMethods: [
     'Company Career Pages (Direct ATS)',
     'Direct Recruiter / Hiring Manager Outreach',

@@ -29,8 +29,6 @@ import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
 import RoadmapTimeline from './RoadmapTimeline'
 import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
-import CareerGpsReadyModal from './CareerGpsReadyModal'
-import { Sparkle } from '@phosphor-icons/react'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
@@ -848,10 +846,6 @@ function ReportDashboardContent() {
   }, [storeReportData, userId, email, isMockPreview, setReportData])
 
   const [activeDiagnosisTab, setActiveDiagnosisTab] = useState('resume')
-  const [showReadyModal, setShowReadyModal] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return !sessionStorage.getItem('crafture_gps_ready_dismissed')
-  })
 
   // Case 1: Fetching persisted report from backend for verified user
   if (isRecovering) {
@@ -1016,18 +1010,6 @@ function ReportDashboardContent() {
 
   return (
     <div className="bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150">
-      {/* ─── Screen Popup: Your Career GPS is Ready (Section 22) ─── */}
-      <CareerGpsReadyModal
-        isOpen={showReadyModal}
-        onClose={() => {
-          setShowReadyModal(false)
-          try {
-            sessionStorage.setItem('crafture_gps_ready_dismissed', 'true')
-          } catch (_e) {}
-        }}
-        reportData={reportData}
-      />
-
       {/* ─── Top Brand Header ─── */}
       <header
         role="banner"
@@ -1054,14 +1036,6 @@ function ReportDashboardContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowReadyModal(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary-light)] border border-[var(--primary)]/20 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Open Executive GPS Summary"
-            >
-              <Sparkle size={13} weight="fill" />
-              <span className="hidden sm:inline">Executive Summary</span>
-            </button>
             <button
               onClick={async () => {
                 try {

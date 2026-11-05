@@ -593,7 +593,7 @@ export class ResumeNormalizer {
     let name = ''
 
     const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/
-    const phoneRegex = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
+    const phoneRegex = /(?:\+?(\d{1,3})[-.\s]?)?(?:\(?(\d{3})\)?[-.\s]?)(\d{3})[-.\s]?(\d{4})\b/
     const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
     const githubRegex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i
 
@@ -605,7 +605,7 @@ export class ResumeNormalizer {
       }
       if (!phone && phoneRegex.test(line)) {
         const m = line.match(phoneRegex)
-        if (m) phone = m[0]
+        if (m) phone = m[0].trim()
       }
       if (!linkedin) {
         const norm = normalizeLinkedInUrl(line)
@@ -643,7 +643,7 @@ export class ResumeNormalizer {
     }
     if (!phone && rawText) {
       const m = rawText.match(phoneRegex)
-      if (m) phone = m[0]
+      if (m) phone = m[0].trim()
     }
 
     // 3. Extract candidate name from top lines
@@ -688,9 +688,10 @@ export class ResumeNormalizer {
       name: name || 'Candidate',
       headline: headline || '',
       targetRole: targetRoleOverride || headline || '',
+      phone: phone || null,
       contact: {
         email: email || 'N/A',
-        phone: phone || 'N/A',
+        phone: phone || null,
         location: location || 'N/A',
         linkedin: linkedin || '',
         github: github || '',

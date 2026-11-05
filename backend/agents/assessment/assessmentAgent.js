@@ -153,12 +153,14 @@ export function computeCareerGpsScore({
   ]
 
   // ── Pillar 3: Outreach & Pipeline Sourcing Velocity (Max 25 pts, Weight: 25%) ──
-  const matchPctStr = String(ans.targetedMatchPct || '')
+  const matchPctList = Array.isArray(ans.targetedMatchPct)
+    ? ans.targetedMatchPct
+    : [String(ans.targetedMatchPct || '')]
   let targetedAppPts = 3
-  if (/80%|Highly/i.test(matchPctStr)) targetedAppPts = 6
-  else if (/50%|Moderately/i.test(matchPctStr)) targetedAppPts = 4.5
-  else if (/20%|Broad/i.test(matchPctStr)) targetedAppPts = 3
-  else if (/Under/i.test(matchPctStr)) targetedAppPts = 1.5
+  if (matchPctList.some((m) => /80%|Highly/i.test(m))) targetedAppPts = 6
+  else if (matchPctList.some((m) => /50%|Moderately/i.test(m))) targetedAppPts = 4.5
+  else if (matchPctList.some((m) => /20%|Broad/i.test(m))) targetedAppPts = 3
+  else if (matchPctList.some((m) => /Under/i.test(m))) targetedAppPts = 1.5
 
   const methods = Array.isArray(ans.searchMethods) ? ans.searchMethods : [String(ans.searchMethods || '')]
   const hasDirectAts = methods.some((m) => /Career Pages|Direct ATS/i.test(m))
@@ -916,25 +918,35 @@ export function getExternalContext({ targetRole = '', answers = {}, semanticProf
   }
 
   // Consultancy & External Support Tracking (never penalizing score!)
-  const rawHelp = String(answers.externalHelp || semanticProfile?.externalHelp?.rawAnswer || '').trim()
+  const helpList = Array.isArray(answers.externalHelp)
+    ? answers.externalHelp
+    : [String(answers.externalHelp || semanticProfile?.externalHelp?.rawAnswer || '')]
+
   let consultancyContext = {
     mode: 'Solo Search',
     description: '100% self-directed job hunt. You own full compensation negotiation and direct employer relationships.',
     recommendation: 'Prioritize internal employee referrals and direct career page submissions to maximize callback rates without middleman fee deductions.',
   }
-  if (/C2C|Bench/i.test(rawHelp)) {
+
+  if (helpList.some((h) => /Freelanc|Contractor|Client Gigs/i.test(h))) {
+    consultancyContext = {
+      mode: 'Freelance & Independent Contracting',
+      description: 'Operating as an independent contractor or taking direct client projects alongside your job hunt.',
+      recommendation: 'Package freelance and contract client deliverables as enterprise-grade architecture case studies with hard deliverable milestones to demonstrate self-directed leadership.',
+    }
+  } else if (helpList.some((h) => /C2C|Bench/i.test(h))) {
     consultancyContext = {
       mode: 'C2C Consultancy / Bench Marketing',
       description: 'Working with a consulting firm or vendor marketing your profile on corp-to-corp contracts.',
       recommendation: 'Ensure your verified resume aligns with vendor marketing claims and protect billable hourly rate margins with direct Tier-1 client visibility.',
     }
-  } else if (/Staffing|Agency/i.test(rawHelp)) {
+  } else if (helpList.some((h) => /Staffing|Agency/i.test(h))) {
     consultancyContext = {
       mode: 'W2 Staffing / Placement Agency',
       description: 'Partnering with placement agencies on contract or direct-hire openings.',
       recommendation: 'Establish weekly touchpoints with account recruiters for exclusive job orders before they hit public boards.',
     }
-  } else if (/Coach|Resume Writer|Prep/i.test(rawHelp)) {
+  } else if (helpList.some((h) => /Coach|Resume Writer|Prep/i.test(h))) {
     consultancyContext = {
       mode: 'External Coaching / Interview Prep',
       description: 'Using career mentoring or specialized interview preparation services.',

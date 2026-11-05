@@ -5,16 +5,6 @@ import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 
-function extractCleanPhone(text) {
-  if (!text || typeof text !== 'string') return ''
-  // Standard formatted phone numbers with separators or country codes (avoids PDF timestamps like 2026082610474)
-  const match = text.match(/(?:\+\d{1,3}[-.\s]?)?(?:\(\d{3}\)|\b\d{3})[-.\s]\d{3}[-.\s]\d{4}\b/)
-  if (match) return match[0].trim()
-  const intlMatch = text.match(/\+\d{1,3}[-.\s]\d{9,11}\b/)
-  if (intlMatch) return intlMatch[0].trim()
-  return ''
-}
-
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
   const [fileError, setFileError] = useState('')
@@ -86,13 +76,18 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             bulkUpdates.targetRole = mostRecentRole
           }
 
-          const detectedPhone =
+          const rawPhone =
             result.canonicalResume?.candidate?.phone ||
+            result.canonicalResume?.candidate?.contact?.phone ||
             result.canonicalResume?.phone ||
             result.analysis?.candidateSnapshot?.phone ||
             ''
-          if (detectedPhone && !formData.phone) {
-            bulkUpdates.phone = detectedPhone
+          const cleanDigits = String(rawPhone).replace(/\D/g, '')
+          // Only set phone if it contains 10-15 valid digits and is not 'N/A'
+          if (rawPhone && rawPhone !== 'N/A' && cleanDigits.length >= 10) {
+            bulkUpdates.phone = rawPhone
+          } else {
+            bulkUpdates.phone = ''
           }
 
           const detectedLocation =
@@ -174,20 +169,14 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         window.__uploadedResumeFile = file
       }
 
-      // 1. Clear previous LinkedIn URL on new upload
-      useAppStore.getState().setBulkFormData({ linkedin: '', linkedinData: null })
+      // 1. Clear previous Phone & LinkedIn on new upload
+      useAppStore.getState().setBulkFormData({ phone: '', linkedin: '', linkedinData: null })
 
-      // 2. Client-side scan for clean Phone Number & LinkedIn URL
+      // 2. Client-side scan for clean LinkedIn URL
       let fastLinkedIn = ''
       try {
         const buf = await file.arrayBuffer()
         const text = new TextDecoder('latin1').decode(buf)
-
-        // Clean phone detection (ignores timestamps like 2026082610474)
-        const cleanPhone = extractCleanPhone(text)
-        if (cleanPhone) {
-          useAppStore.getState().setFormData('phone', cleanPhone)
-        }
 
         const pdfUriMatch = text.match(/\/URI\s*\(([^)]*linkedin\.com\/in\/[^)]*)\)/i)
         const docxTargetMatch = text.match(/Target="([^"]*linkedin\.com\/in\/[^"]*)"/i)

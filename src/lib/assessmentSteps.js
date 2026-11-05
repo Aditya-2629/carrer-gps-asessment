@@ -123,6 +123,7 @@ export const EXPERIENCE = {
     icon: '🏢',
     reaction: {
       'No — 100% Solo (Applying & networking on my own) 🚶': '100% Solo job search · Full ownership of compensation & direct ATS pipeline 🚶',
+      'Yes — Freelancing / Independent Contractor / Direct Client Gigs 💻': 'Direct client & freelance contracting active 💻',
       'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢': 'C2C Consultancy / Bench Marketing pipeline enabled 🏢',
       'Yes — W2 Staffing / Placement Agency 💼': 'W2 Staffing & agency placement track active 💼',
       'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯': 'External coaching & prep tools active 🎯',
@@ -308,7 +309,7 @@ export const RAW_STEPS = [
     id: 6,
     questionNumber: 3,
     name: 'targetedMatchPct',
-    type: 'radio',
+    type: 'checkbox',
     label: EXPERIENCE[6].title,
     sublabel: EXPERIENCE[6].helper,
     options: [
@@ -370,20 +371,29 @@ export const RAW_STEPS = [
     id: 8,
     questionNumber: 5,
     name: 'externalHelp',
-    type: 'radio',
+    type: 'checkbox',
     label: EXPERIENCE[8].title,
     sublabel: EXPERIENCE[8].helper,
     options: [
       'No — 100% Solo (Applying & networking on my own) 🚶',
+      'Yes — Freelancing / Independent Contractor / Direct Client Gigs 💻',
       'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢',
       'Yes — W2 Staffing / Placement Agency 💼',
       'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯',
     ],
     optionIcons: {
       'No — 100% Solo (Applying & networking on my own) 🚶': '🚶',
+      'Yes — Freelancing / Independent Contractor / Direct Client Gigs 💻': '💻',
       'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢': '🏢',
       'Yes — W2 Staffing / Placement Agency 💼': '💼',
       'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯': '🎯',
+    },
+    reaction: {
+      'No — 100% Solo (Applying & networking on my own) 🚶': '100% Solo search · Full ownership of compensation & direct ATS pipeline 🚶',
+      'Yes — Freelancing / Independent Contractor / Direct Client Gigs 💻': 'Direct client & freelance contracting active 💻',
+      'Yes — C2C Consultancy / Bench Marketing (% cut from pay) 🏢': 'C2C Consultancy / Bench Marketing pipeline enabled 🏢',
+      'Yes — W2 Staffing / Placement Agency 💼': 'W2 Staffing & agency placement track active 💼',
+      'Yes — Resume Writer / Career Coach / Interview Prep Service 🎯': 'External coaching & prep tools active 🎯',
     },
     required: true,
     autoAdvance: false,
@@ -393,7 +403,6 @@ export const RAW_STEPS = [
     kicker: EXPERIENCE[8].kicker,
     visual: EXPERIENCE[8].visual,
     icon: EXPERIENCE[8].icon,
-    reaction: EXPERIENCE[8].reaction,
   },
   // Q7: outreach & referralsMonth
   {

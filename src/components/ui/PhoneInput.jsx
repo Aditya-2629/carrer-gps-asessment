@@ -11,10 +11,15 @@ export default function PhoneInput({
   // Strip leading country code (+1 or 1) and format for clean 10-digit input box display
   const cleanAndFormat = (val) => {
     if (!val) return ''
-    let digits = String(val).replace(/\D/g, '')
+    const strVal = String(val).trim()
+    if (strVal === 'N/A' || strVal.toLowerCase() === 'undefined' || strVal.toLowerCase() === 'null') {
+      return ''
+    }
+    let digits = strVal.replace(/\D/g, '')
+    if (!digits) return ''
     if (digits.length === 11 && digits.startsWith('1')) {
       digits = digits.slice(1)
-    } else {
+    } else if (digits.length > 10) {
       digits = digits.slice(0, 10)
     }
 
