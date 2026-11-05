@@ -198,6 +198,20 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
       }
     }
 
+    // Parse raw activityData if passed
+    let activityData = null
+    if (req.body?.activityData) {
+      if (typeof req.body.activityData === 'object') {
+        activityData = req.body.activityData
+      } else if (typeof req.body.activityData === 'string') {
+        try {
+          activityData = JSON.parse(req.body.activityData)
+        } catch (_e) {
+          console.warn('[LinkedInAgentRoute] Could not parse stringified activityData JSON')
+        }
+      }
+    }
+
     // Validate that at least one relevant input source is provided
     const hasResume = Boolean(req.file || (resumeText && resumeText.trim()))
     const hasLinkedIn = Boolean(linkedinData || (linkedinUrl && linkedinUrl.trim()))
@@ -208,17 +222,36 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
       })
     }
 
-    // Stage 1A: Attempt live LinkedIn scrape if URL is provided and no data was supplied
+    // Stage 1A: Attempt live LinkedIn profile & posts scrape concurrently if URL is provided
     let scrapeWarning = null
-    if (!linkedinData && linkedinUrl && linkedinUrl.trim()) {
-      try {
-        const scraped = await scrapeLinkedInProfile(linkedinUrl.trim())
-        if (scraped) {
-          linkedinData = scraped
-        }
-      } catch (scrapeErr) {
-        scrapeWarning = `Apify LinkedIn scraping failed: ${scrapeErr.message}. Falling back to resume-inferred LinkedIn optimization.`
-        console.warn(`[LinkedInAgentRoute] ${scrapeWarning}`)
+    if (linkedinUrl && linkedinUrl.trim()) {
+      const cleanUrl = linkedinUrl.trim()
+      const scrapeTasks = []
+      if (!linkedinData) {
+        scrapeTasks.push(
+          scrapeLinkedInProfile(cleanUrl)
+            .then((scraped) => {
+              if (scraped) linkedinData = scraped
+            })
+            .catch((scrapeErr) => {
+              scrapeWarning = `Apify LinkedIn profile scraping failed: ${scrapeErr.message}. Falling back to resume-inferred LinkedIn optimization.`
+              console.warn(`[LinkedInAgentRoute] ${scrapeWarning}`)
+            })
+        )
+      }
+      if (!activityData) {
+        scrapeTasks.push(
+          scrapeLinkedInPosts(cleanUrl, { maxPosts: 15 })
+            .then((posts) => {
+              if (posts) activityData = posts
+            })
+            .catch((postsErr) => {
+              console.warn('[LinkedInAgentRoute] Apify posts scrape failed:', postsErr.message)
+            })
+        )
+      }
+      if (scrapeTasks.length > 0) {
+        await Promise.all(scrapeTasks)
       }
     }
 
@@ -251,6 +284,7 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
     // Stage 2: Evaluate LinkedIn with cross-agent context bridging
     const evaluation = await evaluateLinkedIn({
       linkedinData,
+      activityData,
       resumeContext,
       runLlm,
     })
@@ -268,6 +302,8 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
       skillGaps: evaluation.skillGaps,
       discrepancies: evaluation.discrepancies,
       missingSkills: evaluation.missingSkills,
+      activitySignals: evaluation.activitySignals || null,
+      thoughtLeadership: evaluation.thoughtLeadership || null,
       optimizations: evaluation.optimizations,
       inferredFromResume: evaluation.inferredFromResume || false,
       scrapeWarning,

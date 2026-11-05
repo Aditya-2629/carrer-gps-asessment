@@ -208,9 +208,10 @@ export function resolveEffectiveProfile(rawProfile, resumeContext = {}) {
  *
  * @param {Object} rawProfile - scraped or raw LinkedIn profile data
  * @param {Object} [resumeContext] - { canonicalResume, extractedFacts, targetRole }
+ * @param {Object} [activitySignals] - deterministic activity & social signals
  * @returns {Object} Canonical LinkedIn Agent report
  */
-export function analyzeLinkedInProfile(rawProfile, resumeContext = {}) {
+export function analyzeLinkedInProfile(rawProfile, resumeContext = {}, activitySignals = null) {
   const profile = normalizeLinkedInProfile(rawProfile)
   if (!profile.isValid) {
     return makeNoDataResult()
@@ -251,7 +252,7 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}) {
     missingSkills: crossAnalysis.missingSkills,
     missingSections: crossAnalysis.missingSections || [],
     visualAudit: crossAnalysis.visualAudit || { hasPicture: false, hasBanner: false, issues: [] },
-    activitySignals: null,
+    activitySignals: activitySignals || null,
     thoughtLeadership: null,
     optimizations: null,
     summary: {
@@ -346,71 +347,78 @@ export async function evaluateLinkedIn({
   }
   let baseResult
   try {
-    baseResult = analyzeLinkedInProfile(normalized, resumeContext)
+    baseResult = analyzeLinkedInProfile(normalized, resumeContext, activitySignals)
   } catch (baseErr) {
     console.warn('[LinkedInAgent] analyzeLinkedInProfile encountered error, generating fallback base:', baseErr.message)
     baseResult = makeNoDataResult()
   }
   if (!baseResult.dataAvailable) return baseResult
 
-  // 2. Run generative optimizer if requested
+  // 2. Run generative optimizer and thought leadership evaluation
   let optimizations = null
+  let thoughtLeadership = null
+
   if (runLlm) {
     if (onProgress) {
       onProgress({
         stage: 'llm_synthesis',
         agent: 'linkedin',
-        message: 'Synthesizing All-Star headlines, 3-paragraph story, and Canva blueprint…',
+        message: 'Synthesizing All-Star headlines, 3-paragraph story, thought leadership, and Canva blueprint…',
       })
     }
-    try {
-      const signals = extractLinkedInSignals(normalized, resumeContext)
-      optimizations = await synthesizeLinkedInOptimizations(
-        normalized,
-        resumeContext,
-        baseResult.missingSkills || [],
-        baseResult.discrepancies || [],
-        signals,
-        {
-          excludeProvider: excludeProvider || resumeContext?.excludeProvider,
-          preferredProvider: preferredProvider || resumeContext?.preferredProvider,
-          answers: effectiveAnswers,
-        }
-      )
-    } catch (synthErr) {
+
+    const signals = extractLinkedInSignals(normalized, resumeContext)
+
+    const optPromise = synthesizeLinkedInOptimizations(
+      normalized,
+      resumeContext,
+      baseResult.missingSkills || [],
+      baseResult.discrepancies || [],
+      signals,
+      {
+        excludeProvider: excludeProvider || resumeContext?.excludeProvider,
+        preferredProvider: preferredProvider || resumeContext?.preferredProvider,
+        answers: effectiveAnswers,
+      }
+    ).catch((synthErr) => {
       console.warn('[LinkedInAgent] Generative synthesis encountered error, falling back to deterministic:', synthErr.message)
-      optimizations = buildDeterministicOptimizations(
+      return buildDeterministicOptimizations(
         normalized,
         resumeContext,
         baseResult.missingSkills || []
       )
-    }
-  }
-
-  // 3. Evaluate Thought Leadership & Social SEO (Phase 3)
-  let thoughtLeadership = null
-  if (onProgress) {
-    onProgress({
-      stage: 'thought_leadership',
-      agent: 'linkedin',
-      message: 'Evaluating thought leadership authority, cadence velocity, and social SEO blueprints…',
     })
-  }
 
-  try {
-    thoughtLeadership = await evaluateThoughtLeadershipAndSocialSeo({
+    const tlPromise = evaluateThoughtLeadershipAndSocialSeo({
       activitySignals,
       posts: Array.isArray(activityData?.posts) ? activityData.posts : [],
       resumeContext,
       options: {
-        runLlm,
+        runLlm: true,
         preferredProvider: preferredProvider || resumeContext?.preferredProvider,
         excludeProvider: excludeProvider || resumeContext?.excludeProvider,
+        answers: effectiveAnswers,
         ...options,
       },
+    }).catch((tlErr) => {
+      console.warn('[LinkedInAgent] Thought leadership evaluation failed:', tlErr.message)
+      return buildDeterministicThoughtLeadership(
+        targetRole,
+        coreSkills,
+        resumeProjects,
+        activitySignals?.isGhostProfile
+      )
     })
-  } catch (tlErr) {
-    console.warn('[LinkedInAgent] Thought leadership evaluation failed:', tlErr.message)
+
+    const [resolvedOptimizations, resolvedThoughtLeadership] = await Promise.all([optPromise, tlPromise])
+    optimizations = resolvedOptimizations
+    thoughtLeadership = resolvedThoughtLeadership
+  } else {
+    optimizations = buildDeterministicOptimizations(
+      normalized,
+      resumeContext,
+      baseResult.missingSkills || []
+    )
     thoughtLeadership = buildDeterministicThoughtLeadership(
       targetRole,
       coreSkills,

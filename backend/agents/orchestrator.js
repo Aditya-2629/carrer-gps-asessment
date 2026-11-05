@@ -21,8 +21,14 @@ import { evaluateLinkedIn } from './linkedin/linkedinAgent.js'
 import { LINKEDIN_AGENT } from './core/agentContract.js'
 import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
 import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
+
+export let _scraperOverrides = null
+export function setScraperOverrides(overrides) {
+  _scraperOverrides = overrides
+}
 
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000
 // 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
@@ -148,33 +154,64 @@ export async function runCareerAgents(bundle) {
   }
 
   // ── Stage 0 (Background Apify Scraping Pipeline) ───────────────────────────
-  // When linkedinUrl is provided, start scrapeLinkedInProfile immediately in the background and hold the promise.
+  // When linkedinUrl is provided, start scrapeLinkedInProfile and scrapeLinkedInPosts
+  // immediately in the background and hold both promises concurrently.
   let apifyScrapePromise = null
+  let apifyPostsPromise = null
   let effectiveLinkedinUrl = linkedinUrl || ''
   if (!effectiveLinkedinUrl && linkedinData) {
     try {
       effectiveLinkedinUrl = linkedinData.url || linkedinData.linkedinUrl || ''
     } catch (_e) {}
   }
-  if (!linkedinData && effectiveLinkedinUrl) {
-    if (onProgress) {
-      onProgress({ stage: 'apify_started', agent: 'linkedin', message: 'Apify background scrape: retrieving public LinkedIn profile & visual branding…' })
+
+  const fallbackPosts = { posts: [], comments: [], isGhostProfile: true, available: false }
+  const doScrapeProfile = bundle._scrapeLinkedInProfile || _scraperOverrides?.scrapeLinkedInProfile || scrapeLinkedInProfile
+  const doScrapePosts = bundle._scrapeLinkedInPosts || _scraperOverrides?.scrapeLinkedInPosts || scrapeLinkedInPosts
+
+  if (effectiveLinkedinUrl) {
+    if (!linkedinData) {
+      if (onProgress) {
+        onProgress({ stage: 'apify_started', agent: 'linkedin', message: 'Apify background scrape: retrieving public LinkedIn profile & visual branding…' })
+      }
+      try {
+        apifyScrapePromise = doScrapeProfile(effectiveLinkedinUrl)
+          .then((res) => {
+            if (onProgress && res) {
+              onProgress({ stage: 'apify_done', agent: 'linkedin', message: 'Apify scrape complete: profile data & visual branding retrieved' })
+            }
+            return res
+          })
+          .catch((scrapeErr) => {
+            console.warn('[Orchestrator] Background Apify scrape failed or skipped:', scrapeErr.message)
+            return null
+          })
+      } catch (scrapeErr) {
+        console.warn('[Orchestrator] Background Apify scrape failed to start:', scrapeErr.message)
+        apifyScrapePromise = Promise.resolve(null)
+      }
     }
-    try {
-      apifyScrapePromise = scrapeLinkedInProfile(effectiveLinkedinUrl)
-        .then((res) => {
-          if (onProgress && res) {
-            onProgress({ stage: 'apify_done', agent: 'linkedin', message: 'Apify scrape complete: profile data & visual branding retrieved' })
-          }
-          return res
-        })
-        .catch((scrapeErr) => {
-          console.warn('[Orchestrator] Background Apify scrape failed or skipped:', scrapeErr.message)
-          return null
-        })
-    } catch (scrapeErr) {
-      console.warn('[Orchestrator] Background Apify scrape failed to start:', scrapeErr.message)
-      apifyScrapePromise = Promise.resolve(null)
+
+    if (!bundle.activityData) {
+      if (onProgress) {
+        onProgress({ stage: 'apify_posts_started', agent: 'linkedin', message: 'Retrieving recent LinkedIn activity & thought leadership…' })
+      }
+      try {
+        apifyPostsPromise = doScrapePosts(effectiveLinkedinUrl, { maxPosts: 15 })
+          .then((res) => {
+            if (onProgress && res) {
+              onProgress({ stage: 'apify_posts_done', agent: 'linkedin', message: 'Apify posts scrape complete: activity & posts retrieved' })
+            }
+            return res || fallbackPosts
+          })
+          .catch((postsErr) => {
+            console.warn('[Orchestrator] Background Apify posts scrape failed or skipped:', postsErr.message)
+            return fallbackPosts
+          })
+      } catch (postsErr) {
+        console.warn('[Orchestrator] Background Apify posts scrape failed to start:', postsErr.message)
+        apifyPostsPromise = Promise.resolve(fallbackPosts)
+      }
     }
   }
 
@@ -339,6 +376,16 @@ export async function runCareerAgents(bundle) {
           activeProfile = null
         }
 
+        // Await background Apify posts scrape if one was started
+        let activePostsData = bundle.activityData || null
+        if (!activePostsData && apifyPostsPromise) {
+          try {
+            activePostsData = await apifyPostsPromise
+          } catch (_err) {
+            activePostsData = { posts: [], comments: [], isGhostProfile: true, available: false }
+          }
+        }
+
         const linkedinId =
           activeProfile?.publicIdentifier ||
           activeProfile?.url ||
@@ -354,12 +401,16 @@ export async function runCareerAgents(bundle) {
           effectiveTargetRole ||
           'none'
 
-        const inputHash = sha256(`linkedin_v7:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:v:${LINKEDIN_AGENT.version}`)
+        const postsFingerprint = activePostsData?.posts?.length
+          ? `${activePostsData.posts.length}:${activePostsData.posts[0]?.id || ''}`
+          : 'ghost'
+
+        const inputHash = sha256(`linkedin_v8:${linkedinId}:${resumeFingerprint}:${effectiveTargetRole}:${postsFingerprint}:v:${LINKEDIN_AGENT.version}`)
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('linkedin', inputHash) : null
         if (cached && cached.output) {
           if (onProgress) onProgress({ stage: 'cache_hit', agent: 'linkedin', message: 'LinkedIn Agent: reused cached audit' })
-          return { key: 'linkedinAgent', analysis: cached.output, linkedinData: activeProfile }
+          return { key: 'linkedinAgent', analysis: cached.output, linkedinData: activeProfile, activityData: activePostsData }
         }
 
         if (onProgress) onProgress({ stage: 'agent_started', agent: 'linkedin', message: 'LinkedIn Agent: auditing & optimizing' })
@@ -367,6 +418,7 @@ export async function runCareerAgents(bundle) {
         // Execute LinkedIn Agent's dedicated AI call via LLM Gateway with provider isolation
         const analysis = await evaluateLinkedIn({
           profile: activeProfile,
+          activityData: activePostsData,
           resumeContext: {
             canonicalResume: verifiedCanonicalResume,
             extractedFacts: verifiedFacts,
@@ -396,7 +448,7 @@ export async function runCareerAgents(bundle) {
           })
         }
         if (onProgress) onProgress({ stage: 'agent_done', agent: 'linkedin', message: 'LinkedIn Agent: complete' })
-        return { key: 'linkedinAgent', analysis, linkedinData: activeProfile }
+        return { key: 'linkedinAgent', analysis, linkedinData: activeProfile, activityData: activePostsData }
       } catch (err) {
         console.warn('[Orchestrator] LinkedIn Agent failed (graceful isolation):', err.message)
         let fallbackHash = 'linkedin_err'
@@ -414,7 +466,7 @@ export async function runCareerAgents(bundle) {
           error: { message: err.message },
         })
         if (onProgress) onProgress({ stage: 'agent_error', agent: 'linkedin', message: `LinkedIn Agent failed: ${err.message}` })
-        return { key: 'linkedinAgent', analysis: null, linkedinData: null }
+        return { key: 'linkedinAgent', analysis: null, linkedinData: null, activityData: null }
       }
     })()
   }
@@ -445,8 +497,12 @@ export async function runCareerAgents(bundle) {
     resumeAgent: activeResumeAgent,
     linkedinAgent: activeLinkedinAgent,
     linkedinData: linkedinSettled?.linkedinData || null,
+    linkedinActivityData: linkedinSettled?.activityData || null,
+    linkedinActivitySignals: activeLinkedinAgent?.activitySignals || null,
     assessmentPersona: effectiveAssessmentPersona,
   }
 }
 
-export default { runCareerAgents, computeAnalysisCacheFingerprint }
+export const orchestrateAssessment = runCareerAgents
+
+export default { runCareerAgents, orchestrateAssessment, computeAnalysisCacheFingerprint }

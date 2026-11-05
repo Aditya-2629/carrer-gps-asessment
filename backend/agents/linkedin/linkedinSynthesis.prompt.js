@@ -148,7 +148,7 @@ ${liExpSummary}
 - Has Custom Banner: ${profile?.hasBanner ? 'Yes' : 'No'}
 
 ==================================================
-VERIFIED RESUME FACTS (GROUND TRUTH)
+VERIFIED RESUME EVIDENCE & FACTS (GROUND TRUTH)
 ==================================================
 RESUME EXPERIENCES (UP TO 4 ROLES X 6 BULLETS):
 ${expSummary}
@@ -166,7 +166,7 @@ CROSS-PLATFORM GAPS & DISCREPANCIES
 DETECTED DISCREPANCIES:
 ${discSummary}
 
-VERIFIED RESUME SKILLS MISSING ON LINKEDIN:
+PRIORITY RESUME SKILLS MISSING ON LINKEDIN:
 ${effectiveMissingSkills}${effectiveAnswers && Object.keys(effectiveAnswers).length > 0 ? `
 
 ==================================================
@@ -198,7 +198,7 @@ export const TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT = `You are Liam / Sophia — Se
 Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 1. Search-Optimized Headline: Role Title + Top 4 Recruiter Search Keywords + Scope Hook (<220 chars).
 2. Story-Driven About Section: 3-paragraph executive narrative (The Hook -> Quantified Proof & Architecture Scale -> Next Role Focus & Call to Connect; NEVER copy-paste resume bullets, synthesize into 3 thematic domain pillars).
-3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (zero hallucination).
+3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (ZERO-HALLUCINATION GUARDRAIL: zero hallucination).
 
 HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
 - 3 distinct formulas: "Recruiter-Search Optimized", "Impact-Driven", "Specialist / Authority".

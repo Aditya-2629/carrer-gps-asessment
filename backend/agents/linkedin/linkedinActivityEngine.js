@@ -123,7 +123,7 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
   const validTimestamps = []
   for (const p of posts) {
     const ts = parseTimestampSafely(
-      p.postedAt || p.postedDate || p.createdAt || p.time || p.date
+      p.postedAt || p.postedDate || p.createdAt || p.time || p.date || p.publishedAt || p.timestamp
     )
     if (ts !== null && Number.isFinite(ts)) {
       validTimestamps.push(ts)

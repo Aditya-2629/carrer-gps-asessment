@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    linkedinActivityData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    linkedinActivitySignals: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: true,

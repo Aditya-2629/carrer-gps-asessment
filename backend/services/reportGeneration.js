@@ -524,6 +524,16 @@ export async function generateReportBundle({
     user.linkedinData = activeLinkedinData
   }
 
+  // Persist LinkedIn Activity data & signals from orchestrator results
+  if (result?.linkedinActivityData) {
+    user.linkedinActivityData = result.linkedinActivityData
+  }
+  if (result?.linkedinActivitySignals) {
+    user.linkedinActivitySignals = result.linkedinActivitySignals
+  } else if (activeLinkedinAgent?.activitySignals) {
+    user.linkedinActivitySignals = activeLinkedinAgent.activitySignals
+  }
+
   // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
   if ((!activeLinkedinAgent || activeLinkedinAgent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl || effectiveCanonicalResume || user.resumeJson)) {
     try {
@@ -664,6 +674,10 @@ export async function generateReportBundle({
   aiReport.resume_agent = activeResumeAgent
   aiReport.linkedin_agent = activeLinkedinAgent
   aiReport.assessment_agent = effectiveAssessmentAgent
+  aiReport.linkedin_activity_signals = user.linkedinActivitySignals || activeLinkedinAgent?.activitySignals || result?.linkedinActivitySignals || null
+  aiReport.linkedin_activity_data = user.linkedinActivityData || result?.linkedinActivityData || null
+  aiReport.linkedinActivitySignals = aiReport.linkedin_activity_signals
+  aiReport.linkedinActivityData = aiReport.linkedin_activity_data
 
   const v2Score = effectiveAssessmentAgent?.gpsScore ?? aiReport.career_health_score ?? 68
   aiReport.gps_score = v2Score

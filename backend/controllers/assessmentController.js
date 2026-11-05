@@ -277,6 +277,36 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
+    if (answers.linkedinActivityData) {
+      try {
+        user.linkedinActivityData = typeof answers.linkedinActivityData === 'string'
+          ? JSON.parse(answers.linkedinActivityData)
+          : answers.linkedinActivityData
+      } catch (_e) {
+        user.linkedinActivityData = answers.linkedinActivityData
+      }
+    }
+
+    if (answers.linkedinActivitySignals) {
+      try {
+        user.linkedinActivitySignals = typeof answers.linkedinActivitySignals === 'string'
+          ? JSON.parse(answers.linkedinActivitySignals)
+          : answers.linkedinActivitySignals
+      } catch (_e) {
+        user.linkedinActivitySignals = answers.linkedinActivitySignals
+      }
+    }
+
+    const assessmentResults = req.body?.assessmentResults || answers?.assessmentResults || null
+    if (assessmentResults) {
+      if (assessmentResults.linkedinActivityData) {
+        user.linkedinActivityData = assessmentResults.linkedinActivityData
+      }
+      if (assessmentResults.linkedinActivitySignals) {
+        user.linkedinActivitySignals = assessmentResults.linkedinActivitySignals
+      }
+    }
+
     // Detect LinkedIn URL in submitted answers
     let extractedLinkedinUrl = null
     for (const [key, val] of Object.entries(answers)) {
@@ -332,7 +362,9 @@ export const saveAnswers = async (req, res) => {
     return res.status(200).json({
       message: 'Answers, resume, and LinkedIn data processed successfully.',
       resumeJson: user.resumeJson,
-      linkedinData: user.linkedinData
+      linkedinData: user.linkedinData,
+      linkedinActivityData: user.linkedinActivityData,
+      linkedinActivitySignals: user.linkedinActivitySignals,
     })
   } catch (error) {
     console.error('Error in saveAnswers controller:', error)
@@ -369,7 +401,12 @@ export const generateReport = async (req, res) => {
     // shared by this blocking controller and the async ReportJob worker.
     const { user, aiReport } = await generateReportBundle({ userId, semanticProfile })
     costTracker.printRunSummary(reportRunId)
-    return res.status(200).json(aiReport)
+    const responsePayload = {
+      ...aiReport,
+      linkedinActivityData: user?.linkedinActivityData || aiReport?.linkedin_activity_data || null,
+      linkedinActivitySignals: user?.linkedinActivitySignals || aiReport?.linkedin_activity_signals || null,
+    }
+    return res.status(200).json(responsePayload)
   } catch (error) {
     console.error('Error in generateReport controller:', error)
     const status = error.statusCode || 400
@@ -411,7 +448,12 @@ export const generateReportStream = async (req, res) => {
     })
 
     sendProgress(100, 'Assessment complete! Rendering dashboard...')
-    res.write(`data: ${JSON.stringify({ complete: true, report: aiReport })}\n\n`)
+    const streamedReport = {
+      ...aiReport,
+      linkedinActivityData: user?.linkedinActivityData || aiReport?.linkedin_activity_data || null,
+      linkedinActivitySignals: user?.linkedinActivitySignals || aiReport?.linkedin_activity_signals || null,
+    }
+    res.write(`data: ${JSON.stringify({ complete: true, report: streamedReport })}\n\n`)
     res.end()
   } catch (err) {
     console.error('SSE Report Stream Error:', err)
@@ -1059,5 +1101,21 @@ export const downloadAtsResumeDocx = async (req, res) => {
     return res.status(500).json({ message: 'Failed to generate tailored Word document.', error: err.message })
   }
 }
+
+/**
+ * Persists activity signals and data from orchestrator assessment results onto User document.
+ * @param {Object} user - Mongoose User document
+ * @param {Object} assessmentResults - outputs from runCareerAgents / orchestrateAssessment
+ */
+export function persistAssessmentActivitySignals(user, assessmentResults = {}) {
+  if (assessmentResults?.linkedinActivityData) {
+    user.linkedinActivityData = assessmentResults.linkedinActivityData
+  }
+  if (assessmentResults?.linkedinActivitySignals) {
+    user.linkedinActivitySignals = assessmentResults.linkedinActivitySignals
+  }
+  return user
+}
+
 
 

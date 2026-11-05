@@ -298,6 +298,8 @@ function mergeWithDefaults(llmOutput, fallback) {
       const fb = fallback.actionablePostTemplates[idx] || fallback.actionablePostTemplates[0]
       return {
         format: t.format || fb.format,
+        title: t.title || t.topic || t.format || fb.format,
+        topic: t.topic || t.title || t.format || fb.format,
         hook: t.hook || fb.hook,
         bodyOutline: t.bodyOutline || fb.bodyOutline,
         callToAction: t.callToAction || fb.callToAction,
