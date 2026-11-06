@@ -582,6 +582,29 @@ h1, h2, h3, h4, h5, h6 {
   .skeleton-shimmer { animation: none; opacity: 0.6; }
 }
 
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fadeIn {
+  animation: tabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.cockpit-pill {
+  transition: all 0.18s ease-in-out;
+}
+.cockpit-pill.active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
 /* ─── Master Print / PDF Engine ─── */
 @media print {
   @page {
@@ -596,6 +619,8 @@ h1, h2, h3, h4, h5, h6 {
     print-color-adjust: exact !important;
   }
   .no-print,
+  .print\:hidden,
+  .cockpit-pill,
   button:not(.print-keep),
   [data-interactive="true"],
   .metric-generator-widget,
