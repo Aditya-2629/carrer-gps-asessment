@@ -313,10 +313,10 @@ export default function ReportChatbot() {
   const initialGreeting = useMemo(() => {
     const companyClause = latestCompany
       ? `verified your track record at **${latestCompany}**`
-      : `verified your technical experience`
+      : `verified your professional experience`
 
-    return `Hey **${firstName}**! I'm **Atlas**, your Executive Career Partner. I've analyzed your **${targetRole}** profile (**${overallScore}/100**), ${companyClause}, and isolated your primary funnel choke point: **${bottleneckTitle}**.\n\nWhether you need Google XYZ bullet rewrites, a 50-word InMail to target hiring managers, or mock interview drills on **${topSkill}**, let's build your competitive edge. Where should we start?`
-  }, [firstName, targetRole, overallScore, latestCompany, bottleneckTitle, topSkill])
+    return `Hey **${firstName}**! I'm **Atlas from Crafture, your Career GPS Partner**. We've analyzed your **${targetRole}** profile (**${overallScore}/100**), ${companyClause}, and isolated your primary funnel choke point: **${bottleneckTitle}**.\n\nWhether you need Google XYZ bullet rewrites, our 6-Phase Framework roadmap, or 1-on-1 coaching details, we're here to build your competitive edge. Where should we start?`
+  }, [firstName, targetRole, overallScore, latestCompany, bottleneckTitle])
 
   const [open, setOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -358,13 +358,13 @@ export default function ReportChatbot() {
     }
   }, [input])
 
-  // 5 Dynamic Contextual Action Chips
+  // 6 Dynamic Crafture Contextual Action Chips
   const STARTER_CHIPS = useMemo(
     () => [
       {
         id: 'bottleneck',
-        label: `🎯 Fix "${bottleneckTitle.slice(0, 24)}${bottleneckTitle.length > 24 ? '...' : ''}"`,
-        prompt: `How do I fix my primary bottleneck ("${bottleneckTitle}") this week?`,
+        label: `🎯 Fix "${bottleneckTitle.slice(0, 20)}${bottleneckTitle.length > 20 ? '...' : ''}"`,
+        prompt: `How do we fix my primary choke point ("${bottleneckTitle}") using the Crafture 6-Phase Career GPS Framework?`,
       },
       {
         id: 'bullet',
@@ -374,18 +374,23 @@ export default function ReportChatbot() {
           : 'Rewrite my weakest resume bullet with stronger Google XYZ impact metrics.',
       },
       {
-        id: 'cold-dm',
-        label: `📬 50-word InMail for ${targetRole.slice(0, 20)}`,
-        prompt: `Write a high-converting 50-word LinkedIn message to an Engineering Manager for a ${targetRole} opening using my verified achievements.`,
+        id: 'interview',
+        label: `🎤 Mock Interview on ${topSkill.slice(0, 18)}`,
+        prompt: `Ask me 1 tough interview question for a ${targetRole} role focusing on ${topSkill} and show me a strong STAR answer with architectural trade-offs.`,
       },
       {
-        id: 'interview',
-        label: `🎤 Mock Interview on ${topSkill}`,
-        prompt: `Ask me 1 tough technical interview question for a ${targetRole} role focusing on ${topSkill} and show me a strong STAR answer with architectural trade-offs.`,
+        id: 'pricing',
+        label: '💼 Programs & Pricing',
+        prompt: "What are Crafture's official programs and pricing options ($0 Starter, $150 AI, $300 Elite)?",
+      },
+      {
+        id: 'visa',
+        label: '🛂 Visa & Work Auth Guidance',
+        prompt: "What is Crafture's strategic guidance for F-1 OPT / STEM OPT and H-1B visa sponsorship job searches?",
       },
       {
         id: 'plan',
-        label: '🚀 My 7-Day Rapid Triage',
+        label: '🚀 7-Day Rapid Triage',
         prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
       },
     ],
@@ -562,7 +567,7 @@ export default function ReportChatbot() {
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300"></span>
           </span>
           <ChatCircleDots size={20} weight="fill" />
-          <span>Ask Atlas Copilot</span>
+          <span>Ask Crafture Copilot</span>
           <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-full">
             {overallScore}/100
           </span>
@@ -587,7 +592,7 @@ export default function ReportChatbot() {
               </span>
               <div>
                 <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <span>Atlas Executive Partner</span>
+                  <span>Atlas • Crafture Career GPS</span>
                   <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     Active Intelligence
