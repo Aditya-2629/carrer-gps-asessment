@@ -206,6 +206,14 @@ Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 2. Story-Driven About Section: 3-paragraph executive narrative in high-agency First-Person ("I") voice (Technical Identity & Obsession -> Quantified Architecture Pillars -> Where I'm Headed & Peer Invitation to Connect; NEVER copy-paste resume bullets, synthesize into 3 thematic domain pillars, NO trailing tag clouds).
 3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (ZERO-HALLUCINATION GUARDRAIL: zero hallucination).
 
+STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
+Check the candidate's targetRole and resume background:
+- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
+  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
+  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
+  * HEADLINE & ABOUT FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
+  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
+
 HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
 - 3 distinct formulas: "Recruiter-Search Optimized", "Impact-Driven", "Specialist / Authority".
 - Format: Target Role | Top 4 Recruiter Search Keywords | Scope Hook / Scale Win.
@@ -322,6 +330,14 @@ Analyze this candidate's profile against their resume for Task 1 (Headlines, Abo
 
 export const TASK2_EXPERIENCE_VISIBILITY_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience.
 Generate high-converting LinkedIn Experience Upgrades, Featured Projects, Missing Sections, and Recruiter Visibility Tactics. Ground all claims 100% in verified resume facts (zero hallucination).
+
+STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
+Check the candidate's targetRole and resume background:
+- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
+  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
+  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
+  * EXPERIENCE UPGRADE FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
+  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
 
 3-ROLE EXPERIENCE BULLET UPGRADES:
 - Upgrade the candidate's top 3 work experience roles into metric-backed impact statements (4 bullets per role):

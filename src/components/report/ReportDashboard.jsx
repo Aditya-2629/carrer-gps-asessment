@@ -1081,6 +1081,32 @@ function ReportDashboardContent() {
     )
   ))
 
+  const handleDownloadPdf = async () => {
+    const effectiveUserId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
+    const effectiveEmail = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api')
+      const downloadUrl = `${apiBase}/assessment/report-pdf?userId=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}`
+
+      const response = await fetch(downloadUrl)
+      if (!response.ok) throw new Error('PDF download failed')
+      const blob = await response.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      const candidateName = reportData?.resume_agent?.candidateSnapshot?.name || 'Career_GPS'
+      a.download = `Career_GPS_Report_${candidateName.replace(/\s+/g, '_')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (_err) {
+      // Fallback to print view if blob download fails
+      sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
+      window.open(`/full-report?id=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}&print=true`, '_blank')
+    }
+  }
+
   return (
     <div className="bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150">
       {/* ─── Top Brand Header ─── */}
@@ -1110,12 +1136,7 @@ function ReportDashboardContent() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
-                const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
-                window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&print=true`, '_blank')
-              }}
+              onClick={handleDownloadPdf}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               title="Download print-perfect Career GPS Report PDF"
             >

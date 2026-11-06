@@ -42,6 +42,16 @@ STRICTLY BANNED ROBOTIC CLICHÉS & AI SLOP:
 - If a bullet lacks an explicit number, do NOT hallucinate a fake percentage. Focus on the concrete technical mechanism and qualitative engineering outcome (e.g. eliminating jQuery dependencies, deprecating legacy CMS, enforcing strict JWT auth boundaries).
 
 ==================================================
+STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
+==================================================
+Check the candidate's targetRole and resume background:
+- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
+  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
+  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
+  * EXECUTIVE SUMMARY FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
+  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
+
+==================================================
 ENGINEERING MECHANISM BULLET FORMULA:
 ==================================================
 Every rewritten bullet MUST synthesize:
@@ -227,6 +237,16 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES
 4. 6-SECOND RECRUITER READ:
    - Latest role gets 3-5 rich bullets; older roles get 1-2 bullets.
    - Keep total document strictly to 1 page for under 8 years of experience.
+
+==================================================
+STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
+==================================================
+Check the candidate's targetRole and resume background:
+- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
+  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
+  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
+  * EXECUTIVE SUMMARY FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
+  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
 
 ==================================================
 1. RESUME IS THE ONLY SOURCE OF TRUTH

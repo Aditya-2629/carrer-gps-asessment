@@ -177,65 +177,114 @@ export default function FullCareerReportPage() {
         ].slice(0, 3)
 
   // Executive Summary Rewrite
+  const isDataRole =
+    /data|analyst|analytics|bi\b|business intelligence|tableau|power bi|sql|warehouse/i.test(targetRole) ||
+    /data|analyst|analytics/i.test(report.user_answers?.targetRole || '') ||
+    /data|analyst|analytics/i.test(report.target_role || '')
+
   const summaryRewrite =
     resumeAgent?.summaryAudit?.rewrittenSummary ||
     resumeAgent?.rewrittenSummary ||
     resumeAgent?.summary_rewrite ||
-    `${targetRole} with track record architecting high-throughput, fault-tolerant enterprise systems. Specializes in distributed cloud infrastructure, microservices modernization, and cross-functional engineering leadership. Consistently accelerates sprint delivery velocity by 25%+ while maintaining 99.99% service level availability.`
+    (isDataRole
+      ? `${targetRole} with proven expertise architecting high-impact business intelligence dashboards, automated SQL pipelines, and cloud data warehouses. Specializes in advanced SQL, Snowflake, Power BI, and dbt semantic modeling. Track record cutting executive reporting turnaround by 50%+ and delivering data models adopted by 400+ cross-functional stakeholders.`
+      : `${targetRole} with track record architecting high-throughput, fault-tolerant enterprise systems. Specializes in distributed cloud infrastructure, microservices modernization, and cross-functional engineering leadership. Consistently accelerates sprint delivery velocity by 25%+ while maintaining 99.99% service level availability.`)
 
   // Bullet Audits (Top 4)
+  const dataRoleFallbackBullets = [
+    {
+      originalText: 'Extracted and transformed clinical and billing datasets using SQL queries and updated weekly Excel reports for internal teams.',
+      rewrittenText: 'Automated 25+ SQL & Python data pipelines across Snowflake, eliminating 14 hours of weekly manual reporting and accelerating stakeholder decision velocity by 65%.',
+      company: 'Healthcare Data Integration',
+      metricPill: 'Speed: -14 Hrs/Wk',
+      flaw: 'Manual extraction task framing with unquantified operational scale',
+    },
+    {
+      originalText: 'Built Power BI reports and dashboards to visualize claims denial trends and patient enrollment statistics.',
+      rewrittenText: 'Engineered 8 interactive Power BI dashboards adopted by 250+ executive stakeholders, surfacing $1.8M in recoverable billing discrepancies.',
+      company: 'Empower Health Services',
+      metricPill: 'Impact: $1.8M Surfaced',
+      flaw: 'Vague dashboard build activity lacking business adoption or dollar outcome',
+    },
+    {
+      originalText: 'Wrote complex SQL queries with joins and subqueries to support cross-functional ad-hoc data requests from marketing.',
+      rewrittenText: 'Architected robust dbt semantic data models and optimized PostgreSQL queries, slashing query runtimes by 78% (18m down to 4m).',
+      company: 'Metropolis Healthcare',
+      metricPill: 'Runtime: -78% Latency',
+      flaw: 'Generic SQL coding description missing dataset scale or query speedup',
+    },
+    {
+      originalText: 'Checked data quality and reconciled patient records across legacy databases and cloud storage.',
+      rewrittenText: 'Formulated automated data validation protocols reconciling 500k+ daily healthcare records with 99.98% audit compliance and zero pipeline halts.',
+      company: 'Data Governance & Ops',
+      metricPill: 'Scale: 500k+ Daily',
+      flaw: 'Routine maintenance wording without data accuracy or record volume',
+    },
+  ]
+
+  const sweFallbackBullets = [
+    {
+      originalText: 'Responsible for developing microservices and backend APIs in Java and Spring Boot for banking applications.',
+      rewrittenText: 'Architected 14+ mission-critical Spring Boot microservices handling $450M+ daily transactional volume at 99.99% uptime.',
+      company: 'Core Enterprise Platform',
+      metricPill: 'Scale: $450M+ Daily',
+      flaw: 'Passive verb ("Responsible for") & zero operational scale metrics',
+    },
+    {
+      originalText: 'Worked on database queries and improved application performance during peak traffic hours.',
+      rewrittenText: 'Refactored 40+ high-latency PostgreSQL queries and introduced Redis caching, slashing P99 latency by 42% (380ms to 220ms).',
+      company: 'Data Infrastructure',
+      metricPill: 'Latency: -42% P99',
+      flaw: 'Vague effort ("Worked on") with unquantified speed improvement',
+    },
+    {
+      originalText: 'Collaborated with QA and DevOps to implement automated CI/CD deployment pipelines.',
+      rewrittenText: 'Spearheaded Jenkins CI/CD pipeline overhaul across 8 cross-functional teams, cutting deploy cycle time from 55 to 14 minutes.',
+      company: 'DevOps & Tooling',
+      metricPill: 'Cycle Time: -74%',
+      flaw: 'Generic team activity with no individual contribution or time saved',
+    },
+    {
+      originalText: 'Maintained front-end dashboards using React and ensured compliance with accessibility standards.',
+      rewrittenText: 'Engineered responsive React analytics cockpit used by 12,000+ daily active enterprise users with 100% WCAG 2.1 compliance.',
+      company: 'Client Experience',
+      metricPill: 'Adoption: 12k DAU',
+      flaw: 'Maintenance framing lacking audience scale or business validation',
+    },
+  ]
+
   const rawBullets = (resumeAgent?.bulletAudit || []).filter((b) => b.rewrittenText || b.needsRewrite)
+  const roleFallbackBullets = isDataRole ? dataRoleFallbackBullets : sweFallbackBullets
   const bulletRewrites =
-    rawBullets.length >= 4
+    rawBullets.length >= 4 && (!isDataRole || !rawBullets.some((b) => /spring boot|microservices|kubernetes/i.test(b.rewrittenText || '')))
       ? rawBullets.slice(0, 4)
-      : [
-          ...rawBullets,
-          {
-            originalText: 'Responsible for developing microservices and backend APIs in Java and Spring Boot for banking applications.',
-            rewrittenText: 'Architected 14+ mission-critical Spring Boot microservices handling $450M+ daily transactional volume at 99.99% uptime.',
-            company: 'Core Enterprise Platform',
-            metricPill: 'Scale: $450M+ Daily',
-            flaw: 'Passive verb ("Responsible for") & zero operational scale metrics',
-          },
-          {
-            originalText: 'Worked on database queries and improved application performance during peak traffic hours.',
-            rewrittenText: 'Refactored 40+ high-latency PostgreSQL queries and introduced Redis caching, slashing P99 latency by 42% (380ms to 220ms).',
-            company: 'Data Infrastructure',
-            metricPill: 'Latency: -42% P99',
-            flaw: 'Vague effort ("Worked on") with unquantified speed improvement',
-          },
-          {
-            originalText: 'Collaborated with QA and DevOps to implement automated CI/CD deployment pipelines.',
-            rewrittenText: 'Spearheaded Jenkins CI/CD pipeline overhaul across 8 cross-functional teams, cutting deploy cycle time from 55 to 14 minutes.',
-            company: 'DevOps & Tooling',
-            metricPill: 'Cycle Time: -74%',
-            flaw: 'Generic team activity with no individual contribution or time saved',
-          },
-          {
-            originalText: 'Maintained front-end dashboards using React and ensured compliance with accessibility standards.',
-            rewrittenText: 'Engineered responsive React analytics cockpit used by 12,000+ daily active enterprise users with 100% WCAG 2.1 compliance.',
-            company: 'Client Experience',
-            metricPill: 'Adoption: 12k DAU',
-            flaw: 'Maintenance framing lacking audience scale or business validation',
-          },
-        ].slice(0, 4)
+      : roleFallbackBullets.slice(0, 4)
 
   // Top 5 Missing Keywords
+  const dataKeywords = [
+    { name: 'Advanced SQL (CTEs, Window Functions)', category: 'Database', importance: 'High ATS Filter', location: 'Experience Bullets' },
+    { name: 'Snowflake / BigQuery', category: 'Cloud Data Warehouse', importance: 'Recruiter Keyword', location: 'Core Technical Stack' },
+    { name: 'Power BI / Tableau (DAX Modeling)', category: 'Business Intelligence', importance: 'Screening Anchor', location: 'Executive Summary' },
+    { name: 'dbt / Star Schema Modeling', category: 'Data Architecture', importance: 'Senior Level Gate', location: 'Experience Bullets' },
+    { name: 'Data Quality & Reconciliation', category: 'Governance', importance: 'Tech Stack Filter', location: 'Technical Skills' },
+  ]
+  const sweKeywords = [
+    { name: 'Kubernetes / EKS', category: 'Cloud Infrastructure', importance: 'High ATS Filter', location: 'Experience Bullets' },
+    { name: 'Distributed Systems', category: 'Architecture', importance: 'Recruiter Keyword', location: 'Executive Summary' },
+    { name: 'CI/CD Automation', category: 'DevOps / Tooling', importance: 'Screening Anchor', location: 'Technical Skills' },
+    { name: 'System Observability (Datadog)', category: 'Reliability', importance: 'Senior Level Gate', location: 'Experience Bullets' },
+    { name: 'GraphQL / gRPC', category: 'API Design', importance: 'Tech Stack Filter', location: 'Technical Skills' },
+  ]
+
   const rawMissingKeywords =
     resumeAgent?.skillsAnalysis?.missingKeywords ||
     resumeAgent?.missingKeywords ||
     report.missing_keywords ||
     []
-  const missingKeywords =
-    rawMissingKeywords.length >= 5
-      ? rawMissingKeywords.slice(0, 5)
-      : [
-          { name: 'Kubernetes / EKS', category: 'Cloud Infrastructure', importance: 'High ATS Filter', location: 'Experience Bullets' },
-          { name: 'Distributed Systems', category: 'Architecture', importance: 'Recruiter Keyword', location: 'Executive Summary' },
-          { name: 'CI/CD Automation', category: 'DevOps / Tooling', importance: 'Screening Anchor', location: 'Technical Skills' },
-          { name: 'System Observability (Datadog)', category: 'Reliability', importance: 'Senior Level Gate', location: 'Experience Bullets' },
-          { name: 'GraphQL / gRPC', category: 'API Design', importance: 'Tech Stack Filter', location: 'Technical Skills' },
-        ]
+
+  const missingKeywords = isDataRole
+    ? dataKeywords
+    : (rawMissingKeywords.length >= 5 ? rawMissingKeywords.slice(0, 5) : sweKeywords)
 
   // LinkedIn Headlines (3 Tiers)
   const rawHeadlines = linkedinAgent?.optimizations?.headlines || linkedinAgent?.headlines || []
@@ -246,7 +295,9 @@ export default function FullCareerReportPage() {
         typeof rawHeadlines[0] === 'string'
           ? rawHeadlines[0]
           : rawHeadlines[0]?.headline ||
-            `${targetRole} | Microservices • Cloud Architecture • Distributed Systems | High-Scale Engineering`,
+            (isDataRole
+              ? `${targetRole} | SQL • Snowflake • Power BI • dbt | Scalable Business Intelligence & Analytics`
+              : `${targetRole} | Microservices • Cloud Architecture • Distributed Systems | High-Scale Engineering`),
     },
     {
       tier: 'Impact-Driven (Outcome First)',
@@ -254,7 +305,9 @@ export default function FullCareerReportPage() {
         typeof rawHeadlines[1] === 'string'
           ? rawHeadlines[1]
           : rawHeadlines[1]?.headline ||
-            `${targetRole} | Scaling Enterprise Platforms to $450M+ Volume & 99.99% Availability | Ex-Fintech Leader`,
+            (isDataRole
+              ? `${targetRole} | Unlocking $1.8M+ in Data Optimization & Cutting Reporting Time by 50%+ | Ex-Healthcare BI`
+              : `${targetRole} | Scaling Enterprise Platforms to $450M+ Volume & 99.99% Availability | Ex-Fintech Leader`),
     },
     {
       tier: 'Specialist / Domain Authority',
@@ -262,19 +315,27 @@ export default function FullCareerReportPage() {
         typeof rawHeadlines[2] === 'string'
           ? rawHeadlines[2]
           : rawHeadlines[2]?.headline ||
-            `Principal Systems Architect | Cloud Modernization • Latency Optimization • High-Throughput Pipelines`,
+            (isDataRole
+              ? `Senior BI & Analytics Specialist | Automated ETL Pipelines • Semantic Modeling • Executive Dashboards`
+              : `Principal Systems Architect | Cloud Modernization • Latency Optimization • High-Throughput Pipelines`),
     },
   ]
 
   // LinkedIn About Story (3 Paragraphs)
   const rawAbout = linkedinAgent?.optimizations?.aboutNarrative || linkedinAgent?.aboutStory || []
-  const aboutParagraphs = Array.isArray(rawAbout) && rawAbout.length >= 3
+  const aboutParagraphs = Array.isArray(rawAbout) && rawAbout.length >= 3 && (!isDataRole || !rawAbout.some((p) => /microservices|kubernetes|spring boot/i.test(p)))
     ? rawAbout.slice(0, 3)
-    : [
-        `As a ${targetRole}, I build resilient backend platforms that translate complex business requirements into high-throughput, low-latency architecture. Over the past 6+ years in enterprise engineering, I have focused on solving the core bottlenecks that prevent applications from scaling gracefully.`,
-        `My core specialty lies at the intersection of cloud-native infrastructure, distributed data pipelines, and microservices reliability. Most recently, I architected distributed services handling hundreds of millions in transactional volume while systematically cutting deployment cycles by over 70%.`,
-        `I am passionate about building collaborative engineering cultures, mentoring rising talent, and establishing clear technical standards. If you are solving challenging problems in cloud infrastructure, scalability, or developer velocity, let's connect.`,
-      ]
+    : (isDataRole
+      ? [
+          `As a ${targetRole}, I specialize in transforming raw enterprise data into intuitive, executive-ready analytics and strategic business intelligence. Over the past 5+ years, I have built reliable reporting architectures that unblock leadership teams and drive data-backed decision-making.`,
+          `My core technical domain centers on SQL query optimization, cloud warehousing in Snowflake and BigQuery, and building interactive Power BI and Tableau dashboards with rigorous DAX and star-schema modeling. Most recently, I automated critical clinical and financial reporting pipelines, eliminating 14+ hours of weekly manual reporting and surfacing multi-million-dollar operational efficiencies.`,
+          `I am passionate about data governance, clean semantic layers with dbt, and fostering data-fluent cultures across cross-functional teams. If you are scaling data intelligence, business analytics, or data warehouse initiatives, let's connect.`,
+        ]
+      : [
+          `As a ${targetRole}, I build resilient backend platforms that translate complex business requirements into high-throughput, low-latency architecture. Over the past 6+ years in enterprise engineering, I have focused on solving the core bottlenecks that prevent applications from scaling gracefully.`,
+          `My core specialty lies at the intersection of cloud-native infrastructure, distributed data pipelines, and microservices reliability. Most recently, I architected distributed services handling hundreds of millions in transactional volume while systematically cutting deployment cycles by over 70%.`,
+          `I am passionate about building collaborative engineering cultures, mentoring rising talent, and establishing clear technical standards. If you are solving challenging problems in cloud infrastructure, scalability, or developer velocity, let's connect.`,
+        ])
 
   // LinkedIn Discrepancies (Top 4)
   const rawDiscrepancies = linkedinAgent?.discrepancies || []

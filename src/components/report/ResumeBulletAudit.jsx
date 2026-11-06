@@ -93,9 +93,6 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
     }
   }
 
-  const metricOptions = bullet.metricOptions || matchedIssue?.metricOptions || null
-  const [selectedMetric, setSelectedMetric] = useState(null)
-
   return (
     <div className="bullet-card print-card rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1222] p-4 sm:p-5 space-y-3.5 shadow-xs print:break-inside-avoid">
       {/* Header: Status Pill + Issue Title + Bullet ID */}
@@ -164,31 +161,6 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
               {activeRewrite || bullet.text}
             </p>
           </div>
-
-          {/* Metric Selector Chips */}
-          {metricOptions && (
-            <div className="mt-3 pt-2 border-t border-emerald-500/20">
-              <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold block mb-1">
-                Pick Your Scale Metric:
-              </span>
-              <div className="flex flex-wrap gap-1">
-                {['optionA', 'optionB', 'optionC'].map((optKey) => metricOptions[optKey] && (
-                  <button
-                    key={optKey}
-                    type="button"
-                    onClick={() => setSelectedMetric(selectedMetric === optKey ? null : optKey)}
-                    className={`text-[10px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
-                      selectedMetric === optKey
-                        ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
-                        : 'bg-white/80 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400'
-                    }`}
-                  >
-                    {typeof metricOptions[optKey] === 'string' ? metricOptions[optKey].split('/')[0].trim() : String(metricOptions[optKey])}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
