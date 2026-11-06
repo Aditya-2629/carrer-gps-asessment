@@ -622,8 +622,8 @@ export async function runLinkedInSynthesis(
     }
 
     // Run Task 1 then Task 2 sequentially to avoid rate-limit burst collisions
-    const task1Result = await executeTask('Task 1 (Headlines & About)', task1Messages, 2048)
-    const task2Result = await executeTask('Task 2 (Experience & Tricks)', task2Messages, 2200)
+    const task1Result = await executeTask('Task 1 (Headlines & About)', task1Messages, 4096)
+    const task2Result = await executeTask('Task 2 (Experience & Tricks)', task2Messages, 4096)
 
     if (!task1Result && !task2Result) {
       console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')

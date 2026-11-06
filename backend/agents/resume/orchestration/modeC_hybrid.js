@@ -748,7 +748,7 @@ export async function executeModeC({
       isBenchmark,
       responseFormat: 'json_object',
       temperature: policy.temperature ?? 0.2,
-      maxTokens: 4096,
+      maxTokens: 8192,
       contentHash: attempt === 1 ? contentHash : null, // only cache initial attempts
       signal,
     })

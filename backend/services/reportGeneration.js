@@ -546,7 +546,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
       temperature: 0.2,
-      maxTokens: 3000,
+      maxTokens: 8192,
       maxRetries: 2,
       timeoutMs: 50000,
     })
@@ -565,7 +565,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 3000,
+        maxTokens: 8192,
         maxRetries: 2,
         timeoutMs: 50000,
       })
@@ -582,7 +582,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
         messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
         responseFormat: 'json_object',
         temperature: 0.2,
-        maxTokens: 3000,
+        maxTokens: 8192,
         maxRetries: 2,
         timeoutMs: 50000,
       })

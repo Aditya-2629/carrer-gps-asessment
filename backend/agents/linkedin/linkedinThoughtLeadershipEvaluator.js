@@ -414,7 +414,7 @@ export async function evaluateThoughtLeadershipAndSocialSeo({
       model: options?.model,
       messages,
       temperature: 0.25,
-      maxTokens: 2500,
+      maxTokens: 3500,
       responseFormat: { type: 'json_object' },
       timeoutMs: 25000,
     })

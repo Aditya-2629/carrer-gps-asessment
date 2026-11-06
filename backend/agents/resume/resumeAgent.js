@@ -471,13 +471,9 @@ export class ResumeAgent {
         }
       }
 
-      // Token budget — raised min to 6144 to prevent JSON truncation on complex resumes.
-      // The synthesis prompt itself consumes ~3000 tokens; 4096 was leaving < 1000 for output.
-      // 12000 cap is well within Groq (131K) and Gemini (1M) context limits.
-      const scaledMaxTokens = Math.min(
-        12000,
-        Math.max(6144, Math.round(compactEstimatedTokens * 3))
-      )
+      // Generous safe budget: 8192 tokens gives ample room for 4+ roles x 5 rich bullets
+      // without ever hitting length truncation on OpenRouter/Gemini.
+      const scaledMaxTokens = 8192
       if (promptCapture) promptCapture.generation.maxTokens = scaledMaxTokens
 
       // ── Steps 7+8 (Phase A kernel): bounded validate→retry synthesis ────────
