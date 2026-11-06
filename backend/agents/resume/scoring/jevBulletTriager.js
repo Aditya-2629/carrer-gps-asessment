@@ -2,7 +2,8 @@
  * Jev System One Bullet Quality Triager — Career GPS
  *
  * Fast discriminative triage engine evaluating resume bullets into PASS, WARN, or FIX
- * with calibrated recruiter impact ratings in ~25ms.
+ * with calibrated recruiter impact ratings in ~25ms powered by typesafe/jev-1.14 via
+ * OpenRouter Decisions API with automatic fallback to Gemini 2.5 Flash-Lite.
  * Heavy generative LLM rewrites run only on bullets genuinely flagged for improvement.
  */
 
@@ -44,6 +45,72 @@ export async function triageBulletWithJev(bulletText = '', targetRole = 'Profess
     return JEV_BULLET_CACHE.get(cacheKey)
   }
 
+  // Attempt 1: Direct OpenRouter Decisions API with typesafe/jev-1.14
+  const openRouterKey = (process.env.OPENROUTER_API_KEY || '').trim()
+  if (openRouterKey) {
+    try {
+      const candidateEndpoints = [
+        'https://openrouter.ai/api/v1/decisions',
+        'https://openrouter.ai/api/alpha/decisions',
+      ]
+      let decJson = null
+      for (const endpoint of candidateEndpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openRouterKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': process.env.APP_URL || 'http://localhost:5000',
+              'X-Title': 'Career GPS Executive AI'
+            },
+            body: JSON.stringify({
+              model: options.model || 'typesafe/jev-1.14',
+              state: `Triaging resume bullet quality for role: ${targetRole}`,
+              questions: {
+                bullet_quality: {
+                  type: 'choice',
+                  instructions: `Evaluate the quality of resume bullet: "${clean}" for role "${targetRole}".`,
+                  criteria: {
+                    PASS: 'High impact bullet with clear ownership, strong action verb, and measurable business outcomes or metrics',
+                    WARN: 'Acceptable bullet with good technical content but lacks quantified business impact or metrics',
+                    FIX: 'Weak or passive bullet starting with passive verbs (helped, worked on) with zero outcomes or metrics'
+                  }
+                }
+              }
+            }),
+            signal: AbortSignal.timeout(options.timeoutMs || 5000)
+          })
+          if (res.ok) {
+            decJson = await res.json()
+            break
+          }
+        } catch (_epErr) {
+          // try next endpoint
+        }
+      }
+
+      if (decJson) {
+        const ans = decJson?.answers?.bullet_quality
+        if (ans?.choice) {
+          const status = String(ans.choice).toLowerCase()
+          const validStatus = ['pass', 'warn', 'fix'].includes(status) ? status : 'warn'
+          const score = validStatus === 'pass' ? 90 : validStatus === 'warn' ? 60 : 35
+          const result = {
+            status: validStatus,
+            score,
+            reason: `Jev classified bullet quality as ${ans.choice}`
+          }
+          JEV_BULLET_CACHE.set(cacheKey, result)
+          return result
+        }
+      }
+    } catch (decErr) {
+      console.warn(`[JevBulletTriager] Direct Decisions API call failed: ${decErr.message}. Falling back to standard LLM gateway...`)
+    }
+  }
+
+  // Attempt 2: Standard LLM Gateway with Gemini Flash-Lite fallback
   const prompt = `You are Jev, a discriminative recruiter decision engine.
 Target Role Context: "${targetRole}"
 
@@ -70,7 +137,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     const response = await gw.generate({
       purpose: 'bullet_triage_decision',
       preferredProvider: 'openrouter',
-      model: options.model || 'typesafe/jev',
+      model: options.model || 'typesafe/jev-1.14',
       messages: [{ role: 'user', content: prompt }],
       responseFormat: { type: 'json_object' },
       temperature: 0.0,

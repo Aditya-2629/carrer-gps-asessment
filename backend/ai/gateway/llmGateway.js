@@ -43,6 +43,10 @@ export const TASK_MODEL_ROUTING = {
   thought_leadership: 'meta-llama/llama-3.3-70b-instruct',
   report_generation: 'google/gemini-2.5-flash-lite',
   judge_gate: 'google/gemini-2.5-flash-lite',
+  jev_decision: 'typesafe/jev-1.14',
+  skill_validation_decision: 'typesafe/jev-1.14',
+  bullet_triage_decision: 'typesafe/jev-1.14',
+  title_drift_decision: 'typesafe/jev-1.14',
 }
 
 export const PROVIDER_MODEL_FALLBACKS = {

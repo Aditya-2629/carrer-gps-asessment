@@ -1,7 +1,7 @@
 /**
  * Jev System One Discrepancy & Title Drift Classifier — Career GPS
  *
- * Ultrafast discriminative career alignment model (typesafe/jev via OpenRouter)
+ * Ultrafast discriminative career alignment model (typesafe/jev-1.14 via OpenRouter Decisions API)
  * with automatic failover to Gemini 2.5 Flash-Lite.
  * Replaces brittle substring matching with calibrated career progression choices:
  * - IDENTICAL_OR_EQUIVALENT: Same core role / industry synonyms (0% false alarms)
@@ -122,6 +122,72 @@ export async function classifyTitleDriftWithJev(resumeTitle = '', linkedinTitle 
     return JEV_DISCREPANCY_CACHE.get(cacheKey)
   }
 
+  // Attempt 1: Direct OpenRouter Decisions API with typesafe/jev-1.14
+  const openRouterKey = (process.env.OPENROUTER_API_KEY || '').trim()
+  if (openRouterKey) {
+    try {
+      const candidateEndpoints = [
+        'https://openrouter.ai/api/v1/decisions',
+        'https://openrouter.ai/api/alpha/decisions',
+      ]
+      let decJson = null
+      for (const endpoint of candidateEndpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openRouterKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': process.env.APP_URL || 'http://localhost:5000',
+              'X-Title': 'Career GPS Executive AI'
+            },
+            body: JSON.stringify({
+              model: options.model || 'typesafe/jev-1.14',
+              state: 'Comparing candidate resume job title with LinkedIn profile title for executive background check',
+              questions: {
+                title_drift: {
+                  type: 'choice',
+                  instructions: `Compare candidate resume title "${resumeTitle}" with LinkedIn title "${linkedinTitle}".`,
+                  criteria: {
+                    IDENTICAL_OR_EQUIVALENT: 'Both titles represent the exact same core functional role or modern industry synonyms (e.g. Senior Data Analyst vs Lead BI Specialist)',
+                    NATURAL_PROMOTION_OR_SENIORITY: 'Same technical domain with natural seniority/lead progression',
+                    SEVERE_ROLE_MISMATCH: 'Conflicting functional tracks that would trigger an automated background check red flag (e.g. Software Engineer vs Real Estate Sales)'
+                  }
+                }
+              }
+            }),
+            signal: AbortSignal.timeout(options.timeoutMs || 6000)
+          })
+          if (res.ok) {
+            decJson = await res.json()
+            break
+          }
+        } catch (_epErr) {
+          // try next endpoint
+        }
+      }
+
+      if (decJson) {
+        const ans = decJson?.answers?.title_drift
+        if (ans?.choice) {
+          const choice = ans.choice
+          const isDiscrepancy = choice === 'SEVERE_ROLE_MISMATCH'
+          const result = {
+            choice,
+            isDiscrepancy,
+            confidence: typeof ans.confidence === 'number' ? ans.confidence : 0.95,
+            explanation: `Jev classified career progression as ${choice}`
+          }
+          JEV_DISCREPANCY_CACHE.set(cacheKey, result)
+          return result
+        }
+      }
+    } catch (decErr) {
+      console.warn(`[JevDiscrepancy] Direct Decisions API call failed: ${decErr.message}. Falling back to standard LLM gateway...`)
+    }
+  }
+
+  // Attempt 2: Standard LLM Gateway with Gemini Flash-Lite fallback
   const prompt = `You are Jev, a discriminative decision engine specializing in executive background checks.
 TASK:
 Compare Candidate's Resume Title with their LinkedIn Profile Title and select exactly one Choice:
@@ -147,7 +213,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     const response = await gw.generate({
       purpose: 'title_drift_decision',
       preferredProvider: 'openrouter',
-      model: options.model || 'typesafe/jev',
+      model: options.model || 'typesafe/jev-1.14',
       messages: [{ role: 'user', content: prompt }],
       responseFormat: { type: 'json_object' },
       temperature: 0.0,
