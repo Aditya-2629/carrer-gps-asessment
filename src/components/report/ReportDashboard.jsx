@@ -1196,6 +1196,24 @@ function ReportDashboardContent() {
 
       {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
       <main className="max-w-6xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
+        {/* Top-Level Diagnostic Error Gate */}
+        {(reportData.partialFailure || (Array.isArray(reportData.failedAgents) && reportData.failedAgents.length > 0)) && (
+          <div className="rounded-2xl border-2 border-red-500 bg-red-500/10 p-5 mb-6 text-red-900 dark:text-red-200">
+            <div className="flex items-center gap-2 font-bold text-base text-red-700 dark:text-red-400">
+              ⚠️ Agent Execution Error: {reportData.failedAgents?.join(', ')} failed to complete
+            </div>
+            <p className="text-xs mt-1 text-red-800 dark:text-red-300">
+              To protect data accuracy, Career GPS does not use generic fallback data. Please re-run the assessment or check your input file.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-sm cursor-pointer"
+            >
+              Retry Diagnosis
+            </button>
+          </div>
+        )}
+
         {/* Screen View (Interactive 5-Tab Executive Cockpit) */}
         <div className="print:hidden">
           {activeTab === 'overview' && (

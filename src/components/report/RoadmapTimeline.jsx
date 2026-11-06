@@ -11,6 +11,7 @@ import {
   ArrowRight,
   CalendarCheck,
 } from '@phosphor-icons/react'
+import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -63,8 +64,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   const isVisaConstrained = Boolean(visa && !visa.includes('US Citizen') && !visa.includes('Green Card'))
   const isSponsorshipRequired = Boolean(visa && /opt|cpt|h-?1b|sponsor/i.test(visa))
   const isConsultancy = Boolean(helpString && (helpString.includes('C2C') || helpString.includes('Staffing') || helpString.includes('Agency')))
-  const isDataRole = /data|analyst|analytics|bi\b|business intelligence|tableau|power bi|sql/i.test(targetRole)
-  const topSkills = extractTopSkills(reportData, isDataRole ? 'SQL, Python, Data Modeling' : 'TypeScript, Node.js, Cloud APIs')
+  const archetype = classifyRoleArchetype(targetRole)
+  const isDataRole = archetype.key === 'DATA_ANALYTICS'
+  const topSkills = extractTopSkills(reportData, archetype.mandatoryTools.slice(0, 3).join(', '))
   const primaryBottleneck = reportData?.primary_bottleneck?.title || 'Top-of-Funnel Conversion'
 
   // -------------------------------------------------------------
@@ -147,9 +149,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       },
       {
         day: 'Day 5',
-        title: 'Timed OA / Online Assessment Prep',
-        action: `Drill 2 timed CodeSignal/HackerRank assessments in your primary language (${topSkills}).`,
-        deliverable: '2 Completed Timed Technical Assessments',
+        title: `${archetype.label} Assessment Prep`,
+        action: archetype.dayAssessmentPrep,
+        deliverable: `Completed ${archetype.label} Assessment Simulation`,
       },
       {
         day: 'Day 6',
@@ -169,35 +171,33 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     sprintDays = [
       {
         day: 'Day 1',
-        title: 'Project Architecture One-Pager',
-        action: 'Prepare a 1-page system architecture diagram for top project showing DB choice, caching, and trade-offs.',
-        deliverable: '1-Page System Architecture Diagram',
+        title: `${archetype.label} Case Study One-Pager`,
+        action: `Prepare a 1-page ${archetype.portfolioArtifact} demonstrating real-world depth.`,
+        deliverable: `1-Page ${archetype.label} Portfolio Blueprint`,
       },
       {
         day: 'Day 2',
-        title: 'System Trade-Offs & Data Flow',
-        action: `Map latency bottlenecks, caching layers, and throughput limits using ${topSkills} to defend tech choices under questioning.`,
-        deliverable: 'System Trade-Off & Mitigation Table',
+        title: 'System & Methodology Trade-Offs',
+        action: `Map latency bottlenecks, caching layers, or operational limits using ${topSkills} to defend choices under questioning.`,
+        deliverable: 'System & Methodology Trade-Off Table',
       },
       {
         day: 'Day 3',
-        title: 'Live System Design & Scalability Drills',
-        action: 'Drill trade-off explanations: "Why SQL vs NoSQL?", throughput bottlenecks, and latency mitigation.',
-        deliverable: 'Scalability & Trade-Off Defense Walkthrough',
+        title: 'Live Case Study & Deep Dive Drills',
+        action: `Drill trade-off defense and methodology justification: "${archetype.interviewMechanism}".`,
+        deliverable: 'Scalability & Methodology Defense Walkthrough',
       },
       {
         day: 'Day 4',
-        title: 'Live Coding Verbalization Practice',
-        action: 'Practice explaining Big-O space and time complexity out loud while solving algorithmic challenges.',
-        deliverable: '3 Verbalized Algorithm Problem Solutions',
+        title: 'Domain Reasoning & Verbalization Practice',
+        action: 'Practice verbalizing domain reasoning and business trade-offs out loud while addressing complex scenarios.',
+        deliverable: '3 Verbalized Domain Scenario Solutions',
       },
       {
         day: 'Day 5',
-        title: isDataRole ? 'Live SQL & Analytics Timed Mock' : 'Live Coding & Algorithm Timed Mock',
-        action: isDataRole
-          ? 'Complete 3 timed SQL & analytical problem-solving rounds on StrataScratch / HackerRank focusing on window functions and aggregations.'
-          : 'Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud.',
-        deliverable: isDataRole ? '3 Completed Live SQL & Data Modeling Mocks' : '3 Completed Live LeetCode/HackerRank Mocks',
+        title: `${archetype.label} Timed Mock`,
+        action: `Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud: ${archetype.dayAssessmentPrep}.`,
+        deliverable: `3 Completed Live ${archetype.label} Mocks`,
       },
       {
         day: 'Day 6',
@@ -385,7 +385,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
         'Engage 10 engineering managers and internal recruiters weekly using personalized 50-word LinkedIn InMails.',
         isDataRole
           ? 'Conduct 5 live analytical case studies covering dimensional modeling, star schemas, DAX, and SQL window functions.'
-          : `Complete 15 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
+          : `Complete 15 timed practical problem sets: ${archetype.dayAssessmentPrep}.`,
         'Conduct 2 weekly informational interviews with alumni and senior engineers at target tech companies.',
       ],
       deliverable: 'Multi-Threaded Active Pipeline of 4+ Concurrent Interview Loops',
@@ -420,8 +420,8 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
           ? 'Rewrite experience achievements in Google XYZ format highlighting SQL, Snowflake/BigQuery, Power BI/Tableau, and automated ETL outcomes.'
           : `Script and rehearse a 60-second verbal elevator pitch highlighting verified ${topSkills} and architecture scale.`,
         isDataRole
-          ? 'Drill 10 timed SQL and data analysis assessments on StrataScratch / HackerRank covering window functions and aggregate metrics.'
-          : 'Drill 10 timed CodeSignal / HackerRank online assessments to guarantee passing automated screen filters.',
+          ? 'Drill 10 timed SQL and data analysis assessments covering window functions and aggregate metrics.'
+          : `Drill 10 timed ${archetype.label} domain assessments: ${archetype.dayAssessmentPrep}.`,
         `Align compensation expectations upfront using Levels.fyi data for ${targetRole} to prevent screening mismatch.`,
       ],
       deliverable: 'Recorded Elevator Pitch + Recruiter Screening Rubric Answer Sheet',
@@ -436,7 +436,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       actions: [
         isDataRole
           ? 'Conduct 5 live analytical case studies covering dimensional modeling, star schemas, DAX, and SQL window functions.'
-          : 'Conduct 5 mock technical coding interviews focusing on verbalizing reasoning out loud on LeetCode Mediums.',
+          : `Conduct 5 mock interviews focusing on verbalizing reasoning out loud: ${archetype.interviewMechanism}.`,
         isDataRole
           ? 'Prepare a 1-page data model diagram for your primary project detailing star schemas, grain, and ETL pipeline cadence.'
           : 'Prepare a 1-page architecture diagram for your primary project detailing database trade-offs and caching.',
@@ -472,7 +472,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       actions: [
         isDataRole
           ? 'Conduct 4 mock interviews on StrataScratch/Pramp verbalizing query optimization, partitioning, and indexing trade-offs.'
-          : 'Conduct 4 mock interviews on LeetCode/Pramp verbalizing Big-O time and space trade-offs in real-time.',
+          : `Conduct 4 mock interviews verbalizing trade-offs and reasoning out loud: ${archetype.interviewMechanism}.`,
         isDataRole
           ? `Draft data architecture one-pagers showing warehouse modeling, ETL pipelines, and BI reporting grain using ${topSkills}.`
           : `Draft system architecture one-pagers showing latency, caching, and database trade-offs using ${topSkills}.`,
@@ -583,7 +583,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
         'Script and rehearse a 60-second verbal elevator pitch highlighting verified architecture scale.',
         isDataRole
           ? `Complete 10 timed SQL and data analysis problem sets on StrataScratch / HackerRank in ${topSkills} to ensure assessment readiness.`
-          : `Complete 10 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
+          : `Complete 10 timed problem-solving sets: ${archetype.dayAssessmentPrep}.`,
         'Engage 10 engineering managers weekly using personalized 50-word LinkedIn InMails.',
       ],
       deliverable: 'Active Pipeline of 3+ Scheduled Screens/Week',

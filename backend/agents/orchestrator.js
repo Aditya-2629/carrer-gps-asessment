@@ -322,11 +322,11 @@ export async function runCareerAgents(bundle) {
           if (onProgress) onProgress({ stage: 'agent_done', agent: 'resume', message: 'Resume Agent: complete' })
           const modelMeta = result.metadata?.model ? getModel(result.metadata.model) : null
           const provider = modelMeta?.provider || (result.metadata?.model?.includes('gemini') ? 'gemini' : (result.metadata?.model?.includes('gpt-oss') ? 'groq' : null))
-          return { key: 'resumeAgent', analysis: result.analysis, provider }
+          return { key: 'resumeAgent', analysis: result.analysis, provider, status: 'SUCCESS' }
         }
         console.warn('[Orchestrator] Resume Agent failed:', result.status, result.error)
         if (onProgress) onProgress({ stage: 'agent_error', agent: 'resume', message: `Resume Agent failed: ${result.status}` })
-        return { key: 'resumeAgent', analysis: null }
+        return { key: 'resumeAgent', analysis: null, status: 'FAILED', error: result.error || result.status }
       } catch (resErr) {
         console.warn('[Orchestrator] Resume Agent unexpected error:', resErr.message)
         await persistRun({
@@ -340,7 +340,7 @@ export async function runCareerAgents(bundle) {
           error: { message: resErr.message },
         })
         if (onProgress) onProgress({ stage: 'agent_error', agent: 'resume', message: `Resume Agent error: ${resErr.message}` })
-        return { key: 'resumeAgent', analysis: null }
+        return { key: 'resumeAgent', analysis: null, status: 'FAILED', error: resErr.message }
       }
     })()
   }
@@ -466,7 +466,7 @@ export async function runCareerAgents(bundle) {
           error: { message: err.message },
         })
         if (onProgress) onProgress({ stage: 'agent_error', agent: 'linkedin', message: `LinkedIn Agent failed: ${err.message}` })
-        return { key: 'linkedinAgent', analysis: null, linkedinData: null, activityData: null }
+        return { key: 'linkedinAgent', analysis: null, status: 'FAILED', error: err.message, linkedinData: null, activityData: null }
       }
     })()
   }
@@ -479,6 +479,14 @@ export async function runCareerAgents(bundle) {
 
   const activeResumeAgent = resumeSettled?.analysis || bundle.precomputedResumeAgent || null
   const activeLinkedinAgent = linkedinSettled?.analysis || null
+
+  const failedAgents = []
+  if (resumeJobPromise && (!activeResumeAgent || resumeSettled?.status === 'FAILED')) {
+    failedAgents.push('resume_agent')
+  }
+  if (linkedinJobPromise && (!activeLinkedinAgent || linkedinSettled?.status === 'FAILED')) {
+    failedAgents.push('linkedin_agent')
+  }
 
   // Re-run evaluation with resolved agents to compute exact 100-Point Career GPS Score and 5-Phase Root Cause
   try {
@@ -500,6 +508,12 @@ export async function runCareerAgents(bundle) {
     linkedinActivityData: linkedinSettled?.activityData || null,
     linkedinActivitySignals: activeLinkedinAgent?.activitySignals || null,
     assessmentPersona: effectiveAssessmentPersona,
+    partialFailure: failedAgents.length > 0,
+    failedAgents,
+    errors: {
+      resumeAgent: resumeSettled?.error || null,
+      linkedinAgent: linkedinSettled?.error || null,
+    },
   }
 }
 

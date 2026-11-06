@@ -16,6 +16,8 @@
  * injected as additional context in the user prompt.
  */
 
+import { classifyRoleArchetype } from '../../core/roleArchetypeClassifier.js'
+
 export const SYNTHESIS_PROMPT_VERSION = 'resume-synthesis-v4'
 export const SYNTHESIS_PROMPT_VERSION_V4 = 'resume-synthesis-v4'
 
@@ -30,6 +32,21 @@ CANDIDATE FACTS:
 - Stranded Skills (Claimed in skills section but 0 proof in bullets): {{skillsOnlyKeywords}}
 - Experience Bullets:
 {{experienceBullets}}
+
+==================================================
+UNIVERSAL ROLE ARCHETYPE DIRECTIVE:
+==================================================
+Target Role: {{targetRole}} | Domain Archetype: {{archetypeKey}}
+- Base all critiques, keywords, and rewrites strictly on {{targetRole}}.
+- Never cross-contaminate tools from other domains.
+- Automatically embed role-accurate metrics:
+  * For Data/Analytics: report turnaround reduction, records reconciled, dashboard adoption.
+  * For Software: p99 latency drop, RPS throughput, deploy cycle reduction.
+  * For Sales/Biz: ARR booked, quota attainment %, deal cycle reduction.
+  * For Product: user adoption lift, churn reduction %, sprint velocity gain.
+  * For Healthcare: patient intake acceleration, compliance score, audit error reduction.
+  * For Finance: budget variance reduction, close cycle speed, financial model accuracy.
+- Strictly zero placeholders. Rewrites must be ready to paste.
 
 ==================================================
 STRICTLY BANNED ROBOTIC CLICHÉS & AI SLOP:
@@ -127,8 +144,12 @@ export function renderResumeSynthesisPromptV4(data = {}) {
         ? experienceBullets.map((b) => (typeof b === 'string' ? `- ${b}` : `- [${b.id || 'b'}]: "${b.text || b.origText || ''}"`)).join('\n')
         : '')
 
+  const archetype = classifyRoleArchetype(targetRole, data.skills || skillsOnlyKeywords || [])
+  const archetypeKey = archetype?.key || 'GENERAL_PRO'
+
   const rendered = RESUME_SYNTHESIS_PROMPT_V4
     .replace(/\{\{targetRole\}\}/g, targetRole)
+    .replace(/\{\{archetypeKey\}\}/g, `${archetypeKey} (${archetype.label})`)
     .replace(/\{\{candidateName\}\}/g, candidateName)
     .replace(/\{\{currentTitle\}\}/g, currentTitle)
     .replace(/\{\{currentCompany\}\}/g, currentCompany)

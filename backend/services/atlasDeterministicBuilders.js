@@ -8,6 +8,8 @@
  * Pure synchronous functions with zero asynchronous or network dependencies.
  */
 
+import { classifyRoleArchetype } from '../agents/core/roleArchetypeClassifier.js'
+
 /**
  * Normalizes topSkills input into a clean comma-separated string.
  * @param {string|Array<string|object>} skills
@@ -65,6 +67,7 @@ export function build7DayRapidTriageSprint(
   const phaseId = extractPhaseId(detectedPhase)
   const role = typeof targetRole === 'string' && targetRole.trim() ? targetRole.trim() : 'Software Engineer'
   const skillsStr = normalizeSkillsString(topSkills)
+  const archetype = classifyRoleArchetype(role, topSkills)
 
   // Phase 2: Recruiter Screen Choke Point (Canonical Golden Specification)
   if (phaseId === 2) {
@@ -72,7 +75,7 @@ export function build7DayRapidTriageSprint(
       {
         day: 'Day 1',
         title: '60-Second Verbal Elevator Pitch',
-        action: `Script crisp narrative covering background, ${skillsStr} expertise, and recent project architecture.`,
+        action: `Script crisp narrative covering background, ${skillsStr} expertise, and recent ${archetype.pitchFocus}.`,
         deliverable: '60-Second Verbal Elevator Pitch Script',
       },
       {
@@ -95,9 +98,9 @@ export function build7DayRapidTriageSprint(
       },
       {
         day: 'Day 5',
-        title: 'Timed OA / Online Assessment Prep',
-        action: `Drill 2 timed CodeSignal/HackerRank assessments in your primary language (${skillsStr}).`,
-        deliverable: '2 Completed Timed Technical Assessments',
+        title: `${archetype.label} Assessment Prep`,
+        action: `${archetype.dayAssessmentPrep}.`,
+        deliverable: `Completed ${archetype.label} Assessment Simulation`,
       },
       {
         day: 'Day 6',
@@ -144,7 +147,7 @@ export function build7DayRapidTriageSprint(
       {
         day: 'Day 5',
         title: 'Launch 5-to-1 Reverse Outbound',
-        action: 'Send 5 personalized 50-word notes directly to engineering managers on LinkedIn before applying to generate warm referral interest.',
+        action: `Bypass public portals: Send 5 personalized 50-word direct InMails to hiring managers at target companies highlighting your ${archetype.reverseOutreachHook}.`,
         deliverable: '5 Sent Hiring Manager Reverse InMails',
       },
       {
@@ -162,43 +165,43 @@ export function build7DayRapidTriageSprint(
     ]
   }
 
-  // Phase 3: Technical Architecture & Live Coding Choke Point
+  // Phase 3: Technical Architecture & Live Assessment Choke Point
   if (phaseId === 3) {
     return [
       {
         day: 'Day 1',
-        title: 'Project Architecture One-Pager',
-        action: `Prepare a 1-page system architecture diagram for top project showing DB choice, caching, and trade-offs in ${skillsStr}.`,
-        deliverable: '1-Page System Architecture Diagram',
+        title: `${archetype.label} Case Study One-Pager`,
+        action: `Prepare a 1-page ${archetype.portfolioArtifact} demonstrating domain depth and measurable impact.`,
+        deliverable: `1-Page ${archetype.label} Portfolio Blueprint`,
       },
       {
         day: 'Day 2',
-        title: 'System Trade-Offs & Data Flow',
-        action: `Map latency bottlenecks, caching layers, and throughput limits using ${skillsStr} to defend tech choices under questioning.`,
-        deliverable: 'System Trade-Off & Mitigation Table',
+        title: 'Methodology & System Trade-Offs',
+        action: `Map key trade-offs, bottlenecks, and operational limits using ${skillsStr} to defend domain choices under questioning.`,
+        deliverable: 'Methodology & Trade-Off Defense Table',
       },
       {
         day: 'Day 3',
-        title: 'Live System Design & Scalability Drills',
-        action: 'Drill trade-off explanations: "Why SQL vs NoSQL?", throughput bottlenecks, and latency mitigation.',
-        deliverable: 'Scalability & Trade-Off Defense Walkthrough',
+        title: 'Live Case Study & Deep Dive Drills',
+        action: `Drill trade-off defense and methodology justification: "${archetype.interviewMechanism}".`,
+        deliverable: 'Methodology & Trade-Off Defense Walkthrough',
       },
       {
         day: 'Day 4',
-        title: 'Live Coding Verbalization Practice',
-        action: 'Practice explaining Big-O space and time complexity out loud while solving algorithmic challenges.',
-        deliverable: '3 Verbalized Algorithm Problem Solutions',
+        title: 'Domain Reasoning & Verbalization Practice',
+        action: 'Practice verbalizing domain reasoning and business trade-offs out loud while addressing complex scenarios.',
+        deliverable: '3 Verbalized Domain Scenario Solutions',
       },
       {
         day: 'Day 5',
-        title: 'Live Coding & Algorithm Timed Mock',
-        action: 'Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud on LeetCode/HackerRank.',
-        deliverable: '3 Completed Live LeetCode/HackerRank Mocks',
+        title: 'Timed Assessment & Practical Simulation',
+        action: `Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud: ${archetype.dayAssessmentPrep}.`,
+        deliverable: `3 Completed Live ${archetype.label} Mocks`,
       },
       {
         day: 'Day 6',
         title: 'Technical STAR Behavioral Defense',
-        action: 'Structure 5 STAR stories on production outages, system regressions, and complex code reviews.',
+        action: 'Structure 5 STAR stories on production roadblocks, complex trade-offs, and cross-functional leadership.',
         deliverable: '5 Technical Leadership STAR Stories',
       },
       {
@@ -228,7 +231,7 @@ export function build7DayRapidTriageSprint(
       {
         day: 'Day 3',
         title: 'Reverse-Interview Question Strategy',
-        action: 'Prepare 5 high-impact strategic questions for VP/Director interviewers about team roadmap and technical debt.',
+        action: 'Prepare 5 high-impact strategic questions for VP/Director interviewers about team roadmap, operational debt, and strategic priorities.',
         deliverable: '5 Strategic VP/Director Reverse Questions',
       },
       {
@@ -405,33 +408,34 @@ export function build30_60_90MilestonePathway(
   const pId = Number(phaseId) || 1
   const role = typeof targetRole === 'string' && targetRole.trim() ? targetRole.trim() : 'Software Engineer'
   const skillsStr = normalizeSkillsString(coreSkills)
+  const archetype = classifyRoleArchetype(role, coreSkills)
 
   if (pId === 2) {
     return [
       {
         period: '30 DAYS',
         stage: 'Recruiter Screen Mastery & Assessment Clearance',
-        goal: 'Elevate recruiter screen pass rate from <30% to >75% and clear automated technical assessments.',
+        goal: 'Elevate recruiter screen pass rate from <30% to >75% and clear automated screening assessments.',
         actions: [
-          `Script and rehearse a 60-second verbal elevator pitch highlighting verified ${skillsStr} and architecture scale.`,
-          'Drill 10 timed CodeSignal / HackerRank online assessments to guarantee passing automated screen filters.',
-          `Align compensation expectations upfront using Levels.fyi data for ${role} to prevent screening mismatch.`,
+          `Script and rehearse a 60-second verbal elevator pitch highlighting verified ${skillsStr} and ${archetype.pitchFocus}.`,
+          `Drill 10 timed ${archetype.label} domain exercises: ${archetype.dayAssessmentPrep}.`,
+          `Align compensation expectations upfront using market benchmark data for ${role} to prevent screening mismatch.`,
         ],
-        deliverable: 'Recorded Elevator Pitch + Recruiter Screening Rubric Answer Sheet',
-        successSignal: '>= 75% of recruiter phone screens advance to live technical interview rounds.',
+        deliverable: `Recorded Elevator Pitch + ${archetype.label} Screening Rubric Answer Sheet`,
+        successSignal: '>= 75% of recruiter phone screens advance to live assessment interview rounds.',
         active: true,
       },
       {
         period: '60 DAYS',
-        stage: 'Live Technical Problem Solving & Architecture Defense',
-        goal: 'Consistently clear live coding rounds and technical deep dives.',
+        stage: 'Live Problem Solving & Case Study Defense',
+        goal: `Consistently clear live case studies and ${archetype.label} deep dives.`,
         actions: [
-          'Conduct 5 mock technical coding interviews focusing on verbalizing reasoning out loud on LeetCode Mediums.',
-          'Prepare a 1-page architecture diagram for your primary project detailing database trade-offs and caching.',
+          `Conduct 5 mock interviews focusing on verbalizing reasoning out loud: ${archetype.interviewMechanism}.`,
+          `Prepare a 1-page ${archetype.portfolioArtifact} detailing trade-offs and operational scale.`,
           'Rehearse project ownership responses to clearly delineate individual contributions from team scope.',
         ],
-        deliverable: '1-Page Project System Architecture Blueprint + 5 Validated STAR Technical Stories',
-        successSignal: 'Advance to final/onsite stage in >= 50% of technical interview loops.',
+        deliverable: `1-Page ${archetype.label} Blueprint + 5 Validated STAR Leadership Stories`,
+        successSignal: 'Advance to final/onsite stage in >= 50% of domain interview loops.',
         active: false,
       },
       {
@@ -439,8 +443,8 @@ export function build30_60_90MilestonePathway(
         stage: 'Final Round Onsites & Offer Negotiation',
         goal: 'Convert final-round loops into competitive written offers with full compensation leverage.',
         actions: [
-          'Present technical case studies and executive vision to Director/VP stakeholders.',
-          'Benchmark total compensation packages on Levels.fyi and prepare multi-offer leverage tactics.',
+          'Present strategic case studies and executive vision to Director/VP stakeholders.',
+          `Benchmark total compensation packages for ${role} and prepare multi-offer leverage tactics.`,
           'Execute structured negotiation scripts to maximize starting base salary and equity grant.',
         ],
         deliverable: 'Minimum 1 Signed Offer with Competitive Total Compensation',
@@ -455,28 +459,28 @@ export function build30_60_90MilestonePathway(
     return [
       {
         period: '30 DAYS',
-        stage: 'Live Technical Problem Solving & System Architecture',
-        goal: 'Overcome technical drop-offs by mastering live coding verbalization and system trade-offs.',
+        stage: `Live Problem Solving & ${archetype.label} Defense`,
+        goal: 'Overcome interview drop-offs by mastering live scenario verbalization and trade-offs.',
         actions: [
-          'Conduct 4 mock interviews on LeetCode/Pramp verbalizing Big-O time and space trade-offs in real-time.',
-          `Draft system architecture one-pagers showing latency, caching, and database trade-offs using ${skillsStr}.`,
-          'Prepare 5 behavioral STAR stories focusing on system outages, complex bugs, and engineering trade-offs.',
+          `Conduct 4 mock interviews verbalizing methodology, trade-offs, and reasoning: ${archetype.interviewMechanism}.`,
+          `Draft 1-page ${archetype.portfolioArtifact} demonstrating real-world depth using ${skillsStr}.`,
+          'Prepare 5 behavioral STAR stories focusing on system roadblocks, complex trade-offs, and domain leadership.',
         ],
-        deliverable: 'System Architecture One-Pager + Live Coding Communication Rubric',
-        successSignal: 'Technical round pass rate >= 65% advancing into final round onsites.',
+        deliverable: `1-Page ${archetype.label} Blueprint + Communication Defense Rubric`,
+        successSignal: 'Domain round pass rate >= 65% advancing into final round onsites.',
         active: true,
       },
       {
         period: '60 DAYS',
-        stage: 'High-Volume Technical Interview Loops',
-        goal: 'Maintain consistent live technical interview performance across multiple concurrent company loops.',
+        stage: 'High-Volume Domain Interview Loops',
+        goal: 'Maintain consistent interview performance across multiple concurrent company loops.',
         actions: [
-          'Drill 15 medium-hard data structures and algorithms questions covering graphs, trees, and dynamic programming.',
-          'Rehearse API design, idempotency, caching, and horizontal scaling patterns with senior peer reviewers.',
-          'Participate in 2 live behavioral and engineering leadership mock rounds weekly.',
+          `Drill 15 medium-hard domain scenarios and practical simulations: ${archetype.dayAssessmentPrep}.`,
+          'Rehearse domain design, execution rigor, and operational scaling patterns with peer reviewers.',
+          'Participate in 2 live behavioral and leadership mock rounds weekly.',
         ],
-        deliverable: 'Live Coding Problem Solving Log + Architectural Defense Rubric',
-        successSignal: 'Advance to final round onsites in >= 60% of technical assessment loops.',
+        deliverable: 'Domain Problem Solving Log + Architectural Defense Rubric',
+        successSignal: 'Advance to final round onsites in >= 60% of assessment loops.',
         active: false,
       },
       {
@@ -484,8 +488,8 @@ export function build30_60_90MilestonePathway(
         stage: 'Executive Final Rounds & Offer Closing',
         goal: 'Convert onsite interview loops into written, competitive offers with multiple-offer leverage.',
         actions: [
-          'Present comprehensive technical design and business impact proposals to VP/Director interview panels.',
-          `Model total compensation baselines on Levels.fyi for ${role} across base salary, bonus, and equity.`,
+          'Present comprehensive domain design and business impact proposals to VP/Director interview panels.',
+          `Model total compensation baselines for ${role} across base salary, bonus, and incentives.`,
           'Deploy counter-offer negotiation scripts to secure top-of-band compensation.',
         ],
         deliverable: 'Minimum 1 Written Offer Letter Matching Market Compensation Targets',
@@ -516,12 +520,12 @@ export function build30_60_90MilestonePathway(
       stage: 'Recruiter Pipeline Velocity & Multi-Threading',
       goal: 'Convert top-of-funnel inbound interest into active technical interviews across multiple companies.',
       actions: [
-        'Engage 10 engineering managers and internal recruiters weekly using personalized 50-word LinkedIn InMails.',
-        `Complete 15 timed technical problem sets on LeetCode/CodeSignal in ${skillsStr} to ensure assessment readiness.`,
-        'Conduct 2 weekly informational interviews with alumni and senior engineers at target tech companies.',
+        `Bypass public portals: Engage 10 hiring managers and internal recruiters weekly using personalized 50-word LinkedIn InMails highlighting your ${archetype.reverseOutreachHook}.`,
+        `Complete 15 timed practical problem sets: ${archetype.dayAssessmentPrep}.`,
+        'Conduct 2 weekly informational interviews with alumni and senior professionals at target employers.',
       ],
       deliverable: 'Multi-Threaded Active Pipeline of 4+ Concurrent Interview Loops',
-      successSignal: 'Consistent conversion of >= 60% from recruiter screen to live technical round.',
+      successSignal: 'Consistent conversion of >= 60% from recruiter screen to live interview round.',
       active: false,
     },
     {
@@ -529,8 +533,8 @@ export function build30_60_90MilestonePathway(
       stage: 'Final Rounds, Offer Leverage & Closing',
       goal: 'Advance through onsite interview loops and secure a competitive, written job offer.',
       actions: [
-        'Execute comprehensive system architecture and behavioral STAR interviews with hiring managers and directors.',
-        `Benchmark total compensation bands (Base, Bonus, Equity) on Levels.fyi and Blind for ${role}.`,
+        'Execute comprehensive domain architecture and behavioral STAR interviews with hiring managers and directors.',
+        `Benchmark total compensation bands for ${role} across target industry peers.`,
         'Negotiate starting terms using competing interview timeline leverage and structured counter-offer scripts.',
       ],
       deliverable: 'Minimum 1 Formal Written Offer with Verified Compensation Package',
@@ -556,6 +560,7 @@ export function buildStandard4WeekRoadmap(
 ) {
   const role = typeof targetRole === 'string' && targetRole.trim() ? targetRole.trim() : 'Software Engineer'
   const skillsStr = normalizeSkillsString(coreSkills)
+  const archetype = classifyRoleArchetype(role, coreSkills)
 
   return [
     {
@@ -565,7 +570,7 @@ export function buildStandard4WeekRoadmap(
       tasks: [
         `Rewrite experience achievements in Google XYZ format highlighting ${skillsStr} outcomes.`,
         'Verify single-column ATS parsable resume layout with zero table/column ingestion errors.',
-        'Reconstruct LinkedIn headline with role keywords, core tech stack, and scale metrics.',
+        'Reconstruct LinkedIn headline with role keywords, core stack, and scale metrics.',
       ],
     },
     {
@@ -574,18 +579,18 @@ export function buildStandard4WeekRoadmap(
       goal: 'Scale outbound volume via direct hiring manager outreach and employee referrals.',
       tasks: [
         'Curate list of 25 target US employers actively hiring in your target leveling tier.',
-        'Send 5 personalized 50-word reverse-outreach InMails to engineering managers.',
+        `Bypass public portals: Send 5 personalized 50-word reverse-outreach InMails to hiring managers highlighting your ${archetype.reverseOutreachHook}.`,
         'Submit 10 direct career portal applications bypassing public Easy Apply aggregators.',
       ],
     },
     {
       week: 'Week 3',
-      theme: 'Technical Architecture & Live Coding Mastery',
-      goal: 'Master technical round verbalization, system design one-pagers, and algorithmic drills.',
+      theme: `${archetype.label} Interview & Case Study Mastery`,
+      goal: `Master interview verbalization, ${archetype.label} case studies, and practical drills.`,
       tasks: [
-        `Complete 10 timed problem-solving sets on LeetCode/CodeSignal in ${skillsStr}.`,
-        'Draft 1-page system architecture diagram explaining DB choice, caching, and trade-offs.',
-        'Rehearse 5 technical leadership STAR stories covering production incidents and code reviews.',
+        `Complete 10 timed problem-solving exercises: ${archetype.dayAssessmentPrep}.`,
+        `Draft 1-page ${archetype.portfolioArtifact} demonstrating real-world depth.`,
+        'Rehearse 5 technical leadership STAR stories covering domain trade-offs and complex challenges.',
       ],
     },
     {
@@ -593,8 +598,8 @@ export function buildStandard4WeekRoadmap(
       theme: 'Executive Alignment, Negotiation & Closing',
       goal: 'Convert final-round loops into written offers with compensation leverage.',
       tasks: [
-        'Prepare 5 strategic questions for VP/Director interviewers on engineering debt and team roadmap.',
-        `Benchmark total compensation bands on Levels.fyi for ${role}.`,
+        'Prepare 5 strategic questions for VP/Director interviewers on team roadmap and operational priorities.',
+        `Benchmark total compensation bands for ${role}.`,
         'Execute structured counter-offer negotiation scripts to secure top-of-band compensation.',
       ],
     },

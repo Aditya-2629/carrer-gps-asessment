@@ -984,6 +984,30 @@ export async function generateReportBundle({
   aiReport.resume_agent = activeResumeAgent
   aiReport.linkedin_agent = activeLinkedinAgent
   aiReport.assessment_agent = effectiveAssessmentAgent
+
+  // Zero Silent Fallbacks: Explicitly track partial agent failures
+  const failedAgents = []
+  if (result?.failedAgents?.length) {
+    result.failedAgents.forEach((fa) => {
+      const normalized = fa.toLowerCase().replace(/\s+/g, '_')
+      if (!failedAgents.includes(normalized)) failedAgents.push(normalized)
+    })
+  } else {
+    if (!activeResumeAgent && (user?.resumeBuffer || user?.resumeText || user?.resumeJson)) {
+      failedAgents.push('resume_agent')
+    }
+    if (!activeLinkedinAgent && (user?.linkedinUrl || user?.linkedinData)) {
+      failedAgents.push('linkedin_agent')
+    }
+  }
+
+  if (failedAgents.length > 0 || result?.partialFailure) {
+    aiReport.partialFailure = true
+    aiReport.failedAgents = failedAgents.length > 0 ? failedAgents : (result?.failedAgents || ['resume_agent'])
+  } else {
+    aiReport.partialFailure = false
+    aiReport.failedAgents = []
+  }
   aiReport.linkedin_activity_signals = user.linkedinActivitySignals || activeLinkedinAgent?.activitySignals || result?.linkedinActivitySignals || null
   aiReport.linkedin_activity_data = user.linkedinActivityData || result?.linkedinActivityData || null
   aiReport.linkedinActivitySignals = aiReport.linkedin_activity_signals
