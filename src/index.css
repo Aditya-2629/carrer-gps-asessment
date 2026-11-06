@@ -605,16 +605,33 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
+/* ─── Executive PDF Brief Container Styles (Screen & Print) ─── */
+.pdf-page {
+  box-sizing: border-box;
+  background: #ffffff;
+  color: #0f172a;
+}
+.pdf-card {
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  border-radius: 8px;
+}
+
 /* ─── Master Print / PDF Engine ─── */
 @media print {
   @page {
-    size: letter portrait;
-    margin: 12mm 14mm;
+    size: A4 portrait;
+    margin: 10mm 10mm 10mm 10mm;
   }
-  body {
+  html, body {
     background: #ffffff !important;
     color: #0f172a !important;
-    font-size: 10.5pt !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -627,15 +644,44 @@ h1, h2, h3, h4, h5, h6 {
   .filter-tabs,
   .collapse-toggle,
   .experience-dropdown-chevron,
-  .experience-dropdown-controls {
+  .experience-dropdown-controls,
+  header,
+  footer,
+  nav,
+  #report-chatbot-root {
     display: none !important;
   }
-  /* Never allow scrollbars or clipped containers in print (preserve line-clamps when specified) */
-  *:not(.line-clamp-1):not(.line-clamp-2):not(.line-clamp-3):not(.truncate) {
-    overflow: visible !important;
-    max-height: none !important;
+  /* Strict 4-Page Print Container Budget */
+  .pdf-page {
+    box-sizing: border-box !important;
+    width: 100% !important;
+    height: 274mm !important;
+    max-height: 274mm !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    padding: 0 0 4mm 0 !important;
+    margin: 0 !important;
+    break-before: auto !important;
+    break-after: page !important;
+    page-break-after: always !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
-  /* Force expand all accordions in print */
+  .pdf-page:first-of-type {
+    break-before: avoid !important;
+    page-break-before: avoid !important;
+  }
+  .pdf-page:last-of-type {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  .pdf-card {
+    border: 1px solid #e2e8f0 !important;
+    background-color: #f8fafc !important;
+    border-radius: 8px !important;
+  }
   .experience-dropdown-content,
   .accordion-content {
     display: block !important;
@@ -643,66 +689,8 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1 !important;
     visibility: visible !important;
   }
-  /* Allow large sections and experience groups to flow across pages naturally */
-  .report-container,
-  .report-section,
-  .print-section,
-  .experience-group,
-  .experience-bullets-list,
-  .scorecard-section {
-    break-inside: auto !important;
-    page-break-inside: auto !important;
-    margin-bottom: 14px !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border-color: #cbd5e1 !important;
-  }
-  /* Keep section & company headers attached to their first item */
-  h1, h2, h3, .section-header, .experience-group-header, .section-title {
-    break-after: avoid !important;
-    page-break-after: avoid !important;
-  }
-  /* Prevent individual small leaf cards from splitting mid-sentence */
-  .bullet-card,
-  .strength-card,
-  .keyword-bucket,
-  .keyword-row-group,
-  .checklist-item,
-  .print-card {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    margin-bottom: 8px !important;
-    box-shadow: none !important;
-    border-color: #cbd5e1 !important;
-  }
-  .page-break-before-always,
-  .break-before-page {
-    break-before: page !important;
-    page-break-before: always !important;
-  }
-  .page-break-inside-avoid,
-  .break-inside-avoid {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-  /* Eliminate blank page 1 */
-  #overview {
-    break-before: avoid !important;
-    page-break-before: avoid !important;
-  }
-  /* Prevent trailing blank page */
-  body, html {
-    height: auto !important;
-    min-height: auto !important;
-  }
-  footer {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-    break-after: avoid !important;
-  }
   a {
     text-decoration: none !important;
     color: inherit !important;
   }
 }
-

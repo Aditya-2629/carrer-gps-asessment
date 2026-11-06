@@ -1110,21 +1110,11 @@ function ReportDashboardContent() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={async () => {
-                try {
-                  const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
-                  const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
-                  const params = new URLSearchParams()
-                  if (userId) params.append('userId', userId)
-                  if (email) params.append('email', email)
-                  const url = `${import.meta.env.VITE_API_URL || '/api'}/assessment/report-pdf?${params.toString()}`
-                  window.open(url, '_blank')
-                } catch (_e) {
-                  sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                  const userId = reportData?.userId || reportData?._id || ''
-                  const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
-                  window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&print=true`, '_blank')
-                }
+              onClick={() => {
+                sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
+                const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
+                const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
+                window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&print=true`, '_blank')
               }}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               title="Download print-perfect Career GPS Report PDF"

@@ -30,9 +30,10 @@ export default function RiskHeatMap({ data }) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-2">
         {/* Left: 2x2 Risk Quadrant */}
         <div className="lg:col-span-7 quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] relative">
-          {/* Y-Axis Label */}
-          <div className="absolute -left-3 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-mono font-bold text-[var(--text-muted)] uppercase tracking-widest pointer-events-none">
-            IMPACT (LOW TO HIGH)
+          {/* Impact Axis Header */}
+          <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between">
+            <span>Impact: High ↑</span>
+            <span>Impact: Low ↓</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3.5 h-72 relative border-l-2 border-b-2 border-[var(--border-default)] pl-4 pb-4">
@@ -55,7 +56,7 @@ export default function RiskHeatMap({ data }) {
                 className="self-center bg-red-600 text-white font-bold text-sm px-4 py-2 rounded-full shadow-lg shadow-red-500/30 flex items-center gap-2 cursor-pointer animate-pulse text-center"
               >
                 <span className="w-2.5 h-2.5 rounded-full bg-white shrink-0" />
-                <span className="truncate max-w-[140px] sm:max-w-xs">+ {criticalRisk}</span>
+                <span className="text-[11px] leading-tight break-words">+ {criticalRisk}</span>
               </motion.div>
             </div>
 
