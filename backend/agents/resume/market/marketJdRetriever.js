@@ -159,10 +159,14 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
                 isArchived: false,
               })
 
+              const [bRoleKey, bExpBucket] = (bucketKey || '').split('::')
               await JobMarketBucket.findOneAndUpdate(
                 { bucketKey },
                 {
                   $set: {
+                    bucketKey,
+                    roleKey: bRoleKey || 'data-analyst',
+                    experienceBucket: bExpBucket || '6-8',
                     roleName: roleClean,
                     activeVersion: stagedVersion,
                     jobCount: fast12Jds.length,
