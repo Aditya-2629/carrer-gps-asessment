@@ -199,7 +199,7 @@ function isValidSkill(skill) {
   return true
 }
 
-function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
+function LiveScrapedProfileSnapshot({ profileData, activitySignals, rawPosts = [] }) {
   const [isBioExpanded, setIsBioExpanded] = useState(false)
   if (!profileData || typeof profileData !== 'object') return null
 
@@ -216,7 +216,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
     ? profileData.location
     : (profileData.location?.name || profileData.location?.text || 'Not Specified')
   const experiencesCount = (profileData.experiences || profileData.positions || []).length
-  const postsCount = activitySignals?.postCount ?? (profileData.publicPosts?.length ?? profileData.posts?.length ?? 0)
+  const postsCount = rawPosts.length || activitySignals?.postsAnalyzedCount || activitySignals?.postCount || (profileData.publicPosts?.length ?? profileData.posts?.length ?? 0)
   const about = (profileData.about || profileData.summary || '').trim()
 
   const initials = fullName
@@ -320,7 +320,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
             Public Posts Analyzed
           </div>
           <div className="text-sm font-bold text-[var(--text-primary)] mt-1">
-            {postsCount} Post{postsCount === 1 ? '' : 's'}
+            {postsCount} Public Post{postsCount === 1 ? '' : 's'} Analyzed
           </div>
         </div>
       </div>
@@ -361,6 +361,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const [copiedId, setCopiedId] = useState(null)
 
   const activitySignals = linkedinAgent?.activitySignals || reportData?.linkedin_agent?.activitySignals || reportData?.linkedin_activity_signals || null
+  const rawPosts = reportData?.linkedin_activity_data?.posts || linkedinAgent?.activitySignals?.posts || activitySignals?.posts || []
+  const actualPostsCount = rawPosts.length || linkedinAgent?.activitySignals?.postsAnalyzedCount || activitySignals?.postCount || 0
 
   const profileData = useMemo(() => {
     let p = reportData?.linkedin_json || reportData?.user_answers?.linkedinData || linkedinAgent?.scrapedProfile || null
@@ -959,7 +961,39 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       )}
 
       {/* ── 0. Live Scraped Profile Snapshot (if profile data is available) ────── */}
-      <LiveScrapedProfileSnapshot profileData={profileData} activitySignals={activitySignals} />
+      <LiveScrapedProfileSnapshot profileData={profileData} activitySignals={activitySignals} rawPosts={rawPosts} />
+
+      {/* ── 0B. Live Scraped Recent Activity & Posts Feed ──────────────────────── */}
+      {rawPosts.length > 0 && (
+        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 mb-6 space-y-3 shadow-xs">
+          <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                Recent Public LinkedIn Activity ({rawPosts.length} Posts Analyzed)
+              </span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 border border-sky-500/20">
+              Live Scraped via Apify
+            </span>
+          </div>
+          <div className="space-y-2.5">
+            {rawPosts.slice(0, 4).map((post, pIdx) => (
+              <div key={pIdx} className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] font-medium">
+                  <span>Post #{pIdx + 1} {post.postedAt?.postedAgoShort ? `· ${post.postedAt.postedAgoShort}` : ''}</span>
+                  <span className="flex items-center gap-2">
+                    <span>👍 {post.engagement?.likes || 0}</span>
+                    <span>💬 {post.engagement?.comments || 0}</span>
+                  </span>
+                </div>
+                <p className="text-[var(--text-primary)] leading-relaxed line-clamp-3">
+                  "{typeof post.content === 'string' ? post.content : (post.content?.text || '')}"
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 1. Scorecard at the top ────────────────────────────────────────── */}
       <ResumeScoreCard

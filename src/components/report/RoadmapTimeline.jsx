@@ -52,7 +52,11 @@ function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
 export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNavigateSection, reportData }) {
   const safeData = Array.isArray(roadmapData) ? roadmapData : []
   const effectivePhaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || currentPhaseId || 1)
-  const targetRole = reportData?.user_answers?.targetRole || reportData?.target_role || 'Software Engineer'
+  const targetRole =
+    reportData?.resume_agent?.candidateSnapshot?.targetRole ||
+    reportData?.resume_json?.target_role ||
+    reportData?.user_answers?.targetRole ||
+    'Data Analyst'
   const visa = reportData?.user_answers?.visa || reportData?.user_answers?.visaStatus || ''
   const rawExternal = reportData?.user_answers?.externalHelp
   const helpString = Array.isArray(rawExternal) ? rawExternal.join(' ') : String(rawExternal || '')
@@ -189,9 +193,11 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       },
       {
         day: 'Day 5',
-        title: 'Live Coding & Algorithm Timed Mock',
-        action: 'Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud.',
-        deliverable: '3 Completed Live LeetCode/HackerRank Mocks',
+        title: isDataRole ? 'Live SQL & Analytics Timed Mock' : 'Live Coding & Algorithm Timed Mock',
+        action: isDataRole
+          ? 'Complete 3 timed SQL & analytical problem-solving rounds on StrataScratch / HackerRank focusing on window functions and aggregations.'
+          : 'Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud.',
+        deliverable: isDataRole ? '3 Completed Live SQL & Data Modeling Mocks' : '3 Completed Live LeetCode/HackerRank Mocks',
       },
       {
         day: 'Day 6',
@@ -358,7 +364,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       stage: 'Asset Calibration & Outbound Sourcing Engine',
       goal: 'Overcome ATS keyword drop-offs and generate consistent top-of-funnel interview volume.',
       actions: [
-        `Calibrate resume in single-column format using Google XYZ metrics with verified ${topSkills} keyword density.`,
+        isDataRole
+          ? 'Rewrite experience achievements in Google XYZ format highlighting SQL, Snowflake/BigQuery, Power BI/Tableau, and automated ETL outcomes.'
+          : `Calibrate resume in single-column format using Google XYZ metrics with verified ${topSkills} keyword density.`,
         'Deploy LinkedIn Sales Navigator & Apollo to build an account list of 30 target US companies actively hiring.',
         isSponsorshipRequired
           ? 'Filter target employer lists via USCIS H-1B Employer Hub and E-Verify databases before submitting.'
@@ -375,7 +383,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       goal: 'Convert top-of-funnel inbound interest into active technical interviews across multiple companies.',
       actions: [
         'Engage 10 engineering managers and internal recruiters weekly using personalized 50-word LinkedIn InMails.',
-        `Complete 15 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
+        isDataRole
+          ? 'Conduct 5 live analytical case studies covering dimensional modeling, star schemas, DAX, and SQL window functions.'
+          : `Complete 15 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
         'Conduct 2 weekly informational interviews with alumni and senior engineers at target tech companies.',
       ],
       deliverable: 'Multi-Threaded Active Pipeline of 4+ Concurrent Interview Loops',
@@ -388,7 +398,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       stage: 'Final Rounds, Offer Leverage & Closing',
       goal: 'Advance through onsite interview loops and secure a competitive, written job offer.',
       actions: [
-        'Execute comprehensive system architecture and behavioral STAR interviews with hiring managers and directors.',
+        isDataRole
+          ? 'Complete 10 business problem-solving case studies and portfolio walkthroughs in SQL, Python, and Tableau/Power BI.'
+          : 'Execute comprehensive system architecture and behavioral STAR interviews with hiring managers and directors.',
         `Benchmark total compensation bands (Base, Bonus, Equity) on Levels.fyi and Blind for ${targetRole}.`,
         'Negotiate starting terms using competing interview timeline leverage and structured counter-offer scripts.',
       ],
@@ -404,8 +416,12 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       stage: 'Recruiter Screen Mastery & Assessment Clearance',
       goal: 'Elevate recruiter screen pass rate from <30% to >75% and clear automated technical assessments.',
       actions: [
-        `Script and rehearse a 60-second verbal elevator pitch highlighting verified ${topSkills} and architecture scale.`,
-        'Drill 10 timed CodeSignal / HackerRank online assessments to guarantee passing automated screen filters.',
+        isDataRole
+          ? 'Rewrite experience achievements in Google XYZ format highlighting SQL, Snowflake/BigQuery, Power BI/Tableau, and automated ETL outcomes.'
+          : `Script and rehearse a 60-second verbal elevator pitch highlighting verified ${topSkills} and architecture scale.`,
+        isDataRole
+          ? 'Drill 10 timed SQL and data analysis assessments on StrataScratch / HackerRank covering window functions and aggregate metrics.'
+          : 'Drill 10 timed CodeSignal / HackerRank online assessments to guarantee passing automated screen filters.',
         `Align compensation expectations upfront using Levels.fyi data for ${targetRole} to prevent screening mismatch.`,
       ],
       deliverable: 'Recorded Elevator Pitch + Recruiter Screening Rubric Answer Sheet',
@@ -415,14 +431,18 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
     phase60 = {
       period: '60 DAYS',
-      stage: 'Live Technical Problem Solving & Architecture Defense',
-      goal: 'Consistently clear live coding rounds and technical deep dives.',
+      stage: isDataRole ? 'Live Analytical Case Studies & Dimensional Defense' : 'Live Technical Problem Solving & Architecture Defense',
+      goal: isDataRole ? 'Consistently clear analytical screens and SQL/BI technical deep dives.' : 'Consistently clear live coding rounds and technical deep dives.',
       actions: [
-        'Conduct 5 mock technical coding interviews focusing on verbalizing reasoning out loud on LeetCode Mediums.',
-        'Prepare a 1-page architecture diagram for your primary project detailing database trade-offs and caching.',
+        isDataRole
+          ? 'Conduct 5 live analytical case studies covering dimensional modeling, star schemas, DAX, and SQL window functions.'
+          : 'Conduct 5 mock technical coding interviews focusing on verbalizing reasoning out loud on LeetCode Mediums.',
+        isDataRole
+          ? 'Prepare a 1-page data model diagram for your primary project detailing star schemas, grain, and ETL pipeline cadence.'
+          : 'Prepare a 1-page architecture diagram for your primary project detailing database trade-offs and caching.',
         'Rehearse project ownership responses to clearly delineate individual contributions from team scope.',
       ],
-      deliverable: '1-Page Project System Architecture Blueprint + 5 Validated STAR Technical Stories',
+      deliverable: isDataRole ? '1-Page Project Dimensional Model Blueprint + 5 Validated STAR Analytical Stories' : '1-Page Project System Architecture Blueprint + 5 Validated STAR Technical Stories',
       successSignal: 'Advance to final/onsite stage in >= 50% of technical interview loops.',
       active: false,
     }
@@ -432,7 +452,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       stage: 'Final Round Onsites & Offer Negotiation',
       goal: 'Convert final-round loops into competitive written offers with full compensation leverage.',
       actions: [
-        'Present technical case studies and executive vision to Director/VP stakeholders.',
+        isDataRole
+          ? 'Complete 10 business problem-solving case studies and portfolio walkthroughs in SQL, Python, and Tableau/Power BI.'
+          : 'Present technical case studies and executive vision to Director/VP stakeholders.',
         'Benchmark total compensation packages on Levels.fyi and prepare multi-offer leverage tactics.',
         'Execute structured negotiation scripts to maximize starting base salary and equity grant.',
       ],
@@ -445,14 +467,18 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     // Phase 3: Technical Round Choke Point
     phase30 = {
       period: '30 DAYS',
-      stage: 'Live Technical Problem Solving & System Architecture',
-      goal: 'Overcome technical drop-offs by mastering live coding verbalization and system trade-offs.',
+      stage: isDataRole ? 'Live Analytical Problem Solving & SQL Defense' : 'Live Technical Problem Solving & System Architecture',
+      goal: isDataRole ? 'Overcome analytical round drop-offs by mastering live SQL verbalization and data grain trade-offs.' : 'Overcome technical drop-offs by mastering live coding verbalization and system trade-offs.',
       actions: [
-        'Conduct 4 mock interviews on LeetCode/Pramp verbalizing Big-O time and space trade-offs in real-time.',
-        `Draft system architecture one-pagers showing latency, caching, and database trade-offs using ${topSkills}.`,
+        isDataRole
+          ? 'Conduct 4 mock interviews on StrataScratch/Pramp verbalizing query optimization, partitioning, and indexing trade-offs.'
+          : 'Conduct 4 mock interviews on LeetCode/Pramp verbalizing Big-O time and space trade-offs in real-time.',
+        isDataRole
+          ? `Draft data architecture one-pagers showing warehouse modeling, ETL pipelines, and BI reporting grain using ${topSkills}.`
+          : `Draft system architecture one-pagers showing latency, caching, and database trade-offs using ${topSkills}.`,
         'Prepare 5 behavioral STAR stories focusing on system outages, complex bugs, and engineering trade-offs.',
       ],
-      deliverable: 'System Architecture One-Pager + Live Coding Communication Rubric',
+      deliverable: isDataRole ? 'Data Architecture One-Pager + Live SQL Problem-Solving Rubric' : 'System Architecture One-Pager + Live Coding Communication Rubric',
       successSignal: 'Technical round pass rate >= 65% advancing into final round onsites.',
       active: true,
     }
@@ -555,7 +581,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       goal: 'Generate consistent weekly recruiter screenings and advance into live technical rounds.',
       actions: [
         'Script and rehearse a 60-second verbal elevator pitch highlighting verified architecture scale.',
-        `Complete 10 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
+        isDataRole
+          ? `Complete 10 timed SQL and data analysis problem sets on StrataScratch / HackerRank in ${topSkills} to ensure assessment readiness.`
+          : `Complete 10 timed technical problem sets on LeetCode/CodeSignal in ${topSkills} to ensure assessment readiness.`,
         'Engage 10 engineering managers weekly using personalized 50-word LinkedIn InMails.',
       ],
       deliverable: 'Active Pipeline of 3+ Scheduled Screens/Week',

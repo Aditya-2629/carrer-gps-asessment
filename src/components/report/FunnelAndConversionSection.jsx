@@ -211,13 +211,21 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     ? 'Mid–Senior / 3–5 Yrs Experience 🚀'
     : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience 🌱')
   const helpArray = Array.isArray(answers.externalHelp) ? answers.externalHelp : [String(answers.externalHelp || '')]
-  const consultancy = ext.consultancy_context || {
-    mode: helpArray.some((h) => /Freelanc/i.test(h))
-      ? 'Freelance / Direct Client Gigs'
-      : helpArray.some((h) => /C2C/i.test(h))
+  const resolvedOpportunity =
+    answers.opportunityType ||
+    reportData?.user_answers?.opportunityType ||
+    answers.opportunity_type ||
+    reportData?.user_answers?.opportunity_type ||
+    (ext.consultancy_context?.mode && !ext.consultancy_context.mode.includes('Freelance') ? ext.consultancy_context.mode : null) ||
+    (helpArray.some((h) => /C2C/i.test(h))
       ? 'C2C Consultancy / Bench'
-      : 'Solo Search',
-    description: '100% self-directed application pipeline',
+      : helpArray.some((h) => /Freelanc/i.test(h))
+      ? 'Freelance / Direct Client Gigs'
+      : 'Direct Enterprise / W2 Sourcing')
+
+  const consultancy = {
+    mode: resolvedOpportunity,
+    description: ext.consultancy_context?.description || '100% self-directed application pipeline',
   }
 
   // 5. Verified Technical Skills (cleanly formatted in Title Case)

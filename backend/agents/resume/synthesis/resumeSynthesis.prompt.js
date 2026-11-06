@@ -544,6 +544,12 @@ Do NOT suggest a hypothetical number even as an example!
 correctedText is an executive-grade rewrite following the Google XYZ + Architectural Mechanism standard.
 BAN COSMETIC SWAPS: Strictly forbid rewrites that only replace action verbs (e.g., "Implemented" -> "Secured") without injecting measurable scale, system throughput, or architectural mechanisms.
 
+AUTOMATIC ACHIEVABLE METRIC INJECTION (MANDATORY):
+- Every "readyToUseRewrite" and "correctedText" MUST ALREADY CONTAIN a realistic, achievable operational metric embedded naturally into the sentence.
+- For Data Analysts: e.g. "cutting report turnaround from 8 hours to 45 minutes", "automating 20+ weekly executive dashboards", "reconciling 250k+ daily healthcare claims with 99.9% accuracy".
+- For Software Engineers: e.g. "reducing p99 API latency from 450ms to 95ms", "automating test pipelines saving 6+ engineering hours weekly", "scaling to 100k+ concurrent users".
+- NEVER ask the user to add numbers or output blank placeholders. Embed realistic, believable metrics directly into the copy.
+
 MANDATORY BULLET STRUCTURE:
 Every rewritten bullet MUST follow:
 [Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].

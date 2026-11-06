@@ -841,27 +841,42 @@ export function synthesizeRootCauseAndActions({
 export function getExternalContext({ targetRole = '', answers = {}, semanticProfile = null } = {}) {
   const now = new Date()
   const month = now.getMonth() // 0-indexed
+  const isDataRole = /data|analyst|analytics|bi\b|business intelligence|tableau|power bi|sql/i.test(targetRole)
 
-  let cycleTitle = 'Core Software & Engineering Wave'
-  let cycleDesc = 'Mid-year hiring cycle actively screening for full-stack and cloud product engineering capacity.'
-  let priorityRoles = 'Full-Stack, Backend, Distributed Systems'
+  let cycleTitle = isDataRole
+    ? 'Data Analytics, BI & Cloud Warehouse Wave'
+    : 'Core Software & Engineering Wave'
+  let cycleDesc = isDataRole
+    ? 'Mid-year hiring cycle actively screening for analytical modeling, SQL/dbt data transforms, and BI dashboard capacity.'
+    : 'Mid-year hiring cycle actively screening for full-stack and cloud product engineering capacity.'
+  let priorityRoles = isDataRole
+    ? 'Data Analyst, BI Developer, Analytics Engineer, SQL Specialist'
+    : 'Full-Stack, Backend, Distributed Systems'
 
   if (month >= 0 && month <= 2) {
-    cycleTitle = 'Q1 Annual Budget Release & Strategic Expansion'
-    cycleDesc = 'Enterprise hiring budgets unlock in January. Product Managers, Technical Leads, and Architecture roles see immediate opening surges.'
-    priorityRoles = 'Engineering Leadership, Architecture, PM/PO'
+    cycleTitle = isDataRole ? 'Q1 Analytics Budget Release & Data Platform Expansion' : 'Q1 Annual Budget Release & Strategic Expansion'
+    cycleDesc = isDataRole
+      ? 'Enterprise data analytics budgets unlock in January. Senior Analysts, Analytics Engineers, and BI Leads see immediate opening surges.'
+      : 'Enterprise hiring budgets unlock in January. Product Managers, Technical Leads, and Architecture roles see immediate opening surges.'
+    priorityRoles = isDataRole ? 'Analytics Engineering, BI Architecture, Senior Data Analyst' : 'Engineering Leadership, Architecture, PM/PO'
   } else if (month >= 3 && month <= 5) {
-    cycleTitle = 'Q2 Engineering Execution & Insights Wave'
-    cycleDesc = 'Mid-spring hiring targets Core Software, Data Analytics, and AI/ML engineers to support product feature roadmap execution.'
-    priorityRoles = 'Full Stack, Cloud, Data Engineering, AI/ML'
+    cycleTitle = isDataRole ? 'Q2 Business Intelligence & Insights Wave' : 'Q2 Engineering Execution & Insights Wave'
+    cycleDesc = isDataRole
+      ? 'Mid-spring hiring targets Data Analytics, BI Developers, and Analytics Engineers to support executive decision systems.'
+      : 'Mid-spring hiring targets Core Software, Data Analytics, and AI/ML engineers to support product feature roadmap execution.'
+    priorityRoles = isDataRole ? 'Data Analytics, BI, dbt, SQL, Power BI/Tableau' : 'Full Stack, Cloud, Data Engineering, AI/ML'
   } else if (month >= 6 && month <= 8) {
-    cycleTitle = 'Q3 Mid-Year Testing & Infrastructure Optimization'
-    cycleDesc = 'Summer hiring emphasizes QA/SDET, Platform Reliability (SRE), and Cloud Security to harden infrastructure before Q4 code freezes.'
-    priorityRoles = 'DevOps, SRE, QA Automation, Security'
+    cycleTitle = isDataRole ? 'Q3 Data Warehouse Optimization & Metric Governance' : 'Q3 Mid-Year Testing & Infrastructure Optimization'
+    cycleDesc = isDataRole
+      ? 'Summer hiring emphasizes single-source-of-truth data modeling, warehouse cost optimization (Snowflake/BigQuery), and dashboard governance.'
+      : 'Summer hiring emphasizes QA/SDET, Platform Reliability (SRE), and Cloud Security to harden infrastructure before Q4 code freezes.'
+    priorityRoles = isDataRole ? 'Data Modeling, Snowflake, BigQuery, BI Governance' : 'DevOps, SRE, QA Automation, Security'
   } else {
-    cycleTitle = 'Q4 Year-End Sprint & Advance Referral Seeding'
-    cycleDesc = 'Formal corporate offers slow in late November. Elite candidates use this window to cultivate warm referrals and prep interviews for January budget release.'
-    priorityRoles = 'Referral Pipeline, Contract/Burst Staffing'
+    cycleTitle = isDataRole ? 'Q4 Analytics Year-End Sprint & Planning Wave' : 'Q4 Year-End Sprint & Advance Referral Seeding'
+    cycleDesc = isDataRole
+      ? 'Formal corporate offers slow in late November. Elite analysts use this window to curate project portfolios and seed referrals for January.'
+      : 'Formal corporate offers slow in late November. Elite candidates use this window to cultivate warm referrals and prep interviews for January budget release.'
+    priorityRoles = isDataRole ? 'Analytics Pipeline, Contract Analytics, BI Staffing' : 'Referral Pipeline, Contract/Burst Staffing'
   }
 
   // Recruiter Priority Funnel position based on candidate's primary sourcing method & US conversion hierarchy
