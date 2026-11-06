@@ -113,3 +113,4 @@ export default class RootErrorBoundary extends React.Component {
     return this.props.children
   }
 }
+
