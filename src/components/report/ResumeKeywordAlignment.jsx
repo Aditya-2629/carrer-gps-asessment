@@ -27,8 +27,7 @@ export default function ResumeKeywordAlignment({
   } = keywordAlignment
 
   const [selectedSkills, setSelectedSkills] = useState(new Set())
-  const [showMediumMissing, setShowMediumMissing] = useState(true)
-  const [showLowMissing, setShowLowMissing] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
 
   const toggleSkillSelection = (skillName) => {
@@ -303,250 +302,195 @@ export default function ResumeKeywordAlignment({
       </div>
 
       <div className="space-y-4 print:space-y-3">
-        {/* Row 1: Verified in Experience */}
-        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-800/40'}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-              <CheckCircle size={15} weight="fill" className="text-emerald-600" />
-              Verified in Experience
-            </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-              {cleanMatched.length} {cleanMatched.length === 1 ? 'skill' : 'skills'}
-            </span>
-          </div>
-          <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-slate-600' : 'text-slate-400'}`}>
-            Core target skills proven through concrete accomplishments and deliverables in your work bullets.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {cleanMatched.length > 0 ? (
-              cleanMatched.map((kw, i) => (
-                <span
-                  key={i}
-                  className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${
-                    light
-                      ? 'bg-white text-emerald-800 border-emerald-200 shadow-2xs'
-                      : 'bg-emerald-950/60 text-emerald-200 border-emerald-700/50'
-                  }`}
-                >
-                  ✓ {kw}
-                </span>
-              ))
-            ) : (
-              <span className={`text-xs italic ${light ? 'text-slate-400' : 'text-slate-500'}`}>
-                No experience keyword matches detected yet.
+        {/* Top 5 Critical Missing Skills Focus Card */}
+        {uniqueMissing.length > 0 ? (
+          <div className="p-4 rounded-xl border border-rose-500/25 bg-rose-500/5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <XCircle size={15} weight="fill" />
+                Top {Math.min(5, uniqueMissing.length)} Critical Missing Skills (High JD Frequency)
               </span>
-            )}
-          </div>
-        </div>
-
-        {/* Row 2: In Skills Section Only */}
-        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-amber-50/40 border-amber-200/80' : 'bg-amber-950/20 border-amber-800/40'}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-            <span className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
-              <Warning size={15} weight="fill" className="text-amber-500" />
-              In Skills Section Only — Add to a Work Bullet
-            </span>
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-              {cleanSkillsOnly.length} {cleanSkillsOnly.length === 1 ? 'skill' : 'skills'}
-            </span>
-          </div>
-          <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-amber-900/80' : 'text-amber-300/80'}`}>
-            Listed in your Skills section, but not demonstrated in your work history. Clicking download will automatically weave these into your work bullets to prove hands-on application.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {cleanSkillsOnly.length > 0 ? (
-              cleanSkillsOnly.map((kw, i) => (
-                <span
-                  key={i}
-                  className={`text-[12.5px] px-2.5 py-1 rounded-lg font-medium border ${
-                    light
-                      ? 'bg-white text-amber-900 border-amber-200 shadow-2xs'
-                      : 'bg-amber-950/60 text-amber-200 border-amber-700/50'
-                  }`}
-                >
-                  ⚠️ {kw}
-                </span>
-              ))
-            ) : (
-              <span className={`text-xs italic ${light ? 'text-slate-400' : 'text-slate-500'}`}>
-                None. All listed skills are actively backed by work experience.
+              <span className="text-[11px] text-slate-500 font-mono">
+                Priority Gaps in Analyzed Job Postings
               </span>
-            )}
-          </div>
-        </div>
-
-        {/* Row 3: Missing Target Keywords */}
-        <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${uniqueMissing.length === 0 ? (light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-900/30') : (light ? 'bg-rose-50/40 border-rose-200/80' : 'bg-rose-950/20 border-rose-800/40')}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-            <span className={`flex items-center gap-1.5 text-xs font-bold ${uniqueMissing.length === 0 ? 'text-emerald-800 dark:text-emerald-300' : 'text-rose-800 dark:text-rose-300'}`}>
-              {uniqueMissing.length === 0 ? <CheckCircle size={15} weight="fill" className="text-emerald-600" /> : <XCircle size={15} weight="fill" className="text-rose-500" />}
-              {uniqueMissing.length === 0 ? 'Target Keyword Coverage' : 'Missing Target Keywords'}
-            </span>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${uniqueMissing.length === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300'}`}>
-              {uniqueMissing.length === 0 ? '100% Covered' : `${uniqueMissing.length} missing`}
-            </span>
-          </div>
-
-          {uniqueMissing.length === 0 ? (
-            <div className={`p-3 rounded-lg border text-xs font-medium flex items-center gap-2 ${light ? 'bg-white border-emerald-200 text-emerald-900' : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-200'}`}>
-              <Sparkle size={15} weight="fill" className="text-emerald-600 shrink-0" />
-              <span><strong>100% Core Keyword Coverage</strong> — All essential target keywords detected on your resume.</span>
             </div>
-          ) : (
-            <div className="space-y-3 pt-2">
-              {/* 🔴 High Priority Missing (Red, >40%) */}
-              {highPriorityMissing.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-rose-500 flex items-center gap-1.5">
-                      <XCircle size={15} weight="fill" />
-                      High-Priority Missing Market Skills ({highPriorityMissing.length})
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              {uniqueMissing.slice(0, 5).map((item, i) => {
+                const isSelected = selectedSkills.has(item.keyword)
+                return (
+                  <div
+                    key={i}
+                    className={`p-3 rounded-xl border flex flex-col justify-between transition-all ${
+                      isSelected
+                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-900 dark:text-emerald-100 shadow-2xs'
+                        : 'bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900/40 shadow-xs'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <span className="text-xs font-bold truncate" title={item.keyword}>
+                          {item.keyword}
+                        </span>
+                      </div>
+                      <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold mb-2">
+                        {item.percentage ? `in ${item.percentage}% of JDs` : (item.badge || 'HIGH PRIORITY')}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleSkillSelection(item.keyword)}
+                      className={`w-full py-1 px-2 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer border ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100'
+                      }`}
+                    >
+                      {isSelected ? '✓ Added' : '+ Add to Work Bullet'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/30 dark:border-emerald-800/50 flex items-center gap-2">
+            <CheckCircle size={16} weight="fill" className="text-emerald-600 shrink-0" />
+            <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+              <strong>100% Core Keyword Coverage</strong> — All essential target skills detected in your resume.
+            </span>
+          </div>
+        )}
+
+        {/* Collapsible Full Keyword Inventory (Eliminates the 110-tag dump on web & print) */}
+        <div className="pt-1 print:hidden">
+          <button
+            type="button"
+            onClick={() => setShowAllTags(!showAllTags)}
+            className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/80 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between transition-all cursor-pointer shadow-2xs"
+          >
+            <span>
+              {showAllTags ? '▲ Hide full keyword inventory' : `▼ Show full keyword inventory (${cleanMatched.length} verified, ${cleanSkillsOnly.length} skills-only)`}
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              {showAllTags ? 'Click to collapse' : 'Click to inspect all tags'}
+            </span>
+          </button>
+
+          {showAllTags && (
+            <div className="mt-4 space-y-4 animate-fadeIn">
+              {/* Row 1: Verified in Experience tags */}
+              <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-emerald-50/40 border-emerald-200/80' : 'bg-emerald-950/20 border-emerald-800/40'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle size={15} weight="fill" className="text-emerald-600" />
+                    Verified in Experience
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                    {cleanMatched.length} {cleanMatched.length === 1 ? 'skill' : 'skills'}
+                  </span>
+                </div>
+                <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-slate-600' : 'text-slate-400'}`}>
+                  Core target skills proven through concrete accomplishments and deliverables in your work bullets.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {cleanMatched.length > 0 ? (
+                    cleanMatched.map((kw, i) => (
+                      <span
+                        key={i}
+                        className={`text-[12px] px-2.5 py-1 rounded-lg font-medium border ${
+                          light
+                            ? 'bg-white text-emerald-800 border-emerald-200 shadow-2xs'
+                            : 'bg-emerald-950/60 text-emerald-200 border-emerald-700/50'
+                        }`}
+                      >
+                        ✓ {kw}
+                      </span>
+                    ))
+                  ) : (
+                    <span className={`text-xs italic ${light ? 'text-slate-400' : 'text-slate-500'}`}>
+                      No experience keyword matches detected yet.
                     </span>
-                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                      &gt;40% of Analyzed JDs
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: In Skills Section Only tags */}
+              <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-amber-50/40 border-amber-200/80' : 'bg-amber-950/20 border-amber-800/40'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                    <Warning size={15} weight="fill" className="text-amber-500" />
+                    In Skills Section Only — Add to a Work Bullet
+                  </span>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                    {cleanSkillsOnly.length} {cleanSkillsOnly.length === 1 ? 'skill' : 'skills'}
+                  </span>
+                </div>
+                <p className={`text-[11px] leading-relaxed mb-2.5 ${light ? 'text-amber-900/80' : 'text-amber-300/80'}`}>
+                  Listed in your Skills section, but not demonstrated in your work history.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {cleanSkillsOnly.length > 0 ? (
+                    cleanSkillsOnly.map((kw, i) => (
+                      <span
+                        key={i}
+                        className={`text-[12px] px-2.5 py-1 rounded-lg font-medium border ${
+                          light
+                            ? 'bg-white text-amber-900 border-amber-200 shadow-2xs'
+                            : 'bg-amber-950/60 text-amber-200 border-amber-700/50'
+                        }`}
+                      >
+                        ⚠️ {kw}
+                      </span>
+                    ))
+                  ) : (
+                    <span className={`text-xs italic ${light ? 'text-slate-400' : 'text-slate-500'}`}>
+                      None. All listed skills are actively backed by work experience.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Remaining Missing Skills */}
+              {uniqueMissing.length > 5 && (
+                <div className={`keyword-bucket keyword-row-group p-4 rounded-xl border ${light ? 'bg-rose-50/40 border-rose-200/80' : 'bg-rose-950/20 border-rose-800/40'} space-y-3`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-rose-800 dark:text-rose-300">
+                      <XCircle size={15} weight="fill" className="text-rose-500" />
+                      Additional Missing Market Skills ({uniqueMissing.length - 5})
                     </span>
                   </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {highPriorityMissing.map((item, i) => {
+                  <div className="flex flex-wrap gap-1.5">
+                    {uniqueMissing.slice(5).map((item, i) => {
                       const isSelected = selectedSkills.has(item.keyword)
                       return (
                         <button
                           key={i}
                           type="button"
                           onClick={() => toggleSkillSelection(item.keyword)}
-                          className={`inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
+                          className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg font-medium border transition-all cursor-pointer ${
                             isSelected
                               ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25 hover:border-rose-500/50'
+                              : 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/40 hover:border-rose-400'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => {}}
-                            className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
+                            className="pointer-events-none w-3 h-3 text-emerald-600 rounded"
                           />
                           <span>{item.keyword}</span>
                           {item.percentage && (
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-bold">
-                              {item.percentage}% of JDs
+                            <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold">
+                              {item.percentage}%
                             </span>
                           )}
                         </button>
                       )
                     })}
                   </div>
-                </div>
-              )}
-
-              {/* 🟡 Medium Priority Missing (Yellow, 20%-40%) */}
-              {mediumPriorityMissing.length > 0 && (
-                <div className="pt-2 border-t border-[var(--border-default)]/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setShowMediumMissing(!showMediumMissing)}
-                      className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5 hover:underline cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                      Medium-Priority Missing Market Skills ({mediumPriorityMissing.length})
-                      <span className="text-[10px] font-mono opacity-70">
-                        {showMediumMissing ? '▲ Collapse' : '▼ Expand'}
-                      </span>
-                    </button>
-                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                      20%–40% of Analyzed JDs
-                    </span>
-                  </div>
-
-                  {showMediumMissing && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {mediumPriorityMissing.map((item, i) => {
-                        const isSelected = selectedSkills.has(item.keyword)
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => toggleSkillSelection(item.keyword)}
-                            className={`inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-xl font-medium border transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
-                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25 hover:border-amber-500/50'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="w-3.5 h-3.5 rounded text-emerald-600 cursor-pointer pointer-events-none"
-                            />
-                            <span>{item.keyword}</span>
-                            {item.percentage && (
-                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 font-bold">
-                                {item.percentage}% of JDs
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ⚪ Low Priority Missing (Grey, 10%-20%) */}
-              {lowPriorityMissing.length > 0 && (
-                <div className="pt-2 border-t border-[var(--border-default)]/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setShowLowMissing(!showLowMissing)}
-                      className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5 hover:underline cursor-pointer"
-                    >
-                      <span className="inline-block w-2 h-2 rounded-full bg-slate-400" />
-                      Low-Priority Market Signals ({lowPriorityMissing.length})
-                      <span className="text-[10px] font-mono opacity-70">
-                        {showLowMissing ? '▲ Collapse' : '▼ Expand'}
-                      </span>
-                    </button>
-                    <span className="text-[11px] text-[var(--text-muted)] font-mono">
-                      10%–20% of Analyzed JDs
-                    </span>
-                  </div>
-
-                  {showLowMissing && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {lowPriorityMissing.map((item, i) => {
-                        const isSelected = selectedSkills.has(item.keyword)
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => toggleSkillSelection(item.keyword)}
-                            className={`inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold'
-                                : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20 hover:border-slate-500/40'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {}}
-                              className="pointer-events-none"
-                            />
-                            <span>{item.keyword}</span>
-                            {item.percentage && (
-                              <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-500/15 text-slate-700 dark:text-slate-300 font-semibold">
-                                {item.percentage}%
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

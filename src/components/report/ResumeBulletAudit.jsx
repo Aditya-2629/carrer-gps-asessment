@@ -1,41 +1,33 @@
 import React, { useState, useMemo } from 'react'
 import {
-  CaretDown,
-  Briefcase,
-  Folders,
   Sparkle,
   Copy,
   Check,
 } from '@phosphor-icons/react'
 
 /**
- * ResumeBulletAudit — unified actionable audit merging line-by-line verdicts
- * with deep recruiter diagnosis, root-cause titles, and ready-to-use rewrites.
- *
+ * ResumeBulletAudit — Interactive, high-density bullet review workspace.
  * Features:
- * - Interactive filter tabs: [ All Bullets (N) ] | [ Needs Action (M) ] | [ Strong Bullets (K) ]
- * - Unified Actionable Cards for FIX & IMPROVE bullets with:
- *     * Specific Root-Cause Issue Title
- *     * Original Bullet Text
- *     * Recruiter Diagnosis ("Why It Matters")
- *     * Ready-to-Use Rewrite Box with [Copy Rewrite] button
- *     * Discovery questions to uncover real numbers
- * - Compact layout for GOOD bullets (prevents page bloat)
- * - Print-perfect: auto-expands all accordions and displays unabridged audit.
+ * - Split-Pane Before/After Bullet Diff (Red original vs Green Google XYZ rewrite).
+ * - 3 Segmented Filter Pills (Critical Fixes, Needs Impact Metrics, Strong Bullets, View All).
+ * - Collapsible "Why Recruiters Skip" reason.
+ * - Interactive Scale Metric selector chips.
+ * - One-click clipboard copy with feedback.
+ * - Preserves complete print view for PDF export.
  */
 
 const STATUS_STYLES = {
   fix: {
     chip: 'bg-rose-50 border-rose-200 text-rose-700 font-bold',
-    label: 'FIX',
+    label: 'Critical Fix',
   },
   warn: {
     chip: 'bg-amber-50 border-amber-200 text-amber-700 font-bold',
-    label: 'IMPROVE',
+    label: 'Improvement',
   },
   pass: {
     chip: 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold',
-    label: 'GOOD',
+    label: 'Strong',
   },
 }
 
@@ -68,10 +60,6 @@ function cleanRewriteText(text) {
 
 function ActionableBulletCard({ bullet, matchedIssue, light }) {
   const isFix = bullet.status === 'fix'
-  const badgeStyle = isFix
-    ? 'bg-rose-50 border-rose-200 text-rose-700 font-bold'
-    : 'bg-amber-50 border-amber-200 text-amber-700 font-bold'
-  const badgeLabel = isFix ? 'FIX' : 'IMPROVE'
 
   const issueTitle = balanceParentheses(
     matchedIssue?.title ||
@@ -97,132 +85,124 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
 
   const [copied, setCopied] = useState(false)
   const handleCopy = () => {
-    if (activeRewrite) {
-      navigator.clipboard.writeText(activeRewrite)
+    const textToCopy = activeRewrite || bullet.text
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
   }
 
+  const metricOptions = bullet.metricOptions || matchedIssue?.metricOptions || null
+  const [selectedMetric, setSelectedMetric] = useState(null)
+
   return (
-    <div
-      className={`bullet-card print-card border rounded-xl p-4 sm:p-5 space-y-3 print:break-inside-avoid ${
-        light
-          ? 'bg-white border-slate-200 shadow-2xs'
-          : 'bg-[#0b1222] border-slate-800'
-      }`}
-    >
-      {/* Top Row: Status Badge + Issue Title + Bullet ID */}
-      <div className="flex items-start justify-between gap-3">
+    <div className="bullet-card print-card rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1222] p-4 sm:p-5 space-y-3.5 shadow-xs print:break-inside-avoid">
+      {/* Header: Status Pill + Issue Title + Bullet ID */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className={`text-[10px] uppercase px-2 py-0.5 rounded border ${badgeStyle}`}>
-            {badgeLabel}
+          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${isFix ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+            {isFix ? 'Critical Fix' : 'Improvement'}
           </span>
-          <span className={`text-xs sm:text-sm font-bold ${light ? 'text-slate-900' : 'text-white'}`}>
+          <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
             {issueTitle}
           </span>
-          {bullet.category && (
-            <span className={`text-[10px] font-mono uppercase ${light ? 'text-slate-400' : 'text-slate-500'}`}>
-              · {bullet.category.replace(/_/g, ' ')}
+          {bullet.itemName && (
+            <span className="text-[10px] font-mono text-slate-400">
+              · {bullet.itemName}
             </span>
           )}
         </div>
-        <span className={`text-[10px] font-mono shrink-0 ${light ? 'text-slate-400' : 'text-slate-500'}`}>
-          {bullet.bulletId}
-        </span>
+        <span className="text-[10px] font-mono text-slate-400 shrink-0">{bullet.bulletId}</span>
       </div>
 
-      {/* Original Bullet */}
-      <div
-        className={`text-xs sm:text-[13px] leading-relaxed rounded-lg p-3 border ${
-          light
-            ? 'bg-slate-50 border-slate-200/70 text-slate-700'
-            : 'bg-slate-900/60 border-slate-800 text-slate-300'
-        }`}
-      >
-        <span className={`text-[10px] uppercase font-bold tracking-wider block mb-1 ${
-          light ? 'text-slate-400' : 'text-slate-500'
-        }`}>
-          Original Phrasing
-        </span>
-        {bullet.text}
-      </div>
-
-      {/* Recruiter Diagnosis (Why It Matters) */}
-      {(diagnosis || whyItMatters) && (
-        <div
-          className={`text-xs leading-relaxed rounded-lg p-3 space-y-1 border ${
-            light
-              ? 'bg-amber-50/60 border-amber-200/70 text-slate-700'
-              : 'bg-amber-950/20 border-amber-800/40 text-amber-200/90'
-          }`}
-        >
-          {diagnosis && (
-            <p>
-              <strong className={light ? 'text-amber-800' : 'text-amber-300'}>
-                Recruiter Diagnosis:{' '}
-              </strong>
-              {diagnosis}
-            </p>
-          )}
-          {whyItMatters && (
-            <p className={light ? 'text-slate-600' : 'text-slate-400'}>
-              <strong className={light ? 'text-slate-700' : 'text-slate-300'}>
-                Why It Matters:{' '}
-              </strong>
-              {whyItMatters}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Ready-to-Use Rewrite Box */}
-      {rewriteText && (
-        <div
-          className={`rounded-xl p-3.5 space-y-2 border ${
-            light
-              ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
-              : 'bg-emerald-950/30 border-emerald-800/60 text-emerald-100'
-          }`}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                light ? 'text-emerald-800' : 'text-emerald-300'
-              }`}
-            >
-              <Sparkle size={13} weight="fill" className={light ? 'text-emerald-600' : 'text-emerald-400'} />
-              Ready-to-Use Rewrite
+      {/* Split-Pane Grid: Left = Before, Right = After */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
+        {/* Left: Original (Before) */}
+        <div className="rounded-xl p-3.5 bg-rose-500/5 border border-rose-500/20 flex flex-col justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+              Original Phrasing (Before)
             </span>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className={`no-print text-[11px] font-semibold px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer border ${
-                light
-                  ? 'bg-white hover:bg-emerald-100 text-emerald-800 border-emerald-200 shadow-2xs'
-                  : 'bg-emerald-900/60 hover:bg-emerald-900 text-emerald-200 border-emerald-700/60'
-              }`}
-            >
-              {copied ? (
-                <>
-                  <Check size={12} weight="bold" className="text-emerald-600" />
-                  <span>Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy size={12} weight="bold" />
-                  <span>Copy Rewrite</span>
-                </>
-              )}
-            </button>
+            <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+              {bullet.text}
+            </p>
           </div>
-          <p className="text-xs sm:text-[13px] font-medium leading-relaxed">
-            {activeRewrite}
-          </p>
+          <div className="mt-3 pt-2 border-t border-rose-500/15 text-[11px] text-rose-700 dark:text-rose-300 font-medium">
+            ⚠️ Flaw: {diagnosis || 'Lacks quantified metric and active engineering ownership.'}
+          </div>
         </div>
+
+        {/* Right: Recruiter Rewrite (After) */}
+        <div className="rounded-xl p-3.5 bg-emerald-500/10 border border-emerald-500/30 flex flex-col justify-between shadow-2xs">
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Recruiter Google XYZ (After)
+              </span>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="px-2 py-0.5 rounded text-[10px] font-bold bg-white dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer"
+              >
+                {copied ? (
+                  <>
+                    <Check size={11} weight="bold" />
+                    <span>✓ Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={11} weight="bold" />
+                    <span>📋 Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs leading-relaxed font-semibold text-slate-900 dark:text-emerald-100">
+              {activeRewrite || bullet.text}
+            </p>
+          </div>
+
+          {/* Metric Selector Chips */}
+          {metricOptions && (
+            <div className="mt-3 pt-2 border-t border-emerald-500/20">
+              <span className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold block mb-1">
+                Pick Your Scale Metric:
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {['optionA', 'optionB', 'optionC'].map((optKey) => metricOptions[optKey] && (
+                  <button
+                    key={optKey}
+                    type="button"
+                    onClick={() => setSelectedMetric(selectedMetric === optKey ? null : optKey)}
+                    className={`text-[10px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                      selectedMetric === optKey
+                        ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-xs'
+                        : 'bg-white/80 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400'
+                    }`}
+                  >
+                    {typeof metricOptions[optKey] === 'string' ? metricOptions[optKey].split('/')[0].trim() : String(metricOptions[optKey])}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Collapsible "Why Recruiters Skip" Bar */}
+      {whyItMatters && (
+        <details className="group text-xs text-slate-500 dark:text-slate-400 pt-1">
+          <summary className="cursor-pointer font-bold text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline list-none flex items-center gap-1">
+            <span>💡 Why recruiters skip this bullet (Tap to expand)</span>
+          </summary>
+          <p className="mt-2 pl-2 border-l-2 border-indigo-400 text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300">
+            {whyItMatters}
+          </p>
+        </details>
       )}
-
-
     </div>
   )
 }
@@ -230,19 +210,24 @@ function ActionableBulletCard({ bullet, matchedIssue, light }) {
 function CompactGoodBulletRow({ bullet, light }) {
   return (
     <div
-      className={`bullet-card print-card flex items-start gap-2.5 px-3 py-2 rounded-lg border transition-all ${
+      className={`bullet-card print-card flex items-start gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
         light
           ? 'bg-emerald-50/20 border-emerald-100 text-slate-700'
           : 'bg-emerald-950/20 border-emerald-900/40 text-slate-300'
       }`}
     >
-      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 mt-0.5">
+      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 mt-0.5">
         GOOD
       </span>
       <div className="flex-1 min-w-0">
         <span className="text-xs leading-relaxed">{bullet.text}</span>
+        {bullet.itemName && (
+          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
+            {bullet.itemName} {bullet.section ? `• ${bullet.section}` : ''}
+          </span>
+        )}
       </div>
-      <span className={`text-[10px] font-mono shrink-0 ${light ? 'text-slate-300' : 'text-slate-600'}`}>
+      <span className="text-[10px] font-mono shrink-0 text-slate-400">
         {bullet.bulletId}
       </span>
     </div>
@@ -274,343 +259,142 @@ export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 
     return map
   }, [issues])
 
-  // Group bullets by role/project header
-  const groups = useMemo(() => {
-    const groupList = []
-    const byName = new Map()
-    for (const b of bulletAudit) {
-      if (!byName.has(b.itemName)) {
-        byName.set(b.itemName, [])
-        groupList.push({ itemName: b.itemName, section: b.section, bullets: byName.get(b.itemName) })
-      }
-      byName.get(b.itemName).push(b)
-    }
-    return groupList
-  }, [bulletAudit])
+  // Filter tab state: default to 'fix' so candidate sees only critical rewrites
+  const [activeFilter, setActiveFilter] = useState('fix')
 
-  // Filter tab state: default to 'needs_action' so 30 passing bullets don't clutter the audit
-  const [activeFilter, setActiveFilter] = useState('needs_action')
+  const fixCount = bulletAudit.filter((b) => b.status === 'fix').length
+  const warnCount = bulletAudit.filter((b) => b.status === 'warn').length
+  const passCount = bulletAudit.filter((b) => b.status === 'pass').length
 
-  // Interactive accordion state: expand all or selective
-  const [expandedGroups, setExpandedGroups] = useState(() => {
-    const initial = {}
-    groups.forEach((g) => {
-      // Default open all groups for seamless scanning
-      initial[g.itemName] = true
-    })
-    return initial
-  })
-
-  const toggleGroup = (itemName) => {
-    setExpandedGroups((prev) => ({
-      ...prev,
-      [itemName]: !prev[itemName],
-    }))
-  }
-
-  const expandAll = () => {
-    const all = {}
-    groups.forEach((g) => {
-      all[g.itemName] = true
-    })
-    setExpandedGroups(all)
-  }
-
-  const collapseAll = () => {
-    const none = {}
-    groups.forEach((g) => {
-      none[g.itemName] = false
-    })
-    setExpandedGroups(none)
-  }
-
-  const allExpanded = groups.every((g) => expandedGroups[g.itemName])
-
-  const counts = {
-    fix: bulletAudit.filter((b) => b.status === 'fix').length,
-    warn: bulletAudit.filter((b) => b.status === 'warn').length,
-    pass: bulletAudit.filter((b) => b.status === 'pass').length,
-  }
-  const totalNeedsAction = counts.fix + counts.warn
-
-  // State to toggle between compact 4-bullet executive view vs full 30-bullet audit
-  const [showAllAuditedBullets, setShowAllAuditedBullets] = useState(false)
-
-  // Top critical bullets (prioritize fix, then warn)
-  const displayedBullets = useMemo(() => {
-    const critical = bulletAudit.filter((b) => b.status === 'fix' || b.status === 'warn')
-    return critical.length > 0 ? critical.slice(0, 4) : bulletAudit.slice(0, 4)
-  }, [bulletAudit])
-  const topCriticalBullets = displayedBullets
-
-  const totalBullets = totalNeedsAction > 0 ? totalNeedsAction : bulletAudit.length
-  const totalCount = Math.max(displayedBullets.length, totalBullets || 0)
-
-  const labelColor = light ? 'text-slate-400' : 'text-gray-400'
-  const groupName = light ? 'text-slate-900' : 'text-white'
-  const badgeBg = light
-    ? 'bg-slate-100 border-slate-200 text-slate-600'
-    : 'bg-gray-900 border-gray-800 text-gray-400'
-  const containerCardBg = light
-    ? 'bg-white border-slate-200'
-    : 'bg-[#0f172a] border-gray-800/80'
+  const filteredBullets = useMemo(() => {
+    if (activeFilter === 'fix') return bulletAudit.filter((b) => b.status === 'fix')
+    if (activeFilter === 'warn') return bulletAudit.filter((b) => b.status === 'warn')
+    if (activeFilter === 'pass') return bulletAudit.filter((b) => b.status === 'pass')
+    return bulletAudit
+  }, [bulletAudit, activeFilter])
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
         <div>
-          <h3 className={`text-xs font-bold uppercase tracking-wider ${labelColor}`}>
-            Top Critical Bullet Rewrites & Audit
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Actionable Bullet Audit & Side-by-Side Diff
           </h3>
           <div className="text-[11px] text-slate-500 mt-0.5">
-            Focusing on the highest-priority lines requiring hard quantified metrics and active verbs.
+            Compare original draft lines with recruiter-calibrated rewrites calibrated to Google's XYZ formula.
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-2 text-[10px] font-mono ${labelColor}`}>
-            <span className={light ? 'text-rose-600 font-bold' : 'text-rose-400 font-bold'}>
-              {counts.fix} to fix
-            </span>
-            <span>·</span>
-            <span className={light ? 'text-amber-600 font-bold' : 'text-amber-400 font-bold'}>
-              {counts.warn} to improve
-            </span>
-            <span>·</span>
-            <span className={light ? 'text-emerald-600 font-bold' : 'text-emerald-400 font-bold'}>
-              {counts.pass} strong
-            </span>
-          </div>
+        {/* 3-Pill Filter Controls */}
+        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveFilter('fix')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'fix'
+                ? 'bg-rose-500 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>🔴 Critical Fixes</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{fixCount}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('warn')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'warn'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>🟡 Needs Impact Metrics</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{warnCount}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('pass')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeFilter === 'pass'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <span>🟢 Strong Bullets</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{passCount}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveFilter('all')}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+              activeFilter === 'all'
+                ? 'underline font-bold text-slate-900 dark:text-white'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            }`}
+          >
+            View All ({bulletAudit.length})
+          </button>
         </div>
       </div>
 
-      {/* Top Priority Bullets Expanded by Default */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-rose-500 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkle size={14} weight="fill" />
-            TOP {displayedBullets.length} PRIORITY BULLET REWRITES (EXPANDED)
-          </span>
-          <span className="text-[11px] text-slate-500 font-mono">
-            {displayedBullets.length} of {totalCount} priority bullets
-          </span>
-        </div>
+      {/* Screen View: Filtered Bullets */}
+      <div className="space-y-3 print:hidden">
+        {filteredBullets.length > 0 ? (
+          filteredBullets.map((bullet, idx) => {
+            const matchedIssue = issueMap.get(bullet.bulletId)
+            if (bullet.status === 'pass') {
+              return (
+                <CompactGoodBulletRow
+                  key={bullet.bulletId || idx}
+                  bullet={bullet}
+                  light={light}
+                />
+              )
+            }
+            return (
+              <ActionableBulletCard
+                key={bullet.bulletId || idx}
+                bullet={bullet}
+                matchedIssue={matchedIssue}
+                light={light}
+              />
+            )
+          })
+        ) : (
+          <div className="p-8 text-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+            <p className="text-xs font-semibold text-slate-500">
+              No bullets in this category. Select another filter pill above.
+            </p>
+          </div>
+        )}
+      </div>
 
-        <div className="space-y-3">
-          {topCriticalBullets.map((bullet, idx) => (
+      {/* Print View: All Bullets Rendered Sequentially for PDF */}
+      <div className="hidden print:block print:space-y-3">
+        {bulletAudit.map((bullet, idx) => {
+          const matchedIssue = issueMap.get(bullet.bulletId)
+          if (bullet.status === 'pass') {
+            return (
+              <CompactGoodBulletRow
+                key={bullet.bulletId || idx}
+                bullet={bullet}
+                light={light}
+              />
+            )
+          }
+          return (
             <ActionableBulletCard
               key={bullet.bulletId || idx}
               bullet={bullet}
-              matchedIssue={issueMap.get(bullet.bulletId)}
+              matchedIssue={matchedIssue}
               light={light}
             />
-          ))}
-        </div>
-      </div>
-
-      {/* Toggle Button to Expand / Collapse Remaining Bullets (Hidden from PDF when collapsed) */}
-      <div className="pt-2 text-center print:hidden">
-        <button
-          type="button"
-          onClick={() => setShowAllAuditedBullets((prev) => !prev)}
-          className={`px-5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-xs inline-flex items-center gap-2 ${
-            showAllAuditedBullets
-              ? 'bg-slate-900 text-white border-slate-900'
-              : 'border-[var(--primary)] bg-[var(--primary-light)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white'
-          }`}
-        >
-          {showAllAuditedBullets ? (
-            <span>– Collapse Full Bullet Breakdown</span>
-          ) : (
-            <span>+ View All {bulletAudit.length} Audited Bullets ({counts.pass} Strong / Passed)</span>
-          )}
-        </button>
-      </div>
-
-      {/* Full Audited Bullets (Collapsed by default on Web and hidden from PDF when collapsed) */}
-      <div className={showAllAuditedBullets ? 'space-y-4 pt-3 border-t border-slate-200/60' : 'hidden print:hidden'}>
-        {/* Filter Tabs & Strong Bullets Toggle on Web */}
-        <div className="no-print filter-tabs flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveFilter('needs_action')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                activeFilter === 'needs_action'
-                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                  : light
-                  ? 'bg-white hover:bg-rose-50 text-rose-700 border-slate-200'
-                  : 'bg-slate-900 hover:bg-rose-950/50 text-rose-400 border-slate-800'
-              }`}
-            >
-              Needs Action: Fix & Improve ({totalNeedsAction})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                activeFilter === 'all'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                  : light
-                  ? 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
-                  : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-800'
-              }`}
-            >
-              All Bullets ({bulletAudit.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveFilter('good')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                activeFilter === 'good'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                  : light
-                  ? 'bg-white hover:bg-emerald-50 text-emerald-700 border-slate-200'
-                  : 'bg-slate-900 hover:bg-emerald-950/50 text-emerald-400 border-slate-800'
-              }`}
-            >
-              Strong Bullets ({counts.pass})
-            </button>
-          </div>
-
-          {/* Clear Toggle for Strong / Passed Bullets */}
-          {counts.pass > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveFilter((prev) => (prev === 'needs_action' ? 'all' : 'needs_action'))}
-              className={`text-xs font-semibold hover:underline flex items-center gap-1.5 cursor-pointer py-1 ${
-                activeFilter === 'needs_action'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-                  : 'text-slate-500'
-              }`}
-            >
-              <span>
-                {activeFilter === 'needs_action'
-                  ? `+ View ${counts.pass} Strong / Passed Bullets (Pre-Verified)`
-                  : `– Hide ${counts.pass} Strong / Passed Bullets`}
-              </span>
-            </button>
-          )}
-        </div>
-
-        {/* Accordion / List of Experience Groups */}
-        <div className="space-y-3.5">
-          {groups.map((g, gi) => {
-            const isExpanded = Boolean(expandedGroups[g.itemName])
-            const isProject = g.section?.toLowerCase().includes('project')
-
-          // Filter bullets for interactive display on screen; print CSS forces all visible
-          const visibleBullets = g.bullets.filter((b) => {
-            if (activeFilter === 'needs_action') return b.status === 'fix' || b.status === 'warn'
-            if (activeFilter === 'good') return b.status === 'pass'
-            return true
-          })
-
-          const gFix = g.bullets.filter((b) => b.status === 'fix').length
-          const gWarn = g.bullets.filter((b) => b.status === 'warn').length
-          const gPass = g.bullets.filter((b) => b.status === 'pass').length
-
-          // In interactive mode, if this filter leaves 0 bullets, hide on web (still available in print)
-          if (visibleBullets.length === 0 && activeFilter !== 'all') {
-            return null
-          }
-
-          return (
-            <div
-              key={`${g.itemName}_${gi}`}
-              className={`experience-group ${containerCardBg} border rounded-2xl overflow-hidden transition-all shadow-xs print:shadow-none print:break-inside-auto print:border-slate-300 print:mb-3`}
-            >
-              {/* Group Header Trigger */}
-              <button
-                type="button"
-                onClick={() => toggleGroup(g.itemName)}
-                className={`w-full p-4 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
-                  light ? 'hover:bg-slate-50/80' : 'hover:bg-gray-800/40'
-                }`}
-                aria-expanded={isExpanded}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                      isProject
-                        ? light
-                          ? 'bg-purple-50 text-purple-600'
-                          : 'bg-purple-950/40 text-purple-400'
-                        : light
-                        ? 'bg-indigo-50 text-indigo-600'
-                        : 'bg-indigo-950/40 text-indigo-400'
-                    }`}
-                  >
-                    {isProject ? <Folders size={17} weight="duotone" /> : <Briefcase size={17} weight="duotone" />}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs sm:text-sm font-bold ${groupName} truncate`}>
-                        {g.itemName}
-                      </span>
-                      <span className={`text-[9px] uppercase tracking-wider border px-2 py-0.5 rounded-full font-mono ${badgeBg}`}>
-                        {g.section || 'EXPERIENCE'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[10px] mt-0.5 text-slate-500 flex-wrap">
-                      <span>{g.bullets.length} {g.bullets.length === 1 ? 'bullet' : 'bullets'} audited</span>
-                      <span>·</span>
-                      {gFix > 0 && <span className="text-rose-600 font-semibold">{gFix} to fix</span>}
-                      {gWarn > 0 && <span className="text-amber-600 font-semibold">{gWarn} to improve</span>}
-                      {gPass > 0 && <span className="text-emerald-600 font-semibold">{gPass} strong</span>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="experience-dropdown-chevron shrink-0 text-slate-400 p-1">
-                  <CaretDown
-                    size={16}
-                    weight="bold"
-                    className={`transition-transform duration-200 ${
-                      isExpanded ? 'rotate-180 text-indigo-600' : ''
-                    }`}
-                  />
-                </div>
-              </button>
-
-              {/* Group Body: Collapsible on web, FORCED EXPANDED in print */}
-              <div
-                className={`experience-dropdown-content px-4 pb-4 space-y-3 border-t ${
-                  light ? 'border-slate-100' : 'border-gray-800/60'
-                } ${isExpanded ? 'block' : 'hidden'} print:!block print:!pt-3`}
-              >
-                <div className="pt-3 space-y-3">
-                  {visibleBullets.map((b) => {
-                    const matchedIssue = issueMap.get(b.bulletId)
-                    if (b.status === 'pass') {
-                      return (
-                        <CompactGoodBulletRow
-                          key={b.bulletId}
-                          bullet={b}
-                          light={light}
-                        />
-                      )
-                    }
-                    return (
-                      <ActionableBulletCard
-                        key={b.bulletId}
-                        bullet={b}
-                        matchedIssue={matchedIssue}
-                        light={light}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
           )
         })}
-      </div>
       </div>
     </div>
   )
