@@ -14,6 +14,8 @@ import {
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import DiffSnippetCard from './DiffSnippetCard'
+import ProgramPricingCard from './ProgramPricingCard'
 
 /**
  * Smoothly scrolls to a section by element id (supports `#final-cta`, `#next-action`, etc.)
@@ -117,16 +119,143 @@ function renderInlineFormatting(str) {
 }
 
 /**
- * Parses markdown text chunks into paragraphs, bullet lists, styled executive blockquotes, and copyable snippets
+ * Detects if a text block contains a bullet rewrite with Original Bullet and Optimized Google XYZ Bullet
  */
-function renderMessageContent(text) {
+function tryParseBulletDiff(text) {
   if (!text) return null
+
+  // Format 1: Explicit :::diff ... :::
+  const diffTagMatch = text.match(/:::diff\s*([\s\S]*?)\s*:::/i)
+  if (diffTagMatch) {
+    const raw = diffTagMatch[1]
+    const beforeMatch = raw.match(/before:\s*["']?([\s\S]*?)["']?(?=\nafter:|$)/i)
+    const afterMatch = raw.match(/after:\s*["']?([\s\S]*?)["']?(?=\n(?:scoreBefore|keywords|impact|:::)|$)/i)
+    const kwMatch = raw.match(/keywords:\s*(.*?)(?=\n|$)/i)
+    const impactMatch = raw.match(/impact:\s*(.*?)(?=\n|$)/i)
+    return {
+      before: beforeMatch ? beforeMatch[1].trim() : '',
+      after: afterMatch ? afterMatch[1].trim() : '',
+      keywords: kwMatch ? kwMatch[1].split(',').map((k) => k.trim()).filter(Boolean) : [],
+      metricImpact: impactMatch ? impactMatch[1].trim() : '',
+      fullMatch: diffTagMatch[0],
+    }
+  }
+
+  // Format 2: Agent synthesis format with Original Bullet and Optimized Google XYZ Bullet
+  const hasOriginal = /(?:\*\*Original Bullet\*\*|Original Bullet:)/i.test(text)
+  const hasOptimized = /(?:\*\*Optimized (?:Google )?XYZ Bullet\*\*|Optimized Bullet:)/i.test(text)
+
+  if (hasOriginal && hasOptimized) {
+    const beforeMatch = text.match(/(?:\*\*Original Bullet\*\*|Original Bullet:)\s*[:\n-]*\s*([^\n*#]+)/i)
+    const codeBlockMatch = text.match(/(?:\*\*Optimized (?:Google )?XYZ Bullet\*\*|Optimized Bullet:)\s*[:\n-]*\s*```(?:text)?\s*([\s\S]*?)```/i)
+    const plainAfterMatch = text.match(/(?:\*\*Optimized (?:Google )?XYZ Bullet\*\*|Optimized Bullet:)\s*[:\n-]*\s*([^\n*#]+)/i)
+    const kwMatch = text.match(/(?:\*\*Weaved Market Keywords\*\*|Weaved Market Keywords:)\s*[:\n-]*\s*([^\n*#]+)/i)
+    const impactMatch = text.match(/(?:\*\*Impact Metric Calibration\*\*|Impact Metric Calibration:)\s*[:\n-]*\s*([^\n*#]+)/i)
+
+    const before = beforeMatch ? beforeMatch[1].trim() : ''
+    const after = codeBlockMatch ? codeBlockMatch[1].trim() : (plainAfterMatch ? plainAfterMatch[1].trim() : '')
+
+    if (after) {
+      const keywords = kwMatch
+        ? kwMatch[1].split(/[,•;]+/).map((k) => k.replace(/^[*-]\s*/, '').trim()).filter(Boolean)
+        : []
+      const metricImpact = impactMatch ? impactMatch[1].trim() : ''
+
+      return {
+        before,
+        after,
+        keywords,
+        metricImpact,
+        scoreBefore: 42,
+        scoreAfter: 88,
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Detects if a text contains Crafture program comparison or pricing triggers
+ */
+function hasProgramPricingTrigger(text) {
+  if (!text) return false
+  if (/:::programs/i.test(text)) return true
+  const mentionsPricing =
+    /(?:CRAFTURE (?:OFFICIAL )?PROGRAMS|PROGRAMS & PRICING|\$150\/month|\$300\/month|Starter Experience.*Free Forever)/i.test(
+      text
+    )
+  return mentionsPricing
+}
+
+/**
+ * Renders markdown table lines into clean responsive HTML tables
+ */
+function renderMarkdownTable(tableLines, key) {
+  if (!tableLines || tableLines.length < 2) return null
+  const parseRow = (line) =>
+    line
+      .split('|')
+      .slice(1, -1)
+      .map((c) => c.trim())
+
+  const headerCells = parseRow(tableLines[0])
+  const dataRows = tableLines.slice(2).map(parseRow)
+
+  return (
+    <div key={key} className="overflow-x-auto my-3 rounded-xl border border-[var(--border-default)] shadow-2xs">
+      <table className="min-w-full text-xs text-left">
+        <thead className="bg-[var(--surface-card)] border-b border-[var(--border-default)]">
+          <tr>
+            {headerCells.map((h, i) => (
+              <th key={i} className="px-3 py-2 font-bold text-[var(--text-primary)]">
+                {renderInlineFormatting(h)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-default)] bg-[var(--surface-base)]">
+          {dataRows.map((row, rIdx) => (
+            <tr key={rIdx} className="hover:bg-[var(--surface-card)]/50 transition-colors">
+              {row.map((cell, cIdx) => (
+                <td key={cIdx} className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                  {renderInlineFormatting(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * Parses markdown text chunks into paragraphs, bullet lists, styled executive blockquotes,
+ * tables, diff snippet cards, and copyable snippets.
+ */
+function renderMessageContent(text, options = {}) {
+  if (!text) return null
+  const { onBookCall } = options
+
+  // 1. Detect Bullet Diff
+  const diffData = tryParseBulletDiff(text)
+
+  // 2. Detect Program Pricing Trigger
+  const showProgramsCard = hasProgramPricingTrigger(text)
+
+  // Clean custom tags from text before parsing
+  let cleanText = text
+  if (diffData?.fullMatch) {
+    cleanText = cleanText.replace(diffData.fullMatch, '').trim()
+  }
+  cleanText = cleanText.replace(/:::programs\s*:::/gi, '').trim()
 
   // Split out fenced code blocks (```...```)
   const codeBlockRegex = /```(?:[a-zA-Z0-9_-]+)?\s*([\s\S]*?)```/g
-  const parts = text.split(codeBlockRegex)
+  const parts = cleanText.split(codeBlockRegex)
 
-  return parts.map((part, partIdx) => {
+  const renderedContent = parts.map((part, partIdx) => {
     // Odd index = matched code block content
     if (partIdx % 2 === 1) {
       return <CopyableSnippetCard key={`code-${partIdx}`} snippet={part} />
@@ -136,6 +265,7 @@ function renderMessageContent(text) {
     const lines = part.split('\n')
     const elements = []
     let currentBulletList = []
+    let currentTableLines = []
 
     const flushBulletList = () => {
       if (currentBulletList.length > 0) {
@@ -153,11 +283,37 @@ function renderMessageContent(text) {
       }
     }
 
+    const flushTable = () => {
+      if (currentTableLines.length >= 2) {
+        elements.push(renderMarkdownTable(currentTableLines, `table-${elements.length}`))
+        currentTableLines = []
+      } else if (currentTableLines.length > 0) {
+        currentTableLines.forEach((tLine, tIdx) => {
+          elements.push(
+            <p key={`p-t-${elements.length}-${tIdx}`} className="my-1.5 text-xs leading-relaxed text-[var(--text-primary)]">
+              {renderInlineFormatting(tLine)}
+            </p>
+          )
+        })
+        currentTableLines = []
+      }
+    }
+
     lines.forEach((line, lineIdx) => {
       const trimmed = line.trim()
       if (!trimmed) {
         flushBulletList()
+        flushTable()
         return
+      }
+
+      // Check table row (| col | col |)
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        flushBulletList()
+        currentTableLines.push(trimmed)
+        return
+      } else if (currentTableLines.length > 0) {
+        flushTable()
       }
 
       // Check bullet item (- item, * item, • item)
@@ -205,8 +361,33 @@ function renderMessageContent(text) {
     })
 
     flushBulletList()
+    flushTable()
     return <div key={`text-seg-${partIdx}`}>{elements}</div>
   })
+
+  return (
+    <div className="space-y-2">
+      {/* If diffData detected, show DiffSnippetCard at top */}
+      {diffData && (
+        <DiffSnippetCard
+          before={diffData.before}
+          after={diffData.after}
+          scoreBefore={diffData.scoreBefore || 42}
+          scoreAfter={diffData.scoreAfter || 88}
+          keywords={diffData.keywords}
+          metricImpact={diffData.metricImpact}
+        />
+      )}
+
+      {/* Render text parts */}
+      {renderedContent}
+
+      {/* If program pricing triggered, render ProgramPricingCard */}
+      {showProgramsCard && (
+        <ProgramPricingCard onBookCall={onBookCall} />
+      )}
+    </div>
+  )
 }
 
 export default function ReportChatbot() {
@@ -330,8 +511,16 @@ export default function ReportChatbot() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [usedPrompts, setUsedPrompts] = useState(new Set())
+  const [followUpChips, setFollowUpChips] = useState([])
   const scrollRef = useRef(null)
   const textareaRef = useRef(null)
+  const isUserScrolledUp = useRef(false)
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+    isUserScrolledUp.current = scrollHeight - scrollTop - clientHeight > 60
+  }
 
   // Sync greeting when reportData updates
   useEffect(() => {
@@ -343,9 +532,9 @@ export default function ReportChatbot() {
     })
   }, [initialGreeting])
 
-  // Auto-scroll on new message, open, or token arrival
+  // Auto-scroll on new message, open, or token arrival (unless user manually scrolled up)
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && !isUserScrolledUp.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     }
   }, [messages, open, loading])
@@ -397,10 +586,13 @@ export default function ReportChatbot() {
     [bottleneckTitle, latestCompany, shortCompany, targetRole, topSkill]
   )
 
-  const remainingChips = useMemo(
-    () => STARTER_CHIPS.filter((chip) => !usedPrompts.has(chip.id)),
-    [STARTER_CHIPS, usedPrompts]
-  )
+  const remainingChips = useMemo(() => {
+    const followUpIds = new Set(followUpChips.map((c) => c.id))
+    const unusedStarters = STARTER_CHIPS.filter(
+      (chip) => !usedPrompts.has(chip.id) && !followUpIds.has(chip.id)
+    )
+    return [...followUpChips, ...unusedStarters].slice(0, 6)
+  }, [followUpChips, STARTER_CHIPS, usedPrompts])
 
   // Real-Time Token Streaming Consumer via /api/assessment/chat-stream
   const send = useCallback(
@@ -409,8 +601,65 @@ export default function ReportChatbot() {
       if (!question || loading) return
 
       setInput('')
+      isUserScrolledUp.current = false
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto'
+      }
+
+      // Dynamic Contextual Follow-Up Suggestions Lifecycle
+      const q = question.toLowerCase()
+      if (/bullet|rewrite|impact|quantif|xyz/i.test(q)) {
+        setFollowUpChips([
+          {
+            id: 'rewrite-another',
+            label: '✍️ Rewrite another bullet',
+            prompt: 'Show me my second weakest resume bullet point and rewrite it with Google XYZ metrics.',
+          },
+          {
+            id: 'mock-drill',
+            label: '🎤 Practice interview question for this experience',
+            prompt: 'Ask me 1 tough interview question about this accomplishment and show me how to answer with STAR.',
+          },
+        ])
+      } else if (/interview|star|behavioral|mock|question|answer/i.test(q)) {
+        setFollowUpChips([
+          {
+            id: 'add-7day',
+            label: '🚀 Add to my 7-day plan',
+            prompt: 'How do I incorporate this interview defense into my daily 7-day prep schedule?',
+          },
+          {
+            id: 'live-consult',
+            label: '📅 Practice live with a human coach',
+            prompt: "How do I schedule a live 1-on-1 mock interview with Crafture's executive coach?",
+          },
+        ])
+      } else if (/pricing|program|cost|\$150|\$300|starter|elite/i.test(q)) {
+        setFollowUpChips([
+          {
+            id: 'book-consult',
+            label: '📅 Book 1-on-1 Consultation',
+            prompt: 'How do I book a consultation to discuss the Elite program?',
+          },
+          {
+            id: 'choke-fix',
+            label: `🎯 Fix "${bottleneckTitle.slice(0, 18)}..."`,
+            prompt: `How do we fix my primary choke point ("${bottleneckTitle}") using the Crafture 6-Phase Career GPS Framework?`,
+          },
+        ])
+      } else if (/choke|bottleneck|stuck|phase/i.test(q)) {
+        setFollowUpChips([
+          {
+            id: 'rewrite-bullet-choke',
+            label: '✍️ Rewrite top impact bullet',
+            prompt: 'Rewrite my weakest resume bullet with stronger Google XYZ impact metrics.',
+          },
+          {
+            id: 'plan-choke',
+            label: '🚀 7-Day Rapid Triage',
+            prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
+          },
+        ])
       }
 
       const nextUserMsg = { role: 'user', text: question }
@@ -432,7 +681,6 @@ export default function ReportChatbot() {
       }
       setMessages([...updatedMessages, placeholderAgentMsg])
 
-      let streamingCompleted = false
       let accumulatedText = ''
 
       try {
@@ -469,13 +717,11 @@ export default function ReportChatbot() {
             const trimmed = line.trim()
             if (!trimmed || trimmed.startsWith(':')) continue
             if (trimmed === 'data: [DONE]') {
-              streamingCompleted = true
               break
             }
             if (trimmed.startsWith('data: ')) {
               const dataStr = trimmed.slice(6).trim()
               if (dataStr === '[DONE]') {
-                streamingCompleted = true
                 break
               }
               try {
@@ -497,7 +743,6 @@ export default function ReportChatbot() {
             }
           }
         }
-        streamingCompleted = true
       } catch (streamErr) {
         console.warn('[ReportChatbot] Streaming connection failed, falling back to JSON API:', streamErr.message)
         // Fallback to non-streaming endpoint
@@ -510,7 +755,6 @@ export default function ReportChatbot() {
 
           let rawAnswer = String(res.data?.answer || res.data?.reply || '').trim()
           accumulatedText = rawAnswer
-          streamingCompleted = true
         } catch (_jsonErr) {
           accumulatedText = 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!'
         }
@@ -631,6 +875,7 @@ export default function ReportChatbot() {
           {/* Messages container */}
           <div
             ref={scrollRef}
+            onScroll={handleScroll}
             className="flex-1 overflow-y-auto px-4 py-3.5 space-y-4 bg-[var(--surface-base)]/50"
           >
             {messages.map((m, i) => {
@@ -651,7 +896,7 @@ export default function ReportChatbot() {
                     {/* Message Body */}
                     {isAgent ? (
                       <div>
-                        {renderMessageContent(m.text)}
+                        {renderMessageContent(m.text, { onBookCall: handleStrategyCallCta })}
                         {m.isStreaming && (
                           <span className="inline-block w-1.5 h-3.5 bg-emerald-500 animate-pulse ml-1 align-middle"></span>
                         )}
