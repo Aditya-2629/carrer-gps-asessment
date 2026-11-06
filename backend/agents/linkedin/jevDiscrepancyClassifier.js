@@ -9,8 +9,6 @@
  * - SEVERE_ROLE_MISMATCH: Incompatible functional tracks triggering background check flags
  */
 
-import { isConcreteTechSkill } from '../resume/market/dynamicSkillExtractor.js'
-
 export const JEV_DISCREPANCY_CACHE = new Map()
 
 // Pre-seed common equivalent and severe mismatch pairs into O(1) cache
@@ -195,3 +193,4 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     return result
   }
 }
+

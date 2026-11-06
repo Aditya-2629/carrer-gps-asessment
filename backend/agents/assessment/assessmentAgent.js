@@ -10,8 +10,66 @@
  *  - Persona & Agent Directives (preserved for Maya, Liam, Atlas Coach)
  */
 
-import { classifyConsistencyTier } from '../linkedin/linkedinCrossAnalyzer.js'
-import { cleanTargetRoleTitle } from '../../services/resumeValidator.js'
+export function cleanTargetRoleTitle(prefix, baseRole) {
+  if (!baseRole && !prefix) return 'Professional'
+  if (!baseRole) return String(prefix).trim()
+  if (!prefix) {
+    return String(baseRole)
+      .replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)(?:\1)+/i, '$1')
+      .trim()
+  }
+  const clean = String(baseRole).replace(/^((?:senior|lead|principal|staff|junior|mid-level)\s+)+/i, '').trim()
+  return `${String(prefix).trim()} ${clean}`.trim()
+}
+
+export function classifyConsistencyTier({ summary = {}, discrepancies = [], timelineMismatches = [], titleDrift = [] } = {}) {
+  const highSev = summary.high ?? discrepancies.filter((d) => d.severity === 'high').length
+  const medSev = summary.medium ?? discrepancies.filter((d) => d.severity === 'medium').length
+  const timelineCount = summary.timelineMismatchesCount ?? timelineMismatches.length
+
+  const hasMaterialEmployerMismatch = discrepancies.some((d) =>
+    d.category === 'employer_mismatch' || (d.severity === 'high' && /employer|company/i.test(d.title || d.diagnosis))
+  )
+  const hasSignificantTimelineGap = timelineMismatches.some((m) => (m.gapMonths || m.monthsDiff || 0) > 3)
+
+  if (hasMaterialEmployerMismatch || hasSignificantTimelineGap || highSev >= 2) {
+    return {
+      tier: 'Major Inconsistency',
+      points: 0,
+      maxPoints: 2,
+      badge: 'Major Inconsistency',
+      description: 'Material differences in employers, timelines (>3 months), or identity detected that could create recruiter concern.',
+    }
+  }
+
+  if (highSev === 1 || medSev >= 2 || timelineCount >= 1) {
+    return {
+      tier: 'Potential Inconsistency',
+      points: 1,
+      maxPoints: 2,
+      badge: 'Potential Inconsistency',
+      description: 'Moderate differences in role details or minor timeline variance between resume and LinkedIn.',
+    }
+  }
+
+  if (medSev === 1 || (summary.low ?? 0) > 0 || (titleDrift && titleDrift.length > 0)) {
+    return {
+      tier: 'Minor Differences',
+      points: 1.5,
+      maxPoints: 2,
+      badge: 'Minor Differences',
+      description: 'Normal title variations or equivalent wording (e.g. Senior Data Analyst vs Data Analyst, Full Stack vs Software Engineer).',
+    }
+  }
+
+  return {
+    tier: 'Strong Match',
+    points: 2,
+    maxPoints: 2,
+    badge: 'Strong Match',
+    description: 'High alignment across career history, job titles, and timeline between resume and LinkedIn profile.',
+  }
+}
 
 // Shared range-safe numeric parser that prevents concatenating range digits (e.g. "30–60" -> 45, never 3060)
 export function parseRangeOrNumber(val, fallback = 0) {
