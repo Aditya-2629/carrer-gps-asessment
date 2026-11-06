@@ -316,7 +316,7 @@ const MOCK_REPORT = {
       }
     },
     "overallReview": {
-      "summary": "Jordan, your background shows a practical progression across both frontend interfaces and backend REST APIs. Having hands-on experience building React components, documenting APIs, and investigating live production issues gives you a solid foundation for junior full stack developer roles.\n\nThe main area to sharpen is how you communicate your daily impact. Right now, all 9 of your bullets describe tasks or routine meetings rather than measurable results. Upgrading passive phrases like \"responsible for\" to active verbs, cutting out meeting attendance bullets, and adding concrete ticket or project volumes will immediately make your technical contributions stand out to US engineering recruiters.",
+      "summary": "Jordan, you have 3 years in web and REST API development, but your bullets read like a junior maintenance developer. Only 0 of 9 bullets contain numbers. Right now, your experience describes tasks and routine meetings rather than measurable results. Upgrading passive phrases like \"responsible for\" to active architectural verbs, cutting out meeting attendance bullets, and adding concrete ticket and project volumes will immediately make your technical contributions stand out to US engineering recruiters.",
       "tone": "conversational"
     },
     "issues": [

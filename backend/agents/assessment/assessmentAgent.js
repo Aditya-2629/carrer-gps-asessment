@@ -541,22 +541,6 @@ export function synthesizeRootCauseAndActions({
   }
   const strongestArea = `${areas[strongestAreaKey]?.title || 'Resume'} (${areas[strongestAreaKey]?.points || 0}/${areas[strongestAreaKey]?.maxPoints || 0})`
 
-  // Select Primary Bottleneck & Secondary Problem based on Phase (1–6)
-  let primary_bottleneck = {
-    title: 'Top-of-Page ATS Keyword Alignment & Metric Gaps',
-    category: 'ats_readability',
-    whyItMatters: 'Recruiters scan applications in under 10 seconds. Missing metrics and generic task bullets cause automated screening drops before humans review.',
-    evidence: resumeAgent?.issues?.[0]?.diagnosis || 'Resume bullets lack quantified metrics and Google XYZ achievement structure.',
-  }
-
-  let secondary_problem = {
-    title: 'Low Direct Recruiter & Referral Outreach Volume',
-    category: 'networking',
-    description: 'Pipeline relies excessively on public Easy Apply job boards rather than direct hiring manager outreach or employee introductions.',
-  }
-
-  let next_best_action = 'Rewrite your top 5 resume achievement bullets with hard numbers and business impact metrics.'
-
   const parseNum = (v) => {
     if (v == null) return 0
     if (typeof v === 'number') return v
@@ -572,6 +556,27 @@ export function synthesizeRootCauseAndActions({
                        (parseNum(ans.aiInterviews) || parseNum(ans.funnel90d?.aiInterviews) || 0) || parseNum(ans.interviews) || 0
   const rawFinals90 = parseNum(ans.finalRounds) || parseNum(ans.funnel90d?.finalRounds) || parseNum(ans.finals) || parseNum(ans.funnel90d?.finals) || 0
   const rawTechs90 = parseNum(ans.technicalRounds) || parseNum(ans.funnel90d?.technicalRounds) || parseNum(ans.technical) || 0
+  const appToScreenRate = rawApps90 > 0 ? ((rawScreens90 / rawApps90) * 100) : 0
+
+  // Select Primary Bottleneck & Secondary Problem based on Phase (1–6)
+  // Progressive disclosure: Primary bottleneck reflects SYSTEMIC FUNNEL LEAKS, independent of line-by-line resume audits.
+  let primary_bottleneck = {
+    title: 'Top-of-Page ATS Keyword Alignment & Metric Gaps',
+    category: 'ats_readability',
+    whyItMatters: 'Recruiters scan applications in under 10 seconds. Missing metrics and generic task bullets cause automated screening drops before humans review.',
+    evidence: rawApps90 > 0
+      ? `Candidate submitted ${rawApps90} applications yielding ${rawScreens90} recruiter screening calls (${appToScreenRate.toFixed(1)}% conversion rate), indicating top-of-funnel ATS keyword filtering.`
+      : (ans.DropOffStage ? `Application pipeline stalling at stage: "${ans.DropOffStage}".` : 'Outbound application pipeline has low volume (<15 submissions) with 0 recruiter screening callbacks.'),
+  }
+
+  let secondary_problem = {
+    title: 'Low Direct Recruiter & Referral Outreach Volume',
+    category: 'networking',
+    description: 'Pipeline relies excessively on public Easy Apply job boards rather than direct hiring manager outreach or employee introductions.',
+  }
+
+  let next_best_action = 'Rewrite your top 5 resume achievement bullets with hard numbers and business impact metrics.'
+
   const isHighVolumeLowCallback = phase.id === 1 && rawFinals90 === 0 && rawTechs90 === 0 && (rawApps90 >= 250 || rawApps30 >= 70) && (rawScreens90 <= 3 || (rawScreens90 / Math.max(1, rawApps90)) < 0.01)
 
   if (isHighVolumeLowCallback) {
@@ -605,7 +610,9 @@ export function synthesizeRootCauseAndActions({
         title: 'ATS Keyword & Role-Level Mismatch on Top-of-Funnel Submissions',
         category: 'resume_impact',
         whyItMatters: 'With applications submitting but almost no recruiter callbacks, the document is getting dropped in ATS filters or the recruiter 6-second scan.',
-        evidence: resumeAgent?.issues?.[0]?.diagnosis || 'Resume bullets lack quantified metrics and direct keywords aligned with target job specifications.',
+        evidence: rawApps90 > 0
+          ? `Submitted ${rawApps90} applications yielding ${rawScreens90} callbacks (${appToScreenRate.toFixed(1)}% conversion rate); top-of-funnel conversion requires exact job description keyword calibration.`
+          : (ans.biggestChallenge || 'Candidate reports submitting regular applications but experiencing automated ATS rejections before human screening.'),
       }
       secondary_problem = {
         title: 'Over-Reliance on LinkedIn Easy Apply Without Direct ATS & Referral Outreach',
@@ -821,7 +828,9 @@ export function synthesizeRootCauseAndActions({
       title: 'Top-of-Page ATS Keyword Alignment & Metric Gaps',
       category: 'ats_readability',
       whyItMatters: 'Recruiters scan applications in under 10 seconds. Missing metrics and generic task bullets cause automated screening drops before humans review.',
-      evidence: resumeAgent?.issues?.[0]?.diagnosis || 'Resume bullets lack quantified metrics and Google XYZ achievement structure.',
+      evidence: rawApps90 > 0
+        ? `Submitted ${rawApps90} applications with ${rawScreens90} recruiter screening callbacks (${appToScreenRate.toFixed(1)}% conversion rate); top-of-funnel conversion requires exact job description keyword calibration.`
+        : (ans.DropOffStage ? `Application pipeline stalling at stage: "${ans.DropOffStage}".` : 'Outbound application pipeline has low volume with 0 recruiter screening callbacks.'),
     }
   }
 

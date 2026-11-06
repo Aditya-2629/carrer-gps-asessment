@@ -77,3 +77,4 @@ assert(cssContent.includes('.cockpit-pill'), 'src/index.css must declare .cockpi
 console.log('✓ Confirmed CSS tab transition animations and pill styling')
 
 console.log('\n✅ ALL PHASE A TABBED COCKPIT TESTS PASSED SUCCESSFULLY!')
+

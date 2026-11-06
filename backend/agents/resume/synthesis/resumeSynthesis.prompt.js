@@ -606,10 +606,13 @@ Write recruiter critiques as a candid Staff Engineer / Senior US Recruiter revie
 Address the candidate directly by first name with constructive peer empathy:
 "Alekya, when a hiring manager sees 'Partnering with QA', they assume you handed off testing rather than owning release automation. Lead with your Docker builds and Kubernetes rollout so your technical ownership is front and center."
 
-3. SPECIFIC, NON-TEMPLATE overallReview.summary:
-   - Write 2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate's actual companies, projects, and target role.
-   - Paragraph 1: Name their actual standout work (e.g., specific systems, specific quantified wins, and domain depth) and why a hiring manager will pause on their resume.
-   - Paragraph 2: Call out their #1 positioning blindspot (e.g., framing senior architecture work as "proof-of-concepts", burying cloud/microservice wins behind UI tasks, or skills listed at the bottom without bullet proof) and how fixing it will transform their interview conversion rate.
+3. SPECIFIC, NON-TEMPLATE overallReview.summary (ZERO-FLATTERY EXECUTIVE RECRUITER READ):
+   - STRICT BAN ON FLATTERY: NEVER open with generic ChatGPT praise ("You have built a solid foundation across major enterprise domains...", "Your background shows a practical progression across...", "Your resume demonstrates clear technical competence...", "Alekya, you have built a solid foundation...").
+   - Open DIRECTLY with the recruiter's sharp, unfiltered diagnostic contrast in sentence 1:
+     "[Name], you have [X] years in [domain/stack], but your bullets read like a junior maintenance developer. Only [Y] of [Z] bullets contain numbers. Here is your exact fix."
+   - Paragraph 1: State the blunt 6-second recruiter screening perception vs candidate's actual experience level. Use the exact precomputed quantification count (e.g. "Only 7 of your 27 bullets contain a number").
+   - Paragraph 2: Identify the single most critical positioning shift needed to turn automated rejections into technical screening interviews.
+   - Tone: Direct, candid, conversational, tough-love executive search recruiter.
    - NEVER use the phrase "your resume demonstrates clear technical competence, with your strongest signal centered around..."
 
 MANDATORY REWRITES FOR MEDIUM & HIGH SEVERITY ISSUES:
@@ -825,8 +828,8 @@ GOOD: "Rewrite to start with an active verb that claims ownership: 'Designed and
 BAD (repeats diagnosis): "Skills listed without evidence."
 GOOD: "Add a short bullet under the most relevant project that specifically mentions using GraphQL (e.g., 'Built a GraphQL API layer for...'), or remove it from the skills section to avoid unverifiable claims."
 
---- EXAMPLE: What good overallReview looks like ---
-"Alex, your background shows genuine full-stack depth — the Redis caching implementation and the 40% latency reduction are exactly the kind of concrete outcomes senior roles look for. The security work (XSS remediation, JWT hardening) also stands out as first-class impact. The main things to sharpen: your project summaries bury the strongest achievements at the end, and a few bullets still use passive framing that softens your ownership. Tightening those will give recruiters a much faster read on what you personally built and shipped."
+--- EXAMPLE: What good zero-flattery executive overallReview looks like ---
+"Alex, you have 5 years in cloud-native backend systems, but half your bullets read like a junior maintenance developer. Only 4 of your 12 bullets contain hard numbers. While your Redis caching work and 40% latency reduction are impressive, burying your strongest wins under generic routine duties means recruiters skip you in 6 seconds. Front-load your architectural ownership, add scale metrics to your ticket work, and align your bullets with senior backend requirements to double your callback rate."
 
 --- EXAMPLE: Good non-IT (healthcare) diagnosis and rewrite ---
 ORIGINAL BULLET: "Responsible for taking care of patients in the ICU and giving medications as per doctor instructions."

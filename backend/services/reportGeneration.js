@@ -465,13 +465,33 @@ Your coaching philosophy is TOUGH LOVE:
 - Never sound like an algorithmic ATS bot, a stiff corporate audit, or an academic researcher.
 
 ==================================================
-3-PART EXECUTIVE DIAGNOSTIC FRAMEWORK:
+EXECUTIVE RECRUITER DIAGNOSTIC FRAMEWORK (ZERO-SLOP, ZERO-FLATTERY):
 ==================================================
-Enforce this 3-Part Diagnostic Framework across executive_verdict, primary_bottleneck, and critical_issues:
-- Part 1: Validate the Enterprise Foundation: Acknowledge their real accomplishments, recognized company logos (e.g. Bank of America, Abbott), and core technical stack so they know you have actually reviewed their career.
-- Part 2: The Brutal Bottleneck Truth: Explain the exact human screening reality causing drop-offs.
-  Example: "Alekya, your resume proves you can write solid code at enterprise scale. But hiring managers are passing in 6 seconds because your experience reads like an instruction manual of tools you touched, rather than the business outcomes and system architecture you owned. They see a developer executing tickets, not a Senior Engineer driving solutions."
-- Part 3: The Immediate High-Leverage Pivot: Give them the single most impactful tactical shift they must make tomorrow morning to unblock recruiter callbacks.
+STRICT BAN ON GENERIC CHATGPT FLATTERY & HOLLOW PRAISE:
+- NEVER open with praise, corporate filler, or hollow validation:
+  * BANNED: "You have built a solid foundation across major enterprise domains like..."
+  * BANNED: "Your background shows a practical progression across..."
+  * BANNED: "Your resume demonstrates clear technical competence..."
+  * BANNED: "With your impressive background in..."
+  * BANNED: "Your experience proves you can write solid code..."
+- DIRECT EXECUTIVE DIAGNOSTIC READ (MANDATORY):
+  Cut straight to the recruiter's unfiltered diagnostic read in sentence 1:
+  "You have [X] years in [industry/domain], but your bullets read like a junior maintenance developer. Only [Y] of [Z] bullets contain numbers. Here is your exact fix."
+  Contrast their verified seniority/years of experience against how a 6-second recruiter screen perceives their resume right now.
+
+==================================================
+PROGRESSIVE DISCLOSURE & DEDUPLICATION (MANDATORY):
+==================================================
+DO NOT repeat the exact same defect title, company name, or diagnosis verbatim across multiple sections!
+Every section MUST provide a UNIQUE, PROGRESSIVE insight:
+1. executive_verdict: High-level market positioning reality (Seniority perception vs Market reality).
+2. primary_bottleneck: Funnel drop-off gate (Behavioral conversion failure — e.g. cold portal lottery trap, screening pitch stall).
+3. critical_issues: 3 distinct, non-overlapping operational defects:
+   - Issue 1: High-level narrative / positioning defect (e.g. Vendor framing vs Client ownership).
+   - Issue 2: Concrete technical evidence gap (e.g. Unverified distributed systems or cloud tools).
+   - Issue 3: Search visibility / outbound strategy gap (e.g. Missing boolean search keywords or 0 referral outreach).
+4. rejection_factors: 3 unique candidate drop-off causes (e.g. automated ATS knockout, recruiter phone screen lack of ownership, compensation/visa misalignment).
+5. risk_matrix: Forward-looking career threats (e.g. Market saturation for target role, work authorization timeline, title down-leveling).
 
 ==================================================
 BEHAVIORAL FUNNEL LEAK & RISK MATRIX DIRECTIVES:
@@ -1051,6 +1071,73 @@ export async function generateReportBundle({
 
   aiReport.user_answers = user.answers || {}
   aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null
+
+  // ── Phase C: AI Slop Purge, Tone Tightening & Echo-Chamber Deduplication ──
+  const flatteryPatterns = [
+    /^(?:[\w\s.-]+,\s*)?you have built a solid foundation across[^\n.]*[.]?\s*/i,
+    /^(?:[\w\s.-]+,\s*)?your background shows a practical progression across[^\n.]*[.]?\s*/i,
+    /^(?:[\w\s.-]+,\s*)?your resume demonstrates clear technical competence[^\n.]*[.]?\s*/i,
+    /^(?:[\w\s.-]+,\s*)?with your impressive background in[^\n.]*[.]?\s*/i,
+    /^(?:[\w\s.-]+,\s*)?you have a commendable track record[^\n.]*[.]?\s*/i,
+    /^(?:[\w\s.-]+,\s*)?your experience at [^.]+ proves you can write solid code[^\n.]*[.]?\s*/i,
+  ]
+
+  const cleanFlattery = (text) => {
+    if (!text || typeof text !== 'string') return text
+    let cleaned = text
+    for (const pat of flatteryPatterns) {
+      cleaned = cleaned.replace(pat, '').trim()
+    }
+    return cleaned
+  }
+
+  if (typeof aiReport.executive_verdict === 'string') {
+    aiReport.executive_verdict = cleanFlattery(aiReport.executive_verdict)
+  }
+  if (typeof aiReport.summary === 'string') {
+    aiReport.summary = cleanFlattery(aiReport.summary)
+  }
+  if (typeof aiReport.career_verdict === 'string') {
+    aiReport.career_verdict = cleanFlattery(aiReport.career_verdict)
+  }
+
+  // De-duplicate primary_bottleneck against top resume issues
+  const topResumeIssue = activeResumeAgent?.issues?.[0]?.title || ''
+  if (aiReport.primary_bottleneck && topResumeIssue) {
+    const bTitle = typeof aiReport.primary_bottleneck === 'string'
+      ? aiReport.primary_bottleneck
+      : aiReport.primary_bottleneck.title || ''
+    if (bTitle.toLowerCase().trim() === topResumeIssue.toLowerCase().trim()) {
+      const fallbackTitle = 'Top-of-Funnel ATS Screening Filter & Cold Portal Black Hole'
+      if (typeof aiReport.primary_bottleneck === 'object') {
+        aiReport.primary_bottleneck.title = fallbackTitle
+      } else {
+        aiReport.primary_bottleneck = fallbackTitle
+      }
+    }
+  }
+
+  // Ensure critical_issues titles are unique
+  if (Array.isArray(aiReport.critical_issues)) {
+    const seenTitles = new Set()
+    aiReport.critical_issues = aiReport.critical_issues.filter((iss) => {
+      const title = (iss?.title || '').toLowerCase().trim()
+      if (!title || seenTitles.has(title)) return false
+      seenTitles.add(title)
+      return true
+    })
+  }
+
+  // Ensure rejection_factors are unique and distinct
+  if (Array.isArray(aiReport.rejection_factors)) {
+    const seenFactors = new Set()
+    aiReport.rejection_factors = aiReport.rejection_factors.filter((factor) => {
+      const fText = (typeof factor === 'string' ? factor : factor?.title || factor?.factor || '').toLowerCase().trim()
+      if (!fText || seenFactors.has(fText)) return false
+      seenFactors.add(fText)
+      return true
+    })
+  }
 
   // ── Phase D: Judge Agent quality gate ──────────────────────────────────────
   // Every report is scored on a fixed rubric before shipping. Below-threshold

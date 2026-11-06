@@ -393,10 +393,13 @@ COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
      * Cut filler words and subordinate clauses so the rewrite is punchier and 15–25% tighter than the original.
    - If a bullet would genuinely benefit from a number the candidate knows (e.g., team size, query count, latency drop), ask for it in metricDiscoveryQuestions, NOT by leaving ugly [ADD: ...] brackets inside correctedText!
 
-3. SPECIFIC, NON-TEMPLATE overallReview.summary:
-   - Write 2 sharp, natural paragraphs (110–150 words) tailored specifically to this candidate's actual companies, projects, and target role.
-   - Paragraph 1: Name their actual standout work (e.g., specific systems, specific quantified wins, and domain depth) and why a hiring manager will pause on their resume.
-   - Paragraph 2: Call out their #1 positioning blindspot (e.g., framing senior architecture work as "proof-of-concepts", burying cloud/microservice wins behind UI tasks, or skills listed at the bottom without bullet proof) and how fixing it will transform their interview conversion rate.
+3. SPECIFIC, NON-TEMPLATE overallReview.summary (ZERO-FLATTERY EXECUTIVE RECRUITER READ):
+   - STRICT BAN ON FLATTERY: NEVER open with generic ChatGPT praise ("You have built a solid foundation across major enterprise domains...", "Your background shows a practical progression across...", "Your resume demonstrates clear technical competence...", "Alekya, you have built a solid foundation...").
+   - Open DIRECTLY with the recruiter's sharp, unfiltered diagnostic contrast in sentence 1:
+     "[Name], you have [X] years in [domain/stack], but your bullets read like a junior maintenance developer. Only [Y] of [Z] bullets contain numbers. Here is your exact fix."
+   - Paragraph 1: State the blunt 6-second recruiter screening perception vs candidate's actual experience level. Use the exact precomputed quantification count (e.g. "Only 7 of your 27 bullets contain a number").
+   - Paragraph 2: Identify the single most critical positioning shift needed to turn automated rejections into technical screening interviews.
+   - Tone: Direct, candid, conversational, tough-love executive search recruiter.
    - NEVER use the phrase "your resume demonstrates clear technical competence, with your strongest signal centered around..."
 
 MANDATORY REWRITES FOR MEDIUM & HIGH SEVERITY ISSUES:

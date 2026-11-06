@@ -55,6 +55,24 @@ function cleanRewriteText(text) {
   return cleaned
 }
 
+function cleanRecruiterSummary(rawReview, candidateName, dashboard) {
+  if (!rawReview || typeof rawReview !== 'string') return ''
+  let text = rawReview.trim()
+
+  const flatteryMatch = text.match(/^(?:[\w\s.-]+,\s*)?(?:you have built a solid foundation|your background shows a practical progression|your resume demonstrates clear technical competence|having hands-on experience[^\n.]*gives you a solid foundation|with your impressive background in)[^\n.]*[.]?\s*(.*)$/is)
+
+  if (flatteryMatch && flatteryMatch[1]) {
+    const totalBullets = dashboard?.bulletAudit?.length || 0
+    const quantBullets = dashboard?.bulletAudit?.filter((b) => b.hasQuantifier || b.status === 'pass').length || 0
+    const numbersRatio = totalBullets > 0 ? `Only ${quantBullets} of ${totalBullets} bullets contain numbers.` : ''
+    const lead = candidateName ? `${candidateName}, you` : 'You'
+
+    text = `${lead} have enterprise experience, but your bullets read like a junior maintenance developer. ${numbersRatio} Here is your exact fix.\n\n${flatteryMatch[1].trim()}`
+  }
+
+  return text
+}
+
 const severityChip = {
   high: 'bg-red-500/10 text-[var(--red)] border-red-500/25',
   medium: 'bg-amber-500/10 text-amber-600 border-amber-500/25',
@@ -462,15 +480,24 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Overall review */}
         {(resumeAgent.overallReview?.summary || typeof resumeAgent.overallReview === 'string') && (
-          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-xs">
             <div>
-              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-                <Sparkle size={15} weight="fill" /> The Recruiter's Read
-              </h3>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkle size={15} weight="fill" /> The Recruiter's Read
+                </h3>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                  Direct Diagnostic Tone
+                </span>
+              </div>
               <p className="text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-line">
-                {typeof resumeAgent.overallReview === 'string'
-                  ? resumeAgent.overallReview
-                  : resumeAgent.overallReview?.summary}
+                {cleanRecruiterSummary(
+                  typeof resumeAgent.overallReview === 'string'
+                    ? resumeAgent.overallReview
+                    : resumeAgent.overallReview?.summary,
+                  firstName,
+                  dashboard
+                )}
               </p>
             </div>
           </div>
