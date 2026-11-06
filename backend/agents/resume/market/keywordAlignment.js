@@ -616,8 +616,7 @@ export function computeKeywordAlignment({
   const hasRealMarketProfile = Boolean(
     marketProfile &&
     Array.isArray(marketProfile.skills) &&
-    marketProfile.skills.length > 0 &&
-    ((marketProfile.sampleSize || 0) > 0 || (marketProfile.totalAnalyzed || 0) > 0)
+    marketProfile.skills.length > 0
   )
 
   if (hasRealMarketProfile) {

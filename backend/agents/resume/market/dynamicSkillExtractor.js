@@ -25,7 +25,20 @@ export const COMMON_STOP_WORDS = new Set([
   'collaborate', 'partners', 'stakeholders', 'teams', 'solutions', 'systems'
 ])
 
+export const STATE_AND_COUNTRY_CODES = new Set([
+  'UK', 'CA', 'US', 'USA', 'EU', 'NA', 'APAC', 'EMEA',
+  'AL', 'AK', 'AZ', 'AR', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY',
+  'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC',
+  'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+])
+
+export const ALLOWED_2_LETTER_TECH_ACRONYMS = new Set([
+  'BI', 'ML', 'CI', 'CD', 'DB', 'OS', 'UI', 'UX', 'IP', 'QA', 'AR', 'VR', 'MR', 'XR', 'DL'
+])
+
 export const BANNED_GENERIC_WORDS = new Set([
+  'ai-generated', 'ai generated', 'generated', 'disclaimer', 'overviewwe', 'opportunitywe',
+  'uk', 'ca', 'us', 'usa', 'remote', 'hybrid', 'onsite', 'on-site',
   // Prepositions & Pronouns
   'into', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'we', 'you', 'them',
   'with', 'from', 'about', 'above', 'below', 'under', 'over', 'across', 'through',
@@ -36,7 +49,7 @@ export const BANNED_GENERIC_WORDS = new Set([
   'opportunity', 'company', 'organization', 'client', 'stakeholders', 'teams',
   'experience', 'years', 'working', 'ability', 'skills', 'knowledge', 'understanding',
   'solutions', 'environment', 'business', 'process', 'management', 'delivery',
-  'data', 'it', 'ai', 'bi', 'information', 'technology', 'system', 'systems',
+  'data', 'it', 'ai', 'information', 'technology', 'system', 'systems',
   'desktop', 'mobile', 'web', 'application', 'applications', 'platform', 'platforms',
   'pipeline', 'pipelines', 'dashboard', 'dashboards', 'report', 'reports', 'reporting',
   'development', 'developer', 'engineer', 'analyst', 'specialist', 'manager',
@@ -73,6 +86,7 @@ export function isConcreteTechSkill(token) {
   clean = clean.replace(/\s+(?:and|or|with|in|the|platforms?|tools?|systems?)$/i, '').trim()
 
   const low = clean.toLowerCase()
+  const upper = clean.toUpperCase()
 
   // Length limits
   if (clean.length < 2 || clean.length > 35) return false
@@ -80,21 +94,43 @@ export function isConcreteTechSkill(token) {
   // Pure digits or punctuation
   if (/^\d+$/.test(clean) || /^[^a-zA-Z0-9]+$/.test(clean)) return false
 
-  // Disallow hyphenated ordinary English words (e.g. high-performing, well-known, fast-paced, day-to-day)
+  // 1. Block US State & Country codes (UK, CA, US, NY, TX, etc.)
+  if (STATE_AND_COUNTRY_CODES.has(upper) && !ALLOWED_2_LETTER_TECH_ACRONYMS.has(upper)) return false
+
+  // 2. 2-letter uppercase validation: ONLY allow recognized technical abbreviations
+  if (clean.length === 2 && clean === upper && !ALLOWED_2_LETTER_TECH_ACRONYMS.has(clean)) {
+    return false
+  }
+
+  // 3. Block CamelCase concatenations ending with pronouns, prepositions, or common verbs
+  // e.g. OverviewWe, OpportunityWe, PositionWe, SummaryWe, DescriptionWe, CompanyWe
+  if (/(?:We|You|Our|The|This|They|Are|Have|With|And|Who|Will|Can|Must|Should|Could|May|Job|Role|Team)$/.test(clean)) {
+    return false
+  }
+
+  // 4. Block tokens starting with document section headers followed by capitalized word
+  if (/^(?:Overview|Opportunity|Summary|Description|Position|About|Responsibilities|Qualifications|Benefits|Requirements|Welcome|Join|Looking|Seeking|Compensation|Salary)[A-Z]/.test(clean)) {
+    return false
+  }
+
+  // 5. Disallow non-technical hyphenated phrases and disclaimers (e.g. AI-generated, self-motivated)
   if (clean.includes('-')) {
+    if (/^(?:ai-(?:generated|assisted|written|created)|full-time|part-time|day-to-day|hands-on|end-to-end|self-motivated|fast-paced|results-driven|detail-oriented|cross-functional|high-performing|well-established|equal-opportunity|on-site|remote-friendly)$/i.test(clean)) {
+      return false
+    }
     if (/^(?:high|low|fast|slow|well|end|day|multi|cross|user|client|customer|self|in|out|on|off)-/i.test(clean) &&
         !/^(?:ci-cd|scikit-learn|spring-boot|react-native|angular-cli|node-cron)$/i.test(clean)) {
       return false
     }
   }
 
-  // Specifically block common non-skill two-letter uppercase/lowercase words
-  if (/^(?:us|it|at|or|in|to|do|as|by|on|if|is|be|an|am|so|no|my|he|we)$/i.test(clean)) {
+  // 6. Specifically block common non-skill two-letter words
+  if (/^(?:us|it|at|or|in|to|do|as|by|on|if|is|be|an|am|so|no|my|he|we|uk|ca)$/i.test(clean)) {
     return false
   }
 
-  // Banned generic words & prepositions
-  if (BANNED_GENERIC_WORDS.has(low)) return false
+  // 7. Banned generic words & prepositions
+  if (BANNED_GENERIC_WORDS.has(low) && !ALLOWED_2_LETTER_TECH_ACRONYMS.has(clean)) return false
 
   // Disallow single generic lowercase words without punctuation or digits
   // (True tools usually have camelCase, uppercase acronyms, dots/plus, or are known tech names)

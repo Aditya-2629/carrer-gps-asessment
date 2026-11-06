@@ -52,13 +52,14 @@ export function computeJdFingerprint({ title = '', company = '', description = '
 }
 
 /**
- * Cleans raw JD text, removes HTML tags, normalizes whitespace.
+ * Cleans raw JD text, removes HTML tags, normalizes whitespace with HTML block spacing enforcement.
  */
-export function cleanJdText(rawText = '') {
+export function normalizeJdText(rawText = '') {
   if (!rawText || typeof rawText !== 'string') return ''
-
   return rawText
-    .replace(/<[^>]*>/g, ' ') // Strip HTML tags
+    .replace(/<\/(?:p|div|h[1-6]|li|section|article|header|footer)>/gi, ' \n ')
+    .replace(/<br\s*\/?>/gi, ' \n ')
+    .replace(/<[^>]*>/g, ' ') // Strip remaining HTML tags
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
@@ -68,6 +69,8 @@ export function cleanJdText(rawText = '') {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+export const cleanJdText = normalizeJdText
 
 export const CANONICAL_SKILL_CASING = {
   'aws': 'AWS',
@@ -111,7 +114,8 @@ export const JD_SKILL_STOP_WORDS = new Set([
   'salary', 'range', 'location', 'hybrid', 'remote', 'full', 'time', 'part',
   'benefits', 'health', 'dental', 'vision', 'paid', 'states', 'city', 'state',
   'usa', 'north', 'south', 'east', 'west', 'etc', 'job', 'about', 'summary',
-  'eeo', 'pto', '401k', 'est', 'pst', 'cst', 'mst', 'apply', 'applicant'
+  'eeo', 'pto', '401k', 'est', 'pst', 'cst', 'mst', 'apply', 'applicant',
+  'uk', 'ca', 'us', 'overviewwe', 'opportunitywe', 'ai-generated', 'disclaimer', 'generated'
 ])
 
 /**

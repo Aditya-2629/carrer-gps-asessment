@@ -691,7 +691,12 @@ Batch: ${batch.length} live Job Descriptions.
 
 TASK:
 For EACH job description in this batch, extract:
-1. "skills": Concrete technical skills, frameworks, cloud platforms, databases, and developer tools explicitly mentioned. DO NOT extract generic soft skills (e.g. communication, teamwork, leadership).
+1. "skills": Concrete technical skills, frameworks, cloud platforms, databases, and developer tools explicitly mentioned.
+STRICT NEGATIVE CONSTRAINTS (NEVER EXTRACT AS SKILLS):
+- NEVER extract locations, state/country codes (e.g., "UK", "CA", "US", "NY", "Remote", "Hybrid").
+- NEVER extract job board metadata, disclaimers, or labels (e.g., "AI-generated", "Job description", "Equal Opportunity", "Benefits").
+- NEVER extract concatenated sentence fragments or section headers (e.g., "OverviewWe", "OpportunityWe", "PositionWe").
+- DO NOT extract generic soft skills or vague nouns (e.g. communication, teamwork, leadership, data, insights, solutions).
 2. "responsibilities": 2 to 4 concise, action-oriented core responsibilities (e.g. "Architect and automate Kubernetes clusters", "Build CI/CD pipelines with Terraform").
 3. "senioritySignals": 1 to 3 seniority signals or experience requirements (e.g. "5+ years cloud infrastructure", "Production ownership", "Team mentorship").
 
@@ -738,8 +743,8 @@ ${formattedJobs}`
 
         // Fallback per-job if LLM missed it
         const effectiveSkills = rawSkills.length > 0
-          ? rawSkills.map(normalizeCanonicalSkill).filter(Boolean)
-          : extractSkillsFromJd(item.cleanText)
+          ? rawSkills.map(normalizeCanonicalSkill).filter((s) => s && isConcreteTechSkill(s))
+          : extractSkillsFromJd(item.cleanText).filter(isConcreteTechSkill)
 
         const effectiveResps = rawResps.length > 0
           ? rawResps.map((r) => String(r).trim()).filter(Boolean)
@@ -764,7 +769,7 @@ ${formattedJobs}`
     } catch (err) {
       console.warn(`[LlmJdAnalyzer] Micro-batch ${batchNum} LLM extraction failed: ${err.message}. Using deterministic fallback.`)
       batch.forEach((item) => {
-        const fallbackSkills = extractSkillsFromJd(item.cleanText)
+        const fallbackSkills = extractSkillsFromJd(item.cleanText).filter(isConcreteTechSkill)
         const fallbackResps = extractResponsibilitiesFromJd(item.cleanText)
         const fallbackSeniority = extractSenioritySignalsFromJd(item.cleanText)
 
@@ -789,8 +794,9 @@ ${formattedJobs}`
   const seniorityOccurrences = new Map()
 
   for (const job of analyzedJobs) {
-    const jobSkills = new Set((job.skills || []).map((s) => normalizeCanonicalSkill(s) || s).filter(Boolean))
+    const jobSkills = new Set((job.skills || []).map((s) => normalizeCanonicalSkill(s) || s).filter((s) => s && isConcreteTechSkill(s)))
     for (const skill of jobSkills) {
+      if (!isConcreteTechSkill(skill)) continue
       if (/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(skill)) continue
       const lower = skill.toLowerCase()
       if (isSenior && INTERN_OR_ENTRY_LEVEL_SKILLS.has(lower)) continue
