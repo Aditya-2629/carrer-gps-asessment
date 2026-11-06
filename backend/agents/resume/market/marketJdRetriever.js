@@ -15,7 +15,7 @@ import mongoose from 'mongoose'
 import JobMarketBucket from '../../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
-import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from './llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText } from './llmJdSkillAnalyzer.js'
 
 export const MIN_SAMPLE_THRESHOLD = 8
 export const MIN_SKILLS_THRESHOLD = 4
@@ -114,6 +114,8 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
             skills: discoveredSkills,
             totalAnalyzed: analysis.totalAnalyzed || fast12Jds.length,
             topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
+            responsibilities: analysis.responsibilities || [],
+            senioritySignals: analysis.senioritySignals || [],
             isFastCatch: true,
             generatedAt: new Date().toISOString(),
           }
@@ -128,15 +130,22 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
               await JobMarketVersion.create({
                 bucketKey,
                 version: stagedVersion,
-                jobs: fast12Jds.map((j, idx) => ({
-                  title: j.title || roleClean,
-                  company: j.company || 'Enterprise Employer',
-                  location: 'United States',
-                  description: j.description || '',
-                  source: 'apify_fast_catch',
-                  sourceUrl: j.url || null,
-                  fingerprint: `${bucketKey}_fc_${stagedVersion}_${idx}_${Date.now()}`,
-                })),
+                jobs: fast12Jds.map((j, idx) => {
+                  const analyzed = (analysis.analyzedJobs || [])[idx] || {}
+                  return {
+                    title: j.title || roleClean,
+                    company: j.company || 'Enterprise Employer',
+                    location: 'United States',
+                    description: j.description || '',
+                    normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
+                    skills: analyzed.skills || [],
+                    responsibilities: analyzed.responsibilities || [],
+                    senioritySignals: analyzed.senioritySignals || [],
+                    source: 'apify_fast_catch',
+                    sourceUrl: j.url || null,
+                    fingerprint: `${bucketKey}_fc_${stagedVersion}_${idx}_${Date.now()}`,
+                  }
+                }),
                 marketProfile: fastMarketProfile,
                 metadata: {
                   source: 'fast_catch_12',

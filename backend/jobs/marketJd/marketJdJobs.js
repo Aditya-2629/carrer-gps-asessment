@@ -21,7 +21,7 @@ import {
 } from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
-import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
@@ -95,14 +95,16 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       throw new Error('Corpus analysis extracted 0 valid market skills. Keeping current active version.')
     }
 
+    const analyzedJobs = analyzedCorpus.analyzedJobs || []
+
     const freshMarketProfile = {
       bucketKey,
       sampleSize: analyzedCorpus.sampleSize || rawCandidates.length,
       skills: marketSkills,
       totalAnalyzed: analyzedCorpus.totalAnalyzed || rawCandidates.length,
       topKeywords: marketSkills.slice(0, 20).map((s) => s.name),
-      responsibilities: [],
-      senioritySignals: [],
+      responsibilities: analyzedCorpus.responsibilities || [],
+      senioritySignals: analyzedCorpus.senioritySignals || [],
       version: 'market-profile-v3',
       generatedAt: new Date().toISOString(),
     }
@@ -115,15 +117,22 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
     await JobMarketVersion.create({
       bucketKey,
       version: nextVersion,
-      jobs: rawCandidates.map((j, idx) => ({
-        title: j.title || bucket.roleName,
-        company: j.company || 'Enterprise Employer',
-        location: j.location || 'United States',
-        description: j.description || '',
-        source: 'apify_harvestapi',
-        sourceUrl: j.url || null,
-        fingerprint: j.fingerprint || `${bucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
-      })),
+      jobs: rawCandidates.map((j, idx) => {
+        const analyzed = analyzedJobs[idx] || {}
+        return {
+          title: j.title || bucket.roleName,
+          company: j.company || 'Enterprise Employer',
+          location: j.location || 'United States',
+          description: j.description || '',
+          normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
+          skills: analyzed.skills || [],
+          responsibilities: analyzed.responsibilities || [],
+          senioritySignals: analyzed.senioritySignals || [],
+          source: 'apify_harvestapi',
+          sourceUrl: j.url || null,
+          fingerprint: j.fingerprint || `${bucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
+        }
+      }),
       marketProfile: freshMarketProfile,
       sourceMetadata: {
         actorId: scrapeResult.actorId,
@@ -359,15 +368,17 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
   }
 
   const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
+  const analyzedJobs = analysis.analyzedJobs || []
+
   const marketProfile = {
     bucketKey: sanitizedBucketKey,
     sampleSize: analysis.sampleSize || validJds.length,
     skills: discoveredSkills,
     totalAnalyzed: analysis.totalAnalyzed || validJds.length,
     topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
-    responsibilities: [],
-    senioritySignals: [],
-    version: 'market-profile-v2',
+    responsibilities: analysis.responsibilities || [],
+    senioritySignals: analysis.senioritySignals || [],
+    version: 'market-profile-v3',
     generatedAt: new Date().toISOString(),
   }
 
@@ -378,15 +389,22 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
   await JobMarketVersion.create({
     bucketKey: sanitizedBucketKey,
     version: nextVersion,
-    jobs: validJds.map((j, idx) => ({
-      title: j.title || bucket.roleName,
-      company: j.company || 'Enterprise Employer',
-      location: 'United States',
-      description: j.description || '',
-      source: sourceMetadata.source || 'apify_background_worker',
-      sourceUrl: j.url || null,
-      fingerprint: `${sanitizedBucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
-    })),
+    jobs: validJds.map((j, idx) => {
+      const analyzed = analyzedJobs[idx] || {}
+      return {
+        title: j.title || bucket.roleName,
+        company: j.company || 'Enterprise Employer',
+        location: 'United States',
+        description: j.description || '',
+        normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
+        skills: analyzed.skills || [],
+        responsibilities: analyzed.responsibilities || [],
+        senioritySignals: analyzed.senioritySignals || [],
+        source: sourceMetadata.source || 'apify_background_worker',
+        sourceUrl: j.url || null,
+        fingerprint: `${sanitizedBucketKey}_v${nextVersion}_${idx}_${Date.now()}`,
+      }
+    }),
     marketProfile,
     sourceMetadata,
     validationSummary: {
