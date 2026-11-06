@@ -8,6 +8,7 @@
 
 import { aiGateway, llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
+import { classifySkillsWithJev } from './jevDecisionClassifier.js'
 import {
   extractSkillsFromJd,
   extractResponsibilitiesFromJd,
@@ -784,13 +785,23 @@ ${formattedJobs}`
     }
   }
 
+  // Step 1.5: Jev System One Decision Filter
+  const allExtractedCandidates = Array.from(new Set(
+    analyzedJobs.flatMap((j) => j.skills || [])
+  ))
+  const { validSkills: jevApprovedSkills } = await classifySkillsWithJev(allExtractedCandidates, role)
+  const jevApprovedSet = new Set(jevApprovedSkills.map((s) => s.toLowerCase()))
+
   // Step 2: Deterministic Mathematical Aggregation (100% Accurate Counting)
   const skillOccurrences = new Map()
   const respOccurrences = new Map()
   const seniorityOccurrences = new Map()
 
   for (const job of analyzedJobs) {
-    const jobSkills = new Set((job.skills || []).map((s) => normalizeCanonicalSkill(s) || s).filter((s) => s && isConcreteTechSkill(s)))
+    const jobSkills = new Set((job.skills || [])
+      .map((s) => normalizeCanonicalSkill(s) || s)
+      .filter((s) => s && isConcreteTechSkill(s) && jevApprovedSet.has(s.toLowerCase()))
+    )
     for (const skill of jobSkills) {
       if (!isConcreteTechSkill(skill)) continue
       if (/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(skill)) continue
