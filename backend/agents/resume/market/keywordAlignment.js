@@ -16,19 +16,12 @@ import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
 export const isGenuineTechnicalSkill = isConcreteTechSkill
 
 export const JUNIOR_OR_INTERN_SKILLS = new Set([
-  'word',
-  'ms word',
-  'microsoft word',
-  'powerpoint',
-  'ms powerpoint',
-  'data entry',
-  'typing',
-  'filing',
-  'basic computer skills',
-  'general office',
-  'internship',
-  'student',
-  'trainee',
+  'word', 'ms word', 'microsoft word',
+  'powerpoint', 'ms powerpoint', 'microsoft powerpoint',
+  'data entry', 'typing', 'filing', 'basic computer skills',
+  'internet research', 'copy paste', 'general office',
+  'excel basics', 'basic excel', 'spreadsheets basics',
+  'internship', 'student', 'trainee', 'apprentice'
 ])
 
 // Curated high-frequency market intelligence keywords per controlled role category
@@ -718,12 +711,13 @@ export function computeKeywordAlignment({
         ? item.percentage
         : Math.min(100, Math.round((count / totalRealJds) * 100))
 
+      // Statistical Noise Filter: Low frequency outliers (<20% or count < 2 in sample > 5) are never high priority
       let priority = 'LOW'
       let priorityColor = 'grey'
-      if (percentage >= 40) {
+      if (percentage >= 35 && (count >= 2 || totalRealJds <= 2)) {
         priority = 'HIGH'
         priorityColor = 'red'
-      } else if (percentage >= 20) {
+      } else if (percentage >= 20 && (count >= 2 || totalRealJds <= 2)) {
         priority = 'MEDIUM'
         priorityColor = 'yellow'
       }

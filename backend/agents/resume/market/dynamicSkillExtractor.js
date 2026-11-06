@@ -49,7 +49,7 @@ export const BANNED_GENERIC_WORDS = new Set([
   'opportunity', 'company', 'organization', 'client', 'stakeholders', 'teams',
   'experience', 'years', 'working', 'ability', 'skills', 'knowledge', 'understanding',
   'solutions', 'environment', 'business', 'process', 'management', 'delivery',
-  'data', 'it', 'ai', 'information', 'technology', 'system', 'systems',
+  'data', 'it', 'ai', 'bi', 'information', 'technology', 'system', 'systems',
   'desktop', 'mobile', 'web', 'application', 'applications', 'platform', 'platforms',
   'pipeline', 'pipelines', 'dashboard', 'dashboards', 'report', 'reports', 'reporting',
   'development', 'developer', 'engineer', 'analyst', 'specialist', 'manager',
@@ -73,9 +73,9 @@ export const ALLOWED_LOWERCASE_TOOLS = new Set([
 ])
 
 /**
- * Strict Technical Entity Validation
- * Validates whether a token represents a real concrete technical skill, library, framework, or tool
- * rather than an English stop word, pronoun, preposition, or generic business noun.
+ * Strict Multi-Domain & IT Entity Validation Guard
+ * Validates whether a token represents a real concrete domain skill, tool, software,
+ * standard, or methodology rather than an English stop word, pronoun, location, or disclaimer.
  */
 export function isConcreteTechSkill(token) {
   if (!token || typeof token !== 'string') return false
@@ -94,7 +94,7 @@ export function isConcreteTechSkill(token) {
   // Pure digits or punctuation
   if (/^\d+$/.test(clean) || /^[^a-zA-Z0-9]+$/.test(clean)) return false
 
-  // 1. Block US State & Country codes (UK, CA, US, NY, TX, etc.)
+  // 1. Geo code barrier (UK, CA, US, NY, TX, etc.)
   if (STATE_AND_COUNTRY_CODES.has(upper) && !ALLOWED_2_LETTER_TECH_ACRONYMS.has(upper)) return false
 
   // 2. 2-letter uppercase validation: ONLY allow recognized technical abbreviations
@@ -102,24 +102,19 @@ export function isConcreteTechSkill(token) {
     return false
   }
 
-  // 3. Block CamelCase concatenations ending with pronouns, prepositions, or common verbs
-  // e.g. OverviewWe, OpportunityWe, PositionWe, SummaryWe, DescriptionWe, CompanyWe
+  // 3. CamelCase pronoun concatenation barrier (e.g. OverviewWe, OpportunityWe, PositionWe)
   if (/(?:We|You|Our|The|This|They|Are|Have|With|And|Who|Will|Can|Must|Should|Could|May|Job|Role|Team)$/.test(clean)) {
     return false
   }
 
-  // 4. Block tokens starting with document section headers followed by capitalized word
+  // 4. Section header prefix barrier
   if (/^(?:Overview|Opportunity|Summary|Description|Position|About|Responsibilities|Qualifications|Benefits|Requirements|Welcome|Join|Looking|Seeking|Compensation|Salary)[A-Z]/.test(clean)) {
     return false
   }
 
-  // 5. Disallow non-technical hyphenated phrases and disclaimers (e.g. AI-generated, self-motivated)
+  // 5. Hyphenated disclaimer barrier (e.g. AI-generated, self-motivated, fast-paced)
   if (clean.includes('-')) {
     if (/^(?:ai-(?:generated|assisted|written|created)|full-time|part-time|day-to-day|hands-on|end-to-end|self-motivated|fast-paced|results-driven|detail-oriented|cross-functional|high-performing|well-established|equal-opportunity|on-site|remote-friendly)$/i.test(clean)) {
-      return false
-    }
-    if (/^(?:high|low|fast|slow|well|end|day|multi|cross|user|client|customer|self|in|out|on|off)-/i.test(clean) &&
-        !/^(?:ci-cd|scikit-learn|spring-boot|react-native|angular-cli|node-cron)$/i.test(clean)) {
       return false
     }
   }
@@ -132,46 +127,15 @@ export function isConcreteTechSkill(token) {
   // 7. Banned generic words & prepositions
   if (BANNED_GENERIC_WORDS.has(low) && !ALLOWED_2_LETTER_TECH_ACRONYMS.has(clean)) return false
 
-  // Disallow single generic lowercase words without punctuation or digits
-  // (True tools usually have camelCase, uppercase acronyms, dots/plus, or are known tech names)
-  if (/^[a-z]{2,8}$/.test(clean) && !ALLOWED_LOWERCASE_TOOLS.has(low)) {
-    return false
-  }
-
-  // Block capitalized ordinary English verbs/adjectives that are not tools
-  if (/^[A-Z][a-z]{2,15}$/.test(clean) && !ALLOWED_LOWERCASE_TOOLS.has(low)) {
-    if (
-      BANNED_GENERIC_WORDS.has(low) ||
-      /^(?:must|should|could|would|can|may|will|have|has|had|been|were|was|are|is|collaborate|participate|contribute|deliver|ensure|support|provide|maintain|develop|build|create|manage|lead|drive|execute|work|join|learn|grow|thrive)$/i.test(low)
-    ) {
-      return false
-    }
-  }
-
-  // Multi-word phrase validation
+  // 8. Multi-word phrase validation: disallow phrases that are conversational fragments or all stop words
   const words = clean.split(/\s+/)
   if (words.length > 1) {
-    const allowedPhrases = new Set([
-      'ruby on rails', 'power bi', 'power apps', 'power automate', 'google cloud',
-      'amazon web services', 'apache spark', 'apache kafka', 'apache flink', 'apache airflow',
-      'apache cassandra', 'apache camel', 'spring boot', 'react native', 'rest api', 'rest apis',
-      'epic systems', 'epic ehr', 'sql server', 'big query', 'ci cd', 'ci/cd', 'scikit learn',
-      'system design', 'machine learning', 'data modeling', 'financial modeling', 'patient care',
-      'clinical assessment', 'sap s/4hana', 'sap fico', 'bloomberg terminal'
-    ])
-    if (!allowedPhrases.has(low)) {
-      const stopWordsInPhrase = [
-        'into', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'we', 'you', 'them',
-        'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'about', 'across', 'through',
-        'the', 'a', 'an', 'as', 'position', 'overview', 'role', 'insights', 'insight',
-        'solutions', 'environment', 'process', 'management', 'delivery', 'responsibilities',
-        'requirements', 'qualifications', 'opportunity', 'company', 'organization'
-      ]
-      for (const w of words) {
-        const wLow = w.toLowerCase()
-        if (stopWordsInPhrase.includes(wLow)) return false
-        if (BANNED_GENERIC_WORDS.has(wLow)) return false
-      }
+    const conversationalPronouns = new Set(['into', 'your', 'our', 'their', 'his', 'her', 'its', 'us', 'we', 'you', 'them', 'who'])
+    if (words.every((w) => BANNED_GENERIC_WORDS.has(w.toLowerCase()))) {
+      return false
+    }
+    if (words.some((w) => conversationalPronouns.has(w.toLowerCase()))) {
+      return false
     }
   }
 

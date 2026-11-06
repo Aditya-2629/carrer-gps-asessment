@@ -84,34 +84,29 @@ export function pruneJdText(text = '') {
 
 // --- 1. SKILL EXTRACTION PROMPT (PER-JD ANALYSIS) ---
 
-export const SKILL_EXTRACTION_SYSTEM_PROMPT = `You are an expert technical recruiter and talent taxonomy engine. 
-Analyze the provided Job Description and extract ONLY concrete, resume-worthy technical skills.
+export const SKILL_EXTRACTION_SYSTEM_PROMPT = `You are an elite Talent Taxonomy Engine specializing in skill extraction across IT, Engineering, Healthcare, Finance, Marketing, Operations, and Business roles.
+Analyze the provided Job Description and extract ONLY concrete, resume-worthy domain skills, tools, software, regulatory standards, and professional methodologies.
 
-CATEGORIES TO EXTRACT:
-- Programming languages & runtimes (e.g., Python, SQL, R, TypeScript)
-- Frameworks & libraries (e.g., React, Pandas, PyTorch, Express)
-- Databases & storage (e.g., PostgreSQL, MongoDB, Redis, Snowflake, BigQuery)
-- Cloud platforms & infrastructure (e.g., AWS, Azure, GCP, Docker, Kubernetes)
-- Developer tools & platforms (e.g., Git, Jira, Postman, Airflow)
-- Methodologies (e.g., Agile, Scrum, CI/CD, ETL/ELT)
-- Technical certifications (e.g., AWS SAA, PMP, Databricks Certified)
+DOMAIN SPECIFICATION:
+- IT / Software / Data: Programming languages, frameworks, cloud platforms, databases, dev tools, and technical methodologies.
+- Healthcare / Clinical: Clinical competencies, EHR/EMR systems (Epic, Cerner), medical procedures, patient assessment, compliance (HIPAA, BLS, ACLS).
+- Finance / Accounting: Financial modeling, ERP systems (SAP, Oracle, NetSuite), valuation (DCF, LBO), accounting standards (GAAP, IFRS), financial tools (Bloomberg, Excel).
+- Marketing / Sales / Ops: Core platforms (Salesforce, HubSpot, Google Ads), marketing tech, analytics tools, CRM, and domain methodologies.
+- ANY Domain: Professional software, domain tools, regulatory frameworks, licenses, and concrete operational methodologies.
 
-STRICT EXCLUSIONS:
+STRICT EXCLUSIONS (NEVER EXTRACT):
 - Soft skills (e.g., communication, problem-solving, leadership, collaboration)
+- Locations, state/country codes (e.g., UK, CA, US, NY, Texas, Remote, Hybrid)
+- Metadata labels, disclaimers, and job board notices (e.g., AI-generated, Job description, Equal Opportunity, Benefits)
+- Concatenated section titles or sentence fragments (e.g., OverviewWe, OpportunityWe, PositionWe)
 - Job titles & seniority levels (e.g., Senior, Lead, Manager, Intern)
-- Generic nouns / tech buzzwords (e.g., data, cloud, backend, insights, dashboard, software, server, scalability)
+- Generic non-domain filler or vague nouns (e.g., insights, solutions, environment, server, data)
 - Company names, benefits, education, and compensation details
-
-RULES:
-1. "required": Skills explicitly stated as mandatory, required, minimum qualifications, or essential.
-2. "preferred": Skills stated as bonus, nice-to-have, preferred qualifications, or plus points.
-3. Preserve the exact naming style as found in the text (do not guess normalization here).
-4. Do not include any preambles, explanations, or Markdown fences.
 
 OUTPUT FORMAT (STRICT JSON ONLY):
 {
-  "required": ["Python", "SQL", "Snowflake"],
-  "preferred": ["Docker", "Airflow", "dbt"]
+  "required": ["Domain Skill 1", "Core Tool 2"],
+  "preferred": ["Bonus Competency 1", "Certification 2"]
 }`
 
 // Backward-compatible alias
@@ -626,19 +621,12 @@ export async function fallbackCorpusExtraction(jds = [], role = 'Professional') 
 }
 
 export const INTERN_OR_ENTRY_LEVEL_SKILLS = new Set([
-  'word',
-  'ms word',
-  'microsoft word',
-  'powerpoint',
-  'ms powerpoint',
-  'data entry',
-  'typing',
-  'filing',
-  'basic computer skills',
-  'general office',
-  'internship',
-  'student',
-  'trainee',
+  'word', 'ms word', 'microsoft word',
+  'powerpoint', 'ms powerpoint', 'microsoft powerpoint',
+  'data entry', 'typing', 'filing', 'basic computer skills',
+  'internet research', 'copy paste', 'general office',
+  'excel basics', 'basic excel', 'spreadsheets basics',
+  'internship', 'student', 'trainee', 'apprentice'
 ])
 
 /**
@@ -685,29 +673,37 @@ export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], 
       return `### Job #${bIdx + 1}: ${item.title} (${item.company})\n${item.cleanText}`
     }).join('\n\n---\n\n')
 
-    const prompt = `You are an elite Technical Talent Intelligence Engine.
+    const prompt = `You are an elite Talent Intelligence Engine specializing in recruitment and skills analysis across IT, Engineering, Healthcare, Finance, Marketing, and Operations.
 Target Role: "${role}"
 Batch: ${batch.length} live Job Descriptions.
 
 TASK:
 For EACH job description in this batch, extract:
-1. "skills": Concrete technical skills, frameworks, cloud platforms, databases, and developer tools explicitly mentioned.
+1. "skills": High-leverage, concrete domain skills required for "${role}".
+   - If IT / Software / Data: Extract programming languages, frameworks, cloud platforms, databases, dev tools, and technical methodologies.
+   - If Healthcare / Clinical: Extract clinical competencies, EHR systems (Epic, Cerner), medical procedures, patient assessment, and compliance (HIPAA, BLS, ACLS).
+   - If Finance / Accounting: Extract financial modeling, ERP systems (SAP, Oracle, NetSuite), valuation methods (DCF, LBO), accounting standards (GAAP, IFRS), and tools (Bloomberg, Excel).
+   - If Marketing / Sales / Operations: Extract core platforms (Salesforce, HubSpot, Google Ads), marketing tech, analytics tools, CRM, and domain methodologies.
+   - For ANY profession: Extract real tools, software, regulatory standards, and concrete operational methodologies.
+
 STRICT NEGATIVE CONSTRAINTS (NEVER EXTRACT AS SKILLS):
 - NEVER extract locations, state/country codes (e.g., "UK", "CA", "US", "NY", "Remote", "Hybrid").
 - NEVER extract job board metadata, disclaimers, or labels (e.g., "AI-generated", "Job description", "Equal Opportunity", "Benefits").
 - NEVER extract concatenated sentence fragments or section headers (e.g., "OverviewWe", "OpportunityWe", "PositionWe").
-- DO NOT extract generic soft skills or vague nouns (e.g. communication, teamwork, leadership, data, insights, solutions).
-2. "responsibilities": 2 to 4 concise, action-oriented core responsibilities (e.g. "Architect and automate Kubernetes clusters", "Build CI/CD pipelines with Terraform").
-3. "senioritySignals": 1 to 3 seniority signals or experience requirements (e.g. "5+ years cloud infrastructure", "Production ownership", "Team mentorship").
+- DO NOT extract generic non-domain filler or vague nouns (e.g., "insights", "solutions", "environment", "server", "data").
+- DO NOT extract generic soft skills (e.g. communication, teamwork, leadership).
+
+2. "responsibilities": 2 to 4 concise, action-oriented core responsibilities for "${role}".
+3. "senioritySignals": 1 to 3 seniority signals or experience requirements.
 
 OUTPUT SCHEMA (STRICT JSON ONLY):
 {
   "jobs": [
     {
       "jobIndex": 1,
-      "skills": ["AWS", "Kubernetes", "Docker", "Terraform", "Python"],
-      "responsibilities": ["Design automated CI/CD pipelines", "Manage multi-cloud infrastructure"],
-      "senioritySignals": ["5+ years DevOps experience", "Cross-functional architecture lead"]
+      "skills": ["Domain Skill 1", "Domain Skill 2", "Software / Framework 3"],
+      "responsibilities": ["Action-oriented core responsibility 1", "Core responsibility 2"],
+      "senioritySignals": ["Experience requirement 1", "Seniority signal 2"]
     }
   ]
 }
