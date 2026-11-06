@@ -15,6 +15,22 @@ import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
 
 export const isGenuineTechnicalSkill = isConcreteTechSkill
 
+export const JUNIOR_OR_INTERN_SKILLS = new Set([
+  'word',
+  'ms word',
+  'microsoft word',
+  'powerpoint',
+  'ms powerpoint',
+  'data entry',
+  'typing',
+  'filing',
+  'basic computer skills',
+  'general office',
+  'internship',
+  'student',
+  'trainee',
+])
+
 // Curated high-frequency market intelligence keywords per controlled role category
 export const MARKET_ROLE_KEYWORD_PACKS = {
   'software-engineer': [
@@ -674,9 +690,19 @@ export function computeKeywordAlignment({
   const skillsOnlyUnverified = []
   const missingMarketSkillsRanked = []
 
+  const bucketKey = marketProfile?.bucketKey || ''
+  const isSeniorBucket = /6-8|8\+/.test(bucketKey)
+  const experienceRolesCount = (canonicalResume?.experience || []).length
+  const isSeniorCandidate = isSeniorBucket || experienceRolesCount >= 3
+
   for (const item of allMarketSkills) {
     const skillName = typeof item === 'string' ? item : item?.name || ''
     if (!isGenuineTechnicalSkill(skillName)) continue
+
+    const skillLower = skillName.toLowerCase()
+    if (isSeniorCandidate && JUNIOR_OR_INTERN_SKILLS.has(skillLower)) {
+      continue
+    }
 
     const inExperience = keywordMatchesText(skillName, expAndProjText)
     const inSkills = keywordMatchesText(skillName, skillsText) || candidateSkillsSet.has(skillName.toLowerCase())

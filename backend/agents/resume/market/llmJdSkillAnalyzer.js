@@ -625,11 +625,27 @@ export async function fallbackCorpusExtraction(jds = [], role = 'Professional') 
   }
 }
 
+export const INTERN_OR_ENTRY_LEVEL_SKILLS = new Set([
+  'word',
+  'ms word',
+  'microsoft word',
+  'powerpoint',
+  'ms powerpoint',
+  'data entry',
+  'typing',
+  'filing',
+  'basic computer skills',
+  'general office',
+  'internship',
+  'student',
+  'trainee',
+])
+
 /**
  * Scalable micro-batch analysis of JDs using Gemini Flash with deterministic math aggregation.
  * Chunks JDs into small groups of 5 JDs to prevent token truncation, timeouts, and hallucinated frequencies.
  */
-export async function analyzeJdBatchWithGemini(role = 'Professional', jds = []) {
+export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], options = {}) {
   if (!Array.isArray(jds) || jds.length === 0) {
     return {
       discoveredSkills: [],
@@ -642,6 +658,8 @@ export async function analyzeJdBatchWithGemini(role = 'Professional', jds = []) 
     }
   }
 
+  const expBucket = options.experienceBucket || '3-5'
+  const isSenior = expBucket === '6-8' || expBucket === '8+'
   const totalJds = jds.length
   console.log(`[LlmJdAnalyzer] Starting scalable micro-batch analysis for ${totalJds} JDs (Role: "${role}")...`)
 
@@ -775,6 +793,7 @@ ${formattedJobs}`
     for (const skill of jobSkills) {
       if (/^(into|your|our|us|position|overview|senior|insights?|server|data|it)$/i.test(skill)) continue
       const lower = skill.toLowerCase()
+      if (isSenior && INTERN_OR_ENTRY_LEVEL_SKILLS.has(lower)) continue
       if (!skillOccurrences.has(lower)) {
         skillOccurrences.set(lower, {
           canonicalName: skill,
@@ -871,12 +890,12 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
     }
   }
 
-  const [roleKey] = (bucketKey || '').split('::')
+  const [roleKey, expPart] = (bucketKey || '').split('::')
   const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
 
-  return await analyzeJdBatchWithGemini(roleClean, rawJds)
+  return await analyzeJdBatchWithGemini(roleClean, rawJds, { experienceBucket: expPart || '3-5' })
 }
 
 export default {

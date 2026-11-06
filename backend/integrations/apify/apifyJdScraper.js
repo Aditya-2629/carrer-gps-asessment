@@ -20,14 +20,59 @@ export const DEFAULT_MAX_RETRIES = 3
 /**
  * Builds input payload for harvestapi/linkedin-job-search actor (fast API-based scraper).
  */
-export function buildHarvestActorInput({ role, location = 'United States', maxItems = 30 } = {}) {
+export function buildHarvestActorInput({ role = 'Software Engineer', location = 'United States', maxItems = 35, experienceBucket = '3-5' } = {}) {
+  let formattedRole = String(role || 'Software Engineer').trim()
+  const hasSeniorTerm = /\b(senior|lead|principal|staff|director|head|vp)\b/i.test(formattedRole)
+  const hasJuniorTerm = /\b(junior|entry[\s-]level|associate)\b/i.test(formattedRole)
+
+  if ((experienceBucket === '6-8' || experienceBucket === '8+') && !hasSeniorTerm) {
+    formattedRole = `Senior ${formattedRole}`
+  } else if (experienceBucket === '0-2' && !hasJuniorTerm) {
+    formattedRole = `Junior ${formattedRole}`
+  }
+
+  const requestedMax = parseInt(maxItems || 35, 10)
+  const effectiveMax = Math.min(Math.max(35, requestedMax), 50)
+
   return {
-    jobTitles: [role || 'Software Engineer'],
+    jobTitles: [formattedRole],
     locations: [location],
-    maxItems: Math.min(maxItems, 50),
+    maxItems: effectiveMax,
     postedLimit: 'month',
     sortBy: 'relevance',
   }
+}
+
+/**
+ * Filters scraped JDs against normalized candidate seniority level.
+ * Rejects intern/junior roles for senior candidates and vice versa.
+ */
+export function filterJdsBySeniority(jds = [], experienceBucket = '3-5') {
+  if (!Array.isArray(jds) || jds.length === 0) return []
+
+  const seniorRejectRegex = /\b(intern|internship|co-op|coop|student|trainee|apprentice|entry[\s-]level|junior)\b/i
+  const midRejectRegex = /\b(intern|internship|co-op|coop|student|trainee|apprentice)\b/i
+  const juniorRejectRegex = /\b(senior|lead|principal|staff|director|vp|head\s+of)\b/i
+
+  return jds.filter((jd) => {
+    const title = String(jd.title || jd.jobTitle || '').trim()
+    if (!title) return true
+
+    if (experienceBucket === '6-8' || experienceBucket === '8+') {
+      if (seniorRejectRegex.test(title)) {
+        return false
+      }
+    } else if (experienceBucket === '3-5') {
+      if (midRejectRegex.test(title)) {
+        return false
+      }
+    } else if (experienceBucket === '0-2') {
+      if (juniorRejectRegex.test(title)) {
+        return false
+      }
+    }
+    return true
+  })
 }
 
 /**
@@ -393,6 +438,7 @@ export default {
   buildSearchSpecification,
   buildApifyJdScraperInput,
   buildHarvestActorInput,
+  filterJdsBySeniority,
   runApifyActorScrape,
   fetchMarketJdCandidates,
   scrapeLiveJobDescriptions,

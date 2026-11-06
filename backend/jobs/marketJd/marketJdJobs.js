@@ -16,6 +16,8 @@ import {
   fetchMarketJdCandidates,
   buildSearchSpecification,
   buildApifyJdScraperInput,
+  buildHarvestActorInput,
+  filterJdsBySeniority,
   runApifyActorScrape,
   DEFAULT_APIFY_JOB_ACTOR,
 } from '../../integrations/apify/apifyJdScraper.js'
@@ -27,7 +29,7 @@ import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
 
-export const MIN_SAMPLE_THRESHOLD = 8
+export const MIN_SAMPLE_THRESHOLD = 15
 export const RETENTION_DAYS_MS = 60 * 24 * 60 * 60 * 1000 // 60 days retention
 
 /**
@@ -230,14 +232,13 @@ export async function ensureConfiguredBucketsExist() {
 
 /**
  * Dynamic Fast-Catch Scraper for ANY Target Role
- * Initial rapid catch (10-12 JDs) with 8 JD minimum gate.
- * Unblocks report generation in ~10-15s instead of waiting for full batches.
+ * Targets 35 JDs with strict seniority filtering and automated Indeed fallback (min 15 JDs).
  */
 export async function fetchFastCatchJds({
   role = '',
   bucketKey = '',
-  targetCount = 12,
-  timeoutMs = 45000,
+  targetCount = 35,
+  timeoutMs = 90000,
   mockJds = null,
 } = {}) {
   // If mock JDs are provided for testing, return immediately
@@ -245,13 +246,14 @@ export async function fetchFastCatchJds({
     return mockJds.slice(0, targetCount)
   }
 
-  // 1. Resolve role dynamically from parameters or bucketKey
+  // 1. Resolve role and experience bucket dynamically from parameters or bucketKey
   let resolvedRole = String(role || '').trim()
+  let expBucket = '3-5'
 
-  if (!resolvedRole && bucketKey) {
-    // e.g. "data-analyst::3-5" -> "Data Analyst"
-    const [rolePart] = bucketKey.split('::')
-    if (rolePart && rolePart !== 'default') {
+  if (bucketKey) {
+    const [rolePart, expPart] = bucketKey.split('::')
+    if (expPart) expBucket = expPart
+    if (!resolvedRole && rolePart && rolePart !== 'default') {
       resolvedRole = rolePart
         .split('-')
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -259,28 +261,35 @@ export async function fetchFastCatchJds({
     }
   }
 
-  const targetRoleTitle = resolvedRole || 'Professional'
+  let targetRoleTitle = resolvedRole || 'Professional'
+
+  // Prepend Senior for '6-8' and '8+' buckets if not already present
+  const hasSeniorTerm = /\b(senior|lead|principal|staff|director|head|vp)\b/i.test(targetRoleTitle)
+  if ((expBucket === '6-8' || expBucket === '8+') && !hasSeniorTerm) {
+    targetRoleTitle = `Senior ${targetRoleTitle}`
+  } else if (expBucket === '0-2' && !/\b(junior|entry[\s-]level|associate)\b/i.test(targetRoleTitle)) {
+    targetRoleTitle = `Junior ${targetRoleTitle}`
+  }
 
   if (apifyKeyPool.getKeyCount() === 0) {
     console.warn('[MarketJdJobs] No Apify tokens configured in environment for fast-catch.')
     return []
   }
 
-  const fastCatchCount = targetCount || 12
-  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
+  const fastCatchCount = Math.max(35, parseInt(targetCount || 35, 10))
+  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Bucket: ${expBucket}, Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
 
-  // Attempt 1: Fast API-based actor (harvestapi/linkedin-job-search) with 30s timeout
-  const actorId = process.env.APIFY_JOB_ACTOR_ID || 'harvestapi/linkedin-job-search'
+  // Attempt 1: Fast API-based actor (harvestapi/linkedin-job-search)
+  const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
   const isHarvestApi = actorId.includes('harvestapi')
 
   const actorInput = isHarvestApi
-    ? {
-        jobTitles: [targetRoleTitle],
-        locations: ['United States'],
+    ? buildHarvestActorInput({
+        role: targetRoleTitle,
+        location: 'United States',
         maxItems: fastCatchCount,
-        postedLimit: 'month',
-        sortBy: 'relevance',
-      }
+        experienceBucket: expBucket,
+      })
     : buildApifyJdScraperInput(targetRoleTitle, {
         locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
         rows: fastCatchCount,
@@ -289,13 +298,13 @@ export async function fetchFastCatchJds({
 
   let primaryItems = []
   try {
-    primaryItems = await runApifyActorScrape(actorId, actorInput, Math.min(timeoutMs, 30000))
+    primaryItems = await runApifyActorScrape(actorId, actorInput, Math.min(timeoutMs, 45000))
   } catch (primErr) {
     console.warn(`[MarketJdJobs] Primary scrape attempt encountered error: ${primErr.message}`)
   }
 
   // Filter valid text descriptions (at least 100 chars)
-  let validJds = (primaryItems || []).map((item) => ({
+  const rawJds = (primaryItems || []).map((item) => ({
     title: item.title || item.jobTitle || targetRoleTitle,
     company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
     location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
@@ -303,19 +312,22 @@ export async function fetchFastCatchJds({
     url: item.linkedinUrl || item.url || item.link || '',
   })).filter((j) => (j.description || '').length >= 100)
 
-  // FAILSAFE RETRY: If primary returned < 8 JDs, fall back to Indeed scraper
-  if (validJds.length < 8) {
-    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 8). Switching to Indeed fallback on Apify...`)
+  // Seniority post-scrape filter
+  let validJds = filterJdsBySeniority(rawJds, expBucket)
+
+  // FAILSAFE RETRY: If primary returned < 20 filtered JDs, fall back to Indeed scraper
+  if (validJds.length < 20) {
+    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 20 after seniority filter). Switching to Indeed fallback on Apify...`)
 
     try {
       const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
         position: targetRoleTitle,
         country: 'US',
         location: 'United States',
-        maxItems: fastCatchCount,
-      }, Math.min(30000, timeoutMs))
+        maxItems: Math.max(35, fastCatchCount),
+      }, Math.min(45000, timeoutMs))
 
-      const validFallback = (fallbackItems || []).map((item) => ({
+      const rawFallback = (fallbackItems || []).map((item) => ({
         title: item.positionName || item.title || targetRoleTitle,
         company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
         location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
@@ -323,19 +335,31 @@ export async function fetchFastCatchJds({
         url: item.linkedinUrl || item.url || item.link || '',
       })).filter((j) => (j.description || '').length >= 100)
 
-      if (validFallback.length >= 8) {
-        validJds = validFallback
-        console.log(`[MarketJdJobs] Fallback scraper succeeded with ${validJds.length} real JDs.`)
+      const filteredFallback = filterJdsBySeniority(rawFallback, expBucket)
+
+      if (filteredFallback.length >= 15) {
+        validJds = filteredFallback
+        console.log(`[MarketJdJobs] Fallback Indeed scraper succeeded with ${validJds.length} real JDs.`)
+      } else if (validJds.length + filteredFallback.length >= 15) {
+        const seen = new Set(validJds.map((j) => `${j.title}_${j.company}`.toLowerCase()))
+        for (const item of filteredFallback) {
+          const key = `${item.title}_${item.company}`.toLowerCase()
+          if (!seen.has(key)) {
+            seen.add(key)
+            validJds.push(item)
+          }
+        }
+        console.log(`[MarketJdJobs] Combined primary and fallback scrapers for ${validJds.length} JDs.`)
       }
     } catch (fbErr) {
       console.warn(`[MarketJdJobs] Fallback scraper also failed: ${fbErr.message}`)
     }
   }
 
-  console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}"`)
+  console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}" (Bucket: ${expBucket})`)
 
-  if (validJds.length < 8) {
-    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 8 live JDs for "${targetRoleTitle}". Aborting to prevent fake data.`)
+  if (validJds.length < 15) {
+    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 15 live JDs for "${targetRoleTitle}". Found ${validJds.length}. Aborting to prevent fake data.`)
   }
 
   return validJds

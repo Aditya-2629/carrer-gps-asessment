@@ -3,6 +3,11 @@ import User from '../models/User.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
+import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
+import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import JobMarketBucket from '../models/JobMarketBucket.js'
+import JobMarketVersion from '../models/JobMarketVersion.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
@@ -333,15 +338,36 @@ export const saveAnswers = async (req, res) => {
 
     if (extractedLinkedinUrl) {
       user.linkedinUrl = extractedLinkedinUrl
-      // If not yet pre-scraped, attempt live scrape (non-fatal, never reject saveAnswers with 400)
-      if (!user.linkedinData) {
+      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
+      const needsProfile = !user.linkedinData
+      const needsPosts = !user.linkedinActivityData
+
+      if (needsProfile || needsPosts) {
         try {
-          const scrapedProfile = await scrapeLinkedInProfile(extractedLinkedinUrl)
+          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
+          const [scrapedProfile, scrapedPosts] = await Promise.all([
+            needsProfile
+              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinData),
+            needsPosts
+              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinActivityData),
+          ])
+
           if (scrapedProfile) {
             user.linkedinData = scrapedProfile
           }
+          if (scrapedPosts) {
+            user.linkedinActivityData = scrapedPosts
+          }
         } catch (scrapeErr) {
-          console.warn('[AssessmentController] Live Apify LinkedIn scraping non-fatal error:', scrapeErr.message)
+          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
         }
       }
     }
@@ -378,6 +404,42 @@ export const saveAnswers = async (req, res) => {
           user.resumeJson = resumeJson
         } catch (parseErr) {
           console.warn('[AssessmentController] Non-fatal parseResumeToJSON error:', parseErr.message)
+        }
+      }
+
+      // Pipeline Warming: Immediate 35-JD market scraping upon resume upload if bucket is cold or under-sampled (< 35 JDs)
+      if (user.resumeJson) {
+        try {
+          const targetRole = answers.targetRole || answers.role || user.resumeJson?.candidate?.targetRole || user.resumeJson?.targetRole || 'Professional'
+          const resolved = resolveMarketBucket({
+            targetRole,
+            canonicalResume: user.resumeJson,
+          })
+
+          const bucketKey = resolved?.bucketKey
+          if (bucketKey) {
+            const bucketDoc = await JobMarketBucket.findOne({ bucketKey }).lean()
+            let isSufficient = false
+
+            if (bucketDoc?.activeVersion > 0) {
+              const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucketDoc.activeVersion }).lean()
+              const sampleCount = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || 0
+              if (sampleCount >= 35) {
+                isSufficient = true
+              }
+            }
+
+            if (!isSufficient) {
+              console.log(`[AssessmentController] Bucket ${bucketKey} is cold or under-sampled (<35 JDs). Warming bucket immediately...`)
+              getMarketDataForBucket(bucketKey, { targetCount: 35, autoRefresh: true }).catch((warmErr) => {
+                console.warn(`[AssessmentController] Upload-time bucket warming error for ${bucketKey}:`, warmErr.message)
+              })
+            } else {
+              console.log(`[AssessmentController] Bucket ${bucketKey} is already warm (>=35 JDs). Ready for 0ms report generation.`)
+            }
+          }
+        } catch (warmupErr) {
+          console.warn('[AssessmentController] Upload-time market bucket warming non-fatal error:', warmupErr.message)
         }
       }
     }

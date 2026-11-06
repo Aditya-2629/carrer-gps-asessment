@@ -17,7 +17,7 @@ import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
 import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText } from './llmJdSkillAnalyzer.js'
 
-export const MIN_SAMPLE_THRESHOLD = 8
+export const MIN_SAMPLE_THRESHOLD = 15
 export const MIN_SKILLS_THRESHOLD = 4
 
 /**
@@ -87,32 +87,33 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
       }
     }
 
-    // 2. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 12 JDs)
+    // 2. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 35 JDs)
     if (!options.bypassFastCatch) {
-      console.log(`[MarketJdRetriever] Bucket ${bucketKey} is cold. Running synchronous Fast-Catch (target: 12 JDs)...`)
+      const targetCount = Math.max(35, options.targetCount || 35)
+      console.log(`[MarketJdRetriever] Bucket ${bucketKey} is cold. Running synchronous Fast-Catch (target: ${targetCount} JDs)...`)
       try {
         const [roleKey, expBucket] = bucketKey.split('::')
         const roleClean = bucket?.roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
-        const fast12Jds = await fetchFastCatchJds({
+        const fast35Jds = await fetchFastCatchJds({
           role: roleClean,
           bucketKey,
-          targetCount: 12,
-          timeoutMs: 45000, // 45s safe window
+          targetCount,
+          timeoutMs: options.timeoutMs || 90000,
           mockJds: options.mockJds || null,
         })
 
-        if (Array.isArray(fast12Jds) && fast12Jds.length >= MIN_SAMPLE_THRESHOLD) {
+        if (Array.isArray(fast35Jds) && fast35Jds.length >= MIN_SAMPLE_THRESHOLD) {
           console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= ${MIN_SAMPLE_THRESHOLD}). Activating version...`)
-          console.log(`[MarketJdRetriever] Fast-Catch captured ${fast12Jds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
-          const analysis = await analyzeJdBatchWithGemini(roleClean, fast12Jds)
+          console.log(`[MarketJdRetriever] Fast-Catch captured ${fast35Jds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
+          const analysis = await analyzeJdBatchWithGemini(roleClean, fast35Jds, { experienceBucket: expBucket })
           const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
 
           const fastMarketProfile = {
             bucketKey,
-            sampleSize: analysis.sampleSize || fast12Jds.length,
+            sampleSize: analysis.sampleSize || fast35Jds.length,
             skills: discoveredSkills,
-            totalAnalyzed: analysis.totalAnalyzed || fast12Jds.length,
+            totalAnalyzed: analysis.totalAnalyzed || fast35Jds.length,
             topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
             responsibilities: analysis.responsibilities || [],
             senioritySignals: analysis.senioritySignals || [],
@@ -130,7 +131,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
               await JobMarketVersion.create({
                 bucketKey,
                 version: stagedVersion,
-                jobs: fast12Jds.map((j, idx) => {
+                jobs: fast35Jds.map((j, idx) => {
                   const analyzed = (analysis.analyzedJobs || [])[idx] || {}
                   return {
                     title: j.title || roleClean,
@@ -148,13 +149,13 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
                 }),
                 marketProfile: fastMarketProfile,
                 metadata: {
-                  source: 'fast_catch_12',
-                  targetCount: fast12Jds.length,
+                  source: 'apify_live_batch_35',
+                  targetCount: fast35Jds.length,
                 },
                 validationSummary: {
                   isValid: true,
                   checkedAt: new Date(),
-                  jobCount: fast12Jds.length,
+                  jobCount: fast35Jds.length,
                 },
                 isArchived: false,
               })
@@ -169,7 +170,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
                     experienceBucket: bExpBucket || '6-8',
                     roleName: roleClean,
                     activeVersion: stagedVersion,
-                    jobCount: fast12Jds.length,
+                    jobCount: fast35Jds.length,
                     status: 'healthy',
                     lastSuccessfulRefreshAt: new Date(),
                   },
@@ -192,13 +193,13 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
             status: 'available',
             bucketKey,
             version: stagedVersion,
-            sampleSize: fast12Jds.length,
+            sampleSize: fast35Jds.length,
             marketProfile: fastMarketProfile,
-            jobs: fast12Jds,
+            jobs: fast35Jds,
           }
         } else {
           console.warn(
-            `[MarketJdRetriever] Fast-Catch scrape returned insufficient sample (${fast12Jds?.length || 0} < ${MIN_SAMPLE_THRESHOLD}) for ${bucketKey}. Aborting version persistence to prevent skewed data.`
+            `[MarketJdRetriever] Fast-Catch scrape returned insufficient sample (${fast35Jds?.length || 0} < ${MIN_SAMPLE_THRESHOLD}) for ${bucketKey}. Aborting version persistence to prevent skewed data.`
           )
         }
       } catch (fastErr) {
