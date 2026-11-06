@@ -99,3 +99,4 @@ assert(match && match[1] === 'However, your bullets need metrics.', 'Flattery re
 console.log('✓ Confirmed flattery scrubber regex functions correctly')
 
 console.log('\n✅ ALL PHASE C AI SLOP PURGE & TONE TIGHTENING TESTS PASSED!')
+

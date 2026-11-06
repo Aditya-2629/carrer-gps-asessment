@@ -69,3 +69,4 @@ assert(
 console.log('✓ Test 4 Passed: ReportDashboard.jsx connects directly to 4-page print dossier');
 
 console.log('\n>>> ALL PHASE D PRINT PDF TESTS PASSED SUCCESSFULLY! <<<');
+

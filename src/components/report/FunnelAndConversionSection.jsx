@@ -18,10 +18,11 @@ import {
 } from '@phosphor-icons/react'
 import { extractQuantMetric, decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
-export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData }) {
+export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData, reportData: propReport = null }) {
   const formData = useAppStore((s) => s.formData) || {}
-  const storeReport = useAppStore((s) => s.reportData) || {}
-  const answers = storeReport?.user_answers || formData || {}
+  const reportData = propReport || useAppStore((s) => s.reportData) || {}
+  const storeReport = reportData
+  const answers = reportData?.user_answers || formData || {}
 
   // 1. Extract Candidate Real Numbers across all 8 funnel dimensions
   const parseFunnelCount = (val, fallback = 0) => {

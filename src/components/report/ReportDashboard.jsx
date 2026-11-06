@@ -1214,6 +1214,7 @@ function ReportDashboardContent() {
                   insight: reportData.rejection_insight,
                 }}
                 riskData={reportData.risk_heatmap}
+                reportData={reportData}
               />
               <div id="risk-matrix" className="space-y-6">
                 {reportData.risk_heatmap && (
@@ -1280,6 +1281,7 @@ function ReportDashboardContent() {
                 insight: reportData.rejection_insight,
               }}
               riskData={reportData.risk_heatmap}
+              reportData={reportData}
             />
             <div id="risk-matrix" className="space-y-6">
               {reportData.risk_heatmap && (
