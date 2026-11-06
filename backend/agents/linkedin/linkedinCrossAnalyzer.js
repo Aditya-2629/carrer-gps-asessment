@@ -1,4 +1,5 @@
 import { normalizeLinkedInProfile } from './linkedinNormalizer.js'
+import { classifyTitleDriftWithJev, classifyTitleDriftSync } from './jevDiscrepancyClassifier.js'
 
 function normalizeName(str) {
   const val = typeof str === 'string' ? str : (str?.name || str?.text || String(str || ''))
@@ -1146,5 +1147,6 @@ export function classifyConsistencyTier({ summary = {}, discrepancies = [], time
   }
 }
 
-export default { analyzeCrossAgentDiscrepancies, classifyConsistencyTier }
+export { classifyTitleDriftWithJev, classifyTitleDriftSync }
+export default { analyzeCrossAgentDiscrepancies, classifyConsistencyTier, classifyTitleDriftWithJev, classifyTitleDriftSync }
 
