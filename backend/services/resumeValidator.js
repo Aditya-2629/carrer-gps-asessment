@@ -477,7 +477,10 @@ export function buildRewriteLookup(tailoredBullets = []) {
  * Categorizes a skill into an exact ATS bucket based on universal multi-domain taxonomy
  */
 export function determineSkillBucket(skill, targetRole = '') {
-  const low = String(skill || '').toLowerCase().trim()
+  const low = String(skill || '')
+    .replace(/\s*\([^)]*\)$/, '')
+    .toLowerCase()
+    .trim()
 
   // 1. Non-Tech / Functional Roles (Product, Operations, Healthcare, Finance, HR, Marketing, Sales)
   const isNonTechRole =
@@ -671,16 +674,23 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
     .filter((k) => k.keyword.length >= 2)
 
   const existingSkillsSet = new Set()
+  const registerSkill = (name) => {
+    if (!name) return
+    const raw = name.toLowerCase().trim()
+    const clean = raw.replace(/\s*\((?:in[- ]?progress|planned|learning)\)/i, '').trim()
+    if (raw) existingSkillsSet.add(raw)
+    if (clean) existingSkillsSet.add(clean)
+  }
   const rawSkills = sanitized.skills || []
   if (Array.isArray(rawSkills)) {
     rawSkills.forEach((s) => {
       const name = typeof s === 'string' ? s : s?.name || ''
-      if (name) existingSkillsSet.add(name.toLowerCase().trim())
+      registerSkill(name)
     })
   } else if (typeof rawSkills === 'object') {
     Object.values(rawSkills).flat().forEach((s) => {
       const name = typeof s === 'string' ? s : s?.name || ''
-      if (name) existingSkillsSet.add(name.toLowerCase().trim())
+      registerSkill(name)
     })
   }
 
@@ -760,16 +770,18 @@ export function sanitizeAndValidateResume(canonicalResume = {}, tailoredBullets 
     }
   }
 
-  // 6. Professional Summary
+  // 6. Professional Summary (Synthesize role-aligned fallback if missing)
   let sum = sanitized.summary || ''
-  if (sum) {
-    sum = repairGrammar(sum)
-    const openP = (sum.match(/\(/g) || []).length
-    const closeP = (sum.match(/\)/g) || []).length
-    if (openP > closeP) sum += ')'.repeat(openP - closeP)
-    if (!/[.!?]$/.test(sum)) sum += '.'
-    sanitized.summary = sum
+  if (!sum) {
+    const roleTitle = sanitized.target_role || 'Software Professional'
+    sum = `Results-driven ${roleTitle} with experience delivering scalable systems, optimized workflows, and reliable production architectures. Proven track record of improving operational efficiency, driving cross-functional collaboration, and delivering measurable business outcomes.`
   }
+  sum = repairGrammar(sum)
+  const openP = (sum.match(/\(/g) || []).length
+  const closeP = (sum.match(/\)/g) || []).length
+  if (openP > closeP) sum += ')'.repeat(openP - closeP)
+  if (!/[.!?]$/.test(sum)) sum += '.'
+  sanitized.summary = sum
 
   // 7. Known Companies for Cross-Company Leak Detection
   const allCompanies = (sanitized.experiences || [])

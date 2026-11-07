@@ -971,6 +971,9 @@ export const downloadAtsResumeDocx = async (req, res) => {
 
     if (summaryRewrite) {
       canonical.summary = summaryRewrite
+    } else if (!canonical.summary) {
+      const roleTitle = canonical.target_role || 'Software Engineer'
+      canonical.summary = `Results-driven ${roleTitle} with experience delivering scalable systems, optimized cloud-native workflows, and reliable production architectures. Proven track record of improving operational efficiency, driving cross-functional collaboration, and delivering measurable business outcomes.`
     }
 
     // 2. Missing target keywords collection and skills injection
@@ -1029,22 +1032,31 @@ export const downloadAtsResumeDocx = async (req, res) => {
     }
 
     if (skillsToInject.length > 0) {
+      const existingBases = new Set()
+      const registerExisting = (s) => {
+        const name = typeof s === 'string' ? s : s?.name || ''
+        const base = name.replace(/\s*\((?:in[- ]?progress|planned|learning)\)/i, '').trim().toLowerCase()
+        if (base) existingBases.add(base)
+      }
       if (Array.isArray(canonical.skills)) {
-        const existing = new Set(
-          canonical.skills.map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : (s?.name || '').toLowerCase().trim()))
-        )
+        canonical.skills.forEach(registerExisting)
         for (const kw of skillsToInject) {
-          if (!existing.has(kw.toLowerCase())) {
-            existing.add(kw.toLowerCase())
+          const baseKw = kw.replace(/\s*\((?:in[- ]?progress|planned|learning)\)/i, '').trim().toLowerCase()
+          if (!existingBases.has(baseKw)) {
+            existingBases.add(baseKw)
             canonical.skills.push(kw)
           }
         }
       } else if (typeof canonical.skills === 'object' && canonical.skills !== null) {
+        Object.values(canonical.skills).flat().forEach(registerExisting)
         for (const kw of skillsToInject) {
           const rawKw = kw.replace(/\s*\([^)]*\)$/, '').trim()
+          const baseKw = rawKw.toLowerCase()
+          if (existingBases.has(baseKw)) continue
+          existingBases.add(baseKw)
           const bucket = determineSkillBucket(rawKw, canonical.target_role || '')
           canonical.skills[bucket] = canonical.skills[bucket] || []
-          if (!canonical.skills[bucket].some((s) => (typeof s === 'string' ? s.toLowerCase() : s?.name?.toLowerCase()) === kw.toLowerCase())) {
+          if (!canonical.skills[bucket].some((s) => (typeof s === 'string' ? s.toLowerCase() : s?.name?.toLowerCase()).replace(/\s*\([^)]*\)$/, '').trim() === baseKw)) {
             canonical.skills[bucket].push(kw)
           }
         }

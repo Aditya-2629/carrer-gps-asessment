@@ -101,19 +101,22 @@ async function verifySwapnilResume() {
     assert(!docXml.includes('Full Stack Software Engineer Jan 2021 - Apr 2022'), 'Trailing date must be stripped from role title')
     console.log('    ✓ Trailing date stripped from role title')
 
-    console.log('\n[4] Verifying Frontend UI Button Count in ResumeDeepDiagnosis.jsx:')
-    const jsxPath = path.join(__dirname, '../../src/components/report/ResumeDeepDiagnosis.jsx')
-    const jsxContent = fs.readFileSync(jsxPath, 'utf8')
+    console.log('\n[4] Verifying Frontend UI Button Count in ResumeDeepDiagnosis / KeywordAlignment:')
+    const diagPath = path.join(__dirname, '../../src/components/report/ResumeDeepDiagnosis.jsx')
+    const kwPath = path.join(__dirname, '../../src/components/report/ResumeKeywordAlignment.jsx')
+    const diagContent = fs.readFileSync(diagPath, 'utf8')
+    const kwContent = fs.existsSync(kwPath) ? fs.readFileSync(kwPath, 'utf8') : ''
+    const combinedContent = diagContent + '\n' + kwContent
 
     // Check that SectionHeader does not have onDownloadDocx or download button
-    assert(!jsxContent.includes('onDownloadDocx={handleDownloadDocx}'), 'SectionHeader must not be passed onDownloadDocx')
-    assert(!jsxContent.includes('Generating Word Doc...'), 'SectionHeader download button text must be removed')
+    assert(!diagContent.includes('onDownloadDocx={handleDownloadDocx}'), 'SectionHeader must not be passed onDownloadDocx')
+    assert(!diagContent.includes('Generating Word Doc...'), 'SectionHeader download button text must be removed')
 
     // Count download buttons in file: should only be inside Ready-to-Apply Asset card
-    const downloadButtonMatches = jsxContent.match(/Download Tailored ATS Resume \(\.docx\)/g) || []
+    const downloadButtonMatches = combinedContent.match(/Download Tailored ATS Resume \(\.docx\)/g) || []
     console.log(`    Total occurrences of "Download Tailored ATS Resume (.docx)": ${downloadButtonMatches.length}`)
-    assert.strictEqual(downloadButtonMatches.length, 1, 'There must be exactly ONE download button in ResumeDeepDiagnosis.jsx')
-    console.log('    ✓ Exactly 1 download button in ResumeDeepDiagnosis.jsx (in Ready-to-Apply Asset card)\n')
+    assert.strictEqual(downloadButtonMatches.length, 1, 'There must be exactly ONE download button across ResumeDeepDiagnosis/ResumeKeywordAlignment')
+    console.log('    ✓ Exactly 1 download button in Resume Keyword Alignment (in Ready-to-Apply Asset card)\n')
 
     console.log('================================================================')
     console.log('ALL SWAPNIL ATS RESUME VERIFICATION CHECKS PASSED!')

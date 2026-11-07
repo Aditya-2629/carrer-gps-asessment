@@ -104,8 +104,8 @@ const candidateResumeWithStrings = {
       company: 'TechCorp',
       role: 'Staff Engineer',
       startDate: 'Jan 2022',
-      endDate: 'Present',
-      isCurrent: true,
+      endDate: 'Dec 2023',
+      isCurrent: false,
       bullets: [
         // Bullet 1: Will match by ID (synthetic exp_001_b01)
         'Developed backend services for processing customer payments.',
@@ -239,8 +239,8 @@ const fullResumeInput = {
       role: 'Full Stack Engineer',
       location: 'Hoboken, NJ',
       startDate: 'Jan 2022',
-      endDate: 'Present',
-      isCurrent: true,
+      endDate: 'Dec 2023',
+      isCurrent: false,
       bullets: [
         'Built microservices using Node.js and PostgreSQL.',
         'Implemented Kafka messaging for event processing.',

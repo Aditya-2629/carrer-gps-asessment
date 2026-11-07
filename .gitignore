@@ -36,3 +36,9 @@ output.json
 
 # GSD Workspace metadata
 .gsd/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
