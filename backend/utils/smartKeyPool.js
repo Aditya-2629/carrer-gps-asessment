@@ -87,6 +87,25 @@ export class SmartKeyPool {
   }
 
   /**
+   * Dynamically adds a new token with optional immediate sticky promotion to primary.
+   */
+  addKey(token, promote = true) {
+    if (!token || typeof token !== 'string') return false
+    const cleanToken = token.trim()
+    if (!cleanToken) return false
+    this.cooldowns.delete(cleanToken)
+    this.keys = this.keys.filter((k) => k !== cleanToken)
+    if (promote) {
+      this.keys.unshift(cleanToken)
+      console.log(`[SmartKeyPool:${this.serviceName}] Injected key (...${cleanToken.slice(-4)}) and promoted to PRIMARY!`)
+    } else {
+      this.keys.push(cleanToken)
+      console.log(`[SmartKeyPool:${this.serviceName}] Injected key (...${cleanToken.slice(-4)}) at end of queue.`)
+    }
+    return true
+  }
+
+  /**
    * Penalizes a failed key by moving it to the back of the queue and setting a cooldown.
    */
   reportFailure(failedKey, errorReason = 'Rate limit or Quota error') {

@@ -23,14 +23,47 @@ import {
   getMarketRefreshJobStatus,
   activateBucketVersion,
 } from '../controllers/adminMarketController.js'
+import {
+  listLeads,
+  getLeadStats,
+  updateLeadStage,
+  exportLeadsCsv,
+  getCandidateDossier,
+  overrideBulletRewrite,
+} from '../controllers/adminLeadController.js'
+import {
+  getEngineConfig,
+  createDynamicRole,
+  updateScrapeSlider,
+  injectDynamicKey,
+  triggerLiveBucketScrape,
+} from '../controllers/adminDynamicController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
 const router = Router()
 
+// Public admin login
 router.post('/login', adminLoginController)
 
+// Protected behind admin token guard
 router.use(adminGuard)
 
+// ── Lead Intelligence & CRM Pipeline ─────────────────────────────────────────
+router.get('/leads/stats', getLeadStats)
+router.get('/leads/export.csv', exportLeadsCsv)
+router.get('/leads', listLeads)
+router.get('/leads/:id/dossier', getCandidateDossier)
+router.patch('/leads/:id', updateLeadStage)
+router.post('/leads/:id/override-bullet', overrideBulletRewrite)
+
+// ── Zero-Restart Dynamic Engine & SmartKeyPool ──────────────────────────────
+router.get('/engine/config', getEngineConfig)
+router.post('/engine/roles', createDynamicRole)
+router.post('/engine/scrape-slider', updateScrapeSlider)
+router.post('/engine/keys', injectDynamicKey)
+router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
+
+// ── Legacy User Management ──────────────────────────────────────────────────
 router.get('/stats', getStats)
 router.get('/agents', getAgentAnalytics)
 router.get('/users', listUsers)
