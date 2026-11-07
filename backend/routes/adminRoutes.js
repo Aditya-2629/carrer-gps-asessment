@@ -28,6 +28,7 @@ import {
   deleteBucketSkill,
   deleteBucketCascade,
   scrapeAllActiveBuckets,
+  createSpecializedBucket,
 } from '../controllers/adminMarketController.js'
 import {
   listLeads,
@@ -48,6 +49,8 @@ import {
   getFallbackAndErrorAnalytics,
   getLlmCallsAndQuotas,
   purgeKeyCooldowns,
+  resetCooldowns,
+  pingJevDecisions,
 } from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -78,6 +81,9 @@ router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 router.get('/telemetry/fallbacks-and-errors', getFallbackAndErrorAnalytics)
 router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
 router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
+router.post('/telemetry/reset-cooldowns', resetCooldowns)
+router.post('/telemetry/ping-jev', pingJevDecisions)
+router.get('/telemetry/ping-jev', pingJevDecisions)
 
 // ── User Management & Cascade Cleanup ───────────────────────────────────────
 router.get('/stats', getStats)
@@ -95,6 +101,7 @@ router.delete('/users/:id', deleteUser)
 router.get('/market-library', listMarketBuckets)
 router.post('/market-library/refresh', refreshAllMarketBuckets)
 router.post('/market-library/scrape-all', scrapeAllActiveBuckets)
+router.post('/market-library/create-specialized', createSpecializedBucket)
 router.get('/market-library/refresh/:jobId', getMarketRefreshJobStatus)
 router.get('/market-library/:bucketKey/skills', getBucketSkillsTaxonomy)
 router.post('/market-library/:bucketKey/skills', upsertBucketSkill)

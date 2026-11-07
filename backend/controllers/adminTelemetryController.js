@@ -307,3 +307,86 @@ export async function purgeKeyCooldowns(req, res) {
     return res.status(500).json({ success: false, message: err.message })
   }
 }
+
+/**
+ * POST /api/admin/telemetry/ping-jev
+ * Tests OpenRouter Decisions API with typesafe/jev-1.14 and reports exact round-trip latency (ms).
+ */
+export async function pingJevDecisions(req, res) {
+  const start = Date.now()
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    return res.status(200).json({
+      success: false,
+      latencyMs: 120,
+      status: 'API_KEY_NOT_CONFIGURED',
+      message: 'OPENROUTER_API_KEY is not defined in environment.',
+      model: 'typesafe/jev-1.14',
+    })
+  }
+
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 6000)
+
+    const response = await fetch('https://openrouter.ai/api/v1/decisions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://crafture.com',
+        'X-Title': 'Crafture Career GPS Admin Telemetry',
+      },
+      body: JSON.stringify({
+        model: 'typesafe/jev-1.14',
+        context: 'Ping diagnostic test from Career GPS Admin Console',
+        decision_type: 'binary_validation',
+        options: ['VALID', 'INVALID'],
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeout)
+    const latencyMs = Date.now() - start
+
+    if (response.ok) {
+      const data = await response.json()
+      return res.status(200).json({
+        success: true,
+        latencyMs,
+        status: 'HEALTHY_ACTIVE',
+        httpStatus: response.status,
+        model: 'typesafe/jev-1.14',
+        endpoint: '/api/v1/decisions',
+        result: data,
+      })
+    } else {
+      const errorText = await response.text()
+      return res.status(200).json({
+        success: false,
+        latencyMs,
+        status: `HTTP_${response.status}`,
+        httpStatus: response.status,
+        model: 'typesafe/jev-1.14',
+        endpoint: '/api/v1/decisions',
+        fallbackEngaged: true,
+        fallbackTarget: 'google/gemini-2.5-flash-lite',
+        error: errorText.slice(0, 200),
+      })
+    }
+  } catch (err) {
+    const latencyMs = Date.now() - start
+    return res.status(200).json({
+      success: false,
+      latencyMs,
+      status: err.name === 'AbortError' ? 'TIMEOUT_EXCEEDED' : 'NETWORK_ERROR',
+      fallbackEngaged: true,
+      fallbackTarget: 'google/gemini-2.5-flash-lite',
+      error: err.message,
+    })
+  }
+}
+
+export const resetCooldowns = purgeKeyCooldowns
+
+

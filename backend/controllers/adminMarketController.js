@@ -367,6 +367,47 @@ export async function scrapeAllActiveBuckets(req, res) {
   }
 }
 
+/**
+ * POST /api/admin/market-library/create-specialized
+ * Creates a specialized bucket for a role and specialization focus.
+ */
+export async function createSpecializedBucket(req, res) {
+  try {
+    const { roleName, specialization = 'general', experienceBucket = '3-5' } = req.body || {}
+    if (!roleName) {
+      return res.status(400).json({ success: false, message: 'roleName is required.' })
+    }
+
+    const slug = roleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const specSlug = specialization && specialization !== 'general'
+      ? `-${specialization.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`
+      : ''
+    const bucketKey = `${slug}${specSlug}::${experienceBucket}`
+
+    let bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (!bucket) {
+      bucket = await JobMarketBucket.create({
+        bucketKey,
+        roleName: roleName.trim(),
+        experienceBucket,
+        specialization: specialization.trim(),
+        activeVersion: 0,
+        status: 'pending',
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Specialized bucket ready: ${bucketKey}`,
+      bucketKey,
+      bucket,
+    })
+  } catch (err) {
+    console.error('[AdminMarket] createSpecializedBucket error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 export default {
   listMarketBuckets,
   getMarketBucketDetail,
@@ -379,4 +420,5 @@ export default {
   deleteBucketSkill,
   deleteBucketCascade,
   scrapeAllActiveBuckets,
+  createSpecializedBucket,
 }
