@@ -14,6 +14,7 @@ import {
   CurrencyDollar,
   Target,
   Key,
+  SlidersHorizontal,
   Kanban,
   SignOut,
   Sparkle,
@@ -23,6 +24,7 @@ import {
 import { TOKEN_KEY } from './AdminLogin.jsx'
 import LeadPipelineView from '../../components/admin/LeadPipelineView.jsx'
 import MarketBucketManager from '../../components/admin/MarketBucketManager.jsx'
+import DynamicEngineManager from '../../components/admin/DynamicEngineManager.jsx'
 import KeyPoolMonitor from '../../components/admin/KeyPoolMonitor.jsx'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
@@ -65,7 +67,7 @@ const scoreChip = (v) => {
 }
 
 export default function AdminPanel({ onLogout }) {
-  const [currentTab, setCurrentTab] = useState('lead_crm') // 'lead_crm' | 'candidates' | 'market_engine' | 'key_pools'
+  const [currentTab, setCurrentTab] = useState('lead_crm') // 'lead_crm' | 'candidates' | 'market_buckets' | 'dynamic_engine'
   const token = localStorage.getItem(TOKEN_KEY) || ''
 
   const logout = useCallback(() => {
@@ -202,16 +204,16 @@ export default function AdminPanel({ onLogout }) {
             </button>
 
             <button
-              onClick={() => setCurrentTab('market_engine')}
+              onClick={() => setCurrentTab('market_buckets')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                currentTab === 'market_engine'
+                currentTab === 'market_buckets'
                   ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Target size={18} weight={currentTab === 'market_engine' ? 'bold' : 'regular'} />
-                <span>Market JDs Engine</span>
+                <Target size={18} weight={currentTab === 'market_buckets' ? 'bold' : 'regular'} />
+                <span>Market JD Buckets</span>
               </div>
               <span className="text-[10px] text-slate-500 font-mono">
                 {engineSummary?.bucketSummary?.total ?? 16} bkt
@@ -219,16 +221,16 @@ export default function AdminPanel({ onLogout }) {
             </button>
 
             <button
-              onClick={() => setCurrentTab('key_pools')}
+              onClick={() => setCurrentTab('dynamic_engine')}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
-                currentTab === 'key_pools'
+                currentTab === 'dynamic_engine'
                   ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Key size={18} weight={currentTab === 'key_pools' ? 'bold' : 'regular'} />
-                <span>KeyPools & Telemetry</span>
+                <SlidersHorizontal size={18} weight={currentTab === 'dynamic_engine' ? 'bold' : 'regular'} />
+                <span>Dynamic Engine & Keys</span>
               </div>
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50" />
             </button>
@@ -466,11 +468,11 @@ export default function AdminPanel({ onLogout }) {
             </div>
           )}
 
-          {/* VIEW 3: MARKET JDS ENGINE */}
-          {currentTab === 'market_engine' && <MarketBucketManager token={token} />}
+          {/* VIEW 3: MARKET JD BUCKETS */}
+          {currentTab === 'market_buckets' && <MarketBucketManager token={token} />}
 
-          {/* VIEW 4: SMART KEY POOLS & TELEMETRY */}
-          {currentTab === 'key_pools' && <KeyPoolMonitor token={token} />}
+          {/* VIEW 4: DYNAMIC ENGINE & KEY POOLS */}
+          {currentTab === 'dynamic_engine' && <DynamicEngineManager token={token} />}
         </main>
       </div>
 

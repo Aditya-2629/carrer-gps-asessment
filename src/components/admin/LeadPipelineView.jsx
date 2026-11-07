@@ -557,3 +557,4 @@ export default function LeadPipelineView({ token }) {
     </div>
   )
 }
+
