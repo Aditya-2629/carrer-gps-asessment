@@ -106,6 +106,9 @@ export default function AdminPanel({ onLogout }) {
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({ q: '', verified: '', hasResume: '', sort: 'newest' })
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [selectedUserIds, setSelectedUserIds] = useState([])
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const fetchUsers = useCallback(async () => {
     setLoading(true)
@@ -123,6 +126,7 @@ export default function AdminPanel({ onLogout }) {
         setUsers(data.users || [])
         setTotal(data.total || 0)
         setPages(data.pages || 1)
+        setSelectedUserIds([]) // reset selection on page/filter change
       }
     } catch (_err) {
     } finally {
@@ -146,6 +150,42 @@ export default function AdminPanel({ onLogout }) {
       }
     } catch (err) {
       alert(`Delete error: ${err.message}`)
+    }
+  }
+
+  const handleToggleSelectAll = () => {
+    if (selectedUserIds.length === users.length) {
+      setSelectedUserIds([])
+    } else {
+      setSelectedUserIds(users.map((u) => u.id))
+    }
+  }
+
+  const handleToggleSelectUser = (id) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    )
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.length === 0) return
+    setBulkDeleting(true)
+    try {
+      const { ok } = await api('/admin/users/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: selectedUserIds }),
+      })
+      if (ok) {
+        setSelectedUserIds([])
+        setConfirmBulkDelete(false)
+        fetchUsers()
+        fetchGlobalMetrics()
+      }
+    } catch (err) {
+      alert(`Bulk delete error: ${err.message}`)
+    } finally {
+      setBulkDeleting(false)
     }
   }
 
@@ -361,12 +401,46 @@ export default function AdminPanel({ onLogout }) {
                 </select>
               </div>
 
+              {/* Bulk Action Bar */}
+              {selectedUserIds.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                    <Trash size={16} />
+                    <span>{selectedUserIds.length} candidate(s) selected</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedUserIds([])}
+                      className="px-3 py-1 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white/80 transition-colors cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                    <button
+                      onClick={() => setConfirmBulkDelete(true)}
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Trash size={14} weight="bold" />
+                      <span>Delete Selected ({selectedUserIds.length})</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Table */}
               <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <th className="py-3 px-3 w-8">
+                          <input
+                            type="checkbox"
+                            checked={users.length > 0 && selectedUserIds.length === users.length}
+                            onChange={handleToggleSelectAll}
+                            className="rounded accent-indigo-600 cursor-pointer"
+                            title="Select all on this page"
+                          />
+                        </th>
                         <th className="py-3 px-4">Candidate Email</th>
                         <th className="py-3 px-4">Created</th>
                         <th className="py-3 px-4">Status</th>
@@ -380,20 +454,33 @@ export default function AdminPanel({ onLogout }) {
                     <tbody className="divide-y divide-slate-100">
                       {loading ? (
                         <tr>
-                          <td colSpan={8} className="py-12 text-center text-slate-400">
+                          <td colSpan={9} className="py-12 text-center text-slate-400">
                             <ArrowsClockwise size={24} className="animate-spin text-indigo-500 mx-auto mb-2" />
                             Loading candidate records...
                           </td>
                         </tr>
                       ) : users.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-12 text-center text-slate-400">
+                          <td colSpan={9} className="py-12 text-center text-slate-400">
                             No candidates match current filters.
                           </td>
                         </tr>
                       ) : (
                         users.map((u) => (
-                          <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                          <tr
+                            key={u.id}
+                            className={`hover:bg-slate-50/50 transition-colors ${
+                              selectedUserIds.includes(u.id) ? 'bg-indigo-50/40' : ''
+                            }`}
+                          >
+                            <td className="py-3 px-3 w-8">
+                              <input
+                                type="checkbox"
+                                checked={selectedUserIds.includes(u.id)}
+                                onChange={() => handleToggleSelectUser(u.id)}
+                                className="rounded accent-indigo-600 cursor-pointer"
+                              />
+                            </td>
                             <td className="py-3 px-4 font-semibold text-slate-900">{u.email}</td>
                             <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
                               {new Date(u.createdAt).toLocaleDateString()}
@@ -499,6 +586,37 @@ export default function AdminPanel({ onLogout }) {
                 className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs"
               >
                 Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
+              <WarningCircle size={20} weight="fill" />
+              <span>Bulk Delete {selectedUserIds.length} Candidate(s)?</span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              This permanently deletes the selected {selectedUserIds.length} candidates, uploaded resumes, agent runs, and generated reports with full cascade cleanup.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                disabled={bulkDeleting}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {bulkDeleting ? 'Deleting...' : `Delete ${selectedUserIds.length} Users`}
               </button>
             </div>
           </div>

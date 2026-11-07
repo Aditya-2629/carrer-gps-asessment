@@ -240,6 +240,7 @@ export async function fetchFastCatchJds({
   targetCount = 35,
   timeoutMs = 90000,
   mockJds = null,
+  specialization = '',
 } = {}) {
   // If mock JDs are provided for testing, return immediately
   if (Array.isArray(mockJds) && mockJds.length > 0) {
@@ -271,26 +272,41 @@ export async function fetchFastCatchJds({
     targetRoleTitle = `Junior ${targetRoleTitle}`
   }
 
+  // Resolve specialization from parameter or bucket metadata
+  let resolvedSpecialization = specialization || 'general'
+  if (bucketKey && resolvedSpecialization === 'general') {
+    try {
+      const existingBucket = await JobMarketBucket.findOne({ bucketKey }).lean()
+      if (existingBucket?.specialization && existingBucket.specialization !== 'general') {
+        resolvedSpecialization = existingBucket.specialization
+      }
+    } catch (_bErr) {
+      // ignore bucket lookup failure
+    }
+  }
+
   if (apifyKeyPool.getKeyCount() === 0) {
     console.warn('[MarketJdJobs] No Apify tokens configured in environment for fast-catch.')
     return []
   }
 
   const fastCatchCount = Math.max(35, parseInt(targetCount || 35, 10))
-  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Bucket: ${expBucket}, Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
+  console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Bucket: ${expBucket}, Specialization: ${resolvedSpecialization}, Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
 
   // Attempt 1: Fast API-based actor (harvestapi/linkedin-job-search)
   const actorId = process.env.APIFY_JOB_ACTOR_ID || DEFAULT_APIFY_JOB_ACTOR
   const isHarvestApi = actorId.includes('harvestapi')
 
+  const searchRoleTitle = targetRoleTitle
   const actorInput = isHarvestApi
     ? buildHarvestActorInput({
-        role: targetRoleTitle,
+        role: searchRoleTitle,
+        specialization: resolvedSpecialization,
         location: 'United States',
         maxItems: fastCatchCount,
         experienceBucket: expBucket,
       })
-    : buildApifyJdScraperInput(targetRoleTitle, {
+    : buildApifyJdScraperInput(`${searchRoleTitle} ${resolvedSpecialization !== 'general' ? resolvedSpecialization : ''}`.trim(), {
         locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
         rows: fastCatchCount,
         maxJobs: fastCatchCount,
@@ -321,7 +337,7 @@ export async function fetchFastCatchJds({
 
     try {
       const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
-        position: targetRoleTitle,
+        position: `${targetRoleTitle} ${resolvedSpecialization !== 'general' ? resolvedSpecialization : ''}`.trim(),
         country: 'US',
         location: 'United States',
         maxItems: Math.max(35, fastCatchCount),

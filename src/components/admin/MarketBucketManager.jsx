@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Target,
   SlidersHorizontal,
@@ -11,7 +11,12 @@ import {
   Database,
   ArrowRight,
   ShieldCheck,
+  Trash,
+  PencilSimple,
+  PushPin,
 } from '@phosphor-icons/react'
+import ZeroSyntaxScrapeLauncher from './ZeroSyntaxScrapeLauncher.jsx'
+import BucketSkillsTaxonomyEditor from './BucketSkillsTaxonomyEditor.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
 
@@ -28,6 +33,7 @@ export default function MarketBucketManager({ token }) {
   const [showAddRoleModal, setShowAddRoleModal] = useState(false)
   const [actionMsg, setActionMsg] = useState('')
   const [scrapingBucketKey, setScrapingBucketKey] = useState(null)
+  const [selectedBucketForSkills, setSelectedBucketForSkills] = useState(null)
 
   const showToast = (msg) => {
     setActionMsg(msg)
@@ -151,6 +157,85 @@ export default function MarketBucketManager({ token }) {
     }
   }
 
+  // Cascade Delete Bucket and Versions
+  const handleDeleteBucketCascade = async (bucketKey) => {
+    if (
+      !window.confirm(
+        `Permanently delete bucket "${bucketKey}" and all historical version snapshots? This action is irreversible.`
+      )
+    ) {
+      return
+    }
+    try {
+      const res = await fetch(`${API_BASE}/admin/market-library/${bucketKey}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Failed to delete bucket')
+      showToast(data.message || `Bucket ${bucketKey} deleted.`)
+      setBuckets((prev) => prev.filter((b) => b.bucketKey !== bucketKey))
+    } catch (err) {
+      alert(`Error deleting bucket: ${err.message}`)
+    }
+  }
+
+  // Targeted Scrape Dispatcher
+  const handleZeroSyntaxScrape = async ({ roleName, bucketKey, experienceBucket, specialization, mode }) => {
+    setScrapingBucketKey(bucketKey)
+    try {
+      // If bucket does not exist yet, ensure the 4 experience tiers are created
+      const exists = buckets.some((b) => b.bucketKey === bucketKey)
+      if (!exists) {
+        await fetch(`${API_BASE}/admin/engine/roles`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            roleName,
+            specialization,
+          }),
+        })
+      }
+
+      // Dispatch targeted scrape
+      const res = await fetch(`${API_BASE}/admin/engine/scrape/${bucketKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ mode, specialization }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message || 'Failed to dispatch scrape')
+      showToast(data.message || `Targeted scrape initiated for ${bucketKey}`)
+      loadData()
+    } catch (err) {
+      alert(`Error dispatching targeted scrape: ${err.message}`)
+    } finally {
+      setScrapingBucketKey(null)
+    }
+  }
+
+  // Staggered Refresh for All Active Buckets
+  const handleScrapeAll = async () => {
+    const res = await fetch(`${API_BASE}/admin/market-library/scrape-all`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Failed to refresh all buckets')
+    showToast(data.message || 'Staggered scrape enqueued for all active buckets.')
+    loadData()
+  }
+
+  const uniqueRoles = useMemo(() => {
+    return Array.from(new Set(buckets.map((b) => b.roleName).filter(Boolean)))
+  }, [buckets])
+
   return (
     <div className="space-y-6">
       {/* Toast */}
@@ -160,6 +245,13 @@ export default function MarketBucketManager({ token }) {
           <span>{actionMsg}</span>
         </div>
       )}
+
+      {/* ZERO-SYNTAX DYNAMIC SCRAPE DISPATCHER */}
+      <ZeroSyntaxScrapeLauncher
+        onScrapeTriggered={handleZeroSyntaxScrape}
+        onScrapeAllTriggered={handleScrapeAll}
+        rolesList={uniqueRoles}
+      />
 
       {/* TOP CONTROLS: SLIDERS & ADD ROLE */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -336,23 +428,38 @@ export default function MarketBucketManager({ token }) {
                 </div>
 
                 {/* 1-Click Action Buttons */}
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5">
+                <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => handleTriggerScrape(b.bucketKey, 'fast_catch')}
                     disabled={scrapingBucketKey === b.bucketKey}
                     title="Run Fast-Catch (35 JDs)"
-                    className="flex-1 py-1.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 min-w-[65px] py-1.5 px-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <Lightning size={13} weight="fill" />
-                    <span>Fast-Catch</span>
+                    <span>Fast</span>
                   </button>
                   <button
                     onClick={() => handleTriggerScrape(b.bucketKey, 'full')}
                     disabled={scrapingBucketKey === b.bucketKey}
                     title="Enqueue Full Background Refresh"
-                    className="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                    className="py-1.5 px-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <Database size={13} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedBucketForSkills(b.bucketKey)}
+                    title="Inspect & Edit Skills Taxonomy"
+                    className="py-1.5 px-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <PushPin size={12} weight="fill" />
+                    <span>Skills</span>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteBucketCascade(b.bucketKey)}
+                    title="Cascade Delete Bucket & Versions"
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                  >
+                    <Trash size={14} />
                   </button>
                 </div>
               </div>
@@ -419,6 +526,18 @@ export default function MarketBucketManager({ token }) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* SKILLS TAXONOMY CRUD STUDIO MODAL */}
+      {selectedBucketForSkills && (
+        <BucketSkillsTaxonomyEditor
+          bucketKey={selectedBucketForSkills}
+          token={token}
+          onClose={() => {
+            setSelectedBucketForSkills(null)
+            loadData()
+          }}
+        />
       )}
     </div>
   )

@@ -19,25 +19,27 @@ export const DEFAULT_MAX_RETRIES = 3
 
 /**
  * Builds input payload for harvestapi/linkedin-job-search actor (fast API-based scraper).
+ * Injects specialization context and seniority prefixes dynamically.
  */
-export function buildHarvestActorInput({ role = 'Software Engineer', location = 'United States', maxItems = 35, experienceBucket = '3-5' } = {}) {
-  let formattedRole = String(role || 'Software Engineer').trim()
-  const hasSeniorTerm = /\b(senior|lead|principal|staff|director|head|vp)\b/i.test(formattedRole)
-  const hasJuniorTerm = /\b(junior|entry[\s-]level|associate)\b/i.test(formattedRole)
-
-  if ((experienceBucket === '6-8' || experienceBucket === '8+') && !hasSeniorTerm) {
-    formattedRole = `Senior ${formattedRole}`
-  } else if (experienceBucket === '0-2' && !hasJuniorTerm) {
-    formattedRole = `Junior ${formattedRole}`
+export function buildHarvestActorInput({ role, specialization = 'general', location = 'United States', maxItems = 35, experienceBucket = '3-5' } = {}) {
+  let searchTitle = role || 'Software Engineer'
+  
+  // Inject active specialization if not default
+  if (specialization && specialization !== 'general' && !searchTitle.toLowerCase().includes(specialization.toLowerCase())) {
+    searchTitle = `${searchTitle} ${specialization}`
   }
 
-  const requestedMax = parseInt(maxItems || 35, 10)
-  const effectiveMax = Math.min(Math.max(35, requestedMax), 50)
+  // Prepend Seniority prefix
+  if ((experienceBucket === '6-8' || experienceBucket === '8+') && !/senior|lead|principal|staff|director/i.test(searchTitle)) {
+    searchTitle = `Senior ${searchTitle}`
+  } else if (experienceBucket === '0-2' && !/junior|entry|associate|graduate/i.test(searchTitle)) {
+    searchTitle = `Junior ${searchTitle}`
+  }
 
   return {
-    jobTitles: [formattedRole],
+    jobTitles: [searchTitle.trim()],
     locations: [location],
-    maxItems: effectiveMax,
+    maxItems: Math.max(25, Math.min(maxItems, 75)),
     postedLimit: 'month',
     sortBy: 'relevance',
   }

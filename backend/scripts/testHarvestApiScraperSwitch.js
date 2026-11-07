@@ -43,10 +43,11 @@ assert.strictEqual(harvestInput.maxItems, 40, 'maxItems must be 40')
 assert.strictEqual(harvestInput.postedLimit, 'month', 'postedLimit must be month')
 assert.strictEqual(harvestInput.sortBy, 'relevance', 'sortBy must be relevance')
 
-// Test maxItems ceiling of 50
-const cappedInput = buildHarvestActorInput({ role: 'Lead DevOps', maxItems: 100 })
-assert.strictEqual(cappedInput.maxItems, 50, 'maxItems must be capped at 50')
-console.log('✔ Test 2 Passed: buildHarvestActorInput schema matches HarvestAPI contract.\n')
+// Test maxItems ceiling of 75 and specialization injection
+const cappedInput = buildHarvestActorInput({ role: 'Lead DevOps', maxItems: 100, specialization: 'Kubernetes AWS' })
+assert.strictEqual(cappedInput.maxItems, 75, 'maxItems must be capped at 75')
+assert.strictEqual(cappedInput.jobTitles[0], 'Lead DevOps Kubernetes AWS', 'specialization must be injected into job title')
+console.log('✔ Test 2 Passed: buildHarvestActorInput schema matches HarvestAPI contract with specialization.\n')
 
 // -------------------------------------------------------------
 // TEST 3: HarvestAPI Schema Normalization

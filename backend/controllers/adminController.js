@@ -8,6 +8,7 @@
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
 import FindingFeedback from '../models/FindingFeedback.js'
+import ReportJob from '../models/ReportJob.js'
 import { adminLogin } from '../utils/adminAuth.js'
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -174,12 +175,48 @@ export const downloadReport = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
   try {
-    const deleted = await User.findByIdAndDelete(req.params.id)
+    const { id } = req.params
+    const deleted = await User.findByIdAndDelete(id)
     if (!deleted) return res.status(404).json({ success: false, message: 'User not found.' })
-    return res.status(200).json({ success: true, message: `User ${deleted.email} deleted.` })
+
+    // Cascade delete user-associated reports, runs, and feedback
+    await Promise.allSettled([
+      ReportJob.deleteMany({ userId: id }),
+      AgentRun.deleteMany({ userId: id }),
+      FindingFeedback.deleteMany({ userId: id }),
+    ])
+
+    return res.status(200).json({ success: true, message: `User ${deleted.email} and cascading records permanently deleted.` })
   } catch (err) {
     console.error('Admin deleteUser error:', err)
     return res.status(500).json({ success: false, message: 'Failed to delete user.' })
+  }
+}
+
+export const bulkDeleteUsers = async (req, res) => {
+  try {
+    const { userIds } = req.body || {}
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'userIds array is required.' })
+    }
+
+    const deleteResult = await User.deleteMany({ _id: { $in: userIds } })
+
+    // Cascade delete associated records
+    await Promise.allSettled([
+      ReportJob.deleteMany({ userId: { $in: userIds } }),
+      AgentRun.deleteMany({ userId: { $in: userIds } }),
+      FindingFeedback.deleteMany({ userId: { $in: userIds } }),
+    ])
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully deleted ${deleteResult.deletedCount} user(s) and cascading records.`,
+      deletedCount: deleteResult.deletedCount,
+    })
+  } catch (err) {
+    console.error('Admin bulkDeleteUsers error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to bulk delete users.' })
   }
 }
 
@@ -383,6 +420,7 @@ export default {
   downloadResume,
   downloadReport,
   deleteUser,
+  bulkDeleteUsers,
   getStats,
   exportUsersCsv,
   getAgentAnalytics,

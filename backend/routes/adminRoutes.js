@@ -11,6 +11,7 @@ import {
   downloadResume,
   downloadReport,
   deleteUser,
+  bulkDeleteUsers,
   getStats,
   exportUsersCsv,
   getAgentAnalytics,
@@ -22,6 +23,11 @@ import {
   refreshSingleMarketBucket,
   getMarketRefreshJobStatus,
   activateBucketVersion,
+  getBucketSkillsTaxonomy,
+  upsertBucketSkill,
+  deleteBucketSkill,
+  deleteBucketCascade,
+  scrapeAllActiveBuckets,
 } from '../controllers/adminMarketController.js'
 import {
   listLeads,
@@ -63,20 +69,27 @@ router.post('/engine/scrape-slider', updateScrapeSlider)
 router.post('/engine/keys', injectDynamicKey)
 router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 
-// ── Legacy User Management ──────────────────────────────────────────────────
+// ── User Management & Cascade Cleanup ───────────────────────────────────────
 router.get('/stats', getStats)
 router.get('/agents', getAgentAnalytics)
 router.get('/users', listUsers)
 router.get('/users/export.csv', exportUsersCsv)
+router.post('/users/bulk-delete', bulkDeleteUsers)
+router.delete('/users/bulk', bulkDeleteUsers)
 router.get('/users/:id', getUserDetail)
 router.get('/users/:id/resume', downloadResume)
 router.get('/users/:id/report', downloadReport)
 router.delete('/users/:id', deleteUser)
 
-// ── Market Library Operations ─────────────────────────────────────────────────
+// ── Market Library Operations & Taxonomy CRUD ─────────────────────────────────
 router.get('/market-library', listMarketBuckets)
 router.post('/market-library/refresh', refreshAllMarketBuckets)
+router.post('/market-library/scrape-all', scrapeAllActiveBuckets)
 router.get('/market-library/refresh/:jobId', getMarketRefreshJobStatus)
+router.get('/market-library/:bucketKey/skills', getBucketSkillsTaxonomy)
+router.post('/market-library/:bucketKey/skills', upsertBucketSkill)
+router.delete('/market-library/:bucketKey/skills/:skillName', deleteBucketSkill)
+router.delete('/market-library/:bucketKey', deleteBucketCascade)
 router.get('/market-library/:bucketKey', getMarketBucketDetail)
 router.post('/market-library/refresh/:bucketKey', refreshSingleMarketBucket)
 router.post('/market-library/activate/:bucketKey/:version', activateBucketVersion)
