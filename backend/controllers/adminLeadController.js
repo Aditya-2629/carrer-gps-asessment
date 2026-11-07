@@ -139,25 +139,36 @@ export function calculateLeadMetrics(user) {
   }
 
   return {
+    id: String(user._id),
     userId: String(user._id),
+    name: candidateName,
     candidateName,
     firstName,
     email: user.email,
     targetRole,
+    atsScore: overallScore,
     overallScore,
     resumeScore,
     linkedinScore,
     discrepancyCount,
+    missingSkills: topMissingSkills,
     topMissingSkills,
+    matchedSkills: topMatchedSkills,
     topMatchedSkills,
     intentScore,
+    tier: leadTier,
     leadTier,
+    pipelineStage: leadStage,
     leadStage,
     leadNotes,
     lastContactedAt,
     hasResume: Boolean(user.resumeData),
     hasReport: Boolean(user.aiReport),
     linkedinUrl: user.linkedinUrl || candidate.linkedin || null,
+    pitches: {
+      email: personalizedPitch,
+      whatsapp: whatsappPitch,
+    },
     personalizedPitch,
     whatsappPitch,
     createdAt: user.createdAt,
@@ -477,11 +488,26 @@ export async function getCandidateDossier(req, res) {
     return res.status(200).json({
       success: true,
       lead: leadInfo,
+      candidate: leadInfo,
       resumeProfile,
       linkedinProfile,
       discrepancies,
+      autopsy: {
+        headline: linkedinProfile.headline,
+        isConsistent: discrepancies.length === 0,
+        findings: discrepancies.map((d) => (typeof d === 'string' ? d : `${d.field || 'Field'}: ${d.issue || d.description || JSON.stringify(d)}`)),
+        discrepancies,
+        resumeProfile,
+        linkedinProfile,
+      },
       bullets,
+      bulletTriage: bullets,
       keywordAlignment,
+      skillAlignment: {
+        matched: (keywordAlignment.allMatched?.length > 0 ? keywordAlignment.allMatched : leadInfo.topMatchedSkills) || [],
+        missing: (keywordAlignment.allMissing?.length > 0 ? keywordAlignment.allMissing : leadInfo.topMissingSkills) || [],
+      },
+      pitches: leadInfo.pitches,
       hasOriginalResume: Boolean(user.resumeData),
       resumeFileName: user.resumeName || 'resume.pdf',
     })
@@ -496,10 +522,11 @@ export async function getCandidateDossier(req, res) {
 export async function overrideBulletRewrite(req, res) {
   try {
     const { id } = req.params
-    const { bulletId, newText } = req.body || {}
+    const { bulletId, newText, overrideText } = req.body || {}
+    const textToSave = newText || overrideText
 
-    if (!bulletId || !newText || !String(newText).trim()) {
-      return res.status(400).json({ success: false, message: 'bulletId and newText are required.' })
+    if (!bulletId || !textToSave || !String(textToSave).trim()) {
+      return res.status(400).json({ success: false, message: 'bulletId and newText/overrideText are required.' })
     }
 
     const user = await User.findById(id)
@@ -515,12 +542,12 @@ export async function overrideBulletRewrite(req, res) {
     ra.bulletRewrites = Array.isArray(ra.bulletRewrites) ? ra.bulletRewrites : []
     const existingRwIdx = ra.bulletRewrites.findIndex((rw) => rw.bulletId === bulletId)
     if (existingRwIdx >= 0) {
-      ra.bulletRewrites[existingRwIdx].rewrite = String(newText).trim()
+      ra.bulletRewrites[existingRwIdx].rewrite = String(textToSave).trim()
       ra.bulletRewrites[existingRwIdx].isOverriddenByAdmin = true
     } else {
       ra.bulletRewrites.push({
         bulletId,
-        rewrite: String(newText).trim(),
+        rewrite: String(textToSave).trim(),
         isOverriddenByAdmin: true,
         updatedAt: new Date(),
       })
@@ -530,7 +557,7 @@ export async function overrideBulletRewrite(req, res) {
     if (ra.dashboard?.bulletAudit && Array.isArray(ra.dashboard.bulletAudit)) {
       const bAudit = ra.dashboard.bulletAudit.find((b) => b.bulletId === bulletId)
       if (bAudit) {
-        bAudit.proposedRewrite = String(newText).trim()
+        bAudit.proposedRewrite = String(textToSave).trim()
         bAudit.status = 'Pass'
       }
     }
@@ -542,7 +569,7 @@ export async function overrideBulletRewrite(req, res) {
       success: true,
       message: 'Bullet rewrite successfully overridden and saved.',
       bulletId,
-      newText: String(newText).trim(),
+      newText: String(textToSave).trim(),
     })
   } catch (err) {
     console.error('[AdminLeadController] overrideBulletRewrite error:', err)

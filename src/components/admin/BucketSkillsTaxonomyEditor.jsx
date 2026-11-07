@@ -527,3 +527,4 @@ export default function BucketSkillsTaxonomyEditor({ bucketKey, token, onClose }
     </div>
   )
 }
+

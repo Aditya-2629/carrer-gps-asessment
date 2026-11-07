@@ -15,8 +15,8 @@ import {
   PencilSimple,
   PushPin,
 } from '@phosphor-icons/react'
-import ZeroSyntaxScrapeLauncher from './ZeroSyntaxScrapeLauncher.jsx'
-import BucketSkillsTaxonomyEditor from './BucketSkillsTaxonomyEditor.jsx'
+import ZeroSyntaxScrapeCockpit from './ZeroSyntaxScrapeCockpit.jsx'
+import VisualTaxonomyStudio from './VisualTaxonomyStudio.jsx'
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
 
@@ -34,6 +34,7 @@ export default function MarketBucketManager({ token }) {
   const [actionMsg, setActionMsg] = useState('')
   const [scrapingBucketKey, setScrapingBucketKey] = useState(null)
   const [selectedBucketForSkills, setSelectedBucketForSkills] = useState(null)
+  const [bucketToDelete, setBucketToDelete] = useState(null)
 
   const showToast = (msg) => {
     setActionMsg(msg)
@@ -158,14 +159,11 @@ export default function MarketBucketManager({ token }) {
   }
 
   // Cascade Delete Bucket and Versions
-  const handleDeleteBucketCascade = async (bucketKey) => {
-    if (
-      !window.confirm(
-        `Permanently delete bucket "${bucketKey}" and all historical version snapshots? This action is irreversible.`
-      )
-    ) {
-      return
-    }
+  const handleDeleteBucketCascade = (bucketKey) => {
+    setBucketToDelete(bucketKey)
+  }
+
+  const confirmDeleteBucket = async (bucketKey) => {
     try {
       const res = await fetch(`${API_BASE}/admin/market-library/${bucketKey}`, {
         method: 'DELETE',
@@ -175,6 +173,7 @@ export default function MarketBucketManager({ token }) {
       if (!res.ok) throw new Error(data.message || 'Failed to delete bucket')
       showToast(data.message || `Bucket ${bucketKey} deleted.`)
       setBuckets((prev) => prev.filter((b) => b.bucketKey !== bucketKey))
+      setBucketToDelete(null)
     } catch (err) {
       alert(`Error deleting bucket: ${err.message}`)
     }
@@ -246,8 +245,8 @@ export default function MarketBucketManager({ token }) {
         </div>
       )}
 
-      {/* ZERO-SYNTAX DYNAMIC SCRAPE DISPATCHER */}
-      <ZeroSyntaxScrapeLauncher
+      {/* ZERO-SYNTAX DYNAMIC SCRAPE COCKPIT */}
+      <ZeroSyntaxScrapeCockpit
         onScrapeTriggered={handleZeroSyntaxScrape}
         onScrapeAllTriggered={handleScrapeAll}
         rolesList={uniqueRoles}
@@ -528,9 +527,40 @@ export default function MarketBucketManager({ token }) {
         </div>
       )}
 
-      {/* SKILLS TAXONOMY CRUD STUDIO MODAL */}
+      {/* CASCADE DELETE CONFIRMATION MODAL */}
+      {bucketToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-white">
+            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
+              <Trash size={18} />
+              <span>Delete Bucket &amp; Snapshots?</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Permanently delete bucket <strong className="text-slate-200">{bucketToDelete}</strong> and all historical version snapshots? This action is irreversible.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setBucketToDelete(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmDeleteBucket(bucketToDelete)}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-sm"
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VISUAL SKILLS TAXONOMY STUDIO MODAL */}
       {selectedBucketForSkills && (
-        <BucketSkillsTaxonomyEditor
+        <VisualTaxonomyStudio
           bucketKey={selectedBucketForSkills}
           token={token}
           onClose={() => {

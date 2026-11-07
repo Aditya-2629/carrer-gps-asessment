@@ -20,12 +20,17 @@ import {
   Sparkle,
   Lightning,
   CaretRight,
+  Cpu,
+  Database,
+  Flame,
+  CheckCircle,
 } from '@phosphor-icons/react'
 import { TOKEN_KEY } from './AdminLogin.jsx'
-import LeadPipelineView from '../../components/admin/LeadPipelineView.jsx'
+import InteractiveLeadKanban from '../../components/admin/InteractiveLeadKanban.jsx'
+import CandidateDossierDrawer from '../../components/admin/CandidateDossierDrawer.jsx'
 import MarketBucketManager from '../../components/admin/MarketBucketManager.jsx'
 import DynamicEngineManager from '../../components/admin/DynamicEngineManager.jsx'
-import KeyPoolMonitor from '../../components/admin/KeyPoolMonitor.jsx'
+import KeyPoolTelemetryCard from '../../components/admin/KeyPoolTelemetryCard.jsx'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
@@ -52,23 +57,27 @@ function useAdminApi(logout) {
 }
 
 const scoreChip = (v) => {
-  if (v === null || v === undefined) return <span className="text-[11px] text-slate-300 font-mono">—</span>
+  if (v === null || v === undefined) return <span className="text-[11px] text-slate-500 font-mono">—</span>
   const color =
     v >= 85
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
       : v >= 70
-      ? 'bg-teal-50 text-teal-700 border-teal-200'
+      ? 'bg-teal-500/20 text-teal-300 border-teal-500/30'
       : v >= 55
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
       : v >= 40
-      ? 'bg-orange-50 text-orange-700 border-orange-200'
-      : 'bg-red-50 text-red-700 border-red-200'
+      ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+      : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
   return <span className={`text-[11px] font-bold px-2 py-0.5 rounded border tabular-nums ${color}`}>{v}</span>
 }
 
 export default function AdminPanel({ onLogout }) {
   const [currentTab, setCurrentTab] = useState('lead_crm') // 'lead_crm' | 'candidates' | 'market_buckets' | 'dynamic_engine'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const token = localStorage.getItem(TOKEN_KEY) || ''
+
+  // Global Slide-Over Candidate Dossier Drawer
+  const [selectedCandidateId, setSelectedCandidateId] = useState(null)
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
@@ -126,7 +135,7 @@ export default function AdminPanel({ onLogout }) {
         setUsers(data.users || [])
         setTotal(data.total || 0)
         setPages(data.pages || 1)
-        setSelectedUserIds([]) // reset selection on page/filter change
+        setSelectedUserIds([]) // reset selection on change
       }
     } catch (_err) {
     } finally {
@@ -190,191 +199,221 @@ export default function AdminPanel({ onLogout }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row font-sans text-slate-800 antialiased">
-      {/* ── SIDEBAR NAVIGATION ── */}
-      <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row font-sans antialiased selection:bg-indigo-500 selection:text-white">
+      {/* ── SLEEK COLLAPSIBLE SIDEBAR NAVIGATION ── */}
+      <aside
+        className={`${
+          sidebarCollapsed ? 'md:w-20' : 'md:w-64'
+        } w-full bg-slate-900/95 border-r border-slate-800 text-slate-300 flex flex-col justify-between shrink-0 transition-all duration-200 z-30`}
+      >
         <div>
           {/* Brand Header */}
-          <div className="p-5 border-b border-slate-800/80 flex items-center gap-3">
-            <img src={brandLogo} alt="Crafture Logo" className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/10" />
-            <div>
-              <div className="font-extrabold text-white text-sm tracking-tight">Crafture GPS</div>
-              <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">
-                Command Center
-              </div>
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img
+                src={brandLogo}
+                alt="Crafture Logo"
+                className="w-8 h-8 rounded-xl object-cover ring-2 ring-indigo-500/30"
+              />
+              {!sidebarCollapsed && (
+                <div>
+                  <div className="font-black text-sm text-white tracking-tight leading-tight flex items-center gap-1.5">
+                    <span>Crafture</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
+                    Ops Cockpit
+                  </div>
+                </div>
+              )}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+            >
+              <CaretRight
+                size={14}
+                className={`transition-transform duration-200 ${sidebarCollapsed ? '' : 'rotate-180'}`}
+              />
+            </button>
           </div>
 
           {/* Navigation Items */}
           <nav className="p-3 space-y-1.5 text-xs font-semibold">
+            {/* Tab 1: Leads CRM */}
             <button
               onClick={() => setCurrentTab('lead_crm')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 currentTab === 'lead_crm'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <CurrencyDollar size={18} weight={currentTab === 'lead_crm' ? 'bold' : 'regular'} />
-                <span>Leads CRM Pipeline</span>
+                {!sidebarCollapsed && <span>Leads Pipeline CRM</span>}
               </div>
-              {globalStats?.coachingHotLeads > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              {!sidebarCollapsed && globalStats?.coachingHotLeads > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse">
                   {globalStats.coachingHotLeads} Hot
                 </span>
               )}
             </button>
 
+            {/* Tab 2: Candidate Assessments */}
             <button
               onClick={() => setCurrentTab('candidates')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 currentTab === 'candidates'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <Users size={18} weight={currentTab === 'candidates' ? 'bold' : 'regular'} />
-                <span>Candidate Directory</span>
+                {!sidebarCollapsed && <span>Candidate Directory</span>}
               </div>
-              <span className="text-[10px] text-slate-500 tabular-nums">
-                {globalStats?.totalLeads ?? '—'}
-              </span>
+              {!sidebarCollapsed && (
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {globalStats?.totalLeads ?? '—'}
+                </span>
+              )}
             </button>
 
+            {/* Tab 3: Market JD Buckets */}
             <button
               onClick={() => setCurrentTab('market_buckets')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 currentTab === 'market_buckets'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <Target size={18} weight={currentTab === 'market_buckets' ? 'bold' : 'regular'} />
-                <span>Market JD Buckets</span>
+                {!sidebarCollapsed && <span>Market Intelligence</span>}
               </div>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {engineSummary?.bucketSummary?.total ?? 16} bkt
-              </span>
+              {!sidebarCollapsed && (
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {engineSummary?.bucketSummary?.total ?? 16} bkt
+                </span>
+              )}
             </button>
 
+            {/* Tab 4: Dynamic Engine & Keys */}
             <button
               onClick={() => setCurrentTab('dynamic_engine')}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all cursor-pointer ${
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
                 currentTab === 'dynamic_engine'
-                  ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-600/30'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-2.5">
                 <SlidersHorizontal size={18} weight={currentTab === 'dynamic_engine' ? 'bold' : 'regular'} />
-                <span>Dynamic Engine & Keys</span>
+                {!sidebarCollapsed && <span>Telemetry &amp; KeyPools</span>}
               </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/50" />
+              {!sidebarCollapsed && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              )}
             </button>
           </nav>
         </div>
 
         {/* Sidebar Footer */}
         <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Admin Authenticated</span>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Admin Online</span>
+            </div>
+          )}
           <button
             onClick={logout}
-            title="Log Out"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title="Sign out of Admin Console"
+            className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
           >
             <SignOut size={16} />
           </button>
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT AREA ── */}
+      {/* ── MAIN CONTENT WORKSPACE ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Top Header Bar */}
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
-          <div>
-            <h1 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              {currentTab === 'lead_crm' && <CurrencyDollar size={20} className="text-indigo-600" weight="bold" />}
-              {currentTab === 'candidates' && <Users size={20} className="text-indigo-600" weight="bold" />}
-              {currentTab === 'market_engine' && <Target size={20} className="text-indigo-600" weight="bold" />}
-              {currentTab === 'key_pools' && <Key size={20} className="text-indigo-600" weight="bold" />}
-              <span>
-                {currentTab === 'lead_crm' && 'Talent Monetization Pipeline & Outreach CRM'}
-                {currentTab === 'candidates' && 'Candidate Records & Raw Submissions'}
-                {currentTab === 'market_engine' && 'Dynamic Market Intelligence & Scrape Sliders'}
-                {currentTab === 'key_pools' && 'SmartKeyPool & AI Model Gateway Telemetry'}
-              </span>
+        {/* Top Operations Pulse Bar (Linear / Vercel Status Bar) */}
+        <header className="bg-slate-900/80 border-b border-slate-800/90 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <h1 className="text-base font-black text-white tracking-tight">
+              {currentTab === 'lead_crm' && 'Talent Monetization & Leads Pipeline'}
+              {currentTab === 'candidates' && 'Candidate Records Directory'}
+              {currentTab === 'market_buckets' && 'Market Intelligence & Skills Taxonomy'}
+              {currentTab === 'dynamic_engine' && 'SmartKeyPool Telemetry & Dynamic Controls'}
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Career GPS Enterprise AI Recruitment Command Center & Ops Engine
-            </p>
           </div>
 
-          {/* Real-time Telemetry Badges */}
-          <div className="flex items-center gap-2.5 text-xs">
-            {/* Live Spend Badge */}
-            <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl px-3 py-1.5 font-bold flex items-center gap-1.5 shadow-2xs">
-              <Lightning size={14} weight="fill" className="text-emerald-600" />
-              <span>Live Spend: $0.87 / User</span>
+          {/* Pulse Status Badges */}
+          <div className="flex items-center gap-2.5 flex-wrap text-xs">
+            {/* OpenRouter System One Pill */}
+            <div className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 flex items-center gap-1.5 text-slate-300 font-mono text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+              <span>Jev 1.14: &lt;30ms</span>
             </div>
 
-            {/* Active Buckets Badge */}
-            <div className="bg-slate-50 text-slate-700 border border-slate-200 rounded-xl px-3 py-1.5 font-medium flex items-center gap-1.5">
-              <span className="font-bold text-indigo-600 tabular-nums">
-                {engineSummary?.bucketSummary?.total ?? 16}
-              </span>
-              <span>Active Buckets</span>
+            {/* Apify Key Pool Pill */}
+            <div className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 flex items-center gap-1.5 text-slate-300 font-mono text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>Apify Pool: {engineSummary?.smartKeyPools?.apify?.keyCount ?? 1} Keys</span>
             </div>
 
-            {/* Total Leads Badge */}
-            <div className="bg-slate-50 text-slate-700 border border-slate-200 rounded-xl px-3 py-1.5 font-medium flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 tabular-nums">
-                {globalStats?.totalLeads ?? 0}
-              </span>
-              <span>Total Leads</span>
+            {/* MongoDB Connection Pill */}
+            <div className="px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 flex items-center gap-1.5 text-slate-300 font-mono text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+              <span>MongoDB: Connected</span>
             </div>
 
-            {/* Refresh */}
             <button
               onClick={fetchGlobalMetrics}
-              title="Refresh Global Telemetry"
-              className="p-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+              title="Refresh telemetry metrics"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              <ArrowsClockwise size={15} />
+              <ArrowsClockwise size={14} />
             </button>
           </div>
         </header>
 
         {/* View Switcher Container */}
         <main className="p-6 flex-1 space-y-6">
-          {/* VIEW 1: TALENT MONETIZATION CRM */}
-          {currentTab === 'lead_crm' && <LeadPipelineView token={token} />}
+          {/* VIEW 1: TALENT MONETIZATION KANBAN CRM */}
+          {currentTab === 'lead_crm' && (
+            <InteractiveLeadKanban
+              token={token}
+              onSelectCandidate={(id) => setSelectedCandidateId(id)}
+            />
+          )}
 
-          {/* VIEW 2: CANDIDATE DIRECTORY (RAW USERS TABLE) */}
+          {/* VIEW 2: CANDIDATE DIRECTORY TABLE */}
           {currentTab === 'candidates' && (
             <div className="space-y-4">
               {/* Filter Bar */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px]">
-                  <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-3">
+                <div className="relative flex-1 min-w-[220px]">
+                  <MagnifyingGlass size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                   <input
                     type="text"
                     value={filters.q}
                     onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
                     placeholder="Search candidate email or resume name…"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
                 <select
                   value={filters.verified}
                   onChange={(e) => setFilters((f) => ({ ...f, verified: e.target.value }))}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 cursor-pointer"
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 cursor-pointer focus:outline-none"
                 >
                   <option value="">All Verification</option>
                   <option value="true">Verified Only</option>
@@ -384,7 +423,7 @@ export default function AdminPanel({ onLogout }) {
                 <select
                   value={filters.hasResume}
                   onChange={(e) => setFilters((f) => ({ ...f, hasResume: e.target.value }))}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 cursor-pointer"
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 cursor-pointer focus:outline-none"
                 >
                   <option value="">All Resumes</option>
                   <option value="true">Has Uploaded Resume</option>
@@ -393,7 +432,7 @@ export default function AdminPanel({ onLogout }) {
                 <select
                   value={filters.sort}
                   onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-700 cursor-pointer"
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 cursor-pointer focus:outline-none"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -403,21 +442,21 @@ export default function AdminPanel({ onLogout }) {
 
               {/* Bulk Action Bar */}
               {selectedUserIds.length > 0 && (
-                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-center justify-between animate-in fade-in">
-                  <div className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                <div className="bg-rose-950/40 border border-rose-800/80 rounded-2xl p-3 flex items-center justify-between animate-in fade-in">
+                  <div className="flex items-center gap-2 text-xs font-bold text-rose-300">
                     <Trash size={16} />
                     <span>{selectedUserIds.length} candidate(s) selected</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setSelectedUserIds([])}
-                      className="px-3 py-1 rounded-xl text-xs font-semibold text-slate-600 hover:bg-white/80 transition-colors cursor-pointer"
+                      className="px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer"
                     >
                       Clear Selection
                     </button>
                     <button
                       onClick={() => setConfirmBulkDelete(true)}
-                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <Trash size={14} weight="bold" />
                       <span>Delete Selected ({selectedUserIds.length})</span>
@@ -426,12 +465,12 @@ export default function AdminPanel({ onLogout }) {
                 </div>
               )}
 
-              {/* Table */}
-              <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+              {/* Candidate Table */}
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <tr className="bg-slate-950/60 border-b border-slate-800 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         <th className="py-3 px-3 w-8">
                           <input
                             type="checkbox"
@@ -451,7 +490,7 @@ export default function AdminPanel({ onLogout }) {
                         <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-800">
                       {loading ? (
                         <tr>
                           <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -461,7 +500,7 @@ export default function AdminPanel({ onLogout }) {
                         </tr>
                       ) : users.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="py-12 text-center text-slate-400">
+                          <td colSpan={9} className="py-12 text-center text-slate-500">
                             No candidates match current filters.
                           </td>
                         </tr>
@@ -469,8 +508,8 @@ export default function AdminPanel({ onLogout }) {
                         users.map((u) => (
                           <tr
                             key={u.id}
-                            className={`hover:bg-slate-50/50 transition-colors ${
-                              selectedUserIds.includes(u.id) ? 'bg-indigo-50/40' : ''
+                            className={`hover:bg-slate-800/40 transition-colors ${
+                              selectedUserIds.includes(u.id) ? 'bg-indigo-950/30' : ''
                             }`}
                           >
                             <td className="py-3 px-3 w-8">
@@ -481,22 +520,22 @@ export default function AdminPanel({ onLogout }) {
                                 className="rounded accent-indigo-600 cursor-pointer"
                               />
                             </td>
-                            <td className="py-3 px-4 font-semibold text-slate-900">{u.email}</td>
-                            <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                            <td className="py-3 px-4 font-semibold text-white">{u.email}</td>
+                            <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
                               {new Date(u.createdAt).toLocaleDateString()}
                             </td>
                             <td className="py-3 px-4">
                               <span
                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                   u.isVerified
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-slate-100 text-slate-500 border-slate-200'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-slate-800 text-slate-400 border-slate-700'
                                 }`}
                               >
                                 {u.isVerified ? 'Verified' : 'Pending'}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-slate-500 max-w-[150px] truncate" title={u.resumeName || ''}>
+                            <td className="py-3 px-4 text-slate-400 max-w-[150px] truncate" title={u.resumeName || ''}>
                               {u.resumeName || '—'}
                             </td>
                             <td className="py-3 px-4 text-center">{scoreChip(u.careerScore)}</td>
@@ -504,19 +543,28 @@ export default function AdminPanel({ onLogout }) {
                             <td className="py-3 px-4 text-center">{scoreChip(u.linkedinScore)}</td>
                             <td className="py-3 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedCandidateId(u.id)}
+                                  title="Inspect God-Mode Dossier"
+                                  className="p-1.5 rounded-lg hover:bg-slate-800 text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
+                                >
+                                  <Eye size={15} />
+                                </button>
                                 {u.hasResume && (
                                   <a
                                     href={`${API_BASE}/admin/users/${u.id}/resume`}
                                     title="Download original resume"
-                                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+                                    className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
                                   >
                                     <DownloadSimple size={15} />
                                   </a>
                                 )}
                                 <button
+                                  type="button"
                                   onClick={() => setConfirmDelete(u)}
                                   title="Delete User"
-                                  className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500 transition-colors cursor-pointer"
+                                  className="p-1.5 rounded-lg hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
                                 >
                                   <Trash size={15} />
                                 </button>
@@ -530,7 +578,7 @@ export default function AdminPanel({ onLogout }) {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800 text-xs">
                   <span className="text-slate-400">
                     {total} users · page {page} of {pages}
                   </span>
@@ -538,14 +586,14 @@ export default function AdminPanel({ onLogout }) {
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page <= 1}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 cursor-pointer font-semibold"
+                      className="px-3 py-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800 cursor-pointer font-semibold text-slate-300"
                     >
                       Prev
                     </button>
                     <button
                       onClick={() => setPage((p) => Math.min(pages, p + 1))}
                       disabled={page >= pages}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 disabled:opacity-40 hover:bg-slate-50 cursor-pointer font-semibold"
+                      className="px-3 py-1.5 rounded-lg border border-slate-800 disabled:opacity-40 hover:bg-slate-800 cursor-pointer font-semibold text-slate-300"
                     >
                       Next
                     </button>
@@ -555,35 +603,49 @@ export default function AdminPanel({ onLogout }) {
             </div>
           )}
 
-          {/* VIEW 3: MARKET JD BUCKETS */}
+          {/* VIEW 3: MARKET JD BUCKETS & VISUAL TAXONOMY */}
           {currentTab === 'market_buckets' && <MarketBucketManager token={token} />}
 
-          {/* VIEW 4: DYNAMIC ENGINE & KEY POOLS */}
-          {currentTab === 'dynamic_engine' && <DynamicEngineManager token={token} />}
+          {/* VIEW 4: DYNAMIC ENGINE & KEY POOLS TELEMETRY */}
+          {currentTab === 'dynamic_engine' && (
+            <div className="space-y-6">
+              <KeyPoolTelemetryCard token={token} />
+              <DynamicEngineManager token={token} />
+            </div>
+          )}
         </main>
       </div>
 
-      {/* Delete Confirmation Modal */}
+      {/* ── GLOBAL SLIDE-OVER CANDIDATE DOSSIER DRAWER ── */}
+      {selectedCandidateId && (
+        <CandidateDossierDrawer
+          candidateId={selectedCandidateId}
+          token={token}
+          onClose={() => setSelectedCandidateId(null)}
+        />
+      )}
+
+      {/* Single Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-white">
+            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
               <WarningCircle size={20} weight="fill" />
               <span>Delete {confirmDelete.email}?</span>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              This permanently deletes the candidate's account, uploaded resume, and generated reports.
+            <p className="text-xs text-slate-400 leading-relaxed">
+              This permanently deletes the candidate's account, uploaded resume, and generated reports with full cascade cleanup.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteUser(confirmDelete.id)}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-sm"
               >
                 Delete Permanently
               </button>
@@ -594,27 +656,27 @@ export default function AdminPanel({ onLogout }) {
 
       {/* Bulk Delete Confirmation Modal */}
       {confirmBulkDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-2 text-rose-600 font-bold text-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-white">
+            <div className="flex items-center gap-2 text-rose-400 font-bold text-sm">
               <WarningCircle size={20} weight="fill" />
               <span>Bulk Delete {selectedUserIds.length} Candidate(s)?</span>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-slate-400 leading-relaxed">
               This permanently deletes the selected {selectedUserIds.length} candidates, uploaded resumes, agent runs, and generated reports with full cascade cleanup.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmBulkDelete(false)}
                 disabled={bulkDeleting}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkDelete}
                 disabled={bulkDeleting}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-xs disabled:opacity-50"
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-sm disabled:opacity-50"
               >
                 {bulkDeleting ? 'Deleting...' : `Delete ${selectedUserIds.length} Users`}
               </button>
