@@ -484,3 +484,4 @@ export default function VisualTaxonomyStudio({ bucketKey, token, onClose }) {
     </div>
   )
 }
+

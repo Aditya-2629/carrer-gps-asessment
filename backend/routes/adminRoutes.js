@@ -44,6 +44,11 @@ import {
   injectDynamicKey,
   triggerLiveBucketScrape,
 } from '../controllers/adminDynamicController.js'
+import {
+  getFallbackAndErrorAnalytics,
+  getLlmCallsAndQuotas,
+  purgeKeyCooldowns,
+} from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
 const router = Router()
@@ -68,6 +73,11 @@ router.post('/engine/roles', createDynamicRole)
 router.post('/engine/scrape-slider', updateScrapeSlider)
 router.post('/engine/keys', injectDynamicKey)
 router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
+
+// ── Observability Hub, LLM Telemetry & Fallback Analytics ────────────────────
+router.get('/telemetry/fallbacks-and-errors', getFallbackAndErrorAnalytics)
+router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
+router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
 
 // ── User Management & Cascade Cleanup ───────────────────────────────────────
 router.get('/stats', getStats)

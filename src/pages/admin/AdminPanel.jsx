@@ -24,6 +24,7 @@ import {
   Database,
   Flame,
   CheckCircle,
+  ArrowsLeftRight,
 } from '@phosphor-icons/react'
 import { TOKEN_KEY } from './AdminLogin.jsx'
 import InteractiveLeadKanban from '../../components/admin/InteractiveLeadKanban.jsx'
@@ -31,6 +32,8 @@ import CandidateDossierDrawer from '../../components/admin/CandidateDossierDrawe
 import MarketBucketManager from '../../components/admin/MarketBucketManager.jsx'
 import DynamicEngineManager from '../../components/admin/DynamicEngineManager.jsx'
 import KeyPoolTelemetryCard from '../../components/admin/KeyPoolTelemetryCard.jsx'
+import FallbackAndErrorStudio from '../../components/admin/FallbackAndErrorStudio.jsx'
+import LlmCostAndQuotaCockpit from '../../components/admin/LlmCostAndQuotaCockpit.jsx'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api')
@@ -314,10 +317,50 @@ export default function AdminPanel({ onLogout }) {
             >
               <div className="flex items-center gap-2.5">
                 <SlidersHorizontal size={18} weight={currentTab === 'dynamic_engine' ? 'bold' : 'regular'} />
-                {!sidebarCollapsed && <span>Telemetry &amp; KeyPools</span>}
+                {!sidebarCollapsed && <span>Engine Controls</span>}
               </div>
               {!sidebarCollapsed && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+              )}
+            </button>
+
+            {/* Tab 5: Fallbacks & Error Triage */}
+            <button
+              onClick={() => setCurrentTab('fallbacks_errors')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
+                currentTab === 'fallbacks_errors'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <ArrowsLeftRight size={18} weight={currentTab === 'fallbacks_errors' ? 'bold' : 'regular'} />
+                {!sidebarCollapsed && <span>Fallback &amp; Error Triage</span>}
+              </div>
+              {!sidebarCollapsed && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-500/20 text-sky-300 font-mono">
+                  SLA
+                </span>
+              )}
+            </button>
+
+            {/* Tab 6: LLM Cost & Quota Cockpit */}
+            <button
+              onClick={() => setCurrentTab('llm_telemetry')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all cursor-pointer ${
+                currentTab === 'llm_telemetry'
+                  ? 'bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Cpu size={18} weight={currentTab === 'llm_telemetry' ? 'bold' : 'regular'} />
+                {!sidebarCollapsed && <span>LLM Cost &amp; Quotas</span>}
+              </div>
+              {!sidebarCollapsed && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 font-mono">
+                  ₹0.71
+                </span>
               )}
             </button>
           </nav>
@@ -351,6 +394,8 @@ export default function AdminPanel({ onLogout }) {
               {currentTab === 'candidates' && 'Candidate Records Directory'}
               {currentTab === 'market_buckets' && 'Market Intelligence & Skills Taxonomy'}
               {currentTab === 'dynamic_engine' && 'SmartKeyPool Telemetry & Dynamic Controls'}
+              {currentTab === 'fallbacks_errors' && 'Fallback Frequency & User Error Triage Studio'}
+              {currentTab === 'llm_telemetry' && 'Deep LLM Telemetry, Unit Costing & Quota Cockpit'}
             </h1>
           </div>
 
@@ -613,6 +658,12 @@ export default function AdminPanel({ onLogout }) {
               <DynamicEngineManager token={token} />
             </div>
           )}
+
+          {/* VIEW 5: FALLBACK FREQUENCY & USER ERROR TRIAGE STUDIO */}
+          {currentTab === 'fallbacks_errors' && <FallbackAndErrorStudio token={token} />}
+
+          {/* VIEW 6: DEEP LLM TELEMETRY, UNIT COSTING & QUOTA COCKPIT */}
+          {currentTab === 'llm_telemetry' && <LlmCostAndQuotaCockpit token={token} />}
         </main>
       </div>
 

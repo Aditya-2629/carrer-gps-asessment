@@ -145,6 +145,17 @@ export class SmartKeyPool {
   }
 
   /**
+   * Instantly purges all cooldown locks on this pool.
+   * @returns {number} count of purged cooling keys
+   */
+  purgeCooldowns() {
+    const count = this.cooldowns.size
+    this.cooldowns.clear()
+    console.log(`[SmartKeyPool:${this.serviceName}] Purged ${count} cooling key(s).`)
+    return count
+  }
+
+  /**
    * Executes an async operation with automatic retry & rotation through all available keys.
    * @param {Function} taskFn - async function(activeKey) => Promise<result>
    * @param {Object} [options]
