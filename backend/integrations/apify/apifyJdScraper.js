@@ -78,6 +78,52 @@ export function filterJdsBySeniority(jds = [], experienceBucket = '3-5') {
 }
 
 /**
+ * Strict Domain Relevance & False-Positive Disqualification Filter
+ * Prevents non-domain jobs from contaminating a role's market intelligence bucket.
+ */
+export function filterJdsByDomainRelevance(jds = [], roleKey = 'data-analyst') {
+  if (!Array.isArray(jds)) return []
+  const cleanRole = String(roleKey || '').toLowerCase()
+
+  return jds.filter((j) => {
+    const title = String(j.title || j.positionName || j.jobTitle || '').toLowerCase()
+    const desc = String(j.description || j.jobDescription || j.text || j.body || '').toLowerCase()
+
+    // 1. Data Analyst / BI Analyst Domain Guard
+    if (cleanRole.includes('data-analyst') || cleanRole.includes('data analyst') || cleanRole.includes('business-intelligence') || cleanRole.includes('bi-analyst')) {
+      const disqualifiedTitle = /\b(ediscovery|litigation\s+review|paralegal|hplc|wet\s+lab|chemist|chemistry|pipette|clinical\s+lab|specimen|phlebotomist|image\s+annotat\w*|video\s+annotat\w*|data\s+labeling|data\s+annotat\w*|annotation\s+specialist|content\s+review\w*|search\s+engine\s+evaluat\w*|rater|autocad|cmms|hvac|transit\s+plann\w*|bus\s+schedule\w*|soc\s+analyst|cyber\s+threat|security\s+operations|data\s+entry|data\s+reviewer\w*|dataset\s+quality\s+reviewer|ai\s+data\s+review\w*|data\s+collector|data\s+leakage|generalist|staff\s+analyst\s+trainee)\b/i.test(title)
+      if (disqualifiedTitle) return false
+
+      const isLegalEdiscovery = /\b(relativityone|concordance|ipro\s+ecapture|equivio|clearwell|summation|ftk|encase|ediscovery)\b/i.test(desc)
+      if (isLegalEdiscovery) return false
+
+      const isPharmaWetLab = /\b(hplc|cgmp\s+guidelines|usp\s+testing|chromatography|titration|wet\s+lab)\b/i.test(desc)
+      if (isPharmaWetLab) return false
+
+      const isAnnotatorRlhf = /\b(image\s+annotation|video\s+annotation|data\s+annotation|data\s+labeling|frame-level\s+segmentation|rlhf|ai\s+content\s+review|search\s+engine\s+evaluation)\b/i.test(desc) && !/\b(sql|python|tableau|power\s+bi|excel|snowflake|dbt)\b/i.test(desc)
+      if (isAnnotatorRlhf) return false
+
+      const hasAnalyticContext = /\b(data|sql|excel|analytics|analysis|metrics|insights|bi|dashboard|reporting|kpi|visualization|python|database|query)\b/i.test(title + ' ' + desc)
+      if (!hasAnalyticContext) return false
+    }
+
+    // 2. Software Engineer / Developer Domain Guard
+    if (cleanRole.includes('software-engineer') || cleanRole.includes('developer')) {
+      const isNonSoftware = /\b(civil|mechanical|structural|plumbing|hvac|chemical|sales\s+engineer|sound\s+engineer)\b/i.test(title)
+      if (isNonSoftware) return false
+    }
+
+    // 3. Product Manager Domain Guard
+    if (cleanRole.includes('product-manager')) {
+      const isNonProduct = /\b(project\s+manager|scrum\s+master|program\s+manager|construction|real\s+estate|property\s+manager)\b/i.test(title)
+      if (isNonProduct) return false
+    }
+
+    return true
+  })
+}
+
+/**
  * Builds standard input payload for bebity/linkedin-jobs-scraper avoiding guest throttle.
  */
 export function buildApifyJdScraperInput(targetRole = 'Software Engineer', options = {}) {
@@ -387,6 +433,9 @@ export async function fetchMarketJdCandidates(searchSpec, options = {}) {
       url: item.linkedinUrl || item.url || item.link || '',
     })).filter((j) => j.description && j.description.length >= 100)
 
+    // Strict Domain Relevance & False-Positive Disqualification Guard
+    candidates = filterJdsByDomainRelevance(candidates, resolvedRole)
+
     // Failsafe secondary actor fallback if primary actor returns < 8 descriptions
     if (candidates.length < 8) {
       console.warn(`[Apify JdScraper] Primary scrape returned low sample (${items?.length || 0}). Trying secondary fallback (misceres/indeed-scraper)...`)
@@ -441,6 +490,7 @@ export default {
   buildApifyJdScraperInput,
   buildHarvestActorInput,
   filterJdsBySeniority,
+  filterJdsByDomainRelevance,
   runApifyActorScrape,
   fetchMarketJdCandidates,
   scrapeLiveJobDescriptions,

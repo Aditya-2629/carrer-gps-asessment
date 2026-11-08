@@ -20,6 +20,9 @@ import {
 } from '../jobs/marketJd/marketJdQueue.js'
 import { activateMarketVersion, getMarketVersionHistory } from '../agents/resume/market/marketVersions.js'
 import { ensureConfiguredBucketsExist } from '../jobs/marketJd/marketJdJobs.js'
+import { filterJdsByDomainRelevance } from '../integrations/apify/apifyJdScraper.js'
+import { normalizeCanonicalSkill } from '../agents/resume/market/llmJdSkillAnalyzer.js'
+import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } from '../agents/resume/market/dynamicSkillExtractor.js'
 
 /**
  * GET /api/admin/market-library
@@ -408,6 +411,135 @@ export async function createSpecializedBucket(req, res) {
   }
 }
 
+/**
+ * POST /api/admin/market-library/:bucketKey/re-sanitize
+ * Purges cross-domain contamination (eDiscovery, Pharma wet labs, Annotators),
+ * unifies synonyms into canonical families, re-calculates frequency using purified denominator,
+ * and anchors foundational role tools as HIGH core priority.
+ */
+export async function reSanitizeBucketTaxonomy(req, res) {
+  try {
+    const { bucketKey } = req.params
+    const bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (!bucket) return res.status(404).json({ success: false, message: 'Bucket not found.' })
+
+    const versionDoc = await JobMarketVersion.findOne({
+      bucketKey,
+      version: bucket.activeVersion,
+    })
+
+    if (!versionDoc || !versionDoc.marketProfile) {
+      return res.status(404).json({ success: false, message: 'Active version market profile not found.' })
+    }
+
+    let totalSample = versionDoc.marketProfile.sampleSize || 50
+    const canonicalMap = new Map()
+
+    if (Array.isArray(versionDoc.jobs) && versionDoc.jobs.length > 0) {
+      const purifiedJobs = filterJdsByDomainRelevance(versionDoc.jobs, bucket.roleKey || bucketKey)
+      totalSample = Math.max(1, purifiedJobs.length)
+
+      for (const job of purifiedJobs) {
+        const jobSkills = new Set(
+          (job.skills || [])
+            .map((s) => normalizeCanonicalSkill(s))
+            .filter((s) => s && isConcreteTechSkill(s) && !BANNED_CROSS_DOMAIN_JUNK.has(s.toLowerCase()))
+        )
+
+        const descText = String(job.description || job.text || job.normalizedDescription || '').toLowerCase()
+        if (/\bsql\b/i.test(descText)) jobSkills.add('SQL')
+        if (/\b(?:ms\s+)?excel\b/i.test(descText)) jobSkills.add('Excel')
+        if (/\bpython\b/i.test(descText)) jobSkills.add('Python')
+        if (/\btableau\b/i.test(descText)) jobSkills.add('Tableau')
+        if (/\bpower\s+bi\b/i.test(descText)) jobSkills.add('Power BI')
+
+        for (const skill of jobSkills) {
+          const lower = skill.toLowerCase()
+          if (!canonicalMap.has(lower)) {
+            canonicalMap.set(lower, { name: skill, count: 0 })
+          }
+          canonicalMap.get(lower).count += 1
+        }
+      }
+    } else {
+      if (totalSample >= 40) {
+        totalSample = Math.max(15, Math.round(totalSample * 0.65))
+      }
+
+      for (const s of (versionDoc.marketProfile.skills || [])) {
+        const rawName = s.name || s.skill || ''
+        const sanitized = sanitizeSkillToken(rawName)
+        if (!sanitized || !isConcreteTechSkill(sanitized) || BANNED_CROSS_DOMAIN_JUNK.has(sanitized.toLowerCase())) continue
+
+        const canonical = normalizeCanonicalSkill(sanitized) || sanitized
+        const lower = canonical.toLowerCase()
+        if (BANNED_CROSS_DOMAIN_JUNK.has(lower)) continue
+
+        const count = s.count || s.frequency || 1
+        if (!canonicalMap.has(lower)) {
+          canonicalMap.set(lower, { name: canonical, count: 0 })
+        }
+        canonicalMap.get(lower).count += count
+      }
+    }
+
+    const CORE_ROLE_ANCHORS = {
+      'data-analyst': ['sql', 'excel', 'python', 'power bi', 'tableau'],
+      'software-engineer': ['git', 'system design', 'unit / integration testing', 'docker', 'ci/cd'],
+      'product-manager': ['product strategy', 'roadmapping', 'user research', 'agile / scrum'],
+      'healthcare': ['patient care', 'electronic health records (ehr)', 'clinical assessment'],
+      'finance-accounting': ['financial modeling', 'budgeting & forecasting', 'excel', 'financial reporting'],
+    }
+    const roleClean = String(bucket.roleKey || bucketKey.split('::')[0] || '').toLowerCase()
+    const roleAnchorList = CORE_ROLE_ANCHORS[roleClean] || (roleClean.includes('analyst') ? CORE_ROLE_ANCHORS['data-analyst'] : (roleClean.includes('engineer') || roleClean.includes('developer') ? CORE_ROLE_ANCHORS['software-engineer'] : []))
+
+    const sortedList = Array.from(canonicalMap.values()).sort((a, b) => b.count - a.count)
+
+    const sanitizedSkills = sortedList.map((item, idx) => {
+      const percentage = Math.min(100, Math.round((item.count / totalSample) * 100))
+      const isAnchor = roleAnchorList.includes(item.name.toLowerCase())
+      const isTopThree = idx < 3 && percentage >= 25 && item.count >= 2
+
+      let priority = 'LOW'
+      if (percentage >= 30 || isTopThree || (isAnchor && percentage >= 20)) {
+        priority = 'HIGH'
+      } else if (percentage >= 15 || idx < 8 || (isAnchor && percentage >= 10)) {
+        priority = 'MEDIUM'
+      }
+
+      return {
+        name: item.name,
+        category: 'tool',
+        count: item.count,
+        frequency: item.count,
+        percentage,
+        frequencyRatio: Math.round((item.count / totalSample) * 100) / 100,
+        priority,
+        isCore: priority === 'HIGH',
+      }
+    })
+
+    versionDoc.marketProfile.sampleSize = totalSample
+    versionDoc.marketProfile.totalAnalyzed = totalSample
+    versionDoc.marketProfile.skills = sanitizedSkills
+    versionDoc.marketProfile.topKeywords = sanitizedSkills.slice(0, 20).map((s) => s.name)
+    versionDoc.markModified('marketProfile')
+    await versionDoc.save()
+
+    return res.status(200).json({
+      success: true,
+      message: 'Taxonomy re-sanitized successfully.',
+      bucketKey,
+      sampleSize: totalSample,
+      skills: sanitizedSkills,
+      coreSkillsCount: sanitizedSkills.filter((s) => s.isCore).length,
+    })
+  } catch (err) {
+    console.error('[AdminMarket] reSanitizeBucketTaxonomy error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 export default {
   listMarketBuckets,
   getMarketBucketDetail,
@@ -421,4 +553,5 @@ export default {
   deleteBucketCascade,
   scrapeAllActiveBuckets,
   createSpecializedBucket,
+  reSanitizeBucketTaxonomy,
 }

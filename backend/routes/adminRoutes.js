@@ -29,6 +29,7 @@ import {
   deleteBucketCascade,
   scrapeAllActiveBuckets,
   createSpecializedBucket,
+  reSanitizeBucketTaxonomy,
 } from '../controllers/adminMarketController.js'
 import {
   listLeads,
@@ -104,6 +105,7 @@ router.post('/market-library/scrape-all', scrapeAllActiveBuckets)
 router.post('/market-library/create-specialized', createSpecializedBucket)
 router.get('/market-library/refresh/:jobId', getMarketRefreshJobStatus)
 router.get('/market-library/:bucketKey/skills', getBucketSkillsTaxonomy)
+router.post('/market-library/:bucketKey/re-sanitize', reSanitizeBucketTaxonomy)
 router.post('/market-library/:bucketKey/skills', upsertBucketSkill)
 router.delete('/market-library/:bucketKey/skills/:skillName', deleteBucketSkill)
 router.delete('/market-library/:bucketKey', deleteBucketCascade)

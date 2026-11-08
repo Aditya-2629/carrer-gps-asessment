@@ -71,6 +71,7 @@ export default function MarketTaxonomyStudio({ token }) {
   })
   const [bucketToDelete, setBucketToDelete] = useState(null)
   const [deletingBucket, setDeletingBucket] = useState(false)
+  const [sanitizing, setSanitizing] = useState(false)
 
   const showToast = (msg) => {
     setToastMsg(msg)
@@ -331,6 +332,30 @@ export default function MarketTaxonomyStudio({ token }) {
     }
   }
 
+  // 1-Click Auto-Sanitize & Re-Calculate Core
+  const handleAutoSanitize = async () => {
+    if (!activeBucketKey) return
+    setSanitizing(true)
+    try {
+      const res = await fetch(`${API_BASE}/admin/market-library/${activeBucketKey}/re-sanitize`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (data.success) {
+        showToast(`Taxonomy re-sanitized! ${data.coreSkillsCount || 0} Core skills identified across ${data.sampleSize} JDs.`)
+        loadSkills()
+        loadBuckets()
+      } else {
+        alert(data.message || 'Failed to re-sanitize taxonomy')
+      }
+    } catch (err) {
+      alert(`Error re-sanitizing taxonomy: ${err.message}`)
+    } finally {
+      setSanitizing(false)
+    }
+  }
+
   // Filter skills
   const filteredSkills = useMemo(() => {
     return skills.filter((s) => {
@@ -538,6 +563,17 @@ export default function MarketTaxonomyStudio({ token }) {
                 </option>
               ))}
             </select>
+
+            <button
+              type="button"
+              onClick={handleAutoSanitize}
+              disabled={sanitizing || !activeBucketKey}
+              className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              title="Purge cross-domain noise (eDiscovery, HPLC, Annotators), unify synonyms (SQL, Excel, BI), and anchor Core Required skills."
+            >
+              <Sparkle size={14} weight="bold" />
+              <span>{sanitizing ? 'Purging Noise…' : 'Auto-Sanitize & Re-Calculate Core'}</span>
+            </button>
 
             <button
               type="button"
@@ -768,3 +804,4 @@ export default function MarketTaxonomyStudio({ token }) {
     </div>
   )
 }
+

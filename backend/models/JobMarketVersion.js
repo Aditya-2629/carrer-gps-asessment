@@ -46,6 +46,7 @@ const jobMarketVersionSchema = new mongoose.Schema(
           percentage: { type: Number, default: 0 },
           frequencyRatio: { type: Number, default: 0 },
           priority: { type: String, default: 'LOW' },
+          isCore: { type: Boolean, default: false },
         },
       ],
       responsibilities: [

@@ -7,7 +7,7 @@
  */
 
 import { aiGateway, llmGateway } from '../../../ai/gateway/llmGateway.js'
-import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
+import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } from './dynamicSkillExtractor.js'
 import { classifySkillsWithJev } from './jevDecisionClassifier.js'
 import {
   extractSkillsFromJd,
@@ -210,22 +210,98 @@ export function buildTaxonomyNormalizerUserMessage(terms = []) {
 
 // Preserved high-frequency synonym dictionary for instant 0ms lookups
 export const CANONICAL_SYNONYMS = {
+  // SQL and Relational Database Family
+  'sql': 'SQL',
+  'structured query language': 'SQL',
+  'including sql': 'SQL',
+  'oracle sql editor': 'SQL',
+  'oracle sql': 'SQL',
+  'sql server': 'SQL Server',
+  'ms sql': 'SQL Server',
+  't-sql': 'T-SQL',
+  'pl/sql': 'PL/SQL',
   'postgres': 'PostgreSQL',
   'postgresql': 'PostgreSQL',
   'postgre sql': 'PostgreSQL',
+  'mysql': 'MySQL',
+
+  // Python and Data Science
+  'python': 'Python',
+  'python3': 'Python',
+  'preferably python': 'Python',
+  'pandas': 'Python (Pandas)',
+  'numpy': 'NumPy',
+  'scikit-learn': 'Scikit-Learn',
+  'sklearn': 'Scikit-Learn',
+  'statsmodels': 'Statistical Analysis',
+  'statistical analysis': 'Statistical Analysis',
+  'r': 'R',
+
+  // Spreadsheets & Financial Modeling
+  'excel': 'Excel',
+  'ms excel': 'Excel',
+  'microsoft excel': 'Excel',
+  'spreadsheets': 'Excel',
+  'spreadsheet modeling': 'Excel',
+  'spreadsheet tools': 'Excel',
+  'power query': 'Excel (Power Query)',
+  'power pivot': 'Excel (Power Pivot)',
+  'vba': 'Excel (VBA)',
+  'google sheets': 'Google Sheets',
+
+  // BI & Data Visualization
   'powerbi': 'Power BI',
   'power bi': 'Power BI',
   'ms power bi': 'Power BI',
+  'microsoft power bi': 'Power BI',
   'power-bi': 'Power BI',
+  'tableau': 'Tableau',
+  'tableau software': 'Tableau',
+  'tableau desktop': 'Tableau',
+  'looker': 'Looker',
+  'looker studio': 'Looker',
+  'google looker': 'Looker',
+  'bi': 'Business Intelligence (BI)',
+  'business intelligence': 'Business Intelligence (BI)',
+  'business intelligence platforms': 'Business Intelligence (BI)',
+  'bi platforms': 'Business Intelligence (BI)',
+  'microstrategy': 'MicroStrategy',
+  'grafana': 'Grafana',
+
+  // Cloud Data Warehousing & Big Data
+  'snowflake': 'Snowflake',
+  'databricks': 'Databricks',
+  'bigquery': 'BigQuery',
+  'bigqueryexperience': 'BigQuery',
+  'google bigquery': 'BigQuery',
+  'redshift': 'Amazon Redshift',
+  'amazon redshift': 'Amazon Redshift',
+  'dbt': 'dbt',
+  'dbt core': 'dbt',
+  'spark': 'Apache Spark',
+  'pyspark': 'PySpark',
+  'apache spark': 'Apache Spark',
+  'airflow': 'Apache Airflow',
+  'apache airflow': 'Apache Airflow',
+  'kafka': 'Apache Kafka',
+  'apache kafka': 'Apache Kafka',
+
+  // Cloud Platforms
   'aws': 'AWS',
   'amazon web services': 'AWS',
   'gcp': 'Google Cloud',
   'google cloud platform': 'Google Cloud',
   'google cloud': 'Google Cloud',
-  'bigquery': 'BigQuery',
-  'google bigquery': 'BigQuery',
-  'dbt': 'dbt',
-  'dbt core': 'dbt',
+  'azure': 'Microsoft Azure',
+  'microsoft azure': 'Microsoft Azure',
+
+  // Containers & Orchestration
+  'k8s': 'Kubernetes',
+  'kube': 'Kubernetes',
+  'kubernetes': 'Kubernetes',
+  'docker': 'Docker',
+
+  // Web & Backend Frameworks
   'node': 'Node.js',
   'node.js': 'Node.js',
   'nodejs': 'Node.js',
@@ -242,24 +318,24 @@ export const CANONICAL_SYNONYMS = {
   'next.js': 'Next.js',
   'nextjs': 'Next.js',
   'next js': 'Next.js',
-  'k8s': 'Kubernetes',
-  'kube': 'Kubernetes',
-  'kubernetes': 'Kubernetes',
-  'snowflake': 'Snowflake',
-  'databricks': 'Databricks',
-  'pyspark': 'PySpark',
-  'spark': 'Apache Spark',
-  'apache spark': 'Apache Spark',
-  'airflow': 'Apache Airflow',
-  'apache airflow': 'Apache Airflow',
-  'kafka': 'Apache Kafka',
-  'apache kafka': 'Apache Kafka',
-  'tableau': 'Tableau',
-  'sql': 'SQL',
-  'python': 'Python',
-  'excel': 'Excel',
-  'ms excel': 'Excel',
-  'microsoft excel': 'Excel',
+
+  // ETL / ELT & Modeling
+  'etl': 'ETL / ELT',
+  'elt': 'ETL / ELT',
+  'data modeling': 'Data Modeling',
+  'data modelling': 'Data Modeling',
+  'dimensional modeling': 'Data Modeling',
+  'data mining': 'Data Mining',
+  'data validation': 'Data Validation',
+  'alteryx': 'Alteryx',
+}
+
+export const CORE_ROLE_ANCHORS = {
+  'data-analyst': ['sql', 'excel', 'python', 'power bi', 'tableau'],
+  'software-engineer': ['git', 'system design', 'unit / integration testing', 'docker', 'ci/cd'],
+  'product-manager': ['product strategy', 'roadmapping', 'user research', 'agile / scrum'],
+  'healthcare': ['patient care', 'electronic health records (ehr)', 'clinical assessment'],
+  'finance-accounting': ['financial modeling', 'budgeting & forecasting', 'excel', 'financial reporting'],
 }
 
 // In-memory cache for normalized taxonomy terms
@@ -278,10 +354,14 @@ Object.entries(CANONICAL_SYNONYMS).forEach(([term, canon]) => {
  */
 export function normalizeCanonicalSkill(rawName = '') {
   if (!rawName || typeof rawName !== 'string') return null
-  const trimmed = rawName.trim()
+  const sanitized = sanitizeSkillToken(rawName)
+  if (!sanitized) return null
+  const trimmed = sanitized.trim()
   if (trimmed.length < 2) return null
 
   const lower = trimmed.toLowerCase()
+  if (BANNED_CROSS_DOMAIN_JUNK.has(lower)) return null
+
   if (TAXONOMY_CANONICAL_CACHE.has(lower)) {
     const cached = TAXONOMY_CANONICAL_CACHE.get(lower)
     return cached && cached.length > 0 ? cached : null
@@ -572,23 +652,36 @@ export async function fallbackCorpusExtraction(jds = [], role = 'Professional') 
     })
   }
 
-  const skills = Array.from(skillOccurrences.values())
-    .map((s) => {
-      const percentage = Math.round((s.count / totalJds) * 100)
-      const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
-      return {
-        name: s.canonicalName,
-        category: s.category,
-        count: s.count,
-        frequency: s.count,
-        percentage,
-        frequencyRatio: Math.round((s.count / totalJds) * 100) / 100,
-        priority,
-        requiredCount: s.count,
-        preferredCount: 0,
-      }
-    })
-    .sort((a, b) => b.percentage - a.percentage || b.count - a.count)
+  const roleClean = String(role || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const roleAnchorList = CORE_ROLE_ANCHORS[roleClean] || (roleClean.includes('analyst') ? CORE_ROLE_ANCHORS['data-analyst'] : (roleClean.includes('engineer') || roleClean.includes('developer') ? CORE_ROLE_ANCHORS['software-engineer'] : []))
+
+  const sortedSkills = Array.from(skillOccurrences.values()).sort((a, b) => b.count - a.count)
+
+  const skills = sortedSkills.map((s, idx) => {
+    const percentage = Math.round((s.count / totalJds) * 100)
+    const isAnchor = roleAnchorList.includes(s.canonicalName.toLowerCase())
+    const isTopThree = idx < 3 && percentage >= 25 && s.count >= 2
+
+    let priority = 'LOW'
+    if (percentage >= 30 || isTopThree || (isAnchor && percentage >= 20)) {
+      priority = 'HIGH'
+    } else if (percentage >= 15 || idx < 8 || (isAnchor && percentage >= 10)) {
+      priority = 'MEDIUM'
+    }
+
+    return {
+      name: s.canonicalName,
+      category: s.category || 'tool',
+      count: s.count,
+      frequency: s.count,
+      percentage,
+      frequencyRatio: Math.round((s.count / totalJds) * 100) / 100,
+      priority,
+      requiredCount: s.count,
+      preferredCount: 0,
+      isCore: priority === 'HIGH',
+    }
+  })
 
   const responsibilities = Array.from(respOccurrences.values())
     .map((r) => ({
@@ -836,23 +929,36 @@ ${formattedJobs}`
     }
   }
 
-  const marketSkills = Array.from(skillOccurrences.values())
-    .map((s) => {
-      const percentage = Math.round((s.count / totalJds) * 100)
-      const priority = percentage >= 40 ? 'HIGH' : percentage >= 20 ? 'MEDIUM' : 'LOW'
-      return {
-        name: s.canonicalName,
-        category: s.category,
-        count: s.count,
-        frequency: s.count,
-        percentage,
-        frequencyRatio: Math.round((s.count / totalJds) * 100) / 100,
-        priority,
-        requiredCount: s.count,
-        preferredCount: 0,
-      }
-    })
-    .sort((a, b) => b.frequency - a.frequency || b.percentage - a.percentage)
+  const roleClean = String(role || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const roleAnchorList = CORE_ROLE_ANCHORS[roleClean] || (roleClean.includes('analyst') ? CORE_ROLE_ANCHORS['data-analyst'] : (roleClean.includes('engineer') || roleClean.includes('developer') ? CORE_ROLE_ANCHORS['software-engineer'] : []))
+
+  const sortedSkills = Array.from(skillOccurrences.values()).sort((a, b) => b.count - a.count)
+
+  const marketSkills = sortedSkills.map((s, idx) => {
+    const percentage = Math.round((s.count / totalJds) * 100)
+    const isAnchor = roleAnchorList.includes(s.canonicalName.toLowerCase())
+    const isTopThree = idx < 3 && percentage >= 25 && s.count >= 2
+
+    let priority = 'LOW'
+    if (percentage >= 30 || isTopThree || (isAnchor && percentage >= 20)) {
+      priority = 'HIGH'
+    } else if (percentage >= 15 || idx < 8 || (isAnchor && percentage >= 10)) {
+      priority = 'MEDIUM'
+    }
+
+    return {
+      name: s.canonicalName,
+      category: s.category || 'tool',
+      count: s.count,
+      frequency: s.count,
+      percentage,
+      frequencyRatio: Math.round((s.count / totalJds) * 100) / 100,
+      priority,
+      requiredCount: s.count,
+      preferredCount: 0,
+      isCore: priority === 'HIGH',
+    }
+  })
 
   const responsibilities = Array.from(respOccurrences.values())
     .map((r) => ({
@@ -917,6 +1023,7 @@ export default {
   TAXONOMY_NORMALIZER_SYSTEM_PROMPT,
   buildTaxonomyNormalizerUserMessage,
   CANONICAL_SYNONYMS,
+  CORE_ROLE_ANCHORS,
   TAXONOMY_CANONICAL_CACHE,
   normalizeCanonicalSkill,
   extractSkillsFromSingleJd,

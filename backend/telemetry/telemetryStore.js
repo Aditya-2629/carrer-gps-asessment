@@ -84,3 +84,4 @@ class TelemetryRingBuffer {
 
 export const telemetryStore = new TelemetryRingBuffer(250)
 export default telemetryStore
+

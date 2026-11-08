@@ -72,6 +72,55 @@ export const ALLOWED_LOWERCASE_TOOLS = new Set([
   'salesforce', 'hubspot', 'quickbooks', 'workday', 'figma', 'autocad', 'tableau', 'sap'
 ])
 
+// Banned cross-domain contaminated terms
+export const BANNED_CROSS_DOMAIN_JUNK = new Set([
+  'nuix', 'relativityone', 'concordance', 'ipro ecapture', 'equivio', 'clearwell', 'summation', 'encase', 'ftk',
+  'image annotation', 'video annotation', 'data labeling', 'data annotation', 'frame-level segmentation',
+  'timestamping', 'ai training', 'ai content review', 'text annotation', 'rubric evaluation', 'content rating',
+  'cgmp', 'cgmp guidelines', 'hplc', 'usp testing', 'standard operating procedures (sop)', 'sop', 'icd coding', 'healthcare credentialing',
+  'autocad', 'cmms', 'transit planning', 'operations planning', 'transit dataset analysis',
+  'mitre att&ck framework', 'symantec data loss prevention', 'threatmetrix', 'microsoft purview', 'microsoft sentinel', 'data loss prevention',
+  'decision-making', 'qualitative data analysis', 'qualitative research', 'persona development',
+  'similar relational database', 'similar data transformation', 'similar dashboard softwareability',
+  'comparable business intelligence', 'visualization platformability', 'visualization platform.ability',
+  'statistical computing language', 'online research', 'search engine evaluation', 'quality audits', 'quality review',
+  'document review', 'named entity recognition (ner)', 'taxonomy tagging', 'dataset curation', 'content review',
+  'object recognition', 'dataset quality validation', 'methodology documentation', 'accuracy.lead',
+  'annotation tools', 'data manipulation tools', 'intelligence analysis applications', 'database review',
+  'database management', 'data evaluation', 'quality assessment', 'data quality assurance', 'anomaly identification',
+  'audit', 'rdemonstrated communication', 'interpersonal', 'query functions', 'health-related', 'problem-solving',
+  'business requirements documentation', 'user acceptance testing', 'inventory analytics', 'configuration', 'integrations',
+  'workflow automation', 'datasets', 'finance systems', 'budget-versus-actuals', 'crm data', 'genai tools'
+])
+
+export function sanitizeSkillToken(token = '') {
+  if (!token || typeof token !== 'string') return ''
+  let clean = token.trim()
+
+  // 1. Strip leading prepositions/adjectives
+  clean = clean.replace(/^(?:including|such\s+as|preferably|similar|comparable|demonstrated|advanced|basic|strong|solid|proficient\s+in|experience\s+with|knowledge\s+of|ability\s+to|proficiency\s+in)\s+/i, '').trim()
+
+  // 2. Strip trailing filler
+  clean = clean.replace(/\s+(?:and|or|with|in|the|platforms?|tools?|systems?|software|suite)$/i, '').trim()
+
+  // 3. Dot sentence boundary guard (e.g. "Salesforce.Experience" -> "Salesforce")
+  if (/\.[A-Z]/.test(clean)) {
+    const parts = clean.split('.')
+    if (parts.length === 2 && parts[0].length >= 3 && /^[A-Za-z]+$/.test(parts[0]) && !/^(?:accuracy|platform|lead|decision|visualization)$/i.test(parts[0])) {
+      clean = parts[0]
+    } else {
+      return ''
+    }
+  }
+
+  // 4. Strip glued CamelCase suffix bleed (e.g. "BigQueryExperience" -> "BigQuery")
+  if (clean.toLowerCase() !== 'netsuite') {
+    clean = clean.replace(/(?:Experience|Knowledge|Skills|Ability|Platform|Platforms|Tools|Suite|Systems)$/, '').trim()
+  }
+
+  return clean
+}
+
 /**
  * Strict Multi-Domain & IT Entity Validation Guard
  * Validates whether a token represents a real concrete domain skill, tool, software,
@@ -79,7 +128,8 @@ export const ALLOWED_LOWERCASE_TOOLS = new Set([
  */
 export function isConcreteTechSkill(token) {
   if (!token || typeof token !== 'string') return false
-  let clean = token.trim()
+  let clean = sanitizeSkillToken(token)
+  if (!clean) return false
 
   // Strip leading/trailing conjunctions or prepositions if phrase was captured
   clean = clean.replace(/^(?:and|or|with|as\s+well\s+as|in|the|a|an|of|for|to)\s+/i, '').trim()
@@ -87,6 +137,9 @@ export function isConcreteTechSkill(token) {
 
   const low = clean.toLowerCase()
   const upper = clean.toUpperCase()
+
+  // Banned cross-domain contaminated terms guard
+  if (BANNED_CROSS_DOMAIN_JUNK.has(low)) return false
 
   // Length limits
   if (clean.length < 2 || clean.length > 35) return false
@@ -409,6 +462,8 @@ export default {
   extractSkillsHeuristically,
   assignHeuristicCategory,
   isConcreteTechSkill,
+  BANNED_CROSS_DOMAIN_JUNK,
+  sanitizeSkillToken,
   BANNED_GENERIC_WORDS,
   DYNAMIC_EXTRACTOR_SYSTEM_PROMPT,
   JD_SKILL_CACHE,

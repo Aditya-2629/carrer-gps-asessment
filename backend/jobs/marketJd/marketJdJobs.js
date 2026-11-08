@@ -18,6 +18,7 @@ import {
   buildApifyJdScraperInput,
   buildHarvestActorInput,
   filterJdsBySeniority,
+  filterJdsByDomainRelevance,
   runApifyActorScrape,
   DEFAULT_APIFY_JOB_ACTOR,
 } from '../../integrations/apify/apifyJdScraper.js'
@@ -328,12 +329,12 @@ export async function fetchFastCatchJds({
     url: item.linkedinUrl || item.url || item.link || '',
   })).filter((j) => (j.description || '').length >= 100)
 
-  // Seniority post-scrape filter
-  let validJds = filterJdsBySeniority(rawJds, expBucket)
+  // Seniority post-scrape filter & domain relevance guard
+  let validJds = filterJdsByDomainRelevance(filterJdsBySeniority(rawJds, expBucket), roleKey)
 
   // FAILSAFE RETRY: If primary returned < 20 filtered JDs, fall back to Indeed scraper
   if (validJds.length < 20) {
-    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 20 after seniority filter). Switching to Indeed fallback on Apify...`)
+    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 20 after seniority & domain filters). Switching to Indeed fallback on Apify...`)
 
     try {
       const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
@@ -351,7 +352,7 @@ export async function fetchFastCatchJds({
         url: item.linkedinUrl || item.url || item.link || '',
       })).filter((j) => (j.description || '').length >= 100)
 
-      const filteredFallback = filterJdsBySeniority(rawFallback, expBucket)
+      const filteredFallback = filterJdsByDomainRelevance(filterJdsBySeniority(rawFallback, expBucket), roleKey)
 
       if (filteredFallback.length >= 15) {
         validJds = filteredFallback
