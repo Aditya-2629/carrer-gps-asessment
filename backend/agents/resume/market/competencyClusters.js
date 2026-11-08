@@ -170,3 +170,4 @@ export default {
   DOMAIN_COMPETENCY_CLUSTERS,
   evaluateCandidateClusters,
 }
+

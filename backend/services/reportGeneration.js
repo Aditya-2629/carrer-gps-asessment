@@ -13,6 +13,7 @@ import User from '../models/User.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
@@ -671,21 +672,30 @@ export async function generateReportBundle({
   const smartQuery = buildSmartQuery(user.answers, user.resumeJson)
   const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && !user.linkedinData && !precomputedLinkedinData)
 
-  const [dynamicKbContent, liveLinkedinData] = await Promise.all([
+  const [dynamicKbContent, [liveLinkedinData, liveLinkedinPosts]] = await Promise.all([
     buildRAGContext(smartQuery).catch((err) => {
       console.warn('[ReportGen] RAG context fallback:', err.message)
       return null
     }),
     shouldScrapeLinkedin
-      ? scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
-          console.warn('[ReportGen] LinkedIn scrape fallback to resume data:', err.message)
-          return null
-        })
-      : Promise.resolve(null),
+      ? Promise.all([
+          scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
+            console.warn('[ReportGen] LinkedIn profile scrape fallback:', err.message)
+            return null
+          }),
+          scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+            console.warn('[ReportGen] LinkedIn posts scrape fallback:', err.message)
+            return null
+          }),
+        ])
+      : Promise.resolve([null, null]),
   ])
 
   if (liveLinkedinData && !user.linkedinData) {
     user.linkedinData = liveLinkedinData
+  }
+  if (liveLinkedinPosts && !user.linkedinActivityData) {
+    user.linkedinActivityData = liveLinkedinPosts
   }
 
   const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null

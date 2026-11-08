@@ -106,54 +106,48 @@ export async function getEngineConfig(_req, res) {
 
 // ─── POST /api/admin/engine/roles ───────────────────────────────────────────
 
-export async function createDynamicRole(req, res) {
+export const addCustomTargetRole = async (req, res) => {
   try {
-    const { roleName, specialization = 'general' } = req.body || {}
+    const { roleName, specialization = 'general', experienceBucket = '3-5' } = req.body || {}
 
-    if (!roleName || !String(roleName).trim()) {
-      return res.status(400).json({ success: false, message: 'roleName is required.' })
+    if (!roleName || typeof roleName !== 'string' || roleName.trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'Valid roleName is required.' })
     }
 
-    const cleanRoleName = String(roleName).trim()
-    const roleKey = cleanRoleName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
+    const cleanRoleName = roleName.trim()
+    const roleKey = cleanRoleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const spec = (specialization || 'general').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')
+    const exp = ['0-2', '3-5', '6-8', '8+'].includes(experienceBucket) ? experienceBucket : '3-5'
 
-    const EXPERIENCE_TIERS = ['0-2', '3-5', '6-8', '8+']
-    const createdBuckets = []
+    const bucketKey = spec !== 'general' ? `${roleKey}::${spec}::${exp}` : `${roleKey}::${exp}`
 
-    for (const exp of EXPERIENCE_TIERS) {
-      const bucketKey = `${roleKey}::${exp}`
-      let bucket = await JobMarketBucket.findOne({ bucketKey })
-
-      if (!bucket) {
-        bucket = await JobMarketBucket.create({
-          bucketKey,
-          roleKey,
-          roleName: cleanRoleName,
-          specialization: String(specialization || 'general').trim(),
-          experienceBucket: exp,
-          activeVersion: 0,
-          status: 'empty',
-          jobCount: 0,
-        })
-      }
-      createdBuckets.push(bucket)
+    let bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (!bucket) {
+      bucket = await JobMarketBucket.create({
+        bucketKey,
+        roleKey,
+        roleName: cleanRoleName,
+        specialization: spec,
+        experienceBucket: exp,
+        activeVersion: 0,
+        status: 'empty',
+        jobCount: 0,
+      })
     }
 
     return res.status(201).json({
       success: true,
-      message: `Successfully created 4 experience tier buckets for "${cleanRoleName}".`,
+      message: `Bucket "${bucketKey}" created successfully.`,
       roleKey,
-      roleName: cleanRoleName,
-      createdBuckets,
+      bucket,
     })
   } catch (err) {
-    console.error('[AdminDynamicController] createDynamicRole error:', err)
-    return res.status(500).json({ success: false, message: 'Failed to create dynamic role.' })
+    console.error('[AdminDynamicController] addCustomTargetRole failed:', err)
+    return res.status(500).json({ success: false, message: 'Could not add custom target role.' })
   }
 }
+
+export const createDynamicRole = addCustomTargetRole
 
 // ─── POST /api/admin/engine/scrape-slider ───────────────────────────────────
 

@@ -202,33 +202,12 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
 }
 
 /**
- * Initializes all configured Role × Experience buckets in MongoDB if they do not exist.
+ * Retrieves existing Role × Experience buckets from MongoDB.
+ * Zero auto-seeding: pre-built bucket auto-creation is disabled.
+ * Buckets are created exclusively on-demand via the Admin Panel.
  */
 export async function ensureConfiguredBucketsExist() {
-  const EXPERIENCE_BUCKETS = ['0-2', '3-5', '6-8', '8+']
-  const createdOrFound = []
-
-  for (const roleDef of CONTROLLED_ROLES) {
-    for (const exp of EXPERIENCE_BUCKETS) {
-      const bucketKey = `${roleDef.roleKey}::${exp}`
-      let bucket = await JobMarketBucket.findOne({ bucketKey })
-      if (!bucket) {
-        bucket = await JobMarketBucket.create({
-          bucketKey,
-          roleKey: roleDef.roleKey,
-          roleName: roleDef.roleName,
-          specialization: 'general',
-          experienceBucket: exp,
-          activeVersion: 0,
-          status: 'empty',
-          jobCount: 0,
-        })
-      }
-      createdOrFound.push(bucket)
-    }
-  }
-
-  return createdOrFound
+  return await JobMarketBucket.find({}).lean()
 }
 
 /**

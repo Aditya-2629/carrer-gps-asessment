@@ -73,6 +73,12 @@ export default function MarketTaxonomyStudio({ token }) {
   const [deletingBucket, setDeletingBucket] = useState(false)
   const [sanitizing, setSanitizing] = useState(false)
 
+  // Multi-select & Bulk Delete state
+  const [selectedBuckets, setSelectedBuckets] = useState([])
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bucketFilterQuery, setBucketFilterQuery] = useState('')
+
   const showToast = (msg) => {
     setToastMsg(msg)
     setTimeout(() => setToastMsg(''), 3500)
@@ -332,6 +338,49 @@ export default function MarketTaxonomyStudio({ token }) {
     }
   }
 
+  // Filtered Buckets
+  const filteredBuckets = useMemo(() => {
+    if (!bucketFilterQuery.trim()) return buckets
+    const q = bucketFilterQuery.toLowerCase()
+    return buckets.filter(
+      (b) => b.bucketKey.toLowerCase().includes(q) || (b.roleName || '').toLowerCase().includes(q)
+    )
+  }, [buckets, bucketFilterQuery])
+
+  // Bulk Cascade Delete Selected Buckets
+  const handleBulkDeleteBuckets = async () => {
+    if (selectedBuckets.length === 0) return
+    setBulkDeleting(true)
+    try {
+      const res = await fetch(`${API_BASE}/admin/market-library/bulk-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bucketKeys: selectedBuckets }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        showToast(`Successfully deleted ${data.deletedBucketsCount || selectedBuckets.length} bucket(s) and ${data.deletedVersionsCount || 0} snapshots!`)
+        const remaining = buckets.filter((b) => !selectedBuckets.includes(b.bucketKey))
+        setSelectedBuckets([])
+        setConfirmBulkDelete(false)
+        setBuckets(remaining)
+        if (selectedBuckets.includes(activeBucketKey)) {
+          setActiveBucketKey(remaining.length > 0 ? remaining[0].bucketKey : '')
+        }
+        loadBuckets()
+      } else {
+        alert(data.message || 'Failed to bulk delete buckets.')
+      }
+    } catch (err) {
+      alert(`Error during bulk delete: ${err.message}`)
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
   // 1-Click Auto-Sanitize & Re-Calculate Core
   const handleAutoSanitize = async () => {
     if (!activeBucketKey) return
@@ -567,6 +616,99 @@ export default function MarketTaxonomyStudio({ token }) {
             <span>·</span>
             <span>Target: 35 Verified JDs</span>
           </div>
+        </div>
+      </div>
+
+      {/* ── CONFIGURED ROLE BUCKETS MULTI-SELECT & BULK CASCADE ACTION ── */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
+        {/* Header Select All & Bulk Delete Action */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={filteredBuckets.length > 0 && selectedBuckets.length === filteredBuckets.length}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedBuckets(filteredBuckets.map((b) => b.bucketKey))
+                } else {
+                  setSelectedBuckets([])
+                }
+              }}
+              className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+              title="Select All Buckets"
+            />
+            <h4 className="text-xs font-bold text-slate-900 font-poppins">Configured Role Buckets</h4>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              {filteredBuckets.length} total
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedBuckets.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setConfirmBulkDelete(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition-all cursor-pointer shadow-2xs"
+              >
+                <Trash size={12} weight="bold" /> Delete ({selectedBuckets.length})
+              </button>
+            )}
+            <input
+              type="text"
+              placeholder="Filter buckets..."
+              value={bucketFilterQuery}
+              onChange={(e) => setBucketFilterQuery(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-36"
+            />
+          </div>
+        </div>
+
+        {/* Bucket Chips Grid with Multi-Select Checkboxes */}
+        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
+          {filteredBuckets.length === 0 ? (
+            <span className="text-xs text-slate-400 py-2">No matching buckets found.</span>
+          ) : (
+            filteredBuckets.map((b) => {
+              const isSelected = selectedBuckets.includes(b.bucketKey)
+              const isActive = activeBucketKey === b.bucketKey
+              return (
+                <div
+                  key={b.bucketKey}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs transition-all ${
+                    isActive
+                      ? 'bg-indigo-50 border-indigo-300 text-indigo-950 font-bold shadow-2xs'
+                      : 'bg-slate-50 hover:bg-white border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      if (e.target.checked) {
+                        setSelectedBuckets((prev) => [...prev, b.bucketKey])
+                      } else {
+                        setSelectedBuckets((prev) => prev.filter((k) => k !== b.bucketKey))
+                      }
+                    }}
+                    className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setActiveBucketKey(b.bucketKey)}
+                    className="cursor-pointer text-left font-mono text-[11px] hover:text-indigo-600"
+                  >
+                    <span>{b.bucketKey}</span>
+                    {b.jobCount > 0 && (
+                      <span className="ml-1 text-[9px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-600 font-sans font-semibold">
+                        {b.jobCount} JDs
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       </div>
 
@@ -864,6 +1006,55 @@ export default function MarketTaxonomyStudio({ token }) {
                 className="px-4 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl cursor-pointer shadow-xs"
               >
                 {deletingBucket ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BULK DELETE CONFIRMATION MODAL ── */}
+      {confirmBulkDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-2xl">
+                <Trash size={22} weight="bold" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 font-poppins">
+                  Cascade Bulk Delete {selectedBuckets.length} Bucket(s)?
+                </h3>
+                <p className="text-xs text-slate-500">
+                  This permanently removes the selected buckets and all their historical snapshots.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 max-h-36 overflow-y-auto space-y-1 font-mono text-xs text-slate-700">
+              {selectedBuckets.map((k) => (
+                <div key={k} className="flex items-center gap-1.5">
+                  <span className="text-rose-500 font-bold">•</span>
+                  <span>{k}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmBulkDelete(false)}
+                disabled={bulkDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDeleteBuckets}
+                disabled={bulkDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {bulkDeleting ? 'Deleting...' : `Confirm Delete (${selectedBuckets.length})`}
               </button>
             </div>
           </div>

@@ -340,6 +340,35 @@ export async function deleteBucketCascade(req, res) {
 }
 
 /**
+ * POST /api/admin/market-library/bulk-delete
+ * Bulk deletes multiple JobMarketBuckets and cascade-deletes all their JobMarketVersion snapshots.
+ */
+export async function bulkDeleteBuckets(req, res) {
+  try {
+    const { bucketKeys } = req.body || {}
+    if (!Array.isArray(bucketKeys) || bucketKeys.length === 0) {
+      return res.status(400).json({ success: false, message: 'Array of bucketKeys is required.' })
+    }
+
+    const [deletedBuckets, deletedVersions] = await Promise.all([
+      JobMarketBucket.deleteMany({ bucketKey: { $in: bucketKeys } }),
+      JobMarketVersion.deleteMany({ bucketKey: { $in: bucketKeys } }),
+    ])
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully deleted ${deletedBuckets.deletedCount} bucket(s) and ${deletedVersions.deletedCount} historical version snapshots.`,
+      deletedBucketsCount: deletedBuckets.deletedCount,
+      deletedVersionsCount: deletedVersions.deletedCount,
+      bucketKeys,
+    })
+  } catch (err) {
+    console.error('[AdminMarket] bulkDeleteBuckets error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+/**
  * POST /api/admin/market-library/scrape-all
  * Triggers safe staggered refresh across all active buckets.
  */
@@ -551,6 +580,7 @@ export default {
   upsertBucketSkill,
   deleteBucketSkill,
   deleteBucketCascade,
+  bulkDeleteBuckets,
   scrapeAllActiveBuckets,
   createSpecializedBucket,
   reSanitizeBucketTaxonomy,

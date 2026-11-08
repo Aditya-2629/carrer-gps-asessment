@@ -44,30 +44,41 @@ router.post('/scrape', async (req, res) => {
     return res.status(200).json({
       success: false,
       profile: null,
+      posts: null,
       error: 'Missing or empty LinkedIn profile URL.',
     })
   }
 
   try {
-    const profile = await scrapeLinkedInProfile(url.trim())
-    if (!profile) {
+    const cleanUrl = url.trim()
+    console.log(`[LinkedInAgentRoute] Launching concurrent Profile and Posts scrape for: ${cleanUrl}`)
+    const [profile, posts] = await Promise.all([
+      scrapeLinkedInProfile(cleanUrl).catch((err) => {
+        console.warn('[LinkedInAgentRoute] Profile scrape non-fatal error:', err.message)
+        return null
+      }),
+      scrapeLinkedInPosts(cleanUrl, { maxPosts: 15 }).catch((err) => {
+        console.warn('[LinkedInAgentRoute] Posts scrape non-fatal error:', err.message)
+        return null
+      }),
+    ])
+
+    if (!profile && !posts) {
       return res.status(200).json({
         success: false,
         profile: null,
+        posts: null,
         error: 'Scraping returned no data or Apify token not configured.',
       })
     }
     return res.status(200).json({
       success: true,
       profile,
+      posts,
     })
   } catch (err) {
-    console.warn('[LinkedInAgentRoute] Scrape endpoint non-fatal error:', err.message)
-    return res.status(200).json({
-      success: false,
-      profile: null,
-      error: err.message,
-    })
+    console.warn('[LinkedInAgentRoute] Concurrent scrape error:', err.message)
+    return res.status(200).json({ success: false, profile: null, posts: null, error: err.message })
   }
 })
 

@@ -27,6 +27,7 @@ import {
   upsertBucketSkill,
   deleteBucketSkill,
   deleteBucketCascade,
+  bulkDeleteBuckets,
   scrapeAllActiveBuckets,
   createSpecializedBucket,
   reSanitizeBucketTaxonomy,
@@ -100,6 +101,7 @@ router.delete('/users/:id', deleteUser)
 
 // ── Market Library Operations & Taxonomy CRUD ─────────────────────────────────
 router.get('/market-library', listMarketBuckets)
+router.post('/market-library/bulk-delete', bulkDeleteBuckets)
 router.post('/market-library/refresh', refreshAllMarketBuckets)
 router.post('/market-library/scrape-all', scrapeAllActiveBuckets)
 router.post('/market-library/create-specialized', createSpecializedBucket)

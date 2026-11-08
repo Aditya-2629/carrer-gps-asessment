@@ -29,6 +29,7 @@ export default function DynamicEngineManager({ token }) {
   const [showRoleModal, setShowRoleModal] = useState(false)
   const [roleName, setRoleName] = useState('')
   const [specialization, setSpecialization] = useState('')
+  const [experienceBucket, setExperienceBucket] = useState('3-5')
   const [creatingRole, setCreatingRole] = useState(false)
 
   // Key Injection
@@ -97,7 +98,7 @@ export default function DynamicEngineManager({ token }) {
     }
   }
 
-  // Create New Dynamic Role across 4 experience tiers
+  // Create New Dynamic Role for single experience tier on-demand
   const handleCreateRole = async (e) => {
     e.preventDefault()
     if (!roleName.trim()) return
@@ -112,14 +113,16 @@ export default function DynamicEngineManager({ token }) {
         body: JSON.stringify({
           roleName: roleName.trim(),
           specialization: specialization.trim() || 'general',
+          experienceBucket,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Failed to create role')
 
-      showToast(`Successfully initialized 4 MongoDB buckets for "${roleName}" (0-2, 3-5, 6-8, 8+)!`)
+      showToast(`Successfully initialized bucket "${data.bucket?.bucketKey || roleName}" (${experienceBucket} yrs)!`)
       setRoleName('')
       setSpecialization('')
+      setExperienceBucket('3-5')
       setShowRoleModal(false)
       loadConfig()
     } catch (err) {
@@ -461,7 +464,7 @@ export default function DynamicEngineManager({ token }) {
             <div>
               <h3 className="text-base font-bold text-slate-900">Inject New Target Role</h3>
               <p className="text-xs text-slate-500 mt-1">
-                Creates all 4 experience tiers (0-2, 3-5, 6-8, 8+) in MongoDB instantly with zero downtime.
+                Creates an on-demand Role × Experience bucket in MongoDB instantly with zero downtime.
               </p>
             </div>
 
@@ -478,6 +481,28 @@ export default function DynamicEngineManager({ token }) {
                   placeholder="e.g. Cloud Security Architect or AI Research Scientist"
                   className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Experience Level
+                </label>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {['0-2', '3-5', '6-8', '8+'].map((exp) => (
+                    <button
+                      key={exp}
+                      type="button"
+                      onClick={() => setExperienceBucket(exp)}
+                      className={`py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                        experienceBucket === exp
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {exp} yrs
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -506,7 +531,7 @@ export default function DynamicEngineManager({ token }) {
                   disabled={creatingRole}
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 cursor-pointer shadow-xs"
                 >
-                  {creatingRole ? 'Creating Buckets...' : 'Create 4 Buckets'}
+                  {creatingRole ? 'Creating Bucket...' : 'Create Bucket'}
                 </button>
               </div>
             </form>
