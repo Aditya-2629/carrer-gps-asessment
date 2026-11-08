@@ -12,6 +12,7 @@ import { extractSkillsFromJd } from './jdNormalizer.js'
 import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
+import { evaluateCandidateClusters } from './competencyClusters.js'
 
 export const isGenuineTechnicalSkill = isConcreteTechSkill
 
@@ -220,6 +221,58 @@ export const MARKET_ROLE_KEYWORD_PACKS = {
     'Reporting & Documentation',
     'Operational Excellence',
   ],
+}
+
+// Bi-Directional Skill Hierarchy & Equivalence Map
+// Automatically gives candidate full credit for parent requirement if verified in a child tool.
+export const SKILL_PARENT_CHILD_MAP = {
+  // Child -> Parents
+  'postgresql': ['SQL', 'Relational Databases'],
+  'mysql': ['SQL', 'Relational Databases'],
+  'sql server': ['SQL', 'Relational Databases'],
+  't-sql': ['SQL'],
+  'pl/sql': ['SQL'],
+  'oracle sql': ['SQL'],
+  'sqlite': ['SQL'],
+  'python (pandas)': ['Python', 'Pandas'],
+  'numpy': ['Python'],
+  'scikit-learn': ['Python', 'Machine Learning'],
+  'pyspark': ['Python', 'Apache Spark', 'Spark'],
+  'excel (power query)': ['Excel', 'Power Query'],
+  'excel (power pivot)': ['Excel'],
+  'excel (vba)': ['Excel', 'VBA'],
+  'google sheets': ['Excel', 'Spreadsheets'],
+  'next.js': ['React', 'JavaScript', 'TypeScript'],
+  'typescript': ['JavaScript'],
+  'docker': ['Containerization', 'DevOps'],
+  'kubernetes': ['Container Orchestration', 'DevOps', 'Docker'],
+}
+
+/**
+ * Checks if a market skill is satisfied by a candidate's verified skills either directly
+ * or via parent-child equivalence.
+ */
+export function isSkillSatisfiedByEquivalence(targetMarketSkill, candidateVerifiedSkills = []) {
+  const targetLower = String(targetMarketSkill || '').toLowerCase()
+  const candidateLowerSet = new Set(
+    (Array.isArray(candidateVerifiedSkills) ? candidateVerifiedSkills : []).map((s) =>
+      typeof s === 'string' ? s.toLowerCase() : String(s?.name || s?.skill || '').toLowerCase()
+    )
+  )
+
+  // 1. Direct match
+  if (candidateLowerSet.has(targetLower)) return true
+
+  // 2. Child-to-Parent Match (e.g. Target is "SQL", candidate has "PostgreSQL")
+  for (const candidateSkill of candidateLowerSet) {
+    const parents = SKILL_PARENT_CHILD_MAP[candidateSkill] || []
+    if (parents.some((p) => p.toLowerCase() === targetLower)) {
+      return true
+    }
+  }
+
+  // 3. Parent-to-Child Match (e.g. Target is "SQL Server", candidate has "SQL" + mentions SQL Server in experience)
+  return false
 }
 
 // Canonical synonym and concept mapping for accurate recruiter-grade verification
@@ -696,9 +749,43 @@ export function computeKeywordAlignment({
       continue
     }
 
-    const inExperience = keywordMatchesText(skillName, expAndProjText)
-    const inSkills = keywordMatchesText(skillName, skillsText) || candidateSkillsSet.has(skillName.toLowerCase())
-    const inSummary = keywordMatchesText(skillName, summaryText) || keywordMatchesText(skillName, fullResumeText)
+    let inExperience = keywordMatchesText(skillName, expAndProjText)
+    if (!inExperience) {
+      // Child-to-Parent Equivalence: check if child tool is verified in experience
+      for (const [childSkill, parents] of Object.entries(SKILL_PARENT_CHILD_MAP)) {
+        if (parents.some((p) => p.toLowerCase() === skillLower)) {
+          if (keywordMatchesText(childSkill, expAndProjText)) {
+            inExperience = true
+            break
+          }
+        }
+      }
+    }
+
+    let inSkills = keywordMatchesText(skillName, skillsText) || candidateSkillsSet.has(skillLower)
+    if (!inSkills) {
+      // Child-to-Parent Equivalence: check if child tool is in candidate declared skills
+      for (const [childSkill, parents] of Object.entries(SKILL_PARENT_CHILD_MAP)) {
+        if (parents.some((p) => p.toLowerCase() === skillLower)) {
+          if (candidateSkillsSet.has(childSkill.toLowerCase()) || keywordMatchesText(childSkill, skillsText)) {
+            inSkills = true
+            break
+          }
+        }
+      }
+    }
+
+    let inSummary = keywordMatchesText(skillName, summaryText) || keywordMatchesText(skillName, fullResumeText)
+    if (!inSummary && !inExperience && !inSkills) {
+      for (const [childSkill, parents] of Object.entries(SKILL_PARENT_CHILD_MAP)) {
+        if (parents.some((p) => p.toLowerCase() === skillLower)) {
+          if (keywordMatchesText(childSkill, summaryText) || keywordMatchesText(childSkill, fullResumeText)) {
+            inSummary = true
+            break
+          }
+        }
+      }
+    }
 
     if (inExperience) {
       matchedInExperience.push(skillName)
@@ -767,6 +854,9 @@ export function computeKeywordAlignment({
   const totalTargetKeywords = uniqueMatched.length + uniqueSkillsOnly.length + missingMarketSkillsRanked.length
   const matchPercent = totalTargetKeywords > 0 ? Math.round((matchedCount / totalTargetKeywords) * 100) : 100
 
+  // Evaluate hierarchical competency clusters ("OR" Grouping)
+  const competencyClusters = evaluateCandidateClusters(packKey, uniqueMatched, allMarketSkills)
+
   return {
     source: isJdProvided ? 'active_jd' : 'market_intelligence',
     sourceLabel: isJdProvided ? 'Active Job Description' : 'Market Intelligence (Top Target Keywords)',
@@ -779,6 +869,7 @@ export function computeKeywordAlignment({
     skillsOnlyUnverified: uniqueSkillsOnly,
     missingFromResume: uniqueMissing, // 100% genuinely missing skills only, UNCAPPED!
     missingMarketSkillsRanked,        // 100% genuinely missing skills only, UNCAPPED!
+    competencyClusters,              // Competency Clusters ("OR" Grouping)
     isCompleteCoverage: uniqueMissing.length === 0,
     skillsOnlyGuidance: 'Listed in your Skills section, but not shown in your work bullets — mention in 1 bullet to prove hands-on usage.',
   }
@@ -1229,4 +1320,7 @@ export default {
   SEMANTIC_SLOTS,
   MARKET_ROLE_KEYWORD_PACKS,
   KEYWORD_SYNONYMS,
+  SKILL_PARENT_CHILD_MAP,
+  isSkillSatisfiedByEquivalence,
+  evaluateCandidateClusters,
 }

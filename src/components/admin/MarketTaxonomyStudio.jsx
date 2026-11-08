@@ -356,6 +356,43 @@ export default function MarketTaxonomyStudio({ token }) {
     }
   }
 
+  // Active Competency Clusters calculation
+  const activeClusters = useMemo(() => {
+    const isSwe = activeBucketKey.includes('software') || activeBucketKey.includes('engineer') || activeBucketKey.includes('developer')
+    const clusterDefs = isSwe
+      ? [
+          { name: 'Backend Systems Programming', defaultDemand: 90, tools: ['Go', 'Java', 'Python', 'TypeScript', 'C++', 'Rust'] },
+          { name: 'Cloud Infrastructure & Containerization', defaultDemand: 85, tools: ['AWS', 'GCP', 'Docker', 'Kubernetes', 'Terraform'] },
+          { name: 'Event Streaming & Async Messaging', defaultDemand: 65, tools: ['Apache Kafka', 'RabbitMQ', 'Redis', 'AWS SQS'] },
+        ]
+      : [
+          { name: 'Data Visualization & BI', defaultDemand: 56, tools: ['Power BI', 'Tableau', 'Looker', 'Metabase', 'Qlik'] },
+          { name: 'Relational Database & SQL', defaultDemand: 71, tools: ['SQL', 'PostgreSQL', 'MySQL', 'SQL Server', 'T-SQL'] },
+          { name: 'Spreadsheet & Modeling', defaultDemand: 58, tools: ['Excel', 'Google Sheets', 'Power Query'] },
+          { name: 'Analytical Programming', defaultDemand: 48, tools: ['Python', 'R', 'Pandas', 'NumPy'] },
+          { name: 'Cloud Data Warehousing', defaultDemand: 50, tools: ['Snowflake', 'BigQuery', 'Amazon Redshift', 'dbt'] },
+        ]
+
+    return clusterDefs.map((c) => {
+      const matched = skills.filter((s) =>
+        c.tools.some((t) => t.toLowerCase() === (s.name || '').toLowerCase())
+      )
+      let demand = c.defaultDemand
+      if (matched.length > 0) {
+        const sorted = [...matched].sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
+        demand = sorted[0].percentage || 0
+        for (let i = 1; i < sorted.length; i++) {
+          demand = Math.min(100, Math.round(demand + (sorted[i].percentage || 0) * 0.35))
+        }
+      }
+      return {
+        name: c.name,
+        demand: `${demand || c.defaultDemand}% Core`,
+        tools: c.tools.slice(0, 4).join(', '),
+      }
+    })
+  }, [activeBucketKey, skills])
+
   // Filter skills
   const filteredSkills = useMemo(() => {
     return skills.filter((s) => {
@@ -592,6 +629,37 @@ export default function MarketTaxonomyStudio({ token }) {
             >
               <Trash size={16} />
             </button>
+          </div>
+        </div>
+
+        {/* Competency Clusters Summary Box */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkle size={16} className="text-indigo-600" weight="fill" />
+              <h4 className="text-xs font-extrabold text-slate-900 font-poppins">
+                Active Competency Clusters ("OR" Grouping)
+              </h4>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {activeClusters.length} Core Clusters Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {activeClusters.map((c) => (
+              <div key={c.name} className="p-3 bg-white border border-slate-200 rounded-xl space-y-1 shadow-2xs">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-xs font-bold text-slate-900 truncate" title={c.name}>{c.name}</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                    {c.demand}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-mono truncate" title={c.tools}>
+                  Interchangeable: {c.tools}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 

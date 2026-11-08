@@ -18,30 +18,69 @@ export const DEFAULT_TIMEOUT_MS = 300000  // 5 minutes for 100 items
 export const DEFAULT_MAX_RETRIES = 3
 
 /**
- * Builds input payload for harvestapi/linkedin-job-search actor (fast API-based scraper).
- * Injects specialization context and seniority prefixes dynamically.
+ * Calibrated Boolean Search Query Generator
+ * Builds high-precision queries for Apify actors with negative keyword exclusion.
  */
-export function buildHarvestActorInput({ role, specialization = 'general', location = 'United States', maxItems = 35, experienceBucket = '3-5' } = {}) {
-  let searchTitle = role || 'Software Engineer'
-  
-  // Inject active specialization if not default
-  if (specialization && specialization !== 'general' && !searchTitle.toLowerCase().includes(specialization.toLowerCase())) {
-    searchTitle = `${searchTitle} ${specialization}`
+export function buildCalibratedSearchQuery(role = 'Data Analyst') {
+  const cleanRole = String(role || '').trim()
+
+  if (/data\s*analyst/i.test(cleanRole)) {
+    return {
+      jobTitles: [
+        'Data Analyst',
+        'Business Intelligence Analyst',
+        'Analytics Engineer',
+        'BI Analyst',
+      ],
+      // Negative boolean query for actors supporting search text
+      queryFilter: '"Data Analyst" -litigation -ediscovery -hplc -annotation -chemist -cad -paralegal',
+    }
   }
 
-  // Prepend Seniority prefix
-  if ((experienceBucket === '6-8' || experienceBucket === '8+') && !/senior|lead|principal|staff|director/i.test(searchTitle)) {
-    searchTitle = `Senior ${searchTitle}`
-  } else if (experienceBucket === '0-2' && !/junior|entry|associate|graduate/i.test(searchTitle)) {
-    searchTitle = `Junior ${searchTitle}`
+  if (/software\s*engineer/i.test(cleanRole)) {
+    return {
+      jobTitles: [
+        'Software Engineer',
+        'Backend Engineer',
+        'Full Stack Engineer',
+      ],
+      queryFilter: '"Software Engineer" -civil -mechanical -plumbing -hvac',
+    }
   }
 
   return {
-    jobTitles: [searchTitle.trim()],
+    jobTitles: [cleanRole],
+    queryFilter: `"${cleanRole}"`,
+  }
+}
+
+/**
+ * Builds input payload for harvestapi/linkedin-job-search actor (fast API-based scraper).
+ * Injects calibrated boolean search queries, specialization context, and seniority prefixes dynamically.
+ */
+export function buildHarvestActorInput({ role, specialization = 'general', location = 'United States', maxItems = 40, experienceBucket = '3-5' } = {}) {
+  const { jobTitles, queryFilter } = buildCalibratedSearchQuery(role)
+
+  // Format primary title with specialization modifier
+  let primaryTitle = jobTitles[0] || role || 'Data Analyst'
+  if (specialization && specialization !== 'general' && !primaryTitle.toLowerCase().includes(specialization.toLowerCase())) {
+    primaryTitle = `${primaryTitle} ${specialization}`
+  }
+
+  // Prepend Seniority prefix
+  if ((experienceBucket === '6-8' || experienceBucket === '8+') && !/senior|lead|principal|staff|director/i.test(primaryTitle)) {
+    primaryTitle = `Senior ${primaryTitle}`
+  } else if (experienceBucket === '0-2' && !/junior|entry|associate|graduate/i.test(primaryTitle)) {
+    primaryTitle = `Junior ${primaryTitle}`
+  }
+
+  return {
+    jobTitles: [primaryTitle, ...jobTitles.slice(1, 3)],
     locations: [location],
-    maxItems: Math.max(25, Math.min(maxItems, 75)),
+    maxItems: Math.max(35, Math.min(maxItems, 75)),
     postedLimit: 'month',
     sortBy: 'relevance',
+    ...(queryFilter ? { queryFilter } : {}),
   }
 }
 
@@ -128,10 +167,12 @@ export function filterJdsByDomainRelevance(jds = [], roleKey = 'data-analyst') {
  */
 export function buildApifyJdScraperInput(targetRole = 'Software Engineer', options = {}) {
   const rows = options.rows || options.targetCount || options.maxCandidates || 40
+  const calibrated = buildCalibratedSearchQuery(targetRole)
+  const defaultTitles = calibrated.jobTitles && calibrated.jobTitles.length > 0 ? calibrated.jobTitles : [targetRole]
   return {
     titles: Array.isArray(options.titles) && options.titles.length > 0
       ? options.titles
-      : [targetRole],
+      : defaultTitles,
     // "United States" pure country level par LinkedIn jaldi throttle karta hai. 
     // Major US tech locations pass karne se actor pagination block bypass karta hai.
     locations: Array.isArray(options.locations) && options.locations.length > 0
