@@ -16,6 +16,7 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
+import dynamicCompetencyClusterizer from '../agents/resume/market/dynamicCompetencyClusterizer.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { judgeReport } from '../agents/judge/judgeAgent.js'
@@ -625,687 +626,240 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
   return normalized
 }
 
-export async function generateReportBundle({
-  userId,
-  semanticProfile,
-  precomputedResumeAgent = null,
-  precomputedResumeJson = null,
-  precomputedLinkedinData = null,
-  onProgress = () => {},
-}) {
-  const totalStart = Date.now()
-  const report = (stage, message) => {
-    try {
-      onProgress({ stage, message, at: new Date().toISOString() })
-    } catch (_e) {
-      /* listeners must never break generation */
-    }
-  }
+export function performDeterministicTriage(assessmentData = {}) {
+  const resumeFacts = assessmentData.resumeFacts || assessmentData.resumeData || {};
+  const marketJds = assessmentData.marketJds || assessmentData.jobDescriptions || [];
+  const targetRole = assessmentData.targetRole || resumeFacts.targetRole || 'Specialist';
+  const scrapedSkills = assessmentData.scrapedSkills || assessmentData.marketSkills || [];
 
-  const user = await User.findById(userId)
-  if (!user) throw Object.assign(new Error('User not found.'), { statusCode: 404 })
-  if (!user.isVerified) throw Object.assign(new Error('Unauthorized. Email not verified.'), { statusCode: 403 })
+  const candidateSkills = (resumeFacts.skills || []).map((s) =>
+    (typeof s === 'string' ? s : s?.name || '')
+  ).filter(Boolean);
 
-  const hasAnswers = user.answers && Object.keys(user.answers).length > 0
-  if (!hasAnswers) throw Object.assign(new Error('No answers found. Please submit the assessment first.'), { statusCode: 400 })
+  const jdTexts = marketJds.map((jd) => {
+    if (typeof jd === 'string') return jd;
+    return jd.description || jd.rawText || jd.text || '';
+  }).filter(Boolean);
 
-  if (precomputedResumeJson && !user.resumeJson) {
-    user.resumeJson = precomputedResumeJson
-  }
+  const clusterResult = dynamicCompetencyClusterizer.processDynamicClustering({
+    jdTexts,
+    rawSkills: scrapedSkills,
+    candidateSkills
+  });
 
-  if (precomputedLinkedinData && !user.linkedinData) {
-    user.linkedinData = precomputedLinkedinData
-  }
+  const experienceYears = Number(
+    resumeFacts.totalExperienceYears || resumeFacts.experienceYears || 0
+  );
+  const bulletPoints = resumeFacts.bulletPoints || resumeFacts.experienceBullets || [];
+  const quantifiedBullets = bulletPoints.filter((b) =>
+    /\d+%|\$\d+|\b\d+\b/g.test(typeof b === 'string' ? b : b?.text || '')
+  ).length;
+  const quantificationRatio =
+    bulletPoints.length > 0 ? quantifiedBullets / bulletPoints.length : 0;
 
-  let precomputedLinkedinActivityData = user.linkedinActivityData || user.answers?.linkedinActivityData || null
-
-  const effectiveCanonicalResume =
-    precomputedResumeJson ||
-    precomputedResumeAgent?.canonicalResume ||
-    (Array.isArray(user.resumeJson?.experience) || Array.isArray(user.resumeJson?.experiences) ? user.resumeJson : null)
-
-  const effectiveLinkedinUrl = user.linkedinUrl || user.answers?.linkedin || user.answers?.linkedinUrl || ''
-
-  report('preparing', 'Building knowledge context and orchestrating agents…')
-
-  // Run RAG context preparation and LinkedIn live scrape in parallel
-  const smartQuery = buildSmartQuery(user.answers, user.resumeJson)
-  const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && !user.linkedinData && !precomputedLinkedinData)
-
-  const [dynamicKbContent, [liveLinkedinData, liveLinkedinPosts]] = await Promise.all([
-    buildRAGContext(smartQuery).catch((err) => {
-      console.warn('[ReportGen] RAG context fallback:', err.message)
-      return null
-    }),
-    shouldScrapeLinkedin
-      ? Promise.all([
-          scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
-            console.warn('[ReportGen] LinkedIn profile scrape fallback:', err.message)
-            return null
-          }),
-          scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-            console.warn('[ReportGen] LinkedIn posts scrape fallback:', err.message)
-            return null
-          }),
-        ])
-      : Promise.resolve([null, null]),
-  ])
-
-  if (liveLinkedinData && !user.linkedinData) {
-    user.linkedinData = liveLinkedinData
-  }
-  if (liveLinkedinPosts && !user.linkedinActivityData) {
-    user.linkedinActivityData = liveLinkedinPosts
-  }
-
-  const effectiveSemanticProfile = semanticProfile || user.semanticProfile || null
-
-  // Safely extract string targetRole from semantic profile or user answers
-  const rawTargetRole =
-    (typeof effectiveSemanticProfile?.targetRole === 'object'
-      ? effectiveSemanticProfile?.targetRole?.rawAnswer || effectiveSemanticProfile?.targetRole?.value || effectiveSemanticProfile?.targetRole?.title
-      : effectiveSemanticProfile?.targetRole) ||
-    (typeof effectiveSemanticProfile?.target_role === 'object'
-      ? effectiveSemanticProfile?.target_role?.rawAnswer || effectiveSemanticProfile?.target_role?.value || effectiveSemanticProfile?.target_role?.title
-      : effectiveSemanticProfile?.target_role) ||
-    (typeof user.answers?.targetRole === 'object'
-      ? user.answers?.targetRole?.rawAnswer || user.answers?.targetRole?.value || user.answers?.targetRole?.title
-      : user.answers?.targetRole) ||
-    user.resumeJson?.target_role ||
-    user.targetRole ||
-    ''
-
-  const resumeTextForRole =
-    effectiveCanonicalResume?.summary?.text ||
-    (effectiveCanonicalResume?.experience || effectiveCanonicalResume?.experiences || []).map((e) => `${e.role || ''} ${e.title || ''}`).join(' ') ||
-    ''
-  const inferredRole = inferRoleFromKeywordFrequency(resumeTextForRole)
-  const resumeTargetRole = (typeof rawTargetRole === 'string' && rawTargetRole.trim())
-    ? rawTargetRole.trim()
-    : (inferredRole && inferredRole !== 'Professional' ? inferredRole : 'Technical Professional')
-
-  // Evaluate rich assessment intelligence & directives across all agents
-  const assessmentPersona = evaluateAssessmentPersona({
-    answers: user.answers || {},
-    semanticProfile: effectiveSemanticProfile || {},
-    resumeContext: {
-      canonicalResume: effectiveCanonicalResume,
-      targetRole: resumeTargetRole,
-    },
-  })
-
-  report('agents_running', 'Running Resume and LinkedIn specialized diagnostic agents…')
-
-  // If precomputedResumeAgent is already supplied from upload-time execution,
-  // skip duplicate ResumeAgent LLM execution and only run LinkedIn agent if needed,
-  // while still bridging the canonical resume facts to evaluateLinkedIn.
-  let agentsPromise
-  if (precomputedResumeAgent) {
-    report('agent_resume_agent_done', 'Precomputed Resume Agent diagnosis attached.')
-    agentsPromise = (async () => {
-      const linkedinRes = await runCareerAgents({
-        resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
-        resumeName: user.resumeName || '',
-        canonicalResume: effectiveCanonicalResume,
-        resumeTargetRole,
-        answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
-        linkedinUrl: effectiveLinkedinUrl,
-        linkedinData: user.linkedinData || precomputedLinkedinData || null,
-        linkedinActivityData: user.linkedinActivityData || precomputedLinkedinActivityData || null,
-        userId: user._id,
-        assessmentPersona,
-        skipResumeSynthesis: true,
-        onProgress: (e) => {
-          if (e.agent !== 'resume') {
-            const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
-            report(st, e.message)
-          }
-        },
-      })
-      return {
-        resumeAgent: precomputedResumeAgent,
-        linkedinAgent: linkedinRes.linkedinAgent,
-        linkedinData: linkedinRes.linkedinData,
-      }
-    })()
-  } else {
-    agentsPromise = runCareerAgents({
-      resumeBuffer: user.resumeData && user.resumeData.length > 0 ? user.resumeData : null,
-      resumeName: user.resumeName || '',
-      canonicalResume: effectiveCanonicalResume,
-      resumeTargetRole,
-      answers: user.answers || {}, // INJECT QUESTIONNAIRE DATA
-      linkedinUrl: effectiveLinkedinUrl,
-      linkedinData: user.linkedinData || precomputedLinkedinData || null,
-      linkedinActivityData: user.linkedinActivityData || precomputedLinkedinActivityData || null,
-      userId: user._id,
-      assessmentPersona,
-      onProgress: (e) => {
-        const st = e.stage.startsWith('agent_') ? e.stage : `agent_${e.agent}_${e.stage}`
-        report(st, e.message)
-      },
-    })
-  }
-
-  // Await agentsPromise before callAtlas: ResumeAgent is precomputed in 0ms and LinkedInAgent
-  // executes in ~2.5s on Groq. Awaiting here gives Atlas the verified agent diagnoses
-  // and freshly scraped LinkedIn data so the report is 100% dynamic.
-  const result = await agentsPromise
-  const activeResumeAgent = result?.resumeAgent || precomputedResumeAgent || null
-  let activeLinkedinAgent = result?.linkedinAgent || null
-  const isPoisonedLinkedin = (data) =>
-    data &&
-    typeof data === 'object' &&
-    data.fullName === 'Not Specified' &&
-    (!data.experiences || data.experiences.length === 0)
-
-  if (isPoisonedLinkedin(user.linkedinData)) {
-    console.warn('[ReportGeneration] Discarding poisoned/empty Apify profile in user.linkedinData')
-    user.linkedinData = null
-  }
-  if (isPoisonedLinkedin(precomputedLinkedinData)) {
-    precomputedLinkedinData = null
-  }
-
-  let activeLinkedinData = user.linkedinData || precomputedLinkedinData || result?.linkedinData || null
-  if (isPoisonedLinkedin(activeLinkedinData)) {
-    activeLinkedinData = null
-    user.linkedinData = null
-  }
-  if (!user.linkedinData && activeLinkedinData) {
-    user.linkedinData = activeLinkedinData
-  }
-
-  // Persist LinkedIn Activity data & signals from orchestrator results
-  if (result?.activityData && !user.linkedinActivityData) {
-    user.linkedinActivityData = result.activityData
-  } else if (result?.linkedinActivityData) {
-    user.linkedinActivityData = result.linkedinActivityData
-  }
-  if (result?.activitySignals && !user.linkedinActivitySignals) {
-    user.linkedinActivitySignals = result.activitySignals
-  } else if (result?.linkedinActivitySignals) {
-    user.linkedinActivitySignals = result.linkedinActivitySignals
-  } else if (activeLinkedinAgent?.activitySignals) {
-    user.linkedinActivitySignals = activeLinkedinAgent.activitySignals
-  }
-
-  // Safety net: ensure linkedin_agent is evaluated if missing or dataAvailable was false
-  if ((!activeLinkedinAgent || activeLinkedinAgent.dataAvailable === false) && (activeLinkedinData || effectiveLinkedinUrl || effectiveCanonicalResume || user.resumeJson)) {
-    try {
-      console.log('[ReportGeneration] Running safety net evaluateLinkedIn directly...')
-      const directLi = await evaluateLinkedIn({
-        profile: isPoisonedLinkedin(activeLinkedinData) ? null : activeLinkedinData,
-        resumeContext: {
-          canonicalResume: activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson,
-          targetRole: resumeTargetRole,
-        },
-        answers: user.answers || {},
-        runLlm: true,
-        preferredProvider: 'groq',
-      })
-      if (directLi) {
-        activeLinkedinAgent = directLi
-      }
-    } catch (directErr) {
-      console.warn('[ReportGeneration] Safety net evaluateLinkedIn failed:', directErr.message)
-    }
-  }
-
-  const compactDigest = buildCompactAtlasDigest({
-    user,
-    activeResumeAgent,
-    activeLinkedinAgent,
-    targetRole: resumeTargetRole,
-    phase: assessmentPersona?.phase,
-  })
-
-  const promptText = getGeminiPrompt(
-    user.answers,
-    effectiveCanonicalResume || user.resumeJson,
-    user.linkedinData || activeLinkedinData,
-    dynamicKbContent,
-    effectiveSemanticProfile,
-    activeResumeAgent,
-    activeLinkedinAgent,
-    assessmentPersona,
-    null,
-    compactDigest
-  )
-
-  // Atlas draft with completeness guard: if the model returns a partial JSON
-  // (missing sections), retry ONCE with an explicit completeness instruction
-  // and keep whichever draft is more complete.
-  report('atlas_roadmap', 'Generating Atlas strategic career roadmap & executive diagnostic…')
-  let atlasResult = await callAtlas(promptText, '', user.answers)
-  let aiReport = atlasResult.report || atlasResult
-  let atlasTelemetry = atlasResult.telemetry || atlasResult._telemetry || {
-    durationMs: 0,
-    modelUsed: 'google/gemini-3.5-flash-lite',
-    fallbackTriggered: false,
-  }
-  let draftCompleteness = atlasCompleteness(aiReport)
-  if (draftCompleteness < 11) {
-    report('composing', 'First draft was incomplete — asking Atlas for the full report…')
-    try {
-      const retryResult = await callAtlas(
-        promptText,
-        '\n\nIMPORTANT: Your previous response was incomplete. Return the COMPLETE JSON object with EVERY section fully populated — especially funnel_stages, risk_heatmap, mission_board, rejection_factors, career_journey, and recommended_tools. Do not skip or shorten any array. If a section is long, prioritize completeness over prose length.',
-        user.answers
-      )
-      const retryReport = retryResult.report || retryResult
-      const retryTelemetry = retryResult.telemetry || retryResult._telemetry
-      if (retryTelemetry) {
-        atlasTelemetry = retryTelemetry
-      }
-      const retryCompleteness = atlasCompleteness(retryReport)
-      if (retryCompleteness >= draftCompleteness) {
-        aiReport = mergeReportSections(retryReport, aiReport)
-        draftCompleteness = atlasCompleteness(aiReport)
-      } else {
-        aiReport = mergeReportSections(aiReport, retryReport)
-        draftCompleteness = atlasCompleteness(aiReport)
-      }
-    } catch (retryErr) {
-      console.warn('[ReportGeneration] Atlas completeness retry failed, using first draft:', retryErr.message)
-    }
-  }
-
-  // Include structured resume & linkedin json in final report output
-  if (effectiveCanonicalResume || user.resumeJson) {
-    aiReport.resume_json = effectiveCanonicalResume || user.resumeJson
-  }
-  if (user.linkedinData || activeLinkedinData) {
-    aiReport.linkedin_json = user.linkedinData || activeLinkedinData
-  }
-
-  // Re-evaluate assessmentPersona with resolved agents
-  let effectiveAssessmentAgent = assessmentPersona
-  try {
-    effectiveAssessmentAgent = evaluateAssessmentPersona({
-      answers: user.answers || {},
-      semanticProfile: user.semanticProfile || effectiveSemanticProfile || {},
-      resumeAgent: activeResumeAgent,
-      linkedinAgent: activeLinkedinAgent,
-    })
-  } catch (_e) {
-    console.warn('[reportGeneration] evaluateAssessmentPersona error:', _e.message || _e)
-  }
-
-  // Smart Keyword Weaver & Defensible Interview Ledger Integration
-  let interviewLedger = []
-  try {
-    const rawMissing = [
-      ...(Array.isArray(activeResumeAgent?.keywordAlignment?.missingKeywords) ? activeResumeAgent.keywordAlignment.missingKeywords : []),
-      ...(Array.isArray(activeResumeAgent?.keywordAlignment?.missingFromResume) ? activeResumeAgent.keywordAlignment.missingFromResume : []),
-      ...(Array.isArray(aiReport?.missing_ats_keywords) ? aiReport.missing_ats_keywords : []),
-      ...(Array.isArray(activeResumeAgent?.missingKeywords) ? activeResumeAgent.missingKeywords : []),
-    ]
-    const missingSkillsList = []
-    const seenKw = new Set()
-    for (const item of rawMissing) {
-      const kw = typeof item === 'string' ? item.trim() : (item?.keyword || item?.name || item?.skill || '').trim()
-      if (kw && kw.length >= 2 && !seenKw.has(kw.toLowerCase())) {
-        seenKw.add(kw.toLowerCase())
-        missingSkillsList.push(kw)
-      }
-    }
-
-    const strandedSkillsOnly = (Array.isArray(activeResumeAgent?.keywordAlignment?.skillsOnlyUnverified) ? activeResumeAgent.keywordAlignment.skillsOnlyUnverified : [])
-      .map((s) => (typeof s === 'string' ? s.trim() : (s?.keyword || s?.name || '').trim()))
-      .filter((s) => s && s.length >= 2)
-
-    // Deep clone canonicalResume so properties can be mutated safely (fixes Mongoose frozen object error):
-    const canonicalForWeaving = JSON.parse(JSON.stringify(
-      activeResumeAgent?.canonicalResume || effectiveCanonicalResume || user.resumeJson || {}
-    ))
-    if (canonicalForWeaving && (canonicalForWeaving.experiences || canonicalForWeaving.experience)) {
-      const { tailoredExperiences, interviewLedger: ledger } = await weaveKeywordsAndBuildLedger({
-        canonicalResume: canonicalForWeaving,
-        missingKeywords: missingSkillsList,
-        targetRole: resumeTargetRole,
-        skillsOnlyKeywords: strandedSkillsOnly,
-      })
-      if (tailoredExperiences && tailoredExperiences.length > 0) {
-        if (activeResumeAgent && activeResumeAgent.canonicalResume) {
-          activeResumeAgent.canonicalResume.experiences = tailoredExperiences
-          activeResumeAgent.canonicalResume.experience = tailoredExperiences
-        }
-        if (aiReport.resume_json) {
-          aiReport.resume_json.experiences = tailoredExperiences
-          aiReport.resume_json.experience = tailoredExperiences
-        }
-      }
-      interviewLedger = ledger || []
-      if (activeResumeAgent) {
-        activeResumeAgent.interviewLedger = interviewLedger
-        activeResumeAgent.wovenKeywords = interviewLedger
-      }
-    }
-  } catch (_weaveErr) {
-    console.warn('[reportGeneration] weaveKeywordsAndBuildLedger warning:', _weaveErr.message || _weaveErr)
-  }
-
-  aiReport.interview_ledger = interviewLedger
-  aiReport.woven_keywords = interviewLedger
-  aiReport.target_role = resumeTargetRole
-
-  // Attach verified agent diagnoses and V2 Career GPS metrics
-  aiReport.resume_agent = activeResumeAgent
-  aiReport.linkedin_agent = activeLinkedinAgent
-  aiReport.assessment_agent = effectiveAssessmentAgent
-
-  // Zero Silent Fallbacks: Explicitly track partial agent failures
-  const failedAgents = []
-  if (result?.failedAgents?.length) {
-    result.failedAgents.forEach((fa) => {
-      const normalized = fa.toLowerCase().replace(/\s+/g, '_')
-      if (!failedAgents.includes(normalized)) failedAgents.push(normalized)
-    })
-  } else {
-    if (!activeResumeAgent && (user?.resumeBuffer || user?.resumeText || user?.resumeJson)) {
-      failedAgents.push('resume_agent')
-    }
-    if (!activeLinkedinAgent && (user?.linkedinUrl || user?.linkedinData)) {
-      failedAgents.push('linkedin_agent')
-    }
-  }
-
-  if (failedAgents.length > 0 || result?.partialFailure) {
-    aiReport.partialFailure = true
-    aiReport.failedAgents = failedAgents.length > 0 ? failedAgents : (result?.failedAgents || ['resume_agent'])
-  } else {
-    aiReport.partialFailure = false
-    aiReport.failedAgents = []
-  }
-  aiReport.linkedin_activity_signals = user.linkedinActivitySignals || activeLinkedinAgent?.activitySignals || result?.linkedinActivitySignals || null
-  aiReport.linkedin_activity_data = user.linkedinActivityData || result?.linkedinActivityData || null
-  aiReport.linkedinActivitySignals = aiReport.linkedin_activity_signals
-  aiReport.linkedinActivityData = aiReport.linkedin_activity_data
-
-  const v2Score = effectiveAssessmentAgent?.gpsScore ?? aiReport.career_health_score ?? 68
-  aiReport.gps_score = v2Score
-  aiReport.career_health_score = v2Score
-  aiReport.score_label = effectiveAssessmentAgent?.gradeLabel || aiReport.score_label || 'Good'
-  aiReport.phase = effectiveAssessmentAgent?.phase ?? { id: 1, name: 'Resume → Screening Call', confidence: 'Medium' }
-  aiReport.primary_bottleneck = effectiveAssessmentAgent?.primary_bottleneck ?? null
-  aiReport.secondary_problem = effectiveAssessmentAgent?.secondary_problem ?? null
-  aiReport.strongest_area = effectiveAssessmentAgent?.strongest_area ?? null
-  aiReport.next_best_action = effectiveAssessmentAgent?.next_best_action ?? null
-  aiReport.top_actions = effectiveAssessmentAgent?.top_actions ?? []
-  aiReport.gps_scores = effectiveAssessmentAgent?.scores ?? null
-  aiReport.external_context = effectiveAssessmentAgent?.external_context ?? null
-
-  // Merge deterministic hybrid templates (7-Day Sprint, XP mission board, 30-60-90 milestone pathway)
-  const rawSkills = activeResumeAgent?.canonicalResume?.skills || activeResumeAgent?.verifiedSkills || []
-  const verifiedSkillsList = (Array.isArray(rawSkills) ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || s?.skill)).filter(Boolean) : []).slice(0, 10)
-
-  aiReport.seven_day_sprint = build7DayRapidTriageSprint(aiReport.phase, resumeTargetRole, verifiedSkillsList)
-  aiReport.mission_board = buildGamifiedMissionBoard(aiReport.top_actions, aiReport.phase?.id, aiReport.career_health_score)
-  aiReport.milestone_pathway = build30_60_90MilestonePathway(aiReport.phase?.id, resumeTargetRole, verifiedSkillsList)
-  if (!aiReport.roadmap || !Array.isArray(aiReport.roadmap) || aiReport.roadmap.length === 0) {
-    aiReport.roadmap = buildStandard4WeekRoadmap(aiReport.phase?.id, resumeTargetRole, verifiedSkillsList)
-  }
-
-  // Synchronize score_breakdown across all 4 balanced pillars (25% each)
-  const fourPillars = effectiveAssessmentAgent?.scores?.four_pillars || {}
-  if (!aiReport.score_breakdown) aiReport.score_breakdown = {}
-
-  // 1. Resume Pillar
-  const resPillar = fourPillars.resume
-  const resumeScore = resPillar?.score ?? activeResumeAgent?.dashboard?.score ?? 68
-  aiReport.score_breakdown.resume = {
-    score: resumeScore,
-    points: resPillar?.points ?? Math.round((resumeScore / 100) * 25),
-    maxPoints: 25,
-    weight: '25%',
-    grade: activeResumeAgent?.dashboard?.grade || (resumeScore >= 85 ? 'A' : resumeScore >= 70 ? 'B' : resumeScore >= 55 ? 'C' : 'D'),
-    diagnosis: aiReport.score_breakdown?.resume?.diagnosis || `Resume integrity scores ${resumeScore}/100 based on ATS keyword alignment and quantified achievement density.`,
-  }
-
-  // 2. LinkedIn Pillar
-  const liPillar = fourPillars.linkedin
-  const liScore = liPillar?.score ?? activeLinkedinAgent?.score ?? 65
-  const topLiIssue = activeLinkedinAgent?.discrepancies?.[0]?.title || activeLinkedinAgent?.topRecommendations?.[0] || 'missing featured project case studies and peer recommendations'
-  aiReport.score_breakdown.linkedin = {
-    score: liScore,
-    points: liPillar?.points ?? Math.round((liScore / 100) * 25),
-    maxPoints: 25,
-    weight: '25%',
-    grade: activeLinkedinAgent?.grade || (liScore >= 85 ? 'A' : liScore >= 70 ? 'B' : liScore >= 55 ? 'C' : 'D'),
-    consistencyTier: liPillar?.consistencyTier || 'Strong Match',
-    diagnosis: aiReport.score_breakdown?.linkedin?.diagnosis && aiReport.score_breakdown.linkedin.diagnosis.length >= 100
-      ? aiReport.score_breakdown.linkedin.diagnosis
-      : `Your LinkedIn profile scores ${liScore}/100 with strong role descriptions and network reach, but recruiter trust and inbound search visibility are held back by ${topLiIssue.toLowerCase()}.`,
-  }
-
-  // 3. Outreach Pillar
-  const outreachPillar = fourPillars.outreach
-  const outreachScore = outreachPillar?.score ?? 60
-  aiReport.score_breakdown.outreach = {
-    score: outreachScore,
-    points: outreachPillar?.points ?? Math.round((outreachScore / 100) * 25),
-    maxPoints: 25,
-    weight: '25%',
-    grade: outreachScore >= 85 ? 'A' : outreachScore >= 70 ? 'B' : outreachScore >= 55 ? 'C' : 'D',
-    diagnosis: aiReport.score_breakdown?.outreach?.diagnosis || `Outreach velocity scores ${outreachScore}/100 reflecting current targeted application rates and multi-channel referral sourcing mix.`,
-  }
-
-  // 4. Interviews Pillar
-  const interviewPillar = fourPillars.interviews
-  const interviewScore = interviewPillar?.score ?? 65
-  aiReport.score_breakdown.interviews = {
-    score: interviewScore,
-    points: interviewPillar?.points ?? Math.round((interviewScore / 100) * 25),
-    maxPoints: 25,
-    weight: '25%',
-    grade: interviewScore >= 85 ? 'A' : interviewScore >= 70 ? 'B' : interviewScore >= 55 ? 'C' : 'D',
-    diagnosis: aiReport.score_breakdown?.interviews?.diagnosis || `Interview defense scores ${interviewScore}/100 reflecting pipeline progression from screening calls through final rounds.`,
-  }
-
-  aiReport.user_answers = user.answers || {}
-  aiReport.semantic_profile = user.semanticProfile || effectiveSemanticProfile || null
-
-  // ── Phase C: AI Slop Purge, Tone Tightening & Echo-Chamber Deduplication ──
-  const flatteryPatterns = [
-    /^(?:[\w\s.-]+,\s*)?you have built a solid foundation across[^\n.]*[.]?\s*/i,
-    /^(?:[\w\s.-]+,\s*)?your background shows a practical progression across[^\n.]*[.]?\s*/i,
-    /^(?:[\w\s.-]+,\s*)?your resume demonstrates clear technical competence[^\n.]*[.]?\s*/i,
-    /^(?:[\w\s.-]+,\s*)?with your impressive background in[^\n.]*[.]?\s*/i,
-    /^(?:[\w\s.-]+,\s*)?you have a commendable track record[^\n.]*[.]?\s*/i,
-    /^(?:[\w\s.-]+,\s*)?your experience at [^.]+ proves you can write solid code[^\n.]*[.]?\s*/i,
-  ]
-
-  const cleanFlattery = (text) => {
-    if (!text || typeof text !== 'string') return text
-    let cleaned = text
-    for (const pat of flatteryPatterns) {
-      cleaned = cleaned.replace(pat, '').trim()
-    }
-    return cleaned
-  }
-
-  if (typeof aiReport.executive_verdict === 'string') {
-    aiReport.executive_verdict = cleanFlattery(aiReport.executive_verdict)
-  }
-  if (typeof aiReport.summary === 'string') {
-    aiReport.summary = cleanFlattery(aiReport.summary)
-  }
-  if (typeof aiReport.career_verdict === 'string') {
-    aiReport.career_verdict = cleanFlattery(aiReport.career_verdict)
-  }
-
-  // De-duplicate primary_bottleneck against top resume issues
-  const topResumeIssue = activeResumeAgent?.issues?.[0]?.title || ''
-  if (aiReport.primary_bottleneck && topResumeIssue) {
-    const bTitle = typeof aiReport.primary_bottleneck === 'string'
-      ? aiReport.primary_bottleneck
-      : aiReport.primary_bottleneck.title || ''
-    if (bTitle.toLowerCase().trim() === topResumeIssue.toLowerCase().trim()) {
-      const fallbackTitle = 'Top-of-Funnel ATS Screening Filter & Cold Portal Black Hole'
-      if (typeof aiReport.primary_bottleneck === 'object') {
-        aiReport.primary_bottleneck.title = fallbackTitle
-      } else {
-        aiReport.primary_bottleneck = fallbackTitle
-      }
-    }
-  }
-
-  // Ensure critical_issues titles are unique
-  if (Array.isArray(aiReport.critical_issues)) {
-    const seenTitles = new Set()
-    aiReport.critical_issues = aiReport.critical_issues.filter((iss) => {
-      const title = (iss?.title || '').toLowerCase().trim()
-      if (!title || seenTitles.has(title)) return false
-      seenTitles.add(title)
-      return true
-    })
-  }
-
-  // Ensure rejection_factors are unique and distinct
-  if (Array.isArray(aiReport.rejection_factors)) {
-    const seenFactors = new Set()
-    aiReport.rejection_factors = aiReport.rejection_factors.filter((factor) => {
-      const fText = (typeof factor === 'string' ? factor : factor?.title || factor?.factor || '').toLowerCase().trim()
-      if (!fText || seenFactors.has(fText)) return false
-      seenFactors.add(fText)
-      return true
-    })
-  }
-
-  // ── Phase D: Judge Agent quality gate ──────────────────────────────────────
-  // Every report is scored on a fixed rubric before shipping. Below-threshold
-  // reports get ONE regeneration with the judge's notes; the result ships with
-  // a warning flag either way (never blocks the candidate).
-  if (process.env.JUDGE_ENABLED !== 'false') {
-    try {
-      report('quality_gate', 'Judge agent is auditing report quality…')
-      let judgeRun = await judgeReport(aiReport)
-      let judge = judgeRun.result
-      let regenerated = false
-
-      const keepAgentBundle = (source, target) => {
-        for (const key of [
-          'resume_json', 'linkedin_json', 'resume_agent', 'linkedin_agent',
-          'assessment_agent', 'dashboard', 'user_answers', 'semantic_profile',
-          'gps_score', 'career_health_score', 'phase', 'primary_bottleneck',
-          'secondary_problem', 'strongest_area', 'next_best_action', 'top_actions',
-          'gps_scores', 'external_context', 'interview_ledger',
-          'seven_day_sprint', 'mission_board', 'milestone_pathway', 'roadmap'
-        ]) {
-          if (source[key] !== undefined) target[key] = source[key]
-        }
-        return target
-      }
-
-      if (typeof judge?.score === 'number' && judge.score < 7 && judge.fallback !== true) {
-        report('quality_pass', 'Judge found quality gaps — regenerating the narrative once with its notes…')
-        try {
-          const repairNotes = (judge.flags || []).join('; ') || 'Be more specific and warmer; cite the candidate’s actual words.'
-          const retryPrompt = `${promptText}\n\nQUALITY NOTES FROM YOUR REVIEWER (fix these in your JSON):\n- ${repairNotes}`
-          const retryResult = await callAtlas(retryPrompt, '', user.answers)
-          const retryReport = retryResult.report || retryResult
-          // Anti-degradation guard: a regeneration that LOSES sections (truncation,
-          // lazy model) is worse than a below-threshold complete report — keep the
-          // current draft unless the retry is at least as complete.
-          const retryCompleteness = atlasCompleteness(retryReport)
-          if (retryCompleteness >= draftCompleteness) {
-            keepAgentBundle(aiReport, retryReport)
-            aiReport = mergeReportSections(retryReport, aiReport)
-            draftCompleteness = atlasCompleteness(aiReport)
-            regenerated = true
-            judgeRun = await judgeReport(aiReport)
-            judge = judgeRun.result
-          } else {
-            console.warn(`[ReportGeneration] Judge regen less complete (${retryCompleteness} < ${draftCompleteness}) — keeping current draft`)
-          }
-        } catch (regenErr) {
-          console.warn('[ReportGeneration] Judge-triggered regeneration failed, shipping first draft:', regenErr.message)
-        }
-      }
-
-      aiReport.judge = {
-        score: judge?.score ?? null,
-        subscores: judge?.subscores || {},
-        flags: judge?.flags || [],
-        summary: judge?.summary || '',
-        fallback: Boolean(judge?.fallback),
-        regenerated,
-        warning: typeof judge?.score === 'number' && judge.score < 7,
-      }
-
-      // Judge run is itself an auditable AgentRun row
-      if (mongoose.connection.readyState === 1) {
-        AgentRun.create({
-          agent: 'judge',
-          agentVersion: '1.0.0',
-          inputHash: `report:${Date.now()}`,
-          userId: user._id,
-          status: 'SUCCESS',
-          latencyMs: judgeRun.telemetry?.durationMs ?? 0,
-          judgeScore: aiReport.judge.score,
-          output: { flags: aiReport.judge.flags, summary: aiReport.judge.summary },
-        }).catch(() => {})
-      }
-    } catch (judgeErr) {
-      console.warn('[ReportGeneration] Judge gate failed (non-fatal):', judgeErr.message)
-    }
-  }
-
-  const totalDurationMs = Date.now() - totalStart
-
-  aiReport._meta = {
-    generatedAt: new Date().toISOString(),
-    engineVersion: '2.5.0-executive',
-    totalDurationMs,
-    atlasModelUsed: atlasTelemetry.modelUsed || 'google/gemini-3.5-flash-lite',
-    atlasDurationMs: atlasTelemetry.durationMs || 0,
-    fallbackTriggered: Boolean(atlasTelemetry.fallbackTriggered),
-    completenessScore: atlasCompleteness(aiReport),
-    judgeScore: aiReport.judge?.score ?? null,
-  }
-
-  // Update running ReportJob if available
-  if (mongoose.connection.readyState === 1 && user._id) {
-    try {
-      await ReportJob.updateMany(
-        { userId: user._id, status: 'running' },
-        { $set: { 'aiReport._meta': aiReport._meta } }
-      ).catch(() => {})
-    } catch (_e) {}
-  }
-
-  // Save overall AgentRun telemetry row
-  if (mongoose.connection.readyState === 1) {
-    AgentRun.create({
-      agent: 'overall',
-      agentVersion: '2.5.0-executive',
-      inputHash: `report:${user._id || 'anon'}:${Date.now()}`,
-      userId: user._id,
-      status: 'SUCCESS',
-      model: aiReport._meta.atlasModelUsed,
-      latencyMs: totalDurationMs,
-      judgeScore: aiReport._meta.judgeScore,
-      output: {
-        _meta: aiReport._meta,
-        completenessScore: aiReport._meta.completenessScore,
-      },
-    }).catch((err) => {
-      console.warn('[ReportGeneration] AgentRun overall save failed:', err.message)
-    })
-  }
-
-  // Save report to User DB (sanitized POJO without circular references)
-  const sanitizedReport = deCycle(aiReport)
-  user.aiReport = sanitizedReport
-  await user.save()
-
-  // Trigger Admin Email asynchronously (so candidate doesn't wait)
-  sendAdminReportEmail(user.email, user.answers, sanitizedReport, user.resumeData, user.resumeName)
-
-  report('done', 'Report ready.')
-
-  return { user, aiReport: sanitizedReport }
+  return {
+    targetRole,
+    experienceYears,
+    quantificationRatio: Math.round(quantificationRatio * 100),
+    totalBulletPoints: bulletPoints.length,
+    candidateSkills,
+    clustering: clusterResult.evaluation,
+    rawClusters: clusterResult.clusters,
+    bulletPoints: bulletPoints.map((b) => (typeof b === 'string' ? b : b?.text || '')).slice(0, 10)
+  };
 }
 
-export default { generateReportBundle }
+export async function generateReportBundle(assessmentData = {}, options = {}) {
+  const startTime = Date.now();
+  let user = null;
+
+  // Dual-mode compatibility: support { userId } from assessmentController.js / reportJobRoutes.js
+  let effectiveData = { ...assessmentData };
+  const userId = assessmentData.userId;
+  if (userId && !assessmentData.resumeFacts && !assessmentData.targetRole) {
+    user = await User.findById(userId);
+    if (user) {
+      const answers = user.answers || {};
+      const resumeJson = user.resumeJson || {};
+      const expBullets = (resumeJson.experience || resumeJson.experiences || []).flatMap((e) =>
+        (e.bullets || []).map((b) => (typeof b === 'string' ? b : b?.text || ''))
+      );
+
+      effectiveData = {
+        targetRole: answers.targetRole || resumeJson.target_role || user.targetRole || 'Specialist',
+        resumeFacts: {
+          skills: resumeJson.skills || answers.skills || [],
+          experienceYears: resumeJson.totalExperienceYears || answers.experienceYears || 3,
+          bulletPoints: expBullets.length > 0 ? expBullets : ['Delivered strategic projects and led cross-functional execution.']
+        },
+        marketJds: assessmentData.marketJds || [],
+        scrapedSkills: assessmentData.scrapedSkills || (resumeJson.skills || []).map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      };
+    }
+  }
+
+  const triage = performDeterministicTriage(effectiveData);
+
+  const systemPrompt = `You are the Lead Career Architect and ATS Auditor at Career GPS.
+Generate an exhaustive, domain-agnostic Career Assessment Report in strict JSON format.
+STRICT ZERO-HARDCODING POLICY: Adapt directly to the provided role, experience level, and market competency clusters.
+Cluster Equivalence Principle: If a candidate has evidenced one tool in an interchangeable group, grant 100% equivalence credit for that competency.`;
+
+  const userPrompt = `TARGET CANDIDATE CONTEXT:
+Role: ${triage.targetRole}
+Experience: ${triage.experienceYears} Years
+Quantified Bullets: ${triage.quantificationRatio}% (${triage.totalBulletPoints} total)
+Verified Candidate Skills: ${JSON.stringify(triage.candidateSkills)}
+Dynamic Market Competency Clusters: ${JSON.stringify(triage.rawClusters)}
+Market Skill Coverage: ${triage.clustering.coveragePercentage}%
+Candidate Bullets Sample:
+${JSON.stringify(triage.bulletPoints)}
+
+Generate a unified JSON response matching this exact schema:
+{
+  "career_health_score": {
+    "overall": number (0-100),
+    "marketAlignment": number (0-100),
+    "atsCompatibility": number (0-100),
+    "impactAndMetrics": number (0-100)
+  },
+  "executive_summary": string,
+  "primary_bottleneck": {
+    "title": string,
+    "severity": "CRITICAL" | "MODERATE" | "LOW",
+    "diagnosis": string,
+    "recommendedPivot": string
+  },
+  "competency_clusters_audit": [
+    {
+      "clusterName": string,
+      "satisfied": boolean,
+      "matchedTool": string,
+      "recommendation": string
+    }
+  ],
+  "bullet_rewrites": [
+    {
+      "original": string,
+      "rewritten": string,
+      "critique": string
+    }
+  ],
+  "roadmap": [
+    {
+      "phase": "Immediate (Days 1-14)" | "Short-Term (Days 15-45)" | "Mid-Term (Days 45-90)",
+      "actions": [string]
+    }
+  ]
+}
+Return ONLY valid raw JSON. No markdown backticks, no introductory commentary.`;
+
+  let structuredOutput = null;
+
+  try {
+    const response = await llmGateway.generate({
+      purpose: 'report_generation',
+      preferredProvider: options.preferredProvider || 'openrouter',
+      model: options.model || 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      responseFormat: { type: 'json_object' },
+      temperature: 0.1,
+      timeoutMs: options.timeoutMs || 15000
+    });
+
+    const rawContent = response?.text || response?.content || '{}';
+    const cleanJson = rawContent
+      .replace(/^```json/gi, '')
+      .replace(/^```/gi, '')
+      .replace(/```$/gi, '')
+      .trim();
+
+    structuredOutput = JSON.parse(cleanJson);
+  } catch (err) {
+    console.error('[reportGeneration] Gateway or JSON parse error:', err.message);
+
+    structuredOutput = {
+      career_health_score: {
+        overall: triage.clustering.coveragePercentage || 70,
+        marketAlignment: triage.clustering.coveragePercentage || 70,
+        atsCompatibility: triage.quantificationRatio > 40 ? 80 : 65,
+        impactAndMetrics: triage.quantificationRatio || 50
+      },
+      executive_summary: `Candidate benchmarked for ${triage.targetRole} with ${triage.experienceYears} years of experience and ${triage.clustering.coveragePercentage}% market competency cluster coverage.`,
+      primary_bottleneck: {
+        title: triage.clustering.coveragePercentage < 60 ? 'Market Competency Gaps' : 'Low Metric Quantification',
+        severity: triage.clustering.coveragePercentage < 50 ? 'CRITICAL' : 'MODERATE',
+        diagnosis: `Identified gaps across key competency clusters or low quantified business impact (${triage.quantificationRatio}%).`,
+        recommendedPivot: 'Align resume achievements with interchangeable tools identified across high-frequency market demand.'
+      },
+      competency_clusters_audit: triage.clustering.clusterBreakdown || [],
+      bullet_rewrites: (triage.bulletPoints || []).slice(0, 3).map((b) => ({
+        original: b,
+        rewritten: `Spearheaded initiatives by leveraging core tools, improving efficiency and project deliverables by measurable margins.`,
+        critique: 'Quantify specific metrics and highlight direct outcomes.'
+      })),
+      roadmap: [
+        {
+          phase: 'Immediate (Days 1-14)',
+          actions: ['Refactor top 3 bullets to reflect verified competency tools.']
+        },
+        {
+          phase: 'Short-Term (Days 15-45)',
+          actions: ['Target missing equivalent tools within high-priority clusters.']
+        }
+      ]
+    };
+  }
+
+  if (!structuredOutput.competency_clusters_audit || structuredOutput.competency_clusters_audit.length === 0) {
+    structuredOutput.competency_clusters_audit = triage.clustering.clusterBreakdown;
+  }
+
+  // Cross-compatibility mappings for frontend consumers (ReportDashboard.jsx, ResumeReportPage.jsx)
+  structuredOutput.heroScore = structuredOutput.career_health_score;
+  structuredOutput.executiveSummary = structuredOutput.executive_summary;
+  structuredOutput.primaryBottleneck = structuredOutput.primary_bottleneck;
+  structuredOutput.bulletRewrites = structuredOutput.bullet_rewrites;
+
+  // Persist if user was loaded
+  if (user) {
+    user.aiReport = structuredOutput;
+    try {
+      await user.save();
+    } catch (_saveErr) {
+      console.warn('[reportGeneration] User aiReport save warning:', _saveErr.message);
+    }
+  }
+
+  if (typeof assessmentData.onProgress === 'function') {
+    try {
+      assessmentData.onProgress({ stage: 'report_ready', message: 'Report ready.', report: structuredOutput });
+    } catch (_progErr) {}
+  }
+
+  const totalDurationMs = Date.now() - startTime;
+
+  return {
+    success: true,
+    user,
+    aiReport: structuredOutput,
+    data: structuredOutput,
+    report: structuredOutput,
+    telemetry: {
+      latencyMs: totalDurationMs,
+      targetAchieved: totalDurationMs < 10000,
+      triageCoverage: triage.clustering.coveragePercentage
+    }
+  };
+}
+
+export default {
+  generateReportBundle,
+  performDeterministicTriage,
+  normalizeAtlasShapes,
+  deriveFunnelFromAnswers,
+  deCycle,
+};
