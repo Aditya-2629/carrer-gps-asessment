@@ -65,7 +65,7 @@ const SORTS = {
 function extractScores(user) {
   const r = user.aiReport || {}
   return {
-    careerScore: typeof r.career_health_score === 'number' ? r.career_health_score : null,
+    careerScore: typeof r.career_health_score === 'object' && r.career_health_score !== null ? r.career_health_score.overall : (typeof r.career_health_score === 'number' ? r.career_health_score : (r.gps_score || null)),
     resumeScore: r.resume_agent?.dashboard?.score ?? null,
     linkedinScore: r.linkedin_agent?.score ?? null,
     linkedinActivityTier: r.linkedin_agent?.activitySignals?.recencyTier || (r.linkedin_agent?.activitySignals?.isGhostProfile ? 'Dormant' : null),

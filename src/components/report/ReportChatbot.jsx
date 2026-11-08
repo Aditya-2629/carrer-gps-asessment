@@ -474,7 +474,11 @@ export default function ReportChatbot() {
   }, [reportData])
 
   const overallScore = useMemo(() => {
-    return reportData?.career_health_score || reportData?.gps_score || 72
+    const raw = reportData?.career_health_score ?? reportData?.gps_score ?? 72
+    if (typeof raw === 'object' && raw !== null) {
+      return Number(raw.overall ?? raw.score ?? 72)
+    }
+    return typeof raw === 'number' ? raw : (Number(raw) || 72)
   }, [reportData])
 
   const topSkill = useMemo(() => {

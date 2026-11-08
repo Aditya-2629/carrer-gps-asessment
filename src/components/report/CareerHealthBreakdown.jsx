@@ -16,18 +16,15 @@ export default function CareerHealthBreakdown({
     scores ||
     {}
 
-  const resolvedHealthScore = Math.min(
-    100,
-    Math.max(
-      0,
-      Number(
-        healthScore ??
-        reportData?.career_health_score ??
-        reportData?.score ??
-        50
-      )
-    )
-  )
+  const rawHealth =
+    healthScore ??
+    (typeof reportData?.career_health_score === 'object' && reportData?.career_health_score !== null
+      ? reportData.career_health_score.overall
+      : reportData?.career_health_score) ??
+    reportData?.score ??
+    50
+
+  const resolvedHealthScore = Math.min(100, Math.max(0, Number(rawHealth) || 50))
 
   const resolvedScoreLabel =
     scoreLabel ||

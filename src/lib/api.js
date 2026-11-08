@@ -376,7 +376,9 @@ export function normalizeReportData(data) {
   })
 
   return {
-    career_health_score: data.career_health_score ?? 60,
+    career_health_score: (typeof data.career_health_score === 'object' && data.career_health_score !== null
+      ? data.career_health_score.overall
+      : data.career_health_score) ?? 60,
     score_label: data.score_label ?? 'Survival Mode',
     scores: {
       resume: { score: scoresResume, diagnosis: scoresResumeDiag },

@@ -113,7 +113,13 @@ export default function FullCareerReportPage() {
     resumeAgent?.candidateSnapshot?.location ||
     'Target Market'
 
-  const careerScore = report.career_health_score ?? report.gps_score ?? 68
+  const rawCareerScore =
+    (typeof report.career_health_score === 'object' && report.career_health_score !== null
+      ? report.career_health_score.overall
+      : report.career_health_score) ??
+    report.gps_score ??
+    68
+  const careerScore = typeof rawCareerScore === 'number' ? rawCareerScore : (Number(rawCareerScore) || 68)
   const scoreLabel =
     report.score_label ||
     (careerScore >= 75 ? 'Strong Competitive Profile' : careerScore >= 60 ? 'Moderate Funnel Friction' : 'High Search Vulnerability')

@@ -95,7 +95,7 @@ export async function generateStandardReportPdf({ user = {}, answers = {}, seman
         'Senior Software Engineer'
       const userEmail = user.email || answers.email || 'N/A'
       const reportDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      const overallScore = aiReport.career_health_score ?? 65
+      const overallScore = (typeof aiReport.career_health_score === 'object' && aiReport.career_health_score !== null ? aiReport.career_health_score.overall : aiReport.career_health_score) ?? 65
       const scoreLabel = aiReport.score_label ?? 'Competitive'
 
       // ==========================================

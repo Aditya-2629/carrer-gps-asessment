@@ -38,11 +38,13 @@ export function calculateLeadMetrics(user) {
     'Software Professional'
 
   const overallScore =
-    typeof r.career_health_score === 'number'
+    typeof r.career_health_score === 'object' && r.career_health_score !== null
+      ? r.career_health_score.overall
+      : typeof r.career_health_score === 'number'
       ? r.career_health_score
       : typeof dash.score === 'number'
       ? dash.score
-      : null
+      : (r.gps_score || null)
 
   const resumeScore = typeof dash.score === 'number' ? dash.score : null
   const linkedinScore = typeof la.score === 'number' ? la.score : null

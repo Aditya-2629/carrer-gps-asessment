@@ -659,7 +659,15 @@ Return ONLY valid raw JSON. No markdown backticks, no conversational fluff.`
     structuredOutput.competency_clusters_audit = triage.clustering.clusterBreakdown
   }
 
-  structuredOutput.heroScore = structuredOutput.career_health_score
+  const overallScore =
+    typeof structuredOutput.career_health_score === 'object' && structuredOutput.career_health_score !== null
+      ? (structuredOutput.career_health_score.overall ?? 70)
+      : (Number(structuredOutput.career_health_score) || 70)
+
+  structuredOutput.gps_score = overallScore
+  structuredOutput.score = overallScore
+  structuredOutput.heroScore = overallScore
+  structuredOutput.careerHealthScore = overallScore
   structuredOutput.executiveSummary = structuredOutput.executive_summary
   structuredOutput.primaryBottleneck = structuredOutput.primary_bottleneck
   structuredOutput.bulletRewrites = structuredOutput.bullet_rewrites

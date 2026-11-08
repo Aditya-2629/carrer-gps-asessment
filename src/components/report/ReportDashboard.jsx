@@ -1070,16 +1070,16 @@ function ReportDashboardContent() {
     ? Object.values(reportData.gps_scores.four_pillars).reduce((sum, p) => sum + (Number(p.points) || 0), 0)
     : null
 
-  const healthScore = Math.min(100, Math.max(
-    0,
-    Number(
-      computedSum ??
-      reportData?.gps_score ??
-      reportData?.career_health_score ??
-      reportData?.resume_agent?.dashboard?.score ??
-      72
-    )
-  ))
+  const rawHealthScore =
+    computedSum ??
+    reportData?.gps_score ??
+    (typeof reportData?.career_health_score === 'object' && reportData?.career_health_score !== null
+      ? reportData.career_health_score.overall
+      : reportData?.career_health_score) ??
+    reportData?.resume_agent?.dashboard?.score ??
+    72
+
+  const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
 
   const handleDownloadPdf = async () => {
     const effectiveUserId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''

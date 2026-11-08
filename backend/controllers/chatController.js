@@ -243,7 +243,7 @@ export function extractCandidateDossier(user = {}) {
     currentCompany,
     targetRole,
     seniorityTier: seniorityBand,
-    careerHealthScore: report.career_health_score || report.gps_score || report.overallScore || 70,
+    careerHealthScore: (typeof report.career_health_score === 'object' && report.career_health_score !== null ? report.career_health_score.overall : report.career_health_score) || report.gps_score || report.overallScore || 70,
     topExperiences,
     verifiedSkills,
     missingSkills,
