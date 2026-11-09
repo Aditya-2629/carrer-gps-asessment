@@ -220,19 +220,20 @@ HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
 - Avoid generic phrases like "Actively seeking" or "Open to work".
 - In "whyItWorks", explain how this ranks in LinkedIn Recruiter boolean search and hooks hiring managers.
 
-ABOUT SECTION HUMANIZED ARCHITECTURE (180–240 WORDS, 3 PARAGRAPHS):
-- VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. NEVER write in the third-person (e.g. "Alex is an engineer with..."). Speak as a high-agency builder: "I spend most of my time thinking about...", "I build...", "My focus is...".
-- PARAGRAPH 1 (Technical Identity & Engineering Obsession):
-  * State the engineering problems you genuinely enjoy solving, total verified years of experience, core technical stack, and enterprise or high-scale domain.
-  * ZERO corporate mission statements or generic buzzwords ("synergy", "spearheaded", "passionate coder").
-- PARAGRAPH 2 (Architecture Proof & Engineering Pillars):
-  * Synthesize 2–3 distinct technical pillars with verifiable operational scale (e.g., distributed state, high-throughput caching, latency reduction, reliability under load).
+ABOUT SECTION EXECUTIVE ARCHITECTURE (1,400–1,900 CHARACTERS / 240–300 WORDS):
+- LINKEDIN CHARACTER BUDGET: LinkedIn allows 2,600 characters. Writing a short 1-2 sentence stub is an amateur failure. Deliver a rich, comprehensive 1,400–1,900 character executive narrative that hooks recruiters and ranks in search algorithms.
+- VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as a confident, high-agency builder.
+- PARAGRAPH 1 (The Executive Hook & Core Foundation — 350-450 chars):
+  * Lead with target role title, verified years of experience, core technical stack, and the engineering problems you genuinely enjoy solving.
+  * Establish domain scale (e.g. distributed microservices, low-latency APIs, cloud data pipelines, or enterprise workflows).
+- PARAGRAPH 2 (Quantified Career Pillars & Technical Scale — 600-800 chars):
+  * Synthesize 3 distinct domain pillars using bullet points (▸) detailing real architecture and quantified outcomes (e.g. throughput, latency reductions, user scale, cost savings, automated delivery turnaround).
   * NEVER copy-paste raw resume bullets. Frame achievements through architectural decisions and technical mechanisms.
-- PARAGRAPH 3 (Where I'm Headed & Engineering Philosophy):
-  * Explicitly define the caliber and class of technical problems you want to own next.
-  * Conclude with a warm peer-to-peer invitation to connect for engineering leaders, founders, and hiring teams.
+- PARAGRAPH 3 (Engineering Philosophy & Where I'm Headed — 350-450 chars):
+  * Define your philosophy on clean architecture, automated testing, code quality, and team mentorship.
+  * State the exact caliber of technical problems you want to own next, ending with a warm peer-to-peer invitation to connect with engineering leaders, founders, and talent teams.
 - PURGE TRAILING KEYWORD LISTS: Strictly FORBID appending raw keyword lists or tag clouds at the bottom of the About section (e.g. "Core Competencies: React, Redux, Docker..."). Keywords must live naturally inside the narrative prose for LinkedIn SEO and human readability.
-- "fullText": Complete copy-paste ready 3-paragraph executive narrative in first-person voice (180–240 words).
+- "fullText": Complete copy-paste ready executive narrative in first-person voice (1,400–1,900 chars / 240–300 words).
 
 TOP 3 PINNED SKILLS & RED FLAGS:
 - Top 3 highest-leverage verified skills visible in recruiter search cards.
@@ -258,10 +259,10 @@ REQUIRED JSON SCHEMA (RETURN ONLY VALID JSON):
     }
   ],
   "aboutRewrite": {
-    "hook": "2-3 punchy first-person sentences establishing engineering obsession, stack, and scale (<210 chars)",
-    "proof": "3 thematic domain pillars synthesizing career wins without raw resume bullets",
-    "callToAction": "Forward-looking engineering focus + peer-to-peer invitation to connect (strictly NO trailing keyword lists or tag clouds)",
-    "fullText": "Full 3-paragraph copy-paste ready LinkedIn About narrative in high-agency first-person voice (180–240 words)"
+    "hook": "The Executive Hook & Core Foundation in first-person voice (350-450 chars)",
+    "proof": "3 quantified domain architecture pillars using ▸ bullets detailing real technical mechanisms and scale outcomes (600-800 chars)",
+    "callToAction": "Engineering philosophy, forward-looking focus + peer-to-peer invitation to connect (350-450 chars, strictly NO trailing keyword lists or tag clouds)",
+    "fullText": "Complete copy-paste ready executive narrative in first-person voice (1,400–1,900 chars / 240–300 words)"
   },
   "top3PinnedSkills": ["Skill 1", "Skill 2", "Skill 3"],
   "profileRedFlags": [

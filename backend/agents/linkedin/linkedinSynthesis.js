@@ -642,23 +642,31 @@ export async function runLinkedInSynthesis(
       }))
     }
 
-    // About rewrite (Task 1)
+    // About rewrite (Task 1) - Strict 1,400-1,800 Character Recruiter Standard
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
       const { currentCritique, hook, proof, callToAction, fullText } = rawAbout
       let combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
       const wordCount = (combined.match(/\b\w+\b/g) || []).length
-      // Permanently purge short stubs: enforce strict 180+ word executive standard
-      if (wordCount < 140 && fallback?.aboutRewrite?.fullText) {
-        combined = fallback.aboutRewrite.fullText
-      }
-      aboutRewrite = {
-        currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
-        hook: hook || fallback.aboutRewrite.hook || '',
-        proof: proof || fallback.aboutRewrite.proof || '',
-        callToAction: callToAction || fallback.aboutRewrite.callToAction || '',
-        fullText: combined || fallback.aboutRewrite.fullText || '',
+      // Permanently purge short stubs: enforce strict 140+ word / 900+ char executive standard
+      const isShortStub = wordCount < 140 || combined.length < 850 || (hook && hook.length < 160) || (proof && proof.length < 260)
+      if (isShortStub && fallback?.aboutRewrite) {
+        aboutRewrite = {
+          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
+          hook: (hook && hook.length >= 200) ? hook : fallback.aboutRewrite.hook,
+          proof: (proof && proof.length >= 300) ? proof : fallback.aboutRewrite.proof,
+          callToAction: (callToAction && callToAction.length >= 150) ? callToAction : fallback.aboutRewrite.callToAction,
+          fullText: fallback.aboutRewrite.fullText || combined,
+        }
+      } else {
+        aboutRewrite = {
+          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
+          hook: hook || fallback.aboutRewrite.hook || '',
+          proof: proof || fallback.aboutRewrite.proof || '',
+          callToAction: callToAction || fallback.aboutRewrite.callToAction || '',
+          fullText: combined || fallback.aboutRewrite.fullText || '',
+        }
       }
     }
 
