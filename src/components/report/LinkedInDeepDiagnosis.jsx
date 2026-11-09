@@ -455,11 +455,27 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       ? `${targetRole} | ${skillsStr} | Enterprise Analytics & Data Strategy`
       : `${targetRole} | ${skillsStr} | Driving Operational Excellence`
 
-  const fallbackAbout = isSoftwareRole
-    ? `${targetRole} with ${yoe}+ years of experience building high-performance, scalable applications and distributed systems. Core stack: ${effectiveSkills.slice(0, 5).join(', ')}.`
+  // High-Agency Executive LinkedIn About Architecture (1,400–1,800 chars / 200–260 words)
+  const richFallbackHook = isSoftwareRole
+    ? `I am a ${targetRole} with ${yoe}+ years of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${skillsStr || 'React, TypeScript, Node.js, and AWS'} across resilient production environments.`
     : isDataRole
-      ? `${targetRole} with ${yoe}+ years of experience driving quantifiable impact through technology and analytics. Core competencies: ${effectiveSkills.slice(0, 5).join(', ')}.`
-      : `${targetRole} with ${yoe}+ years of experience driving operational impact and cross-functional leadership. Core competencies: ${effectiveSkills.slice(0, 5).join(', ')}.`
+    ? `I am a ${targetRole} with ${yoe}+ years of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${skillsStr || 'SQL, Power BI, Python, and Tableau'} to eliminate organizational reporting bottlenecks.`
+    : `I am a ${targetRole} with ${yoe}+ years of cross-functional leadership experience orchestrating high-stakes initiatives, optimizing operational workflows, and aligning cross-departmental execution with core business objectives. My methodology bridges technical capability with business impact using ${skillsStr || 'agile methodologies and executive stakeholder alignment'} to accelerate velocity and operational resilience.`
+
+  const richFallbackProof = isSoftwareRole
+    ? `▸ System Architecture & Scale: Engineered modular microservices and event-driven architectures that sustain sub-100ms API response times and 99.99% system availability under peak loads.\n\n▸ Cloud Automation & Delivery Velocity: Containerized multi-stage builds and automated CI/CD release gating on AWS and Docker, slashing deployment cycles and eliminating production rollback friction.\n\n▸ Technical Leadership & System Reliability: Championed strict unit/integration test coverage, clean code refactoring, and comprehensive observability across distributed production environments.`
+    : isDataRole
+    ? `▸ Data Modeling & Query Optimization: Architected dimensional star schemas and optimized heavy analytical queries across enterprise databases, reducing dashboard latency by 45%+.\n\n▸ Automated ETL & Business Intelligence: Built and automated end-to-end data ingestion pipelines, translating complex operational data into real-time self-service executive reporting.\n\n▸ Cross-Functional Insights & Decision Support: Partnered directly with leadership and product stakeholders to define core KPIs, uncover operational growth levers, and eliminate data silos.`
+    : `▸ Operational Excellence & Efficiency: Redesigned core operational frameworks and cross-functional handoffs, driving significant cycle time reductions across critical workflows.\n\n▸ Cross-Functional Program Delivery: Led multi-disciplinary teams through complex project lifecycles from discovery to deployment, consistently delivering ahead of roadmap milestones.\n\n▸ Stakeholder Alignment & Metrics: Established automated KPI reporting dashboards that gave executive leadership real-time visibility into portfolio velocity and budget health.`
+
+  const richFallbackCta = isSoftwareRole
+    ? `My engineering philosophy is rooted in clean system design, automated testing, and technical mentorship. I am actively exploring ${targetRole} opportunities where I can drive scalable system architecture and solve high-concurrency engineering challenges. If you are building high-impact technology or scaling your engineering team, let's connect!`
+    : isDataRole
+    ? `My professional philosophy focuses on data integrity, scalable dimensional modeling, and actionable business intelligence. I am currently exploring ${targetRole} roles where I can optimize analytics pipelines and deliver decision-critical intelligence. Let's connect and discuss data strategy!`
+    : `My leadership philosophy centers on transparency, data-informed decision making, and empowering high-agency teams. I am currently open to ${targetRole} opportunities where I can drive operational transformation and meaningful organizational impact. Open to connecting with leaders and talent teams!`
+
+  const richFallbackAbout = `${richFallbackHook}\n\n${richFallbackProof}\n\n${richFallbackCta}`
+  const fallbackAbout = richFallbackAbout
 
   const headline = linkedinAgent?.optimizations?.headlines?.[0]?.headline || fallbackHeadline
   const aboutText = linkedinAgent?.optimizations?.aboutRewrite?.fullText ||
@@ -631,18 +647,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const optimizations = rawOptimizations || {
     headlines: fallbackHeadlinesList,
     aboutRewrite: {
-      hook: isSoftwareRole
-        ? `${targetRole} with ${yoe}+ years of experience building high-performance, scalable applications and distributed systems.`
-        : isDataRole
-        ? `${targetRole} with ${yoe}+ years of experience transforming complex operational and enterprise datasets into decision-ready business intelligence pipelines.`
-        : `${targetRole} with ${yoe}+ years of experience driving quantifiable impact and operational excellence.`,
-      proof: isSoftwareRole
-        ? `Proven track record of designing resilient cloud architectures, developing robust APIs, and optimizing CI/CD workflows. Core stack: ${skillsStr}, Docker, and AWS.`
-        : isDataRole
-        ? `Proven track record of optimizing reporting workflows, building self-service BI dashboards, and translating business requirements into technical metrics. Core stack: ${skillsStr}, BigQuery, and Data Modeling.`
-        : `Proven track record of streamlining workflows, managing cross-functional initiatives, and delivering scalable business results. Core competencies: ${skillsStr}.`,
-      callToAction: `Open to connecting with engineering leaders, technical directors, and talent acquisition teams regarding ${targetRole} opportunities.`,
-      fullText: fallbackAbout,
+      hook: richFallbackHook,
+      proof: richFallbackProof,
+      callToAction: richFallbackCta,
+      fullText: richFallbackAbout,
     },
     top3PinnedSkills: pinnedSkills,
     recommendedSkillsToAdd: cleanCandidateSkills.length > 0 ? cleanCandidateSkills : fallbackRecommendedSkills,
@@ -967,17 +975,37 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   ]
 
 
-  // Calculate About section statistics safely
+  // Calculate About section statistics safely & apply Auto-Enrichment Guard
   const rawAbout = optimizations?.aboutRewrite || null
   const aboutIsString = typeof rawAbout === 'string'
-  const hookText = safeText(rawAbout?.hook)
-  const proofText = safeText(rawAbout?.proof)
-  const ctaText = safeText(rawAbout?.callToAction)
-  const fallbackFullText = safeText(rawAbout?.fullText)
+  let hookText = safeText(rawAbout?.hook)
+  let proofText = safeText(rawAbout?.proof)
+  let ctaText = safeText(rawAbout?.callToAction)
+  let fallbackFullText = safeText(rawAbout?.fullText)
 
-  const fullAboutText = aboutIsString
+  // Auto-Enrichment Guard: If rawAbout is a short 1-sentence stub (<110 words or <450 chars or hook <160 chars),
+  // automatically enrich with rich executive story pillars so candidate never sees a 28-word / 210-char stub
+  const initialCombined = aboutIsString ? rawAbout : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
+  const initialWords = initialCombined.trim() ? initialCombined.trim().split(/\s+/).filter(Boolean).length : 0
+
+  if (!aboutIsString) {
+    if (!hookText || hookText.length < 160) {
+      hookText = richFallbackHook
+    }
+    if (!proofText || proofText.length < 260) {
+      proofText = richFallbackProof
+    }
+    if (!ctaText || ctaText.length < 140) {
+      ctaText = richFallbackCta
+    }
+    fallbackFullText = `${hookText}\n\n${proofText}\n\n${ctaText}`
+  } else if (aboutIsString && initialWords < 110) {
+    fallbackFullText = richFallbackAbout
+  }
+
+  const fullAboutText = (aboutIsString && initialWords >= 110)
     ? rawAbout
-    : fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n')
+    : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
 
   const aboutWordCount = fullAboutText.trim()
     ? fullAboutText.trim().split(/\s+/).filter(Boolean).length
