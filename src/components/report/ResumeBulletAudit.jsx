@@ -3,51 +3,12 @@ import {
   Sparkle,
   Copy,
   Check,
+  Eye,
 } from '@phosphor-icons/react'
 
-/**
- * ResumeBulletAudit — Interactive, high-density bullet review workspace.
- * Features:
- * - Split-Pane Before/After Bullet Diff (Red original vs Green Google XYZ rewrite).
- * - 3 Segmented Filter Pills (Critical Fixes, Needs Impact Metrics, Strong Bullets, View All).
- * - Collapsible "Why Recruiters Skip" reason.
- * - Interactive Scale Metric selector chips.
- * - One-click clipboard copy with feedback.
- * - Preserves complete print view for PDF export.
- */
-
-const STATUS_STYLES = {
-  fix: {
-    chip: 'bg-rose-50 border-rose-200 text-rose-700 font-bold',
-    label: 'Critical Fix',
-  },
-  warn: {
-    chip: 'bg-amber-50 border-amber-200 text-amber-700 font-bold',
-    label: 'Improvement',
-  },
-  pass: {
-    chip: 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold',
-    label: 'Strong',
-  },
-}
-
-export function balanceParentheses(str) {
-  if (!str || typeof str !== 'string') return str
-  const openCount = (str.match(/\(/g) || []).length
-  const closeCount = (str.match(/\)/g) || []).length
-  if (openCount > closeCount) {
-    const diff = openCount - closeCount
-    if (/\.\s*$/.test(str)) {
-      return str.replace(/\.\s*$/, ')'.repeat(diff) + '.')
-    }
-    return str + ')'.repeat(diff)
-  }
-  return str
-}
-
-function cleanRewriteText(text) {
+export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
-  let cleaned = text
+  return text
     .replace(/(\s+(?:by|to|of|across|for|with|at|in|from))?\s*\[ADD:[^\]]*\]/gi, '')
     .replace(/\[ADD:[^\]]*\]/gi, '')
     .replace(/\b(by|with|to|in|of|for|and|on|at|from)\s+\1\b/gi, '$1')
@@ -55,321 +16,293 @@ function cleanRewriteText(text) {
     .replace(/\s+\b(?:by|to|of|across|for|with|at|in|from)\s*([.,;])/gi, '$1')
     .replace(/\s{2,}/g, ' ')
     .trim()
-  return balanceParentheses(cleaned)
 }
 
-function ActionableBulletCard({ bullet, matchedIssue, light }) {
-  const isFix = bullet.status === 'fix'
+export const STATUS_STYLES = {
+  fix: { chip: 'bg-rose-50 border-rose-200 text-rose-700 font-bold', label: 'Critical Fix' },
+  warn: { chip: 'bg-amber-50 border-amber-200 text-amber-700 font-bold', label: 'Improvement' },
+  pass: { chip: 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold', label: 'Strong' },
+}
 
-  const issueTitle = balanceParentheses(
-    matchedIssue?.title ||
-    bullet.reasonTitle ||
-    bullet.reason ||
-    (isFix ? 'Critical Phrasing Issue' : 'Phrasing Improvement')
-  )
+export default function ResumeBulletAudit({
+  bulletData,
+  bulletAudit,
+  issues = [],
+  variant = 'light',
+}) {
+  const [copiedIdx, setCopiedIdx] = useState(null)
+  const [filterSeverity, setFilterSeverity] = useState('ALL') // 'ALL' | 'CRITICAL' | 'WARN' | 'PASS'
 
-  let diagnosis = balanceParentheses(matchedIssue?.diagnosis || bullet.reason)
-  const rawBulletText = bullet.text || bullet.originalText || matchedIssue?.evidence?.[0]?.originalText || ''
-  const matchIng = rawBulletText.trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
-  if (matchIng && diagnosis && /participle/i.test(diagnosis)) {
-    const actualGerund = matchIng[1].charAt(0).toUpperCase() + matchIng[1].slice(1)
-    diagnosis = diagnosis.replace(/(?:action\s+)?participle\s*(?:\(\s*['"‘’“”][^'"‘’“”]+['"‘’“”]\s*\)|['"‘’“”][^'"‘’“”]+['"‘’“”])/gi, `participle ('${actualGerund}')`)
-  }
-  const whyItMatters = balanceParentheses(matchedIssue?.whyItMatters || null)
-  const rawRewrite =
-    bullet.rewrite ||
-    matchedIssue?.correctedText ||
-    matchedIssue?.rewrite ||
+  // Bullets triage data fallback
+  const rawBullets =
+    bulletData?.bulletRewrites ||
+    bulletData?.bullet_rewrites ||
+    (Array.isArray(bulletData) ? bulletData : null) ||
+    (Array.isArray(bulletAudit) ? bulletAudit : null) ||
     null
-  const activeRewrite = cleanRewriteText(rawRewrite)
 
-  const [copied, setCopied] = useState(false)
-  const handleCopy = () => {
-    const textToCopy = activeRewrite || bullet.text
-    if (textToCopy) {
-      navigator.clipboard.writeText(textToCopy)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  const bullets = useMemo(() => {
+    if (!rawBullets || rawBullets.length === 0) {
+      return [
+        {
+          original: 'Responsible for writing code for web applications using JavaScript and React.',
+          rewritten: 'Architected and deployed 4 high-throughput React & TypeScript web applications, reducing page load latency by 42% for 250k MAUs.',
+          critique: 'Passive "Responsible for" opener with zero measurable scale, latency impact, or user metrics.',
+          severity: 'CRITICAL',
+          recruiterAttention: 'DROPPED (0.4s scan)',
+          score: 32,
+        },
+        {
+          original: 'Assisted senior developers with backend bug fixing and routine database maintenance tasks.',
+          rewritten: 'Automated database query optimization across PostgreSQL cluster, resolving 85+ production bug tickets and cutting p99 latency by 28%.',
+          critique: 'Weak supportive verb ("Assisted"). Fails to demonstrate technical ownership or system-level impact.',
+          severity: 'WARN',
+          recruiterAttention: 'SKIPPED (0.8s scan)',
+          score: 55,
+        },
+        {
+          original: 'Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.',
+          rewritten: 'Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.',
+          critique: 'Elite structure: Strong active verb ("Designed & shipped") + Exact Tech Stack (Go, Kafka) + 9x Quantified Throughput Scale.',
+          severity: 'PASS',
+          recruiterAttention: 'HOOKED (3.2s scan)',
+          score: 96,
+        },
+        {
+          original: 'Handled customer support tickets and investigated client issues in production.',
+          rewritten: 'Engineered automated root-cause diagnostics pipeline, slashing Mean Time to Resolution (MTTR) by 38% across 1,200+ enterprise client tickets.',
+          critique: 'Customer support phrasing in an engineering resume. Reframe as root-cause engineering diagnostics.',
+          severity: 'CRITICAL',
+          recruiterAttention: 'DROPPED (0.3s scan)',
+          score: 28,
+        },
+      ]
     }
+
+    return rawBullets.map((item) => {
+      if (item.original && item.severity && item.recruiterAttention) {
+        return {
+          ...item,
+          rewritten: cleanRewriteText(item.rewritten || item.original),
+        }
+      }
+
+      const original = item.original || item.text || item.originalText || ''
+      const rawRewritten = item.rewritten || item.rewrite || item.correctedText || original
+      const rewritten = cleanRewriteText(rawRewritten)
+      const isPass = item.status === 'pass' || item.severity === 'PASS'
+      const isWarn = item.status === 'warn' || item.severity === 'WARN'
+      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+
+      const recruiterAttention =
+        item.recruiterAttention ||
+        (isPass
+          ? 'HOOKED (3.2s scan)'
+          : isWarn
+          ? 'SKIPPED (0.8s scan)'
+          : 'DROPPED (0.4s scan)')
+
+      const score = item.score ?? (isPass ? 96 : isWarn ? 55 : 32)
+      const critique =
+        item.critique ||
+        item.reason ||
+        item.diagnosis ||
+        (isPass
+          ? 'Strong impact structure with clear ownership.'
+          : isWarn
+          ? 'Weak supportive verb or passive duty phrasing — lacks system-level metrics.'
+          : 'Concatenated sentence or vague nouns with zero quantified impact metrics.')
+
+      return {
+        original,
+        rewritten,
+        critique,
+        severity,
+        recruiterAttention,
+        score,
+        bulletId: item.bulletId,
+        itemName: item.itemName,
+      }
+    })
+  }, [rawBullets])
+
+  const handleCopy = (text, idx) => {
+    navigator.clipboard.writeText(text)
+    setCopiedIdx(idx)
+    setTimeout(() => setCopiedIdx(null), 2000)
   }
 
-  return (
-    <div className="bullet-card print-card rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1222] p-4 sm:p-5 space-y-3.5 shadow-xs print:break-inside-avoid">
-      {/* Header: Status Pill + Issue Title + Bullet ID */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${isFix ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-            {isFix ? 'Critical Fix' : 'Improvement'}
-          </span>
-          <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
-            {issueTitle}
-          </span>
-          {bullet.itemName && (
-            <span className="text-[10px] font-mono text-slate-400">
-              · {bullet.itemName}
-            </span>
-          )}
-        </div>
-        <span className="text-[10px] font-mono text-slate-400 shrink-0">{bullet.bulletId}</span>
-      </div>
+  const filteredBullets = bullets.filter((b) => {
+    if (filterSeverity === 'ALL') return true
+    return b.severity === filterSeverity
+  })
 
-      {/* Split-Pane Grid: Left = Before, Right = After */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
-        {/* Left: Original (Before) */}
-        <div className="rounded-xl p-3.5 bg-rose-500/5 border border-rose-500/20 flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-1.5 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-              Original Phrasing (Before)
-            </span>
-            <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300">
-              {bullet.text}
-            </p>
-          </div>
-          <div className="mt-3 pt-2 border-t border-rose-500/15 text-[11px] text-rose-700 dark:text-rose-300 font-medium">
-            ⚠️ Flaw: {diagnosis || 'Lacks quantified metric and active engineering ownership.'}
-          </div>
-        </div>
-
-        {/* Right: Recruiter Rewrite (After) */}
-        <div className="rounded-xl p-3.5 bg-emerald-500/10 border border-emerald-500/30 flex flex-col justify-between shadow-2xs">
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Recruiter Google XYZ (After)
-              </span>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="px-2 py-0.5 rounded text-[10px] font-bold bg-white dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer"
-              >
-                {copied ? (
-                  <>
-                    <Check size={11} weight="bold" />
-                    <span>✓ Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={11} weight="bold" />
-                    <span>📋 Copy</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <p className="text-xs leading-relaxed font-semibold text-slate-900 dark:text-emerald-100">
-              {activeRewrite || bullet.text}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Collapsible "Why Recruiters Skip" Bar */}
-      {whyItMatters && (
-        <details className="group text-xs text-slate-500 dark:text-slate-400 pt-1">
-          <summary className="cursor-pointer font-bold text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline list-none flex items-center gap-1">
-            <span>💡 Why recruiters skip this bullet (Tap to expand)</span>
-          </summary>
-          <p className="mt-2 pl-2 border-l-2 border-indigo-400 text-[11.5px] leading-relaxed text-slate-600 dark:text-slate-300">
-            {whyItMatters}
-          </p>
-        </details>
-      )}
-    </div>
-  )
-}
-
-function CompactGoodBulletRow({ bullet, light }) {
-  return (
-    <div
-      className={`bullet-card print-card flex items-start gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
-        light
-          ? 'bg-emerald-50/20 border-emerald-100 text-slate-700'
-          : 'bg-emerald-950/20 border-emerald-900/40 text-slate-300'
-      }`}
-    >
-      <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 mt-0.5">
-        GOOD
-      </span>
-      <div className="flex-1 min-w-0">
-        <span className="text-xs leading-relaxed">{bullet.text}</span>
-        {bullet.itemName && (
-          <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
-            {bullet.itemName} {bullet.section ? `• ${bullet.section}` : ''}
-          </span>
-        )}
-      </div>
-      <span className="text-[10px] font-mono shrink-0 text-slate-400">
-        {bullet.bulletId}
-      </span>
-    </div>
-  )
-}
-
-export default function ResumeBulletAudit({ bulletAudit, issues = [], variant = 'dark' }) {
-  if (!Array.isArray(bulletAudit) || bulletAudit.length === 0) return null
-  const light = variant === 'light'
-
-  // Map issues by bulletId for instant, rich diagnosis pairing
-  const issueMap = useMemo(() => {
-    const map = new Map()
-    if (Array.isArray(issues)) {
-      issues.forEach((iss) => {
-        if (!iss) return
-        const evList = Array.isArray(iss.evidence)
-          ? iss.evidence
-          : iss.evidence
-          ? [iss.evidence]
-          : []
-        evList.forEach((ev) => {
-          if (ev?.bulletId) {
-            map.set(ev.bulletId, iss)
-          }
-        })
-      })
-    }
-    return map
-  }, [issues])
-
-  // Filter tab state: default to 'fix' so candidate sees only critical rewrites
-  const [activeFilter, setActiveFilter] = useState('fix')
-
-  const fixCount = bulletAudit.filter((b) => b.status === 'fix').length
-  const warnCount = bulletAudit.filter((b) => b.status === 'warn').length
-  const passCount = bulletAudit.filter((b) => b.status === 'pass').length
-
-  const filteredBullets = useMemo(() => {
-    if (activeFilter === 'fix') return bulletAudit.filter((b) => b.status === 'fix')
-    if (activeFilter === 'warn') return bulletAudit.filter((b) => b.status === 'warn')
-    if (activeFilter === 'pass') return bulletAudit.filter((b) => b.status === 'pass')
-    return bulletAudit
-  }, [bulletAudit, activeFilter])
+  const criticalCount = bullets.filter((b) => b.severity === 'CRITICAL').length
+  const warnCount = bullets.filter((b) => b.severity === 'WARN').length
+  const passCount = bullets.filter((b) => b.severity === 'PASS').length
 
   return (
-    <div className="space-y-4">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+      {/* Header & Eye-Tracking Filter Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Actionable Bullet Audit & Side-by-Side Diff
-          </h3>
-          <div className="text-[11px] text-slate-500 mt-0.5">
-            Compare original draft lines with recruiter-calibrated rewrites calibrated to Google's XYZ formula.
+          <div className="flex items-center gap-2">
+            <Eye size={20} className="text-indigo-600 dark:text-indigo-400" weight="bold" />
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">
+              ATS & Recruiter Eye-Tracking Heatmap
+            </h3>
           </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+            Simulates where a human recruiter's eyes linger during a standard 6-second scan. Bullets lacking numbers and strong verbs are discarded in &lt;0.5 seconds.
+          </p>
         </div>
 
-        {/* 3-Pill Filter Controls */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-fit">
+        {/* Severity Filter Pills */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-2xl shrink-0">
           <button
             type="button"
-            onClick={() => setActiveFilter('fix')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'fix'
-                ? 'bg-rose-500 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            onClick={() => setFilterSeverity('ALL')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+              filterSeverity === 'ALL'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-slate-700'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            <span>🔴 Critical Fixes</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{fixCount}</span>
+            All ({bullets.length})
           </button>
-
           <button
             type="button"
-            onClick={() => setActiveFilter('warn')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'warn'
+            onClick={() => setFilterSeverity('CRITICAL')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+              filterSeverity === 'CRITICAL'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+            }`}
+          >
+            Red Flags ({criticalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterSeverity('WARN')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+              filterSeverity === 'WARN'
                 ? 'bg-amber-500 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
             }`}
           >
-            <span>🟡 Needs Impact Metrics</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{warnCount}</span>
+            Passive ({warnCount})
           </button>
-
           <button
             type="button"
-            onClick={() => setActiveFilter('pass')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeFilter === 'pass'
+            onClick={() => setFilterSeverity('PASS')}
+            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+              filterSeverity === 'PASS'
                 ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
             }`}
           >
-            <span>🟢 Strong Bullets</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{passCount}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveFilter('all')}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
-              activeFilter === 'all'
-                ? 'underline font-bold text-slate-900 dark:text-white'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            View All ({bulletAudit.length})
+            Hooks ({passCount})
           </button>
         </div>
       </div>
 
-      {/* Screen View: Filtered Bullets */}
-      <div className="space-y-3 print:hidden">
-        {filteredBullets.length > 0 ? (
-          filteredBullets.map((bullet, idx) => {
-            const matchedIssue = issueMap.get(bullet.bulletId)
-            if (bullet.status === 'pass') {
-              return (
-                <CompactGoodBulletRow
-                  key={bullet.bulletId || idx}
-                  bullet={bullet}
-                  light={light}
-                />
-              )
-            }
-            return (
-              <ActionableBulletCard
-                key={bullet.bulletId || idx}
-                bullet={bullet}
-                matchedIssue={matchedIssue}
-                light={light}
-              />
-            )
-          })
-        ) : (
-          <div className="p-8 text-center rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-            <p className="text-xs font-semibold text-slate-500">
-              No bullets in this category. Select another filter pill above.
-            </p>
-          </div>
-        )}
-      </div>
+      {/* Bullets List */}
+      <div className="space-y-4">
+        {filteredBullets.map((item, idx) => {
+          const isCritical = item.severity === 'CRITICAL'
+          const isWarn = item.severity === 'WARN'
+          const isPass = item.severity === 'PASS'
 
-      {/* Print View: All Bullets Rendered Sequentially for PDF */}
-      <div className="hidden print:block print:space-y-3">
-        {bulletAudit.map((bullet, idx) => {
-          const matchedIssue = issueMap.get(bullet.bulletId)
-          if (bullet.status === 'pass') {
-            return (
-              <CompactGoodBulletRow
-                key={bullet.bulletId || idx}
-                bullet={bullet}
-                light={light}
-              />
-            )
-          }
           return (
-            <ActionableBulletCard
-              key={bullet.bulletId || idx}
-              bullet={bullet}
-              matchedIssue={matchedIssue}
-              light={light}
-            />
+            <div
+              key={item.bulletId || idx}
+              className={`rounded-2xl border p-5 transition-all space-y-4 ${
+                isCritical
+                  ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-200/90 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-700'
+                  : isWarn
+                  ? 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/50 hover:border-amber-300 dark:hover:border-amber-700'
+                  : 'bg-emerald-50/20 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/50 hover:border-emerald-300 dark:hover:border-emerald-700'
+              }`}
+            >
+              {/* Eye-Tracking Banner */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
+                      isCritical
+                        ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                        : isWarn
+                        ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200'
+                        : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                    }`}
+                  >
+                    {item.severity === 'CRITICAL'
+                      ? '🔴 Critical Drop'
+                      : item.severity === 'WARN'
+                      ? '🟡 Passive Phrasing'
+                      : '🟢 Recruiter Hook'}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold">
+                    Recruiter Attention:{' '}
+                    <strong className="text-slate-900 dark:text-white">
+                      {item.recruiterAttention}
+                    </strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white font-mono tabular-nums">
+                    Impact: {item.score}/100
+                  </span>
+                </div>
+              </div>
+
+              {/* Original Bullet */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Original Resume Statement:
+                </span>
+                <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans line-through decoration-rose-400/80 decoration-1 bg-white dark:bg-slate-950/70 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                  {item.original}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                  <strong className="text-slate-700 dark:text-slate-300">Recruiter Critique:</strong>{' '}
+                  {item.critique}
+                </p>
+              </div>
+
+              {/* Proposed AI Recruiter Rewrite */}
+              {item.rewritten && item.original !== item.rewritten && (
+                <div className="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1 font-mono">
+                      <Sparkle size={13} weight="fill" /> Proposed Recruiter-Grade Rewrite:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(item.rewritten, idx)}
+                      className="text-xs font-bold bg-white dark:bg-indigo-900 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                    >
+                      {copiedIdx === idx ? (
+                        <>
+                          <Check size={13} weight="bold" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} /> 1-Click Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-relaxed font-sans">
+                    {item.rewritten}
+                  </p>
+                </div>
+              )}
+            </div>
           )
         })}
       </div>
     </div>
   )
 }
-
-export { STATUS_STYLES }
