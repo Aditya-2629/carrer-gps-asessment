@@ -5,7 +5,14 @@
 
 import express from 'express'
 import multer from 'multer'
-import { evaluateLinkedIn, analyzeLinkedInProfile, LINKEDIN_AGENT_VERSION } from '../agents/linkedin/index.js'
+import {
+  evaluateLinkedIn,
+  analyzeLinkedInProfile,
+  calculateRecruiterSeoScore,
+  generateOptimizedHeadlines,
+  evaluateThoughtLeadership,
+  LINKEDIN_AGENT_VERSION,
+} from '../agents/linkedin/index.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
@@ -130,6 +137,44 @@ router.post('/scrape-posts', async (req, res) => {
       },
       error: err.message,
     })
+  }
+})
+
+/**
+ * POST /api/linkedin-agent/headline-rewrites
+ * Generates 3 recruiter-optimized headlines and evaluates recruiter search visibility.
+ * Accepts: { headline, about, role, targetRole, topSkills, yearsExp, company }
+ */
+router.post(['/headline-rewrites', '/optimize-headlines'], (req, res) => {
+  try {
+    const role = req.body?.role || req.body?.targetRole || 'Professional'
+    const headline = req.body?.headline || ''
+    const about = req.body?.about || ''
+    const topSkills = Array.isArray(req.body?.topSkills) ? req.body.topSkills : []
+    const yearsExp = Number(req.body?.yearsExp || req.body?.experienceYears || 3)
+    const company = req.body?.company || ''
+
+    const seo = calculateRecruiterSeoScore({
+      headline,
+      about,
+      targetRole: role,
+    })
+
+    const headlines = generateOptimizedHeadlines({
+      role,
+      topSkills,
+      yearsExp,
+      company,
+    })
+
+    return res.status(200).json({
+      success: true,
+      seo,
+      headlines,
+    })
+  } catch (err) {
+    console.warn('[LinkedInAgentRoute] headline-rewrites error:', err.message)
+    return res.status(500).json({ success: false, error: err.message })
   }
 })
 

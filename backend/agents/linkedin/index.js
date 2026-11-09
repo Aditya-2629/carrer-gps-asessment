@@ -44,6 +44,9 @@ export {
   LinkedInAgent,
   evaluateLinkedIn,
   analyzeLinkedInProfile,
+  calculateRecruiterSeoScore,
+  generateOptimizedHeadlines,
+  evaluateThoughtLeadership,
   LINKEDIN_AGENT_VERSION,
 } from './linkedinAgent.js'
 

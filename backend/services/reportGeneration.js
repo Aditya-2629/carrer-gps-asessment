@@ -11,6 +11,9 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../agents/resume/market/dynamicCompetencyClusterizer.js'
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
+import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
+import { buildRAGContext } from '../utils/ragEngine.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -519,6 +522,52 @@ export async function generateReportBundle(assessmentData = {}, options = {}) {
   const triageInput = { ...assessmentData, user }
   const triage = performDeterministicTriage(triageInput)
 
+  const answers = user?.answers || assessmentData.answers || {}
+  const effectiveLinkedinUrl = (
+    assessmentData.linkedinUrl ||
+    answers.linkedin ||
+    answers.linkedinUrl ||
+    answers['linkedin-url'] ||
+    user?.linkedinUrl ||
+    ''
+  ).trim()
+  const precomputedLinkedinData = assessmentData.linkedinData || assessmentData.precomputedLinkedinData || null
+  const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && user && !user.linkedinData && !precomputedLinkedinData)
+
+  const smartQuery = assessmentData.targetRole || answers.targetRole || triage.targetRole || 'Professional'
+
+  // Concurrent Stage 0: RAG Context + LinkedIn Profile + LinkedIn Posts ALL IN PARALLEL!
+  const [dynamicKbContent, [liveLinkedinData, liveLinkedinPosts]] = await Promise.all([
+    mongoose.connection.readyState === 1
+      ? buildRAGContext(smartQuery).catch((err) => {
+          console.warn('[ReportGen] RAG context fallback:', err.message)
+          return null
+        })
+      : Promise.resolve(null),
+    shouldScrapeLinkedin
+      ? Promise.all([
+          scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
+            console.warn('[ReportGen] LinkedIn profile scrape non-fatal fallback:', err.message)
+            return null
+          }),
+          scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+            console.warn('[ReportGen] LinkedIn posts scrape non-fatal fallback:', err.message)
+            return null
+          }),
+        ])
+      : Promise.resolve([null, null]),
+  ])
+
+  // Save both profile and posts concurrently
+  if (user) {
+    if (liveLinkedinData && !user.linkedinData) {
+      user.linkedinData = liveLinkedinData
+    }
+    if (liveLinkedinPosts && !user.linkedinActivityData) {
+      user.linkedinActivityData = liveLinkedinPosts
+    }
+  }
+
   if (typeof assessmentData.onProgress === 'function') {
     try {
       assessmentData.onProgress({ stage: 'preparing', message: 'Analyzing candidate competency clusters against market demand…' })
@@ -671,6 +720,13 @@ Return ONLY valid raw JSON. No markdown backticks, no conversational fluff.`
   structuredOutput.executiveSummary = structuredOutput.executive_summary
   structuredOutput.primaryBottleneck = structuredOutput.primary_bottleneck
   structuredOutput.bulletRewrites = structuredOutput.bullet_rewrites
+
+  if (liveLinkedinData || user?.linkedinData) {
+    structuredOutput.linkedin_json = liveLinkedinData || user.linkedinData
+  }
+  if (liveLinkedinPosts || user?.linkedinActivityData) {
+    structuredOutput.linkedin_activity_data = liveLinkedinPosts || user.linkedinActivityData
+  }
 
   if (user) {
     user.aiReport = structuredOutput

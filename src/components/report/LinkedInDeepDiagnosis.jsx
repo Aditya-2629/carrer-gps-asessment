@@ -469,6 +469,94 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     ? linkedinAgent.optimizations.top3PinnedSkills
     : coreSkillList
 
+  const recruiterSeo = useMemo(() => {
+    if (linkedinAgent?.recruiterSeo) return linkedinAgent.recruiterSeo
+    if (reportData?.linkedin_agent?.recruiterSeo) return reportData.linkedin_agent.recruiterSeo
+    if (reportData?.recruiterSeo) return reportData.recruiterSeo
+
+    // Client-side deterministic evaluation fallback
+    const liveHeadline = (profileData?.headline || headline || '').trim()
+    const liveAbout = (profileData?.about || profileData?.summary || '').trim()
+    const headlineLower = liveHeadline.toLowerCase()
+
+    let score = 100
+    const penalties = []
+
+    if (/\b(aspiring|seeking|looking for|open to work|fresher|entry[\s-]level|actively looking)\b/i.test(headlineLower)) {
+      score -= 21
+      penalties.push({
+        rule: 'WEAK_INTENT_KEYWORD',
+        impact: '-21 pts',
+        critique: 'Recruiter search algorithms prioritize active practitioners, not "aspiring" titles.',
+      })
+    }
+
+    if (targetRole && !headlineLower.includes(targetRole.toLowerCase())) {
+      score -= 22
+      penalties.push({
+        rule: 'MISSING_EXACT_ROLE_TITLE',
+        impact: '-22 pts',
+        critique: `Your headline does not contain exact keyword "${targetRole}", burying you in recruiter boolean queries.`,
+      })
+    }
+
+    if (!liveHeadline.includes('|') && !liveHeadline.includes('•') && !liveHeadline.includes('–')) {
+      score -= 15
+      penalties.push({
+        rule: 'UNSTRUCTURED_HEADLINE',
+        impact: '-15 pts',
+        critique: 'Headline lacks structured separator syntax (Role | Core Stack | Impact Metric).',
+      })
+    }
+
+    if (!liveAbout || liveAbout.length < 100) {
+      score -= 15
+      penalties.push({
+        rule: 'INSUFFICIENT_ABOUT_LENGTH',
+        impact: '-15 pts',
+        critique: 'About section is too brief (<150 characters) to pass recruiter semantic search filters.',
+      })
+    }
+
+    const finalScore = Math.max(25, Math.min(score, 100))
+    return {
+      seoScore: finalScore,
+      status: finalScore >= 80 ? 'RECRUITER_MAGNET' : finalScore >= 60 ? 'AVERAGE_VISIBILITY' : 'SEARCH_INVISIBLE',
+      penalties,
+    }
+  }, [linkedinAgent, reportData, profileData, headline, targetRole])
+
+  const optimizedHeadlines = useMemo(() => {
+    if (Array.isArray(linkedinAgent?.optimizedHeadlines) && linkedinAgent.optimizedHeadlines.length > 0) {
+      return linkedinAgent.optimizedHeadlines
+    }
+    if (Array.isArray(reportData?.linkedin_agent?.optimizedHeadlines) && reportData.linkedin_agent.optimizedHeadlines.length > 0) {
+      return reportData.linkedin_agent.optimizedHeadlines
+    }
+    const skillsSlice = (effectiveSkills || []).slice(0, 3).join(', ') || 'Modern Tech Stack'
+    const yearsExp = Number(yoe) || 3
+    const expLabel = yearsExp >= 6 ? 'Senior' : ''
+    const company = profileData?.experiences?.[0]?.company || ''
+
+    return [
+      {
+        style: 'Executive & Proof-Driven',
+        headline: `${expLabel ? `${expLabel} ` : ''}${targetRole} | ${skillsSlice} | Scaled High-Throughput Production Systems`,
+        reason: 'Balances title keyword density with immediate proof of scale.',
+      },
+      {
+        style: 'Specialist & Technology Stack',
+        headline: `${targetRole} specializing in ${skillsSlice}${company ? ` at ${company}` : ''}`,
+        reason: 'Direct match for recruiter boolean searches looking for specific stack depth.',
+      },
+      {
+        style: 'Business Impact & Outcomes',
+        headline: `${targetRole} | Architecting Data Solutions & Automating Workflows with ${skillsSlice}`,
+        reason: 'Attracts hiring managers looking for business ROI rather than pure coding.',
+      },
+    ]
+  }, [linkedinAgent, reportData, effectiveSkills, yoe, targetRole, profileData])
+
   const isVisualItem = (item) => {
     if (!item) return false
     const str = [item.id, item.type, item.section, item.title, item.name, item.diagnosis].filter(Boolean).join(' ').toLowerCase()
@@ -1059,6 +1147,82 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         title="LinkedIn Profile Score"
         scoreWord="LinkedIn profile"
       />
+
+      {/* ── 1B. Recruiter SEO Scorecard & 1-Click Copy Headlines ────────────── */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+                in
+              </span>
+              <h4 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+                LinkedIn Recruiter Search Visibility
+              </h4>
+            </div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+              How easily corporate recruiters and hiring managers find your profile in inbound searches.
+            </p>
+          </div>
+
+          <div className="text-right">
+            <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+              {recruiterSeo?.seoScore || 58}/100
+            </div>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                (recruiterSeo?.seoScore || 58) >= 80
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+              }`}
+            >
+              {recruiterSeo?.status || 'AVERAGE_VISIBILITY'}
+            </span>
+          </div>
+        </div>
+
+        {/* 3 Optimized Headlines */}
+        <div className="space-y-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Recommended Recruiter-Magnet Headlines (1-Click Copy):
+          </span>
+
+          {optimizedHeadlines.map((item, idx) => {
+            const copyKey = `seo_headline_${idx}`
+            const isCopied = copiedId === copyKey
+            return (
+              <div
+                key={idx}
+                className="p-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 font-mono">
+                    {item.style}
+                  </span>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                    {item.headline}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {item.reason}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopy(item.headline, copyKey)}
+                  className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs border ${
+                    isCopied
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {isCopied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* ── 2. Resume-vs-LinkedIn Missing Sections & Discrepancies (Top 4 Compact Grid) ── */}
       {topDiscrepancies.length > 0 && (
