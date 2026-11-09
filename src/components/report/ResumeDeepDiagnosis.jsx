@@ -455,6 +455,17 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               <ShieldCheck size={12} weight="fill" />
               Recruiter-Verified
             </span>
+
+            {/* Prominent Tailored .docx Download Button */}
+            <button
+              type="button"
+              onClick={() => handleDownloadDocx()}
+              disabled={isDownloadingDocx}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ml-auto disabled:opacity-60"
+            >
+              <DownloadSimple size={13} weight="bold" />
+              <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
+            </button>
           </div>
         </div>
       )}
