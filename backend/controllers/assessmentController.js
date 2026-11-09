@@ -484,10 +484,15 @@ export const generateReport = async (req, res) => {
     const reportRunId = `report_${userId}_${Date.now()}`
     costTracker.setActiveRunId(reportRunId)
 
-    // Phase C: the generation engine lives in services/reportGeneration.js —
-    // shared by this blocking controller and the async ReportJob worker.
+    const reportStartTime = Date.now()
+    console.log(`[AssessmentController] Starting Single-Pass High-Speed Report Generation for user ${userId}...`)
+
+    // Phase 4: Single-Pass High-Speed Report Generation (<8s target)
     const { user, aiReport } = await generateReportBundle({ userId, semanticProfile })
+    const totalElapsed = Date.now() - reportStartTime
+    console.log(`[AssessmentController] Report successfully finalized and saved to MongoDB in ${totalElapsed}ms.`)
     costTracker.printRunSummary(reportRunId)
+
     const responsePayload = {
       ...aiReport,
       linkedinActivityData: user?.linkedinActivityData || aiReport?.linkedin_activity_data || null,

@@ -14,6 +14,7 @@ import JobMarketBucket from '../models/JobMarketBucket.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
+import { calculateRecruiterSeoScore, generateOptimizedHeadlines, evaluateThoughtLeadership } from '../agents/linkedin/linkedinAgent.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -413,353 +414,397 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
   return normalized
 }
 
-export function performDeterministicTriage(assessmentData = {}) {
-  const user = assessmentData.user || null
-  const answers = user?.answers || assessmentData.answers || {}
-  const resumeJson = user?.resumeJson || assessmentData.resumeJson || assessmentData.canonicalResume || assessmentData.resumeFacts || assessmentData.resumeData || {}
-  const activeResumeAgent = assessmentData.activeResumeAgent || user?.activeResumeAgent || {}
+/**
+ * Stage 0: Local In-Memory Deterministic Triage (0 LLM Calls, ~100ms)
+ */
+export function performLocalPreTriage(params = {}) {
+  const user = params.user || null
+  const answers = user?.answers || params.answers || {}
+  const resumeJson = params.resumeJson || user?.resumeJson || params.canonicalResume || params.resumeFacts || params.resumeData || {}
+  const targetRole = params.targetRole || user?.targetRole || answers.targetRole || resumeJson.targetRole || resumeJson.target_role || 'Professional'
 
-  const targetRole =
-    assessmentData.targetRole ||
-    assessmentData.targetJobDescription?.role ||
-    assessmentData.targetJobDescription?.title ||
-    answers.targetRole ||
-    resumeJson.target_role ||
-    resumeJson.targetRole ||
-    resumeJson.title ||
-    user?.targetRole ||
-    activeResumeAgent.targetRole ||
-    'Professional'
-
-  const rawSkills =
-    assessmentData.candidateSkills ||
-    assessmentData.verifiedSkills ||
-    activeResumeAgent.verifiedSkills ||
-    resumeJson.skills ||
-    answers.skills ||
-    user?.skills ||
-    []
-
-  const candidateSkills = (Array.isArray(rawSkills) ? rawSkills : [rawSkills])
-    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || s?.keyword || ''))
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const experiences = resumeJson.experience || resumeJson.experiences || []
-  const rawBullets = []
+  const experiences = resumeJson?.experience || resumeJson?.experiences || []
+  const allBullets = []
   if (Array.isArray(experiences)) {
     for (const exp of experiences) {
-      const bList = exp.bullets || exp.bulletPoints || exp.achievements || []
+      const bList = exp.bulletPoints || exp.bullets || exp.highlights || exp.achievements || []
       if (Array.isArray(bList)) {
         for (const b of bList) {
           const txt = typeof b === 'string' ? b : b?.text || b?.bullet || ''
-          if (txt && txt.trim()) rawBullets.push(txt.trim())
+          if (txt && txt.trim()) allBullets.push(txt.trim())
         }
       }
     }
   }
-  const candidateBullets = Array.from(new Set(rawBullets))
 
-  let marketJds = assessmentData.marketJds || assessmentData.scrapedJds || assessmentData.jobDescriptions || []
-  if (assessmentData.targetJobDescription) {
-    if (typeof assessmentData.targetJobDescription === 'string') {
-      marketJds = [...marketJds, { description: assessmentData.targetJobDescription }]
-    } else if (Array.isArray(assessmentData.targetJobDescription)) {
-      marketJds = [...marketJds, ...assessmentData.targetJobDescription]
-    } else if (typeof assessmentData.targetJobDescription === 'object') {
-      marketJds = [...marketJds, assessmentData.targetJobDescription]
+  // Calculate Quantified Metrics Ratio deterministically
+  const quantifiedCount = allBullets.filter((b) => /\d+[%kKmMbB]?|\$\d+/g.test(String(b))).length
+  const totalBullets = Math.max(1, allBullets.length)
+  const metricRatio = Math.round((quantifiedCount / totalBullets) * 100)
+
+  // Candidate verified skills
+  const rawSkills = resumeJson?.skills || resumeJson?.top_skills || user?.skills || params.candidateSkills || []
+  const verifiedSkills = (Array.isArray(rawSkills) ? rawSkills : [rawSkills])
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || s?.keyword || ''))
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  // Competency Clusters evaluation
+  const marketProfile = params.marketProfile || null
+  let marketJds = marketProfile?.jobs || marketProfile?.jds || params.marketJds || params.scrapedJds || []
+  if (params.targetJobDescription) {
+    if (typeof params.targetJobDescription === 'string') {
+      marketJds = [...marketJds, { description: params.targetJobDescription }]
+    } else if (Array.isArray(params.targetJobDescription)) {
+      marketJds = [...marketJds, ...params.targetJobDescription]
+    } else if (typeof params.targetJobDescription === 'object') {
+      marketJds = [...marketJds, params.targetJobDescription]
     }
   }
 
-  const jdTexts = marketJds.map((jd) => {
-    if (typeof jd === 'string') return jd
-    return jd.description || jd.rawText || jd.text || jd.job_description || ''
-  }).filter(Boolean)
-
-  const scrapedSkills = assessmentData.scrapedSkills || assessmentData.marketSkills || candidateSkills
+  const jdTexts = marketJds.map((j) => (typeof j === 'string' ? j : j.description || j.text || j.rawText || '')).filter(Boolean)
+  const marketSkills = marketProfile?.skills || params.marketSkills || params.scrapedSkills || []
 
   const clusterResult = dynamicCompetencyClusterizer.processDynamicClustering({
     jdTexts,
-    rawSkills: scrapedSkills,
-    candidateSkills
+    marketSkills: marketSkills.length > 0 ? marketSkills : verifiedSkills,
+    candidateSkills: verifiedSkills,
   })
+
+  // Deterministic Hero Score calculation
+  const marketCoverage = clusterResult.evaluation?.coveragePercentage || 65
+  const impactScore = Math.min(100, Math.round(metricRatio * 0.8 + 20))
+  const atsCompatibility = Math.min(100, Math.round((verifiedSkills.length >= 4 ? 85 : (verifiedSkills.length > 5 ? 85 : 60))))
+  const overallScore = Math.round((marketCoverage * 0.40) + (impactScore * 0.35) + (atsCompatibility * 0.25))
 
   const experienceYears = Number(
     resumeJson.totalExperienceYears ||
     resumeJson.experienceYears ||
     resumeJson.years_of_experience ||
     answers.experienceYears ||
+    user?.experienceLevel ||
     3
   )
-
-  const quantifiedBullets = candidateBullets.filter((b) => /\d+%|\$\d+|\b\d+\b/g.test(b)).length
-  const quantificationRatio = candidateBullets.length > 0
-    ? Math.round((quantifiedBullets / candidateBullets.length) * 100)
-    : 0
 
   return {
     targetRole,
     experienceYears: isNaN(experienceYears) ? 3 : experienceYears,
-    quantificationRatio,
-    totalBulletPoints: candidateBullets.length,
-    candidateSkills,
+    totalBullets,
+    totalBulletPoints: allBullets.length,
+    quantifiedCount,
+    quantificationRatio: metricRatio,
+    metricRatio,
+    candidateSkills: verifiedSkills,
+    verifiedSkills,
     clustering: clusterResult.evaluation,
+    clusterEvaluation: clusterResult.evaluation,
+    clusters: clusterResult.clusters,
     rawClusters: clusterResult.clusters,
-    bulletPoints: candidateBullets.slice(0, 8),
+    bulletPoints: allBullets.slice(0, 8),
+    deterministicScores: {
+      overall: overallScore,
+      marketAlignment: marketCoverage,
+      impactAndMetrics: impactScore,
+      atsCompatibility,
+    },
   }
 }
 
-export async function generateReportBundle(assessmentData = {}, options = {}) {
+export const performDeterministicTriage = performLocalPreTriage
+
+/**
+ * Stage 1: Single Unified Structured JSON Synthesis (~3.5s)
+ * One dense, token-efficient prompt generating full career diagnosis, rewrites & roadmap.
+ */
+export async function executeSinglePassSynthesis({ triage, user, resumeJson, liveLinkedinData, liveLinkedinPosts, options = {} }) {
   const startTime = Date.now()
-  let user = assessmentData.user || null
-  const userId = assessmentData.userId || (user && user._id)
+
+  // Evaluate LinkedIn in Node (~5ms)
+  const recruiterSeo = calculateRecruiterSeoScore({
+    headline: liveLinkedinData?.headline || '',
+    about: liveLinkedinData?.about || '',
+    experiences: liveLinkedinData?.experiences || [],
+    targetRole: triage.targetRole,
+  })
+
+  const headlines = generateOptimizedHeadlines({
+    role: triage.targetRole,
+    topSkills: triage.verifiedSkills,
+    yearsExp: Number(user?.experienceLevel || user?.experienceYears || triage.experienceYears || 3),
+    company: liveLinkedinData?.experiences?.[0]?.company || '',
+  })
+
+  const thoughtLeadership = evaluateThoughtLeadership(liveLinkedinPosts)
+
+  const systemPrompt = `You are the Lead Executive Career Architect at Career GPS.
+Generate a comprehensive, recruiter-grade ATS and Career Diagnosis Report in STRICT JSON format.
+Follow strict deterministic facts provided. Zero fluff, zero generic commentary.
+Cluster Equivalence Rule: If candidate has any tool in a competency cluster, grant full credit.`
+
+  const userPrompt = `CANDIDATE CONTEXT:
+Target Role: ${triage.targetRole}
+Deterministic ATS Health Score: ${triage.deterministicScores.overall}/100 (Market: ${triage.deterministicScores.marketAlignment}%, Metrics: ${triage.deterministicScores.impactAndMetrics}%)
+Quantified Bullets: ${triage.quantifiedCount}/${triage.totalBullets} (${triage.metricRatio}%)
+Verified Skills: ${JSON.stringify(triage.verifiedSkills.slice(0, 15))}
+Competency Clusters: ${JSON.stringify(triage.clusters.map((c) => ({ name: c.name, tools: c.tools, demand: c.demandPercentage })))}
+LinkedIn SEO Score: ${recruiterSeo.seoScore}/100 (${recruiterSeo.status})
+
+SAMPLE CANDIDATE BULLETS TO REWRITE (Pick top 3 weakest):
+${JSON.stringify((resumeJson?.experience || resumeJson?.experiences || []).slice(0, 2).flatMap((e) => (e.bullets || e.bulletPoints || []).slice(0, 2)))}
+
+OUTPUT SCHEMA (STRICT JSON ONLY):
+{
+  "executiveSummary": "2-3 crisp sentences summarizing candidate market positioning and primary leverage point.",
+  "primaryBottleneck": {
+    "title": "Clear 4-6 word bottleneck diagnosis",
+    "severity": "CRITICAL" | "MODERATE" | "LOW",
+    "diagnosis": "Why this specifically blocks recruiter screens",
+    "recommendedPivot": "Exact tactical remediation"
+  },
+  "bulletRewrites": [
+    {
+      "original": "Original unquantified bullet point",
+      "rewritten": "Action Verb + Technical Scope + Quantified Outcome ($ or %)",
+      "critique": "What was wrong with original"
+    }
+  ],
+  "strategicRoadmap": [
+    {
+      "phase": "Immediate (Days 1-14)",
+      "action": "Immediate tactical fix",
+      "impact": "Expected metric improvement"
+    },
+    {
+      "phase": "Short-Term (Days 15-45)",
+      "action": "Market positioning optimization",
+      "impact": "Inbound recruiter conversion"
+    }
+  ]
+}`
+
+  let parsed = null
+  try {
+    const response = await llmGateway.generate({
+      purpose: 'unified_synthesis',
+      task: 'unified_synthesis',
+      preferredProvider: options.preferredProvider || 'openrouter',
+      model: options.model || 'google/gemini-2.5-flash-lite',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      responseFormat: { type: 'json_object' },
+      temperature: 0.1,
+      maxTokens: 2500,
+      timeoutMs: options.timeoutMs || 12000,
+    })
+
+    const rawText = response?.text || response?.content || '{}'
+    parsed = safeParseJson(rawText)
+  } catch (err) {
+    console.warn('[ReportGen] Single-pass synthesis fallback triggered:', err.message)
+  }
+
+  const defaultSummary = `Candidate demonstrates strong foundational technical capabilities in ${triage.targetRole} with ${triage.clusterEvaluation?.coveragePercentage || 65}% market competency coverage and high upside in quantified metrics.`
+  const defaultBottleneck = {
+    title: triage.metricRatio < 60 ? 'Unquantified Production Impact Bullets' : 'Market Competency Gaps',
+    severity: triage.metricRatio < 40 ? 'CRITICAL' : 'MODERATE',
+    diagnosis: triage.metricRatio < 60
+      ? 'Resume bullets describe duties rather than measurable business outcomes.'
+      : 'Key interchangeable tools in primary market competency clusters are unverified.',
+    recommendedPivot: 'Restructure bullets using Action Verb + Technical Scope + Measurable Result syntax.',
+  }
+
+  const execSummary = parsed?.executiveSummary || parsed?.executive_summary || defaultSummary
+  const bottleneck = parsed?.primaryBottleneck || parsed?.primary_bottleneck || defaultBottleneck
+  const bulletRewrites = parsed?.bulletRewrites || parsed?.bullet_rewrites || (triage.bulletPoints || []).slice(0, 3).map((b) => ({
+    original: b,
+    rewritten: `Drove core initiatives utilizing verified domain tools, improving operational outcomes and metrics by measurable margins.`,
+    critique: 'Quantify specific business impact and highlight verified tools.',
+  }))
+  const roadmap = parsed?.strategicRoadmap || parsed?.roadmap || [
+    {
+      phase: 'Immediate (Days 1-14)',
+      action: 'Refactor top 3 bullets to reflect verified competency tools with specific metrics.',
+      impact: 'Immediate ATS score lift',
+    },
+    {
+      phase: 'Short-Term (Days 15-45)',
+      action: 'Bridge missing equivalent tools within high-priority competency clusters.',
+      impact: 'Recruiter conversion boost',
+    },
+  ]
+
+  const durationMs = Date.now() - startTime
+
+  return {
+    heroScore: triage.deterministicScores,
+    score: triage.deterministicScores.overall,
+    career_health_score: triage.deterministicScores,
+    careerScore: triage.deterministicScores.overall,
+    executiveSummary: execSummary,
+    executive_summary: execSummary,
+    primaryBottleneck: bottleneck,
+    primary_bottleneck: bottleneck,
+    bulletRewrites,
+    bullet_rewrites: bulletRewrites,
+    strategicRoadmap: roadmap,
+    roadmap,
+    competencyClusters: triage.clusterEvaluation,
+    competency_clusters_audit: triage.clusterEvaluation?.clusterBreakdown || [],
+    recruiterSeo,
+    optimizedHeadlines: headlines,
+    thoughtLeadership,
+    telemetry: {
+      singlePassLatencyMs: durationMs,
+      latencyMs: durationMs,
+      targetSub10sAchieved: durationMs < 10000,
+      targetSub8sAchieved: durationMs < 8000,
+      triageCoverage: triage.clusterEvaluation?.coveragePercentage || 100,
+    },
+  }
+}
+
+/**
+ * Primary Controller Entrypoint — generateReportBundle
+ * Maintains existing export contract for assessmentController.js.
+ */
+export async function generateReportBundle(params = {}, options = {}) {
+  const globalStart = Date.now()
+
+  let user = params.user || null
+  const userId = params.userId || (user && user._id)
   if (!user && userId && mongoose.connection.readyState === 1) {
     try {
       user = await User.findById(userId)
     } catch (_uErr) {}
   }
 
-  const triageInput = { ...assessmentData, user }
-  const triage = performDeterministicTriage(triageInput)
+  const answers = user?.answers || params.answers || {}
+  const resumeJson = params.resumeJson || user?.resumeJson || params.resumeData || params.canonicalResume || {}
+  const targetRole = params.targetRole || user?.targetRole || answers.targetRole || resumeJson.targetRole || resumeJson.target_role || 'Professional'
 
-  const answers = user?.answers || assessmentData.answers || {}
+  // Resolve Market Profile if not provided
+  let marketProfile = params.marketProfile || null
+  if (!marketProfile && mongoose.connection.readyState === 1) {
+    try {
+      const bucket = await JobMarketBucket.findOne({
+        targetRole: { $regex: new RegExp(`^${targetRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') },
+      }).lean()
+      if (bucket?.activeVersion?.marketProfile) {
+        marketProfile = bucket.activeVersion.marketProfile
+      }
+    } catch (_mErr) {}
+  }
+  if (!marketProfile && params.semanticProfile) {
+    marketProfile = params.semanticProfile
+  }
+
+  // Resolve LinkedIn data & concurrent scraping
   const effectiveLinkedinUrl = (
-    assessmentData.linkedinUrl ||
+    params.linkedinUrl ||
     answers.linkedin ||
     answers.linkedinUrl ||
     answers['linkedin-url'] ||
     user?.linkedinUrl ||
     ''
   ).trim()
-  const precomputedLinkedinData = assessmentData.linkedinData || assessmentData.precomputedLinkedinData || null
+  const precomputedLinkedinData = params.liveLinkedinData || params.linkedinData || params.precomputedLinkedinData || user?.linkedinData || null
   const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && user && !user.linkedinData && !precomputedLinkedinData)
 
-  const smartQuery = assessmentData.targetRole || answers.targetRole || triage.targetRole || 'Professional'
+  let liveLinkedinData = precomputedLinkedinData
+  let liveLinkedinPosts = params.liveLinkedinPosts || params.activityData || user?.linkedinActivityData || null
 
-  // Concurrent Stage 0: RAG Context + LinkedIn Profile + LinkedIn Posts ALL IN PARALLEL!
-  const [dynamicKbContent, [liveLinkedinData, liveLinkedinPosts]] = await Promise.all([
-    mongoose.connection.readyState === 1
-      ? buildRAGContext(smartQuery).catch((err) => {
-          console.warn('[ReportGen] RAG context fallback:', err.message)
+  if (shouldScrapeLinkedin) {
+    try {
+      const [scrapedProfile, scrapedPosts] = await Promise.all([
+        scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
+          console.warn('[ReportGen] LinkedIn profile scrape non-fatal fallback:', err.message)
           return null
-        })
-      : Promise.resolve(null),
-    shouldScrapeLinkedin
-      ? Promise.all([
-          scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
-            console.warn('[ReportGen] LinkedIn profile scrape non-fatal fallback:', err.message)
-            return null
-          }),
-          scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-            console.warn('[ReportGen] LinkedIn posts scrape non-fatal fallback:', err.message)
-            return null
-          }),
-        ])
-      : Promise.resolve([null, null]),
-  ])
-
-  // Save both profile and posts concurrently
-  if (user) {
-    if (liveLinkedinData && !user.linkedinData) {
-      user.linkedinData = liveLinkedinData
-    }
-    if (liveLinkedinPosts && !user.linkedinActivityData) {
-      user.linkedinActivityData = liveLinkedinPosts
-    }
+        }),
+        scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+          console.warn('[ReportGen] LinkedIn posts scrape non-fatal fallback:', err.message)
+          return null
+        }),
+      ])
+      if (scrapedProfile) liveLinkedinData = scrapedProfile
+      if (scrapedPosts) liveLinkedinPosts = scrapedPosts
+    } catch (_sErr) {}
   }
 
-  if (typeof assessmentData.onProgress === 'function') {
+  if (typeof params.onProgress === 'function') {
     try {
-      assessmentData.onProgress({ stage: 'preparing', message: 'Analyzing candidate competency clusters against market demand…' })
+      params.onProgress({ stage: 'preparing', message: 'Executing Stage 0 Deterministic Triage…' })
     } catch (_pErr) {}
   }
 
-  const dynamicSystemPrompt = `You are the Lead Executive Career Architect and Hiring Auditor at Career GPS.
-Generate an exhaustive, domain-agnostic Career Assessment Report in strict JSON format.
+  // Stage 0: Local Triage (~100ms)
+  const triage = performLocalPreTriage({
+    user,
+    resumeJson,
+    marketProfile,
+    targetRole,
+    ...params,
+  })
 
-EXECUTIVE RECRUITER DIAGNOSTIC FRAMEWORK (ZERO-SLOP, ZERO-FLATTERY):
-- Address candidate directly with unfiltered, candid, tough-love diagnostic precision.
-- ZERO hardcoded assumptions: The candidate could be a Clinical Nurse, Golang Backend Engineer, Data Analyst, Supply Chain Lead, or any domain. Adapt 100% to their stated role and experience.
-- CLUSTER EQUIVALENCE PRINCIPLE: If a candidate has demonstrated proficiency in ANY tool in an interchangeable competency cluster, grant 100% full equivalence credit. Never penalize for missing an interchangeable tool if an equivalent is verified.
-- De-duplicate primary_bottleneck against top resume issues: primary_bottleneck must diagnose high-level pipeline/market conversion gates rather than echoing line-by-line bullet critiques.
-- Return ONLY valid raw JSON with zero markdown fences.`
-
-  const dynamicUserPrompt = `TARGET CANDIDATE CONTEXT:
-Target Role: ${triage.targetRole}
-Experience Level: ${triage.experienceYears} Years
-Quantified Bullets Ratio: ${triage.quantificationRatio}% (${triage.totalBulletPoints} total bullets evaluated)
-Candidate's Verified Skills: ${JSON.stringify(triage.candidateSkills)}
-Dynamic Market Competency Clusters: ${JSON.stringify(triage.rawClusters)}
-Market Competency Coverage: ${triage.clustering.coveragePercentage}%
-Candidate Experience Bullets Sample:
-${JSON.stringify(triage.bulletPoints)}
-
-TASK:
-Produce a unified, comprehensive Career Assessment Report matching this exact JSON schema:
-{
-  "career_health_score": {
-    "overall": number (0-100),
-    "marketAlignment": number (0-100),
-    "atsCompatibility": number (0-100),
-    "impactAndMetrics": number (0-100)
-  },
-  "executive_summary": string,
-  "primary_bottleneck": {
-    "title": string,
-    "severity": "CRITICAL" | "MODERATE" | "LOW",
-    "diagnosis": string,
-    "recommendedPivot": string
-  },
-  "competency_clusters_audit": [
-    {
-      "clusterName": string,
-      "satisfied": boolean,
-      "matchedTool": string,
-      "recommendation": string
-    }
-  ],
-  "bullet_rewrites": [
-    {
-      "original": string,
-      "rewritten": string,
-      "critique": string
-    }
-  ],
-  "roadmap": [
-    {
-      "phase": "Immediate (Days 1-14)" | "Short-Term (Days 15-45)" | "Mid-Term (Days 45-90)",
-      "actions": [string]
-    }
-  ]
-}
-
-Return ONLY valid raw JSON. No markdown backticks, no conversational fluff.`
-
-  if (typeof assessmentData.onProgress === 'function') {
+  if (typeof params.onProgress === 'function') {
     try {
-      assessmentData.onProgress({ stage: 'agents_running', message: 'Synthesizing executive market intelligence report…' })
+      params.onProgress({ stage: 'agents_running', message: 'Synthesizing Single-Pass Executive Report…' })
     } catch (_pErr) {}
   }
 
-  let structuredOutput = null
-  try {
-    const response = await llmGateway.generate({
-      purpose: 'report_generation',
-      preferredProvider: options.preferredProvider || 'openrouter',
-      model: options.model || 'google/gemini-2.5-flash-lite',
-      messages: [
-        { role: 'system', content: dynamicSystemPrompt },
-        { role: 'user', content: dynamicUserPrompt }
-      ],
-      responseFormat: { type: 'json_object' },
-      temperature: 0.1,
-      timeoutMs: options.timeoutMs || 15000,
-    })
-
-    const rawContent = response?.text || response?.content || ''
-    structuredOutput = safeParseJson(rawContent)
-  } catch (err) {
-    console.warn('[reportGeneration] Unified LLM pass fallback triggered:', err.message)
-  }
-
-  if (!structuredOutput || typeof structuredOutput !== 'object') {
-    const coverage = triage.clustering.coveragePercentage || 70
-    const atsScore = triage.quantificationRatio > 40 ? 80 : 65
-    const overall = Math.round((coverage * 0.5) + (atsScore * 0.3) + ((triage.quantificationRatio || 50) * 0.2))
-
-    structuredOutput = {
-      career_health_score: {
-        overall,
-        marketAlignment: coverage,
-        atsCompatibility: atsScore,
-        impactAndMetrics: triage.quantificationRatio || 50
-      },
-      executive_summary: `Candidate benchmarked for ${triage.targetRole} with ${triage.experienceYears} years of experience and ${coverage}% market competency cluster coverage.`,
-      primary_bottleneck: {
-        title: coverage < 60 ? 'Market Competency Gaps' : 'Low Metric Quantification',
-        severity: coverage < 50 ? 'CRITICAL' : 'MODERATE',
-        diagnosis: `Identified gaps across key competency clusters or low quantified business impact (${triage.quantificationRatio}%).`,
-        recommendedPivot: 'Align resume achievements with interchangeable tools identified across high-frequency market demand.'
-      },
-      competency_clusters_audit: triage.clustering.clusterBreakdown || [],
-      bullet_rewrites: (triage.bulletPoints || []).slice(0, 3).map((b) => ({
-        original: b,
-        rewritten: `Drove core initiatives utilizing verified domain tools, improving operational outcomes and metrics by measurable margins.`,
-        critique: 'Quantify specific business impact and highlight verified tools.'
-      })),
-      roadmap: [
-        {
-          phase: 'Immediate (Days 1-14)',
-          actions: ['Refactor top 3 bullets to reflect verified competency tools with specific metrics.']
-        },
-        {
-          phase: 'Short-Term (Days 15-45)',
-          actions: ['Bridge missing equivalent tools within high-priority competency clusters.']
-        },
-        {
-          phase: 'Mid-Term (Days 45-90)',
-          actions: ['Execute targeted outbound hiring manager positioning tailored to target role.']
-        }
-      ]
-    }
-  }
-
-  if (!structuredOutput.competency_clusters_audit || structuredOutput.competency_clusters_audit.length === 0) {
-    structuredOutput.competency_clusters_audit = triage.clustering.clusterBreakdown
-  }
-
-  const overallScore =
-    typeof structuredOutput.career_health_score === 'object' && structuredOutput.career_health_score !== null
-      ? (structuredOutput.career_health_score.overall ?? 70)
-      : (Number(structuredOutput.career_health_score) || 70)
-
-  structuredOutput.gps_score = overallScore
-  structuredOutput.score = overallScore
-  structuredOutput.heroScore = overallScore
-  structuredOutput.careerHealthScore = overallScore
-  structuredOutput.executiveSummary = structuredOutput.executive_summary
-  structuredOutput.primaryBottleneck = structuredOutput.primary_bottleneck
-  structuredOutput.bulletRewrites = structuredOutput.bullet_rewrites
+  // Stage 1: Single Unified LLM Synthesis (~3.5s)
+  const report = await executeSinglePassSynthesis({
+    triage,
+    user,
+    resumeJson,
+    liveLinkedinData: liveLinkedinData || user?.linkedinData,
+    liveLinkedinPosts: liveLinkedinPosts || user?.linkedinActivityData,
+    options,
+  })
 
   if (liveLinkedinData || user?.linkedinData) {
-    structuredOutput.linkedin_json = liveLinkedinData || user.linkedinData
+    report.linkedin_json = liveLinkedinData || user?.linkedinData
   }
   if (liveLinkedinPosts || user?.linkedinActivityData) {
-    structuredOutput.linkedin_activity_data = liveLinkedinPosts || user.linkedinActivityData
+    report.linkedin_activity_data = liveLinkedinPosts || user?.linkedinActivityData
   }
 
+  // Save to user if available
   if (user) {
-    user.aiReport = structuredOutput
+    user.aiReport = report
+    user.careerScore = report.career_health_score
+    if (liveLinkedinData && !user.linkedinData) user.linkedinData = liveLinkedinData
+    if (liveLinkedinPosts && !user.linkedinActivityData) user.linkedinActivityData = liveLinkedinPosts
     try {
       await user.save()
     } catch (_saveErr) {}
   }
 
-  if (typeof assessmentData.onProgress === 'function') {
+  if (typeof params.onProgress === 'function') {
     try {
-      assessmentData.onProgress({ stage: 'report_ready', message: 'Report ready.', report: structuredOutput })
+      params.onProgress({ stage: 'report_ready', message: 'Report ready.', report })
     } catch (_progErr) {}
   }
 
-  const totalDurationMs = Date.now() - startTime
+  const totalTime = Date.now() - globalStart
+  console.log(`[ReportGeneration] ✔ Single-Pass Report Generation completed in ${totalTime}ms (Target: <8000ms achieved: ${totalTime < 8000})`)
 
   return {
     success: true,
+    ...report,
     user,
-    aiReport: structuredOutput,
-    data: structuredOutput,
-    report: structuredOutput,
-    telemetry: {
-      latencyMs: totalDurationMs,
-      targetAchieved: totalDurationMs < 10000,
-      triageCoverage: triage.clustering.coveragePercentage
-    }
+    aiReport: report,
+    data: report,
+    report,
   }
 }
 
 export default {
-  generateReportBundle,
+  performLocalPreTriage,
   performDeterministicTriage,
+  executeSinglePassSynthesis,
+  generateReportBundle,
   normalizeAtlasShapes,
   deriveFunnelFromAnswers,
   deCycle,

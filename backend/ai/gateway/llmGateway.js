@@ -43,6 +43,7 @@ export const TASK_MODEL_ROUTING = {
   thought_leadership: 'meta-llama/llama-3.3-70b-instruct',
   report_generation: 'google/gemini-2.5-flash-lite',
   judge_gate: 'google/gemini-2.5-flash-lite',
+  unified_synthesis: 'google/gemini-2.5-flash-lite',
   jev_decision: 'typesafe/jev-1.14',
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
@@ -123,8 +124,9 @@ export class LLMGateway {
     const requestStartTime = Date.now()
 
     let requestedModelId = model
-    if (!requestedModelId && task && TASK_MODEL_ROUTING[task]) {
-      requestedModelId = TASK_MODEL_ROUTING[task]
+    const routingTask = task || purpose
+    if (!requestedModelId && routingTask && TASK_MODEL_ROUTING[routingTask]) {
+      requestedModelId = TASK_MODEL_ROUTING[routingTask]
     }
     if (!requestedModelId) {
       requestedModelId = this.config.defaultResumeModel

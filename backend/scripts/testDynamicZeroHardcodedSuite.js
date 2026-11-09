@@ -95,6 +95,13 @@ const testDomains = [
 // ----------------------------------------------------
 console.log('--- Section 1: In-Memory Statistical Clustering & Equivalence Across 5 Domains ---')
 
+// V8 JIT Warm-up
+dynamicCompetencyClusterizer.processDynamicClustering({
+  jdTexts: ['SQL or Python for data processing.'],
+  rawSkills: ['SQL', 'Python'],
+  candidateSkills: ['SQL'],
+})
+
 for (const scenario of testDomains) {
   console.log(`Testing Domain: ${scenario.domain} (${scenario.targetRole})...`)
 
