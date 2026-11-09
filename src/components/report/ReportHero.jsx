@@ -1,553 +1,148 @@
-import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import {
-  Compass,
-  Briefcase,
-  IdentificationCard,
-  Calendar,
-  Sparkle,
-  Warning,
-  TrendUp,
-  Robot,
-} from '@phosphor-icons/react'
+import React from 'react'
+import { ShieldCheck, Target, Sparkle, Lightning, ChartLineUp, UserCheck } from '@phosphor-icons/react'
 
-const CIRCUMFERENCE = 2 * Math.PI * 46 // r=46 -> 289
-
-function getScoreColor(score) {
-  if (score >= 75) return 'var(--emerald)'
-  if (score >= 50) return '#f59e0b'
-  return '#ef4444'
-}
-
-function getScoreBadgeClass(score) {
-  if (score >= 75) return 'bg-emerald-500/15 text-[var(--emerald)] border-emerald-500/30'
-  if (score >= 50) return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-  return 'bg-red-500/15 text-red-500 dark:text-red-400 border-red-500/30'
-}
-
-import useAppStore from '../../store/useAppStore'
-import { decodeHtmlEntities, truncateAtWord } from '../../../backend/agents/assessment/assessmentAgent'
-
-export default function ReportHero({ reportData }) {
-  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
-  const formData = useAppStore((s) => s.formData)
-  const email = useAppStore((s) => s.email)
-
-  const candidate = reportData?.resume_json || {}
-  const resumeAgent = reportData?.resume_agent || {}
-
-  const rawName =
-    reportData?.resume_agent?.candidateSnapshot?.name ||
-    reportData?.resume_json?.candidate_name ||
-    reportData?.resume_json?.name ||
-    reportData?.candidate_name ||
-    reportData?.user_answers?.name ||
-    reportData?.user_answers?.fullName ||
-    formData?.fullName ||
-    formData?.name ||
-    (email ? email.split('@')[0] : 'Candidate')
-
-  const firstName = decodeHtmlEntities((typeof rawName === 'string' && rawName.trim())
-    ? rawName.trim().split(' ')[0]
-    : '')
-
-  const targetRole = decodeHtmlEntities(
-    resumeAgent?.candidateSnapshot?.targetRole ||
-    candidate?.candidate?.targetRole ||
-    candidate?.target_role ||
-    reportData?.target_role ||
-    formData?.targetRole ||
-    formData?.target_role ||
-    formData?.desiredRole ||
-    formData?.role ||
-    ''
-  )
-
-  const visaStatus = decodeHtmlEntities(
-    candidate?.candidate?.visaStatus ||
-    candidate?.visa_status ||
-    reportData?.visa_status ||
-    formData?.visaStatus ||
-    formData?.visa_status ||
-    formData?.workAuthorization ||
-    formData?.work_authorization ||
-    ''
-  )
-
-  const presentRole = decodeHtmlEntities(
-    resumeAgent?.candidateSnapshot?.presentRole ||
-    candidate?.candidate?.presentRole ||
-    ''
-  )
-
-  const presentCompany = decodeHtmlEntities(
-    resumeAgent?.candidateSnapshot?.presentCompany ||
-    candidate?.candidate?.presentCompany ||
-    ''
-  )
-
-  const rawPastRoles =
-    resumeAgent?.candidateSnapshot?.pastRoles ||
-    candidate?.candidate?.pastRoles ||
-    []
-
-  const pastRoles = Array.isArray(rawPastRoles)
-    ? rawPastRoles.map((pr) => ({
-        ...pr,
-        role: decodeHtmlEntities(pr.role || ''),
-        company: decodeHtmlEntities(pr.company || ''),
-      }))
-    : []
-
-  const rawSkills = Array.isArray(candidate?.top_skills) && candidate.top_skills.length > 0
-    ? candidate.top_skills
-    : Array.isArray(candidate?.skills) && candidate.skills.length > 0
-    ? candidate.skills
-    : Array.isArray(resumeAgent?.canonicalResume?.skills) && resumeAgent.canonicalResume.skills.length > 0
-    ? resumeAgent.canonicalResume.skills
-    : []
-
-  const skillsList = rawSkills.map((s) => {
-    if (typeof s === 'string') return decodeHtmlEntities(s)
-    if (typeof s === 'object' && s) return decodeHtmlEntities(s.name || s.skill || '')
-    return decodeHtmlEntities(String(s || ''))
-  }).filter(Boolean)
-
-  // Compute deterministic scorecard sum from 6 areas or 4 pillars to ensure 100% mathematical consistency
-  const computedSum = reportData?.gps_scores?.areas
-    ? Object.values(reportData.gps_scores.areas).reduce((sum, a) => sum + (Number(a.points) || 0), 0)
-    : reportData?.gps_scores?.four_pillars
-    ? Object.values(reportData.gps_scores.four_pillars).reduce((sum, p) => sum + (Number(p.points) || 0), 0)
-    : null
-
-  const rawHealthScore =
-    computedSum ??
-    reportData?.gps_score ??
+export default function ReportHero({ reportData, user }) {
+  const rawScores =
+    reportData?.heroScore ||
     (typeof reportData?.career_health_score === 'object' && reportData?.career_health_score !== null
-      ? reportData.career_health_score.overall
-      : reportData?.career_health_score) ??
-    resumeAgent?.dashboard?.score ??
-    60
+      ? reportData.career_health_score
+      : null)
 
-  const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 60))
-
-  const scoreLabel =
-    reportData?.gps_scores?.gradeLabel ||
-    reportData?.score_label ||
-    (healthScore >= 85 ? 'Elite Positioning' : healthScore >= 70 ? 'Competitive' : healthScore >= 55 ? 'Needs Optimization' : 'Critical Focus Required')
-
-  const reportDate = new Date().toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-
-  // Animated circular score counter
-  const [displayedScore, setDisplayedScore] = useState(0)
-  useEffect(() => {
-    let start = 0
-    const end = Math.min(100, Math.max(0, healthScore))
-    if (end === 0) {
-      setDisplayedScore(0)
-      return
-    }
-    const stepTime = Math.max(10, Math.floor(1200 / end))
-    const timer = setInterval(() => {
-      start += 1
-      setDisplayedScore(start)
-      if (start >= end) clearInterval(timer)
-    }, stepTime)
-    return () => clearInterval(timer)
-  }, [healthScore])
-
-  const strokeDashoffset = CIRCUMFERENCE - (CIRCUMFERENCE * Math.min(100, displayedScore)) / 100
-  const scoreColor = getScoreColor(healthScore)
-
-  // One-line diagnosis synthesis
-  const rawStrength =
-    resumeAgent?.strengths?.[0] ||
-    reportData?.strengths?.[0] ||
-    candidate?.strengths?.[0]
-
-  const advantageText =
-    typeof rawStrength === 'string'
-      ? rawStrength
-      : rawStrength?.title
-      ? rawStrength.title
-      : rawStrength?.description || rawStrength?.signal || 'verified engineering delivery'
-
-  const cleanAdvantage = decodeHtmlEntities(String(advantageText || '').replace(/\.+$/, '').trim())
-  const cleanCompany = decodeHtmlEntities(String(presentCompany || pastRoles[0]?.company || '').replace(/\.+$/, '').trim())
-
-  const primaryIssue =
-    reportData?.primary_bottleneck ||
-    reportData?.critical_issues?.[0] ||
-    resumeAgent?.issues?.[0] ||
-    reportData?.issues?.[0]
-
-  let rawBottleneck =
-    typeof primaryIssue === 'string'
-      ? primaryIssue
-      : primaryIssue?.title || primaryIssue?.diagnosis || null
-
-  const answers = reportData?.user_answers || reportData?.answers || formData || {}
-  const hasValidLinkedin = Boolean(
-    (answers.linkedin && typeof answers.linkedin === 'string' && answers.linkedin.trim().length > 3) ||
-    (answers.linkedinUrl && typeof answers.linkedinUrl === 'string' && answers.linkedinUrl.trim().length > 3) ||
-    (answers['linkedin-url'] && typeof answers['linkedin-url'] === 'string' && answers['linkedin-url'].trim().length > 3) ||
-    (typeof answers.contact?.linkedin === 'string' && answers.contact.linkedin.trim().length > 3) ||
-    (reportData?.linkedin_json && Object.keys(reportData.linkedin_json).length > 0) ||
-    (reportData?.linkedin_agent?.dataAvailable === true) ||
-    (reportData?.linkedin_agent?.inferredFromResume === true)
-  )
-  const isPhase3Or4 = Number(reportData?.phase?.id) >= 3 || /technical|final|offer/i.test(reportData?.phase?.name || reportData?.phase?.shortName || '')
-
-  if ((hasValidLinkedin || isPhase3Or4) && /blank linkedin|blank profile|completely blank linkedin/i.test(String(rawBottleneck || ''))) {
-    rawBottleneck = isPhase3Or4
-      ? 'Technical Case-Study Depth & Architectural Tradeoff Articulation'
-      : 'Top-of-Page ATS Keyword Alignment & Metric Gaps'
+  const scores = {
+    overall:
+      typeof rawScores?.overall === 'number'
+        ? rawScores.overall
+        : typeof reportData?.career_health_score === 'number'
+        ? reportData.career_health_score
+        : Number(reportData?.score) || 72,
+    marketAlignment: rawScores?.marketAlignment ?? 75,
+    impactAndMetrics: rawScores?.impactAndMetrics ?? 58,
+    atsCompatibility: rawScores?.atsCompatibility ?? 85,
   }
 
-  const rawCleanedBottleneck = decodeHtmlEntities(
-    String(rawBottleneck || 'Application & Targeting Alignment')
-      .replace(/\brecrui\.\.\./gi, 'recruiter...')
-      .replace(/\.+$/, '')
-      .trim()
-  )
-  const cleanBottleneck = truncateAtWord(rawCleanedBottleneck, 75)
+  const role =
+    user?.targetRole ||
+    reportData?.targetRole ||
+    reportData?.target_role ||
+    reportData?.resume_agent?.candidateSnapshot?.targetRole ||
+    reportData?.resume_json?.target_role ||
+    'Senior Professional'
 
-  // Detection of corporate experience extraction gaps (e.g. PwC, Shure listed without bullets)
-  const experiences = candidate?.experiences || candidate?.experience || resumeAgent?.canonicalResume?.experiences || []
-  const totalWorkBullets = experiences.reduce(
-    (sum, exp) => sum + (Array.isArray(exp.bullets) ? exp.bullets.length : (exp.bullet ? 1 : 0)),
-    0
-  )
-  const missingCompanyNames = experiences
-    .map((e) => e.company || e.role)
-    .filter(Boolean)
-    .slice(0, 3)
-  const formattedCompanyNames = missingCompanyNames.length > 0 ? missingCompanyNames.join(' and ') : 'corporate'
-  const hasExtractedExperienceGaps = experiences.length > 0 && totalWorkBullets === 0
+  const overall = scores.overall || 72
+
+  // Dynamic Ring Stroke Color
+  const ringColor =
+    overall >= 80 ? 'text-emerald-500' : overall >= 60 ? 'text-indigo-600' : 'text-amber-500'
+
+  const strokeDashoffset = 283 - (283 * overall) / 100
 
   return (
-    <section id="overview" className="relative pt-2 pb-6 print:pt-0 print:pb-2">
-      {/* Soft Ambient Glow */}
-      <div className="absolute -top-12 -left-12 w-80 h-80 bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none print:hidden" />
-      <div className="absolute top-10 right-0 w-80 h-80 bg-[var(--emerald)]/5 rounded-full blur-3xl pointer-events-none print:hidden" />
-
-      {/* Main Hero Card Container (Page 1) */}
-      <div className="rounded-3xl p-6 sm:p-9 print:p-5 bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm relative overflow-hidden print:border-none print:shadow-none break-inside-avoid page-break-inside-avoid">
-        {/* Top Badges Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-6 print:pb-3 border-b border-[var(--border-default)]">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[var(--primary-light)] border border-[var(--primary)]/25 flex items-center justify-center text-[var(--primary)]">
-              <Compass size={18} weight="fill" />
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] block font-mono">
-                AI Career Intelligence
-              </span>
-              <span className="text-xs font-semibold text-[var(--text-primary)]">
-                Crafture Career GPS
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-secondary)] flex items-center gap-1.5">
-              <Calendar size={13} className="text-[var(--text-muted)]" />
-              <span>{reportDate}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full border border-indigo-200 dark:border-indigo-800">
+              Executive ATS Diagnostic
             </span>
-            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-[var(--emerald-bg)] border border-emerald-500/20 text-[var(--emerald)]">
-              Confidential Analysis
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+              Calibrated for {role}
             </span>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
+            Career Health & Market Fit Report
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+            Real-time alignment analysis benchmarking your resume and LinkedIn presence against current hiring demand, recruiter keyword density, and quantifiable business impact.
+          </p>
         </div>
 
-        {/* Hero Body Grid: Greeting + Diagnosis on Left, Circular Score on Right */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 print:grid-cols-12 gap-8 print:gap-4 items-center pt-6 print:pt-3 break-inside-avoid page-break-inside-avoid">
-          {/* Left Column: Personalized Greeting & Narrative */}
-          <div className="lg:col-span-8 print:col-span-8 space-y-4 print:space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold text-[var(--primary)] border border-[var(--primary)]/20">
-              <Robot size={15} weight="fill" />
-              <span>Personal Career Coach Report</span>
+        {/* Circular Tremor Score Ring */}
+        <div className="flex items-center gap-5 shrink-0 bg-slate-50 dark:bg-slate-950/60 p-4 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+          <div className="relative w-20 h-20 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                className="text-slate-200 dark:text-slate-800 stroke-current"
+                strokeWidth="8"
+                fill="transparent"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                className={`${ringColor} stroke-current transition-all duration-1000 ease-out`}
+                strokeWidth="8"
+                strokeDasharray="283"
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="transparent"
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center">
+              <span className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">{overall}</span>
+              <span className="text-[9px] font-bold uppercase text-slate-400 dark:text-slate-500">Index</span>
             </div>
-
-            <div className="space-y-2">
-              <h1
-                className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[var(--text-primary)] tracking-tight leading-[1.15]"
-                style={{ fontFamily: 'var(--font-head)' }}
-              >
-                {firstName ? `${firstName}, here's where your ` : `Here's where your `}
-                <span className="text-[var(--primary)]">job search stands.</span>
-              </h1>
-
-              {/* Target, Present & Past Roles, Visa Badges */}
-              {(targetRole || presentRole || pastRoles.length > 0 || visaStatus) && (
-                <div className="flex flex-wrap items-center gap-2.5 pt-1">
-                  {targetRole && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)]">
-                      <Briefcase size={14} className="text-[var(--primary)]" weight="bold" />
-                      <span>Target: {targetRole}</span>
-                    </span>
-                  )}
-                  {presentRole && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      <Briefcase size={14} weight="bold" />
-                      <span>Current: {presentRole}{cleanCompany ? ` @ ${cleanCompany}` : ''}</span>
-                    </span>
-                  )}
-                  {pastRoles.length > 0 && pastRoles[0]?.role && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)]">
-                      <span>Prev: {pastRoles[0].role}{pastRoles[0].company ? ` @ ${pastRoles[0].company}` : ''}</span>
-                    </span>
-                  )}
-                  {visaStatus && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                      <IdentificationCard size={14} weight="bold" />
-                      <span>{visaStatus}</span>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Coach One-Line Key Diagnosis Card */}
-            {(cleanAdvantage || cleanBottleneck || hasExtractedExperienceGaps) && (
-              <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3.5 break-inside-avoid page-break-inside-avoid shadow-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-xs uppercase tracking-wider font-mono font-bold text-[var(--text-muted)] flex items-center gap-1.5">
-                    <Sparkle size={14} weight="fill" className="text-[var(--emerald)]" />
-                    <span>Coach Executive Diagnosis</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                      Key Advantage
-                    </span>
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30">
-                      Primary Bottleneck
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-base sm:text-lg leading-relaxed text-[var(--text-primary)] font-medium">
-                  {hasExtractedExperienceGaps ? (
-                    <>
-                      &ldquo;Your primary bottleneck right now is that your{' '}
-                      <strong className="text-red-500 dark:text-red-400 font-bold">
-                        {formattedCompanyNames} work bullets failed ATS extraction due to non-standard layout formatting
-                      </strong>
-                      {' '}— convert to standard single-column reverse-chronological format to restore recruiter visibility.&rdquo;
-                    </>
-                  ) : (
-                    <>
-                      &ldquo;Your strongest advantage is your proven track record of{' '}
-                      <strong className="text-[var(--emerald)] font-bold">{cleanAdvantage}</strong>
-                      {cleanCompany ? ` at ${cleanCompany}` : ''}. Your primary bottleneck right now is{' '}
-                      <strong className="text-red-500 dark:text-red-400 font-bold">
-                        {cleanBottleneck}
-                      </strong>
-                      .&rdquo;
-                    </>
-                  )}
-                </p>
-
-                {/* 6-Second Human Recruiter Scan Verdict */}
-                {(() => {
-                  const concreteTechSkills = (skillsList || [])
-                    .map(decodeHtmlEntities)
-                    .filter((s) => {
-                      if (!s || typeof s !== 'string') return false
-                      const trimmed = s.trim()
-                      if (trimmed.length > 25 || trimmed.split(/\s+/).length > 2) return false
-                      if (/analysis|methodology|collaboration|management|waterfall|agile|scrum|leadership|communication|problem solving|process automation/i.test(trimmed)) return false
-                      return true
-                    })
-                  const topTwoSkills = concreteTechSkills.length >= 2
-                    ? concreteTechSkills.slice(0, 2).join(' and ')
-                    : (skillsList.slice(0, 2).map(decodeHtmlEntities).join(' and ') || 'SQL and Python')
-
-                  const safeText = (val) => {
-                    if (!val) return ''
-                    if (typeof val === 'string') return val
-                    if (typeof val === 'number') return String(val)
-                    if (typeof val === 'object') return val.title || val.text || val.name || val.recommendation || ''
-                    return String(val)
-                  }
-
-                  const rawDiscrepancyTitle =
-                    reportData?.linkedin_agent?.discrepancies?.[0]?.title ||
-                    reportData?.linkedin_agent?.discrepancies?.[0] ||
-                    reportData?.primary_bottleneck?.title ||
-                    reportData?.primary_bottleneck ||
-                    cleanBottleneck
-                  const cleanDiscrepancy =
-                    safeText(rawDiscrepancyTitle).toLowerCase() ||
-                    'missing keyword alignment with target boolean searches'
-
-                  const exactSkipReason = hasExtractedExperienceGaps
-                    ? 'missing extracted bullets under verified employer roles due to layout parsing blocks'
-                    : cleanDiscrepancy
-
-                  return (
-                    <div className="pt-3 border-t border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex flex-col sm:flex-row items-start gap-2.5 bg-[var(--surface-card)] p-3.5 rounded-xl border border-[var(--border-default)]">
-                      <span className="inline-flex items-center gap-1.5 text-amber-500 font-bold shrink-0 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 font-mono text-[11px] uppercase tracking-wide">
-                        ⏱️ 6-Second Recruiter Verdict
-                      </span>
-                      <div className="space-y-1">
-                        <p className="leading-relaxed">
-                          <strong>Anchor 1 (Proven Core):</strong> Recruiter immediately registers{' '}
-                          <span className="text-[var(--text-primary)] font-semibold">{presentCompany ? `work at ${presentCompany}` : 'recent track record'}</span>{' '}
-                          with verified delivery in{' '}
-                          <span className="text-[var(--emerald)] font-semibold">{topTwoSkills}</span>.
-                        </p>
-                        <p className="leading-relaxed">
-                          <strong>Anchor 2 (Conversion Risk):</strong> Application risks stalling because recruiters skip over{' '}
-                          <span className="text-red-500 dark:text-red-400 font-semibold">{exactSkipReason}</span>.
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
           </div>
 
-          {/* Right Column: Circular Progress Visualization */}
-          <div className="lg:col-span-4 print:col-span-4 flex flex-col items-center justify-center p-6 print:p-3 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-center relative break-inside-avoid">
-            <div className="relative w-44 h-44 print:w-32 print:h-32 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 110 110">
-                {/* Background Ring Track */}
-                <circle
-                  cx="55"
-                  cy="55"
-                  r="46"
-                  stroke="var(--border-default)"
-                  strokeWidth="8"
-                  fill="transparent"
-                  className="opacity-70"
-                />
-                {/* Foreground Animated Ring */}
-                <circle
-                  cx="55"
-                  cy="55"
-                  r="46"
-                  stroke={scoreColor}
-                  strokeWidth="8"
-                  strokeDasharray={CIRCUMFERENCE}
-                  strokeDashoffset={strokeDashoffset}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  style={{
-                    transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-                  }}
-                />
-              </svg>
-
-              {/* Inside Score Text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span
-                  className="text-5xl print:text-4xl font-black text-[var(--text-primary)] tabular-nums tracking-tight"
-                  style={{ fontFamily: 'var(--font-head)' }}
-                >
-                  {displayedScore}
-                </span>
-                <span className="text-xs font-mono font-bold text-[var(--text-muted)] mt-0.5">
-                  / 100
-                </span>
-              </div>
+          <div className="space-y-1">
+            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+              {overall >= 80 ? 'Interview Ready 🎯' : overall >= 60 ? 'Competitive with Optimization ⚡' : 'High Rejection Risk ⚠️'}
             </div>
-
-            <div className="mt-4 space-y-1">
-              <span className="text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)] block">
-                Career GPS Score
-              </span>
-              <span
-                className={`inline-block px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${getScoreBadgeClass(
-                  healthScore
-                )}`}
-              >
-                {scoreLabel}
-              </span>
-            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-[160px] leading-snug">
+              {overall >= 80 ? 'Passing top 10% ATS recruiter filters.' : 'Lacks critical quantifiable metrics or stack coverage.'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Standalone Executive GPS Diagnostic Summary */}
-      <div className="mt-6 p-6 print:p-4 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-sm break-inside-avoid page-break-inside-avoid print:mt-2">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)]">
-            Executive GPS Diagnostic Summary
-          </span>
+      {/* 4 Tremor-Style Executive Micro-Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 pt-1">
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-1">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Market Alignment</span>
+            <Target size={15} className="text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+            {scores.marketAlignment || 75}%
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">Core competency cluster match</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Current Phase */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block mb-1">
-              Current Phase
-            </span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-bold text-[var(--text-primary)]">
-                Phase {reportData?.phase?.id ?? 1}: {reportData?.phase?.shortName || reportData?.phase?.name || 'Top of Funnel'}
-              </span>
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border ${reportData?.phase?.isProvisional ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
-                {reportData?.phase?.isProvisional ? 'Provisional' : (reportData?.phase?.confidence || 'High')}
-              </span>
-            </div>
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-1">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Quantified Metrics</span>
+            <ChartLineUp size={15} className="text-emerald-600 dark:text-emerald-400" />
           </div>
+          <div className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+            {scores.impactAndMetrics || 58}%
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">Bullets with revenue/$ scale</p>
+        </div>
 
-          {/* Primary Problem */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 block mb-1">
-              Primary Root Cause
-            </span>
-            <p
-              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-              title={cleanBottleneck}
-            >
-              {cleanBottleneck}
-            </p>
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-1">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">ATS Format Health</span>
+            <ShieldCheck size={15} className="text-sky-600 dark:text-sky-400" />
           </div>
+          <div className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+            {scores.atsCompatibility || 85}%
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">Parser cleanliness & structure</p>
+        </div>
 
-          {/* Secondary Problem */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 block mb-1">
-              Secondary Root Cause
-            </span>
-            <p
-              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-              title={reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
-            >
-              {reportData?.secondary_problem?.title || 'Over-reliance on Easy Apply job boards'}
-            </p>
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-950/50 border border-slate-200/80 dark:border-slate-800 rounded-2xl space-y-1">
+          <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider">Recruiter Search</span>
+            <UserCheck size={15} className="text-violet-600 dark:text-violet-400" />
           </div>
-
-          {/* Strongest Area */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block mb-1">
-              Strongest Area
-            </span>
-            <p className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2">
-              {reportData?.strongest_area || 'Resume / Documents (18/25)'}
-            </p>
+          <div className="text-xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+            {reportData?.recruiterSeo?.seoScore || reportData?.linkedin_agent?.recruiterSeo?.seoScore || 64}/100
           </div>
-
-          {/* Next Best Action */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] break-inside-avoid page-break-inside-avoid">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
-              Next Best Action
-            </span>
-            <p
-              className="text-xs font-bold text-[var(--text-primary)] leading-snug line-clamp-2"
-              title={reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
-            >
-              {reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
-            </p>
-          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500">LinkedIn Boolean search visibility</p>
         </div>
       </div>
-    </section>
+    </div>
   )
 }
