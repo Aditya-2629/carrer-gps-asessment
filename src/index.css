@@ -694,3 +694,75 @@ h1, h2, h3, h4, h5, h6 {
     color: inherit !important;
   }
 }
+
+
+/* ─── OpenResume-Grade Pixel-Perfect PDF Print Engine ──────────────────────── */
+@media print {
+  /* Set A4 page format with crisp margins */
+  @page {
+    size: A4 portrait;
+    margin: 12mm 10mm 12mm 10mm;
+  }
+
+  /* Force background colors and gradients to print accurately */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Hide interactive non-printable UI elements */
+  header,
+  nav,
+  button,
+  .no-print,
+  .chatbot-container,
+  .sticky,
+  .fixed,
+  input,
+  select,
+  a[href^="javascript:"] {
+    display: none !important;
+  }
+
+  /* Prevent cards from breaking awkwardly across page splits */
+  .bg-white,
+  .rounded-3xl,
+  .rounded-2xl,
+  .border,
+  article,
+  section {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 12px !important;
+    box-shadow: none !important;
+  }
+
+  /* Avoid orphaned headers at the bottom of pages */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    color: #0F172A !important;
+  }
+
+  /* Ensure text contrast is razor-sharp on paper */
+  p, span, div {
+    text-shadow: none !important;
+  }
+
+  /* Remove blank overflow scroll wrappers */
+  .overflow-hidden,
+  .overflow-x-auto,
+  .overflow-y-auto {
+    overflow: visible !important;
+  }
+}
