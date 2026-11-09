@@ -104,7 +104,12 @@ export function inferRoleFromKeywordFrequency(resumeText = '') {
   const domains = [
     {
       role: 'Data Analyst',
-      keywords: ['data analyst', 'business intelligence', 'bi analyst', 'tableau', 'power bi', 'looker', 'reporting analyst', 'sql queries', 'etl pipeline', 'data visualization', 'snowflake', 'dbt'],
+      keywords: [
+        'data analyst', 'data analysis', 'business intelligence', 'bi analyst',
+        'tableau', 'power bi', 'looker', 'reporting analyst', 'sql', 'statistical analysis',
+        'hypothesis', 'a/b testing', 'ab testing', 'etl pipeline', 'data visualization',
+        'snowflake', 'dbt', 'bigquery', 'data modeling', 'kpi', 'dashboards', 'pandas', 'analytics',
+      ],
     },
     {
       role: 'Software Engineer',
@@ -140,7 +145,12 @@ export function inferRoleFromKeywordFrequency(resumeText = '') {
   let maxScore = 0
 
   for (const domain of domains) {
-    const score = domain.keywords.filter((kw) => text.includes(kw)).length
+    const score = domain.keywords.filter((kw) => {
+      if (kw.length <= 4) {
+        return new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)
+      }
+      return text.includes(kw)
+    }).length
     if (score > maxScore) {
       maxScore = score
       bestMatch = domain.role

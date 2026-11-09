@@ -40,6 +40,60 @@ export function safeParseJson(rawContent) {
   }
 }
 
+export const GENERIC_ROLE_TITLES = new Set([
+  'software professional',
+  'technical professional',
+  'professional',
+  'candidate',
+  'senior professional',
+  'engineering professional',
+])
+
+export function isConcreteRole(role) {
+  if (!role) return false
+  const str = (typeof role === 'string' ? role : (role?.title || role?.name || role?.targetRole || String(role || ''))).trim()
+  if (!str || str.length < 3) return false
+  return !GENERIC_ROLE_TITLES.has(str.toLowerCase())
+}
+
+export function resolveTargetRoleHierarchy(params = {}, user = null, answers = {}, resumeJson = {}) {
+  const precomputedResume =
+    params.precomputedResumeAgent ||
+    params.resumeAgent ||
+    user?.resumeAgent ||
+    {}
+
+  const candidates = [
+    params.targetRole,
+    precomputedResume?.candidateSnapshot?.targetRole,
+    params.canonicalResume?.candidate?.targetRole,
+    resumeJson?.candidate?.targetRole,
+    resumeJson?.candidateSnapshot?.targetRole,
+    answers?.targetRole,
+    user?.targetRole,
+    params.semanticProfile?.targetRole,
+    resumeJson?.targetRole,
+    resumeJson?.target_role,
+  ]
+
+  for (const c of candidates) {
+    if (!c) continue
+    const val = typeof c === 'string' ? c.trim() : (c?.title || c?.value || c?.targetRole || c?.name || '')
+    if (typeof val === 'string' && isConcreteRole(val)) {
+      return val.trim()
+    }
+  }
+
+  for (const c of candidates) {
+    if (!c) continue
+    const val = typeof c === 'string' ? c.trim() : (c?.title || c?.value || c?.targetRole || c?.name || '')
+    if (typeof val === 'string' && val.trim().length > 0) {
+      return val.trim()
+    }
+  }
+  return 'Professional'
+}
+
 export const flatteryPatterns = [
   /You have built a solid foundation across/gi,
   /Your background shows a practical progression across/gi,
@@ -421,7 +475,7 @@ export function performLocalPreTriage(params = {}) {
   const user = params.user || null
   const answers = user?.answers || params.answers || {}
   const resumeJson = params.resumeJson || user?.resumeJson || params.canonicalResume || params.resumeFacts || params.resumeData || {}
-  const targetRole = params.targetRole || user?.targetRole || answers.targetRole || resumeJson.targetRole || resumeJson.target_role || 'Professional'
+  const targetRole = resolveTargetRoleHierarchy(params, user, answers, resumeJson)
 
   const experiences = resumeJson?.experience || resumeJson?.experiences || []
   const allBullets = []
@@ -682,7 +736,7 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   const answers = user?.answers || params.answers || {}
   const resumeJson = params.resumeJson || user?.resumeJson || params.resumeData || params.canonicalResume || {}
-  const targetRole = params.targetRole || user?.targetRole || answers.targetRole || resumeJson.targetRole || resumeJson.target_role || 'Professional'
+  const targetRole = resolveTargetRoleHierarchy(params, user, answers, resumeJson)
 
   // Resolve Market Profile if not provided
   let marketProfile = params.marketProfile || null
@@ -768,6 +822,10 @@ export async function generateReportBundle(params = {}, options = {}) {
   }
   if (liveLinkedinPosts || user?.linkedinActivityData) {
     report.linkedin_activity_data = liveLinkedinPosts || user?.linkedinActivityData
+  }
+
+  if (targetRole && (!report.target_role || !isConcreteRole(report.target_role))) {
+    report.target_role = targetRole
   }
 
   // Save to user if available

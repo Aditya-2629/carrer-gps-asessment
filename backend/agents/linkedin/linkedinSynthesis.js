@@ -81,21 +81,74 @@ export function buildDeterministicOptimizations(
   missingSkills = [],
   discrepancies = []
 ) {
-  const canonical = resumeContext?.canonicalResume || {}
-  const targetRole =
-    resumeContext?.targetRole ||
+  // Support both object argument style { profile, resumeContext, ... } and positional args
+  let effectiveProfile = profile || {}
+  let effectiveResumeContext = resumeContext || {}
+  let effectiveMissing = missingSkills || []
+  let effectiveDiscrepancies = discrepancies || []
+
+  if (profile && typeof profile === 'object' && ('resumeContext' in profile || 'canonicalResume' in profile)) {
+    effectiveResumeContext = profile.resumeContext || profile
+    effectiveProfile = profile.profile || {}
+    effectiveMissing = profile.missingSkills || missingSkills || []
+    effectiveDiscrepancies = profile.discrepancies || discrepancies || []
+  }
+
+  const canonical = effectiveResumeContext?.canonicalResume || effectiveResumeContext || {}
+  const candidateSnap = effectiveResumeContext?.candidateSnapshot || {}
+  let rawRole =
+    effectiveResumeContext?.targetRole ||
+    candidateSnap.targetRole ||
     canonical?.candidate?.targetRole ||
     canonical?.target_role ||
     canonical?.targetRole ||
-    profile?.headline ||
-    'Software Engineer'
+    effectiveProfile?.headline ||
+    ''
+  let targetRole = (typeof rawRole === 'string' ? rawRole : (rawRole?.title || rawRole?.name || rawRole?.targetRole || String(rawRole || ''))).trim()
 
-  const isHealthRole = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(targetRole)
-  const isFinanceRole = /finance|financial|accountant|accounting|audit|tax|cpa|banking|bank/i.test(targetRole)
-  const isSalesRole = /sales|account executive|b2b|marketing|revenue|bizdev|business dev/i.test(targetRole)
-  const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web/i.test(targetRole)
-  const isDataRole = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(targetRole)) && !isFinanceRole
-  const isDevopsRole = /devops|cloud|sre|infrastructure/i.test(targetRole)
+  // Extract candidate skills & bullet context for skill-informed domain resolution
+  const rawSkillsForInference = [
+    ...(canonical.skills || []),
+    ...(canonical.top_skills || []),
+    ...(canonical.technical_skills || []),
+    ...(candidateSnap.coreSkills || []),
+    ...(candidateSnap.topSkills || []),
+  ].map((s) => (typeof s === 'string' ? s : s?.name || s?.skill)).filter(Boolean)
+
+  const expBullets = (canonical.experience || canonical.experiences || []).flatMap((e) =>
+    (e.bullets || e.bulletPoints || []).map((b) => (typeof b === 'string' ? b : b.text || ''))
+  )
+  const combinedContextText = `${rawSkillsForInference.join(' ')} ${expBullets.join(' ')}`.toLowerCase()
+
+  const hasStrongDataIndicators = (
+    /(?:sql\b|statistical analysis|hypothesis|a\/b testing|ab testing|tableau|power bi|looker|data modeling|data warehousing|snowflake|bigquery|dbt\b|pandas|business intelligence|reporting analyst|variance modeling)/i.test(combinedContextText)
+  )
+  const hasBackendWebFrameworks = (
+    /(?:react(?:\.js)?|angular|vue|node(?:\.js)?|spring boot|express(?:\.js)?|django|flask|asp\.net|microservices|kubernetes|docker|graphql|rest api\b|ci\/cd)/i.test(combinedContextText)
+  )
+
+  let isHealthRole = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(targetRole)
+  let isFinanceRole = /finance|financial|accountant|accounting|audit|tax|cpa|banking|bank/i.test(targetRole)
+  let isSalesRole = /sales|account executive|b2b|marketing|revenue|bizdev|business dev/i.test(targetRole)
+  let isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web/i.test(targetRole)
+  let isDataRole = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(targetRole)) && !isFinanceRole
+  let isDevopsRole = /devops|cloud|sre|infrastructure/i.test(targetRole)
+
+  // Skill-Informed Domain Override:
+  // If candidate has strong data skills and lacks backend web frameworks,
+  // or if targetRole is generic ('Software Professional', 'Technical Professional', 'Professional'),
+  // automatically resolve to Data Analyst (isDataRole = true, isSoftwareRole = false).
+  if (hasStrongDataIndicators && !hasBackendWebFrameworks) {
+    isDataRole = true
+    isSoftwareRole = false
+    if (!/data|analytics|bi\b|scientist/i.test(targetRole) || /software professional|technical professional|professional/i.test(targetRole) || !targetRole) {
+      targetRole = 'Data Analyst'
+    }
+  }
+
+  if (!targetRole) {
+    targetRole = isDataRole ? 'Data Analyst' : 'Software Engineer'
+  }
 
   const exp = canonical.experience || canonical.experiences || []
   const topCompany = exp[0]?.company || 'Tech'
@@ -249,7 +302,9 @@ export function buildDeterministicOptimizations(
         ? `▸ Strategic Impact & Optimization: Automated ledger reconciliation workflows, reducing reporting cycle times and eliminating reporting discrepancies.`
         : (isSalesRole
           ? `▸ Revenue Execution: Consistently outperformed pipeline milestones, maintaining high deal conversion velocity across core territories.`
-          : `▸ Engineering Excellence & Mentorship: Established clean modular architecture, automated test gating, and continuous cross-functional engineering standards.`)))
+          : (isDataRole
+            ? `▸ Statistical Insights & Decision ROI: Executed hypothesis testing, A/B experiments, and variance analysis to deliver executive KPI visibility.`
+            : `▸ Engineering Excellence & Mentorship: Established clean modular architecture, automated test gating, and continuous cross-functional engineering standards.`))))
 
   const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
 
