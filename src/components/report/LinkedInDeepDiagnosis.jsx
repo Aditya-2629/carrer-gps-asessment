@@ -386,23 +386,66 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   )
   const isBlankProfile = !hasUserLinkedinUrl && !linkedinAgent?.dataAvailable && !linkedinAgent?.inferredFromResume
 
-  const rawTarget =
-    reportData?.target_role ||
-    reportData?.user_answers?.targetRole ||
-    linkedinAgent?.targetRole ||
-    reportData?.assessment_agent?.candidateProfile?.targetRole ||
-    reportData?.resume_agent?.candidateSnapshot?.targetRole ||
-    resumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole ||
-    resumeAnalysis?.data?.canonicalResume?.candidate?.targetRole ||
-    reportData?.resume_json?.target_role ||
-    'Software Engineer'
+  // Extract actual candidate skills from canonical resume or resume_agent first
+  const candidateSkillsPool = (
+    reportData?.resume_agent?.canonicalResume?.skills ||
+    reportData?.resume_agent?.candidateSnapshot?.coreSkills ||
+    resumeAnalysis?.data?.canonicalResume?.skills ||
+    resumeAnalysis?.data?.analysis?.candidateSnapshot?.coreSkills ||
+    reportData?.resume_json?.skills ||
+    reportData?.resume_json?.top_skills ||
+    reportData?.skills ||
+    []
+  ).map((s) => (typeof s === 'string' ? s.trim() : (s?.name || ''))).filter(Boolean)
 
-  const targetRole = typeof rawTarget === 'object'
-    ? (rawTarget?.rawAnswer || rawTarget?.value || rawTarget?.title || 'Software Engineer')
-    : String(rawTarget || 'Software Engineer').trim()
+  const poolStr = candidateSkillsPool.join(' ').toLowerCase()
+  const hasStrongDataSkills = /\b(?:sql|statistical analysis|hypothesis|a\/b testing|ab testing|tableau|power bi|pandas|bigquery|snowflake|dbt|bi|kpi|analytics|data modeling)\b/i.test(poolStr)
+  const hasBackendFrameworks = /\b(?:react|angular|vue|django|flask|spring boot|express|kubernetes|docker|microservices)\b/i.test(poolStr)
 
-  const isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web|cloud|devops/i.test(targetRole)
-  const isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)
+  const GENERIC_ROLE_TITLES = new Set([
+    'software professional',
+    'technical professional',
+    'professional',
+    'candidate',
+    'senior professional',
+    'engineering professional',
+  ])
+
+  const isConcreteRole = (r) => {
+    if (!r) return false
+    const s = (typeof r === 'string' ? r : (r?.title || r?.name || r?.targetRole || r?.rawAnswer || r?.value || '')).trim()
+    return s.length >= 3 && !GENERIC_ROLE_TITLES.has(s.toLowerCase())
+  }
+
+  const roleCandidates = [
+    reportData?.resume_agent?.candidateSnapshot?.targetRole,
+    resumeAnalysis?.data?.analysis?.candidateSnapshot?.targetRole,
+    resumeAnalysis?.data?.canonicalResume?.candidate?.targetRole,
+    reportData?.user_answers?.targetRole,
+    linkedinAgent?.targetRole,
+    reportData?.assessment_agent?.candidateProfile?.targetRole,
+    reportData?.target_role,
+    reportData?.resume_json?.target_role,
+  ]
+
+  let resolvedTarget = roleCandidates.find(isConcreteRole) || reportData?.target_role || 'Software Engineer'
+  if (typeof resolvedTarget === 'object') {
+    resolvedTarget = resolvedTarget?.rawAnswer || resolvedTarget?.value || resolvedTarget?.title || 'Software Engineer'
+  }
+  let targetRole = String(resolvedTarget || 'Software Engineer').trim()
+
+  let isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web|cloud|devops/i.test(targetRole)
+  let isDataRole = /data|analytics|bi|machine learning|ml|ai|scientist/i.test(targetRole)
+
+  // Domain Override: If candidate has strong data skills and lacks backend web frameworks,
+  // ensure isDataRole is true, isSoftwareRole is false, and generic/mismatched roles become 'Data Analyst'
+  if (hasStrongDataSkills && !hasBackendFrameworks) {
+    isDataRole = true
+    isSoftwareRole = false
+    if (!/data|analytics|bi|analyst/i.test(targetRole)) {
+      targetRole = 'Data Analyst'
+    }
+  }
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
   // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
@@ -425,16 +468,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     }
   }
   const yoe = String(yoeNum).replace(/\++$/, '') || '3'
-
-  // Extract actual candidate skills from canonical resume or resume_agent
-  const candidateSkillsPool = (
-    reportData?.resume_agent?.canonicalResume?.skills ||
-    reportData?.resume_agent?.candidateSnapshot?.coreSkills ||
-    reportData?.resume_json?.skills ||
-    reportData?.resume_json?.top_skills ||
-    reportData?.skills ||
-    []
-  ).map((s) => (typeof s === 'string' ? s.trim() : (s?.name || ''))).filter(Boolean)
 
   const cleanCandidateSkills = candidateSkillsPool.slice(0, 8).map(formatSkillName).filter(Boolean)
 
@@ -984,11 +1017,18 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   let fallbackFullText = safeText(rawAbout?.fullText)
 
   // Auto-Enrichment Guard: If rawAbout is a short 1-sentence stub (<110 words or <450 chars or hook <160 chars),
-  // automatically enrich with rich executive story pillars so candidate never sees a 28-word / 210-char stub
+  // OR if there is a domain mismatch (e.g. isDataRole but text contains microservices/kubernetes/docker/low-latency api),
+  // automatically enrich with rich executive story pillars so candidate never sees a 28-word / 210-char stub or SWE copy
   const initialCombined = aboutIsString ? rawAbout : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
   const initialWords = initialCombined.trim() ? initialCombined.trim().split(/\s+/).filter(Boolean).length : 0
+  const hasDomainMismatch = isDataRole && /(?:microservice|kubernetes|containerized multi-stage|docker ci\/cd|low-latency api)/i.test(initialCombined)
 
-  if (!aboutIsString) {
+  if (hasDomainMismatch) {
+    hookText = richFallbackHook
+    proofText = richFallbackProof
+    ctaText = richFallbackCta
+    fallbackFullText = richFallbackAbout
+  } else if (!aboutIsString) {
     if (!hookText || hookText.length < 160) {
       hookText = richFallbackHook
     }
@@ -1003,7 +1043,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     fallbackFullText = richFallbackAbout
   }
 
-  const fullAboutText = (aboutIsString && initialWords >= 110)
+  const fullAboutText = (aboutIsString && initialWords >= 110 && !hasDomainMismatch)
     ? rawAbout
     : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
 

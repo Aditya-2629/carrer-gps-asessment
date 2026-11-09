@@ -224,15 +224,19 @@ ABOUT SECTION EXECUTIVE ARCHITECTURE (1,400–1,900 CHARACTERS / 240–300 WORDS
 - LINKEDIN CHARACTER BUDGET: LinkedIn allows 2,600 characters. Writing a short 1-2 sentence stub is an amateur failure. Deliver a rich, comprehensive 1,400–1,900 character executive narrative that hooks recruiters and ranks in search algorithms.
 - VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as a confident, high-agency builder.
 - PARAGRAPH 1 (The Executive Hook & Core Foundation — 350-450 chars):
-  * Lead with target role title, verified years of experience, core technical stack, and the engineering problems you genuinely enjoy solving.
-  * Establish domain scale (e.g. distributed microservices, low-latency APIs, cloud data pipelines, or enterprise workflows).
+  * Lead with target role title, verified years of experience, core technical stack, and the domain challenges you solve.
+  * For Data Analysts/BI: Establish data architecture scale (e.g. automating reporting pipelines, architecting star-schema models, SQL query optimization across Snowflake/BigQuery, and self-service BI dashboards).
+  * For SWE: Establish system scale (e.g. distributed microservices, low-latency APIs, cloud backends).
+  * CRITICAL: If candidate is a Data Analyst, NEVER mention microservices, Kubernetes, Docker, or low-latency APIs!
 - PARAGRAPH 2 (Quantified Career Pillars & Technical Scale — 600-800 chars):
-  * Synthesize 3 distinct domain pillars using bullet points (▸) detailing real architecture and quantified outcomes (e.g. throughput, latency reductions, user scale, cost savings, automated delivery turnaround).
-  * NEVER copy-paste raw resume bullets. Frame achievements through architectural decisions and technical mechanisms.
-- PARAGRAPH 3 (Engineering Philosophy & Where I'm Headed — 350-450 chars):
-  * Define your philosophy on clean architecture, automated testing, code quality, and team mentorship.
-  * State the exact caliber of technical problems you want to own next, ending with a warm peer-to-peer invitation to connect with engineering leaders, founders, and talent teams.
-- PURGE TRAILING KEYWORD LISTS: Strictly FORBID appending raw keyword lists or tag clouds at the bottom of the About section (e.g. "Core Competencies: React, Redux, Docker..."). Keywords must live naturally inside the narrative prose for LinkedIn SEO and human readability.
+  * Synthesize 3 distinct domain pillars using bullet points (▸) detailing real architecture and quantified outcomes.
+  * For Data Analysts: (1) Data Architecture & Analytics (SQL, warehouses, BI), (2) Enterprise Intelligence & Pipelines (automated ETL/dbt models), (3) Statistical Insights & Decision ROI (hypothesis testing, A/B experiments, executive KPI visibility).
+  * For SWE: (1) System Architecture & Scale, (2) Cloud & Production Engineering, (3) Measurable Business Impact.
+  * NEVER copy-paste raw resume bullets. Frame achievements through domain mechanisms.
+- PARAGRAPH 3 (Professional Philosophy & Where I'm Headed — 350-450 chars):
+  * For Data Analysts: State your philosophy on data integrity, dimensional modeling, automated reporting, and actionable business intelligence. State target opportunities and invite engineering leaders, analytics directors, and talent teams to connect.
+  * For SWE: State your philosophy on clean architecture, automated test gating, and technical mentorship.
+  * PURGE TRAILING KEYWORD LISTS: Strictly FORBID appending raw keyword lists or tag clouds at the bottom of the About section (e.g. "Core Competencies: React, Redux, Docker..."). Keywords must live naturally inside the narrative prose for LinkedIn SEO and human readability.
 - "fullText": Complete copy-paste ready executive narrative in first-person voice (1,400–1,900 chars / 240–300 words).
 
 TOP 3 PINNED SKILLS & RED FLAGS:
