@@ -28,6 +28,7 @@ import LinkedInDeepDiagnosis from './LinkedInDeepDiagnosis'
 import RoadmapTimeline from './RoadmapTimeline'
 import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
+import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 export const COCKPIT_TABS = [
@@ -1280,6 +1281,14 @@ function ReportDashboardContent() {
               />
             </div>
           )}
+
+          {/* Interactive Bottom Section Navigation Controls */}
+          <ReportBottomNav
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            tabs={COCKPIT_TABS}
+            onBookCall={handleBookCall}
+          />
         </div>
 
         {/* Print / PDF Sequential View (Preserves all 5 sections for full printing) */}
