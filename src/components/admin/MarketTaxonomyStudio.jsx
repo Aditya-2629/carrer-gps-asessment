@@ -407,6 +407,17 @@ export default function MarketTaxonomyStudio({ token }) {
 
   // Active Competency Clusters calculation
   const activeClusters = useMemo(() => {
+    // 1. If activeVersion has live auto-derived competencyClusters from JDs, display them
+    const liveClusters = bucketDetail?.activeVersion?.marketProfile?.competencyClusters
+    if (Array.isArray(liveClusters) && liveClusters.length > 0) {
+      return liveClusters.map((c) => ({
+        name: c.name || c.clusterName || 'Competency Group',
+        demand: `${c.demandPercentage || 40}% Core`,
+        tools: Array.isArray(c.tools) ? c.tools.join(', ') : String(c.tools || ''),
+      }))
+    }
+
+    // 2. Fallback to calibrated domain taxonomy
     const isSwe = activeBucketKey.includes('software') || activeBucketKey.includes('engineer') || activeBucketKey.includes('developer')
     const clusterDefs = isSwe
       ? [

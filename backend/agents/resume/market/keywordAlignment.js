@@ -223,57 +223,68 @@ export const MARKET_ROLE_KEYWORD_PACKS = {
   ],
 }
 
-// Bi-Directional Skill Hierarchy & Equivalence Map
-// Automatically gives candidate full credit for parent requirement if verified in a child tool.
-export const SKILL_PARENT_CHILD_MAP = {
-  // Child -> Parents
+// Bi-Directional Semantic Tool Hierarchy
+// Child tools automatically satisfy parent competency requirements.
+export const PARENT_CHILD_EQUIVALENCE = {
+  // Relational Databases -> SQL
   'postgresql': ['SQL', 'Relational Databases'],
+  'postgres': ['SQL', 'Relational Databases'],
   'mysql': ['SQL', 'Relational Databases'],
   'sql server': ['SQL', 'Relational Databases'],
   't-sql': ['SQL'],
   'pl/sql': ['SQL'],
   'oracle sql': ['SQL'],
   'sqlite': ['SQL'],
-  'python (pandas)': ['Python', 'Pandas'],
+
+  // Python Data Science -> Python
+  'pandas': ['Python'],
   'numpy': ['Python'],
   'scikit-learn': ['Python', 'Machine Learning'],
-  'pyspark': ['Python', 'Apache Spark', 'Spark'],
-  'excel (power query)': ['Excel', 'Power Query'],
-  'excel (power pivot)': ['Excel'],
-  'excel (vba)': ['Excel', 'VBA'],
+  'pyspark': ['Python', 'Apache Spark'],
+
+  // Spreadsheets -> Excel
+  'power query': ['Excel'],
+  'power pivot': ['Excel'],
+  'vba': ['Excel'],
   'google sheets': ['Excel', 'Spreadsheets'],
-  'next.js': ['React', 'JavaScript', 'TypeScript'],
+
+  // Frontend -> JavaScript
   'typescript': ['JavaScript'],
+  'next.js': ['React', 'JavaScript'],
+
+  // DevOps & Cloud
   'docker': ['Containerization', 'DevOps'],
-  'kubernetes': ['Container Orchestration', 'DevOps', 'Docker'],
+  'kubernetes': ['Docker', 'Containerization'],
+  'terraform': ['Infrastructure as Code', 'DevOps'],
 }
 
+export const SKILL_PARENT_CHILD_MAP = PARENT_CHILD_EQUIVALENCE
+
 /**
- * Checks if a market skill is satisfied by a candidate's verified skills either directly
- * or via parent-child equivalence.
+ * Checks if target keyword is satisfied either directly or via child equivalence.
  */
-export function isSkillSatisfiedByEquivalence(targetMarketSkill, candidateVerifiedSkills = []) {
-  const targetLower = String(targetMarketSkill || '').toLowerCase()
+export function isSatisfiedBySemanticEquivalence(targetKeyword, candidateVerifiedSkills = []) {
+  if (!targetKeyword || !Array.isArray(candidateVerifiedSkills)) return false
+  const targetLower = targetKeyword.trim().toLowerCase()
   const candidateLowerSet = new Set(
-    (Array.isArray(candidateVerifiedSkills) ? candidateVerifiedSkills : []).map((s) =>
-      typeof s === 'string' ? s.toLowerCase() : String(s?.name || s?.skill || '').toLowerCase()
-    )
+    candidateVerifiedSkills.map((s) => (typeof s === 'string' ? s.toLowerCase() : String(s?.name || s?.skill || '').toLowerCase()))
   )
 
-  // 1. Direct match
+  // 1. Direct Match
   if (candidateLowerSet.has(targetLower)) return true
 
-  // 2. Child-to-Parent Match (e.g. Target is "SQL", candidate has "PostgreSQL")
-  for (const candidateSkill of candidateLowerSet) {
-    const parents = SKILL_PARENT_CHILD_MAP[candidateSkill] || []
+  // 2. Child to Parent Equivalence
+  for (const skill of candidateLowerSet) {
+    const parents = PARENT_CHILD_EQUIVALENCE[skill] || []
     if (parents.some((p) => p.toLowerCase() === targetLower)) {
       return true
     }
   }
 
-  // 3. Parent-to-Child Match (e.g. Target is "SQL Server", candidate has "SQL" + mentions SQL Server in experience)
   return false
 }
+
+export const isSkillSatisfiedByEquivalence = isSatisfiedBySemanticEquivalence
 
 // Canonical synonym and concept mapping for accurate recruiter-grade verification
 export const KEYWORD_SYNONYMS = {
@@ -1321,6 +1332,8 @@ export default {
   MARKET_ROLE_KEYWORD_PACKS,
   KEYWORD_SYNONYMS,
   SKILL_PARENT_CHILD_MAP,
+  PARENT_CHILD_EQUIVALENCE,
   isSkillSatisfiedByEquivalence,
+  isSatisfiedBySemanticEquivalence,
   evaluateCandidateClusters,
 }

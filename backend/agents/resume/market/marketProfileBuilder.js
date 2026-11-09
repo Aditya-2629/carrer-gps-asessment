@@ -12,6 +12,7 @@
  */
 
 import { extractSkillsFromJd, extractResponsibilitiesFromJd, extractSenioritySignalsFromJd } from './jdNormalizer.js'
+import { dynamicClusterizer } from './dynamicCompetencyClusterizer.js'
 
 export const MARKET_PROFILE_VERSION = 'market-profile-v1'
 
@@ -45,6 +46,7 @@ export function buildMarketProfile(bucketKeyOrJobs, jobsOrOptions = []) {
       bucketKey,
       sampleSize: 0,
       skills: [],
+      competencyClusters: [],
       responsibilities: [],
       senioritySignals: [],
       topKeywords: [],
@@ -137,10 +139,24 @@ export function buildMarketProfile(bucketKeyOrJobs, jobsOrOptions = []) {
     marketEvidence.push(...snippets.slice(0, 2))
   })
 
+  const jdTexts = (jobs || []).map((j) => j.description || j.text || j.jobDescription || '')
+  let competencyClusters = []
+  try {
+    const { clusters } = dynamicClusterizer.processDynamicClustering({
+      jdTexts,
+      marketSkills: skills,
+      candidateSkills: [],
+    })
+    competencyClusters = clusters || []
+  } catch (_cErr) {
+    competencyClusters = []
+  }
+
   return {
     bucketKey,
     sampleSize,
     skills,
+    competencyClusters,
     responsibilities,
     senioritySignals,
     topKeywords,
