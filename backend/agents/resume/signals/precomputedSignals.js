@@ -175,6 +175,7 @@ export function computeBulletSignals(bulletId, text = '', skillDictionary = [], 
 
   return {
     bulletId,
+    parentId: options.parentId || null,
     wordCount,
     hasQuantifier,
     quantifierMatches: uniqueQuantifierMatches,
@@ -363,6 +364,7 @@ export function computePrecomputedSignals(resumeInput) {
     }
 
     const sig = computeBulletSignals(entry.bulletId, entry.text, skillDictionary, {
+      parentId: entry.parentId || 'entry_001',
       isCurrentRole: entry.isCurrentRole ?? false,
       repetitiveVerbIssue,
       openingVerbCount,
