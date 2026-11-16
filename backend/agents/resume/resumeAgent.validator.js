@@ -1134,6 +1134,11 @@ export class ResumeAgentValidator {
       }
     }
 
+    // Phase 1/2 semantic audit arrays preservation & fallback defaulting
+    analysis.bulletEvaluations = Array.isArray(analysis.bulletEvaluations) ? analysis.bulletEvaluations : []
+    analysis.cutList = Array.isArray(analysis.cutList) ? analysis.cutList : []
+    analysis.nearMissKeywords = Array.isArray(analysis.nearMissKeywords) ? analysis.nearMissKeywords : []
+
     const fillInSlotWarnings = this.detectFillInSlotViolations(analysis)
     warnings.push(...fillInSlotWarnings)
 

@@ -939,6 +939,11 @@ export class ResumeAgent {
         },
         dashboard,
         keywordAlignment: dashboard?.keywordAlignment || null,
+        bulletEvaluations: Array.isArray(parsedAnalysis.bulletEvaluations) ? parsedAnalysis.bulletEvaluations : [],
+        cutList: Array.isArray(parsedAnalysis.cutList) ? parsedAnalysis.cutList : [],
+        nearMissKeywords: Array.isArray(parsedAnalysis.nearMissKeywords) ? parsedAnalysis.nearMissKeywords : [],
+        bulletUpgrades: Array.isArray(parsedAnalysis.bulletUpgrades) ? parsedAnalysis.bulletUpgrades : [],
+        summaryOptimization: parsedAnalysis.summaryOptimization || null,
         ...(activeMarketContext ? { marketContext: activeMarketContext } : {}),
         metadata: {
           ...gatewayMetadata,
@@ -977,6 +982,14 @@ export class ResumeAgent {
         compactEstimatedTokens,
         inputSizeReductionPercent,
       })
+
+      if (state && typeof state === 'object') {
+        state.bulletEvaluations = finalAnalysis.bulletEvaluations
+        state.cutList = finalAnalysis.cutList
+        state.nearMissKeywords = finalAnalysis.nearMissKeywords
+        state.bulletUpgrades = finalAnalysis.bulletUpgrades
+        state.summaryOptimization = finalAnalysis.summaryOptimization
+      }
 
       return {
         success: true,
