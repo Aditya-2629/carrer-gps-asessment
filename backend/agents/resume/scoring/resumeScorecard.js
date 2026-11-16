@@ -370,7 +370,30 @@ export function computeScorecard({
     marketProfile,
   })
 
-  // ── 1. Category scores ─────────────────────────────────────────────────────
+  const cutList = Array.isArray(analysis?.cutList) ? analysis.cutList : []
+  const nearMissKeywords = Array.isArray(analysis?.nearMissKeywords) ? analysis.nearMissKeywords : []
+
+  // ── 1. Bullet audit (Computed first so verdicts feed into dimensions & checks) ──
+  const bulletAudit = buildBulletAudit({
+    analysis,
+    canonicalResume,
+    bulletSignalsList,
+    llmBulletRewrites: analysis?.bulletRewrites || analysis?.llmBulletRewrites || [],
+    targetRole: targetRole || analysis?.candidateSnapshot?.targetRole || canonicalResume?.candidate?.targetRole || canonicalResume?.targetRole || '',
+  })
+
+  const helpingCount = bulletAudit.filter((b) => b.verdict === 'helping').length
+  const hurtingCount = bulletAudit.filter((b) => b.verdict === 'hurting').length
+  const totalBullets = bulletAudit.length
+  const helpingSummary = { helpingCount, hurtingCount, totalBullets }
+
+  // YOE & 1-page overflow check (<8 YOE should fit on 1 page)
+  const rawYoe = canonicalResume?.candidate?.totalExperienceYears ?? precomputedSignals?.timeline?.totalExperienceYears
+  const yoe = typeof rawYoe === 'number' ? rawYoe : 3
+  const isUnder8Yoe = yoe < 8
+  const isPageOverflowUnder8 = isUnder8Yoe && typeof pageCount === 'number' && pageCount > 1
+
+  // ── 2. Category scores ─────────────────────────────────────────────────────
   const categoryPenalties = {}
   for (const meta of CATEGORY_META) categoryPenalties[meta.key] = 0
 
@@ -383,15 +406,24 @@ export function computeScorecard({
 
   const scores = {}
 
-  // Impact: issues + quantification bonus + strength bonus
+  // Impact: issues + quantification bonus + strength bonus - hurting bullets penalty + 5-part completeness
+  const activeParts = bulletAudit.reduce((sum, b) => sum + Object.values(b.fivePartFlags || {}).filter(Boolean).length, 0)
+  const totalPossibleParts = Math.max(1, totalBullets * 5)
+  const fivePartRatio = activeParts / totalPossibleParts
+  const fivePartBonus = fivePartRatio >= 0.7 ? 5 : 0
+  const hurtingPenalty = Math.min(hurtingCount * 2, 12)
+
   scores.impact = clamp(
-    100 - categoryPenalties.impact + (quant.density || 0) * 12 + Math.min(strengths.length, 4) * 2,
+    100 - categoryPenalties.impact + (quant.density || 0) * 12 + Math.min(strengths.length, 4) * 2 - hurtingPenalty + fivePartBonus,
     5,
     100
   )
 
-  // Positioning
-  scores.positioning = clamp(100 - categoryPenalties.positioning, 5, 100)
+  // Positioning: issues - responsibility-only bullets penalty - near-miss keywords penalty
+  const respOnlyCount = bulletAudit.filter((b) => b.isResponsibilityOnly).length
+  const respOnlyPenalty = Math.min(respOnlyCount * 3, 12)
+  const nearMissPenalty = Math.min(nearMissKeywords.length * 2, 8)
+  scores.positioning = clamp(100 - categoryPenalties.positioning - respOnlyPenalty - nearMissPenalty, 5, 100)
 
   // ATS safety: issues + contact-merge structural signal
   const contactPenalty = contactMerge.isContactMerged ? 8 : 0
@@ -403,12 +435,14 @@ export function computeScorecard({
   ).length
   scores.credibility = clamp(100 - categoryPenalties.credibility - Math.min(fabricationWarnings * 4, 20), 5, 100)
 
-  // Brevity: bullet length stats + brevity issues + page count
+  // Brevity: bullet length stats + brevity issues + page count + cutList penalty + overflow for <8 YOE
   const len = bulletLengthStats(canonicalResume)
   let brevity = 100 - categoryPenalties.brevity
   if (len.avg > 38) brevity -= Math.min((len.avg - 38) * 1.5, 20)
   if (len.over35 > 0) brevity -= Math.min(len.over35 * 1.5, 8)
   if (typeof pageCount === 'number' && pageCount > 2) brevity -= 15
+  if (isPageOverflowUnder8) brevity -= 15
+  if (cutList.length > 0) brevity -= Math.min(cutList.length * 3, 12)
   scores.brevity = clamp(brevity, 5, 100)
 
   // US alignment: from deterministic signal observations (high=25, med=12, low=6)
@@ -418,7 +452,7 @@ export function computeScorecard({
   }
   scores.us_market_alignment = clamp(usScore, 5, 100)
 
-  // ── 2. Overall weighted score ──────────────────────────────────────────────
+  // ── 3. Overall weighted score ──────────────────────────────────────────────
   let overall = 0
   for (const meta of CATEGORY_META) {
     overall += scores[meta.key] * meta.weight
@@ -442,31 +476,42 @@ export function computeScorecard({
       score: round(scores[meta.key]),
       grade: g.grade,
       gradeLabel: g.label,
-      facts: factLines(meta.key, { quant, len, usObs, flags, categoryPenalties, fabricationWarnings, contactMerge }),
+      facts: factLines(meta.key, { quant, len, usObs, flags, categoryPenalties, fabricationWarnings, contactMerge, helpingSummary, cutList, nearMissKeywords }),
     }
   }
 
-  // ── 3. Checklist (pass/warn/fail rows) ─────────────────────────────────────
-  const checks = buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, len, pageCount, canonicalResume })
-
-  // ── 4. Bullet audit ────────────────────────────────────────────────────────
-  const bulletAudit = buildBulletAudit({
-    analysis,
-    canonicalResume,
+  // ── 4. Checklist (pass/warn/fail rows) ─────────────────────────────────────
+  const checks = buildChecks({
+    issues,
+    quant,
     bulletSignalsList,
-    llmBulletRewrites: analysis?.bulletRewrites || analysis?.llmBulletRewrites || [],
-    targetRole: targetRole || analysis?.candidateSnapshot?.targetRole || canonicalResume?.candidate?.targetRole || canonicalResume?.targetRole || '',
+    contactMerge,
+    flags,
+    len,
+    pageCount,
+    canonicalResume,
+    bulletAudit,
+    cutList,
+    nearMissKeywords,
+    helpingSummary,
+    isPageOverflowUnder8,
   })
 
   return {
     version: SCORECARD_VERSION,
     computedAt: new Date().toISOString(),
     score,
+    overallScore: score, // alias for backwards compatibility
     grade,
     gradeLabel: label,
     grades,
+    dimensions: grades, // alias for backwards compatibility
     checks,
+    checklist: checks, // alias for backwards compatibility
     bulletAudit,
+    cutList,
+    nearMissKeywords,
+    helpingSummary,
     keywordAlignment: {
       ...keywordAlignment,
       missingMarketSkillsRanked: keywordAlignment?.missingMarketSkillsRanked || [], // Full uncapped list
@@ -479,6 +524,10 @@ export function computeScorecard({
       checksTotal: checks.length,
       strengths: strengths.length,
       issues: issues.length,
+      helping: helpingCount,
+      hurting: hurtingCount,
+      cutListCount: cutList.length,
+      nearMissCount: nearMissKeywords.length,
     },
   }
 }
@@ -487,15 +536,19 @@ export function computeScorecard({
  * One-line factual basis per category grade (shown as tooltip/subtext in UI).
  */
 function factLines(key, ctx) {
-  const { quant, len, usObs, flags, categoryPenalties, fabricationWarnings, contactMerge } = ctx
+  const { quant, len, usObs, flags, categoryPenalties, fabricationWarnings, contactMerge, helpingSummary, cutList, nearMissKeywords } = ctx
   switch (key) {
     case 'impact':
       return [
         `${quant.quantifiedBullets ?? '?'} of ${quant.totalBullets ?? '?'} bullets include a hard number`,
+        helpingSummary ? `${helpingSummary.helpingCount} helping vs ${helpingSummary.hurtingCount} hurting bullets` : '',
         `Impact issues: ${categoryPenalties.impact > 0 ? 'yes' : 'none'}`,
-      ]
+      ].filter(Boolean)
     case 'positioning':
-      return [`Positioning/ownership issues: ${categoryPenalties.positioning > 0 ? 'yes' : 'none'}`]
+      return [
+        nearMissKeywords?.length > 0 ? `${nearMissKeywords.length} near-miss synonym(s) detected` : 'Direct keyword alignment',
+        `Positioning/ownership issues: ${categoryPenalties.positioning > 0 ? 'yes' : 'none'}`,
+      ]
     case 'ats_readability':
       return [
         contactMerge.isContactMerged ? 'Contact details merged with summary text' : 'Contact header parses cleanly',
@@ -509,6 +562,7 @@ function factLines(key, ctx) {
     case 'brevity':
       return [
         `Average bullet length: ${len.avg} words`,
+        cutList?.length > 0 ? `${cutList.length} filler item(s) on cut-list` : 'Zero fluff items on cut-list',
         len.over35 > 0 ? `${len.over35} bullets over 35 words` : 'All bullets within length',
       ]
     case 'us_market_alignment':
@@ -524,7 +578,21 @@ function factLines(key, ctx) {
 /**
  * Builds the Rezi-style pass/warn/fail checklist.
  */
-function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, len, pageCount, canonicalResume }) {
+function buildChecks({
+  issues,
+  quant,
+  bulletSignalsList,
+  contactMerge,
+  flags,
+  len,
+  pageCount,
+  canonicalResume,
+  bulletAudit = [],
+  cutList = [],
+  nearMissKeywords = [],
+  helpingSummary = null,
+  isPageOverflowUnder8 = false,
+}) {
   const checks = []
   const hasIssue = (cat, minSeverity = 'low') =>
     issues.some((i) => i.category === cat && (SEVERITY_PENALTY[i.severity] || 0) >= SEVERITY_PENALTY[minSeverity])
@@ -657,6 +725,45 @@ function buildChecks({ issues, quant, bulletSignalsList, contactMerge, flags, le
     category: 'impact',
   })
 
+  // 13. 5-Part winning bullet formula (helping vs hurting)
+  const hurtingCount = helpingSummary?.hurtingCount ?? 0
+  const totalAuditBullets = helpingSummary?.totalBullets ?? bulletAudit.length
+  checks.push({
+    id: 'five_part_bullets',
+    label: '5-Part winning bullet formula',
+    status: hurtingCount === 0 ? 'pass' : hurtingCount <= 2 ? 'warn' : 'fail',
+    detail: hurtingCount === 0
+      ? `All ${totalAuditBullets} bullets satisfy the 5-part winning formula`
+      : `${helpingSummary?.helpingCount ?? (totalAuditBullets - hurtingCount)} helping, ${hurtingCount} hurting — strengthen action verbs, metrics, or outcomes`,
+    category: 'impact',
+  })
+
+  // 14. 1-Page discipline & fluff elimination (Cut List)
+  const cutCount = (cutList || []).length
+  checks.push({
+    id: 'cut_list_discipline',
+    label: '1-Page discipline & fluff elimination',
+    status: isPageOverflowUnder8 ? 'warn' : cutCount === 0 ? 'pass' : 'warn',
+    detail: isPageOverflowUnder8
+      ? `Resume exceeds 1 page (${pageCount} pages) for candidate <8 YOE — prune secondary bullets to fit 1 page`
+      : cutCount > 0
+      ? `${cutCount} filler item(s) flagged for removal to preserve 1-page vertical density`
+      : 'Zero filler or obsolete items detected',
+    category: 'brevity',
+  })
+
+  // 15. Literal ATS keyword alignment (Near-miss synonyms)
+  const nearMissCount = (nearMissKeywords || []).length
+  checks.push({
+    id: 'literal_ats_mirroring',
+    label: 'Literal ATS keyword alignment',
+    status: nearMissCount === 0 ? 'pass' : 'warn',
+    detail: nearMissCount === 0
+      ? 'Resume phrasing aligns directly with target JD terminology'
+      : `${nearMissCount} near-miss synonym(s) should be literally swapped for exact JD phrases`,
+    category: 'positioning',
+  })
+
   return checks
 }
 
@@ -687,6 +794,14 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
     analysis.bulletUpgrades.forEach((upg) => {
       if (upg?.bulletId) upgradeByBullet.set(upg.bulletId, upg)
       else if (upg?.id) upgradeByBullet.set(upg.id, upg)
+    })
+  }
+
+  // 1b. Build lookup map evalByBullet keyed by bulletId
+  const evalByBullet = new Map()
+  if (Array.isArray(analysis?.bulletEvaluations)) {
+    analysis.bulletEvaluations.forEach((ev) => {
+      if (ev?.bulletId) evalByBullet.set(ev.bulletId, ev)
     })
   }
 
@@ -838,6 +953,40 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
         const cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
 
+        const bEval = evalByBullet.get(b.id)
+        let verdict
+        let fivePartFlags
+        let isResponsibilityOnly
+
+        if (bEval) {
+          verdict = bEval.verdict === 'hurting' ? 'hurting' : 'helping'
+          const flags = bEval.fivePartFlags && typeof bEval.fivePartFlags === 'object' ? bEval.fivePartFlags : {}
+          fivePartFlags = {
+            actionVerb: Boolean(flags.actionVerb),
+            hardSkill: Boolean(flags.hardSkill),
+            collaboration: Boolean(flags.collaboration),
+            metric: Boolean(flags.metric),
+            outcome: Boolean(flags.outcome),
+          }
+          isResponsibilityOnly = Boolean(bEval.isResponsibilityOnly)
+        } else {
+          const hasVerb = !hasWeakOpener && sig?.tenseIssue !== 'gerund_opening'
+          const hasSkill = Boolean(sig?.technologyCount > 0 || (sig?.technologies && sig.technologies.length > 0))
+          const hasCollab = /team|cross-functional|stakeholder|partner|mentor|lead|client|engineer/i.test(b.text)
+          const hasMetric = Boolean(sig?.hasQuantifier || /\d+%?|\$\d+/i.test(b.text))
+          const hasOutcome = Boolean(sig?.hasQuantifier || sig?.hasQualitativeOutcome || /result|improv|reduc|increas|achiev|accelerat/i.test(b.text))
+
+          fivePartFlags = {
+            actionVerb: hasVerb,
+            hardSkill: hasSkill,
+            collaboration: hasCollab,
+            metric: hasMetric,
+            outcome: hasOutcome,
+          }
+          isResponsibilityOnly = Boolean(hasWeakOpener && !hasMetric && !hasOutcome)
+          verdict = (status === 'pass' && !hasWeakOpener && (hasMetric || hasOutcome)) ? 'helping' : 'hurting'
+        }
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -852,6 +1001,9 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           improved: cleanImproved,
           issueId: issue?.id || null,
           category: issue?.category || null,
+          verdict,
+          fivePartFlags,
+          isResponsibilityOnly,
         })
       }
     }

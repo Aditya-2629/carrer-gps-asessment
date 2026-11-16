@@ -24,6 +24,14 @@ export const STATUS_STYLES = {
   pass: { chip: 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold', label: 'Strong' },
 }
 
+const FIVE_PARTS = [
+  { key: 'actionVerb', label: 'Action' },
+  { key: 'hardSkill', label: 'Hard Skill' },
+  { key: 'collaboration', label: 'Collab' },
+  { key: 'metric', label: 'Metric' },
+  { key: 'outcome', label: 'Outcome' },
+]
+
 export default function ResumeBulletAudit({
   bulletData,
   bulletAudit,
@@ -49,6 +57,9 @@ export default function ResumeBulletAudit({
           rewritten: 'Architected and deployed 4 high-throughput React & TypeScript web applications, reducing page load latency by 42% for 250k MAUs.',
           critique: 'Passive "Responsible for" opener with zero measurable scale, latency impact, or user metrics.',
           severity: 'CRITICAL',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: true, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'DROPPED (0.4s scan)',
           score: 32,
         },
@@ -57,6 +68,9 @@ export default function ResumeBulletAudit({
           rewritten: 'Automated database query optimization across PostgreSQL cluster, resolving 85+ production bug tickets and cutting p99 latency by 28%.',
           critique: 'Weak supportive verb ("Assisted"). Fails to demonstrate technical ownership or system-level impact.',
           severity: 'WARN',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: true, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'SKIPPED (0.8s scan)',
           score: 55,
         },
@@ -65,6 +79,9 @@ export default function ResumeBulletAudit({
           rewritten: 'Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.',
           critique: 'Elite structure: Strong active verb ("Designed & shipped") + Exact Tech Stack (Go, Kafka) + 9x Quantified Throughput Scale.',
           severity: 'PASS',
+          verdict: 'helping',
+          fivePartFlags: { actionVerb: true, hardSkill: true, collaboration: false, metric: true, outcome: true },
+          isResponsibilityOnly: false,
           recruiterAttention: 'HOOKED (3.2s scan)',
           score: 96,
         },
@@ -73,6 +90,9 @@ export default function ResumeBulletAudit({
           rewritten: 'Engineered automated root-cause diagnostics pipeline, slashing Mean Time to Resolution (MTTR) by 38% across 1,200+ enterprise client tickets.',
           critique: 'Customer support phrasing in an engineering resume. Reframe as root-cause engineering diagnostics.',
           severity: 'CRITICAL',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: false, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'DROPPED (0.3s scan)',
           score: 28,
         },
@@ -80,19 +100,32 @@ export default function ResumeBulletAudit({
     }
 
     return rawBullets.map((item) => {
+      const isPass = item.status === 'pass' || item.severity === 'PASS'
+      const isWarn = item.status === 'warn' || item.severity === 'WARN'
+      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+      const verdict = item.verdict ? String(item.verdict).toLowerCase() : (isPass ? 'helping' : 'hurting')
+      const fivePartFlags = item.fivePartFlags && typeof item.fivePartFlags === 'object' ? item.fivePartFlags : {
+        actionVerb: isPass,
+        hardSkill: true,
+        collaboration: false,
+        metric: isPass,
+        outcome: isPass,
+      }
+      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
+
       if (item.original && item.severity && item.recruiterAttention) {
         return {
           ...item,
           rewritten: cleanRewriteText(item.rewritten || item.original),
+          verdict,
+          fivePartFlags,
+          isResponsibilityOnly,
         }
       }
 
       const original = item.original || item.text || item.originalText || ''
       const rawRewritten = item.rewritten || item.rewrite || item.correctedText || original
       const rewritten = cleanRewriteText(rawRewritten)
-      const isPass = item.status === 'pass' || item.severity === 'PASS'
-      const isWarn = item.status === 'warn' || item.severity === 'WARN'
-      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
 
       const recruiterAttention =
         item.recruiterAttention ||
@@ -122,6 +155,9 @@ export default function ResumeBulletAudit({
         score,
         bulletId: item.bulletId,
         itemName: item.itemName,
+        verdict,
+        fivePartFlags,
+        isResponsibilityOnly,
       }
     })
   }, [rawBullets])
@@ -226,7 +262,7 @@ export default function ResumeBulletAudit({
             >
               {/* Eye-Tracking Banner */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/80 pb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
                       isCritical
@@ -242,6 +278,18 @@ export default function ResumeBulletAudit({
                       ? '🟡 Passive Phrasing'
                       : '🟢 Recruiter Hook'}
                   </span>
+
+                  {/* Helping vs Hurting Badge */}
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider flex items-center gap-1 ${
+                      item.verdict === 'helping'
+                        ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800'
+                        : 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800'
+                    }`}
+                  >
+                    {item.verdict === 'helping' ? '🟢 Helping' : '🔴 Hurting'}
+                  </span>
+
                   <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold">
                     Recruiter Attention:{' '}
                     <strong className="text-slate-900 dark:text-white">
@@ -269,6 +317,31 @@ export default function ResumeBulletAudit({
                   <strong className="text-slate-700 dark:text-slate-300">Recruiter Critique:</strong>{' '}
                   {item.critique}
                 </p>
+
+                {/* 5-Part Formula Status Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mr-0.5">
+                    5-Part Anatomy:
+                  </span>
+                  {FIVE_PARTS.map(({ key, label }) => {
+                    const active = Boolean(item.fivePartFlags?.[key])
+                    return (
+                      <span
+                        key={key}
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 transition-all ${
+                          active
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/60'
+                            : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 dark:text-slate-500 border-slate-200/70 dark:border-slate-800 opacity-75'
+                        }`}
+                      >
+                        <span className={active ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-400'}>
+                          {active ? '✓' : '✕'}
+                        </span>
+                        {label}
+                      </span>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Proposed AI Recruiter Rewrite */}

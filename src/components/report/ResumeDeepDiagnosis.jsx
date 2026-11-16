@@ -15,6 +15,8 @@ import {
   Briefcase,
   Code,
   RocketLaunch,
+  Scissors,
+  ArrowsLeftRight,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -191,6 +193,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     ...(resumeAgent?.keywordAlignment?.missingFromResume || []),
     ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
   ].map((s) => (typeof s === 'string' ? s : s.keyword || s.name || '')).filter(Boolean)
+
+  const cutList = useMemo(() => {
+    return dashboard?.cutList || resumeAgent?.cutList || reportData?.resume_agent?.cutList || []
+  }, [dashboard, resumeAgent, reportData])
+
+  const nearMissKeywords = useMemo(() => {
+    return dashboard?.nearMissKeywords || resumeAgent?.nearMissKeywords || reportData?.resume_agent?.nearMissKeywords || []
+  }, [dashboard, resumeAgent, reportData])
 
 
 
@@ -640,6 +650,108 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       {dashboard?.bulletAudit?.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
           <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
+        </div>
+      )}
+
+      {/* What to Cut (Fluff & 1-Page Discipline) */}
+      {cutList.length > 0 && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                <Scissors size={20} weight="bold" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    What to Cut (Fluff & 1-Page Discipline)
+                  </h3>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    {cutList.length} {cutList.length === 1 ? 'Item' : 'Items'} to Cut
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Lines that dilute senior positioning, waste valuable vertical space, or break 1-page resume discipline (&lt;8 YOE).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {cutList.map((item, idx) => (
+              <div
+                key={item.bulletId || idx}
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-rose-400/50 transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    {item.section || 'Resume Line'}
+                  </span>
+                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    ✕ Recommended for Deletion
+                  </span>
+                </div>
+                {item.originalText && (
+                  <p className="text-xs text-[var(--text-secondary)] line-through decoration-rose-500/70 font-mono bg-[var(--surface-card)] p-2.5 rounded-lg border border-[var(--border-default)]">
+                    "{item.originalText}"
+                  </p>
+                )}
+                <p className="text-xs text-[var(--text-primary)] font-medium">
+                  <strong className="text-rose-600 dark:text-rose-400">Why cut:</strong> {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Literal ATS Keyword Mirroring */}
+      {nearMissKeywords.length > 0 && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                <ArrowsLeftRight size={20} weight="bold" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    Literal ATS Keyword Mirroring
+                  </h3>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                    {nearMissKeywords.length} Exact Keyword Swaps
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  ATS scanners match verbatim JD phrases. Replace loose semantic synonyms with literal target terms.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {nearMissKeywords.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-indigo-400/50 transition-all"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold line-through text-rose-500 decoration-rose-500 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                      {item.resumePhrase}
+                    </span>
+                    <ArrowRight size={14} className="text-slate-400" />
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                      {item.jdPhrase}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] pt-1">
+                  <strong className="text-[var(--text-primary)]">ATS Parser Note:</strong> {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
