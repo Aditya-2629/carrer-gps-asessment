@@ -100,7 +100,7 @@ export function sanitizeLocation(loc) {
  */
 export function isReferenceNoise(text) {
   if (!text || typeof text !== 'string') return false
-  return /references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request/i.test(text.trim())
+  return /^\s*[-•*▪]?\s*references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?\s*$/i.test(text.trim())
 }
 
 /**
@@ -497,20 +497,22 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
 
   // 2. PROFESSIONAL SUMMARY
   if (summary && summary.trim() && !isReferenceNoise(summary)) {
-    let cleanSummary = summary.trim()
+    let cleanSummary = summary.trim().replace(/references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?/gi, '').trim()
     if (config.shortenSummary) {
       const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
-    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
-    children.push(
-      new Paragraph({
-        spacing: { before: 0, after: config.tightSpacing ? 50 : 70 },
-        children: [
-          new TextRun({ text: cleanSummary, size: bodySize, font: 'Times New Roman', color: '222222' }),
-        ],
-      })
-    )
+    if (cleanSummary) {
+      children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
+      children.push(
+        new Paragraph({
+          spacing: { before: 0, after: config.tightSpacing ? 50 : 70 },
+          children: [
+            new TextRun({ text: cleanSummary, size: bodySize, font: 'Times New Roman', color: '222222' }),
+          ],
+        })
+      )
+    }
   }
 
   // 3. WORK EXPERIENCE (Strict Alekya 2-Line Format)

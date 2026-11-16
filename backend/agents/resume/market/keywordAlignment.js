@@ -604,7 +604,12 @@ export function computeKeywordAlignment({
   const isJdProvided = Boolean(targetJobDescription && targetJobDescription.trim().length > 40)
 
   const declaredSkills = []
-  const rawSkillsArray = canonicalResume?.skills || []
+  const rawSkillsValue = canonicalResume?.skills || []
+  const rawSkillsArray = Array.isArray(rawSkillsValue)
+    ? rawSkillsValue
+    : (typeof rawSkillsValue === 'object' && rawSkillsValue !== null
+        ? Object.values(rawSkillsValue).flat()
+        : [rawSkillsValue])
   for (const s of rawSkillsArray) {
     const rawName = typeof s === 'string' ? s : s.name || s.text || ''
     if (!rawName) continue

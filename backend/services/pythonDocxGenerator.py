@@ -36,7 +36,7 @@ def clean_location(loc):
 def is_reference_noise(text):
     if not text or not isinstance(text, str):
         return False
-    return bool(re.search(r'references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request', text.strip(), re.I))
+    return bool(re.match(r'^\s*[-•*▪]?\s*references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?\s*$', text.strip(), re.I))
 
 def clean_skill_name(s):
     if not s or not isinstance(s, str):
@@ -248,8 +248,7 @@ def build_docx_from_json(resume_data, output_path):
 
     # 2. Professional Summary (Mandatory Executive Section)
     summary = decode_html_entities(resume_data.get('summary') or '')
-    if is_reference_noise(summary):
-        summary = ''
+    summary = re.sub(r'references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?', '', summary, flags=re.I).strip()
     if not summary:
         # Dynamic fallback synthesis
         summary = (
