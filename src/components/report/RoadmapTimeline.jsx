@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Check,
@@ -12,6 +13,7 @@ import {
   CalendarCheck,
 } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
+import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -51,6 +53,8 @@ function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
 }
 
 export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNavigateSection, reportData }) {
+  const { triggerGuide } = useReportGuideStore()
+  const [checkedDays, setCheckedDays] = useState({})
   const safeData = Array.isArray(roadmapData) ? roadmapData : []
   const effectivePhaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || currentPhaseId || 1)
   const targetRole =
@@ -658,66 +662,131 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
         </p>
       </div>
 
-      {/* ── 7-Day Quick-Win Action Plan Card ── */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-[var(--primary-light)]/40 via-[var(--surface-card)] to-emerald-500/10 border-2 border-[var(--primary)]/40 shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <Lightning size={22} weight="fill" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] font-mono block">
-                Immediate Execution Sprint
-              </span>
-              <h3 className="text-lg sm:text-xl font-black text-[var(--text-primary)] tracking-tight">
-                7-Day Rapid Triage Checklist
-              </h3>
-            </div>
-          </div>
+      {/* ── 7-Day Quick-Win Action Plan Card with Live Completion Gauge ── */}
+      {(() => {
+        const completedCount = sprintDays.reduce((acc, d) => (checkedDays[d.day] ? acc + 1 : acc), 0)
+        const sprintPct = Math.round((completedCount / Math.max(1, sprintDays.length)) * 100)
 
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-[var(--primary)] text-white self-start md:self-auto">
-            Days 1–7 • High-Leverage Triage
-          </span>
-        </div>
+        const handleToggleDay = (item) => {
+          const isNowChecked = !checkedDays[item.day]
+          const next = { ...checkedDays, [item.day]: isNowChecked }
+          setCheckedDays(next)
 
-        {/* 7-Day Responsive Matrix */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-2">
-          {sprintDays.map((item, idx) => (
-            <div
-              key={item.day || idx}
-              className={`p-4 rounded-2xl bg-[var(--surface-base)] border border-[var(--border-default)] space-y-2 flex flex-col justify-between transition-all hover:border-[var(--primary)]/50 ${
-                idx === 6 ? 'sm:col-span-2 lg:col-span-1' : ''
-              }`}
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] font-mono px-2 py-0.5 rounded-md bg-[var(--primary-light)]/60">
-                    {item.day}
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono">
-                    Mission 0{idx + 1}
-                  </span>
+          const nextCompleted = sprintDays.reduce((acc, d) => (next[d.day] ? acc + 1 : acc), 0)
+          const nextPct = Math.round((nextCompleted / Math.max(1, sprintDays.length)) * 100)
+
+          if (isNowChecked) {
+            if (nextCompleted === sprintDays.length) {
+              triggerGuide({
+                nodeId: 'action-sprint',
+                emotion: GUIDE_EMOTIONS.VICTORY,
+                headline: 'All 7 sprint days completed! 100% execution unlocked toward offer conversion.',
+                metricChip: '100% Complete 🎉',
+                autoSettleMs: 5000,
+              })
+            } else {
+              triggerGuide({
+                nodeId: 'action-sprint',
+                emotion: GUIDE_EMOTIONS.VICTORY,
+                headline: `Mission complete (${item.day}): ${item.title}. Progress: ${nextPct}%.`,
+                metricChip: `${nextCompleted}/7 Done (${nextPct}%)`,
+                autoSettleMs: 3500,
+              })
+            }
+          }
+        }
+
+        return (
+          <div id="action-sprint" className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-indigo-50/40 via-white to-emerald-50/20 border-2 border-indigo-200/60 shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Lightning size={22} weight="fill" />
                 </div>
-                <h4 className="text-xs font-bold text-[var(--text-primary)] leading-snug">
-                  {item.title}
-                </h4>
-                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                  {item.action}
-                </p>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 font-mono block">
+                    Immediate Execution Sprint
+                  </span>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                    7-Day Rapid Triage Checklist
+                  </h3>
+                </div>
               </div>
 
-              {item.deliverable && (
-                <div className="pt-2 border-t border-[var(--border-default)] flex items-start gap-1.5">
-                  <Check size={12} weight="bold" className="text-[var(--emerald)] shrink-0 mt-0.5" />
-                  <span className="text-[10px] font-semibold text-[var(--text-secondary)] leading-tight">
-                    {item.deliverable}
-                  </span>
+              {/* Live Completion Gauge */}
+              <div className="flex items-center gap-3 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-2xs self-start md:self-auto">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-3 text-[11px] font-bold font-mono">
+                    <span className="text-slate-700">Sprint Execution:</span>
+                    <span className="text-emerald-600">{completedCount} of {sprintDays.length} ({sprintPct}%)</span>
+                  </div>
+                  <div className="w-36 h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${sprintPct}%` }}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
+
+            {/* 7-Day Responsive Matrix with Interactive Checkmarks */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-1">
+              {sprintDays.map((item, idx) => {
+                const isChecked = Boolean(checkedDays[item.day])
+                return (
+                  <div
+                    key={item.day || idx}
+                    onClick={() => handleToggleDay(item)}
+                    className={`p-4 rounded-2xl border space-y-2 flex flex-col justify-between transition-all cursor-pointer select-none ${
+                      isChecked
+                        ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-400/40 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-indigo-400'
+                    } ${idx === 6 ? 'sm:col-span-2 lg:col-span-1' : ''}`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded-md ${
+                          isChecked ? 'bg-emerald-200 text-emerald-900' : 'bg-indigo-50 text-indigo-700'
+                        }`}>
+                          {item.day}
+                        </span>
+
+                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                          isChecked
+                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                            : 'border-slate-300 bg-white group-hover:border-indigo-500'
+                        }`}>
+                          {isChecked && <Check size={12} weight="bold" />}
+                        </div>
+                      </div>
+
+                      <h4 className={`text-xs font-bold leading-snug transition-colors ${
+                        isChecked ? 'text-emerald-900 line-through decoration-emerald-600' : 'text-slate-900'
+                      }`}>
+                        {item.title}
+                      </h4>
+
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        {item.action}
+                      </p>
+                    </div>
+
+                    {item.deliverable && (
+                      <div className="pt-2 border-t border-slate-100 flex items-start gap-1.5">
+                        <Check size={12} weight="bold" className={`${isChecked ? 'text-emerald-700' : 'text-slate-400'} shrink-0 mt-0.5`} />
+                        <span className="text-[10px] font-semibold text-slate-600 leading-tight">
+                          {item.deliverable}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── 30 / 60 / 90 Day Direction Cards Grid ── */}
       <div className="p-6 sm:p-8 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative">

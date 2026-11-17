@@ -3,7 +3,6 @@ import {
   Sun,
   Moon,
   ArrowsClockwise,
-  ShareNetwork,
   Printer,
   ShieldCheck,
   Compass,
@@ -18,6 +17,7 @@ import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
 import ReportHero from './ReportHero'
+import CraftureGuideStage from './CraftureGuideStage'
 import StickyReportNav from './StickyReportNav'
 import PrimaryBottleneck from './PrimaryBottleneck'
 import FunnelAndConversionSection from './FunnelAndConversionSection'
@@ -575,8 +575,9 @@ const MOCK_REPORT = {
       "checksTotal": 7
     }
   },
-  career_health_score: 41,
-  score_label: 'Emerging',
+  career_health_score: 78,
+  score_label: 'Good',
+  gps_score: 78,
   scores: {
     resume: { score: 34, diagnosis: 'Lacks quantitative metrics and ATS context keywords.' },
     linkedin: { score: 38, diagnosis: 'Decent profile completeness but low weekly networking activity.' },
@@ -745,9 +746,6 @@ const MOCK_REPORT = {
     value_prop: 'Consulting with a senior talent partner eliminates ATS blind spots and matches you to unlisted direct channels.',
     cta_text: 'Book Free 1-on-1 Strategy Call',
   },
-  gps_score: 78,
-  career_health_score: 78,
-  score_label: 'Good',
   phase: {
     id: 2,
     name: 'Screening → Technical Round',
@@ -853,7 +851,42 @@ function ReportDashboardContent() {
     return () => { isMounted = false }
   }, [storeReportData, userId, email, isMockPreview, setReportData])
 
-  const [activeDiagnosisTab, setActiveDiagnosisTab] = useState('resume')
+  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+
+  // Active tab resolution with URL hash synchronization
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace('#', '').toLowerCase()
+      if (['overview', 'resume', 'linkedin', 'funnel', 'roadmap'].includes(hash)) {
+        return hash
+      }
+      if (hash === 'bottleneck') return 'overview'
+      if (hash === 'resume-ai') return 'resume'
+      if (hash === 'linkedin-ai') return 'linkedin'
+      if (hash === 'funnel-risks' || hash === 'risk-matrix' || hash === 'risks' || hash === 'missions') return 'funnel'
+      if (hash === 'roadmap-section' || hash === 'next-actions') return 'roadmap'
+    }
+    return 'overview'
+  }
+
+  const [activeTab, setActiveTab] = useState(getInitialTab)
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${tabId}`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const initial = getInitialTab()
+      setActiveTab(initial)
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   // Case 1: Fetching persisted report from backend for verified user
   if (isRecovering) {
@@ -869,8 +902,6 @@ function ReportDashboardContent() {
       </div>
     )
   }
-
-  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
 
   // Case 2: Assessment completed + verified, but report generation pending
   const hasResumeData = Boolean(storeResumeAnalysis?.data || storeResumeAnalysis?.status === 'completed')
@@ -994,41 +1025,6 @@ function ReportDashboardContent() {
       }
     }
   }
-
-  // Active tab resolution with URL hash synchronization
-  const getInitialTab = () => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      const hash = window.location.hash.replace('#', '').toLowerCase()
-      if (['overview', 'resume', 'linkedin', 'funnel', 'roadmap'].includes(hash)) {
-        return hash
-      }
-      if (hash === 'bottleneck') return 'overview'
-      if (hash === 'resume-ai') return 'resume'
-      if (hash === 'linkedin-ai') return 'linkedin'
-      if (hash === 'funnel-risks' || hash === 'risk-matrix' || hash === 'risks' || hash === 'missions') return 'funnel'
-      if (hash === 'roadmap-section' || hash === 'next-actions') return 'roadmap'
-    }
-    return 'overview'
-  }
-
-  const [activeTab, setActiveTab] = useState(getInitialTab)
-
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId)
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `#${tabId}`)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const initial = getInitialTab()
-      setActiveTab(initial)
-    }
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
 
   // Cross-component smooth navigation
   const handleNavigateSection = (sectionId, tabId = null) => {
@@ -1195,8 +1191,8 @@ function ReportDashboardContent() {
         reportData={reportData}
       />
 
-      {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
-      <main className="max-w-6xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
+      {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}
+      <main className="max-w-7xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
         {/* Top-Level Diagnostic Error Gate */}
         {(reportData.partialFailure || (Array.isArray(reportData.failedAgents) && reportData.failedAgents.length > 0)) && (
           <div className="rounded-2xl border-2 border-red-500 bg-red-500/10 p-5 mb-6 text-red-900 dark:text-red-200">
@@ -1215,80 +1211,93 @@ function ReportDashboardContent() {
           </div>
         )}
 
-        {/* Screen View (Interactive 5-Tab Executive Cockpit) */}
+        {/* Screen View (12-Column Split-Screen Editorial Workspace) */}
         <div className="print:hidden">
-          {activeTab === 'overview' && (
-            <div className="space-y-8 animate-fadeIn">
-              <ReportHero reportData={reportData} />
-              <PrimaryBottleneck
-                reportData={reportData}
-                onNavigateSection={handleNavigateSection}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left 4 Columns: Interactive 3D Guide Companion (Sticky) */}
+            <aside className="lg:col-span-4 lg:sticky lg:top-20 self-start z-10 space-y-4">
+              <CraftureGuideStage
+                onSelectTab={handleTabChange}
+                activeTab={activeTab}
               />
-            </div>
-          )}
+            </aside>
 
-          {activeTab === 'resume' && (
-            <div className="space-y-8 animate-fadeIn">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
+            {/* Right 8 Columns: Active Tab Content */}
+            <div className="lg:col-span-8 min-w-0 space-y-8">
+              {activeTab === 'overview' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <ReportHero reportData={reportData} />
+                  <PrimaryBottleneck
+                    reportData={reportData}
+                    onNavigateSection={handleNavigateSection}
+                  />
+                </div>
+              )}
 
-          {activeTab === 'linkedin' && (
-            <div className="space-y-8 animate-fadeIn">
-              <LinkedInDeepDiagnosis
-                linkedinAgent={reportData.linkedin_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
+              {activeTab === 'resume' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <ResumeDeepDiagnosis
+                    resumeAgent={reportData.resume_agent}
+                    reportData={reportData}
+                  />
+                </div>
+              )}
 
-          {activeTab === 'funnel' && (
-            <div className="space-y-8 animate-fadeIn">
-              <FunnelAndConversionSection
-                funnelData={reportData.funnel_stages}
-                rejectionData={{
-                  factors: reportData.rejection_factors,
-                  insight: reportData.rejection_insight,
-                }}
-                riskData={reportData.risk_heatmap}
-                reportData={reportData}
-              />
-              <div id="risk-matrix" className="space-y-6">
-                {reportData.risk_heatmap && (
-                  <RiskHeatMap data={reportData.risk_heatmap} />
-                )}
-                {reportData.mission_board && (
-                  <MissionBoard data={reportData.mission_board} />
-                )}
-              </div>
-            </div>
-          )}
+              {activeTab === 'linkedin' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <LinkedInDeepDiagnosis
+                    linkedinAgent={reportData.linkedin_agent}
+                    reportData={reportData}
+                  />
+                </div>
+              )}
 
-          {activeTab === 'roadmap' && (
-            <div className="space-y-8 animate-fadeIn">
-              <RoadmapTimeline
-                roadmapData={reportData.roadmap}
-                currentPhaseId={reportData.career_journey?.current_phase_id}
-                reportData={reportData}
-              />
-              <FinalNextAction
-                coachData={reportData.coach_intervention}
-                reportData={reportData}
+              {activeTab === 'funnel' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <FunnelAndConversionSection
+                    funnelData={reportData.funnel_stages}
+                    rejectionData={{
+                      factors: reportData.rejection_factors,
+                      insight: reportData.rejection_insight,
+                    }}
+                    riskData={reportData.risk_heatmap}
+                    reportData={reportData}
+                  />
+                  <div id="risk-matrix" className="space-y-6">
+                    {reportData.risk_heatmap && (
+                      <RiskHeatMap data={reportData.risk_heatmap} />
+                    )}
+                    {reportData.mission_board && (
+                      <MissionBoard data={reportData.mission_board} />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'roadmap' && (
+                <div className="space-y-8 animate-fadeIn">
+                  <RoadmapTimeline
+                    roadmapData={reportData.roadmap}
+                    currentPhaseId={reportData.career_journey?.current_phase_id}
+                    reportData={reportData}
+                  />
+                  <FinalNextAction
+                    coachData={reportData.coach_intervention}
+                    reportData={reportData}
+                    onBookCall={handleBookCall}
+                  />
+                </div>
+              )}
+
+              {/* Interactive Bottom Section Navigation Controls */}
+              <ReportBottomNav
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+                tabs={COCKPIT_TABS}
                 onBookCall={handleBookCall}
               />
             </div>
-          )}
-
-          {/* Interactive Bottom Section Navigation Controls */}
-          <ReportBottomNav
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            tabs={COCKPIT_TABS}
-            onBookCall={handleBookCall}
-          />
+          </div>
         </div>
 
         {/* Print / PDF Sequential View (Preserves all 5 sections for full printing) */}
@@ -1359,7 +1368,7 @@ function ReportDashboardContent() {
         {/* ─── Footer (Anchored with FinalNextAction to avoid trailing blank page) ─── */}
         <footer className="border-t border-[var(--border-default)] mt-8 pt-4 pb-4 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
           <p className="font-medium">
-            Crafture Career GPS AI • Confidential Candidate Career Intelligence
+            Crafture Career GPS • Confidential Candidate Career Intelligence
           </p>
           <p className="text-[11px]">
             Proprietary scoring and ATS diagnostic algorithms. &copy; {new Date().getFullYear()} Crafture Inc. All rights reserved.

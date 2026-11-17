@@ -17,6 +17,7 @@ import {
   RocketLaunch,
   Scissors,
   ArrowsLeftRight,
+  Target,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -409,9 +410,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">
       <SectionHeader
-        icon={<Sparkle size={22} weight="fill" className="text-indigo-400" />}
-        title="AI Resume Deep Diagnosis & Rewrites"
-        accent="text-indigo-400"
+        icon={<Target size={22} weight="bold" className="text-indigo-600" />}
+        title="Resume Diagnostic Lab & Bullet Rewrites"
+        accent="text-indigo-600"
         onOpenReport={handleOpenPrintReport}
       />
 
@@ -570,7 +571,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               </div>
               <div>
                 <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
-                  Professional Summary Audit & Ready-to-Paste Rewrite
+                  Professional Summary Audit & Strategic Rewrite
                 </h3>
                 <p className="text-xs text-[var(--text-muted)]">
                   Senior recruiter critique and a tailored executive hook engineered for 6-second recruiter scans.
@@ -624,7 +625,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             <div className="bg-gradient-to-r from-indigo-500/5 via-sky-500/5 to-emerald-500/5 border border-indigo-500/30 dark:border-indigo-400/30 rounded-xl p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkle size={14} weight="fill" /> Ready-to-Paste Executive Summary Rewrite
+                  <Target size={14} weight="bold" /> Strategic Executive Summary Rewrite
                 </span>
 
                 <button

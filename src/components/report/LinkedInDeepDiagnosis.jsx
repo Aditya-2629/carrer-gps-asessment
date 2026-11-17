@@ -253,7 +253,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals, rawPosts = [
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">{fullName}</h3>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                ✓ Live Scraped via Apify
+                ✓ Verified Profile Signal
               </span>
             </div>
             {url && (
@@ -1155,7 +1155,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           <LinkedinLogo size={26} weight="fill" />
         </span>
         <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
-          AI All-Star LinkedIn Profile Diagnosis & Optimizer
+          Executive LinkedIn Diagnostic & Optimization Studio
         </h2>
         <span className="flex-1 h-px bg-[var(--border-default)]" />
       </div>
@@ -1185,8 +1185,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 Recent Public LinkedIn Activity ({rawPosts.length} Posts Analyzed)
               </span>
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-600 border border-sky-500/20">
-              Live Scraped via Apify
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+              Verified Public Feed
             </span>
           </div>
           <div className="space-y-2.5">

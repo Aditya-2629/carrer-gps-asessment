@@ -1,30 +1,31 @@
-import { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
 import useAppStore from '../../store/useAppStore'
 import {
-  ArrowRight,
   WarningCircle,
-  CheckCircle,
   PaperPlaneTilt,
   PhoneCall,
   Code,
   UsersThree,
   Trophy,
-  ShieldCheck,
   Robot,
-  Briefcase,
-  IdentificationCard,
-  Compass,
+  Sliders,
 } from '@phosphor-icons/react'
 import { extractQuantMetric, decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
+import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 
-export default function FunnelAndConversionSection({ funnelData, rejectionData, riskData, reportData: propReport = null }) {
+export default function FunnelAndConversionSection({ funnelData: _funnelData, rejectionData, riskData: _riskData, reportData: propReport = null }) {
+  const { triggerGuide } = useReportGuideStore()
   const formData = useAppStore((s) => s.formData) || {}
-  const reportData = propReport || useAppStore((s) => s.reportData) || {}
+  const storeReportData = useAppStore((s) => s.reportData)
+  const reportData = propReport || storeReportData || {}
   const storeReport = reportData
   const answers = reportData?.user_answers || formData || {}
 
-  // 1. Extract Candidate Real Numbers across all 8 funnel dimensions
+  // What-If Simulation State
+  const [callbackLift, setCallbackLift] = useState(0) // 0 to 12%
+  const [techPassRateLift, setTechPassRateLift] = useState(0) // 0 to 25%
+
+  // 1. Extract Candidate Real Numbers across all funnel dimensions
   const parseFunnelCount = (val, fallback = 0) => {
     if (typeof val === 'number' && !isNaN(val)) {
       if (val > 1000) return Math.min(Math.round(val / 100), 250)
@@ -34,7 +35,6 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     const cleaned = String(val).replace(/[^0-9]/g, '')
     const num = parseInt(cleaned, 10)
     if (isNaN(num)) return fallback
-    // Safety cap: single candidate 90d applications over 1000 is almost always a data glitch or concatenated value
     if (num > 1000) return Math.min(Math.round(num / 100), 250)
     return num
   }
@@ -82,12 +82,12 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
 
   // 3. Drop-Off Gate Resolution
   const phaseId = Number(storeReport?.phase?.id ?? 1)
-  const phaseName = storeReport?.phase?.name ?? 'Application → Screening'
 
   const FUNNEL_STAGES = [
     {
       id: 1,
       name: 'Applications',
+      shortName: 'Apps',
       count: totalApps90d,
       unit: 'sent (90d)',
       icon: PaperPlaneTilt,
@@ -97,19 +97,21 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     },
     {
       id: 2,
-      name: 'Recruiter Screens',
-      count: screens,
+      name: 'Screens',
+      shortName: 'Screens',
+      count: screens || Math.round(totalApps90d * 0.05),
       unit: 'recruiter calls',
       icon: PhoneCall,
-      color: 'var(--primary)',
+      color: '#6366f1',
       isDropOffGate: phaseId === 2,
       dropOffLabel: 'Phase 2 Gate: Drop-off after screens',
     },
     {
       id: 3,
-      name: 'OAs & AI Screens',
-      count: assessments + aiInterviews,
-      unit: 'coding tests & video',
+      name: 'Coding & OAs',
+      shortName: 'OAs',
+      count: assessments + aiInterviews || Math.max(1, Math.round(screens * 0.8)),
+      unit: 'tests & video',
       icon: Robot,
       color: '#06b6d4',
       isDropOffGate: phaseId === 2 && assessments > 0,
@@ -117,9 +119,10 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     },
     {
       id: 4,
-      name: 'Technical Rounds',
-      count: technicalRounds,
-      unit: 'live tech panels',
+      name: 'Tech Panel',
+      shortName: 'Tech',
+      count: technicalRounds || Math.max(1, Math.round((screens || 4) * 0.5)),
+      unit: 'live panels',
       icon: Code,
       color: '#8b5cf6',
       isDropOffGate: phaseId === 3,
@@ -127,9 +130,10 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     },
     {
       id: 5,
-      name: 'Final Rounds',
-      count: finalRounds,
-      unit: 'manager / onsite',
+      name: 'Final Round',
+      shortName: 'Final',
+      count: finalRounds || Math.max(0, Math.round((technicalRounds || 2) * 0.4)),
+      unit: 'manager onsite',
       icon: UsersThree,
       color: '#ec4899',
       isDropOffGate: phaseId === 4,
@@ -137,24 +141,59 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     },
     {
       id: 6,
-      name: 'Offers & Joining',
+      name: 'Offers',
+      shortName: 'Offers',
       count: offers,
       unit: joiningStatus === 'No Offer Yet' ? 'offers' : joiningStatus,
       icon: Trophy,
-      color: 'var(--emerald)',
+      color: '#10b981',
       isDropOffGate: phaseId === 5,
-      dropOffLabel: 'Phase 5 Gate: Offer verification / onboarding block',
+      dropOffLabel: 'Phase 5 Gate: Offer verification',
     },
   ]
 
-  // 4. External SDLC & Consultancy Context Strip
+  // What-If Simulation Calculations
+  const baseApps = Math.max(50, totalApps90d)
+  const currentScreenPct = Math.max(1.5, numScreenRate)
+  const simulatedScreenPct = currentScreenPct + callbackLift
+  const simulatedScreens = Math.round(baseApps * (simulatedScreenPct / 100))
+  const simulatedTech = Math.max(1, Math.round(simulatedScreens * 0.65))
+  const baseTechPassPct = Math.max(20, numTechRate || 25)
+  const simulatedTechPassPct = Math.min(85, baseTechPassPct + techPassRateLift)
+  const simulatedFinals = Math.max(1, Math.round(simulatedTech * (simulatedTechPassPct / 100)))
+  const simulatedOffers = Math.max(
+    offers + (callbackLift > 0 || techPassRateLift > 0 ? 1 : 0),
+    Math.round(simulatedFinals * 0.5)
+  )
+  const netOfferLift = Math.max(0, simulatedOffers - offers)
+
+  const handleSliderChange = (type, val) => {
+    if (type === 'callback') setCallbackLift(val)
+    if (type === 'tech') setTechPassRateLift(val)
+
+    if (val > 0) {
+      triggerGuide({
+        nodeId: 'funnel-sankey',
+        emotion: GUIDE_EMOTIONS.VICTORY,
+        headline: `What-If Simulation: Lifting ${type === 'callback' ? 'ATS callback' : 'technical pass rate'} unlocks projected offers!`,
+        metricChip: `Projected: ${simulatedOffers} Offers`,
+        autoSettleMs: 4000,
+      })
+    }
+  }
+
+  // Sankey Layout Geometry
+  // 6 columns across width 760
+  const sankeyCols = [40, 180, 320, 460, 600, 720]
+  const sankeyYMid = 75
+
+  // Sourcing Context Strip
   const ext = storeReport?.external_context || {}
   const sdlc = ext.sdlc_market_cycle || {
     title: 'Core Software & Engineering Wave',
     currentQuarter: 'Q4',
   }
 
-  // Work Auth & Sourcing Fallback reconciliation
   const rawVisa =
     answers.visa ||
     answers.workAuthorization ||
@@ -163,7 +202,6 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     'US Citizen / Green Card / GC-EAD'
   const visaText = decodeHtmlEntities(rawVisa)
 
-  // Dynamically calculate career timeline in years from canonical experiences
   const experiences =
     storeReport?.resume_agent?.canonicalResume?.experiences ||
     storeReport?.resume_json?.experiences ||
@@ -200,23 +238,17 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     storeReport?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
     storeReport?.resume_json?.years_of_experience || 0
   )
-
   const candidateYoe = Math.max(rawCandidateYoe, timelineYoe)
-
-  // Reconcile questionnaire answer against candidate's actual resume timeline
   const expText = candidateYoe >= 6
-    ? 'Senior / 6+ Yrs Experience ⚡'
-    : candidateYoe >= 5
-    ? 'Senior / 5+ Yrs Experience ⚡'
+    ? 'Senior / 6+ Yrs Experience'
     : candidateYoe >= 3
-    ? 'Mid–Senior / 3–5 Yrs Experience 🚀'
-    : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience 🌱')
+    ? 'Mid–Senior / 3–5 Yrs Experience'
+    : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience')
+
   const helpArray = Array.isArray(answers.externalHelp) ? answers.externalHelp : [String(answers.externalHelp || '')]
   const resolvedOpportunity =
     answers.opportunityType ||
     reportData?.user_answers?.opportunityType ||
-    answers.opportunity_type ||
-    reportData?.user_answers?.opportunity_type ||
     (ext.consultancy_context?.mode && !ext.consultancy_context.mode.includes('Freelance') ? ext.consultancy_context.mode : null) ||
     (helpArray.some((h) => /C2C/i.test(h))
       ? 'C2C Consultancy / Bench'
@@ -229,102 +261,167 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
     description: ext.consultancy_context?.description || '100% self-directed application pipeline',
   }
 
-  // 5. Verified Technical Skills (cleanly formatted in Title Case)
-  const rawSkills =
-    storeReport?.resume_agent?.canonicalResume?.skills ||
-    storeReport?.resume_json?.top_skills ||
-    storeReport?.resume_json?.skills ||
-    []
-  const formatTitleCase = (s) => {
-    if (!s) return ''
-    const str = typeof s === 'string' ? s : s?.name || ''
-    const decoded = decodeHtmlEntities(str)
-    return decoded
-      .replace(/[_-]/g, ' ')
-      .replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())
-  }
-  const topSkills = (Array.isArray(rawSkills) ? rawSkills : [])
-    .map(formatTitleCase)
-    .filter(Boolean)
-  const skillsDisplay = topSkills.slice(0, 3).join(', ')
-
   return (
-    <section id="funnel-risks" className="space-y-6 break-before-page page-break-before-always">
+    <section id="funnel-sankey" className="space-y-6 break-before-page page-break-before-always">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-[var(--border-default)] pb-4 break-inside-avoid page-break-inside-avoid">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200 pb-4">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+          <span className="text-xs uppercase font-mono font-bold tracking-wider text-indigo-600 block">
             Inside The Hiring Funnel
           </span>
-          <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
-            style={{ fontFamily: 'var(--font-head)' }}
-          >
-            90-Day Funnel Outcomes & Conversion Velocity
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            90-Day Funnel Outcomes &amp; Conversion Velocity
           </h2>
         </div>
-        <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-          Benchmarked against 1,000+ technical candidate pipelines in your target role{skillsDisplay ? ` (${skillsDisplay})` : ''}
+        <p className="text-xs sm:text-sm text-slate-500 font-medium">
+          Benchmarked against 1,000+ technical candidate pipelines in your target role
         </p>
       </div>
 
-      {/* 1. Compact 90-Day 8-Stage Funnel & Conversion Bar */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-5 break-inside-avoid page-break-inside-avoid print-card">
+      {/* ── 1. Animated SVG Sankey Pipeline Flow & What-If Simulator ── */}
+      <div className="p-5 sm:p-7 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            90-Day Stage Progression & Drop-Off Gate
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
+            Sankey Pipeline Flow &amp; Bottleneck Leak Gate
           </span>
-          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)]">
-            Active Stuck Point: <strong className="text-[var(--primary)]">Phase {phaseId}</strong>
+
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-600">
+            Detected Leak Point: <strong className="text-rose-600">Phase {phaseId}</strong>
           </span>
         </div>
 
-        {/* Responsive Stage Progression Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          {FUNNEL_STAGES.map((stg, idx) => {
-            const Icon = stg.icon
-            return (
-              <div
-                key={stg.id}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all relative ${
-                  stg.isDropOffGate
-                    ? 'bg-rose-500/10 border-rose-500/40 shadow-xs'
-                    : 'bg-[var(--surface-sunken)] border-[var(--border-default)]'
-                }`}
-              >
-                {stg.isDropOffGate && (
-                  <span className="absolute -top-2.5 left-2 px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase bg-rose-600 text-white shadow-2xs animate-pulse ring-2 ring-rose-500/40">
-                    Drop-off Gate
-                  </span>
-                )}
+        {/* ── SVG Sankey Visualization ── */}
+        <div className="w-full overflow-x-auto bg-slate-50/70 p-4 rounded-2xl border border-slate-200">
+          <svg viewBox="0 0 760 160" className="w-full min-w-[680px] h-[160px] select-none">
+            <defs>
+              {FUNNEL_STAGES.slice(0, 5).map((stg, i) => (
+                <linearGradient key={`grad-${i}`} id={`sankey-grad-${i}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={stg.color} stopOpacity="0.45" />
+                  <stop offset="100%" stopColor={FUNNEL_STAGES[i + 1].color} stopOpacity="0.45" />
+                </linearGradient>
+              ))}
+            </defs>
 
-                <div className="flex items-center justify-between mb-2">
-                  <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${stg.color}18`, color: stg.color }}
+            {/* Connecting Bezier Flow Ribbons */}
+            {FUNNEL_STAGES.slice(0, 5).map((stg, i) => {
+              const nextStg = FUNNEL_STAGES[i + 1]
+              const x0 = sankeyCols[i] + 18
+              const x1 = sankeyCols[i + 1]
+              const dx = (x1 - x0) * 0.5
+
+              // Proportional thickness capped between 12 and 60
+              const h0 = Math.max(14, Math.min(54, (stg.count / Math.max(1, totalApps90d)) * 54))
+              const h1 = Math.max(10, Math.min(48, (nextStg.count / Math.max(1, totalApps90d)) * 48))
+
+              const y0Top = sankeyYMid - h0 / 2
+              const y0Bottom = sankeyYMid + h0 / 2
+              const y1Top = sankeyYMid - h1 / 2
+              const y1Bottom = sankeyYMid + h1 / 2
+
+              const isLeakPath = stg.isDropOffGate
+
+              return (
+                <g key={`ribbon-${i}`}>
+                  <path
+                    d={`M ${x0} ${y0Top} C ${x0 + dx} ${y0Top}, ${x1 - dx} ${y1Top}, ${x1} ${y1Top} L ${x1} ${y1Bottom} C ${x1 - dx} ${y1Bottom}, ${x0 + dx} ${y0Bottom}, ${x0} ${y0Bottom} Z`}
+                    fill={`url(#sankey-grad-${i})`}
+                    className="transition-all hover:opacity-80 cursor-pointer"
+                    onClick={() => {
+                      triggerGuide({
+                        nodeId: 'funnel-sankey',
+                        emotion: isLeakPath ? GUIDE_EMOTIONS.ALERT : GUIDE_EMOTIONS.INSPECT,
+                        headline: `Transition ${stg.shortName} → ${nextStg.shortName}: ${stg.count} candidate events progressing to ${nextStg.count}.`,
+                        metricChip: `Flow: ${stg.shortName} → ${nextStg.shortName}`,
+                      })
+                    }}
+                  />
+
+                  {/* Pulsing Alert Marker on Leak Ribbon */}
+                  {isLeakPath && (
+                    <circle
+                      cx={(x0 + x1) / 2}
+                      cy={sankeyYMid}
+                      r="6"
+                      fill="#F43F5E"
+                      className="animate-ping"
+                      opacity="0.8"
+                    />
+                  )}
+                </g>
+              )
+            })}
+
+            {/* Stage Nodes & Labels */}
+            {FUNNEL_STAGES.map((stg, i) => {
+              const x = sankeyCols[i]
+              const isLeak = stg.isDropOffGate
+
+              return (
+                <g
+                  key={`node-${stg.id}`}
+                  className="cursor-pointer group"
+                  onClick={() => {
+                    triggerGuide({
+                      nodeId: 'funnel-sankey',
+                      emotion: isLeak ? GUIDE_EMOTIONS.ALERT : GUIDE_EMOTIONS.INSPECT,
+                      headline: `${stg.name}: ${stg.count} recorded candidate events. ${stg.dropOffLabel}`,
+                      metricChip: `${stg.name}: ${stg.count}`,
+                    })
+                  }}
+                >
+                  {/* Vertical Node Bar */}
+                  <rect
+                    x={x}
+                    y={sankeyYMid - 30}
+                    width={18}
+                    height={60}
+                    rx={6}
+                    fill={isLeak ? '#F43F5E' : stg.color}
+                    className="transition-all group-hover:filter group-hover:brightness-110"
+                  />
+
+                  {/* Top Count Badge */}
+                  <text
+                    x={x + 9}
+                    y={sankeyYMid - 38}
+                    textAnchor="middle"
+                    fill="#0F172A"
+                    fontSize="13"
+                    fontWeight="800"
+                    fontFamily="Fira Code, monospace"
                   >
-                    <Icon size={15} weight="bold" />
-                  </div>
-                  <span className="text-lg font-black font-mono text-[var(--text-primary)]">
                     {stg.count}
-                  </span>
-                </div>
+                  </text>
 
-                <div>
-                  <h4 className="text-xs font-bold text-[var(--text-primary)] leading-tight">
-                    {stg.name}
-                  </h4>
-                  <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">
-                    {stg.unit}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+                  {/* Bottom Stage Name */}
+                  <text
+                    x={x + 9}
+                    y={sankeyYMid + 46}
+                    textAnchor="middle"
+                    fill="#475569"
+                    fontSize="10"
+                    fontWeight="700"
+                  >
+                    {stg.shortName}
+                  </text>
+
+                  {/* Leak Gate Badge */}
+                  {isLeak && (
+                    <g transform={`translate(${x - 22}, ${sankeyYMid + 56})`}>
+                      <rect width="62" height="16" rx="4" fill="#F43F5E" />
+                      <text x="31" y="11" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="800" fontFamily="Fira Code">
+                        LEAK GATE
+                      </text>
+                    </g>
+                  )}
+                </g>
+              )
+            })}
+          </svg>
         </div>
 
-        {/* Active Leak Alert Banner */}
+        {/* ── Active Leak Alert Banner ── */}
         {(() => {
           const activeGate = FUNNEL_STAGES.find((s) => s.isDropOffGate) || FUNNEL_STAGES[0]
           const leakTitle = storeReport?.phase?.shortName || activeGate.name
@@ -335,14 +432,14 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
             storeReport?.primary_bottleneck ||
             'Candidate pipeline experiences significant conversion friction at this stage.'
           return (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3">
-              <WarningCircle size={20} weight="fill" className="text-rose-500 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
-                  Detected Funnel Leak: {leakTitle}
+            <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-3">
+              <WarningCircle size={22} weight="fill" className="text-rose-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping inline-block" />
+                  Primary Funnel Friction Leak: {leakTitle}
                 </span>
-                <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
+                <p className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
                   {leakDiagnosis}
                 </p>
               </div>
@@ -350,89 +447,176 @@ export default function FunnelAndConversionSection({ funnelData, rejectionData, 
           )
         })()}
 
+        {/* ── Interactive What-If Simulator ── */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+            <div className="flex items-center gap-2">
+              <Sliders size={18} weight="bold" className="text-indigo-600" />
+              <h4 className="text-sm font-bold text-slate-900 tracking-tight">
+                Interactive What-If Pipeline Simulator
+              </h4>
+            </div>
+            <span className="text-[11px] font-mono text-slate-500">
+              Adjust levers to model offer conversion lift
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+            {/* Slider 1: Application Callback Lift */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">Application Callback Lift</span>
+                <span className="font-mono font-bold text-indigo-600">+{callbackLift}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="12"
+                step="1"
+                value={callbackLift}
+                onChange={(e) => handleSliderChange('callback', Number(e.target.value))}
+                className="w-full accent-indigo-600 cursor-pointer"
+              />
+              <p className="text-[10px] text-slate-500 leading-snug">
+                Simulates Google XYZ metric rewrites and literal JD keyword mirroring.
+              </p>
+            </div>
+
+            {/* Slider 2: Technical Interview Pass Rate Lift */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">Tech Screen Pass Rate Lift</span>
+                <span className="font-mono font-bold text-emerald-600">+{techPassRateLift}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="25"
+                step="5"
+                value={techPassRateLift}
+                onChange={(e) => handleSliderChange('tech', Number(e.target.value))}
+                className="w-full accent-emerald-600 cursor-pointer"
+              />
+              <p className="text-[10px] text-slate-500 leading-snug">
+                Simulates live system design defense and structured architectural STAR stories.
+              </p>
+            </div>
+          </div>
+
+          {/* Simulated Offers Outcome Strip */}
+          <div className="mt-4 p-4 rounded-xl bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
+                  Current Offers
+                </span>
+                <span className="font-mono text-xl font-bold text-slate-700">
+                  {offers}
+                </span>
+              </div>
+
+              <div className="text-slate-300 font-bold">→</div>
+
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-600 block font-bold">
+                  Simulated Projected Offers
+                </span>
+                <span className="font-mono text-2xl font-black text-emerald-600">
+                  {simulatedOffers}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-xs font-bold text-slate-900 block">
+                Net Pipeline Advantage:
+              </span>
+              <span className="text-xs font-semibold text-indigo-600 font-mono">
+                +{netOfferLift} Offers Projected ({simulatedScreens} screens from {baseApps} apps)
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* 3-Pillar Conversion Velocity Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[var(--border-default)]">
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 block">
               Application → Screen Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-black font-mono ${screenRateColor}`}>
                 {screenRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;5.0% (US Benchmark)</span>
+              <span className="text-[11px] text-slate-400">Target: &gt;5.0%</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 block">
               Technical → Final Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-black font-mono ${techRateColor}`}>
                 {techToFinalRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;40% (US Benchmark)</span>
+              <span className="text-[11px] text-slate-400">Target: &gt;40%</span>
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 block">
               Final Round → Offer Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-black font-mono ${offerRateColor}`}>
                 {finalToOfferRate}%
               </span>
-              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;30% (US Benchmark)</span>
+              <span className="text-[11px] text-slate-400">Target: &gt;30%</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 2. Personalization Context Strip (SDLC Wave, Visa, Experience, Consultancy) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-3 break-inside-avoid page-break-inside-avoid">
-        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] block">
-          Strategic Market Perimeter & Sourcing Context
+      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 break-inside-avoid page-break-inside-avoid">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+          Strategic Market Perimeter &amp; Sourcing Context
         </span>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* SDLC Market Wave */}
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block mb-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block mb-1">
               SDLC Market Wave ({sdlc.currentQuarter || 'Q4'})
             </span>
-            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+            <p className="text-xs font-bold text-slate-900 truncate">
               {sdlc.title}
             </p>
           </div>
 
-          {/* Visa Status */}
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#06b6d4] block mb-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 block mb-1">
               Work Authorization
             </span>
-            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+            <p className="text-xs font-bold text-slate-900 truncate">
               {visaText}
             </p>
           </div>
 
-          {/* Seniority Tier */}
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b5cf6] block mb-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 block mb-1">
               Experience Level
             </span>
-            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+            <p className="text-xs font-bold text-slate-900 truncate">
               {expText}
             </p>
           </div>
 
-          {/* Consultancy Mode */}
-          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500 block mb-1">
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 block mb-1">
               Search Pipeline Model
             </span>
-            <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+            <p className="text-xs font-bold text-slate-900 truncate">
               {consultancy.mode}
             </p>
           </div>
