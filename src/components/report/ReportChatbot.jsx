@@ -16,6 +16,7 @@ import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import DiffSnippetCard from './DiffSnippetCard'
 import ProgramPricingCard from './ProgramPricingCard'
+import { useReportGuideStore } from '../../store/useReportGuideStore'
 
 /**
  * Smoothly scrolls to a section by element id (supports `#final-cta`, `#next-action`, etc.)
@@ -390,11 +391,12 @@ function renderMessageContent(text, options = {}) {
   )
 }
 
-export default function ReportChatbot() {
+export default function ReportChatbot({ hideLauncher = false }) {
   const storeUserId = useAppStore((s) => s.userId)
   const reportData = useAppStore((s) => s.reportData)
   const formData = useAppStore((s) => s.formData)
   const email = useAppStore((s) => s.email)
+  const { isChatOpen, chatInitialPrompt, closeChat, openChat } = useReportGuideStore()
 
   const effectiveUserId = useMemo(() => {
     return (
@@ -505,6 +507,28 @@ export default function ReportChatbot() {
 
   const [open, setOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Synchronize open state with global Living Copilot store
+  useEffect(() => {
+    if (isChatOpen) {
+      setOpen(true)
+      if (chatInitialPrompt) {
+        setInput(chatInitialPrompt)
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus()
+          }
+        }, 120)
+      }
+    } else {
+      setOpen(false)
+    }
+  }, [isChatOpen, chatInitialPrompt])
+
+  const handleClose = () => {
+    setOpen(false)
+    closeChat()
+  }
   const [messages, setMessages] = useState([
     {
       role: 'agent',
@@ -796,17 +820,20 @@ export default function ReportChatbot() {
         await api.post('/assessment/book-call', { email })
       } catch (_e) {}
     }
-    setOpen(false)
+    handleClose()
     scrollToSection('#final-cta')
   }
 
   return (
     <>
-      {/* Floating Copilot Pill Launcher */}
-      {!open && (
+      {/* Floating Copilot Pill Launcher (Suppressed when using Living Copilot) */}
+      {!hideLauncher && !open && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setOpen(true)
+            openChat()
+          }}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-[var(--primary)] to-emerald-600 hover:from-[var(--primary-hover)] hover:to-emerald-500 text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-xl shadow-[var(--primary-ring)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
           aria-label="Open Atlas Copilot"
         >
@@ -867,7 +894,7 @@ export default function ReportChatbot() {
               {/* Close Button */}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
                 aria-label="Close chat"
               >

@@ -14,6 +14,9 @@ import {
 } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
+import { StreakChain } from '../streak-chain'
+import { StatusButton } from '../status-button'
+import { NumberRoll } from '../number-roll'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -666,6 +669,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       {(() => {
         const completedCount = sprintDays.reduce((acc, d) => (checkedDays[d.day] ? acc + 1 : acc), 0)
         const sprintPct = Math.round((completedCount / Math.max(1, sprintDays.length)) * 100)
+        const isTodayDone = completedCount > 0
+        const pastDoneCount = Math.max(0, completedCount - 1)
+        const streakHistory = Array.from({ length: 6 }, (_, i) => (i >= 6 - pastDoneCount ? 'done' : 'missed'))
 
         const handleToggleDay = (item) => {
           const isNowChecked = !checkedDays[item.day]
@@ -696,6 +702,15 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
           }
         }
 
+        const handleCompleteNextStreak = () => {
+          const nextUnchecked = sprintDays.find((d) => !checkedDays[d.day])
+          if (nextUnchecked) {
+            handleToggleDay(nextUnchecked)
+          } else if (sprintDays.length > 0) {
+            handleToggleDay(sprintDays[sprintDays.length - 1])
+          }
+        }
+
         return (
           <div id="action-sprint" className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-indigo-50/40 via-white to-emerald-50/20 border-2 border-indigo-200/60 shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -718,7 +733,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-3 text-[11px] font-bold font-mono">
                     <span className="text-slate-700">Sprint Execution:</span>
-                    <span className="text-emerald-600">{completedCount} of {sprintDays.length} ({sprintPct}%)</span>
+                    <span className="text-emerald-600 flex items-center gap-0.5">
+                      <NumberRoll value={completedCount} /> of {sprintDays.length} (<NumberRoll value={sprintPct} />%)
+                    </span>
                   </div>
                   <div className="w-36 h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
                     <div
@@ -728,6 +745,20 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* StreakChain Momentum Card */}
+            <div className="bg-white/85 backdrop-blur-xs rounded-2xl border border-indigo-100/90 p-4 sm:p-5 shadow-xs">
+              <StreakChain
+                history={streakHistory}
+                today={isTodayDone}
+                onCompleteToday={handleCompleteNextStreak}
+                title="Sprint Execution Velocity"
+                actionLabel={completedCount === sprintDays.length ? "All 7 Days Completed 🎉" : `Advance to Next Day (${sprintDays.find((d) => !checkedDays[d.day])?.day || 'Done'})`}
+                milestones={[3, 5, 7]}
+                colors={['#6366F1', '#10B981']}
+                className="border-0 shadow-none bg-transparent"
+              />
             </div>
 
             {/* 7-Day Responsive Matrix with Interactive Checkmarks */}
@@ -745,20 +776,24 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                     } ${idx === 6 ? 'sm:col-span-2 lg:col-span-1' : ''}`}
                   >
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span className={`text-[10px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded-md ${
                           isChecked ? 'bg-emerald-200 text-emerald-900' : 'bg-indigo-50 text-indigo-700'
                         }`}>
                           {item.day}
                         </span>
 
-                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                          isChecked
-                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
-                            : 'border-slate-300 bg-white group-hover:border-indigo-500'
-                        }`}>
-                          {isChecked && <Check size={12} weight="bold" />}
-                        </div>
+                        <StatusButton
+                          status={isChecked ? "success" : "idle"}
+                          labels={{ idle: "Check In", success: "Done" }}
+                          size="sm"
+                          variant={isChecked ? "primary" : "ghost"}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleToggleDay(item)
+                          }}
+                          className="h-6 text-[11px] px-2 rounded-lg"
+                        />
                       </div>
 
                       <h4 className={`text-xs font-bold leading-snug transition-colors ${

@@ -8,6 +8,8 @@ import {
   WarningCircle,
 } from '@phosphor-icons/react'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
+import { DiffReview } from '../diff-review'
+import { CopyButton } from '../copy-button'
 
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
@@ -187,7 +189,7 @@ export default function ResumeBulletAudit({
   }
 
   return (
-    <div className="space-y-6">
+    <div id="resume-bullets" className="space-y-6">
       {/* ── Paper X-Ray Header & Telemetry ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
@@ -340,32 +342,33 @@ export default function ResumeBulletAudit({
                     </p>
                   </div>
 
-                  {/* Strategic Recruiter Rewrite (with 1-click copy) */}
+                  {/* Strategic Recruiter Rewrite with Hairline DiffReview & CopyButton */}
                   {item.rewritten && item.original !== item.rewritten && (
-                    <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2">
+                    <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-1">
-                          <CheckCircle size={13} weight="bold" /> Strategic Recruiter Rewrite:
+                          <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(item.rewritten, idx)}
-                          className="text-xs font-bold bg-white text-indigo-700 border border-indigo-300 hover:bg-indigo-600 hover:text-white px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                        >
-                          {copiedIdx === idx ? (
-                            <>
-                              <Check size={13} weight="bold" /> Copied!
-                            </>
-                          ) : (
-                            <>
-                              <Copy size={13} /> 1-Click Copy
-                            </>
-                          )}
-                        </button>
+                        <CopyButton
+                          text={item.rewritten}
+                          label="1-Click Copy Rewrite"
+                          copiedLabel="Copied!"
+                          size="sm"
+                        />
                       </div>
-                      <p className="text-xs font-bold text-slate-900 leading-relaxed">
-                        {item.rewritten}
-                      </p>
+                      <DiffReview
+                        changes={[
+                          {
+                            id: item.bulletId || String(idx),
+                            label: 'Bullet Rewrite',
+                            before: item.original,
+                            after: item.rewritten,
+                          },
+                        ]}
+                        mode="words"
+                        readOnly={true}
+                        title="Before → After Word Diff"
+                      />
                     </div>
                   )}
                 </div>

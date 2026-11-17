@@ -17,7 +17,7 @@ import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
 import ReportHero from './ReportHero'
-import CraftureGuideStage from './CraftureGuideStage'
+import CraftureLivingCopilot from './CraftureLivingCopilot'
 import StickyReportNav from './StickyReportNav'
 import PrimaryBottleneck from './PrimaryBottleneck'
 import FunnelAndConversionSection from './FunnelAndConversionSection'
@@ -1211,93 +1211,84 @@ function ReportDashboardContent() {
           </div>
         )}
 
-        {/* Screen View (12-Column Split-Screen Editorial Workspace) */}
-        <div className="print:hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left 4 Columns: Interactive 3D Guide Companion (Sticky) */}
-            <aside className="lg:col-span-4 lg:sticky lg:top-20 self-start z-10 space-y-4">
-              <CraftureGuideStage
-                onSelectTab={handleTabChange}
-                activeTab={activeTab}
+        {/* Screen View (100% Full-Width Editorial Layout) */}
+        <div className="print:hidden space-y-10 w-full">
+          {activeTab === 'overview' && (
+            <div className="space-y-10 animate-fadeIn">
+              <div id="overview-pulse">
+                <ReportHero reportData={reportData} />
+              </div>
+              <div id="overview-bottleneck">
+                <PrimaryBottleneck
+                  reportData={reportData}
+                  onNavigateSection={handleNavigateSection}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'resume' && (
+            <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
+              <ResumeDeepDiagnosis
+                resumeAgent={reportData.resume_agent}
+                reportData={reportData}
               />
-            </aside>
+            </div>
+          )}
 
-            {/* Right 8 Columns: Active Tab Content */}
-            <div className="lg:col-span-8 min-w-0 space-y-8">
-              {activeTab === 'overview' && (
-                <div className="space-y-8 animate-fadeIn">
-                  <ReportHero reportData={reportData} />
-                  <PrimaryBottleneck
-                    reportData={reportData}
-                    onNavigateSection={handleNavigateSection}
-                  />
-                </div>
-              )}
+          {activeTab === 'linkedin' && (
+            <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
+              <LinkedInDeepDiagnosis
+                linkedinAgent={reportData.linkedin_agent}
+                reportData={reportData}
+              />
+            </div>
+          )}
 
-              {activeTab === 'resume' && (
-                <div className="space-y-8 animate-fadeIn">
-                  <ResumeDeepDiagnosis
-                    resumeAgent={reportData.resume_agent}
-                    reportData={reportData}
-                  />
-                </div>
-              )}
+          {activeTab === 'funnel' && (
+            <div className="space-y-10 animate-fadeIn" id="funnel-leak">
+              <FunnelAndConversionSection
+                funnelData={reportData.funnel_stages}
+                rejectionData={{
+                  factors: reportData.rejection_factors,
+                  insight: reportData.rejection_insight,
+                }}
+                riskData={reportData.risk_heatmap}
+                reportData={reportData}
+              />
+              <div id="risk-matrix" className="space-y-6">
+                {reportData.risk_heatmap && (
+                  <RiskHeatMap data={reportData.risk_heatmap} />
+                )}
+                {reportData.mission_board && (
+                  <MissionBoard data={reportData.mission_board} />
+                )}
+              </div>
+            </div>
+          )}
 
-              {activeTab === 'linkedin' && (
-                <div className="space-y-8 animate-fadeIn">
-                  <LinkedInDeepDiagnosis
-                    linkedinAgent={reportData.linkedin_agent}
-                    reportData={reportData}
-                  />
-                </div>
-              )}
-
-              {activeTab === 'funnel' && (
-                <div className="space-y-8 animate-fadeIn">
-                  <FunnelAndConversionSection
-                    funnelData={reportData.funnel_stages}
-                    rejectionData={{
-                      factors: reportData.rejection_factors,
-                      insight: reportData.rejection_insight,
-                    }}
-                    riskData={reportData.risk_heatmap}
-                    reportData={reportData}
-                  />
-                  <div id="risk-matrix" className="space-y-6">
-                    {reportData.risk_heatmap && (
-                      <RiskHeatMap data={reportData.risk_heatmap} />
-                    )}
-                    {reportData.mission_board && (
-                      <MissionBoard data={reportData.mission_board} />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'roadmap' && (
-                <div className="space-y-8 animate-fadeIn">
-                  <RoadmapTimeline
-                    roadmapData={reportData.roadmap}
-                    currentPhaseId={reportData.career_journey?.current_phase_id}
-                    reportData={reportData}
-                  />
-                  <FinalNextAction
-                    coachData={reportData.coach_intervention}
-                    reportData={reportData}
-                    onBookCall={handleBookCall}
-                  />
-                </div>
-              )}
-
-              {/* Interactive Bottom Section Navigation Controls */}
-              <ReportBottomNav
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                tabs={COCKPIT_TABS}
+          {activeTab === 'roadmap' && (
+            <div className="space-y-10 animate-fadeIn" id="sprint-roadmap">
+              <RoadmapTimeline
+                roadmapData={reportData.roadmap}
+                currentPhaseId={reportData.career_journey?.current_phase_id}
+                reportData={reportData}
+              />
+              <FinalNextAction
+                coachData={reportData.coach_intervention}
+                reportData={reportData}
                 onBookCall={handleBookCall}
               />
             </div>
-          </div>
+          )}
+
+          {/* Interactive Bottom Section Navigation Controls */}
+          <ReportBottomNav
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            tabs={COCKPIT_TABS}
+            onBookCall={handleBookCall}
+          />
         </div>
 
         {/* Print / PDF Sequential View (Preserves all 5 sections for full printing) */}
@@ -1376,8 +1367,11 @@ function ReportDashboardContent() {
         </footer>
       </main>
 
-      {/* Floating agent chat (Atlas) */}
-      <ReportChatbot />
+      {/* ─── Living Copilot 1+3 Combo: Transparent Floating 3D Mascot + Scroll-Along Thinking Cloud ─── */}
+      <CraftureLivingCopilot />
+
+      {/* Atlas Expandable Chat Drawer (Static pill launcher hidden in favor of living copilot) */}
+      <ReportChatbot hideLauncher={true} />
     </div>
   )
 }

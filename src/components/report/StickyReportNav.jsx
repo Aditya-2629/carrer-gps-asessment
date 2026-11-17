@@ -44,17 +44,17 @@ export default function StickyReportNav({
   ]
 
   return (
-    <div className="sticky top-0 z-40 bg-[var(--surface-base)]/90 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs print:hidden">
-      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-3">
+    <div className="sticky top-0 z-40 bg-[var(--surface-base)]/95 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs print:hidden">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left: Candidate Context & Score Pill */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {safeName && (
-            <div className="hidden md:flex items-center gap-2 pr-2.5 border-r border-[var(--border-default)] text-xs">
-              <span className="font-bold text-[var(--text-primary)] truncate max-w-[140px]">{safeName}</span>
+            <div className="hidden xl:flex items-center gap-2 pr-2.5 border-r border-[var(--border-default)] text-xs">
+              <span className="font-bold text-[var(--text-primary)] truncate max-w-[130px]">{safeName}</span>
               {safeRole && (
                 <>
                   <span className="text-[var(--text-muted)]">•</span>
-                  <span className="text-[var(--text-secondary)] truncate max-w-[130px] font-medium">
+                  <span className="text-[var(--text-secondary)] truncate max-w-[110px] font-medium">
                     {safeRole}
                   </span>
                 </>
@@ -63,75 +63,77 @@ export default function StickyReportNav({
           )}
 
           {/* Health Score Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 border border-teal-500/25 text-teal-600 dark:text-teal-400">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 border border-teal-500/25 text-teal-600 dark:text-teal-400 shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-            <span>{healthScore}/100</span>
+            <span className="font-mono">{healthScore}/100</span>
           </div>
         </div>
 
-        {/* Center: Sleek 5-Tab Segmented Pill Bar */}
-        <nav
-          aria-label="Executive Cockpit Navigation"
-          className="flex items-center gap-1 bg-[var(--surface-sunken)] p-1 rounded-xl border border-[var(--border-default)] overflow-x-auto no-scrollbar"
-        >
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id
+        {/* Center: Sleek 5-Tab Segmented Pill Bar with Overflow Protection */}
+        <div className="flex-1 min-w-0 flex justify-center overflow-x-auto no-scrollbar py-0.5">
+          <nav
+            aria-label="Executive Cockpit Navigation"
+            className="inline-flex items-center gap-1 bg-[var(--surface-sunken)] p-1 rounded-xl border border-[var(--border-default)] shrink-0"
+          >
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onTabChange && onTabChange(tab.id)}
-                className={`cockpit-pill relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 ${
-                  isActive
-                    ? 'active text-teal-600 dark:text-teal-300 font-bold'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-card)]/60'
-                }`}
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="cockpit-active-tab"
-                    className="absolute inset-0 bg-[var(--surface-card)] rounded-lg shadow-xs border border-teal-500/20"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <span className="relative z-10 text-xs">{tab.icon}</span>
-                <span className="relative z-10">{tab.label}</span>
-                {tab.badge && (
-                  <span
-                    className={`relative z-10 text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold ${
-                      isActive
-                        ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
-                        : 'bg-[var(--border-default)] text-[var(--text-muted)]'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </nav>
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => onTabChange && onTabChange(tab.id)}
+                  className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
+                    isActive
+                      ? 'active text-teal-600 dark:text-teal-300 font-bold'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-card)]/60'
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="cockpit-active-tab"
+                      className="absolute inset-0 bg-[var(--surface-card)] rounded-lg shadow-xs border border-teal-500/20"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span className="relative z-10 text-xs">{tab.icon}</span>
+                  <span className="relative z-10">{tab.label}</span>
+                  {tab.badge && (
+                    <span
+                      className={`relative z-10 text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold ${
+                        isActive
+                          ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
+                          : 'bg-[var(--border-default)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
+        </div>
 
         {/* Right: Actions (Download PDF + Retest) */}
-        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={handleDownloadPdf}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
             title="Download PDF Report"
           >
             <DownloadSimple size={13} weight="bold" />
-            <span className="hidden lg:inline">PDF</span>
+            <span className="hidden sm:inline">PDF</span>
           </button>
           <button
             type="button"
             onClick={handleRetest}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1 cursor-pointer"
+            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1 cursor-pointer shrink-0"
             title="Retest"
           >
             <ArrowsClockwise size={13} weight="bold" />
-            <span className="hidden lg:inline">Retest</span>
+            <span className="hidden sm:inline">Retest</span>
           </button>
         </div>
       </div>

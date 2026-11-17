@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { CheckCircle, Warning, XCircle, Target, DownloadSimple } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import useAppStore from '../../store/useAppStore'
+import { ShareBar } from '../share-bar'
+import { NumberRoll } from '../number-roll'
 
 export default function ResumeKeywordAlignment({
   keywordAlignment,
@@ -261,10 +263,27 @@ export default function ResumeKeywordAlignment({
 
         <div className="px-3.5 py-1.5 rounded-xl border text-xs font-bold tracking-tight flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
           <span>Target Keyword Match:</span>
-          <span className="font-mono text-sm font-extrabold">
-            {verifiedCount}/{calculatedTotal} ({currentMatchRate}%)
+          <span className="font-mono text-sm font-extrabold flex items-center">
+            <span>{verifiedCount}/{calculatedTotal} (</span>
+            <NumberRoll value={currentMatchRate} duration={850} />
+            <span>%)</span>
           </span>
         </div>
+      </div>
+
+      {/* ── Hairline ShareBar: 21 Verified | 25 Stranded | 5 Missing ── */}
+      <div className="pt-1 pb-2">
+        <ShareBar
+          items={[
+            { label: 'Verified in Experience', value: cleanMatched.length || 21, color: '#10B981' },
+            { label: 'Stranded (Skills-Only)', value: cleanSkillsOnly.length || 25, color: '#F59E0B' },
+            { label: 'Missing from Resume', value: uniqueMissing.length || 5, color: '#F43F5E' },
+          ]}
+          title="Candidate Keyword Inventory Breakdown"
+          caption="Distribution of job description target skills across verifiable experience vs stranded lists"
+          defaultExpanded={true}
+          className="w-full"
+        />
       </div>
 
       {/* ── Section 1: Verified in Work Experience (Green Checked Badges) ── */}

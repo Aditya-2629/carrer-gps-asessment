@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from 'recharts'
 import { ArrowUpRight } from '@phosphor-icons/react'
+import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 
 export default function ReportHero({ reportData, user }) {
@@ -110,6 +111,12 @@ export default function ReportHero({ reportData, user }) {
     {
       id: 'overall',
       label: 'Overall Index',
+      valueNode: (
+        <span className="flex items-baseline">
+          <NumberRoll value={overall} duration={850} />
+          <span className="text-sm font-semibold text-slate-400">/100</span>
+        </span>
+      ),
       value: `${overall}/100`,
       caption: overall >= 80 ? 'Interview Ready' : overall >= 60 ? 'Competitive' : 'Action Required',
       color: ringColor,
@@ -126,6 +133,12 @@ export default function ReportHero({ reportData, user }) {
     {
       id: 'ats',
       label: 'ATS Parsability',
+      valueNode: (
+        <span className="flex items-baseline">
+          <NumberRoll value={atsScore} duration={850} />
+          <span className="text-sm font-semibold text-slate-400">%</span>
+        </span>
+      ),
       value: `${atsScore}%`,
       caption: atsScore >= 80 ? 'Clean Structure' : 'Parsing Risk',
       color: atsScore >= 80 ? 'text-emerald-600' : 'text-amber-600',
@@ -142,6 +155,12 @@ export default function ReportHero({ reportData, user }) {
     {
       id: 'impact',
       label: 'Impact Density',
+      valueNode: (
+        <span className="flex items-baseline">
+          <NumberRoll value={impactScore} duration={850} />
+          <span className="text-sm font-semibold text-slate-400">%</span>
+        </span>
+      ),
       value: `${impactScore}%`,
       caption: impactScore >= 70 ? 'Solid Metrics' : 'Needs CAR Formula',
       color: impactScore >= 70 ? 'text-emerald-600' : 'text-rose-600',
@@ -158,6 +177,12 @@ export default function ReportHero({ reportData, user }) {
     {
       id: 'market',
       label: 'Stack Alignment',
+      valueNode: (
+        <span className="flex items-baseline">
+          <NumberRoll value={marketScore} duration={850} />
+          <span className="text-sm font-semibold text-slate-400">%</span>
+        </span>
+      ),
       value: `${marketScore}%`,
       caption: 'JD Keyword Match',
       color: 'text-indigo-600',
@@ -174,6 +199,13 @@ export default function ReportHero({ reportData, user }) {
     {
       id: 'recovery',
       label: '7-Day Upside',
+      valueNode: (
+        <span className="flex items-baseline text-emerald-600">
+          <span>+</span>
+          <NumberRoll value={Math.max(16, 92 - overall)} duration={850} />
+          <span className="text-sm font-semibold ml-1">pts</span>
+        </span>
+      ),
       value: `+${Math.max(16, 92 - overall)} pts`,
       caption: 'Target: 90+ Index',
       color: 'text-emerald-600',
@@ -239,9 +271,11 @@ export default function ReportHero({ reportData, user }) {
                 />
               </svg>
               <div className="absolute flex flex-col items-center">
-                <span className="text-xl font-black font-mono text-slate-900 tabular-nums">
-                  {overall}
-                </span>
+                <NumberRoll
+                  value={overall}
+                  duration={900}
+                  className="text-xl font-black font-mono text-slate-900"
+                />
                 <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                   Index
                 </span>
@@ -358,7 +392,7 @@ export default function ReportHero({ reportData, user }) {
                 <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-indigo-600 transition-colors" />
               </div>
               <div className="font-mono text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                {m.value}
+                {m.valueNode || m.value}
               </div>
               <p className="text-[10px] text-slate-500 font-medium mt-0.5">
                 {m.caption}
