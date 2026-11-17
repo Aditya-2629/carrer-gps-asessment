@@ -544,7 +544,13 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
           <div className="mt-4 pt-4 border-t border-slate-200">
             <StageBars
               title="Pipeline Stage Progression (Current vs Simulated)"
-              stages={['Applications', 'Screens', 'Tech Rounds', 'Final Loops', 'Offers']}
+              stages={[
+                { id: 'apps', label: 'Applications' },
+                { id: 'screens', label: 'Screens' },
+                { id: 'tech', label: 'Tech Rounds' },
+                { id: 'final', label: 'Final Loops' },
+                { id: 'offers', label: 'Offers' },
+              ]}
               periods={[
                 {
                   id: 'current',

@@ -25,8 +25,8 @@ const useReducedMotion = () =>
 
 export function StageBars({
   title = "Funnel",
-  stages,
-  periods,
+  stages = [],
+  periods = [],
   value,
   defaultValue,
   onValueChange,
@@ -37,9 +37,31 @@ export function StageBars({
 }) {
   const reduced = useReducedMotion();
   const id = React.useId();
-  const [own, setOwn] = React.useState(defaultValue ?? periods[0]?.id);
+
+  const safePeriods = React.useMemo(() => {
+    if (Array.isArray(periods) && periods.length > 0) return periods;
+    return [{ id: "default", label: "Default", values: [] }];
+  }, [periods]);
+
+  const normalizedStages = React.useMemo(() => {
+    if (!Array.isArray(stages)) return [];
+    return stages.map((s, idx) => {
+      if (typeof s === "string") {
+        return { id: `stage-${idx}`, label: s };
+      }
+      if (s && typeof s === "object") {
+        return {
+          id: s.id ?? `stage-${idx}`,
+          label: String(s.label ?? s.name ?? `Stage ${idx + 1}`),
+        };
+      }
+      return { id: `stage-${idx}`, label: String(s ?? "") };
+    });
+  }, [stages]);
+
+  const [own, setOwn] = React.useState(defaultValue ?? safePeriods[0]?.id);
   const periodId = value ?? own;
-  const period = periods.find((p) => p.id === periodId) ?? periods[0];
+  const period = safePeriods.find((p) => p.id === periodId) ?? safePeriods[0];
   const values = period?.values ?? [];
   const first = values[0] || 1;
 
@@ -66,10 +88,10 @@ export function StageBars({
   }, []);
 
   React.useLayoutEffect(() => {
-    const el = chipRefs.current[periods.findIndex((p) => p.id === periodId)];
+    const el = chipRefs.current[safePeriods.findIndex((p) => p.id === periodId)];
     if (!el) return;
     setPill((p) => (p.left === el.offsetLeft && p.width === el.offsetWidth ? p : { left: el.offsetLeft, width: el.offsetWidth, ready: p.width > 0 }));
-  }, [periodId, periods]);
+  }, [periodId, safePeriods]);
 
   const choose = (next) => {
     if (next === periodId) return;
@@ -79,6 +101,8 @@ export function StageBars({
 
   const fmt = (v) => new Intl.NumberFormat(locales, format).format(v);
   const overall = values.length > 1 ? (values[values.length - 1] ?? 0) / first : 1;
+  const firstStageLabel = String(normalizedStages[0]?.label ?? "").toLowerCase();
+  const lastStageLabel = String(normalizedStages[normalizedStages.length - 1]?.label ?? "").toLowerCase();
 
   return (
     <div ref={rootRef} className={`@container w-full rounded-[22px] bg-background shadow-[0_0_0_1px_var(--border)] ${className}`} {...props}>
@@ -86,7 +110,7 @@ export function StageBars({
         {/* The title and its control share a row; the figures sit under both. */}
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <p className="text-[12px] text-muted-foreground @md:text-[13px]">{title}</p>
-          {periods.length > 1 && (
+          {safePeriods.length > 1 && (
             <div role="radiogroup" aria-label="Period" className="relative -my-1 inline-flex shrink-0 rounded-full bg-muted p-0.5">
               <span
                 aria-hidden="true"
@@ -97,7 +121,7 @@ export function StageBars({
                   transition: pill.ready && !reduced ? `transform 460ms ${THROW}, width 380ms ${EASE}` : "none",
                 }}
               />
-              {periods.map((p, i) => {
+              {safePeriods.map((p, i) => {
                 const selected = p.id === periodId;
                 return (
                   <button
@@ -113,8 +137,8 @@ export function StageBars({
                     onKeyDown={(e) => {
                       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
                       e.preventDefault();
-                      const next = (i + (e.key === "ArrowRight" ? 1 : -1) + periods.length) % periods.length;
-                      choose(periods[next].id);
+                      const next = (i + (e.key === "ArrowRight" ? 1 : -1) + safePeriods.length) % safePeriods.length;
+                      choose(safePeriods[next].id);
                       chipRefs.current[next]?.focus();
                     }}
                     className={`cursor-pointer relative h-6 whitespace-nowrap rounded-full px-2.5 text-[11.5px] font-medium @md:h-7 @md:px-3 @md:text-[12.5px] transition-colors duration-300 ${FOCUS} ${
@@ -134,15 +158,15 @@ export function StageBars({
         </p>
 
         <ol className="mt-4 @md:mt-6" onPointerLeave={() => setFocused(null)}>
-          {stages.map((s, i) => {
+          {normalizedStages.map((s, i) => {
             const v = values[i] ?? 0;
             const share = v / first;
             const step = i > 0 && values[i - 1] ? v / values[i - 1] : 1;
             const dim = focused !== null && focused !== i;
             // One hue, a step lighter for each stage further down.
-            const strength = 1 - (stages.length > 1 ? (i / (stages.length - 1)) * 0.5 : 0);
+            const strength = 1 - (normalizedStages.length > 1 ? (i / (normalizedStages.length - 1)) * 0.5 : 0);
             return (
-              <li key={s.id}>
+              <li key={s.id ?? i}>
                 {i > 0 && (
                   <p
                     aria-hidden="true"
@@ -187,8 +211,8 @@ export function StageBars({
 
         <table className="sr-only">
           <caption>
-            {title}, {period?.label}: {Math.round(overall * 1000) / 10}% made it from {stages[0]?.label.toLowerCase()} to{" "}
-            {stages[stages.length - 1]?.label.toLowerCase()}
+            {title}, {period?.label ?? ""}: {Math.round(overall * 1000) / 10}% made it from {firstStageLabel || "start"} to{" "}
+            {lastStageLabel || "end"}
           </caption>
           <thead>
             <tr>
@@ -199,8 +223,8 @@ export function StageBars({
             </tr>
           </thead>
           <tbody>
-            {stages.map((s, i) => (
-              <tr key={s.id} id={`${id}-${s.id}`}>
+            {normalizedStages.map((s, i) => (
+              <tr key={s.id ?? i} id={`${id}-${s.id ?? i}`}>
                 <th scope="row">{s.label}</th>
                 <td>{fmt(values[i] ?? 0)}</td>
                 <td>{Math.round(((values[i] ?? 0) / first) * 1000) / 10}%</td>
