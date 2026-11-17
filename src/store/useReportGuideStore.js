@@ -18,19 +18,25 @@ export const GUIDE_MODES = {
 export const EMOTION_PALETTES = {
   idle: { shell: '#6366F1', bulb: '#EEF2FF', lamp: '#6366F1', ring: '#818CF8' },
   alert: { shell: '#F43F5E', bulb: '#FFF1F2', lamp: '#F43F5E', ring: '#FB7185' },
+  listening: { shell: '#F43F5E', bulb: '#FFF1F2', lamp: '#F43F5E', ring: '#FB7185' },
   inspect: { shell: '#F59E0B', bulb: '#FFFBEB', lamp: '#F59E0B', ring: '#FBBF24' },
+  thinking: { shell: '#F59E0B', bulb: '#FFFBEB', lamp: '#F59E0B', ring: '#FBBF24' },
   coach: { shell: '#7C3AED', bulb: '#F5F3FF', lamp: '#7C3AED', ring: '#A78BFA' },
   victory: { shell: '#10B981', bulb: '#ECFDF5', lamp: '#10B981', ring: '#34D399' },
+  celebrating: { shell: '#10B981', bulb: '#ECFDF5', lamp: '#10B981', ring: '#34D399' },
   move: { shell: '#38BDF8', bulb: '#F0F9FF', lamp: '#38BDF8', ring: '#7DD3FC' },
 }
 
-// Mapping our 6 emotions to Wobnimo MascotState
+// Mapping our emotions to Wobnimo MascotState
 export const EMOTION_TO_WOBNIMO = {
   idle: 'idle',
   alert: 'error',
+  listening: 'listening',
   inspect: 'thinking',
+  thinking: 'thinking',
   coach: 'speaking',
   victory: 'celebrating',
+  celebrating: 'celebrating',
   move: 'working',
 }
 
