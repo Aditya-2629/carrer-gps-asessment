@@ -51,7 +51,7 @@ export function ProgramPricingCard({ onBookCall }) {
         'ATS Resume Audit & Formatting Verification',
         'LinkedIn Cross-Diagnosis & Headline SEO',
         'Primary Funnel Choke Point Isolation',
-        '7-Day Rapid Triage Checklist',
+        'Action Roadmap & Milestones',
       ],
     },
     {

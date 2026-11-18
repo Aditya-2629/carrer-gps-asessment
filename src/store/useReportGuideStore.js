@@ -105,13 +105,13 @@ export const SECTION_INSIGHTS = {
   },
   'sprint-roadmap': {
     id: 'sprint-roadmap',
-    name: '7-Day Sprint',
-    chip: 'Action Sprint',
+    name: 'Action Plan',
+    chip: 'Action Plan',
     problem: 'Unstructured job hunting averages 6–9 months with unpredictable conversion.',
-    solution: 'Execute high-impact daily missions in order to generate interview momentum.',
-    thought: 'Immediate 7-Day sprint: complete rapid triage missions to convert search activity into offers.',
+    solution: 'Execute the 30/60/90 day milestone pathway to generate compounding interview momentum.',
+    thought: 'Action Roadmap: complete prioritized milestones to systematically convert pipeline into offers.',
     emotion: 'speaking',
-    chatPrompt: 'What are my top 3 high-impact missions to complete today from the 7-day sprint?',
+    chatPrompt: 'What are my top high-leverage milestones to execute first from the action plan?',
   },
 }
 

@@ -1,21 +1,10 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
 import {
   Check,
   Trophy,
-  Target,
-  Path,
-  Flag,
-  Lightning,
   ArrowsClockwise,
   ArrowRight,
-  CalendarCheck,
 } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
-import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
-import { StreakChain } from '../streak-chain'
-import { StatusButton } from '../status-button'
-import { NumberRoll } from '../number-roll'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -55,318 +44,29 @@ function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
 }
 
 export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNavigateSection, reportData }) {
-  const { triggerGuide } = useReportGuideStore()
-  const [checkedDays, setCheckedDays] = useState({})
-  const safeData = Array.isArray(roadmapData) ? roadmapData : []
   const effectivePhaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || currentPhaseId || 1)
   const targetRole =
     reportData?.resume_agent?.candidateSnapshot?.targetRole ||
     reportData?.resume_json?.target_role ||
     reportData?.user_answers?.targetRole ||
-    'Data Analyst'
+    'Software Engineer'
   const visa = reportData?.user_answers?.visa || reportData?.user_answers?.visaStatus || ''
   const rawExternal = reportData?.user_answers?.externalHelp
   const helpString = Array.isArray(rawExternal) ? rawExternal.join(' ') : String(rawExternal || '')
-  const isVisaConstrained = Boolean(visa && !visa.includes('US Citizen') && !visa.includes('Green Card'))
   const isSponsorshipRequired = Boolean(visa && /opt|cpt|h-?1b|sponsor/i.test(visa))
-  const isConsultancy = Boolean(helpString && (helpString.includes('C2C') || helpString.includes('Staffing') || helpString.includes('Agency')))
   const archetype = classifyRoleArchetype(targetRole)
   const isDataRole = archetype.key === 'DATA_ANALYTICS'
   const topSkills = extractTopSkills(reportData, archetype.mandatoryTools.slice(0, 3).join(', '))
-  const primaryBottleneck = reportData?.primary_bottleneck?.title || 'Top-of-Funnel Conversion'
 
   // -------------------------------------------------------------
-  // 1. Intelligent 7-Day Rapid Triage Checklist (Days 1–7)
-  // -------------------------------------------------------------
-  let sprintDays = []
-
-  if (effectivePhaseId === 1) {
-    // Phase 1: Top of Funnel Black Hole
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: 'Document Calibration',
-        action: `Rewrite top 5 resume achievement bullets in Google XYZ format with quantified business outcomes and high ${topSkills} keyword density.`,
-        deliverable: '5 Calibrated Google XYZ Impact Bullets',
-      },
-      {
-        day: 'Day 2',
-        title: 'ATS Text Ingestion Check',
-        action: 'Verify single-column format parses 100% cleanly through standard ATS scanners without corrupted section headers or drop-offs.',
-        deliverable: 'Clean-Text ATS Ingestion Validated File',
-      },
-      {
-        day: 'Day 3',
-        title: 'LinkedIn Recruiter SEO',
-        action: `Reconstruct headline with target role keywords + ${topSkills} + verified scale metric to match recruiter boolean searches.`,
-        deliverable: '220-Char Search-Optimized LinkedIn Headline',
-      },
-      {
-        day: 'Day 4',
-        title: 'Curate 20 Target US Employers',
-        action: `Curate 20 target employers (15 Tier-2 high-growth mid-market + 5 Tier-1 targets${isSponsorshipRequired ? ', filtered on E-Verify/USCIS sponsor history' : ''}).`,
-        deliverable: '20-Company Target Outbound Account List',
-      },
-      {
-        day: 'Day 5',
-        title: 'Launch 5-to-1 Reverse Outbound',
-        action: 'Send 5 personalized 50-word notes directly to engineering managers on LinkedIn before applying to generate warm referral interest.',
-        deliverable: '5 Sent Hiring Manager Reverse InMails',
-      },
-      {
-        day: 'Day 6',
-        title: 'Career Page Sourcing',
-        action: `Submit 10 direct career-portal applications for ${targetRole} bypassing high-competition Easy Apply job boards.`,
-        deliverable: '10 Direct ATS Career Portal Submissions',
-      },
-      {
-        day: 'Day 7',
-        title: 'Weekly Pipeline Audit',
-        action: 'Track outbound callback response rates in an outbound Kanban sheet and recalibrate role keyword variations.',
-        deliverable: 'Pipeline Conversion Audit & Sourcing Sheet',
-      },
-    ]
-  } else if (effectivePhaseId === 2) {
-    // Phase 2: Recruiter Screen Choke Point
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: '60-Second Verbal Elevator Pitch',
-        action: `Script crisp narrative covering background, ${topSkills} expertise, and recent project architecture.`,
-        deliverable: '60-Second Verbal Elevator Pitch Script',
-      },
-      {
-        day: 'Day 2',
-        title: 'Project Ownership Q&A',
-        action: 'Script explicit answers defining "My individual contribution" vs. "Team scope" on top 2 projects.',
-        deliverable: 'Individual Ownership & Scope Q&A Cheat Sheet',
-      },
-      {
-        day: 'Day 3',
-        title: 'Compensation & Leveling Defense',
-        action: `Establish market salary baseline on Levels.fyi for ${targetRole} to prevent screening disqualification.`,
-        deliverable: 'Total Comp Range & Leveling Guardrails',
-      },
-      {
-        day: 'Day 4',
-        title: 'Recruiter Rubric Rehearsal',
-        action: 'Prepare structured responses explaining career trajectory, transitions, and production impact out loud.',
-        deliverable: 'Recruiter Screening Rubric Answer Matrix',
-      },
-      {
-        day: 'Day 5',
-        title: `${archetype.label} Assessment Prep`,
-        action: archetype.dayAssessmentPrep,
-        deliverable: `Completed ${archetype.label} Assessment Simulation`,
-      },
-      {
-        day: 'Day 6',
-        title: 'Mock Recruiter Screen Recording',
-        action: 'Record a 15-minute mock recruiter phone screen and audit verbal pacing, filler words, and narrative clarity.',
-        deliverable: 'Recorded 15-Minute Mock Phone Screen',
-      },
-      {
-        day: 'Day 7',
-        title: 'Recruiter Screen Review & Callback Calibration',
-        action: 'Debrief mock recording, refine narrative hooks, and finalize your outbound screening cheat sheet.',
-        deliverable: 'Finalized Recruiter Screen Cheat Sheet',
-      },
-    ]
-  } else if (effectivePhaseId === 3) {
-    // Phase 3: Technical Round Choke Point
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: `${archetype.label} Case Study One-Pager`,
-        action: `Prepare a 1-page ${archetype.portfolioArtifact} demonstrating real-world depth.`,
-        deliverable: `1-Page ${archetype.label} Portfolio Blueprint`,
-      },
-      {
-        day: 'Day 2',
-        title: 'System & Methodology Trade-Offs',
-        action: `Map latency bottlenecks, caching layers, or operational limits using ${topSkills} to defend choices under questioning.`,
-        deliverable: 'System & Methodology Trade-Off Table',
-      },
-      {
-        day: 'Day 3',
-        title: 'Live Case Study & Deep Dive Drills',
-        action: `Drill trade-off defense and methodology justification: "${archetype.interviewMechanism}".`,
-        deliverable: 'Scalability & Methodology Defense Walkthrough',
-      },
-      {
-        day: 'Day 4',
-        title: 'Domain Reasoning & Verbalization Practice',
-        action: 'Practice verbalizing domain reasoning and business trade-offs out loud while addressing complex scenarios.',
-        deliverable: '3 Verbalized Domain Scenario Solutions',
-      },
-      {
-        day: 'Day 5',
-        title: `${archetype.label} Timed Mock`,
-        action: `Complete 3 timed problem-solving rounds focusing on verbalizing reasoning out loud: ${archetype.dayAssessmentPrep}.`,
-        deliverable: `3 Completed Live ${archetype.label} Mocks`,
-      },
-      {
-        day: 'Day 6',
-        title: 'Technical STAR Behavioral Defense',
-        action: 'Structure 5 STAR stories on production outages, system regressions, and complex code reviews.',
-        deliverable: '5 Technical Leadership STAR Stories',
-      },
-      {
-        day: 'Day 7',
-        title: 'Technical Defense Debrief & Post-Mortem Template',
-        action: 'Audit weak technical areas and build a personal technical defense cheat sheet for upcoming rounds.',
-        deliverable: 'Technical Round Post-Mortem & Review Guide',
-      },
-    ]
-  } else if (effectivePhaseId === 4) {
-    // Phase 4: Final Round Offer Closing
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: 'Executive Alignment & Behavioral STAR Matrix',
-        action: 'Build 5 stories demonstrating conflict resolution, leadership, and cross-functional trade-offs.',
-        deliverable: '5 Executive STAR Leadership Stories',
-      },
-      {
-        day: 'Day 2',
-        title: 'Cross-Functional Leadership Deep Dive',
-        action: 'Prepare examples of stakeholder negotiation, scope trade-offs, and project delivery under tight deadlines.',
-        deliverable: 'Cross-Functional Stakeholder Defense Matrix',
-      },
-      {
-        day: 'Day 3',
-        title: 'Reverse-Interview Question Strategy',
-        action: 'Prepare 5 high-impact strategic questions for VP/Director interviewers about team roadmap and technical debt.',
-        deliverable: '5 Strategic VP/Director Reverse Questions',
-      },
-      {
-        day: 'Day 4',
-        title: 'Work Authorization & Sponsorship Proactive Scripting',
-        action: `Prepare transparent 2-sentence script on visa transfer/E-Verify timelines${isSponsorshipRequired ? ' and USCIS processing buffers' : ''}.`,
-        deliverable: 'Work Authorization Script & Timeline Guide',
-      },
-      {
-        day: 'Day 5',
-        title: 'Multi-Threaded Pipeline Expansion',
-        action: 'Activate 3 parallel warm referral threads to ensure offer leverage and avoid single-offer dependency.',
-        deliverable: '3 Active Competing Interview Threads',
-      },
-      {
-        day: 'Day 6',
-        title: 'Total Compensation Benchmark Modeling',
-        action: `Model base, equity, and sign-on bands on Levels.fyi and Blind for ${targetRole} to prepare counter-offer leverage.`,
-        deliverable: 'Total Compensation Band Model',
-      },
-      {
-        day: 'Day 7',
-        title: 'Offer Negotiation & Total Compensation Model',
-        action: 'Model base, equity, and sign-on bands and rehearse counter-offer negotiation scripts.',
-        deliverable: 'Negotiation Script & Walk-Away Terms',
-      },
-    ]
-  } else if (effectivePhaseId === 5) {
-    // Phase 5: Offer in Hand / Onboarding
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: 'Offer Letter Legal & Comp Audit',
-        action: 'Audit written offer letter covering base salary, sign-on bonus, equity vesting schedule, and IP clauses.',
-        deliverable: 'Annotated Offer Term Sheet',
-      },
-      {
-        day: 'Day 2',
-        title: 'Counter-Offer Closing Strategy',
-        action: 'Formulate final counter-offer request leveraging competing offers or verified market data.',
-        deliverable: 'Final Counter-Offer Communication',
-      },
-      {
-        day: 'Day 3',
-        title: 'Background Verification Assembly',
-        action: 'Assemble previous W2s, tax docs, degree certifications, and verified supervisor contact info.',
-        deliverable: 'Complete Background Verification Dossier',
-      },
-      {
-        day: 'Day 4',
-        title: 'Work Authorization & I-9 Verification',
-        action: 'Coordinate with HR and immigration counsel on E-Verify validation and start date confirmation.',
-        deliverable: 'I-9 Clearance & Start Date Agreement',
-      },
-      {
-        day: 'Day 5',
-        title: 'Resignation & Transition Protocol',
-        action: 'Draft professional resignation notice and prepare structured 2-week handover documentation.',
-        deliverable: 'Transition & Handover Plan',
-      },
-      {
-        day: 'Day 6',
-        title: 'First 30-Day Team Onboarding Strategy',
-        action: 'Review team repositories, production architecture docs, and schedule initial 1-on-1s.',
-        deliverable: '30-Day Onboarding Roadmap',
-      },
-      {
-        day: 'Day 7',
-        title: 'Day 1 Readiness & Career GPS Sign-Off',
-        action: 'Finalize remote workstation setup, team communication channels, and initial 90-day impact milestones.',
-        deliverable: 'Day 1 Launch Checklist',
-      },
-    ]
-  } else {
-    // Phase 6 / Default: Pre-Search Foundation & Asset Calibration
-    sprintDays = [
-      {
-        day: 'Day 1',
-        title: 'Technical Competency Audit',
-        action: `Audit verified technical capabilities in ${topSkills} against current US hiring market expectations for ${targetRole}.`,
-        deliverable: 'Technical Gap & Skill Inventory',
-      },
-      {
-        day: 'Day 2',
-        title: 'Google XYZ Resume Overhaul',
-        action: `Rewrite all experience bullets using Google XYZ format with quantified business outcomes and ${topSkills} metrics.`,
-        deliverable: 'Full Resume Impact Bullet Rewrite',
-      },
-      {
-        day: 'Day 3',
-        title: 'ATS Text Ingestion Check',
-        action: 'Verify single-column format parses 100% cleanly through standard ATS scanners without missing headers or corrupting dates.',
-        deliverable: '100% Parsable ATS Resume File',
-      },
-      {
-        day: 'Day 4',
-        title: 'LinkedIn Recruiter SEO',
-        action: `Reconstruct headline, about section, and top 5 skills with target role keywords + ${topSkills} for high search visibility.`,
-        deliverable: 'Search-Optimized LinkedIn Profile',
-      },
-      {
-        day: 'Day 5',
-        title: 'Target Employer Universe Mapping',
-        action: `Curate 25 target tech employers (Tier 1 & Tier 2)${isSponsorshipRequired ? ', filtered on E-Verify/USCIS sponsor history' : ''}.`,
-        deliverable: '25-Company Target Universe Spreadsheet',
-      },
-      {
-        day: 'Day 6',
-        title: 'Launch 5-to-1 Reverse Outbound',
-        action: 'Send 5 personalized 50-word notes directly to engineering managers on LinkedIn before applying.',
-        deliverable: '5 Sent Hiring Manager Reverse InMails',
-      },
-      {
-        day: 'Day 7',
-        title: 'Weekly Pipeline Audit',
-        action: 'Establish weekly 15-20 direct application rhythm with Kanban board tracking and follow-up alerts.',
-        deliverable: 'Weekly Search Cadence & Tracking Dashboard',
-      },
-    ]
-  }
-
-  // -------------------------------------------------------------
-  // 2. Dynamic 30-60-90 Day Milestone Pathway
+  // Dynamic 30-60-90 Day Milestone Pathway
   // -------------------------------------------------------------
   let phase30, phase60, phase90
 
   if (effectivePhaseId === 1) {
     // Phase 1: Top of Funnel Black Hole
     phase30 = {
-      period: '30 DAYS',
+      period: '30 Days',
       stage: 'Asset Calibration & Outbound Sourcing Engine',
       goal: 'Overcome ATS keyword drop-offs and generate consistent top-of-funnel interview volume.',
       actions: [
@@ -384,7 +84,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase60 = {
-      period: '60 DAYS',
+      period: '60 Days',
       stage: 'Recruiter Pipeline Velocity & Multi-Threading',
       goal: 'Convert top-of-funnel inbound interest into active technical interviews across multiple companies.',
       actions: [
@@ -400,7 +100,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase90 = {
-      period: '90 DAYS',
+      period: '90 Days',
       stage: 'Final Rounds, Offer Leverage & Closing',
       goal: 'Advance through onsite interview loops and secure a competitive, written job offer.',
       actions: [
@@ -418,7 +118,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   } else if (effectivePhaseId === 2) {
     // Phase 2: Recruiter Screen Choke Point
     phase30 = {
-      period: '30 DAYS',
+      period: '30 Days',
       stage: 'Recruiter Screen Mastery & Assessment Clearance',
       goal: 'Elevate recruiter screen pass rate from <30% to >75% and clear automated technical assessments.',
       actions: [
@@ -436,7 +136,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase60 = {
-      period: '60 DAYS',
+      period: '60 Days',
       stage: isDataRole ? 'Live Analytical Case Studies & Dimensional Defense' : 'Live Technical Problem Solving & Architecture Defense',
       goal: isDataRole ? 'Consistently clear analytical screens and SQL/BI technical deep dives.' : 'Consistently clear live coding rounds and technical deep dives.',
       actions: [
@@ -454,7 +154,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase90 = {
-      period: '90 DAYS',
+      period: '90 Days',
       stage: 'Final Round Onsites & Offer Negotiation',
       goal: 'Convert final-round loops into competitive written offers with full compensation leverage.',
       actions: [
@@ -472,7 +172,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   } else if (effectivePhaseId === 3) {
     // Phase 3: Technical Round Choke Point
     phase30 = {
-      period: '30 DAYS',
+      period: '30 Days',
       stage: isDataRole ? 'Live Analytical Problem Solving & SQL Defense' : 'Live Technical Problem Solving & System Architecture',
       goal: isDataRole ? 'Overcome analytical round drop-offs by mastering live SQL verbalization and data grain trade-offs.' : 'Overcome technical drop-offs by mastering live coding verbalization and system trade-offs.',
       actions: [
@@ -490,7 +190,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase60 = {
-      period: '60 DAYS',
+      period: '60 Days',
       stage: 'Final Round Onsite Mastery & Stakeholder Alignment',
       goal: 'Deliver high-impact final rounds with engineering directors and cross-functional partners.',
       actions: [
@@ -504,7 +204,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase90 = {
-      period: '90 DAYS',
+      period: '90 Days',
       stage: 'Offer Closing, Total Comp Benchmarking & Sign-Off',
       goal: 'Secure top-of-market compensation and finalize employment verification.',
       actions: [
@@ -520,7 +220,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   } else if (effectivePhaseId === 4) {
     // Phase 4: Final Round Offer Closing
     phase30 = {
-      period: '30 DAYS',
+      period: '30 Days',
       stage: 'Executive Alignment & Offer Negotiation Strategy',
       goal: 'Convert final-round loops into written offers and maximize total compensation leverage.',
       actions: [
@@ -534,7 +234,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase60 = {
-      period: '60 DAYS',
+      period: '60 Days',
       stage: 'Offer Finalization & Onboarding Clearance',
       goal: 'Resolve all employment conditions, background checks, and prepare for Day 1 onboarding.',
       actions: [
@@ -550,7 +250,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase90 = {
-      period: '90 DAYS',
+      period: '90 Days',
       stage: 'Early Impact & Performance Acceleration',
       goal: 'Deliver first production feature and establish high credibility with manager and team.',
       actions: [
@@ -564,9 +264,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       active: false,
     }
   } else {
-    // Phase 5/6/Default
+    // Phase 5/Default
     phase30 = {
-      period: '30 DAYS',
+      period: '30 Days',
       stage: 'Foundation, Positioning & Asset Calibration',
       goal: 'Establish an ATS-compliant resume, verified online presence, and targeted application engine.',
       actions: [
@@ -582,7 +282,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase60 = {
-      period: '60 DAYS',
+      period: '60 Days',
       stage: 'Recruiter Screening & Technical Interview Velocity',
       goal: 'Generate consistent weekly recruiter screenings and advance into live technical rounds.',
       actions: [
@@ -598,7 +298,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
 
     phase90 = {
-      period: '90 DAYS',
+      period: '90 Days',
       stage: 'Final Round Onsites & Offer Closing',
       goal: 'Convert final round discussions into formal, written job offers with optimal compensation.',
       actions: [
@@ -613,7 +313,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     }
   }
 
-  // Seamlessly merge LLM custom roadmap tasks if present from Atlas
+  // Merge dynamic custom roadmap tasks from reportData if present
   const atlasRoadmap = Array.isArray(roadmapData) && roadmapData.length > 0
     ? roadmapData
     : (Array.isArray(reportData?.roadmap) ? reportData.roadmap : [])
@@ -647,198 +347,30 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   return (
     <section id="roadmap" className="space-y-6">
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200 pb-4">
         <div>
-          <span className="text-xs font-mono text-[var(--text-muted)] block">
-            Execution Timeline & Milestones
+          <span className="text-xs font-mono font-medium text-indigo-600 block">
+            Action roadmap &amp; milestones
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
-            Action Roadmap & Quick-Win Sprint
+            30 / 60 / 90 Day Milestone Pathway
           </h2>
         </div>
-        <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-          From immediate 7-day conversion quick-wins to your 90-day verified job offer
+        <p className="text-xs sm:text-sm text-slate-500 font-medium">
+          Targeted milestone execution calibrated to {targetRole} hiring expectations
         </p>
       </div>
 
-      {/* ── 7-Day Quick-Win Action Plan Card with Live Completion Gauge ── */}
-      {(() => {
-        const completedCount = sprintDays.reduce((acc, d) => (checkedDays[d.day] ? acc + 1 : acc), 0)
-        const sprintPct = Math.round((completedCount / Math.max(1, sprintDays.length)) * 100)
-        const isTodayDone = completedCount > 0
-        const pastDoneCount = Math.max(0, completedCount - 1)
-        const streakHistory = Array.from({ length: 6 }, (_, i) => (i >= 6 - pastDoneCount ? 'done' : 'missed'))
-
-        const handleToggleDay = (item) => {
-          const isNowChecked = !checkedDays[item.day]
-          const next = { ...checkedDays, [item.day]: isNowChecked }
-          setCheckedDays(next)
-
-          const nextCompleted = sprintDays.reduce((acc, d) => (next[d.day] ? acc + 1 : acc), 0)
-          const nextPct = Math.round((nextCompleted / Math.max(1, sprintDays.length)) * 100)
-
-          if (isNowChecked) {
-            if (nextCompleted === sprintDays.length) {
-              triggerGuide({
-                nodeId: 'action-sprint',
-                emotion: GUIDE_EMOTIONS.VICTORY,
-                headline: 'All 7 sprint days completed! 100% execution unlocked toward offer conversion.',
-                metricChip: '100% Complete 🎉',
-                autoSettleMs: 5000,
-              })
-            } else {
-              triggerGuide({
-                nodeId: 'action-sprint',
-                emotion: GUIDE_EMOTIONS.VICTORY,
-                headline: `Mission complete (${item.day}): ${item.title}. Progress: ${nextPct}%.`,
-                metricChip: `${nextCompleted}/7 Done (${nextPct}%)`,
-                autoSettleMs: 3500,
-              })
-            }
-          }
-        }
-
-        const handleCompleteNextStreak = () => {
-          const nextUnchecked = sprintDays.find((d) => !checkedDays[d.day])
-          if (nextUnchecked) {
-            handleToggleDay(nextUnchecked)
-          } else if (sprintDays.length > 0) {
-            handleToggleDay(sprintDays[sprintDays.length - 1])
-          }
-        }
-
-        return (
-          <div id="action-sprint" className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative overflow-hidden break-inside-avoid page-break-inside-avoid space-y-5">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  <Lightning size={20} weight="fill" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
-                    Immediate Execution Sprint
-                  </span>
-                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
-                    7-Day Rapid Triage Checklist
-                  </h3>
-                </div>
-              </div>
-
-              {/* Live Completion Gauge */}
-              <div className="flex items-center gap-3 bg-[var(--surface-sunken)] px-3.5 py-2 rounded-lg border border-slate-200 shadow-2xs self-start md:self-auto">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-3 text-[11px] font-mono font-medium">
-                    <span className="text-slate-700">Sprint Execution:</span>
-                    <span className="text-emerald-600 flex items-center gap-0.5 tabular-nums">
-                      <NumberRoll value={completedCount} /> of {sprintDays.length} (<NumberRoll value={sprintPct} />%)
-                    </span>
-                  </div>
-                  <div className="w-36 h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
-                    <div
-                      className="h-full bg-emerald-500 transition-all duration-500"
-                      style={{ width: `${sprintPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* StreakChain Momentum Card */}
-            <div className="bg-white/85 backdrop-blur-xs rounded-2xl border border-indigo-100/90 p-4 sm:p-5 shadow-xs">
-              <StreakChain
-                history={streakHistory}
-                today={isTodayDone}
-                onCompleteToday={handleCompleteNextStreak}
-                title="Sprint Execution Velocity"
-                actionLabel={completedCount === sprintDays.length ? "All 7 Days Completed 🎉" : `Advance to Next Day (${sprintDays.find((d) => !checkedDays[d.day])?.day || 'Done'})`}
-                milestones={[3, 5, 7]}
-                colors={['#6366F1', '#10B981']}
-                className="border-0 shadow-none bg-transparent"
-              />
-            </div>
-
-            {/* 7-Day Responsive Matrix with Interactive Checkmarks */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 pt-1">
-              {sprintDays.map((item, idx) => {
-                const isChecked = Boolean(checkedDays[item.day])
-                return (
-                  <div
-                    key={item.day || idx}
-                    onClick={() => handleToggleDay(item)}
-                    className={`p-4 rounded-2xl border space-y-2 flex flex-col justify-between transition-all cursor-pointer select-none ${
-                      isChecked
-                        ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-400/40 shadow-xs'
-                        : 'bg-white border-slate-200 hover:border-indigo-400'
-                    } ${idx === 6 ? 'sm:col-span-2 lg:col-span-1' : ''}`}
-                  >
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded-md ${
-                          isChecked ? 'bg-emerald-200 text-emerald-900' : 'bg-indigo-50 text-indigo-700'
-                        }`}>
-                          {item.day}
-                        </span>
-
-                        <StatusButton
-                          status={isChecked ? "success" : "idle"}
-                          labels={{ idle: "Check In", success: "Done" }}
-                          size="sm"
-                          variant={isChecked ? "primary" : "ghost"}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleToggleDay(item)
-                          }}
-                          className="h-6 text-[11px] px-2 rounded-lg"
-                        />
-                      </div>
-
-                      <h4 className={`text-xs font-bold leading-snug transition-colors ${
-                        isChecked ? 'text-emerald-900 line-through decoration-emerald-600' : 'text-slate-900'
-                      }`}>
-                        {item.title}
-                      </h4>
-
-                      <p className="text-[11px] text-slate-500 leading-relaxed">
-                        {item.action}
-                      </p>
-                    </div>
-
-                    {item.deliverable && (
-                      <div className="pt-2 border-t border-slate-100 flex items-start gap-1.5">
-                        <Check size={12} weight="bold" className={`${isChecked ? 'text-emerald-700' : 'text-slate-400'} shrink-0 mt-0.5`} />
-                        <span className="text-[10px] font-semibold text-slate-600 leading-tight">
-                          {item.deliverable}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
-
       {/* ── 30 / 60 / 90 Day Direction Cards Grid ── */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative">
-        <div className="mb-4">
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--text-muted)] block">
-            Longer-Term Strategic Progression
-          </span>
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">
-            30 / 60 / 90 Day Milestone Pathway
-          </h3>
-        </div>
-
+      <div className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
           {PHASES.map((p, idx) => (
-            <motion.div
+            <div
               key={p.period}
-              whileHover={{ y: -3, transition: { duration: 0.2 } }}
-              className={`p-6 rounded-2xl border transition-all flex flex-col justify-between space-y-5 ${
+              className={`p-5 sm:p-6 rounded-xl border flex flex-col justify-between space-y-5 transition-colors ${
                 p.isGoal
                   ? 'bg-amber-500/5 border-amber-500/30 shadow-xs'
                   : p.active
@@ -847,10 +379,10 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               }`}
             >
               <div className="space-y-4">
-                {/* Milestone Period Badge + Phase Tag */}
+                {/* Milestone Period Badge + Phase Index */}
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-xs font-mono px-2.5 py-1 rounded-md ${
+                    className={`text-xs font-mono px-2.5 py-1 rounded-md font-medium ${
                       p.isGoal
                         ? 'bg-amber-400 text-black'
                         : p.active
@@ -862,9 +394,9 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   </span>
 
                   {p.isGoal ? (
-                    <Trophy size={20} weight="fill" className="text-amber-500" />
+                    <Trophy size={18} weight="fill" className="text-amber-500" />
                   ) : (
-                    <span className="text-xs font-mono font-bold text-[var(--text-muted)]">
+                    <span className="text-xs font-mono font-semibold text-[var(--text-muted)] tabular-nums">
                       0{idx + 1}
                     </span>
                   )}
@@ -873,7 +405,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                 {/* Stage Title & Goal */}
                 <div className="space-y-1">
                   <h4
-                    className="text-base font-bold text-[var(--text-primary)] tracking-tight"
+                    className="text-base font-semibold text-[var(--text-primary)] tracking-tight"
                     style={{ fontFamily: 'var(--font-head)' }}
                   >
                     {p.stage}
@@ -903,8 +435,8 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               {/* Deliverable Callout */}
               {p.deliverable && (
                 <div className="pt-3 border-t border-[var(--border-default)] space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] block">
-                    Key Deliverable
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] font-medium block">
+                    Key deliverable
                   </span>
                   <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
                     {p.deliverable}
@@ -914,30 +446,30 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
               {/* Success Signal Callout */}
               <div className="pt-2 border-t border-[var(--border-default)] space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--emerald)] block">
-                  Success Signal
+                <span className="text-[10px] font-mono text-emerald-600 font-medium block">
+                  Success signal
                 </span>
                 <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
                   {p.successSignal}
                 </p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* ── Reassessment Loop Trigger Card ── */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* ── Continuous Reassessment Loop Trigger Card ── */}
+      <div className="p-4 sm:p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--primary)] flex items-center justify-center shrink-0">
-            <ArrowsClockwise size={20} weight="bold" />
+          <div className="w-9 h-9 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--primary)] flex items-center justify-center shrink-0">
+            <ArrowsClockwise size={18} weight="bold" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-[var(--text-primary)]">
+            <h4 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
               Continuous Reassessment Loop
             </h4>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              After completing your 7-Day Plan, log your new screening & interview numbers to recalculate your Hiring Phase.
+              Log updated screening and interview metrics as you clear milestones to recalculate your funnel velocity.
             </p>
           </div>
         </div>
@@ -945,13 +477,13 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
         <button
           type="button"
           onClick={() => {
-            if (onNavigateSection) onNavigateSection('funnel-risks')
-            else document.getElementById('funnel-risks')?.scrollIntoView({ behavior: 'smooth' })
+            if (onNavigateSection) onNavigateSection('funnel-sankey')
+            else document.getElementById('funnel-sankey')?.scrollIntoView({ behavior: 'smooth' })
           }}
-          className="btn-ghost shrink-0 text-xs font-bold py-2 px-4 border border-[var(--border-default)] rounded-xl hover:border-[var(--primary)] flex items-center gap-1.5 cursor-pointer"
+          className="btn-ghost shrink-0 text-xs font-semibold py-2 px-3.5 border border-[var(--border-default)] rounded-lg hover:border-[var(--primary)] flex items-center gap-1.5 cursor-pointer transition-colors"
         >
           <span>Update Funnel Numbers</span>
-          <ArrowRight size={14} weight="bold" />
+          <ArrowRight size={13} weight="bold" />
         </button>
       </div>
     </section>

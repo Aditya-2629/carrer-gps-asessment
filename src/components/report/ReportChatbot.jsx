@@ -606,8 +606,8 @@ export default function ReportChatbot({ hideLauncher = false }) {
       },
       {
         id: 'plan',
-        label: '🚀 7-Day Rapid Triage',
-        prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
+        label: '🎯 Action Roadmap',
+        prompt: 'Give me a concrete 30/60/90 day milestone execution plan based on my report diagnosis.',
       },
     ],
     [bottleneckTitle, latestCompany, shortCompany, targetRole, topSkill]
@@ -651,9 +651,9 @@ export default function ReportChatbot({ hideLauncher = false }) {
       } else if (/interview|star|behavioral|mock|question|answer/i.test(q)) {
         setFollowUpChips([
           {
-            id: 'add-7day',
-            label: '🚀 Add to my 7-day plan',
-            prompt: 'How do I incorporate this interview defense into my daily 7-day prep schedule?',
+            id: 'add-roadmap',
+            label: '🎯 Add to my action roadmap',
+            prompt: 'How do I incorporate this interview defense into my action roadmap?',
           },
           {
             id: 'live-consult',
@@ -683,8 +683,8 @@ export default function ReportChatbot({ hideLauncher = false }) {
           },
           {
             id: 'plan-choke',
-            label: '🚀 7-Day Rapid Triage',
-            prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
+            label: '🎯 Action Roadmap',
+            prompt: 'Give me a concrete 30/60/90 day milestone execution plan based on my report diagnosis.',
           },
         ])
       }

@@ -30,11 +30,10 @@ import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 export const COCKPIT_TABS = [
-  { id: 'overview', label: 'Overview & Pulse', icon: '01', badge: null },
-  { id: 'resume', label: 'Resume Lab', icon: '02', badge: 'ATS' },
-  { id: 'linkedin', label: 'LinkedIn Studio', icon: '03', badge: 'SEO' },
-  { id: 'funnel', label: 'Funnel & Risks', icon: '04', badge: 'Velocity' },
-  { id: 'roadmap', label: '7-Day Sprint', icon: '05', badge: 'Plan' },
+  { id: 'overview', label: 'Overview & Pulse', icon: '01' },
+  { id: 'resume', label: 'Resume Lab', icon: '02' },
+  { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
+  { id: 'funnel', label: 'Funnel & Action Plan', icon: '04' },
 ]
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
@@ -855,14 +854,27 @@ function ReportDashboardContent() {
   const getInitialTab = () => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace('#', '').toLowerCase()
-      if (['overview', 'resume', 'linkedin', 'funnel', 'roadmap'].includes(hash)) {
+      if (['overview', 'resume', 'linkedin', 'funnel'].includes(hash)) {
         return hash
+      }
+      if (
+        hash === 'roadmap' ||
+        hash === 'action-sprint' ||
+        hash === 'sprint-roadmap' ||
+        hash === 'roadmap-section' ||
+        hash === 'next-actions' ||
+        hash === 'funnel-risks' ||
+        hash === 'funnel-leak' ||
+        hash === 'funnel-sankey' ||
+        hash === 'risk-matrix' ||
+        hash === 'risks' ||
+        hash === 'missions'
+      ) {
+        return 'funnel'
       }
       if (hash === 'bottleneck') return 'overview'
       if (hash === 'resume-ai') return 'resume'
       if (hash === 'linkedin-ai') return 'linkedin'
-      if (hash === 'funnel-risks' || hash === 'risk-matrix' || hash === 'risks' || hash === 'missions') return 'funnel'
-      if (hash === 'roadmap-section' || hash === 'next-actions') return 'roadmap'
     }
     return 'overview'
   }
@@ -1042,7 +1054,7 @@ function ReportDashboardContent() {
     } else if (targetId === 'risk-matrix' || targetId === 'funnel-risks' || targetId === 'funnel' || targetId === 'missions') {
       handleTabChange('funnel')
     } else if (targetId === 'roadmap' || targetId === 'action-plan') {
-      handleTabChange('roadmap')
+      handleTabChange('funnel')
     } else if (targetId === 'bottleneck' || targetId === 'overview') {
       handleTabChange('overview')
     }
@@ -1209,21 +1221,18 @@ function ReportDashboardContent() {
                   <MissionBoard data={reportData.mission_board} />
                 )}
               </div>
-            </div>
-          )}
-
-          {activeTab === 'roadmap' && (
-            <div className="space-y-10 animate-fadeIn" id="sprint-roadmap">
-              <RoadmapTimeline
-                roadmapData={reportData.roadmap}
-                currentPhaseId={reportData.career_journey?.current_phase_id}
-                reportData={reportData}
-              />
-              <FinalNextAction
-                coachData={reportData.coach_intervention}
-                reportData={reportData}
-                onBookCall={handleBookCall}
-              />
+              <div id="sprint-roadmap" className="space-y-10">
+                <RoadmapTimeline
+                  roadmapData={reportData.roadmap}
+                  currentPhaseId={reportData.career_journey?.current_phase_id}
+                  reportData={reportData}
+                />
+                <FinalNextAction
+                  coachData={reportData.coach_intervention}
+                  reportData={reportData}
+                  onBookCall={handleBookCall}
+                />
+              </div>
             </div>
           )}
 
@@ -1236,7 +1245,7 @@ function ReportDashboardContent() {
           />
         </div>
 
-        {/* Print / PDF Sequential View (Preserves all 5 sections for full printing) */}
+        {/* Print / PDF Sequential View (Preserves all 4 sections for full printing) */}
         <div className="hidden print:block print:space-y-6">
           {/* Tab 1: Overview */}
           <div className="space-y-6">
@@ -1265,7 +1274,7 @@ function ReportDashboardContent() {
             />
           </div>
 
-          {/* Tab 4: Funnel & Risks */}
+          {/* Tab 4: Funnel & Action Plan */}
           <div className="space-y-6 break-before-page page-break-before-always">
             <FunnelAndConversionSection
               funnelData={reportData.funnel_stages}
@@ -1284,10 +1293,6 @@ function ReportDashboardContent() {
                 <MissionBoard data={reportData.mission_board} />
               )}
             </div>
-          </div>
-
-          {/* Tab 5: Roadmap & Action */}
-          <div className="space-y-6 break-before-page page-break-before-always">
             <RoadmapTimeline
               roadmapData={reportData.roadmap}
               currentPhaseId={reportData.career_journey?.current_phase_id}

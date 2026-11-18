@@ -198,7 +198,7 @@ export default function ReportHero({ reportData, user }) {
     },
     {
       id: 'recovery',
-      label: '7-Day Upside',
+      label: 'Projected Upside',
       valueNode: (
         <span className="flex items-baseline text-emerald-600">
           <span>+</span>
@@ -212,9 +212,9 @@ export default function ReportHero({ reportData, user }) {
       onClick: () => {
         setActiveMetric('recovery')
         triggerGuide({
-          nodeId: 'action-sprint',
+          nodeId: 'funnel-sankey',
           emotion: GUIDE_EMOTIONS.VICTORY,
-          headline: `Potential recovery of +${Math.max(16, 92 - overall)} points with 7-day verified sprint.`,
+          headline: `Potential recovery of +${Math.max(16, 92 - overall)} points with the strategic action roadmap.`,
           metricChip: 'Target: 90+',
         })
       },

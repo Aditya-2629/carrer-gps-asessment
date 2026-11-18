@@ -15,11 +15,10 @@ export default function ReportBottomNav({
   onBookCall,
 }) {
   const tabList = tabs && tabs.length > 0 ? tabs : [
-    { id: 'overview', label: 'Overview & Pulse', icon: '01', badge: null },
-    { id: 'resume', label: 'Resume Lab', icon: '02', badge: 'ATS' },
-    { id: 'linkedin', label: 'LinkedIn Studio', icon: '03', badge: 'SEO' },
-    { id: 'funnel', label: 'Funnel & Risks', icon: '04', badge: 'Velocity' },
-    { id: 'roadmap', label: '7-Day Sprint & CTA', icon: '05', badge: 'Plan' },
+    { id: 'overview', label: 'Overview & Pulse', icon: '01' },
+    { id: 'resume', label: 'Resume Lab', icon: '02' },
+    { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
+    { id: 'funnel', label: 'Funnel & Action Plan', icon: '04' },
   ]
 
   const currentIndex = tabList.findIndex((t) => t.id === activeTab)
@@ -159,11 +158,6 @@ export default function ReportBottomNav({
             <div className="min-w-0 pl-1">
               <div className="text-[10px] font-mono text-indigo-200 flex items-center gap-1">
                 <span>Next Section</span>
-                {nextTab.badge && (
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md font-medium bg-white/20 text-white">
-                    {nextTab.badge}
-                  </span>
-                )}
               </div>
               <div className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5 mt-0.5">
                 <span className="font-mono">{nextTab.icon}</span>
@@ -182,7 +176,7 @@ export default function ReportBottomNav({
           >
             <div className="min-w-0 pl-1">
               <div className="text-[10px] font-mono text-emerald-100">
-                Completed All 5 Sections
+                Completed All 4 Sections
               </div>
               <div className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5 mt-0.5">
                 <span className="font-mono">01</span>

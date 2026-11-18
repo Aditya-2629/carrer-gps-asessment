@@ -19,11 +19,10 @@ export default function StickyReportNav({
   }
 
   const tabs = COCKPIT_TABS || [
-    { id: 'overview', label: 'Overview & Pulse', icon: '01', badge: null },
-    { id: 'resume', label: 'Resume Lab', icon: '02', badge: 'ATS' },
-    { id: 'linkedin', label: 'LinkedIn Studio', icon: '03', badge: 'SEO' },
-    { id: 'funnel', label: 'Funnel & Risks', icon: '04', badge: 'Velocity' },
-    { id: 'roadmap', label: '7-Day Sprint', icon: '05', badge: 'Plan' },
+    { id: 'overview', label: 'Overview & Pulse', icon: '01' },
+    { id: 'resume', label: 'Resume Lab', icon: '02' },
+    { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
+    { id: 'funnel', label: 'Funnel & Action Plan', icon: '04' },
   ]
 
   return (
@@ -93,17 +92,6 @@ export default function StickyReportNav({
                   )}
                   <span className="relative z-10 text-xs">{tab.icon}</span>
                   <span className="relative z-10">{tab.label}</span>
-                  {tab.badge && (
-                    <span
-                      className={`relative z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-md hidden sm:inline ${
-                        isActive
-                          ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300 font-semibold'
-                          : 'bg-[var(--border-default)] text-[var(--text-muted)]'
-                      }`}
-                    >
-                      {tab.badge}
-                    </span>
-                  )}
                 </button>
               )
             })}

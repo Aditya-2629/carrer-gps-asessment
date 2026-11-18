@@ -40,10 +40,10 @@ const TOUR_NODES = [
   },
   {
     id: 'action-sprint',
-    tab: 'sprint',
+    tab: 'funnel',
     emotion: GUIDE_EMOTIONS.VICTORY,
-    headline: '7-Day High-Impact Recovery: Step-by-step verified action checklist.',
-    metricChip: '7-Day Sprint',
+    headline: 'Action Roadmap: 30 / 60 / 90 day milestone pathway to offer conversion.',
+    metricChip: 'Action Plan',
   },
 ]
 
