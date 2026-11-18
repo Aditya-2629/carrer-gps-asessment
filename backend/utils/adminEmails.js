@@ -78,13 +78,28 @@ export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {
       </div>
     `
 
-    // Attach candidate's uploaded resume if present
+    // Attach candidate's uploaded resume and generated Career GPS PDF if present
     const attachments = []
     if (resumeBuffer) {
       attachments.push({
         filename: resumeName || 'Candidate_Resume.pdf',
         content: resumeBuffer,
       })
+    }
+
+    try {
+      const { renderCareerReportPdfBuffer } = await import('./renderCareerReportPdf.js')
+      const reportBuffer = await renderCareerReportPdfBuffer(aiReport)
+      if (reportBuffer) {
+        const candidateName = aiReport?.resume_agent?.candidateSnapshot?.name || 'Candidate'
+        const safeName = String(candidateName).trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '')
+        attachments.push({
+          filename: `Career_GPS_Report_${safeName || 'Candidate'}.pdf`,
+          content: reportBuffer,
+        })
+      }
+    } catch (_pdfErr) {
+      // PDF attachment is optional; don't block email delivery
     }
 
     const mailOptions = {

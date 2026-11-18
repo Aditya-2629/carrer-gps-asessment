@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import {
   CalendarBlank,
   Clock,
@@ -50,6 +50,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
     'Candidate'
 
   const ctaText = safeText(coachData?.cta_text, 'Book Free 1-on-1 Career Strategy Call')
+  const [isDownloading, setIsDownloading] = useState(false)
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 print-keep print-card break-inside-avoid page-break-inside-avoid">
@@ -174,11 +175,19 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
             <button
               type="button"
-              onClick={() => downloadFullVisualReport(candidateName)}
-              className="print:hidden px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+              disabled={isDownloading}
+              onClick={async () => {
+                setIsDownloading(true)
+                try {
+                  await downloadFullVisualReport(reportData, candidateName)
+                } finally {
+                  setIsDownloading(false)
+                }
+              }}
+              className="print:hidden px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-2 cursor-pointer shadow-2xs disabled:opacity-60"
             >
               <DownloadSimple size={16} weight="bold" />
-              <span>Download Full Report (PDF)</span>
+              <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
             </button>
           </div>
         </div>

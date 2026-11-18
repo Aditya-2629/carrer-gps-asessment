@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { DownloadSimple } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
@@ -11,11 +12,17 @@ export default function StickyReportNav({
   healthScore = 72,
   reportData,
 }) {
+  const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
   const safeRole = typeof targetRole === 'string' ? targetRole.trim() : ''
 
-  const handleDownloadPdf = () => {
-    downloadFullVisualReport(safeName)
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true)
+    try {
+      await downloadFullVisualReport(reportData, safeName)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   const tabs = COCKPIT_TABS || [
@@ -52,12 +59,13 @@ export default function StickyReportNav({
           <div className="flex lg:hidden items-center shrink-0">
             <button
               type="button"
+              disabled={isDownloading}
               onClick={handleDownloadPdf}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
               title="Download Full Visual Report (PDF)"
             >
               <DownloadSimple size={12} weight="bold" />
-              <span>PDF</span>
+              <span>{isDownloading ? '...' : 'PDF'}</span>
             </button>
           </div>
         </div>
@@ -101,12 +109,13 @@ export default function StickyReportNav({
         <div className="hidden lg:flex items-center shrink-0">
           <button
             type="button"
+            disabled={isDownloading}
             onClick={handleDownloadPdf}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
             title="Download Full Visual Report (PDF)"
           >
             <DownloadSimple size={13} weight="bold" />
-            <span>Full Report</span>
+            <span>{isDownloading ? 'Generating...' : 'Full Report'}</span>
           </button>
         </div>
       </div>

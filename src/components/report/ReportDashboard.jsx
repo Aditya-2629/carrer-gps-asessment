@@ -1085,9 +1085,15 @@ function ReportDashboardContent() {
     72
 
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
-  const handleDownloadPdf = () => {
-    downloadFullVisualReport(candidateName)
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true)
+    try {
+      await downloadFullVisualReport(reportData, candidateName)
+    } finally {
+      setIsDownloadingPdf(false)
+    }
   }
 
   return (
@@ -1117,11 +1123,12 @@ function ReportDashboardContent() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
-              title="Download full 21-page visual report as PDF"
+              disabled={isDownloadingPdf}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+              title="Download full diagnostic report as PDF"
             >
               <DownloadSimple size={14} weight="bold" />
-              <span>Download Full Report</span>
+              <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download Full Report'}</span>
             </button>
 
             <button
@@ -1240,68 +1247,7 @@ function ReportDashboardContent() {
           />
         </div>
 
-        {/* Print / PDF Sequential View (Preserves all 4 sections for full printing) */}
-        <div className="hidden print:block print:space-y-6">
-          {/* Tab 1: Overview */}
-          <div className="space-y-6">
-            <ReportHero reportData={reportData} />
-            <PrimaryBottleneck
-              reportData={reportData}
-              onNavigateSection={handleNavigateSection}
-            />
-          </div>
-
-          {/* Tab 2: Resume */}
-          {reportData.resume_agent && (
-            <div className="space-y-6 break-before-page page-break-before-always">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {/* Tab 3: LinkedIn */}
-          <div className="space-y-6 break-before-page page-break-before-always">
-            <LinkedInDeepDiagnosis
-              linkedinAgent={reportData.linkedin_agent}
-              reportData={reportData}
-            />
-          </div>
-
-          {/* Tab 4: Funnel & Action Plan */}
-          <div className="space-y-6 break-before-page page-break-before-always">
-            <FunnelAndConversionSection
-              funnelData={reportData.funnel_stages}
-              rejectionData={{
-                factors: reportData.rejection_factors,
-                insight: reportData.rejection_insight,
-              }}
-              riskData={reportData.risk_heatmap}
-              reportData={reportData}
-            />
-            <div id="risk-matrix" className="space-y-6">
-              {reportData.risk_heatmap && (
-                <RiskHeatMap data={reportData.risk_heatmap} />
-              )}
-              {reportData.mission_board && (
-                <MissionBoard data={reportData.mission_board} />
-              )}
-            </div>
-            <RoadmapTimeline
-              roadmapData={reportData.roadmap}
-              currentPhaseId={reportData.career_journey?.current_phase_id}
-              reportData={reportData}
-            />
-            <FinalNextAction
-              coachData={reportData.coach_intervention}
-              reportData={reportData}
-              onBookCall={handleBookCall}
-            />
-          </div>
-        </div>
-
-        {/* ─── Footer (Anchored with FinalNextAction to avoid trailing blank page) ─── */}
+        {/* ─── Footer ─── */}
         <footer className="border-t border-[var(--border-default)] mt-8 pt-4 pb-4 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
           <p className="font-medium">
             Crafture Career GPS • Confidential Candidate Career Intelligence
