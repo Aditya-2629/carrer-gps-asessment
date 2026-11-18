@@ -19,7 +19,7 @@ const TOUR_NODES = [
   },
   {
     id: 'funnel-sankey',
-    tab: 'funnel',
+    tab: 'overview',
     emotion: GUIDE_EMOTIONS.INSPECT,
     headline: 'Pipeline Leak Analysis: Phase 3 technical screen pass rate is 14%.',
     metricChip: 'Funnel Leak',
@@ -40,7 +40,7 @@ const TOUR_NODES = [
   },
   {
     id: 'action-sprint',
-    tab: 'funnel',
+    tab: 'overview',
     emotion: GUIDE_EMOTIONS.VICTORY,
     headline: 'Action Roadmap: 30 / 60 / 90 day milestone pathway to offer conversion.',
     metricChip: 'Action Plan',

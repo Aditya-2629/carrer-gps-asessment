@@ -17,6 +17,7 @@ import { buildRAGContext } from '../utils/ragEngine.js'
 import { calculateRecruiterSeoScore } from '../agents/linkedin/linkedinAgent.js'
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
 import { buildDeterministicThoughtLeadership } from '../agents/linkedin/linkedinThoughtLeadershipEvaluator.js'
+import { generateDynamicActionPlan, buildDeterministicActionPlan } from './dynamicActionPlanAgent.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -241,16 +242,13 @@ export function deriveFunnelFromAnswers(answers = {}) {
   const f90 = (answers.funnel90d && typeof answers.funnel90d === 'object') ? answers.funnel90d : {}
 
   const apps30d = parseRangeOrNumber(
-    answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? answers.appsWeek * 4 : 60),
-    60
+    answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? Math.round(answers.appsWeek * 4.33) : 0),
+    0
   )
-  let totalApps90d = parseRangeOrNumber(
-    f90.applications90d ?? answers.applications90d ?? (apps30d * 3),
-    180
+  const totalApps90d = parseRangeOrNumber(
+    f90.applications90d ?? answers.applications90d ?? (apps30d > 0 ? apps30d * 3 : 0),
+    0
   )
-  if (totalApps90d > 1500) {
-    totalApps90d = Math.min(Math.round(totalApps90d / 10), 300)
-  }
 
   const recruiterScreens = parseRangeOrNumber(
     f90.recruiterScreens ?? f90.screens ?? answers.recruiterScreens ?? answers.humanScreen ?? 0
@@ -285,7 +283,7 @@ export function deriveFunnelFromAnswers(answers = {}) {
 
   let biggest_leak_stage = 'top_of_funnel'
   let leak_title = 'Top-of-Funnel Application Black Hole'
-  let diagnosis_message = `You submitted ${totalApps90d} applications yielding only ${totalScreens} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
+  let diagnosis_message = `You submitted ${totalApps90d.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
 
   if (totalApps90d > 80 && totalScreens < 3) {
     diagnosis_message = 'The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization.'
@@ -353,27 +351,33 @@ export function normalizeAtlasShapes(report, answers = {}) {
   if (!report.funnel_stages || typeof report.funnel_stages !== 'object' || Array.isArray(report.funnel_stages)) {
     report.funnel_stages = funnel
   } else {
+    const leakTitle = report.funnel_stages.leak_title || report.funnel_stages.biggest_leak_stage || funnel.leak_title
     report.funnel_stages = {
       ...funnel,
       ...report.funnel_stages,
       biggest_leak_stage: report.funnel_stages.biggest_leak_stage || funnel.biggest_leak_stage,
-      leak_title: report.funnel_stages.leak_title || funnel.leak_title,
+      leak_title: leakTitle,
       diagnosis_message: report.funnel_stages.diagnosis_message || funnel.diagnosis_message,
     }
   }
 
   const targetRole = answers.targetRole || report.target_role || report.targetRole || 'Professional'
+  const effectiveLeakTitle = report.funnel_stages.leak_title || funnel.leak_title
 
   if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
     report.coach_intervention = {
       title: 'Strategic Advisory Diagnostic',
-      urgency_statement: `You are targeting ${targetRole} positions with friction in ${report.funnel_stages.leak_title}. An executive consultation will realign your conversion strategy.`,
+      urgency_statement: `You are targeting ${targetRole} positions with friction in ${effectiveLeakTitle}. An executive consultation will realign your conversion strategy.`,
+      value_prop: 'Gain direct executive clarity on your resume positioning, ATS alignment, and interview conversion strategy.',
       message: 'Schedule a tailored strategy session to optimize your positioning.',
       cta_text: 'Book Free 1-on-1 Strategy Session'
     }
   } else {
     if (!report.coach_intervention.urgency_statement) {
-      report.coach_intervention.urgency_statement = `You are targeting ${targetRole} positions with friction in ${report.funnel_stages.leak_title}. An executive consultation will realign your conversion strategy.`
+      report.coach_intervention.urgency_statement = `You are targeting ${targetRole} positions with friction in ${effectiveLeakTitle}. An executive consultation will realign your conversion strategy.`
+    }
+    if (!report.coach_intervention.value_prop) {
+      report.coach_intervention.value_prop = 'Gain direct executive clarity on your resume positioning, ATS alignment, and interview conversion strategy.'
     }
     if (!report.coach_intervention.cta_text) {
       report.coach_intervention.cta_text = 'Book Free 1-on-1 Strategy Session'
@@ -703,6 +707,13 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     },
   ]
 
+  const defaultActionPlan = buildDeterministicActionPlan({
+    targetRole: triage.targetRole,
+    verifiedSkills: triage.verifiedSkills || [],
+    bottleneck,
+    answers: user?.answers || {},
+  })
+
   const durationMs = Date.now() - startTime
 
   return {
@@ -718,6 +729,8 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     bullet_rewrites: bulletRewrites,
     strategicRoadmap: roadmap,
     roadmap,
+    sevenDayQuickPlan: defaultActionPlan.sevenDayQuickPlan,
+    milestonePathway: defaultActionPlan.milestonePathway,
     competencyClusters: triage.clusterEvaluation,
     competency_clusters_audit: triage.clusterEvaluation?.clusterBreakdown || [],
     recruiterSeo,
@@ -821,15 +834,47 @@ export async function generateReportBundle(params = {}, options = {}) {
     } catch (_pErr) {}
   }
 
-  // Stage 1: Single Unified LLM Synthesis (~3.5s)
-  const report = await executeSinglePassSynthesis({
-    triage,
-    user,
-    resumeJson,
-    liveLinkedinData: liveLinkedinData || user?.linkedinData,
-    liveLinkedinPosts: liveLinkedinPosts || user?.linkedinActivityData,
-    options,
-  })
+  const funnelStages = deriveFunnelFromAnswers(answers)
+
+  // Stage 1: Parallel LLM Synthesis + Dynamic Action Plan (~3.5s)
+  const [report, dynamicActionPlan] = await Promise.all([
+    executeSinglePassSynthesis({
+      triage,
+      user,
+      resumeJson,
+      liveLinkedinData: liveLinkedinData || user?.linkedinData,
+      liveLinkedinPosts: liveLinkedinPosts || user?.linkedinActivityData,
+      options,
+    }),
+    generateDynamicActionPlan({
+      targetRole,
+      answers,
+      resumeJson,
+      verifiedSkills: triage?.verifiedSkills || [],
+      bottleneck: triage?.deterministicScores || {},
+      funnelStages,
+      options,
+    }).catch((planErr) => {
+      console.warn('[ReportGen] Dynamic action plan generation error:', planErr.message)
+      return null
+    }),
+  ])
+
+  if (dynamicActionPlan?.sevenDayQuickPlan) {
+    report.sevenDayQuickPlan = dynamicActionPlan.sevenDayQuickPlan
+  }
+  if (dynamicActionPlan?.milestonePathway) {
+    report.milestonePathway = dynamicActionPlan.milestonePathway
+    report.strategicRoadmap = dynamicActionPlan.milestonePathway
+    report.roadmap = dynamicActionPlan.milestonePathway
+  }
+  if (dynamicActionPlan) {
+    report.action_plan = dynamicActionPlan
+  }
+
+  report.user_answers = answers
+  report.funnel_stages = funnelStages
+  normalizeAtlasShapes(report, answers)
 
   if (liveLinkedinData || user?.linkedinData) {
     report.linkedin_json = liveLinkedinData || user?.linkedinData

@@ -88,8 +88,8 @@ export default function FunnelGridInput({ value, onChange, error }) {
   const { formData } = useAppStore()
 
   // Calculate default applications90d based on apps30d if available
-  const apps30dNum = parseRangeOrNumber(formData.apps30d, 20)
-  const default90dApps = apps30dNum * 3
+  const apps30dNum = parseRangeOrNumber(formData.apps30d, 0)
+  const default90dApps = apps30dNum > 0 ? apps30dNum * 3 : 0
 
   const currentObj = typeof value === 'object' && value !== null ? value : {}
   const [funnelData, setFunnelData] = useState({

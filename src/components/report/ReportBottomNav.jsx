@@ -15,10 +15,9 @@ export default function ReportBottomNav({
   onBookCall,
 }) {
   const tabList = tabs && tabs.length > 0 ? tabs : [
-    { id: 'overview', label: 'Overview & Pulse', icon: '01' },
+    { id: 'overview', label: 'Overview & Action Plan', icon: '01' },
     { id: 'resume', label: 'Resume Lab', icon: '02' },
     { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
-    { id: 'funnel', label: 'Funnel & Action Plan', icon: '04' },
   ]
 
   const currentIndex = tabList.findIndex((t) => t.id === activeTab)

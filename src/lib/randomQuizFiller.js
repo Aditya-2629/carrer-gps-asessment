@@ -32,7 +32,7 @@ const SAMPLE_UNIVERSITIES = [
   'University of Washington',
 ]
 
-export function getRandomAnswerForStep(step) {
+export function getRandomAnswerForStep(step, answersSoFar = {}) {
   if (!step) return null
 
   switch (step.type) {
@@ -160,8 +160,10 @@ export function getRandomAnswerForStep(step) {
     }
 
     case 'funnel-grid': {
+      const parsedApps30 = answersSoFar?.apps30d ? parseInt(String(answersSoFar.apps30d).replace(/\D/g, ''), 10) : 0
+      const default90 = (parsedApps30 && !isNaN(parsedApps30) && parsedApps30 > 0) ? parsedApps30 * 3 : 120
       return {
-        applications90d: 90,
+        applications90d: default90,
         recruiterScreens: Math.floor(1 + Math.random() * 4),
         assessments: Math.floor(1 + Math.random() * 3),
         aiInterviews: Math.floor(Math.random() * 2),
@@ -213,7 +215,7 @@ export function getRandomAnswerForStep(step) {
 export function generateAllRandomAssessmentData() {
   const result = {}
   STEPS.forEach((step) => {
-    result[step.name] = getRandomAnswerForStep(step)
+    result[step.name] = getRandomAnswerForStep(step, result)
   })
   return result
 }

@@ -8,10 +8,8 @@ import {
   Trophy,
   Cpu,
 } from '@phosphor-icons/react'
-import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { StageBars } from '../stage-bars'
-import { ThresholdLine } from '../threshold-line'
 
 export default function FunnelAndConversionSection({
   funnelData: _funnelData,
@@ -159,80 +157,6 @@ export default function FunnelAndConversionSection({
   // Sankey Layout Geometry (6 columns across width 760)
   const sankeyCols = [40, 180, 320, 460, 600, 720]
   const sankeyYMid = 75
-
-  // Strategic Market Perimeter Context
-  const ext = storeReport?.external_context || {}
-  const sdlc = ext.sdlc_market_cycle || {
-    title: 'Core Software & Engineering Wave',
-    currentQuarter: 'Q4',
-  }
-
-  const rawVisa =
-    answers.visa ||
-    answers.workAuthorization ||
-    storeReport?.user_answers?.workAuthorization ||
-    storeReport?.user_answers?.visa ||
-    'US Citizen / Green Card / GC-EAD'
-  const visaText = decodeHtmlEntities(rawVisa)
-
-  const experiences =
-    storeReport?.resume_agent?.canonicalResume?.experiences ||
-    storeReport?.resume_json?.experiences ||
-    storeReport?.resume_json?.experience ||
-    []
-
-  let earliestYear = Infinity
-  let latestYear = -Infinity
-  const currentYear = new Date().getFullYear()
-
-  experiences.forEach((exp) => {
-    const dateStr = [exp.duration, exp.dates, exp.startDate, exp.endDate].filter(Boolean).join(' ')
-    const matches = dateStr.match(/\b(19\d\d|20\d\d)\b/g)
-    if (matches) {
-      matches.forEach((m) => {
-        const y = parseInt(m, 10)
-        if (y >= 1990 && y <= currentYear + 1) {
-          if (y < earliestYear) earliestYear = y
-          if (y > latestYear) latestYear = y
-        }
-      })
-    }
-    if (/present|current/i.test(dateStr) || exp.isCurrent) {
-      latestYear = currentYear
-    }
-  })
-
-  const timelineYoe = (earliestYear !== Infinity && latestYear !== -Infinity && latestYear >= earliestYear)
-    ? (latestYear - earliestYear + 1)
-    : 0
-
-  const rawCandidateYoe = Number(
-    storeReport?.resume_agent?.canonicalResume?.candidate?.yearsOfExperience ||
-    storeReport?.resume_agent?.candidateSnapshot?.yearsOfExperience ||
-    storeReport?.resume_json?.years_of_experience || 0
-  )
-  const candidateYoe = Math.max(rawCandidateYoe, timelineYoe)
-  const expText = candidateYoe >= 6
-    ? 'Senior / 6+ Yrs Experience'
-    : candidateYoe >= 3
-    ? 'Mid–Senior / 3–5 Yrs Experience'
-    : decodeHtmlEntities(answers.experience || 'Junior / 0–2 Yrs Experience')
-
-  const helpArray = Array.isArray(answers.externalHelp) ? answers.externalHelp : [String(answers.externalHelp || '')]
-  const resolvedOpportunity =
-    answers.opportunityType ||
-    reportData?.user_answers?.opportunityType ||
-    (ext.consultancy_context?.mode && !ext.consultancy_context.mode.includes('Freelance') ? ext.consultancy_context.mode : null) ||
-    (helpArray.some((h) => /C2C/i.test(h))
-      ? 'C2C Consultancy / Bench'
-      : helpArray.some((h) => /Freelanc/i.test(h))
-      ? 'Freelance / Direct Client Gigs'
-      : 'Direct Enterprise / W2 Sourcing')
-
-  const consultancy = {
-    mode: resolvedOpportunity,
-    description: ext.consultancy_context?.description || '100% self-directed application pipeline',
-  }
 
   return (
     <section id="funnel-sankey" className="space-y-6 break-before-page page-break-before-always">
@@ -441,39 +365,59 @@ export default function FunnelAndConversionSection({
           />
         </div>
 
-        {/* Hairline ThresholdLine: Industry Benchmarks */}
+        {/* Two Horizontal Industry Benchmark Comparison Bars */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ThresholdLine
-            data={[
-              { label: 'Week 1', value: 1.5 },
-              { label: 'Week 2', value: 2.0 },
-              { label: 'Current', value: numScreenRate || 2.4 },
-              { label: 'Post-Fix 1', value: Math.min(12, (numScreenRate || 2.4) + 2.5) },
-              { label: 'Post-Fix 2', value: Math.min(15, (numScreenRate || 2.4) + 4.8) },
-            ]}
-            value={5.0}
-            title="5% Screening Callback Gate"
-            period="Top-quartile candidate ATS threshold"
-            label="5.0% Industry Benchmark"
-            format={{ style: 'percent', minimumFractionDigits: 1 }}
-            className="w-full bg-slate-50/50 p-4 rounded-xl border border-slate-200"
-          />
+          <div className="p-4 sm:p-5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-800">Screen Callback Rate</span>
+              <div className="flex items-center gap-1.5 font-mono tabular-nums">
+                <span className={`font-semibold ${screenRateColor}`}>{screenRate}%</span>
+                <span className="text-slate-400">/ 5.0% target</span>
+              </div>
+            </div>
+            <div className="relative w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  numScreenRate >= 5 ? 'bg-emerald-500' : numScreenRate >= 2 ? 'bg-amber-500' : 'bg-rose-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, (numScreenRate / 5) * 100))}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+              <span>Top-quartile ATS threshold</span>
+              <span className={`font-medium tabular-nums ${numScreenRate >= 5 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {numScreenRate >= 5
+                  ? `+${(numScreenRate - 5).toFixed(1)}% above bar`
+                  : `${(numScreenRate - 5).toFixed(1)}% below bar`}
+              </span>
+            </div>
+          </div>
 
-          <ThresholdLine
-            data={[
-              { label: 'Mock 1', value: 20 },
-              { label: 'Mock 2', value: 25 },
-              { label: 'Current', value: numTechRate || 28 },
-              { label: 'Post-Fix 1', value: Math.min(75, (numTechRate || 28) + 18) },
-              { label: 'Post-Fix 2', value: Math.min(85, (numTechRate || 28) + 30) },
-            ]}
-            value={40}
-            title="40% Technical Round Pass Gate"
-            period="Onsite qualification benchmark"
-            label="40% Tech Bar"
-            format={{ style: 'percent', minimumFractionDigits: 0 }}
-            className="w-full bg-slate-50/50 p-4 rounded-xl border border-slate-200"
-          />
+          <div className="p-4 sm:p-5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-800">Technical Pass Rate</span>
+              <div className="flex items-center gap-1.5 font-mono tabular-nums">
+                <span className={`font-semibold ${techRateColor}`}>{techToFinalRate}%</span>
+                <span className="text-slate-400">/ 40% target</span>
+              </div>
+            </div>
+            <div className="relative w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  numTechRate >= 40 ? 'bg-emerald-500' : numTechRate >= 25 ? 'bg-amber-500' : 'bg-rose-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, (numTechRate / 40) * 100))}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+              <span>Onsite qualification benchmark</span>
+              <span className={`font-medium tabular-nums ${numTechRate >= 40 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {numTechRate >= 40
+                  ? `+${(numTechRate - 40).toFixed(0)}% above bar`
+                  : `${(numTechRate - 40).toFixed(0)}% below bar`}
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* 3-Pillar Conversion Velocity Summary */}
@@ -512,51 +456,6 @@ export default function FunnelAndConversionSection({
               </span>
               <span className="text-[11px] text-slate-400">Target: &gt;30%</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Personalization Context Strip (SDLC Wave, Visa, Experience, Sourcing Model) */}
-      <div className="p-4 sm:p-5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3 break-inside-avoid page-break-inside-avoid">
-        <span className="text-xs font-medium text-slate-500 block">
-          Strategic market perimeter &amp; sourcing context
-        </span>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono text-indigo-600 block mb-1 font-medium">
-              SDLC market wave ({sdlc.currentQuarter || 'Q4'})
-            </span>
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {sdlc.title}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono text-sky-600 block mb-1 font-medium">
-              Work authorization
-            </span>
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {visaText}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono text-purple-600 block mb-1 font-medium">
-              Experience level
-            </span>
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {expText}
-            </p>
-          </div>
-
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono text-emerald-600 block mb-1 font-medium">
-              Search pipeline model
-            </span>
-            <p className="text-xs font-semibold text-slate-900 truncate">
-              {consultancy.mode}
-            </p>
           </div>
         </div>
       </div>

@@ -1,9 +1,4 @@
-import {
-  Check,
-  Trophy,
-  ArrowsClockwise,
-  ArrowRight,
-} from '@phosphor-icons/react'
+import { Check, Trophy } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
@@ -43,7 +38,167 @@ function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   return fallback
 }
 
-export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNavigateSection, reportData }) {
+function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
+  if (effectivePhaseId === 1) {
+    return [
+      {
+        day: 1,
+        title: 'Target Keyword & Competency Audit',
+        action: `Audit current resume against top 10 target ${targetRole} job descriptions to isolate missing high-demand tools (${topSkills}).`,
+        deliverable: '10-JD Keyword Frequency Matrix with priority missing tools highlighted.',
+        metricTarget: 'Identify 5-8 high-yield technical keywords to weave into experience.',
+      },
+      {
+        day: 2,
+        title: 'Google XYZ Bullet Restructuring',
+        action: 'Rewrite top 4 work experience bullets into Accomplished [X] as measured by [Y] by doing [Z] syntax with hard production numbers.',
+        deliverable: '4 restructured high-impact bullets with verified production metrics.',
+        metricTarget: '100% of rewritten bullets contain quantified scope ($ or %).',
+      },
+      {
+        day: 3,
+        title: 'Single-Column ATS Layout Calibration',
+        action: 'Export resume into clean single-column format with zero multi-column tables, text boxes, or graphical headers.',
+        deliverable: 'Plain-text parseable ATS-compliant resume document.',
+        metricTarget: 'Zero ATS parsing truncation errors.',
+      },
+      {
+        day: 4,
+        title: 'LinkedIn Recruiter SEO Alignment',
+        action: `Update headline with 3 exact industry keywords for ${targetRole} and weave ${topSkills} naturally into About and Skills sections.`,
+        deliverable: 'Updated 15-20 word searchable headline + 50 prioritized skills.',
+        metricTarget: 'LinkedIn Search Appearance score lift within 7 days.',
+      },
+      {
+        day: 5,
+        title: 'Outbound Sourcing Account List',
+        action: 'Build a targeted list of 25 companies actively hiring in your domain using LinkedIn Search & Apollo.',
+        deliverable: '25-Company Target Outreach Tracker with verified hiring manager names.',
+        metricTarget: '25 direct engineering manager / lead recruiter profiles identified.',
+      },
+      {
+        day: 6,
+        title: 'Tailored Portal Application Sprint',
+        action: 'Submit 10 customized applications directly via company ATS portals with tailored cover notes instead of Easy Apply blasts.',
+        deliverable: '10 documented applications logged with timestamped URLs.',
+        metricTarget: '10 high-intent applications submitted directly to ATS.',
+      },
+      {
+        day: 7,
+        title: 'Weekly Funnel Calibration & Review',
+        action: 'Analyze Week 1 response rates, log profile views, and prepare follow-up touches for submitted applications.',
+        deliverable: 'Weekly conversion report & 7-day outbound follow-up calendar.',
+        metricTarget: 'Screen callback rate target >= 5.0%.',
+      },
+    ]
+  } else if (effectivePhaseId === 2) {
+    return [
+      {
+        day: 1,
+        title: '60-Second Verbal Elevator Pitch',
+        action: `Script and rehearse a crisp 60-second verbal pitch highlighting your target positioning in ${targetRole} and architectural scale.`,
+        deliverable: 'Recorded audio/video rehearsal of 60-second elevator story.',
+        metricTarget: 'Under 75 words, 0 filler phrases, clearly states target level.',
+      },
+      {
+        day: 2,
+        title: 'Compensation & Leveling Alignment Sheet',
+        action: `Benchmark total compensation bands (base, bonus, equity) on Levels.fyi for ${targetRole} to prevent screening disqualification.`,
+        deliverable: '1-page market compensation cheat sheet with scripted salary response.',
+        metricTarget: 'Definitive scripted answer ready for "What are your salary expectations?".',
+      },
+      {
+        day: 3,
+        title: 'Top 5 Behavioral STAR Stories',
+        action: 'Draft 5 structured STAR (Situation, Task, Action, Result) stories focusing on cross-functional alignment and system trade-offs.',
+        deliverable: '5 STAR story cards with quantified business impact.',
+        metricTarget: 'Every story articulates trade-off reasoning and measurable ROI.',
+      },
+      {
+        day: 4,
+        title: 'Recruiter Screening Mock Rehearsal',
+        action: 'Execute a timed 15-minute mock recruiter phone screen focusing on conversational cadence and confident delivery.',
+        deliverable: 'Self-evaluation score sheet against standard recruiter scorecard.',
+        metricTarget: 'Pass >= 80% on standard recruiter qualification rubric.',
+      },
+      {
+        day: 5,
+        title: 'Technical Scope & Scale Deep Dive',
+        action: `Prepare concrete explanations for data volume, query latency, or throughput metrics handled in primary projects using ${topSkills}.`,
+        deliverable: 'System Scale & Complexity Reference Sheet.',
+        metricTarget: 'Clear mastery of exact numbers, request rates, and SLA figures.',
+      },
+      {
+        day: 6,
+        title: 'Active Pipeline Multi-Threading',
+        action: 'Directly message 8 engineering leads at companies where you have open applications with a 50-word note on recent technical work.',
+        deliverable: '8 personalized outreach messages sent to hiring managers.',
+        metricTarget: 'At least 1-2 direct hiring manager response touchpoints.',
+      },
+      {
+        day: 7,
+        title: 'Conversion Audit & Week 2 Strategy',
+        action: 'Evaluate screen-to-technical conversion velocity and calibrate answers for upcoming phone screens.',
+        deliverable: 'Updated screening answer ledger & interview schedule.',
+        metricTarget: 'Screen-to-technical round conversion target >= 60%.',
+      },
+    ]
+  } else {
+    return [
+      {
+        day: 1,
+        title: 'Core Technical Assessment Drill',
+        action: `Complete 3 timed problem-solving sets covering core algorithms, system design, or data modeling relevant to ${targetRole}.`,
+        deliverable: 'Documented code solutions with time/space complexity analysis.',
+        metricTarget: 'Complete each problem within 35 minutes with clean tests.',
+      },
+      {
+        day: 2,
+        title: 'Primary Project Architecture Blueprint',
+        action: 'Draft a 1-page system architecture diagram for your flagship project outlining components, API contracts, and trade-offs.',
+        deliverable: '1-Page System Architecture Diagram (draw.io or Excalidraw).',
+        metricTarget: 'Ready to present visually in under 3 minutes.',
+      },
+      {
+        day: 3,
+        title: 'Live Technical Verbalization Rehearsal',
+        action: 'Conduct a recorded mock technical interview speaking your reasoning and trade-offs out loud before typing any code.',
+        deliverable: 'Recorded 45-minute technical mock session with self-critique notes.',
+        metricTarget: 'Zero long silent pauses (>15s) during live problem solving.',
+      },
+      {
+        day: 4,
+        title: 'Failure Mode & Edge Case Defense',
+        action: 'Document 3 critical production failure scenarios and debugging post-mortems you owned, articulating root causes.',
+        deliverable: '3 Production Debugging / Incident Post-Mortem Cards.',
+        metricTarget: 'Clear mastery of observability, metrics, and recovery steps.',
+      },
+      {
+        day: 5,
+        title: 'Domain Deep-Dive Drill',
+        action: `Practice technical deep dives into ${topSkills}: latency optimization, caching strategies, and concurrency patterns.`,
+        deliverable: 'Technical Deep-Dive Notes on 5 core architectural trade-offs.',
+        metricTarget: 'Articulate at least 2 trade-offs for every architectural choice.',
+      },
+      {
+        day: 6,
+        title: 'Peer / Senior Mock Interview',
+        action: 'Schedule and execute a 60-minute mock technical screen with a senior engineer or mentor focusing on panel questions.',
+        deliverable: 'Objective feedback rubric with targeted remediation items.',
+        metricTarget: 'Panel pass score >= 75%.',
+      },
+      {
+        day: 7,
+        title: 'Panel Readiness Calibration',
+        action: 'Synthesize all technical mock feedback into a final pre-interview checklist for upcoming loops.',
+        deliverable: 'Pre-Interview Technical Readiness Checklist.',
+        metricTarget: 'Technical round pass rate target >= 40%.',
+      },
+    ]
+  }
+}
+
+export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNavigateSection: _onNavigateSection, reportData }) {
   const effectivePhaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || currentPhaseId || 1)
   const targetRole =
     reportData?.resume_agent?.candidateSnapshot?.targetRole ||
@@ -51,12 +206,20 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     reportData?.user_answers?.targetRole ||
     'Software Engineer'
   const visa = reportData?.user_answers?.visa || reportData?.user_answers?.visaStatus || ''
-  const rawExternal = reportData?.user_answers?.externalHelp
-  const helpString = Array.isArray(rawExternal) ? rawExternal.join(' ') : String(rawExternal || '')
   const isSponsorshipRequired = Boolean(visa && /opt|cpt|h-?1b|sponsor/i.test(visa))
   const archetype = classifyRoleArchetype(targetRole)
   const isDataRole = archetype.key === 'DATA_ANALYTICS'
   const topSkills = extractTopSkills(reportData, archetype.mandatoryTools.slice(0, 3).join(', '))
+
+  // -------------------------------------------------------------
+  // Dynamic 7-Day Quick Plan
+  // -------------------------------------------------------------
+  const sevenDayPlan =
+    (Array.isArray(reportData?.sevenDayQuickPlan) && reportData.sevenDayQuickPlan.length > 0)
+      ? reportData.sevenDayQuickPlan
+      : (Array.isArray(reportData?.action_plan?.sevenDayQuickPlan) && reportData.action_plan.sevenDayQuickPlan.length > 0)
+      ? reportData.action_plan.sevenDayQuickPlan
+      : getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId)
 
   // -------------------------------------------------------------
   // Dynamic 30-60-90 Day Milestone Pathway
@@ -64,7 +227,6 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   let phase30, phase60, phase90
 
   if (effectivePhaseId === 1) {
-    // Phase 1: Top of Funnel Black Hole
     phase30 = {
       period: '30 Days',
       stage: 'Asset Calibration & Outbound Sourcing Engine',
@@ -116,7 +278,6 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       active: false,
     }
   } else if (effectivePhaseId === 2) {
-    // Phase 2: Recruiter Screen Choke Point
     phase30 = {
       period: '30 Days',
       stage: 'Recruiter Screen Mastery & Assessment Clearance',
@@ -169,8 +330,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       isGoal: true,
       active: false,
     }
-  } else if (effectivePhaseId === 3) {
-    // Phase 3: Technical Round Choke Point
+  } else {
     phase30 = {
       period: '30 Days',
       stage: isDataRole ? 'Live Analytical Problem Solving & SQL Defense' : 'Live Technical Problem Solving & System Architecture',
@@ -217,132 +377,17 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       isGoal: true,
       active: false,
     }
-  } else if (effectivePhaseId === 4) {
-    // Phase 4: Final Round Offer Closing
-    phase30 = {
-      period: '30 Days',
-      stage: 'Executive Alignment & Offer Negotiation Strategy',
-      goal: 'Convert final-round loops into written offers and maximize total compensation leverage.',
-      actions: [
-        'Prepare 5 executive-level STAR stories demonstrating leadership, conflict resolution, and business impact.',
-        `Benchmark total compensation packages on Levels.fyi for ${targetRole} to determine target bands.`,
-        'Draft strategic reverse-interview questions to uncover team priorities, roadmap, and tech debt.',
-      ],
-      deliverable: 'Executive Interview Prep Dossier + Total Compensation Negotiation Matrix',
-      successSignal: 'At least 1 formal written job offer received within 30 days.',
-      active: true,
-    }
-
-    phase60 = {
-      period: '60 Days',
-      stage: 'Offer Finalization & Onboarding Clearance',
-      goal: 'Resolve all employment conditions, background checks, and prepare for Day 1 onboarding.',
-      actions: [
-        'Assemble tax documents, reference contacts, and employment history for background verification.',
-        isSponsorshipRequired
-          ? 'Coordinate with immigration attorneys to initiate H-1B transfer / STEM OPT paperwork via USCIS Hub.'
-          : 'Finalize employment contract terms, start date, and remote equipment logistics.',
-        'Draft a 30-day team onboarding plan reviewing production architecture and key internal repos.',
-      ],
-      deliverable: 'Cleared Background Verification + 30-Day Onboarding Roadmap',
-      successSignal: '100% background clearance and signed employment agreement.',
-      active: false,
-    }
-
-    phase90 = {
-      period: '90 Days',
-      stage: 'Early Impact & Performance Acceleration',
-      goal: 'Deliver first production feature and establish high credibility with manager and team.',
-      actions: [
-        'Ship first production pull request and complete first sprint cycle within 30 days of start.',
-        'Establish weekly 1-on-1 cadence with engineering manager to align on 6-month promotion criteria.',
-        'Document key workflow improvements or team tooling to demonstrate immediate engineering value.',
-      ],
-      deliverable: 'First Production Contribution + 90-Day Performance Review Alignment',
-      successSignal: 'Strong first quarterly performance review and established team velocity.',
-      isGoal: true,
-      active: false,
-    }
-  } else {
-    // Phase 5/Default
-    phase30 = {
-      period: '30 Days',
-      stage: 'Foundation, Positioning & Asset Calibration',
-      goal: 'Establish an ATS-compliant resume, verified online presence, and targeted application engine.',
-      actions: [
-        `Calibrate resume in single-column format using Google XYZ metrics with verified ${topSkills} keyword density.`,
-        'Deploy LinkedIn Sales Navigator & Apollo to build an account list of 25 target US companies actively hiring.',
-        isSponsorshipRequired
-          ? 'Filter target employer lists via USCIS H-1B Employer Hub and E-Verify databases before submitting.'
-          : 'Execute 15 targeted applications weekly directly through company ATS career portals rather than Easy Apply boards.',
-      ],
-      deliverable: 'ATS-Calibrated Resume + 25 Target Account Outbound Tracker',
-      successSignal: '15+ weekly applications submitted with >= 80% role keyword match.',
-      active: true,
-    }
-
-    phase60 = {
-      period: '60 Days',
-      stage: 'Recruiter Screening & Technical Interview Velocity',
-      goal: 'Generate consistent weekly recruiter screenings and advance into live technical rounds.',
-      actions: [
-        'Script and rehearse a 60-second verbal elevator pitch highlighting verified architecture scale.',
-        isDataRole
-          ? `Complete 10 timed SQL and data analysis problem sets on StrataScratch / HackerRank in ${topSkills} to ensure assessment readiness.`
-          : `Complete 10 timed problem-solving sets: ${archetype.dayAssessmentPrep}.`,
-        'Engage 10 engineering managers weekly using personalized 50-word LinkedIn InMails.',
-      ],
-      deliverable: 'Active Pipeline of 3+ Scheduled Screens/Week',
-      successSignal: 'Consistent conversion of >= 60% from recruiter screen to live technical round.',
-      active: false,
-    }
-
-    phase90 = {
-      period: '90 Days',
-      stage: 'Final Round Onsites & Offer Closing',
-      goal: 'Convert final round discussions into formal, written job offers with optimal compensation.',
-      actions: [
-        'Present technical case studies and executive vision to Director/VP stakeholders.',
-        `Benchmark total compensation packages on Levels.fyi for ${targetRole} to prepare counter-offer leverage.`,
-        'Execute structured negotiation scripts to maximize starting base salary and equity grant.',
-      ],
-      deliverable: 'Minimum 1 Formal Written Offer with Verified Compensation Package',
-      successSignal: 'Signed written offer letter within target leveling band.',
-      isGoal: true,
-      active: false,
-    }
   }
 
-  // Merge dynamic custom roadmap tasks from reportData if present
-  const atlasRoadmap = Array.isArray(roadmapData) && roadmapData.length > 0
-    ? roadmapData
-    : (Array.isArray(reportData?.roadmap) ? reportData.roadmap : [])
-
-  if (atlasRoadmap.length > 0) {
-    const extractAtlasTasks = (item) => {
-      if (!item) return []
-      if (Array.isArray(item.tasks)) return item.tasks.filter((t) => typeof t === 'string' && t.trim())
-      if (Array.isArray(item.actions)) return item.actions.filter((t) => typeof t === 'string' && t.trim())
-      return []
-    }
-
-    const m30Tasks = extractAtlasTasks(atlasRoadmap[0])
-    if (m30Tasks.length > 0) {
-      phase30.actions = [m30Tasks[0], ...phase30.actions.slice(1, 3)]
-    }
-
-    const m60Tasks = extractAtlasTasks(atlasRoadmap[1])
-    if (m60Tasks.length > 0) {
-      phase60.actions = [m60Tasks[0], ...phase60.actions.slice(1, 3)]
-    }
-
-    const m90Tasks = extractAtlasTasks(atlasRoadmap[2])
-    if (m90Tasks.length > 0) {
-      phase90.actions = [m90Tasks[0], ...phase90.actions.slice(1, 3)]
-    }
-  }
-
-  const PHASES = [phase30, phase60, phase90]
+  const defaultPhases = [phase30, phase60, phase90]
+  const aiMilestones =
+    (Array.isArray(reportData?.milestonePathway) && reportData.milestonePathway.length >= 3)
+      ? reportData.milestonePathway
+      : (Array.isArray(reportData?.action_plan?.milestonePathway) && reportData.action_plan.milestonePathway.length >= 3)
+      ? reportData.action_plan.milestonePathway
+      : (Array.isArray(roadmapData) && roadmapData.length >= 3)
+      ? roadmapData
+      : defaultPhases
 
   return (
     <section id="roadmap" className="space-y-6">
@@ -356,26 +401,92 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
             className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
-            30 / 60 / 90 Day Milestone Pathway
+            7-Day Quick Plan &amp; 30 / 60 / 90 Day Milestone Pathway
           </h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">
-          Targeted milestone execution calibrated to {targetRole} hiring expectations
+          Targeted execution calibrated to {targetRole} hiring expectations
         </p>
       </div>
 
-      {/* ── 30 / 60 / 90 Day Direction Cards Grid ── */}
-      <div className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative">
-          {PHASES.map((p, idx) => (
+      {/* ── 1. 7-Day Rapid Triage Plan ── */}
+      <div className="p-5 sm:p-6 rounded-xl bg-white border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-600" />
+              7-Day Rapid Triage Plan
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Tactical daily sprints to immediately unblock pipeline friction and clear automated screening gates
+            </p>
+          </div>
+          <span className="text-[11px] font-mono font-medium px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 shrink-0 self-start sm:self-auto">
+            Sprint Phase: Days 1–7
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
+          {sevenDayPlan.map((item, idx) => (
             <div
-              key={p.period}
+              key={item.day || idx + 1}
+              className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/90 flex flex-col justify-between space-y-2.5 hover:border-slate-300 transition-colors"
+            >
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-100/70 text-indigo-800 border border-indigo-200">
+                    DAY 0{item.day || idx + 1}
+                  </span>
+                </div>
+                <h4 className="text-xs font-semibold text-slate-900 leading-snug">
+                  {item.title}
+                </h4>
+                <p className="text-[11px] text-slate-600 leading-relaxed font-normal">
+                  {item.action}
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200/80 space-y-1 text-[10px] font-mono">
+                {item.deliverable && (
+                  <div>
+                    <span className="text-slate-400 block font-sans text-[9px]">Deliverable:</span>
+                    <span className="text-slate-700 font-medium block leading-tight">{item.deliverable}</span>
+                  </div>
+                )}
+                {item.metricTarget && (
+                  <div className="pt-1">
+                    <span className="text-slate-400 block font-sans text-[9px]">Target:</span>
+                    <span className="text-emerald-600 font-semibold block leading-tight tabular-nums">{item.metricTarget}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 2. 30 / 60 / 90 Day Direction Cards Grid ── */}
+      <div className="p-5 sm:p-6 rounded-xl bg-white border border-slate-200 shadow-xs space-y-4">
+        <div className="border-b border-slate-100 pb-3">
+          <h3 className="text-base font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            30 / 60 / 90 Day Milestone Pathway
+          </h3>
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Progressive compounding milestones calibrated to {targetRole} hiring expectations
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {aiMilestones.map((p, idx) => (
+            <div
+              key={p.period || idx}
               className={`p-5 sm:p-6 rounded-xl border flex flex-col justify-between space-y-5 transition-colors ${
                 p.isGoal
                   ? 'bg-amber-500/5 border-amber-500/30 shadow-xs'
                   : p.active
                   ? 'bg-emerald-500/5 border-emerald-500/30 shadow-xs'
-                  : 'bg-[var(--surface-sunken)] border-[var(--border-default)]'
+                  : 'bg-slate-50/70 border-slate-200'
               }`}
             >
               <div className="space-y-4">
@@ -386,8 +497,8 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                       p.isGoal
                         ? 'bg-amber-400 text-black'
                         : p.active
-                        ? 'bg-[var(--emerald)] text-white'
-                        : 'bg-[var(--surface-card)] text-[var(--text-muted)] border border-[var(--border-default)]'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white text-slate-600 border border-slate-200'
                     }`}
                   >
                     {p.period}
@@ -396,7 +507,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   {p.isGoal ? (
                     <Trophy size={18} weight="fill" className="text-amber-500" />
                   ) : (
-                    <span className="text-xs font-mono font-semibold text-[var(--text-muted)] tabular-nums">
+                    <span className="text-xs font-mono font-semibold text-slate-400 tabular-nums">
                       0{idx + 1}
                     </span>
                   )}
@@ -404,26 +515,23 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
                 {/* Stage Title & Goal */}
                 <div className="space-y-1">
-                  <h4
-                    className="text-base font-semibold text-[var(--text-primary)] tracking-tight"
-                    style={{ fontFamily: 'var(--font-head)' }}
-                  >
+                  <h4 className="text-base font-semibold text-slate-900 tracking-tight">
                     {p.stage}
                   </h4>
-                  <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                  <p className="text-xs text-slate-600 font-medium leading-relaxed">
                     {p.goal}
                   </p>
                 </div>
 
                 {/* Actions */}
-                <ul className="space-y-2 list-none pl-0 text-xs font-medium text-[var(--text-primary)]">
-                  {p.actions.map((act, aIdx) => (
+                <ul className="space-y-2 list-none pl-0 text-xs font-medium text-slate-800">
+                  {(p.actions || []).map((act, aIdx) => (
                     <li key={aIdx} className="flex items-start gap-2 leading-relaxed">
                       <Check
                         size={14}
                         weight="bold"
                         className={`shrink-0 mt-0.5 ${
-                          p.active || p.isGoal ? 'text-[var(--emerald)]' : 'text-[var(--text-muted)]'
+                          p.active || p.isGoal ? 'text-emerald-600' : 'text-slate-400'
                         }`}
                       />
                       <span>{act}</span>
@@ -434,57 +542,30 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
               {/* Deliverable Callout */}
               {p.deliverable && (
-                <div className="pt-3 border-t border-[var(--border-default)] space-y-1">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] font-medium block">
+                <div className="pt-3 border-t border-slate-200 space-y-1">
+                  <span className="text-[10px] font-mono text-slate-400 font-medium block">
                     Key deliverable
                   </span>
-                  <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
                     {p.deliverable}
                   </p>
                 </div>
               )}
 
               {/* Success Signal Callout */}
-              <div className="pt-2 border-t border-[var(--border-default)] space-y-1">
-                <span className="text-[10px] font-mono text-emerald-600 font-medium block">
-                  Success signal
-                </span>
-                <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
-                  {p.successSignal}
-                </p>
-              </div>
+              {p.successSignal && (
+                <div className="pt-2 border-t border-slate-200 space-y-1">
+                  <span className="text-[10px] font-mono text-emerald-600 font-medium block">
+                    Success signal
+                  </span>
+                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                    {p.successSignal}
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Continuous Reassessment Loop Trigger Card ── */}
-      <div className="p-4 sm:p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--primary)] flex items-center justify-center shrink-0">
-            <ArrowsClockwise size={18} weight="bold" />
-          </div>
-          <div>
-            <h4 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
-              Continuous Reassessment Loop
-            </h4>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Log updated screening and interview metrics as you clear milestones to recalculate your funnel velocity.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (onNavigateSection) onNavigateSection('funnel-sankey')
-            else document.getElementById('funnel-sankey')?.scrollIntoView({ behavior: 'smooth' })
-          }}
-          className="btn-ghost shrink-0 text-xs font-semibold py-2 px-3.5 border border-[var(--border-default)] rounded-lg hover:border-[var(--primary)] flex items-center gap-1.5 cursor-pointer transition-colors"
-        >
-          <span>Update Funnel Numbers</span>
-          <ArrowRight size={13} weight="bold" />
-        </button>
       </div>
     </section>
   )

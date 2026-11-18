@@ -67,7 +67,7 @@ export default function CareerHealthBreakdown({
 
   const userAnswers = reportData?.user_answers || {}
   const f90 = userAnswers?.funnel90d || {}
-  const apps = Number(f90.applications90d || userAnswers.apps30d || 20)
+  const apps = Number(f90.applications90d || (userAnswers.apps30d ? Number(userAnswers.apps30d) * 3 : 0))
   const screens = Number(f90.recruiterScreens || f90.screens || userAnswers.interviews || 0)
   const techs = Number(f90.technicalRounds || f90.assessments || 0)
 

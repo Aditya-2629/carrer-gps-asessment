@@ -30,10 +30,9 @@ import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 export const COCKPIT_TABS = [
-  { id: 'overview', label: 'Overview & Pulse', icon: '01' },
+  { id: 'overview', label: 'Overview & Action Plan', icon: '01' },
   { id: 'resume', label: 'Resume Lab', icon: '02' },
   { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
-  { id: 'funnel', label: 'Funnel & Action Plan', icon: '04' },
 ]
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
@@ -854,10 +853,11 @@ function ReportDashboardContent() {
   const getInitialTab = () => {
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash.replace('#', '').toLowerCase()
-      if (['overview', 'resume', 'linkedin', 'funnel'].includes(hash)) {
+      if (['overview', 'resume', 'linkedin'].includes(hash)) {
         return hash
       }
       if (
+        hash === 'funnel' ||
         hash === 'roadmap' ||
         hash === 'action-sprint' ||
         hash === 'sprint-roadmap' ||
@@ -868,13 +868,15 @@ function ReportDashboardContent() {
         hash === 'funnel-sankey' ||
         hash === 'risk-matrix' ||
         hash === 'risks' ||
-        hash === 'missions'
+        hash === 'missions' ||
+        hash === 'bottleneck' ||
+        hash === 'action-plan' ||
+        hash === 'action'
       ) {
-        return 'funnel'
+        return 'overview'
       }
-      if (hash === 'bottleneck') return 'overview'
-      if (hash === 'resume-ai') return 'resume'
-      if (hash === 'linkedin-ai') return 'linkedin'
+      if (hash === 'resume-ai' || hash === 'resume-scorecard') return 'resume'
+      if (hash === 'linkedin-ai' || hash === 'linkedin-studio') return 'linkedin'
     }
     return 'overview'
   }
@@ -1051,11 +1053,7 @@ function ReportDashboardContent() {
       handleTabChange('resume')
     } else if (targetId === 'linkedin-ai' || targetId === 'linkedin') {
       handleTabChange('linkedin')
-    } else if (targetId === 'risk-matrix' || targetId === 'funnel-risks' || targetId === 'funnel' || targetId === 'missions') {
-      handleTabChange('funnel')
-    } else if (targetId === 'roadmap' || targetId === 'action-plan') {
-      handleTabChange('funnel')
-    } else if (targetId === 'bottleneck' || targetId === 'overview') {
+    } else {
       handleTabChange('overview')
     }
 
@@ -1181,38 +1179,17 @@ function ReportDashboardContent() {
                   onNavigateSection={handleNavigateSection}
                 />
               </div>
-            </div>
-          )}
-
-          {activeTab === 'resume' && (
-            <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {activeTab === 'linkedin' && (
-            <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
-              <LinkedInDeepDiagnosis
-                linkedinAgent={reportData.linkedin_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {activeTab === 'funnel' && (
-            <div className="space-y-10 animate-fadeIn" id="funnel-leak">
-              <FunnelAndConversionSection
-                funnelData={reportData.funnel_stages}
-                rejectionData={{
-                  factors: reportData.rejection_factors,
-                  insight: reportData.rejection_insight,
-                }}
-                riskData={reportData.risk_heatmap}
-                reportData={reportData}
-              />
+              <div id="funnel-leak">
+                <FunnelAndConversionSection
+                  funnelData={reportData.funnel_stages}
+                  rejectionData={{
+                    factors: reportData.rejection_factors,
+                    insight: reportData.rejection_insight,
+                  }}
+                  riskData={reportData.risk_heatmap}
+                  reportData={reportData}
+                />
+              </div>
               <div id="risk-matrix" className="space-y-6">
                 {reportData.risk_heatmap && (
                   <RiskHeatMap data={reportData.risk_heatmap} />
@@ -1233,6 +1210,24 @@ function ReportDashboardContent() {
                   onBookCall={handleBookCall}
                 />
               </div>
+            </div>
+          )}
+
+          {activeTab === 'resume' && (
+            <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
+              <ResumeDeepDiagnosis
+                resumeAgent={reportData.resume_agent}
+                reportData={reportData}
+              />
+            </div>
+          )}
+
+          {activeTab === 'linkedin' && (
+            <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
+              <LinkedInDeepDiagnosis
+                linkedinAgent={reportData.linkedin_agent}
+                reportData={reportData}
+              />
             </div>
           )}
 
