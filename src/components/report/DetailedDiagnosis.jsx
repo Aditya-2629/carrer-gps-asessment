@@ -6,7 +6,7 @@ import {
   ShareNetwork,
   UserCheck,
   ShieldWarning,
-  Sparkle,
+  ShieldCheck,
   PaperPlaneRight,
   Brain,
   ChatCircleText,
@@ -19,9 +19,22 @@ import {
   Copy,
   Check,
   Microphone,
+  ChartBar,
+  Briefcase,
+  EnvelopeSimple,
+  CurrencyDollar,
+  Wrench,
 } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
+
+const TOOL_ICON_MAP = {
+  Jobscan: Target,
+  'Teal HQ': ChartBar,
+  Otta: Briefcase,
+  Lemlist: EnvelopeSimple,
+  'Levels.fyi': CurrencyDollar,
+}
 
 function extractStarStories(canonicalResume, targetRole, skillsList, resumeJson) {
   const experiences = canonicalResume?.experience || resumeJson?.work_experience || resumeJson?.experience || []
@@ -240,11 +253,11 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     Array.isArray(reportData?.recommended_tools) && reportData.recommended_tools.length > 0
       ? reportData.recommended_tools
       : [
-          { name: 'Jobscan', category: 'ATS Resume Scanner', url: 'https://jobscan.co', icon: '🎯' },
-          { name: 'Teal HQ', category: 'Job Tracker', url: 'https://tealhq.com', icon: '📊' },
-          { name: 'Otta', category: 'Smart Job Board', url: 'https://otta.com', icon: '💼' },
-          { name: 'Lemlist', category: 'Cold Email Outreach', url: 'https://lemlist.com', icon: '📧' },
-          { name: 'Levels.fyi', category: 'Salary Intelligence', url: 'https://levels.fyi', icon: '💰' },
+          { name: 'Jobscan', category: 'ATS Resume Scanner', url: 'https://jobscan.co' },
+          { name: 'Teal HQ', category: 'Job Tracker', url: 'https://tealhq.com' },
+          { name: 'Otta', category: 'Smart Job Board', url: 'https://otta.com' },
+          { name: 'Lemlist', category: 'Cold Email Outreach', url: 'https://lemlist.com' },
+          { name: 'Levels.fyi', category: 'Salary Intelligence', url: 'https://levels.fyi' },
         ]
 
   const recommendedTools = rawTools.map((t) => {
@@ -253,7 +266,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     const rawC = typeof t === 'object' ? t?.category || t?.reason || 'Tool' : 'Tool'
     const category = typeof rawC === 'string' ? rawC : 'Tool'
     const url = typeof t === 'object' && typeof t?.url === 'string' ? t.url : `https://www.google.com/search?q=${encodeURIComponent(name)}`
-    return { name, category, url, icon: typeof t?.icon === 'string' ? t.icon : '🛠️' }
+    return { name, category, url }
   })
 
   const rawFacts =
@@ -372,11 +385,11 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
     <section id="diagnosis" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+          <span className="text-xs font-mono text-[var(--text-muted)] block">
             Deep-Dive Diagnostics
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             Detailed Career Diagnosis
@@ -435,7 +448,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                       {missingKeywordsList.length > 0 ? 'Needs Keyword Lift' : '✓ Keyword Coverage Clean'}
                     </span>
                   </div>
-                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center font-mono font-extrabold text-lg ${
+                  <div className={`w-12 h-12 rounded-xl border flex items-center justify-center font-mono font-semibold tabular-nums text-lg ${
                     missingKeywordsList.length > 0
                       ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
                       : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
@@ -731,7 +744,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                           {copiedScriptId === sc.id ? (
                             <>
                               <Check size={14} className="text-[var(--emerald)]" weight="bold" />
-                              <span className="text-[var(--emerald)]">Copied to Clipboard!</span>
+                              <span className="text-[var(--emerald)]">Copied</span>
                             </>
                           ) : (
                             <>
@@ -768,32 +781,35 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
 
               {/* Recommended Tool Stack */}
               <div className="space-y-3">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                   Recommended Career Intelligence Stack
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {recommendedTools.map((tool, i) => (
-                    <a
-                      key={i}
-                      href={tool.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-[var(--primary)] transition-all flex items-center justify-between group no-underline"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xl">{tool.icon || '🛠️'}</span>
-                        <div>
-                          <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-[var(--primary)] block transition-colors">
-                            {tool.name}
-                          </span>
-                          <span className="text-[10px] text-[var(--text-muted)] block">
-                            {tool.category}
-                          </span>
+                  {recommendedTools.map((tool, i) => {
+                    const ToolIcon = TOOL_ICON_MAP[tool.name] || Wrench
+                    return (
+                      <a
+                        key={i}
+                        href={tool.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-[var(--primary)] transition-colors flex items-center justify-between group no-underline"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ToolIcon size={16} weight="regular" className="text-[var(--text-muted)] group-hover:text-[var(--primary)] shrink-0 transition-colors" />
+                          <div>
+                            <span className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--primary)] block transition-colors">
+                              {tool.name}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)] block">
+                              {tool.category}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-[var(--primary)]" />
-                    </a>
-                  ))}
+                        <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-[var(--primary)] shrink-0 transition-colors" />
+                      </a>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -890,18 +906,18 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                         High Technical Depth
                       </span>
                     </div>
-                    <div className="w-12 h-12 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-mono font-extrabold text-lg">
+                    <div className="w-12 h-12 rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center font-mono font-semibold tabular-nums text-lg">
                       {interviewScore}
                     </div>
                   </div>
                 </div>
 
                 {/* Hidden Gem #3A: 60-Second "Tell Me About Yourself" Spoken Pitch */}
-                <div className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4">
+                <div className="p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Microphone size={18} className="text-[var(--primary)]" weight="bold" />
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      <h4 className="text-sm font-semibold text-[var(--text-primary)]">
                         60-Second Elevator Pitch ("Tell Me About Yourself")
                       </h4>
                     </div>
@@ -917,7 +933,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                         {copiedPitch ? (
                           <>
                             <Check size={14} className="text-[var(--emerald)]" weight="bold" />
-                            <span className="text-[var(--emerald)]">Copied Pitch!</span>
+                            <span className="text-[var(--emerald)]">Copied</span>
                           </>
                         ) : (
                           <>
@@ -957,8 +973,8 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                 <div className="space-y-4 pt-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <div>
-                      <h4 className="text-sm font-bold uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
-                        <Sparkle size={16} className="text-[var(--primary)]" weight="fill" />
+                      <h4 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-[var(--primary)]" weight="bold" />
                         <span>Top 3 Behavioral & Technical STAR Stories Extracted From Your Resume</span>
                       </h4>
                       <p className="text-xs text-[var(--text-muted)] mt-0.5">
@@ -997,7 +1013,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                             {copiedStoryId === story.id ? (
                               <>
                                 <Check size={14} className="text-[var(--emerald)]" weight="bold" />
-                                <span className="text-[var(--emerald)]">Copied Story!</span>
+                                <span className="text-[var(--emerald)]">Copied</span>
                               </>
                             ) : (
                               <>

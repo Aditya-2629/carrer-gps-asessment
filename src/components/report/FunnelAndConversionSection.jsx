@@ -7,7 +7,7 @@ import {
   Code,
   UsersThree,
   Trophy,
-  Robot,
+  Cpu,
   Sliders,
 } from '@phosphor-icons/react'
 import { extractQuantMetric, decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
@@ -115,7 +115,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
       shortName: 'OAs',
       count: assessments + aiInterviews || Math.max(1, Math.round(screens * 0.8)),
       unit: 'tests & video',
-      icon: Robot,
+      icon: Cpu,
       color: '#06b6d4',
       isDropOffGate: phaseId === 2 && assessments > 0,
       dropOffLabel: 'OA / CodeSignal Assessment Drop-off',
@@ -272,7 +272,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
           <span className="text-xs uppercase font-mono font-bold tracking-wider text-indigo-600 block">
             Inside The Hiring Funnel
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
             90-Day Funnel Outcomes &amp; Conversion Velocity
           </h2>
         </div>
@@ -282,15 +282,15 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
       </div>
 
       {/* ── 1. Animated SVG Sankey Pipeline Flow & What-If Simulator ── */}
-      <div className="p-5 sm:p-7 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-6">
+      <div className="p-5 sm:p-6 rounded-xl bg-white border border-slate-200 shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
+          <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-600" />
             Sankey Pipeline Flow &amp; Bottleneck Leak Gate
           </span>
 
-          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-600">
-            Detected Leak Point: <strong className="text-rose-600">Phase {phaseId}</strong>
+          <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-600">
+            Detected Leak Point: <strong className="text-rose-600 font-semibold">Phase {phaseId}</strong>
           </span>
         </div>
 
@@ -345,10 +345,9 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
                     <circle
                       cx={(x0 + x1) / 2}
                       cy={sankeyYMid}
-                      r="6"
+                      r="5"
                       fill="#F43F5E"
-                      className="animate-ping"
-                      opacity="0.8"
+                      opacity="0.85"
                     />
                   )}
                 </g>
@@ -438,8 +437,8 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
             <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-3">
               <WarningCircle size={22} weight="fill" className="text-rose-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-ping inline-block" />
+                <span className="text-xs font-semibold text-rose-700 font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" />
                   Primary Funnel Friction Leak: {leakTitle}
                 </span>
                 <p className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
@@ -524,7 +523,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
                 <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-600 block font-bold">
                   Simulated Projected Offers
                 </span>
-                <span className="font-mono text-2xl font-black text-emerald-600">
+                <span className="font-mono text-2xl font-semibold text-emerald-600 tabular-nums">
                   <NumberRoll value={simulatedOffers} duration={700} />
                 </span>
               </div>
@@ -611,7 +610,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
               Application → Screen Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${screenRateColor}`}>
+              <span className={`text-xl font-semibold font-mono tabular-nums ${screenRateColor}`}>
                 {screenRate}%
               </span>
               <span className="text-[11px] text-slate-400">Target: &gt;5.0%</span>
@@ -623,7 +622,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
               Technical → Final Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${techRateColor}`}>
+              <span className={`text-xl font-semibold font-mono tabular-nums ${techRateColor}`}>
                 {techToFinalRate}%
               </span>
               <span className="text-[11px] text-slate-400">Target: &gt;40%</span>
@@ -635,7 +634,7 @@ export default function FunnelAndConversionSection({ funnelData: _funnelData, re
               Final Round → Offer Conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className={`text-xl font-black font-mono ${offerRateColor}`}>
+              <span className={`text-xl font-semibold font-mono tabular-nums ${offerRateColor}`}>
                 {finalToOfferRate}%
               </span>
               <span className="text-[11px] text-slate-400">Target: &gt;30%</span>

@@ -4,7 +4,6 @@ import {
   Check,
   Trophy,
   Target,
-  Sparkle,
   Path,
   Flag,
   Lightning,
@@ -650,11 +649,11 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+          <span className="text-xs font-mono text-[var(--text-muted)] block">
             Execution Timeline & Milestones
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             Action Roadmap & Quick-Win Sprint
@@ -712,28 +711,28 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
         }
 
         return (
-          <div id="action-sprint" className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-indigo-50/40 via-white to-emerald-50/20 border-2 border-indigo-200/60 shadow-sm relative overflow-hidden break-inside-avoid page-break-inside-avoid space-y-5">
+          <div id="action-sprint" className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs relative overflow-hidden break-inside-avoid page-break-inside-avoid space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                  <Lightning size={22} weight="fill" />
+                <div className="w-10 h-10 rounded-lg bg-[var(--primary)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Lightning size={20} weight="fill" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 font-mono block">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
                     Immediate Execution Sprint
                   </span>
-                  <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                  <h3 className="text-lg sm:text-xl font-semibold text-slate-900 tracking-tight">
                     7-Day Rapid Triage Checklist
                   </h3>
                 </div>
               </div>
 
               {/* Live Completion Gauge */}
-              <div className="flex items-center gap-3 bg-white px-3.5 py-2 rounded-2xl border border-slate-200 shadow-2xs self-start md:self-auto">
+              <div className="flex items-center gap-3 bg-[var(--surface-sunken)] px-3.5 py-2 rounded-lg border border-slate-200 shadow-2xs self-start md:self-auto">
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-3 text-[11px] font-bold font-mono">
+                  <div className="flex items-center justify-between gap-3 text-[11px] font-mono font-medium">
                     <span className="text-slate-700">Sprint Execution:</span>
-                    <span className="text-emerald-600 flex items-center gap-0.5">
+                    <span className="text-emerald-600 flex items-center gap-0.5 tabular-nums">
                       <NumberRoll value={completedCount} /> of {sprintDays.length} (<NumberRoll value={sprintPct} />%)
                     </span>
                   </div>
@@ -851,7 +850,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                 {/* Milestone Period Badge + Phase Tag */}
                 <div className="flex items-center justify-between">
                   <span
-                    className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-full font-mono ${
+                    className={`text-xs font-mono px-2.5 py-1 rounded-md ${
                       p.isGoal
                         ? 'bg-amber-400 text-black'
                         : p.active

@@ -88,12 +88,12 @@
   --space-2: 8px;
   --space-3: 16px;
   --space-4: 24px;
-  --space-5: 28.33px;
+  --space-5: 32px;
   --space-6: 48px;
 
   /* Motion */
   --motion-instant: 150ms;
-  --ease-instant: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-instant: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -216,7 +216,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
 }
 
 .glass {
@@ -243,7 +243,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 13px 26px;
   font-size: 0.95rem;
   box-shadow: 0 1px 2px rgba(99, 102, 241, 0.25);
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
   position: relative;
   white-space: nowrap;
 }
@@ -279,7 +279,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
 }
 
 .btn-ghost:hover {
@@ -302,7 +302,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 0.95rem;
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
   user-select: none;
   text-align: left;
 }
@@ -334,7 +334,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   flex-shrink: 0;
   background: var(--surface-card);
-  transition: all var(--motion-instant) ease;
+  transition: color var(--motion-instant) ease, background-color var(--motion-instant) ease, border-color var(--motion-instant) ease;
 }
 
 .radio-option.selected .radio-dot {
@@ -376,7 +376,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 0.95rem;
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
   user-select: none;
   text-align: left;
 }
@@ -405,7 +405,7 @@ h1, h2, h3, h4, h5, h6 {
   margin-top: 2px;
   flex-shrink: 0;
   background: var(--surface-card);
-  transition: all var(--motion-instant) ease;
+  transition: color var(--motion-instant) ease, background-color var(--motion-instant) ease, border-color var(--motion-instant) ease;
 }
 
 .checkbox-option.selected .checkbox-box {
@@ -425,7 +425,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 13px 16px;
   width: 100%;
   outline: none;
-  transition: all var(--motion-instant) ease;
+  transition: color var(--motion-instant) ease, background-color var(--motion-instant) ease, border-color var(--motion-instant) ease;
 }
 
 .premium-input::placeholder {
@@ -462,7 +462,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   background: var(--surface-card);
   outline: none;
-  transition: all var(--motion-instant) var(--ease-instant);
+  transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
   caret-color: var(--primary);
 }
 
@@ -490,7 +490,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 40px 24px;
   text-align: center;
   cursor: pointer;
-  transition: all var(--motion-instant) ease;
+  transition: color var(--motion-instant) ease, background-color var(--motion-instant) ease, border-color var(--motion-instant) ease;
 }
 
 .file-drop:hover, .file-drop.drag-over {
@@ -597,7 +597,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .cockpit-pill {
-  transition: all 0.18s ease-in-out;
+  transition: color 0.15s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .cockpit-pill.active {
   background: var(--surface-card);

@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Copy,
   Check,
-  Sparkle,
   Tag,
   Briefcase,
   CalendarBlank,
@@ -1217,14 +1216,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       />
 
       {/* ── 1B. Recruiter SEO Scorecard & 1-Click Copy Headlines ────────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+              <span className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
                 in
               </span>
-              <h4 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 LinkedIn Recruiter Search Visibility
               </h4>
             </div>
@@ -1234,7 +1233,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           </div>
 
           <div className="text-right">
-            <div className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+            <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {recruiterSeo?.seoScore || 58}/100
             </div>
             <span
@@ -1278,13 +1277,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 <button
                   type="button"
                   onClick={() => handleCopy(item.headline, copyKey)}
-                  className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs border ${
+                  className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs border ${
                     isCopied
                       ? 'bg-emerald-600 text-white border-emerald-600'
                       : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                   }`}
                 >
-                  {isCopied ? 'Copied!' : 'Copy'}
+                  {isCopied ? 'Copied' : 'Copy'}
                 </button>
               </div>
             )
@@ -1403,25 +1402,25 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         {/* 3 Metric Diagnosis Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Activity Cadence</div>
-            <div className="text-sm font-extrabold text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block animate-pulse" />
+            <div className="text-[10px] font-mono text-slate-400">Activity Cadence</div>
+            <div className="text-sm font-semibold text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
               Dormant (&gt;60 Days Inactive)
             </div>
             <p className="text-[11px] text-[var(--text-secondary)]">No original technical posts published recently. Recruiter visibility decays after 30 days of inactivity.</p>
           </div>
 
           <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Interaction Style</div>
-            <div className="text-sm font-extrabold text-slate-800 dark:text-slate-200">
+            <div className="text-[10px] font-mono text-slate-400">Interaction Style</div>
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
               Low-Signal Reactions
             </div>
             <p className="text-[11px] text-[var(--text-secondary)]">Past activity consists primarily of company updates and reactions rather than original domain commentary.</p>
           </div>
 
           <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Recruiter Conversion Impact</div>
-            <div className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
+            <div className="text-[10px] font-mono text-slate-400">Recruiter Conversion Impact</div>
+            <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
               +50 Score Lift Opportunity
             </div>
             <p className="text-[11px] text-[var(--text-secondary)]">Publishing 1 high-value project case study per month moves your Activity score from 40/100 to 90/100.</p>
@@ -1431,11 +1430,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         {/* 3 Ready-to-Publish Thought Leadership Post Templates */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1.5">
-              <Sparkle size={14} className="text-amber-500" />
-              3 Pre-Engineered Thought Leadership Posts (1-Click Copy to Publish)
+            <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1.5">
+              <Article size={14} className="text-amber-500" />
+              3 Pre-Engineered Thought Leadership Posts (1-Click Copy)
             </span>
-            <span className="text-[11px] text-[var(--text-muted)]">
+            <span className="text-[11px] font-mono text-[var(--text-muted)]">
               Calibrated to {resolvedTargetRole} Domain Authority
             </span>
           </div>
@@ -1447,15 +1446,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               return (
                 <div
                   key={pIdx}
-                  className="flex flex-col justify-between bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-3 shadow-2xs hover:border-[var(--primary)]/40 transition-all"
+                  className="flex flex-col justify-between bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-3 shadow-2xs hover:border-[var(--primary)]/40 transition-colors"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
                         {post.badge}
                       </span>
                     </div>
-                    <div className="font-bold text-xs text-[var(--text-primary)]">
+                    <div className="font-semibold text-xs text-[var(--text-primary)]">
                       {post.title}
                     </div>
                     <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-line leading-relaxed font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] max-h-48 overflow-y-auto">
@@ -1466,7 +1465,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   <button
                     type="button"
                     onClick={() => handleCopy(post.content, copyKey)}
-                    className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                       isCopied
                         ? 'bg-emerald-600 text-white'
                         : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
@@ -1474,7 +1473,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   >
                     {isCopied ? (
                       <>
-                        <Check size={13} weight="bold" /> Copied to Clipboard!
+                        <Check size={13} weight="bold" /> Copied
                       </>
                     ) : (
                       <>
@@ -1494,9 +1493,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         <div className="space-y-6">
           <div className="flex items-center gap-2">
             <span className="p-1 rounded-md bg-[var(--primary-light)] text-[var(--primary)]">
-              <Sparkle size={18} weight="fill" />
+              <CheckCircle size={16} weight="bold" />
             </span>
-            <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
               Action-Oriented All-Star Optimization Suite
             </h3>
           </div>
@@ -1558,7 +1557,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                       >
                         {isCopied ? (
                           <>
-                            <Check size={14} weight="bold" /> Copied Headline!
+                            <Check size={14} weight="bold" /> Copied
                           </>
                         ) : (
                           <>
@@ -1575,26 +1574,26 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
           {/* Story-Driven About Section Card */}
           {rawAbout && (
-            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs">
+            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                       Story-Driven About Section Rewrite
                     </h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-semibold">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium tabular-nums">
                       {aboutWordCount} words · {aboutCharCount} chars (limit: 2,600)
                     </span>
                   </div>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Engineered for modern recruiter scan habits: The Hook → Quantified Proof → Next Role Call-to-Connect
+                    Structured for modern recruiter scan habits: The Hook → Quantified Proof → Next Role Call-to-Connect
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => handleCopy(fullAboutText, 'about_rewrite')}
-                  className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                  className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
                     copiedId === 'about_rewrite'
                       ? 'bg-emerald-600 text-white'
                       : 'bg-[#0a66c2] hover:bg-[#004182] text-white'
@@ -1602,7 +1601,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 >
                   {copiedId === 'about_rewrite' ? (
                     <>
-                      <Check size={14} weight="bold" /> Copied Full About Section!
+                      <Check size={14} weight="bold" /> Copied
                     </>
                   ) : (
                     <>
@@ -1711,7 +1710,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                             >
                               {isRoleCopied ? (
                                 <>
-                                  <Check size={13} weight="bold" /> Copied Bullets!
+                                  <Check size={13} weight="bold" /> Copied
                                 </>
                               ) : (
                                 <>

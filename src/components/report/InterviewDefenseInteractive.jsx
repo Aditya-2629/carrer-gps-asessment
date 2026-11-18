@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { ShieldCheck, ChevronDown, Check, Plus, Copy, Sparkles } from 'lucide-react'
+import { ShieldCheck, ChevronDown, Check, Plus, Copy } from 'lucide-react'
 import {
   getTalkingScript,
   getResumeSentence,
@@ -108,16 +108,16 @@ export default function InterviewDefenseInteractive({
             Prepares you to defend stranded skills listed in your resume during recruiter screenings and live technical rounds.
           </p>
         </div>
-        <span className="self-start sm:self-auto text-xs font-semibold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+        <span className="self-start sm:self-auto text-xs font-mono px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">
           {selectedSkills.length} Active Target Skills
         </span>
       </div>
 
       {/* Interactive Skill Selector Bar */}
       <div>
-        <p className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
-          Toggle Skills to Defend in Report:
+        <p className="text-xs font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-[var(--primary)]" />
+          <span>Toggle Skills to Defend in Report:</span>
         </p>
         <div className="flex flex-wrap gap-2">
           {availableToggleSkills.map((skill, idx) => {
@@ -127,7 +127,7 @@ export default function InterviewDefenseInteractive({
                 key={idx}
                 type="button"
                 onClick={() => toggleSkill(skill)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-emerald-600 text-white shadow-xs font-bold'
                     : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:bg-[var(--border-default)] border border-[var(--border-default)]'

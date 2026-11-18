@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ListChecks,
   ArrowRight,
-  Sparkle,
   Lightning,
   CheckCircle,
   CaretDown,
@@ -160,11 +159,11 @@ export default function TopPriorities({ missionBoardData, resumeAgent, reportDat
     <section id="priorities" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+          <span className="text-xs font-mono text-[var(--text-muted)] block">
             Immediate Focus
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             What should you fix first?
@@ -181,25 +180,25 @@ export default function TopPriorities({ missionBoardData, resumeAgent, reportDat
           <motion.div
             key={p.num}
             whileHover={{ y: -3, transition: { duration: 0.2 } }}
-            className="p-6 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)]/40 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+            className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)]/40 hover:shadow-xs transition-colors flex flex-col justify-between space-y-4"
           >
             <div className="space-y-3.5">
               {/* Card Header: Number + Impact Badge */}
               <div className="flex items-center justify-between">
                 <span
-                  className="text-2xl font-black font-mono text-[var(--primary)]"
+                  className="text-2xl font-semibold font-mono text-[var(--primary)] tabular-nums"
                   style={{ fontFamily: 'var(--font-head)' }}
                 >
                   {p.num}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">
                   {p.impact}
                 </span>
               </div>
 
               {/* Title */}
               <h3
-                className="text-base font-bold text-[var(--text-primary)] tracking-tight leading-snug"
+                className="text-base font-semibold text-[var(--text-primary)] tracking-tight leading-snug"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
                 {p.title}

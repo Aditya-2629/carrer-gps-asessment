@@ -5,6 +5,9 @@ const ICON_MAP = {
   'zap-off': LightningSlash,
   'eye-off': EyeClosed,
   'shield-off': ShieldSlash,
+  'trend-down': TrendDown,
+  'speaker-slash': SpeakerSlash,
+  'file-text': FileText,
   '📈': TrendDown,
   '🔇': SpeakerSlash,
   '📄': FileText,
@@ -29,29 +32,29 @@ export default function CriticalIssues({ issues }) {
         return (
           <div
             key={issue.id}
-            className="p-5 rounded-2xl border"
+            className="p-5 rounded-xl border"
             style={{
               background: sev.bg,
               borderColor: sev.border,
             }}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3.5">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
                 style={{ background: `${sev.color}12`, color: sev.color }}
               >
-                <IconComponent size={20} weight="bold" />
+                <IconComponent size={16} weight="regular" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <h3
-                    className="font-bold text-base sm:text-lg text-[var(--text-primary)] tracking-tight"
+                    className="font-semibold text-base sm:text-lg text-[var(--text-primary)] tracking-tight"
                     style={{ fontFamily: 'var(--font-head)' }}
                   >
                     {issue.title}
                   </h3>
                   <span
-                    className="text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-md"
+                    className="text-[11px] font-mono px-2 py-0.5 rounded-md"
                     style={{
                       background: `${sev.color}15`,
                       color: sev.color,
@@ -66,7 +69,7 @@ export default function CriticalIssues({ issues }) {
                 </p>
                 {issue.action_steps && issue.action_steps.length > 0 && (
                   <div className="mt-4 pt-3.5 border-t border-[var(--border-default)]">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--emerald)] mb-2.5">Immediate Action Steps:</p>
+                    <p className="text-xs font-semibold text-[var(--text-primary)] mb-2">Immediate Action Steps:</p>
                     <ul className="space-y-2.5 list-none pl-0">
                       {issue.action_steps.map((step, sIdx) => (
                         <li key={sIdx} className="text-sm text-[var(--text-primary)] font-medium flex items-start gap-2.5 leading-relaxed">

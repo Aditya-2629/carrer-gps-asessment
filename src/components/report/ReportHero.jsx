@@ -236,8 +236,8 @@ export default function ReportHero({ reportData, user }) {
               </span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              {candidateName ? `${candidateName}'s Career Health Report` : 'Executive Career Health Report'}
+            <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight leading-tight">
+              {candidateName ? `${candidateName}'s Career Health Report` : 'Career Health Diagnostic Report'}
             </h1>
 
             <p className="text-xs text-slate-600 leading-relaxed">
@@ -247,7 +247,7 @@ export default function ReportHero({ reportData, user }) {
           </div>
 
           {/* Overall Index Score Dial */}
-          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 shrink-0">
+          <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 shrink-0">
             <div className="relative w-20 h-20 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle
@@ -262,7 +262,7 @@ export default function ReportHero({ reportData, user }) {
                   cx="50"
                   cy="50"
                   r="45"
-                  className={`${ringColor} stroke-current transition-all duration-1000 ease-out`}
+                  className={`${ringColor} stroke-current transition-all duration-700 ease-out`}
                   strokeWidth="8"
                   strokeDasharray="283"
                   strokeDashoffset={strokeDashoffset}
@@ -274,9 +274,9 @@ export default function ReportHero({ reportData, user }) {
                 <NumberRoll
                   value={overall}
                   duration={900}
-                  className="text-xl font-black font-mono text-slate-900"
+                  className="text-xl font-semibold font-mono text-slate-900 tabular-nums"
                 />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[9px] font-mono text-slate-400">
                   Index
                 </span>
               </div>
@@ -386,12 +386,12 @@ export default function ReportHero({ reportData, user }) {
               }`}
             >
               <div className="flex items-center justify-between gap-1 mb-1">
-                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 group-hover:text-slate-800">
+                <span className="text-[10px] font-mono text-slate-500 group-hover:text-slate-800">
                   {m.label}
                 </span>
                 <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-indigo-600 transition-colors" />
               </div>
-              <div className="font-mono text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <div className="font-mono text-xl sm:text-2xl font-semibold text-slate-900 tracking-tight tabular-nums">
                 {m.valueNode || m.value}
               </div>
               <p className="text-[10px] text-slate-500 font-medium mt-0.5">

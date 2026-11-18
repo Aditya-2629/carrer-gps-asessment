@@ -2,7 +2,6 @@ import React from 'react'
 import {
   CalendarBlank,
   Clock,
-  Sparkle,
   ArrowRight,
   Printer,
   ShieldCheck,
@@ -47,21 +46,17 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 print-keep print-card break-inside-avoid page-break-inside-avoid">
-      <div className="p-6 sm:p-8 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 relative overflow-hidden shadow-lg space-y-5 print-card break-inside-avoid page-break-inside-avoid print:p-4 print:space-y-2">
-        {/* Soft Primary Gradient Background Glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--primary)]/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 max-w-3xl mx-auto space-y-6 print:space-y-3 text-center">
+      <div className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs space-y-5 print-card break-inside-avoid page-break-inside-avoid print:p-4 print:space-y-2">
+        <div className="relative z-10 max-w-3xl mx-auto space-y-5 print:space-y-3 text-center">
           {/* Header Tag */}
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/25">
-            <Sparkle size={14} weight="fill" />
-            <span>The Execution Bridge: Why Resume Rewrites Alone Won't Fix Your Offer Pipeline</span>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono tracking-normal text-[var(--text-muted)] border border-[var(--border-default)]">
+            <span>The Execution Bridge: Pipeline Conversion & Strategy</span>
           </div>
 
           {/* Core Headline */}
           <div className="space-y-2.5 print:space-y-1">
             <h2
-              className="text-2xl sm:text-3xl md:text-4xl print:text-xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight"
+              className="text-2xl sm:text-3xl print:text-xl font-semibold text-[var(--text-primary)] tracking-tight leading-tight"
               style={{ fontFamily: 'var(--font-head)' }}
             >
               {reportData?.phase?.name && reportData?.primary_bottleneck?.title ? (

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react'
 import {
-  Sparkle,
   ListChecks,
   WarningCircle,
   ArrowRight,
@@ -502,13 +501,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Overall review */}
         {(resumeAgent.overallReview?.summary || typeof resumeAgent.overallReview === 'string') && (
-          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-xs">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl p-6 flex flex-col justify-between shadow-xs">
             <div>
               <div className="flex items-center justify-between gap-2 mb-3">
-                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkle size={15} weight="fill" /> The Recruiter's Read
+                <h3 className="text-xs font-mono text-emerald-400 flex items-center gap-2">
+                  <User size={15} weight="bold" /> The Recruiter's Read
                 </h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
                   Direct Diagnostic Tone
                 </span>
               </div>
@@ -622,20 +621,20 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
           {/* Ready-to-Paste Executive Summary Rewrite */}
           {summaryOptimization.rewrittenSummary && (
-            <div className="bg-gradient-to-r from-indigo-500/5 via-sky-500/5 to-emerald-500/5 border border-indigo-500/30 dark:border-indigo-400/30 rounded-xl p-4 sm:p-5 space-y-3">
+            <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 font-mono">
                   <Target size={14} weight="bold" /> Strategic Executive Summary Rewrite
                 </span>
 
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   title="Click to copy executive summary"
                 >
                   {copiedSummary ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
-                  <span>{copiedSummary ? 'Copied to Clipboard!' : 'Copy Summary'}</span>
+                  <span>{copiedSummary ? 'Copied' : 'Copy Summary'}</span>
                 </button>
               </div>
 
@@ -667,7 +666,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                   <h3 className="text-base font-bold text-[var(--text-primary)]">
                     What to Cut (Fluff & 1-Page Discipline)
                   </h3>
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 tabular-nums">
                     {cutList.length} {cutList.length === 1 ? 'Item' : 'Items'} to Cut
                   </span>
                 </div>
@@ -719,7 +718,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                   <h3 className="text-base font-bold text-[var(--text-primary)]">
                     Literal ATS Keyword Mirroring
                   </h3>
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 tabular-nums">
                     {nearMissKeywords.length} Exact Keyword Swaps
                   </span>
                 </div>

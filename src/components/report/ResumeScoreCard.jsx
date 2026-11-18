@@ -61,10 +61,10 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
         <NumberRoll
           value={score}
           duration={850}
-          className={`text-4xl font-extrabold tabular-nums leading-none ${light ? 'text-slate-900' : 'text-white'}`}
+          className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-slate-900' : 'text-white'}`}
         />
-        <div className={`text-lg font-extrabold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
-        <div className={`text-[10px] uppercase tracking-widest mt-0.5 ${light ? 'text-slate-400' : 'text-gray-500'}`}>{gradeLabel}</div>
+        <div className={`text-lg font-semibold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
+        <div className={`text-[10px] font-mono tracking-normal mt-0.5 ${light ? 'text-slate-400' : 'text-gray-500'}`}>{gradeLabel}</div>
       </div>
     </div>
   )
@@ -113,8 +113,8 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
 
         <div className="flex-1 min-w-0 space-y-3 w-full">
           <div>
-            <div className={`text-[11px] uppercase tracking-widest font-bold ${labelColor}`}>{title}</div>
-            <div className={`text-lg font-bold ${headingText}`}>
+            <div className={`text-[11px] font-mono tracking-normal font-medium ${labelColor}`}>{title}</div>
+            <div className={`text-lg font-semibold ${headingText}`}>
               {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
                 <NumberRoll value={score} duration={850} />/100
@@ -129,10 +129,10 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
               const chipBorder = light ? c.borderLight : c.borderDark
               const gradeText = light ? c.textLight : c.text
               return (
-                <div key={key} className={`${chipBg} ${chipBorder} border rounded-xl px-3 py-2 print:break-inside-avoid`} title={g.facts?.join('\n')}>
+                <div key={key} className={`${chipBg} ${chipBorder} border rounded-lg px-3 py-2 print:break-inside-avoid`} title={g.facts?.join('\n')}>
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${light ? 'text-slate-600' : 'text-gray-300'}`}>{g.label}</span>
-                    <span className={`text-sm font-extrabold ${gradeText}`}>{g.grade}</span>
+                    <span className={`text-[10px] font-mono tracking-normal truncate ${light ? 'text-slate-600' : 'text-gray-300'}`}>{g.label}</span>
+                    <span className={`text-sm font-semibold tabular-nums ${gradeText}`}>{g.grade}</span>
                   </div>
                   <div className={`text-[10px] mt-0.5 tabular-nums ${subText}`}>{g.score}/100</div>
                 </div>
@@ -159,7 +159,7 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
       {/* Checklist */}
       <div className="p-5 print:break-inside-avoid">
         <div className="flex items-center justify-between mb-3">
-          <h4 className={`text-xs font-bold uppercase tracking-wider ${labelColor}`}>
+          <h4 className={`text-xs font-semibold ${labelColor}`}>
             {scoreWord?.toLowerCase().includes('linkedin') ? 'LinkedIn Checklist' : 'Resume Checklist'}
           </h4>
           <span className={`text-[11px] font-mono ${subText}`}>

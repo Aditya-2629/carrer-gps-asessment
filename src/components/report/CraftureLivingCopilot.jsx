@@ -10,7 +10,7 @@ import {
   SECTION_INSIGHTS,
 } from '../../store/useReportGuideStore'
 import { crafturePerson } from '../../mascots/crafturePerson'
-import { ArrowRight, X, Sparkles } from 'lucide-react'
+import { ArrowRight, X, MessageSquare } from 'lucide-react'
 
 // Main report sections observed for curated executive beats
 const OBSERVED_SECTION_IDS = [
@@ -80,8 +80,8 @@ export default function CraftureLivingCopilot() {
     setEmotion('victory')
 
     setActiveThought({
-      chip: 'SIUUU! 🚀',
-      text: customMsg || 'SIUUU! Milestone achieved — pipeline momentum unlocked! 🏆',
+      chip: 'Milestone',
+      text: customMsg || 'Milestone achieved: pipeline progress recorded.',
       emotion: 'victory',
     })
 
@@ -342,7 +342,7 @@ export default function CraftureLivingCopilot() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 8, transition: { duration: 0.2 } }}
             transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-1 w-[310px] sm:w-[330px] max-w-[340px] pointer-events-auto"
+            className="mb-1 w-80 pointer-events-auto"
           >
             {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
             <div className="flex flex-col items-end mr-12 mb-1 space-y-1">
@@ -361,10 +361,10 @@ export default function CraftureLivingCopilot() {
             </div>
 
             {/* Main Thought Cloud Card */}
-            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-2xl p-4 shadow-xl shadow-slate-900/10 dark:shadow-black/40 overflow-hidden group">
+            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-xl p-4 shadow-xl shadow-slate-900/10 dark:shadow-black/40 overflow-hidden group">
               {/* Top Accent Line */}
               <div
-                className="absolute top-0 left-0 right-0 h-1 transition-colors duration-400"
+                className="absolute top-0 left-0 right-0 h-1 transition-colors duration-300"
                 style={{ backgroundColor: accentColor }}
               />
 
@@ -372,23 +372,23 @@ export default function CraftureLivingCopilot() {
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-1.5">
                   <span
-                    className="w-2 h-2 rounded-full animate-pulse"
+                    className="w-2 h-2 rounded-full"
                     style={{ backgroundColor: accentColor }}
                   />
-                  <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-slate-600 dark:text-slate-300">
+                  <span className="text-[10px] font-mono tracking-normal text-slate-600 dark:text-slate-300">
                     {currentChip}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   {/* Problem / Solution Micro-Toggle */}
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 border border-slate-200 dark:border-slate-700 text-[10px]">
+                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[10px]">
                     <button
                       type="button"
                       onClick={() => setMode('problem')}
-                      className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
                         mode === 'problem'
-                          ? 'bg-rose-500 text-white shadow-2xs'
+                          ? 'bg-rose-600 text-white shadow-2xs'
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
@@ -397,9 +397,9 @@ export default function CraftureLivingCopilot() {
                     <button
                       type="button"
                       onClick={() => setMode('solution')}
-                      className={`px-2 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
                         mode === 'solution'
-                          ? 'bg-emerald-500 text-white shadow-2xs'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
                           : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                       }`}
                     >
@@ -421,12 +421,12 @@ export default function CraftureLivingCopilot() {
               </div>
 
               {/* Thought Body with Animated Transition */}
-              <div className="min-h-[38px] flex items-center mb-3">
+              <div className="min-h-10 flex items-center mb-3">
                 {isThinking ? (
                   <div className="flex items-center gap-1.5 py-1">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-80" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-60" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-40" />
                     <span className="text-[11px] font-mono text-slate-400 ml-1">Calibrating...</span>
                   </div>
                 ) : (
@@ -440,11 +440,11 @@ export default function CraftureLivingCopilot() {
               <button
                 type="button"
                 onClick={handleLaunchChat}
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-all cursor-pointer shadow-2xs group/btn"
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer shadow-2xs group/btn"
               >
                 <span className="flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-indigo-500 group-hover/btn:rotate-12 transition-transform" />
-                  <span>Ask Atlas about this</span>
+                  <MessageSquare size={13} className="text-indigo-500" />
+                  <span>Consult Atlas about this finding</span>
                 </span>
                 <ArrowRight size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
               </button>
@@ -459,12 +459,12 @@ export default function CraftureLivingCopilot() {
         <div
           ref={mascotContainerRef}
           onClick={handleMascotClick}
-          className="relative cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95 group/mascot"
+          className="relative cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 group/mascot"
           title={isChatOpen ? 'Atlas Copilot Active' : cloudMinimized ? 'Click to restore thought cloud' : 'Click to consult Crafture Guide'}
         >
           {/* Floor Ambient Drop Shadow */}
           <div
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-28 h-6 rounded-full pointer-events-none transition-all duration-300"
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-28 h-6 rounded-full pointer-events-none transition-opacity duration-200"
             style={{
               background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 70%)',
             }}
@@ -482,9 +482,9 @@ export default function CraftureLivingCopilot() {
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               whileHover={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-bold font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
             >
-              {cloudMinimized ? 'Expand Guide' : 'Ask Atlas'}
+              {cloudMinimized ? 'Expand Guide' : 'Consult Atlas'}
             </motion.div>
           )}
         </div>

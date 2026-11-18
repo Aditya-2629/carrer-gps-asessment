@@ -47,20 +47,20 @@ export default class ReportErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-[var(--surface-card)] border border-[var(--border-default)] rounded-3xl p-6 sm:p-8 shadow-xl text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500">
-              <WarningCircle size={36} weight="fill" />
+          <div className="max-w-lg w-full bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl p-6 sm:p-8 shadow-sm text-center space-y-6">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-500">
+              <WarningCircle size={24} weight="fill" />
             </div>
 
             <div className="space-y-2">
               <h2
-                className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight"
+                className="text-xl font-semibold text-[var(--text-primary)] tracking-tight"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
                 Report Rendering Recovery
               </h2>
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed font-medium">
-                We encountered an unexpected formatting issue with the AI report output, but your assessment data has been safely preserved.
+                We encountered an unexpected formatting issue with the report output, but your assessment data has been safely preserved.
               </p>
             </div>
 
@@ -77,7 +77,7 @@ export default class ReportErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleResetToSample}
-                className="px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)] hover:bg-[var(--surface-strong)] text-xs font-semibold text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)] hover:bg-[var(--surface-strong)] text-xs font-semibold text-[var(--text-primary)] transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <FileText size={16} />
                 <span>Load Sample Preview</span>
@@ -86,7 +86,7 @@ export default class ReportErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleRetest}
-                className="px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)] hover:bg-[var(--surface-strong)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)] hover:bg-[var(--surface-strong)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Edit Assessment</span>
               </button>

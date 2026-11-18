@@ -101,10 +101,10 @@ export default function CareerHealthBreakdown({
       {/* Executive Section Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
             <span>Career Intelligence Breakdown</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
             How Healthy Is My Job Search Pipeline?
           </h2>
           <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
@@ -134,15 +134,15 @@ export default function CareerHealthBreakdown({
               />
             </svg>
             <div className="absolute flex flex-col items-center">
-              <span className="text-5xl font-extrabold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
+              <span className="text-5xl font-semibold tabular-nums text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
                 {resolvedHealthScore}
               </span>
-              <span className="text-xs text-[var(--text-muted)] font-mono font-semibold">/100</span>
+              <span className="text-xs text-[var(--text-muted)] font-mono font-medium">/100</span>
             </div>
           </div>
 
-          <span className="mt-4 text-xs font-mono uppercase font-bold tracking-wider text-[var(--text-muted)]">CAREER HEALTH INDEX</span>
-          <span className="mt-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+          <span className="mt-4 text-xs font-mono text-[var(--text-muted)]">Career Health Index</span>
+          <span className="mt-1.5 px-2.5 py-0.5 rounded-md text-xs font-mono bg-amber-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400">
             {resolvedScoreLabel}
           </span>
         </div>
@@ -177,7 +177,7 @@ export default function CareerHealthBreakdown({
                 />
               </div>
 
-              <span className="w-10 text-right font-mono font-extrabold text-sm text-[var(--text-primary)]">{item.score}</span>
+              <span className="w-10 text-right font-mono font-semibold text-sm tabular-nums text-[var(--text-primary)]">{item.score}</span>
             </div>
           ))}
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Copy, Check, ArrowRight, Sparkle } from '@phosphor-icons/react'
+import { Copy, Check, ArrowRight } from '@phosphor-icons/react'
 
 /**
  * DiffSnippetCard
@@ -64,20 +64,20 @@ export function DiffSnippetCard({
   }
 
   return (
-    <div className="my-3.5 rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-sm overflow-hidden transition-all duration-200">
+    <div className="my-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs overflow-hidden">
       {/* Card Header: Optimization Badge & Score Delta */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-[var(--surface-subtle)] border-b border-[var(--border-default)] gap-2 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-            <Sparkle size={12} weight="fill" />
-            Google XYZ Bullet Optimization
+          <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+            <Check size={12} weight="bold" />
+            XYZ Standard Bullet Rewrite
           </span>
         </div>
-        <div className="flex items-center gap-1 text-[11px] font-mono font-bold">
+        <div className="flex items-center gap-1 text-[11px] font-mono font-semibold tabular-nums">
           <span className="text-rose-500 dark:text-rose-400">{scoreBefore}</span>
           <ArrowRight size={12} className="text-[var(--text-muted)]" />
           <span className="text-emerald-600 dark:text-emerald-400">{scoreAfter}</span>
-          <span className="text-emerald-500 text-[10px] font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20 ml-0.5">
+          <span className="text-emerald-500 text-[10px] font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20 ml-0.5">
             +{scoreDelta} pts
           </span>
         </div>
@@ -88,25 +88,25 @@ export function DiffSnippetCard({
         {cleanBefore && (
           <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 dark:bg-rose-950/20">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
+              <span className="text-[10px] font-mono text-rose-600 dark:text-rose-400 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
                 Original Draft (Vague Scope / Passive Duty)
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-[var(--text-muted)] line-through decoration-rose-400/50 italic">
+            <p className="text-xs leading-relaxed text-[var(--text-muted)] line-through decoration-rose-400/50">
               "{cleanBefore}"
             </p>
           </div>
         )}
 
         {/* Row 2: Optimized Google XYZ Bullet (After) */}
-        <div className="p-3.5 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/25">
+        <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/25">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
               Optimized Google XYZ (Action + Scale + Outcome)
             </span>
-            <span className="text-[10px] text-[var(--text-muted)] font-mono">
+            <span className="text-[10px] text-[var(--text-muted)] font-mono tabular-nums">
               {charCount} chars • {wordCount} words
             </span>
           </div>
@@ -117,8 +117,8 @@ export function DiffSnippetCard({
 
           {/* Metric calibration note if present */}
           {metricImpact && (
-            <div className="mt-2 text-[11px] text-[var(--text-secondary)] italic border-t border-emerald-500/20 pt-2 flex items-start gap-1.5">
-              <span className="text-emerald-500 font-bold not-italic">Impact:</span>
+            <div className="mt-2 text-[11px] text-[var(--text-secondary)] border-t border-emerald-500/20 pt-2 flex items-start gap-1.5">
+              <span className="text-emerald-500 font-semibold">Impact:</span>
               <span>{metricImpact}</span>
             </div>
           )}
@@ -148,12 +148,12 @@ export function DiffSnippetCard({
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 px-3 py-1.5 rounded-lg shadow-sm cursor-pointer transition-all"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors"
         >
           {copied ? (
             <>
               <Check size={14} weight="bold" />
-              <span>Copied to Clipboard!</span>
+              <span>Copied</span>
             </>
           ) : (
             <>

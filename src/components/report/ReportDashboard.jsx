@@ -32,11 +32,11 @@ import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
 
 export const COCKPIT_TABS = [
-  { id: 'overview', label: 'Overview & Pulse', icon: '🎯', badge: null },
-  { id: 'resume', label: 'Resume Lab', icon: '📄', badge: 'ATS' },
-  { id: 'linkedin', label: 'LinkedIn Studio', icon: '💼', badge: 'SEO' },
-  { id: 'funnel', label: 'Funnel & Risks', icon: '⚡', badge: 'Velocity' },
-  { id: 'roadmap', label: '7-Day Sprint', icon: '🚀', badge: 'Plan' },
+  { id: 'overview', label: 'Overview & Pulse', icon: '01', badge: null },
+  { id: 'resume', label: 'Resume Lab', icon: '02', badge: 'ATS' },
+  { id: 'linkedin', label: 'LinkedIn Studio', icon: '03', badge: 'SEO' },
+  { id: 'funnel', label: 'Funnel & Risks', icon: '04', badge: 'Velocity' },
+  { id: 'roadmap', label: '7-Day Sprint', icon: '05', badge: 'Plan' },
 ]
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'

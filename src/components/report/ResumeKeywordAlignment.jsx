@@ -252,18 +252,18 @@ export default function ResumeKeywordAlignment({
             <Target size={18} weight="bold" />
           </span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
+            <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400">
               ATS Target Keyword Alignment
             </div>
-            <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">
               {targetRole || 'Target Role Alignment'}
             </div>
           </div>
         </div>
 
-        <div className="px-3.5 py-1.5 rounded-xl border text-xs font-bold tracking-tight flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+        <div className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold tracking-tight flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
           <span>Target Keyword Match:</span>
-          <span className="font-mono text-sm font-extrabold flex items-center">
+          <span className="font-mono text-sm font-semibold tabular-nums flex items-center">
             <span>{verifiedCount}/{calculatedTotal} (</span>
             <NumberRoll value={currentMatchRate} duration={850} />
             <span>%)</span>
@@ -397,13 +397,13 @@ export default function ResumeKeywordAlignment({
       )}
 
       {/* ── Section 4: Single Unified Resume Download Card (Always Visible) ── */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-indigo-950/30 border-2 border-emerald-500/30 dark:border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <div className="p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-mono text-[var(--text-muted)] bg-[var(--surface-card)] border border-[var(--border-default)]">
               Ready-to-Apply Asset
             </span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">
+            <span className="text-xs font-semibold text-slate-900 dark:text-white">
               {selectedSkills.size > 0
                 ? `${selectedSkills.size} Selected Target Skills Woven into Experience`
                 : 'Harvard-ATS Single-Column Format (.docx)'}

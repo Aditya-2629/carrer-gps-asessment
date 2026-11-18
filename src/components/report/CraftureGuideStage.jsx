@@ -146,11 +146,11 @@ export default function CraftureGuideStage({ onSelectTab, activeTab: _activeTab 
       ref={stageRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden transition-all duration-300"
+      className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 relative overflow-hidden transition-colors duration-150"
     >
       {/* Top Hairline Active Indicator */}
       <div
-        className="absolute top-0 left-0 right-0 h-1 transition-colors duration-500"
+        className="absolute top-0 left-0 right-0 h-1 transition-colors duration-300"
         style={{ backgroundColor: emotionColor }}
       />
 
@@ -158,10 +158,10 @@ export default function CraftureGuideStage({ onSelectTab, activeTab: _activeTab 
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-2">
           <div
-            className="w-2.5 h-2.5 rounded-full transition-colors duration-300 animate-pulse"
+            className="w-2 h-2 rounded-full transition-colors duration-200"
             style={{ backgroundColor: emotionColor }}
           />
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+          <span className="text-xs font-mono tracking-normal text-slate-600">
             Guide Companion
           </span>
         </div>
@@ -195,12 +195,6 @@ export default function CraftureGuideStage({ onSelectTab, activeTab: _activeTab 
 
       {/* 3D Mascot WebGL2 Stage */}
       <div className="relative w-full aspect-square max-h-[220px] mx-auto flex items-center justify-center my-2">
-        {/* Ambient Glow */}
-        <div
-          className="absolute inset-4 rounded-full filter blur-2xl opacity-20 pointer-events-none transition-colors duration-700"
-          style={{ backgroundColor: emotionColor }}
-        />
-
         <div
           ref={characterRef}
           className="relative w-full h-full flex items-center justify-center cursor-pointer select-none"

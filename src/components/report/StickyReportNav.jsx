@@ -37,11 +37,11 @@ export default function StickyReportNav({
   }
 
   const tabs = COCKPIT_TABS || [
-    { id: 'overview', label: 'Overview & Pulse', icon: '🎯', badge: null },
-    { id: 'resume', label: 'Resume Lab', icon: '📄', badge: 'ATS' },
-    { id: 'linkedin', label: 'LinkedIn Studio', icon: '💼', badge: 'SEO' },
-    { id: 'funnel', label: 'Funnel & Risks', icon: '⚡', badge: 'Velocity' },
-    { id: 'roadmap', label: '7-Day Sprint', icon: '🚀', badge: 'Plan' },
+    { id: 'overview', label: 'Overview & Pulse', icon: '01', badge: null },
+    { id: 'resume', label: 'Resume Lab', icon: '02', badge: 'ATS' },
+    { id: 'linkedin', label: 'LinkedIn Studio', icon: '03', badge: 'SEO' },
+    { id: 'funnel', label: 'Funnel & Risks', icon: '04', badge: 'Velocity' },
+    { id: 'roadmap', label: '7-Day Sprint', icon: '05', badge: 'Plan' },
   ]
 
   return (
@@ -51,9 +51,9 @@ export default function StickyReportNav({
         <div className="w-full lg:w-auto flex items-center justify-between lg:justify-start gap-2 shrink-0">
           <div className="flex items-center gap-2 shrink-0">
             {/* Health Score Pill */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 border border-teal-500/25 text-teal-600 dark:text-teal-400 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-              <span className="font-mono">{healthScore}/100</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+              <span className="font-mono tabular-nums">{healthScore}/100</span>
             </div>
 
             {safeName && (
@@ -122,9 +122,9 @@ export default function StickyReportNav({
                   <span className="relative z-10">{tab.label}</span>
                   {tab.badge && (
                     <span
-                      className={`relative z-10 text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold hidden sm:inline ${
+                      className={`relative z-10 text-[9px] font-mono px-1.5 py-0.5 rounded-md hidden sm:inline ${
                         isActive
-                          ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
+                          ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300 font-semibold'
                           : 'bg-[var(--border-default)] text-[var(--text-muted)]'
                       }`}
                     >

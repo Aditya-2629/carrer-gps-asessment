@@ -45,10 +45,10 @@ export default function GoalRoadmapPath({ data, currentPhaseId = 2 }) {
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Executive Section Header */}
       <div className="space-y-1.5">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
           <span>Strategic Offer Pathway</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+        <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
           What Is My Step-By-Step Roadmap To The Offer?
         </h2>
         <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
