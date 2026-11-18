@@ -63,7 +63,7 @@ export function buildDeterministicThoughtLeadership(
   projects = [],
   isGhost = false
 ) {
-  const role = String(targetRole || 'Software Engineer').trim()
+  const role = String(targetRole || 'Professional').trim()
   const isFinance = /finance|financial|accountant|accounting|audit|tax|cpa|banking/i.test(role)
   const isHealth = /nurse|nursing|health|clinical|medical|hospital|patient/i.test(role)
   const isSales = /sales|account executive|b2b|marketing|revenue|bizdev/i.test(role)
@@ -73,22 +73,12 @@ export function buildDeterministicThoughtLeadership(
 
   const skills = Array.isArray(coreSkills) && coreSkills.length > 0
     ? coreSkills
-    : isData
-      ? ['SQL', 'Python', 'Snowflake', 'dbt']
-      : isDevops
-        ? ['Kubernetes', 'AWS', 'Terraform', 'Docker']
-        : isHealth
-          ? ['Patient Care', 'Clinical Operations', 'EHR Systems']
-          : isFinance
-            ? ['Financial Modeling', 'Variance Analysis', 'ERP Systems']
-            : isSales
-              ? ['B2B Sales', 'Salesforce CRM', 'Enterprise Deals']
-              : ['Node.js', 'PostgreSQL', 'Docker', 'System Architecture']
+    : ['core domain methodology', 'key execution metrics']
 
-  const skill1 = skills[0] || 'System Architecture'
-  const skill2 = skills[1] || (skills[0] ? `${skills[0]} Infrastructure` : 'Performance Optimization')
-  const skill3 = skills[2] || skills[0] || 'Technical Strategy'
-  const skill4 = skills[3] || skills[1] || 'Containerization'
+  const skill1 = skills[0] || 'core domain methodology'
+  const skill2 = skills[1] || (skills[0] ? `${skills[0]} execution` : 'key execution metrics')
+  const skill3 = skills[2] || skills[0] || 'domain strategy'
+  const skill4 = skills[3] || skills[1] || 'operational excellence'
 
   // Extract primary project name/scope
   const topProj = Array.isArray(projects) && projects.length > 0 ? projects[0] : null
@@ -366,7 +356,7 @@ export async function evaluateThoughtLeadershipAndSocialSeo({
   const targetRole =
     resumeContext?.targetRole ||
     resumeContext?.canonicalResume?.candidate?.targetRole ||
-    'Software Engineer'
+    'Professional'
   const coreSkills = extractVerifiedSkills(resumeContext)
   const projects = extractVerifiedProjects(resumeContext)
 

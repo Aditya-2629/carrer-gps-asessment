@@ -17,7 +17,6 @@ import { llmGateway } from '../../ai/gateway/llmGateway.js'
 import { matchCompany, isConcreteTechSkill, formatSkillName, isValidSkill } from './linkedinCrossAnalyzer.js'
 import { cleanTargetRoleTitle } from '../../services/resumeValidator.js'
 import {
-  buildLinkedInSynthesisPrompt,
   buildTask1HeadlinesAndBannerPrompt,
   buildTask2AboutAndFeaturedPrompt,
 } from './linkedinSynthesis.prompt.js'
@@ -26,44 +25,42 @@ import {
  * Dynamically derives 5 Open-to-Work titles based on the candidate's actual target role.
  * Never defaults or hardcodes Software Engineer for non-SWE roles.
  */
-export function deriveOpenToWorkTitles(targetRole) {
-  const cleanBase = String(targetRole || 'Software Engineer')
-    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level)\s+/i, '')
-    .trim() || 'Software Engineer'
+export function deriveOpenToWorkTitles(targetRole, resumeContext = {}) {
+  const rawRole =
+    targetRole ||
+    resumeContext?.targetRole ||
+    resumeContext?.canonicalResume?.candidate?.targetRole ||
+    resumeContext?.domain ||
+    ''
+  const roleStr = typeof rawRole === 'string' ? rawRole.trim() : (rawRole?.title || String(rawRole || '')).trim()
+  const cleanBase = roleStr
+    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level|Executive|Head of|VP of)\s+/i, '')
+    .trim() || 'Professional'
 
-  if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(cleanBase)) {
-    return [
-      'Data Analyst',
-      'Senior Data Analyst',
-      'Business Intelligence Analyst',
-      'Healthcare / Enterprise Data Analyst',
-      'Lead Analytics Specialist',
-    ]
-  } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(cleanBase)) {
-    return [
-      targetRole || 'Data Scientist',
-      `Senior ${cleanBase}`,
-      'Applied AI / ML Engineer',
-      'Lead Data Scientist',
-      `Staff ${cleanBase}`,
-    ]
-  } else if (/data\s+engineer/i.test(cleanBase)) {
-    return [
-      'Data Engineer',
-      'Senior Data Engineer',
-      'Lead Data Engineer',
-      'Analytics & BigQuery Data Engineer',
-      'Cloud Data Architect',
-    ]
-  } else {
-    return [
-      targetRole || 'Software Engineer',
-      `Senior ${cleanBase}`,
-      `Lead ${cleanBase}`,
-      `Staff ${cleanBase}`,
-      `Principal ${cleanBase}`,
-    ]
+  const baseTitle = roleStr || cleanBase || 'Professional'
+
+  const titles = [
+    baseTitle,
+    `Senior ${cleanBase}`,
+    `Lead ${cleanBase}`,
+    `${cleanBase} Specialist`,
+    `Principal ${cleanBase}`,
+  ]
+
+  const uniqueTitles = Array.from(new Set(titles.map((t) => t.trim()))).filter(Boolean)
+  while (uniqueTitles.length < 5) {
+    if (!uniqueTitles.includes(`${cleanBase} Consultant`)) {
+      uniqueTitles.push(`${cleanBase} Consultant`)
+    } else if (!uniqueTitles.includes(`Staff ${cleanBase}`)) {
+      uniqueTitles.push(`Staff ${cleanBase}`)
+    } else if (!uniqueTitles.includes(`${cleanBase} Lead`)) {
+      uniqueTitles.push(`${cleanBase} Lead`)
+    } else {
+      uniqueTitles.push(`${cleanBase} Expert`)
+    }
   }
+
+  return uniqueTitles.slice(0, 5)
 }
 
 /**
@@ -610,9 +607,16 @@ export async function runLinkedInSynthesis(
   signals = null,
   options = {}
 ) {
-  const fallback = buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
   if (options?.bypassAI) {
-    return fallback
+    return buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
+  }
+
+  let lazyFallback = null
+  const getFallback = () => {
+    if (!lazyFallback) {
+      lazyFallback = buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
+    }
+    return lazyFallback
   }
 
   const canonical = resumeContext?.canonicalResume || resumeContext?.resumeJson || {}
@@ -622,10 +626,12 @@ export async function runLinkedInSynthesis(
     canonical?.target_role ||
     canonical?.targetRole ||
     profile?.headline ||
-    'Senior Software Engineer'
+    'Professional'
 
-  // Route via task-based OpenRouter model routing
-  const preferredProvider = options?.preferredProvider || 'openrouter'
+  // Route via task-based OpenRouter model routing with provider isolation
+  const resumeProvider = resumeContext?.provider || resumeContext?.lastProvider
+  const excludeProvider = options?.excludeProvider || (resumeProvider ? resumeProvider : null)
+  const preferredProvider = options?.preferredProvider || (resumeProvider === 'gemini' ? 'groq' : (resumeProvider === 'groq' ? 'gemini' : 'openrouter'))
   const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : null)
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
@@ -654,6 +660,7 @@ export async function runLinkedInSynthesis(
           purpose: 'linkedin_analysis',
           task: 'linkedin_synthesis',
           preferredProvider,
+          excludeProvider,
           model: effectiveModel,
           messages,
           temperature: 0.25,
@@ -682,8 +689,10 @@ export async function runLinkedInSynthesis(
 
     if (!task1Result && !task2Result) {
       console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')
-      return fallback
+      return getFallback()
     }
+
+    const fallback = getFallback()
 
     // Merge outputs from Task 1 and Task 2
     // Headlines (Task 1)
@@ -877,12 +886,10 @@ export async function runLinkedInSynthesis(
         ...recommendedSkillsToAdd.filter(isConcreteTechSkill),
       ])).filter(isValidSkill).filter(isConcreteTechSkill).slice(0, 4)
 
-      const booleanRolePart = /data\s+analyst/i.test(targetRole)
-        ? '("Data Analyst" OR "Business Intelligence Analyst")'
-        : `("${targetRole}")`
+      const booleanRolePart = `("${targetRole || 'Professional'}")`
       const booleanSkillsPart = candidateHardSkills.length > 0
         ? `(${candidateHardSkills.map((s) => `"${s}"`).join(' OR ')})`
-        : '("Technical Architecture")'
+        : '("Core Expertise")'
       const booleanQuery = `${booleanRolePart} AND ${booleanSkillsPart}`
 
       visibilityTricks = [
@@ -957,7 +964,7 @@ export async function runLinkedInSynthesis(
     }
   } catch (err) {
     console.warn('[LinkedInSynthesis] Synthesis failed, using deterministic fallback:', err.message)
-    return fallback
+    return getFallback()
   }
 }
 

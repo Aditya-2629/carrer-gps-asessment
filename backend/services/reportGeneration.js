@@ -14,7 +14,9 @@ import JobMarketBucket from '../models/JobMarketBucket.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
-import { calculateRecruiterSeoScore, generateOptimizedHeadlines, evaluateThoughtLeadership } from '../agents/linkedin/linkedinAgent.js'
+import { calculateRecruiterSeoScore } from '../agents/linkedin/linkedinAgent.js'
+import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
+import { buildDeterministicThoughtLeadership } from '../agents/linkedin/linkedinThoughtLeadershipEvaluator.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -581,14 +583,26 @@ export async function executeSinglePassSynthesis({ triage, user, resumeJson, liv
     targetRole: triage.targetRole,
   })
 
-  const headlines = generateOptimizedHeadlines({
-    role: triage.targetRole,
-    topSkills: triage.verifiedSkills,
-    yearsExp: Number(user?.experienceLevel || user?.experienceYears || triage.experienceYears || 3),
-    company: liveLinkedinData?.experiences?.[0]?.company || '',
-  })
+  const deterministicOpts = buildDeterministicOptimizations(
+    liveLinkedinData || {},
+    {
+      targetRole: triage.targetRole,
+      verifiedSkills: triage.verifiedSkills,
+      canonicalResume: resumeJson,
+    }
+  )
+  const headlines = deterministicOpts?.headlines || []
 
-  const thoughtLeadership = evaluateThoughtLeadership(liveLinkedinPosts)
+  const isGhostPosts = !liveLinkedinPosts ||
+    (Array.isArray(liveLinkedinPosts) && liveLinkedinPosts.length === 0) ||
+    (Array.isArray(liveLinkedinPosts?.posts) && liveLinkedinPosts.posts.length === 0)
+
+  const thoughtLeadership = buildDeterministicThoughtLeadership(
+    triage.targetRole,
+    triage.verifiedSkills,
+    resumeJson?.projects || resumeJson?.experience || [],
+    isGhostPosts
+  )
 
   const systemPrompt = `You are the Lead Executive Career Architect at Career GPS.
 Generate a comprehensive, recruiter-grade ATS and Career Diagnosis Report in STRICT JSON format.

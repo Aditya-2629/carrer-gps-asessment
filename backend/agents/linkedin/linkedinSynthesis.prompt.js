@@ -207,12 +207,11 @@ Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (ZERO-HALLUCINATION GUARDRAIL: zero hallucination).
 
 STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
-Check the candidate's targetRole and resume background:
-- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
-  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
-  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
-  * HEADLINE & ABOUT FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
-  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
+Ground all suggestions strictly in the candidate's targetRole and verified resume background:
+- Use ONLY tools, frameworks, and domain metrics verified in the candidate's own resume/experience for their targetRole; never inject unrelated stacks or alien technical buzzwords.
+- Tailor the headline and About narrative directly to the candidate's specific discipline, domain scope, and role specialization.
+- Do NOT inject Software Engineering tooling (e.g., Java, Spring Boot, microservices, Kubernetes) into non-SWE profiles (e.g., Data Analysts, QA, Product, Cloud, Healthcare, Finance), and vice-versa.
+- Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
 HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
 - 3 distinct formulas: "Recruiter-Search Optimized", "Impact-Driven", "Specialist / Authority".
@@ -224,18 +223,14 @@ ABOUT SECTION EXECUTIVE ARCHITECTURE (1,400–1,900 CHARACTERS / 240–300 WORDS
 - LINKEDIN CHARACTER BUDGET: LinkedIn allows 2,600 characters. Writing a short 1-2 sentence stub is an amateur failure. Deliver a rich, comprehensive 1,400–1,900 character executive narrative that hooks recruiters and ranks in search algorithms.
 - VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as a confident, high-agency builder.
 - PARAGRAPH 1 (The Executive Hook & Core Foundation — 350-450 chars):
-  * Lead with target role title, verified years of experience, core technical stack, and the domain challenges you solve.
-  * For Data Analysts/BI: Establish data architecture scale (e.g. automating reporting pipelines, architecting star-schema models, SQL query optimization across Snowflake/BigQuery, and self-service BI dashboards).
-  * For SWE: Establish system scale (e.g. distributed microservices, low-latency APIs, cloud backends).
-  * CRITICAL: If candidate is a Data Analyst, NEVER mention microservices, Kubernetes, Docker, or low-latency APIs!
+  * Lead with target role title, verified years of experience, core verified tools/stack, and the domain challenges you solve.
+  * Establish domain scope and execution scale grounded in the candidate's verified record.
 - PARAGRAPH 2 (Quantified Career Pillars & Technical Scale — 600-800 chars):
-  * Synthesize 3 distinct domain pillars using bullet points (▸) detailing real architecture and quantified outcomes.
-  * For Data Analysts: (1) Data Architecture & Analytics (SQL, warehouses, BI), (2) Enterprise Intelligence & Pipelines (automated ETL/dbt models), (3) Statistical Insights & Decision ROI (hypothesis testing, A/B experiments, executive KPI visibility).
-  * For SWE: (1) System Architecture & Scale, (2) Cloud & Production Engineering, (3) Measurable Business Impact.
-  * NEVER copy-paste raw resume bullets. Frame achievements through domain mechanisms.
+  * Synthesize 3 distinct domain pillars using bullet points (▸) detailing real architecture, execution methodologies, and quantified outcomes verified in the candidate's background.
+  * NEVER copy-paste raw resume bullets. Frame achievements through domain mechanisms and business impact.
 - PARAGRAPH 3 (Professional Philosophy & Where I'm Headed — 350-450 chars):
-  * For Data Analysts: State your philosophy on data integrity, dimensional modeling, automated reporting, and actionable business intelligence. State target opportunities and invite engineering leaders, analytics directors, and talent teams to connect.
-  * For SWE: State your philosophy on clean architecture, automated test gating, and technical mentorship.
+  * State your philosophy on operational excellence, domain integrity, and high-agency execution in your target discipline.
+  * State target opportunities and invite leaders, hiring managers, and talent partners in your domain to connect.
   * PURGE TRAILING KEYWORD LISTS: Strictly FORBID appending raw keyword lists or tag clouds at the bottom of the About section (e.g. "Core Competencies: React, Redux, Docker..."). Keywords must live naturally inside the narrative prose for LinkedIn SEO and human readability.
 - "fullText": Complete copy-paste ready executive narrative in first-person voice (1,400–1,900 chars / 240–300 words).
 
@@ -337,12 +332,11 @@ export const TASK2_EXPERIENCE_VISIBILITY_SYSTEM_PROMPT = `You are Liam / Sophia 
 Generate high-converting LinkedIn Experience Upgrades, Featured Projects, Missing Sections, and Recruiter Visibility Tactics. Ground all claims 100% in verified resume facts (zero hallucination).
 
 STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
-Check the candidate's targetRole and resume background:
-- IF targetRole is DATA ANALYST / BI SPECIALIST / DATA SCIENTIST:
-  * MANDATORY DOMAIN TOOLING: SQL (Window functions, CTEs, query optimization), Cloud Warehouses (BigQuery, Snowflake), BI Dashboards (Power BI, Tableau, DAX), Semantic Modeling (dbt, Star Schema), Data Governance, and ETL/ELT pipelines.
-  * STRICTLY BANNED FOR DATA ANALYSTS: Do NOT generate Java, Spring Boot, microservices, Kubernetes/EKS, gRPC, Redis latency, Jenkins CI/CD, or React frontend accessibility! These belong to Software Engineering and will disqualify a Data Analyst.
-  * EXPERIENCE UPGRADE FORMULA: Lead with data intelligence, reporting turnaround reduction (e.g. 50%), KPI modeling, stakeholder decision velocity, and cross-functional analytics.
-  * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
+Ground all suggestions strictly in the candidate's targetRole and verified resume background:
+- Use ONLY tools, frameworks, and domain metrics verified in the candidate's own resume/experience for their targetRole; never inject unrelated stacks or alien technical buzzwords.
+- Tailor all recommendations, bullet rewrites, and projects directly to the candidate's specific discipline, domain scope, and role specialization.
+- Do NOT inject Software Engineering tooling (e.g., Java, Spring Boot, microservices, Kubernetes) into non-SWE profiles (e.g., Data Analysts, QA, Product, Cloud, Healthcare, Finance), and vice-versa.
+- Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
 3-ROLE EXPERIENCE BULLET UPGRADES:
 - Upgrade the candidate's top 3 work experience roles into metric-backed impact statements (4 bullets per role):
@@ -658,10 +652,6 @@ export function buildLinkedInUserPrompt(params = {}) {
   return buildCompactCandidateContext(params)
 }
 
-export function buildLinkedInSynthesisPrompt(params = {}) {
-  return buildTask1HeadlinesAndBannerPrompt(params)
-}
-
 export default {
   buildCompactCandidateContext,
   TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT,
@@ -677,5 +667,4 @@ export default {
   LINKEDIN_SYSTEM_PROMPT,
   LINKEDIN_SYNTHESIS_SYSTEM_PROMPT,
   buildLinkedInUserPrompt,
-  buildLinkedInSynthesisPrompt,
 }

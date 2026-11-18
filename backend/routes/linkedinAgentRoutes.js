@@ -9,10 +9,9 @@ import {
   evaluateLinkedIn,
   analyzeLinkedInProfile,
   calculateRecruiterSeoScore,
-  generateOptimizedHeadlines,
-  evaluateThoughtLeadership,
   LINKEDIN_AGENT_VERSION,
 } from '../agents/linkedin/index.js'
+import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
@@ -160,12 +159,11 @@ router.post(['/headline-rewrites', '/optimize-headlines'], (req, res) => {
       targetRole: role,
     })
 
-    const headlines = generateOptimizedHeadlines({
-      role,
-      topSkills,
-      yearsExp,
-      company,
-    })
+    const opt = buildDeterministicOptimizations(
+      { headline, about },
+      { targetRole: role, verifiedSkills: topSkills, canonicalResume: { skills: topSkills } }
+    )
+    const headlines = opt?.headlines || []
 
     return res.status(200).json({
       success: true,
