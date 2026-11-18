@@ -70,7 +70,14 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
   )
 }
 
-export default function ResumeScoreCard({ dashboard, candidateName, variant = 'dark', title = 'Resume Health Score', scoreWord = 'resume' }) {
+export default function ResumeScoreCard({
+  dashboard,
+  candidateName,
+  variant = 'dark',
+  title = 'Resume Health Score',
+  scoreWord = 'resume',
+  hideChecklist = false,
+}) {
   const grades = dashboard?.grades
   const compareData = useMemo(() => {
     const rawImpact = grades?.impact?.score ?? 62
@@ -143,7 +150,7 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
       </div>
 
       {/* 6 Resume Pillars Split Compare Bars */}
-      <div className="p-6 border-b border-slate-200/70 bg-slate-50/50 print:break-inside-avoid">
+      <div className="p-4 sm:p-5 border-b border-slate-200/70 bg-slate-50/50 print:break-inside-avoid">
         <CompareBars
           data={compareData}
           title="6 Resume Pillars Split Benchmark"
@@ -152,32 +159,34 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
           defaultCompared={true}
           summaryMode="average"
           maxScore={100}
-          className="w-full"
+          className="w-full [--plot:110px] @md:[--plot:125px]"
         />
       </div>
 
       {/* Checklist */}
-      <div className="p-5 print:break-inside-avoid">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className={`text-xs font-semibold ${labelColor}`}>
-            {scoreWord?.toLowerCase().includes('linkedin') ? 'LinkedIn Checklist' : 'Resume Checklist'}
-          </h4>
-          <span className={`text-[11px] font-mono ${subText}`}>
-            {summary?.checksPassed ?? checks?.filter((c) => c.status === 'pass').length}/{checks?.length ?? 0} passed
-          </span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
-          {(checks || []).map((c) => (
-            <div key={c.id} className="flex items-start gap-2.5 py-1.5 print:break-inside-avoid">
-              <span className="mt-0.5 shrink-0">{CHECK_STYLE[c.status]?.[light ? 'light' : 'dark'] || CHECK_STYLE.pass.dark}</span>
-              <div className="min-w-0">
-                <div className={`text-xs font-semibold ${light ? 'text-slate-800' : 'text-gray-200'}`}>{c.label}</div>
-                <div className={`text-[11px] leading-snug ${light ? 'text-slate-500' : 'text-gray-500'}`}>{c.detail}</div>
+      {!hideChecklist && (
+        <div className="p-5 print:break-inside-avoid">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className={`text-xs font-semibold ${labelColor}`}>
+              {scoreWord?.toLowerCase().includes('linkedin') ? 'LinkedIn Checklist' : 'Resume Checklist'}
+            </h4>
+            <span className={`text-[11px] font-mono ${subText}`}>
+              {summary?.checksPassed ?? checks?.filter((c) => c.status === 'pass').length}/{checks?.length ?? 0} passed
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
+            {(checks || []).map((c) => (
+              <div key={c.id} className="flex items-start gap-2.5 py-1.5 print:break-inside-avoid">
+                <span className="mt-0.5 shrink-0">{CHECK_STYLE[c.status]?.[light ? 'light' : 'dark'] || CHECK_STYLE.pass.dark}</span>
+                <div className="min-w-0">
+                  <div className={`text-xs font-semibold ${light ? 'text-slate-800' : 'text-gray-200'}`}>{c.label}</div>
+                  <div className={`text-[11px] leading-snug ${light ? 'text-slate-500' : 'text-gray-500'}`}>{c.detail}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

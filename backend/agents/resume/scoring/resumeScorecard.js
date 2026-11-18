@@ -497,6 +497,144 @@ export function computeScorecard({
     isPageOverflowUnder8,
   })
 
+  // ── 5. Section-by-Section /10 Audit (Video-Style Playbook Framework) ─────
+  const contact = canonicalResume?.candidate?.contact || {}
+  const hasEmail = Boolean(contact.email || canonicalResume?.candidate?.email || precomputedSignals?.contactMerge?.emailDetected)
+  const hasPhone = Boolean(contact.phone || canonicalResume?.candidate?.phone || precomputedSignals?.contactMerge?.phoneDetected)
+  const hasLinkedin = Boolean(contact.linkedin || canonicalResume?.candidate?.linkedin || precomputedSignals?.contactMerge?.urlDetected)
+  const hasNonUsPersonal = Boolean(flags.photoPresent || flags.maritalStatusPresent || flags.dobPresent || flags.fullAddressPresent)
+
+  // 1. Header & Contact Parsing (/10)
+  let headerScore = 10
+  if (contactMerge.isContactMerged) headerScore -= 3
+  if (!hasEmail || !hasPhone) headerScore -= 4
+  if (!hasLinkedin) headerScore -= 2
+  if (hasNonUsPersonal) headerScore -= 3
+  const headerScore10 = clamp(headerScore, 1, 10)
+  const headerStatus = headerScore10 >= 9 ? 'pass' : headerScore10 >= 6 ? 'warn' : 'fail'
+  const headerHurting = contactMerge.isContactMerged
+    ? 'Extracted contact details merged into summary text, creating ATS parsing hazards for phone and LinkedIn links.'
+    : (!hasEmail || !hasPhone)
+    ? 'Missing direct email or phone number in contact header, preventing recruiter outreach.'
+    : !hasLinkedin
+    ? 'No LinkedIn profile URL detected in contact header, missing instant recruiter verification.'
+    : hasNonUsPersonal
+    ? 'Header contains personal details (photo, DOB, or marital status) that US hiring teams filter out for compliance.'
+    : null
+  const headerImprovement = 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn (no tables, text boxes, or embedded graphics).'
+
+  // 2. Professional Summary (/10)
+  const sumText = (canonicalResume?.summary || canonicalResume?.candidate?.summary || '').trim()
+  const sumIssues = issues.filter((i) => i.category === 'generic_summary' || i.category === 'weak_positioning' || i.bulletId === 'summary_001')
+  let summaryScore = 10
+  if (!sumText || sumText.length < 40) {
+    summaryScore = 2
+  } else if (sumText.length > 550) {
+    summaryScore = 5
+  } else {
+    if (sumIssues.length > 0) summaryScore -= 3
+    if (targetRole && !sumText.toLowerCase().includes(targetRole.toLowerCase())) summaryScore -= 2
+  }
+  const summaryScore10 = clamp(summaryScore, 1, 10)
+  const summaryStatus = summaryScore10 >= 9 ? 'pass' : summaryScore10 >= 6 ? 'warn' : 'fail'
+  const summaryHurting = (!sumText || sumText.length < 40)
+    ? 'Professional summary is missing or empty, leaving your role positioning unindexed.'
+    : sumText.length > 550
+    ? 'Summary is overly dense (>550 characters) and reads like a cover letter instead of an executive elevator pitch.'
+    : sumIssues.length > 0
+    ? 'Summary relies on generic buzzwords without specifying your target role, years of experience, or measurable specialty.'
+    : (targetRole && !sumText.toLowerCase().includes(targetRole.toLowerCase()))
+    ? `Summary does not explicitly state your target role keyword "${targetRole}".`
+    : null
+  const summaryImprovement = 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], with a proven track record of [Primary Measurable Achievement].'
+
+  // 3. Experience Bullets & Quantified Impact (/10)
+  const density = quant.density ?? 0
+  const quantifiedBullets = quant.quantifiedBullets ?? 0
+  const expTotalBullets = quant.totalBullets ?? bulletAudit.length
+  const expScore10 = clamp(Math.round(scores.impact / 10), 1, 10)
+  const expStatus = expScore10 >= 9 ? 'pass' : expScore10 >= 6 ? 'warn' : 'fail'
+  const expHurting = density < 0.4
+    ? `Only ${quantifiedBullets} of ${expTotalBullets} bullets (${Math.round(density * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
+    : hurtingCount > 2
+    ? `${hurtingCount} bullets describe passive responsibilities rather than verified business outcomes.`
+    : null
+  const expImprovement = 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).'
+
+  // 4. Skills & Market Keyword Alignment (/10)
+  const kwScore = keywordAlignment?.score ?? 70
+  const missingCore = keywordAlignment?.missingCoreKeywords || []
+  const skillsCount = canonicalResume?.skills?.length || 0
+  const skillsScore10 = clamp(Math.round(kwScore / 10), 1, 10)
+  const skillsStatus = skillsScore10 >= 9 ? 'pass' : skillsScore10 >= 6 ? 'warn' : 'fail'
+  const skillsHurting = missingCore.length > 0
+    ? `Missing ${missingCore.length} priority market keywords (e.g. ${missingCore.slice(0, 3).join(', ')}) expected for ${targetRole || 'your target role'}.`
+    : skillsCount < 10
+    ? `Only ${skillsCount} skills listed, severely throttling ATS boolean search matching.`
+    : null
+  const skillsImprovement = 'Add missing core market tools directly to your Skills section and mirror them within your work experience bullet points.'
+
+  // 5. Formatting, Length & ATS Safety (/10)
+  const atsScore = scores.ats_readability ?? 80
+  const rawFmtScore10 = isPageOverflowUnder8
+    ? Math.min(6, Math.round(atsScore / 10))
+    : Math.round(atsScore / 10)
+  const formattingScore10 = clamp(rawFmtScore10, 1, 10)
+  const formattingStatus = formattingScore10 >= 9 ? 'pass' : formattingScore10 >= 6 ? 'warn' : 'fail'
+  const formattingHurting = isPageOverflowUnder8
+    ? `Resume spans ${pageCount} pages with under 8 years of experience. US recruiters expect strictly 1 page.`
+    : len.over35 > 2
+    ? `${len.over35} bullets exceed 35 words, creating dense walls of text that recruiters skip during 6-second scans.`
+    : atsScore < 75
+    ? 'Formatting or layout structure flags potential ATS parsing friction.'
+    : null
+  const formattingImprovement = isPageOverflowUnder8
+    ? 'Trim older roles or secondary bullets to fit cleanly on exactly 1 page.'
+    : 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.'
+
+  const sectionAudit = {
+    headerAndContact: {
+      score10: headerScore10,
+      status: headerStatus,
+      label: 'Header & Contact Parsing',
+      whatsHurting: headerHurting,
+      hurtingReason: headerHurting,
+      requiredImprovement: headerImprovement,
+    },
+    summary: {
+      score10: summaryScore10,
+      status: summaryStatus,
+      label: 'Professional Summary',
+      whatsHurting: summaryHurting,
+      hurtingReason: summaryHurting,
+      requiredImprovement: summaryImprovement,
+    },
+    experience: {
+      score10: expScore10,
+      status: expStatus,
+      label: 'Experience Bullets & Quantified Impact',
+      whatsHurting: expHurting,
+      hurtingReason: expHurting,
+      requiredImprovement: expImprovement,
+    },
+    skills: {
+      score10: skillsScore10,
+      status: skillsStatus,
+      label: 'Skills & Market Keyword Alignment',
+      whatsHurting: skillsHurting,
+      hurtingReason: skillsHurting,
+      requiredImprovement: skillsImprovement,
+    },
+    formatting: {
+      score10: formattingScore10,
+      status: formattingStatus,
+      label: 'Formatting, Length & ATS Safety',
+      whatsHurting: formattingHurting,
+      hurtingReason: formattingHurting,
+      requiredImprovement: formattingImprovement,
+    },
+  }
+
   return {
     version: SCORECARD_VERSION,
     computedAt: new Date().toISOString(),
@@ -506,6 +644,7 @@ export function computeScorecard({
     gradeLabel: label,
     grades,
     dimensions: grades, // alias for backwards compatibility
+    sectionAudit,
     checks,
     checklist: checks, // alias for backwards compatibility
     bulletAudit,

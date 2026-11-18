@@ -216,34 +216,6 @@ export function buildDeterministicOptimizations(
         ? 'Financial Reporting, Variance Modeling & Capital Strategy'
         : `${topSkillList} & High-Impact Delivery`)
 
-  const fallbackHeadlines = [
-    {
-      formula: 'Search-Optimized',
-      headline: `${targetRole} | ${topStack} | Measurable Impact`.slice(0, 220),
-      whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
-    },
-    {
-      formula: 'Impact-Driven',
-      headline: `${targetRole} | Driving Measurable Operational & Strategic Impact`.slice(0, 220),
-      whyItWorks: 'Anchors on concrete outcomes and domain execution to stand out from generic applicant profiles.',
-    },
-    {
-      formula: 'Specialist',
-      headline: `Specialist in ${specialistTopic}`.slice(0, 220),
-      whyItWorks: 'Appeals directly to specialized hiring managers looking for proven functional expertise.',
-    },
-  ]
-
-  const top3PinnedSkills = effectiveSkills.slice(0, 3)
-
-  const recommendedSkillsToAdd = Array.from(new Set([
-    ...filteredMissing,
-    ...marketSkills,
-    ...effectiveSkills.slice(3, 10),
-  ])).slice(0, 10)
-
-  const finalSkillsToAdd = recommendedSkillsToAdd
-
   // Scan all experience bullets across the resume for high-impact metric clauses
   const allBullets = exp.flatMap((e) =>
     (Array.isArray(e.bullets) ? e.bullets : [])
@@ -278,58 +250,75 @@ export function buildDeterministicOptimizations(
   const bullet2 = allBullets[1] || ''
   const bullet3 = allBullets[2] || ''
 
+  const fallbackHeadlines = [
+    {
+      formula: 'Proof & Milestone First',
+      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency production systems'} | ${targetRole} specializing in ${topSkillList} to accelerate enterprise delivery`.slice(0, 220),
+      whyItWorks: 'Hooks recruiters immediately with verified scale before delivering exact searchable role and tool keywords.',
+    },
+    {
+      formula: 'Curiosity & Problem Solver',
+      headline: `I help enterprise teams eliminate complex system and data bottlenecks | ${targetRole} driving ${topSkillList}`.slice(0, 220),
+      whyItWorks: 'Conversational human hook stating who you help and the business problem solved, followed by high-demand recruiter keywords.',
+    },
+    {
+      formula: 'Specialist Authority',
+      headline: `Designing resilient architectures and low-latency workflows for scale | ${targetRole} focused on ${topSkillList} and operational excellence`.slice(0, 220),
+      whyItWorks: 'Positions deep domain authority and target role keywords without generic buzzwords or pipe-spam.',
+    },
+  ]
+
+  const top3PinnedSkills = effectiveSkills.slice(0, 3)
+
+  const recommendedSkillsToAdd = Array.from(new Set([
+    ...filteredMissing,
+    ...marketSkills,
+    ...effectiveSkills.slice(3, 10),
+  ])).slice(0, 10)
+
+  const finalSkillsToAdd = recommendedSkillsToAdd
+
   // Critique current LinkedIn profile
   const currentAbout = profile?.about || ''
   const currentCritique = currentAbout.length < 210
     ? 'Your current About section is under 210 characters, wasting prime above-the-fold real estate before recruiters click "...see more".'
     : 'Your current About section reads as a generic summary without leading with your strongest verified production metrics or target specialization.'
 
-  let hook = `I am a ${targetRole} with ${yoeClause} of dedicated experience modernizing workflows, scaling performance, and translating complex challenges into measurable business outcomes. My core focus centers on driving operational excellence and sustained execution using ${topStack}.`
-  if (isHealthRole) {
-    hook = `I am a ${targetRole} with ${yoeClause} of dedicated clinical experience providing empathetic patient care, executing acute clinical protocols, and driving patient advocacy across multidisciplinary healthcare environments. My practice centers on clinical safety, meticulous documentation, and collaborative care coordination using ${topStack} to optimize patient recovery outcomes.`
-  } else if (isFinanceRole) {
-    hook = `I am a ${targetRole} with ${yoeClause} of quantitative financial experience in comprehensive reporting, variance modeling, GAAP/IFRS adherence, and strategic capital planning. My focus centers on building resilient financial models, automating month-end close reconciliations, and delivering executive dashboards using ${topStack} to guide sound fiscal decisions.`
-  }
-
-  let pillar1 = bullet1
-    ? `▸ Core Execution & Domain Impact: ${bullet1.slice(0, 180).replace(/[.]+$/, '')}.`
-    : `▸ Core Domain Execution: Directed key initiatives at ${topCompany} using ${topStack} to optimize organizational processes and eliminate delivery bottlenecks.`
-  let pillar2 = bullet2
-    ? `▸ Process Modernization & Delivery: ${bullet2.slice(0, 180).replace(/[.]+$/, '')}.`
-    : `▸ Process Modernization & Quality: Established rigorous execution standards and scalable practices to elevate day-to-day team impact.`
+  // 4-Part Video Copywriting Framework (Credibility Hook -> Audience & Problem -> Approach & Skills -> Closing CTA)
+  let hook = metricPhrase
+    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes.`
+    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact.`
 
   if (isHealthRole) {
-    pillar1 = `▸ Clinical Excellence & Quality Care: Executed rigorous patient assessments, medication administration, and emergency response procedures under strict safety standards.`
-    pillar2 = `▸ Care Coordination & Clinical Workflow: Managed patient charts and cross-functional handoffs across enterprise documentation systems, ensuring strict protocol compliance.`
+    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes.`
   } else if (isFinanceRole) {
-    pillar1 = `▸ Financial Analysis & Modeling: Built dynamic financial models and multi-year variance forecasts that identified high-ROI efficiency opportunities.`
-    pillar2 = `▸ Compliance & Financial Controls: Enforced GAAP/IFRS accounting standards, managed audit trail readiness, and streamlined month-end close schedules.`
+    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence.`
   }
 
-  const pillar3 = metricPhrase
-    ? `▸ Measurable Business Impact: Drove tangible performance and operational reliability, including ${metricPhrase}.`
-    : (isHealthRole
-      ? `▸ Patient Advocacy & Care Delivery: Championed multidisciplinary care alignment and patient education, driving high care satisfaction standards.`
-      : (isFinanceRole
-        ? `▸ Strategic Impact & Optimization: Automated ledger reconciliation workflows, reducing reporting cycle times and eliminating reporting discrepancies.`
-        : (bullet3
-          ? `▸ Strategic Leadership & Results: ${bullet3.slice(0, 180).replace(/[.]+$/, '')}.`
-          : `▸ Strategic Leadership & Delivery: Established clean modular standards, quality gating, and continuous cross-functional delivery excellence.`)))
-
-  const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
-
-  let domainMission = 'My professional philosophy is rooted in clean execution standards, continuous improvement, and technical mentorship.'
-  let domainFocus = `I am currently exploring ${targetRole} roles where I can drive scalable architecture and meaningful operational impact.`
+  let audienceAndProblem = `I partner with engineering leaders and cross-functional teams looking to eliminate system bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing friction points so core platforms scale predictably under heavy operational demands.`
   if (isHealthRole) {
-    domainMission = 'My clinical practice is centered on empathetic patient advocacy, clinical safety protocols, and cross-functional care delivery.'
-    domainFocus = `I am actively exploring ${targetRole} opportunities where I can elevate patient care standards and clinical outcomes.`
+    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions.`
   } else if (isFinanceRole) {
-    domainMission = 'My financial philosophy focuses on analytical precision, rigorous GAAP compliance, and strategic capital management.'
-    domainFocus = `I am open to ${targetRole} roles where I can drive operational efficiencies and strategic financial planning.`
+    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance.`
   }
 
-  const callToAction = `${domainMission} ${domainFocus} If you are expanding your team or looking for proven domain execution, let's connect!`
-  const fullText = `${hook}\n\n${proof}\n\n${callToAction}`
+  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale seamlessly without technical debt or operational regressions.`
+  if (isHealthRole) {
+    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings.`
+  } else if (isFinanceRole) {
+    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment.`
+  }
+
+  let closingCta = `If you are scaling high-reliability systems or looking for dedicated ${targetRole} expertise, let's connect.`
+  if (isHealthRole) {
+    closingCta = `If you are expanding your clinical team or advancing healthcare delivery standards, let's connect.`
+  } else if (isFinanceRole) {
+    closingCta = `If you are modernizing financial analytics or expanding your fiscal leadership team, let's connect.`
+  }
+
+  const fullText = `${hook}\n\n${audienceAndProblem}\n\n${approachAndSkills}\n\n${closingCta}`
+  const proof = approachAndSkills
+  const callToAction = closingCta
 
   const bannerStrategy = {
     bannerTagline: `${targetRole} | ${isHealthRole ? 'Clinical Excellence & Patient Care' : (isFinanceRole ? 'Financial Strategy & Analytical Modeling' : 'Operational Excellence & Scalable Impact')}`,
@@ -745,42 +734,45 @@ export async function runLinkedInSynthesis(
     const fallback = getFallback()
 
     // Merge outputs from Task 1 and Task 2
-    // Headlines (Task 1)
+    // Headlines (Task 1) - Natural Recruiter-Searchable Headlines (15–20 words)
     let headlines = fallback.headlines
     const rawHeadlines = task1Result?.headlines || task2Result?.headlines
-    if (Array.isArray(rawHeadlines) && rawHeadlines.length >= 2) {
+    if (Array.isArray(rawHeadlines) && rawHeadlines.length > 0) {
       headlines = rawHeadlines.slice(0, 3).map((h, i) => ({
         formula: h.formula || fallback.headlines[i]?.formula || `Option ${i + 1}`,
         headline: (h.headline || h.text || fallback.headlines[i]?.headline || '').slice(0, 220),
         whyItWorks: h.whyItWorks || fallback.headlines[i]?.whyItWorks || 'Recruiter search ranking optimization.',
       }))
+      // If LLM returned fewer than 3, backfill from fallback
+      while (headlines.length < 3 && fallback.headlines[headlines.length]) {
+        headlines.push(fallback.headlines[headlines.length])
+      }
     }
 
-    // About rewrite (Task 1) - Strict 1,400-1,800 Character Recruiter Standard
+    // About rewrite (Task 1) - 4-Part Video Copywriting Framework
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
-      const { currentCritique, hook, proof, callToAction, fullText } = rawAbout
-      let combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
-      const wordCount = (combined.match(/\b\w+\b/g) || []).length
-      // Permanently purge short stubs: enforce strict 140+ word / 900+ char executive standard
-      const isShortStub = wordCount < 140 || combined.length < 850 || (hook && hook.length < 160) || (proof && proof.length < 260)
-      if (isShortStub && fallback?.aboutRewrite) {
-        aboutRewrite = {
-          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
-          hook: (hook && hook.length >= 200) ? hook : fallback.aboutRewrite.hook,
-          proof: (proof && proof.length >= 300) ? proof : fallback.aboutRewrite.proof,
-          callToAction: (callToAction && callToAction.length >= 150) ? callToAction : fallback.aboutRewrite.callToAction,
-          fullText: fallback.aboutRewrite.fullText || combined,
-        }
-      } else {
-        aboutRewrite = {
-          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
-          hook: hook || fallback.aboutRewrite.hook || '',
-          proof: proof || fallback.aboutRewrite.proof || '',
-          callToAction: callToAction || fallback.aboutRewrite.callToAction || '',
-          fullText: combined || fallback.aboutRewrite.fullText || '',
-        }
+      const hook = rawAbout.hook || fallback.aboutRewrite.hook
+      const audienceAndProblem = rawAbout.audienceAndProblem || fallback.aboutRewrite.audienceAndProblem
+      const approachAndSkills = rawAbout.approachAndSkills || rawAbout.proof || fallback.aboutRewrite.approachAndSkills
+      const closingCta = rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.closingCta
+      const combined = rawAbout.fullText || [hook, audienceAndProblem, approachAndSkills, closingCta].filter(Boolean).join('\n\n')
+
+      aboutRewrite = {
+        currentCritique: rawAbout.currentCritique || fallback.aboutRewrite.currentCritique || '',
+        hook,
+        audienceAndProblem,
+        approachAndSkills,
+        closingCta,
+        proof: approachAndSkills,
+        callToAction: closingCta,
+        fullText: combined || fallback.aboutRewrite.fullText,
+      }
+    } else if (typeof rawAbout === 'string' && rawAbout.length > 80) {
+      aboutRewrite = {
+        ...fallback.aboutRewrite,
+        fullText: rawAbout,
       }
     }
 

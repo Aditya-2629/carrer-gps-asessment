@@ -938,6 +938,7 @@ export class ResumeAgent {
           linkedinUrl: canonicalResume.candidate?.contact?.linkedin || linkedinUrl || '',
         },
         dashboard,
+        sectionAudit: dashboard?.sectionAudit || null,
         keywordAlignment: dashboard?.keywordAlignment || null,
         bulletEvaluations: Array.isArray(parsedAnalysis.bulletEvaluations) ? parsedAnalysis.bulletEvaluations : [],
         cutList: Array.isArray(parsedAnalysis.cutList) ? parsedAnalysis.cutList : [],

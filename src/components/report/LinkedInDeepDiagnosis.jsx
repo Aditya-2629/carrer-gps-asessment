@@ -40,9 +40,9 @@ const severityChip = {
 }
 
 const HEADLINE_FORMULA_LABELS = {
-  0: 'Search-Optimized',
-  1: 'Impact-Driven',
-  2: 'Specialist',
+  0: 'Proof & Milestone First',
+  1: 'Curiosity & Problem Solver',
+  2: 'Specialist Authority',
 }
 
 export function cleanTargetRoleTitle(prefix, baseRole) {
@@ -491,26 +491,27 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       ? `${targetRole} | ${skillsStr} | Enterprise Analytics & Data Strategy`
       : `${targetRole} | ${skillsStr} | Driving Operational Excellence`
 
-  // High-Agency Executive LinkedIn About Architecture (1,400–1,800 chars / 200–260 words)
+  // 4-Part Video Copywriting Framework for LinkedIn About (900–1,500 chars / 160–250 words)
   const richFallbackHook = isSoftwareRole
-    ? `I am a ${targetRole} with ${yoe}+ years of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${skillsStr || 'React, TypeScript, Node.js, and AWS'} across resilient production environments.`
+    ? `Over the past ${yoe}+ years, I have architected high-concurrency microservices, cloud backends, and distributed data pipelines sustaining 99.99% uptime. As a ${targetRole}, I translate complex engineering challenges into low-latency, scalable production solutions.`
     : isDataRole
-    ? `I am a ${targetRole} with ${yoe}+ years of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${skillsStr || 'SQL, Power BI, Python, and Tableau'} to eliminate organizational reporting bottlenecks.`
-    : `I am a ${targetRole} with ${yoe}+ years of cross-functional leadership experience orchestrating high-stakes initiatives, optimizing operational workflows, and aligning cross-departmental execution with core business objectives. My methodology bridges technical capability with business impact using ${skillsStr || 'agile methodologies and executive stakeholder alignment'} to accelerate velocity and operational resilience.`
+    ? `Over the past ${yoe}+ years, I have transformed enterprise datasets into automated reporting pipelines, modern cloud data architectures, and executive decision intelligence. As a ${targetRole}, I specialize in building star schemas and optimizing analytical queries across Snowflake and BigQuery to eliminate reporting bottlenecks.`
+    : `Over the past ${yoe}+ years, I have orchestrated high-stakes cross-functional programs, modernizing operational workflows and driving measurable efficiency. As a ${targetRole}, I bridge technical execution with business strategy to accelerate organizational velocity.`
 
-  const richFallbackProof = isSoftwareRole
-    ? `▸ System Architecture & Scale: Engineered modular microservices and event-driven architectures that sustain sub-100ms API response times and 99.99% system availability under peak loads.\n\n▸ Cloud Automation & Delivery Velocity: Containerized multi-stage builds and automated CI/CD release gating on AWS and Docker, slashing deployment cycles and eliminating production rollback friction.\n\n▸ Technical Leadership & System Reliability: Championed strict unit/integration test coverage, clean code refactoring, and comprehensive observability across distributed production environments.`
+  const richFallbackAudience = isSoftwareRole
+    ? `I partner with engineering teams and product leaders that need to modernize legacy architectures, enforce strict API contract safety, and sustain low-latency system performance under heavy user loads.`
     : isDataRole
-    ? `▸ Data Modeling & Query Optimization: Architected dimensional star schemas and optimized heavy analytical queries across enterprise databases, reducing dashboard latency by 45%+.\n\n▸ Automated ETL & Business Intelligence: Built and automated end-to-end data ingestion pipelines, translating complex operational data into real-time self-service executive reporting.\n\n▸ Cross-Functional Insights & Decision Support: Partnered directly with leadership and product stakeholders to define core KPIs, uncover operational growth levers, and eliminate data silos.`
-    : `▸ Operational Excellence & Efficiency: Redesigned core operational frameworks and cross-functional handoffs, driving significant cycle time reductions across critical workflows.\n\n▸ Cross-Functional Program Delivery: Led multi-disciplinary teams through complex project lifecycles from discovery to deployment, consistently delivering ahead of roadmap milestones.\n\n▸ Stakeholder Alignment & Metrics: Established automated KPI reporting dashboards that gave executive leadership real-time visibility into portfolio velocity and budget health.`
+    ? `I partner with enterprise leadership, product managers, and analytics teams seeking to eliminate data silos, automate ETL ingestion, and deliver trusted self-service dashboards for executive decision-making.`
+    : `I partner with organizational leadership and operational units looking to streamline cross-departmental execution, eliminate process waste, and establish clear KPI accountability.`
 
-  const richFallbackCta = isSoftwareRole
-    ? `My engineering philosophy is rooted in clean system design, automated testing, and technical mentorship. I am actively exploring ${targetRole} opportunities where I can drive scalable system architecture and solve high-concurrency engineering challenges. If you are building high-impact technology or scaling your engineering team, let's connect!`
+  const richFallbackApproach = isSoftwareRole
+    ? `My methodology combines clean system design with automated test coverage and containerized CI/CD delivery. I work primarily with ${skillsStr || 'React, TypeScript, Node.js, and AWS'}, focusing on high-reliability cloud services that scale predictably without regressions.`
     : isDataRole
-    ? `My professional philosophy focuses on data integrity, scalable dimensional modeling, and actionable business intelligence. I am currently exploring ${targetRole} roles where I can optimize analytics pipelines and deliver decision-critical intelligence. Let's connect and discuss data strategy!`
-    : `My leadership philosophy centers on transparency, data-informed decision making, and empowering high-agency teams. I am currently open to ${targetRole} opportunities where I can drive operational transformation and meaningful organizational impact. Open to connecting with leaders and talent teams!`
+    ? `My methodology pairs dimensional data modeling with automated query optimization and rigorous validation. I work primarily with ${skillsStr || 'SQL, Power BI, Python, and Tableau'}, enabling stakeholders to uncover growth levers with zero reporting delay.`
+    : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I leverage ${skillsStr || 'agile methodologies and executive alignment'} to foster high-agency teams and repeatable project delivery.`
 
-  const richFallbackAbout = `${richFallbackHook}\n\n${richFallbackProof}\n\n${richFallbackCta}`
+  const richFallbackCta = `If you are scaling high-impact initiatives or looking for proven ${targetRole} expertise, let's connect!`
+  const richFallbackAbout = `${richFallbackHook}\n\n${richFallbackAudience}\n\n${richFallbackApproach}\n\n${richFallbackCta}`
   const fallbackAbout = richFallbackAbout
 
   const headline = linkedinAgent?.optimizations?.headlines?.[0]?.headline || fallbackHeadline
@@ -743,6 +744,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     optimizations?.networkingRecommendation ||
     linkedinAgent?.networkingRecommendation ||
     linkedinAgent?.activitySignals?.networkingRecommendation ||
+    null
+  const categorizedSkills =
+    optimizations?.categorizedSkills ||
+    linkedinAgent?.categorizedSkills ||
+    linkedinAgent?.optimizations?.categorizedSkills ||
     null
 
   const effectiveSectionAudit = useMemo(() => {
@@ -1108,40 +1114,30 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const rawAbout = optimizations?.aboutRewrite || null
   const aboutIsString = typeof rawAbout === 'string'
   let hookText = safeText(rawAbout?.hook)
-  let proofText = safeText(rawAbout?.proof)
-  let ctaText = safeText(rawAbout?.callToAction)
+  let audienceText = safeText(rawAbout?.audienceAndProblem)
+  let approachText = safeText(rawAbout?.approachAndSkills || rawAbout?.proof)
+  let ctaText = safeText(rawAbout?.closingCta || rawAbout?.callToAction)
   let fallbackFullText = safeText(rawAbout?.fullText)
 
-  // Auto-Enrichment Guard: If rawAbout is a short 1-sentence stub (<110 words or <450 chars or hook <160 chars),
-  // OR if there is a domain mismatch (e.g. isDataRole but text contains microservices/kubernetes/docker/low-latency api),
-  // automatically enrich with rich executive story pillars so candidate never sees a 28-word / 210-char stub or SWE copy
-  const initialCombined = aboutIsString ? rawAbout : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
+  const initialCombined = aboutIsString ? rawAbout : (fallbackFullText || [hookText, audienceText, approachText, ctaText].filter(Boolean).join('\n\n'))
   const initialWords = initialCombined.trim() ? initialCombined.trim().split(/\s+/).filter(Boolean).length : 0
-  const hasDomainMismatch = isDataRole && /(?:microservice|kubernetes|containerized multi-stage|docker ci\/cd|low-latency api)/i.test(initialCombined)
 
-  if (hasDomainMismatch) {
-    hookText = richFallbackHook
-    proofText = richFallbackProof
-    ctaText = richFallbackCta
-    fallbackFullText = richFallbackAbout
-  } else if (!aboutIsString) {
-    if (!hookText || hookText.length < 160) {
-      hookText = richFallbackHook
+  if (!aboutIsString) {
+    if (!hookText) hookText = richFallbackHook
+    if (!audienceText) audienceText = richFallbackAudience
+    if (!approachText) approachText = richFallbackApproach
+    if (!ctaText) ctaText = richFallbackCta
+    if (!fallbackFullText) {
+      fallbackFullText = `${hookText}\n\n${audienceText}\n\n${approachText}\n\n${ctaText}`
     }
-    if (!proofText || proofText.length < 260) {
-      proofText = richFallbackProof
-    }
-    if (!ctaText || ctaText.length < 140) {
-      ctaText = richFallbackCta
-    }
-    fallbackFullText = `${hookText}\n\n${proofText}\n\n${ctaText}`
-  } else if (aboutIsString && initialWords < 110) {
+  } else if (aboutIsString && initialWords < 40) {
     fallbackFullText = richFallbackAbout
   }
 
-  const fullAboutText = (aboutIsString && initialWords >= 110 && !hasDomainMismatch)
+  const fullAboutText = (aboutIsString && initialWords >= 40)
     ? rawAbout
-    : (fallbackFullText || [hookText, proofText, ctaText].filter(Boolean).join('\n\n'))
+    : (fallbackFullText || [hookText, audienceText, approachText, ctaText].filter(Boolean).join('\n\n'))
+  const proofText = approachText
 
   const aboutWordCount = fullAboutText.trim()
     ? fullAboutText.trim().split(/\s+/).filter(Boolean).length
@@ -1310,6 +1306,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         variant={variant}
         title="LinkedIn Profile Score"
         scoreWord="LinkedIn profile"
+        hideChecklist={true}
       />
 
       {/* ── 1B. Section-by-Section /10 Audit (Shraddha Playbook) ──────────── */}
@@ -1442,7 +1439,117 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         </div>
       )}
 
-      {/* ── 1B. Recruiter SEO Scorecard & 1-Click Copy Headlines ────────────── */}
+      {/* ── 1D. Profile Picture & Cover Banner Upgrade Prompts ── */}
+      <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+          <div className="space-y-0.5">
+            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+              <Camera size={16} weight="fill" className="text-[var(--primary)]" />
+              Profile Picture & Cover Banner Upgrade Prompts
+            </span>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Pre-filled generative prompts grounded in your target role and verified resume achievements.
+            </p>
+          </div>
+        </div>
+
+        {/* Note on image quality grading */}
+        <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--text-primary)] font-semibold">Visual Audit Policy: </strong>
+          We don&apos;t visually grade image quality — if you feel your profile picture or banner isn&apos;t strong enough, copy these pre-filled prompts to generate a studio-grade upgrade.
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Studio Headshot Prompt */}
+          <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Camera size={14} className="text-[var(--primary)]" /> Studio Headshot Prompt
+                </span>
+                <span className="text-[10px] font-mono uppercase bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded border border-[var(--primary)]/20">
+                  Midjourney / DALL-E
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all">
+                {effectiveVisualPrompts.profilePicturePrompt}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCopy(effectiveVisualPrompts.profilePicturePrompt, 'copy_pfp_prompt')}
+              className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                copiedId === 'copy_pfp_prompt'
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+              }`}
+            >
+              {copiedId === 'copy_pfp_prompt' ? (
+                <><Check size={13} weight="bold" /> Copied Headshot Prompt</>
+              ) : (
+                <><Copy size={13} /> Copy Studio Headshot Prompt</>
+              )}
+            </button>
+          </div>
+
+          {/* Cover Banner Prompt */}
+          <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                  <Sparkle size={14} className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
+                </span>
+                <span className="text-[10px] font-mono uppercase bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20">
+                  Canva / AI Banner
+                </span>
+              </div>
+              <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all whitespace-pre-line max-h-48 overflow-y-auto">
+                {effectiveVisualPrompts.coverBannerPrompt}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleCopy(effectiveVisualPrompts.coverBannerPrompt, 'copy_banner_prompt')}
+              className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                copiedId === 'copy_banner_prompt'
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+              }`}
+            >
+              {copiedId === 'copy_banner_prompt' ? (
+                <><Check size={13} weight="bold" /> Copied Banner Prompt</>
+              ) : (
+                <><Copy size={13} /> Copy Cover Banner Prompt</>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Banner Layout Showcase Directions */}
+        {effectiveVisualPrompts.bannerShowcaseOptions?.length > 0 && (
+          <div className="space-y-2.5 pt-2 border-t border-[var(--border-default)]">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              Recommended Banner Style Directions:
+            </span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {effectiveVisualPrompts.bannerShowcaseOptions.map((opt, oIdx) => (
+                <div
+                  key={oIdx}
+                  className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs space-y-1.5"
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-[var(--text-primary)]">{opt.style}</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--primary)] font-mono">{opt.colorPalette}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-snug">{opt.layout}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 1B. Recruiter SEO Scorecard ────────────── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
@@ -1475,47 +1582,32 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           </div>
         </div>
 
-        {/* 3 Optimized Headlines */}
-        <div className="space-y-2.5">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Recommended Recruiter-Magnet Headlines (1-Click Copy):
-          </span>
-
-          {optimizedHeadlines.map((item, idx) => {
-            const copyKey = `seo_headline_${idx}`
-            const isCopied = copiedId === copyKey
-            return (
-              <div
-                key={idx}
-                className="p-3 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <span className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 font-mono">
-                    {item.style}
-                  </span>
-                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                    {item.headline}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {item.reason}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleCopy(item.headline, copyKey)}
-                  className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-2xs border ${
-                    isCopied
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                  }`}
+        {/* Penalties and Insights Breakdown */}
+        {recruiterSeo?.penalties?.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Visibility Factors &amp; Algorithmic Penalties:
+            </span>
+            <div className="space-y-1.5">
+              {recruiterSeo.penalties.map((pen, pIdx) => (
+                <div
+                  key={pIdx}
+                  className="p-2.5 rounded-lg bg-rose-500/5 border border-rose-500/20 text-xs flex items-center justify-between gap-2"
                 >
-                  {isCopied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
-            )
-          })}
-        </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="font-bold text-rose-700 dark:text-rose-400 font-mono text-[10px]">
+                      {pen.rule}
+                    </span>
+                    <p className="text-[var(--text-secondary)] text-[11px]">{pen.critique}</p>
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-rose-600 shrink-0">
+                    {pen.impact}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 2. Resume-vs-LinkedIn Missing Sections & Discrepancies (Top 4 Compact Grid) ── */}
@@ -1733,10 +1825,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
                   <TextT size={14} className="text-[var(--primary)]" />
-                  Targeted Headline Selector (One-Click Copy)
+                  Recruiter-Searchable Headlines (3 Options)
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  Recruiter SEO & Impact Formats
+                  Grounded in verified resume + target role (15–20 words)
                 </span>
               </div>
 
@@ -1813,7 +1905,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                     </span>
                   </div>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Structured for modern recruiter scan habits: The Hook → Quantified Proof → Next Role Call-to-Connect
+                    Structured using the 4-part video copywriting framework: Credibility Hook → Target Audience &amp; Problem → Approach &amp; Skills → Natural Closing CTA
                   </p>
                 </div>
 
@@ -1840,41 +1932,51 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
               <div className="space-y-4 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-5 text-xs text-[var(--text-secondary)] leading-relaxed">
                 {aboutIsString ? (
-                  <p className="text-[var(--text-primary)] whitespace-pre-wrap">{rawAbout}</p>
+                  <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{rawAbout}</p>
                 ) : (
                   <>
                     {hookText && (
                       <div className="space-y-1">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--primary)]">
-                          Paragraph 1: The Hook (Technical Identity & Domain)
+                          Part 1: Credibility &amp; Measurable Outcome Hook
                         </span>
-                        <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap">
+                        <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap leading-relaxed">
                           {hookText}
                         </p>
                       </div>
                     )}
-                    {proofText && (
-                      <div className="space-y-1 pt-2 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
-                          Paragraph 2: Quantified Proof & Architecture Scale
+                    {audienceText && (
+                      <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                          Part 2: Target Audience &amp; Core Problem Solved
                         </span>
-                        <p className="text-[var(--text-secondary)] whitespace-pre-wrap">
-                          {proofText}
+                        <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                          {audienceText}
+                        </p>
+                      </div>
+                    )}
+                    {approachText && (
+                      <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
+                          Part 3: Approach, Experience &amp; Key Skills
+                        </span>
+                        <p className="text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
+                          {approachText}
                         </p>
                       </div>
                     )}
                     {ctaText && (
-                      <div className="space-y-1 pt-2 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-primary)]">
-                          Paragraph 3: Next Role Focus & Call to Connect
+                      <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-muted)]">
+                          Part 4: Simple, Natural Closing CTA
                         </span>
-                        <p className="text-[var(--text-secondary)] italic whitespace-pre-wrap">
+                        <p className="text-[var(--text-primary)] italic whitespace-pre-wrap leading-relaxed">
                           {ctaText}
                         </p>
                       </div>
                     )}
-                    {!hookText && !proofText && !ctaText && fallbackFullText && (
-                      <p className="text-[var(--text-primary)] whitespace-pre-wrap">
+                    {!hookText && !approachText && !ctaText && fallbackFullText && (
+                      <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                         {fallbackFullText}
                       </p>
                     )}
@@ -2041,90 +2143,165 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
             </div>
           )}
 
-          {/* ── Top 3 Pinned Skills Badges ─────────────────────────────────── */}
-          {finalTop3PinnedSkills.length > 0 && (
-            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3.5 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
-                  <PushPin size={16} weight="fill" className="text-[var(--primary)]" />
-                  Top 3 Pinned Skills (Profile Anchor)
-                </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  Pin these 3 to the top of your LinkedIn Skills section
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {finalTop3PinnedSkills.map((skill, idx) => {
-                  const copyKey = `pinned_${idx}`
-                  const isCopied = copiedId === copyKey
-                  const skillName = safeText(skill)
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleCopy(skillName, copyKey)}
-                      className={`print-keep p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
-                        isCopied
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                          : 'border-[var(--primary)]/20 bg-[var(--primary-light)] hover:bg-[var(--primary-light)]/80 text-[var(--text-primary)]'
-                      }`}
-                      title="Click to copy pinned skill"
-                    >
-                      <div className="flex items-center gap-2">
-                        <PushPin size={14} weight="fill" className={isCopied ? 'text-white' : 'text-[var(--primary)]'} />
-                        <span className="text-xs font-bold">{skillName}</span>
-                      </div>
-                      {isCopied ? <Check size={14} weight="bold" /> : <Copy size={13} className="opacity-60" />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Missing Skills Chips (Add to LinkedIn Skills Bank) */}
-          {recommendedSkills.length > 0 && (
-            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* ── Unified: Skills & Recruiter SEO Bank (50+ Target) ── */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
+              <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <Tag size={14} className="text-[var(--primary)]" />
-                  Recommended Skills to Add ({recommendedSkills.length} Verified Resume Skills)
+                  <Tag size={16} weight="fill" className="text-[var(--primary)]" />
+                  Skills &amp; Recruiter SEO Bank (50+ Target)
                 </span>
-                <span className="text-[11px] text-[var(--text-muted)]">
-                  Click any chip to copy into LinkedIn skills bank
-                </span>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Recruiter search algorithms index candidates by exact skill-slot matches. Pin your top 3 anchors, add missing verified skills, and utilize all 50 slots.
+                </p>
               </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {recommendedSkills.map((skill, idx) => {
-                  const copyKey = `skill_${idx}`
-                  const isCopied = copiedId === copyKey
-                  const skillName = safeText(skill)
-                  return (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleCopy(skillName, copyKey)}
-                      className={`print-keep px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        isCopied
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'
-                      }`}
-                      title="Click to copy skill name"
-                    >
-                      {isCopied ? (
-                        <Check size={13} weight="bold" />
-                      ) : (
-                        <Plus size={13} weight="bold" className="text-[var(--primary)]" />
-                      )}
-                      <span>{skillName}</span>
-                    </button>
-                  )
-                })}
-              </div>
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] px-2.5 py-0.5 rounded-full">
+                50-Skill Maximum Capacity
+              </span>
             </div>
-          )}
+
+            {/* A. Top 3 Pinned Skills (Profile Anchors) */}
+            {finalTop3PinnedSkills.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                    <PushPin size={14} weight="fill" className="text-[var(--primary)]" />
+                    Top 3 Pinned Skills (Profile Anchors)
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Pin these 3 to the top of your LinkedIn Skills section
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {finalTop3PinnedSkills.map((skill, idx) => {
+                    const copyKey = `pinned_${idx}`
+                    const isCopied = copiedId === copyKey
+                    const skillName = safeText(skill)
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleCopy(skillName, copyKey)}
+                        className={`print-keep p-3.5 rounded-xl border flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
+                          isCopied
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'border-[var(--primary)]/20 bg-[var(--primary-light)] hover:bg-[var(--primary-light)]/80 text-[var(--text-primary)]'
+                        }`}
+                        title="Click to copy pinned skill"
+                      >
+                        <div className="flex items-center gap-2">
+                          <PushPin size={14} weight="fill" className={isCopied ? 'text-white' : 'text-[var(--primary)]'} />
+                          <span className="text-xs font-bold">{skillName}</span>
+                        </div>
+                        {isCopied ? <Check size={14} weight="bold" /> : <Copy size={13} className="opacity-60" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* B. Recommended Skills to Add (Verified from Resume) */}
+            {recommendedSkills.length > 0 && (
+              <div className="space-y-2.5 pt-3 border-t border-[var(--border-default)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                    <Plus size={14} weight="bold" className="text-[var(--primary)]" />
+                    Recommended Priority Additions ({recommendedSkills.length} Verified Resume Skills)
+                  </span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Click any chip to copy into LinkedIn skills bank
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {recommendedSkills.map((skill, idx) => {
+                    const copyKey = `skill_${idx}`
+                    const isCopied = copiedId === copyKey
+                    const skillName = safeText(skill)
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleCopy(skillName, copyKey)}
+                        className={`print-keep px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'
+                        }`}
+                        title="Click to copy skill name"
+                      >
+                        {isCopied ? (
+                          <Check size={13} weight="bold" />
+                        ) : (
+                          <Plus size={13} weight="bold" className="text-[var(--primary)]" />
+                        )}
+                        <span>{skillName}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* C. 50+ Categorized Skills Bank (Core, Tools, Industry, Transferable) */}
+            {categorizedSkills && (
+              <div className="space-y-3 pt-3 border-t border-[var(--border-default)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                    <Tag size={14} className="text-indigo-600 dark:text-indigo-400" />
+                    Categorized 50-Skill Recruiter Bank
+                  </span>
+                  <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                    {categorizedSkills.totalCount || 40}+ curated skills across 4 buckets
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {[
+                    { label: 'Tools & Platforms', items: categorizedSkills.toolsAndPlatforms || [] },
+                    { label: 'Core Functional', items: categorizedSkills.coreFunctional || [] },
+                    { label: 'Industry & Standards', items: categorizedSkills.industrySpecific || [] },
+                    { label: 'Transferable & Leadership', items: categorizedSkills.transferable || [] },
+                  ].filter((b) => b.items.length > 0).map((bucket, bIdx) => (
+                    <div key={bIdx} className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                          {bucket.label}
+                        </span>
+                        <span className="text-[10px] font-mono text-[var(--text-secondary)]">
+                          {bucket.items.length} skills
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bucket.items.map((sk, skIdx) => {
+                          const copyKey = `cat_sk_${bIdx}_${skIdx}`
+                          const isCopied = copiedId === copyKey
+                          const skText = safeText(sk)
+                          return (
+                            <button
+                              key={skIdx}
+                              type="button"
+                              onClick={() => handleCopy(skText, copyKey)}
+                              className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer border ${
+                                isCopied
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border-[var(--border-default)]'
+                              }`}
+                              title="Click to copy skill"
+                            >
+                              {skText}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* ── Single Consolidated: Featured & Projects Showcase (Add to LinkedIn) ── */}
           {(consolidatedProjects.length > 0 || hasCertifications) && (
@@ -2310,116 +2487,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* ── Dynamic Profile Picture & Cover Banner Upgrade Prompts ── */}
-          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                  <Camera size={16} weight="fill" className="text-[var(--primary)]" />
-                  Profile Picture & Cover Banner Upgrade Prompts
-                </span>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Pre-filled generative prompts grounded in your target role and verified resume achievements.
-                </p>
-              </div>
-            </div>
-
-            {/* Note on image quality grading */}
-            <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] leading-relaxed">
-              <strong className="text-[var(--text-primary)] font-semibold">Visual Audit Policy: </strong>
-              We don't visually grade image quality — if you feel your profile picture or banner isn't strong enough, copy these pre-filled prompts to generate a studio-grade upgrade.
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Studio Headshot Prompt */}
-              <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                      <Camera size={14} className="text-[var(--primary)]" /> Studio Headshot Prompt
-                    </span>
-                    <span className="text-[10px] font-mono uppercase bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded border border-[var(--primary)]/20">
-                      Midjourney / DALL-E
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all">
-                    {effectiveVisualPrompts.profilePicturePrompt}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(effectiveVisualPrompts.profilePicturePrompt, 'copy_pfp_prompt')}
-                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                    copiedId === 'copy_pfp_prompt'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
-                  }`}
-                >
-                  {copiedId === 'copy_pfp_prompt' ? (
-                    <><Check size={13} weight="bold" /> Copied Headshot Prompt</>
-                  ) : (
-                    <><Copy size={13} /> Copy Studio Headshot Prompt</>
-                  )}
-                </button>
-              </div>
-
-              {/* Cover Banner Prompt */}
-              <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                      <Sparkle size={14} className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
-                    </span>
-                    <span className="text-[10px] font-mono uppercase bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20">
-                      Canva / AI Banner
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all whitespace-pre-line max-h-48 overflow-y-auto">
-                    {effectiveVisualPrompts.coverBannerPrompt}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(effectiveVisualPrompts.coverBannerPrompt, 'copy_banner_prompt')}
-                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                    copiedId === 'copy_banner_prompt'
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
-                  }`}
-                >
-                  {copiedId === 'copy_banner_prompt' ? (
-                    <><Check size={13} weight="bold" /> Copied Banner Prompt</>
-                  ) : (
-                    <><Copy size={13} /> Copy Cover Banner Prompt</>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* 3 Banner Layout Showcase Directions */}
-            {effectiveVisualPrompts.bannerShowcaseOptions?.length > 0 && (
-              <div className="space-y-2.5 pt-2 border-t border-[var(--border-default)]">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  Recommended Banner Style Directions:
-                </span>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {effectiveVisualPrompts.bannerShowcaseOptions.map((opt, oIdx) => (
-                    <div
-                      key={oIdx}
-                      className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="font-bold text-[var(--text-primary)]">{opt.style}</span>
-                      </div>
-                      <p className="text-[11px] text-[var(--primary)] font-mono">{opt.colorPalette}</p>
-                      <p className="text-[11px] text-[var(--text-secondary)] leading-snug">{opt.layout}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
