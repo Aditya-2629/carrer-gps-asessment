@@ -39,9 +39,11 @@ export default function FunnelAndConversionSection({
   const f90 = answers.funnel90d || {}
   const rawApps30d = answers.apps30d != null
     ? answers.apps30d
-    : (answers.appsWeek != null ? Math.round(Number(answers.appsWeek) * 4.33) : 0)
+    : (answers.appsWeek != null
+      ? Math.round(Number(answers.appsWeek) * 4.33)
+      : (f90.applications90d != null ? f90.applications90d : (answers.applications_count != null ? answers.applications_count : 0)))
   const apps30d = parseFunnelCount(rawApps30d, 0)
-  const totalApps90d = parseFunnelCount(f90.applications90d ?? (apps30d > 0 ? apps30d * 3 : 0), 0)
+  const totalAppsMonthly = apps30d > 0 ? apps30d : parseFunnelCount(f90.applications90d ?? answers.applications_count, 0)
 
   // Real counts strictly from inputs — no fake fallbacks or artificial minimums
   const screens = parseFunnelCount(f90.recruiterScreens ?? f90.screens ?? answers.interviews ?? answers.humanScreen ?? 0, 0)
@@ -54,7 +56,7 @@ export default function FunnelAndConversionSection({
   const joiningStatus = String(f90.joiningStatus || answers.joiningStatus || 'No Offer Yet')
 
   // 2. Conversion Velocity Rates
-  const screenRate = totalApps90d > 0 ? ((combinedScreens / totalApps90d) * 100).toFixed(1) : '0.0'
+  const screenRate = totalAppsMonthly > 0 ? ((combinedScreens / totalAppsMonthly) * 100).toFixed(1) : '0.0'
   const techToFinalRate = technicalRounds > 0 ? ((finalRounds / technicalRounds) * 100).toFixed(0) : '0'
   const finalToOfferRate = finalRounds > 0 ? ((offers / finalRounds) * 100).toFixed(0) : '0'
 
@@ -90,8 +92,8 @@ export default function FunnelAndConversionSection({
       id: 1,
       name: 'Applications',
       shortName: 'Apps',
-      count: totalApps90d,
-      unit: 'sent (90d)',
+      count: totalAppsMonthly,
+      unit: 'sent / month',
       icon: PaperPlaneTilt,
       color: '#6366F1',
       isDropOffGate: phaseId === 1,
@@ -167,7 +169,7 @@ export default function FunnelAndConversionSection({
             Inside the hiring funnel
           </span>
           <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
-            90-Day Funnel Outcomes &amp; Conversion Velocity
+            Monthly Funnel Outcomes &amp; Conversion Velocity
           </h2>
         </div>
         <p className="text-xs sm:text-sm text-slate-500 font-medium">
@@ -208,8 +210,8 @@ export default function FunnelAndConversionSection({
               const dx = (x1 - x0) * 0.5
 
               // Proportional thickness capped between 10 and 54
-              const h0 = Math.max(10, Math.min(54, totalApps90d > 0 ? (stg.count / totalApps90d) * 54 : 14))
-              const h1 = Math.max(10, Math.min(48, totalApps90d > 0 ? (nextStg.count / totalApps90d) * 48 : 10))
+              const h0 = Math.max(10, Math.min(54, totalAppsMonthly > 0 ? (stg.count / totalAppsMonthly) * 54 : 14))
+              const h1 = Math.max(10, Math.min(48, totalAppsMonthly > 0 ? (nextStg.count / totalAppsMonthly) * 48 : 10))
 
               const y0Top = sankeyYMid - h0 / 2
               const y0Bottom = sankeyYMid + h0 / 2
@@ -345,7 +347,7 @@ export default function FunnelAndConversionSection({
         {/* StageBars: Verified Pipeline Stage Progression */}
         <div className="pt-2">
           <StageBars
-            title="Pipeline Stage Progression"
+            title="Monthly Stage Progression"
             stages={[
               { id: 'apps', label: 'Applications' },
               { id: 'screens', label: 'Screens' },
@@ -357,7 +359,7 @@ export default function FunnelAndConversionSection({
               {
                 id: 'current',
                 label: 'Candidate Funnel',
-                values: [totalApps90d, combinedScreens, technicalRounds, finalRounds, offers],
+                values: [totalAppsMonthly, combinedScreens, technicalRounds, finalRounds, offers],
               },
             ]}
             value="current"

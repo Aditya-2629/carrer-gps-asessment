@@ -245,9 +245,12 @@ export function deriveFunnelFromAnswers(answers = {}) {
     answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? Math.round(answers.appsWeek * 4.33) : 0),
     0
   )
+  const totalAppsMonthly = apps30d > 0
+    ? apps30d
+    : parseRangeOrNumber(f90.applications90d ?? answers.applications90d ?? answers.applications_count, 0)
   const totalApps90d = parseRangeOrNumber(
-    f90.applications90d ?? answers.applications90d ?? (apps30d > 0 ? apps30d * 3 : 0),
-    0
+    f90.applications90d ?? (totalAppsMonthly > 0 ? totalAppsMonthly * 3 : 0),
+    totalAppsMonthly
   )
 
   const recruiterScreens = parseRangeOrNumber(
@@ -276,20 +279,20 @@ export function deriveFunnelFromAnswers(answers = {}) {
     ? (recruiterScreens + assessments + aiInterviews)
     : recruiterScreens
 
-  const appToScreenRate = totalApps90d > 0 ? (totalScreens / totalApps90d) * 100 : 0
+  const appToScreenRate = totalAppsMonthly > 0 ? (totalScreens / totalAppsMonthly) * 100 : 0
   const screenToTechRate = totalScreens > 0 ? (technicalRounds / totalScreens) * 100 : 0
   const techToFinalRate = technicalRounds > 0 ? (finalRounds / technicalRounds) * 100 : 0
   const finalToOfferRate = finalRounds > 0 ? (offers / finalRounds) * 100 : 0
 
   let biggest_leak_stage = 'top_of_funnel'
   let leak_title = 'Top-of-Funnel Application Black Hole'
-  let diagnosis_message = `You submitted ${totalApps90d.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
+  let diagnosis_message = `You submitted ${totalAppsMonthly.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
 
-  if (totalApps90d > 80 && totalScreens < 3) {
+  if (totalAppsMonthly > 80 && totalScreens < 3) {
     diagnosis_message = 'The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization.'
   }
 
-  if (totalApps90d < 15 && totalScreens === 0) {
+  if (totalAppsMonthly < 15 && totalScreens === 0) {
     biggest_leak_stage = 'readiness_stall'
     leak_title = 'Application Readiness & Search Inactivity'
     diagnosis_message = 'Pipeline has stalled before launch with under 15 applications and 0 recruiter screens. Focus on resume tailoring and initiating active outreach.'
@@ -320,9 +323,10 @@ export function deriveFunnelFromAnswers(answers = {}) {
   }
 
   return {
-    applications_count: totalApps90d,
-    applications30d: apps30d,
+    applications_count: totalAppsMonthly,
+    applications30d: totalAppsMonthly,
     applications90d: totalApps90d,
+    totalAppsMonthly,
     recruiter_calls_count: recruiterScreens,
     recruiterScreens,
     assessments,

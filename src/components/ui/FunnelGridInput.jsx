@@ -87,13 +87,13 @@ const JOINING_STATUS_OPTIONS = [
 export default function FunnelGridInput({ value, onChange, error }) {
   const { formData } = useAppStore()
 
-  // Calculate default applications90d based on apps30d if available
+  // Pass apps30d through directly without * 3 inflation
   const apps30dNum = parseRangeOrNumber(formData.apps30d, 0)
-  const default90dApps = apps30dNum > 0 ? apps30dNum * 3 : 0
+  const defaultMonthlyApps = apps30dNum > 0 ? apps30dNum : 0
 
   const currentObj = typeof value === 'object' && value !== null ? value : {}
   const [funnelData, setFunnelData] = useState({
-    applications90d: currentObj.applications90d ?? default90dApps,
+    applications90d: currentObj.applications90d ?? defaultMonthlyApps,
     recruiterScreens: currentObj.recruiterScreens ?? currentObj.screens ?? 0,
     assessments: currentObj.assessments ?? 0,
     aiInterviews: currentObj.aiInterviews ?? 0,

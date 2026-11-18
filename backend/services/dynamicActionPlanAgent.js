@@ -363,8 +363,8 @@ OUTPUT JSON SCHEMA:
       ],
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
-      maxTokens: 2500,
-      timeoutMs: options.timeoutMs || 8000,
+      maxTokens: 1800,
+      timeoutMs: options.timeoutMs || 6500,
     })
 
     const rawText = response?.text || response?.content || '{}'
