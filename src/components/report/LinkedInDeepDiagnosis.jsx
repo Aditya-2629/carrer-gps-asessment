@@ -737,7 +737,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
   const recommendedSkills = deduplicatedRecommended.sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
 
-  const sectionAudit = linkedinAgent?.sectionAudit || effectiveScorecard?.sectionAudit || null
+  const sectionAudit = linkedinAgent?.sectionAudit || linkedinAgent?.dashboard?.sectionAudit || reportData?.linkedin_agent?.sectionAudit || null
   const visualPrompts = optimizations?.visualPrompts || linkedinAgent?.visualPrompts || null
   const networkingRecommendation =
     optimizations?.networkingRecommendation ||
@@ -787,7 +787,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         hurtingReason: connCount < 500 ? 'Under 500 connections limits your 2nd and 3rd-degree recruiter reach.' : null,
       },
     }
-  }, [sectionAudit, linkedinAgent, effectiveScorecard])
+  }, [sectionAudit, linkedinAgent])
 
   const effectiveVisualPrompts = useMemo(() => {
     if (visualPrompts && visualPrompts.profilePicturePrompt && visualPrompts.coverBannerPrompt) {
