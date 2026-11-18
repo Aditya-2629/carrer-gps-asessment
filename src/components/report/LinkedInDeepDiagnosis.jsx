@@ -510,6 +510,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     ? `My methodology pairs dimensional data modeling with automated query optimization and rigorous validation. I work primarily with ${skillsStr || 'SQL, Power BI, Python, and Tableau'}, enabling stakeholders to uncover growth levers with zero reporting delay.`
     : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I leverage ${skillsStr || 'agile methodologies and executive alignment'} to foster high-agency teams and repeatable project delivery.`
 
+  const richFallbackProof = richFallbackApproach
   const richFallbackCta = `If you are scaling high-impact initiatives or looking for proven ${targetRole} expertise, let's connect!`
   const richFallbackAbout = `${richFallbackHook}\n\n${richFallbackAudience}\n\n${richFallbackApproach}\n\n${richFallbackCta}`
   const fallbackAbout = richFallbackAbout
@@ -685,6 +686,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     headlines: fallbackHeadlinesList,
     aboutRewrite: {
       hook: richFallbackHook,
+      audienceAndProblem: richFallbackAudience,
+      approachAndSkills: richFallbackApproach,
       proof: richFallbackProof,
       callToAction: richFallbackCta,
       fullText: richFallbackAbout,
