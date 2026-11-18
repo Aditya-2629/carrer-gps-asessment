@@ -225,13 +225,21 @@ export function sanitizeModeCOutput(analysis, state = {}) {
   // 5b. bulletRewrites normalization (supporting V4 readyToUseRewrite & wovenKeywords)
   if (Array.isArray(analysis.bulletRewrites)) {
     analysis.bulletRewrites = analysis.bulletRewrites
-      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && (rw.rewrittenText || rw.readyToUseRewrite))
+      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText || rw.original || rw.text) && (rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite))
       .map((rw) => {
-        const cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite)
+        const origText = rw.original || rw.originalText || rw.text || ''
+        const cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
         return {
           ...rw,
+          original: origText,
+          originalText: origText,
+          rewritten: cleanedText,
           rewrittenText: cleanedText,
           readyToUseRewrite: cleanedText,
+          critique: rw.critique || rw.reason || rw.diagnosis || '',
+          fiveParts: rw.fiveParts || rw.fivePartFlags || null,
+          impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
+          status: rw.status || 'warn',
           wovenKeywords: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
         }
       })

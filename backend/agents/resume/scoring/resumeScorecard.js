@@ -924,6 +924,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
     llmBulletRewrites.forEach((rw) => {
       if (rw?.bulletId) llmRewriteMap.set(rw.bulletId, rw)
       if (rw?.id) llmRewriteMap.set(rw.id, rw)
+      if (rw?.original && typeof rw.original === 'string') llmRewriteMap.set(rw.original.trim(), rw)
+      if (rw?.text && typeof rw.text === 'string') llmRewriteMap.set(rw.text.trim(), rw)
     })
   }
 
@@ -995,16 +997,30 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       const hasPresentDate = /present|current|now/i.test(item?.endDate || '') || /present|current|now/i.test(item?.dates || '') || /present|current|now/i.test(item?.duration || '') || item?.isCurrent === true
       const isCurrentRole = section.key === 'experience' && (item?.isCurrent === true || hasPresentDate)
 
-      for (const b of item.bullets || []) {
-        if (!b?.id || !b?.text) continue
+      const rawBullets = Array.isArray(item.bullets) ? item.bullets : []
+      for (let bIdx = 0; bIdx < rawBullets.length; bIdx++) {
+        const rawB = rawBullets[bIdx]
+        if (!rawB) continue
+        const bText = typeof rawB === 'string' ? rawB.trim() : (rawB.text || rawB.original || '').trim()
+        if (!bText) continue
+        const bId = (typeof rawB === 'object' && rawB?.id) ? rawB.id : `${section.key}_${itemIndex}_b${bIdx}`
+        const b = { id: bId, text: bText }
         const sig = signalByBullet.get(b.id)
         const issue = issueByBullet.get(b.id)
         const upgrade = upgradeByBullet.get(b.id)
+        const llmMatch = llmRewriteMap.get(b.id) || llmRewriteMap.get(b.text.trim())
 
         let status = 'pass'
         let reason = 'Clear, specific, no defects found'
         let quickPolishNote = null
         let rewrite = null
+
+        if (llmMatch) {
+          rewrite = llmMatch.rewritten || llmMatch.rewrittenText || llmMatch.rewrite || null
+          if (llmMatch.critique || llmMatch.reason) {
+            reason = llmMatch.critique || llmMatch.reason
+          }
+        }
 
         const isAccomplished = sig && (sig.hasQuantifier === true || sig.hasQualitativeOutcome === true) && !sig.isToolDumpCandidate
         const hasWeakOpener = Boolean(sig?.weakVerbIssue) || /^(?:responsible for|worked on|helped|contributed to)\b/i.test(b.text.trim().replace(/^[•\-*▪–—\s]+/, ''))
@@ -1090,7 +1106,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           }
         }
 
-        const cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
+        let cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
 
         const bEval = evalByBullet.get(b.id)
         let verdict
@@ -1126,6 +1142,11 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           verdict = (status === 'pass' && !hasWeakOpener && (hasMetric || hasOutcome)) ? 'helping' : 'hurting'
         }
 
+        if (verdict === 'hurting' && !cleanImproved) {
+          const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
+        }
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -1134,18 +1155,54 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           original: b.text,
           status,
           reason: balanceParentheses(reason),
+          critique: balanceParentheses(reason),
           guidance: lacksOutcome ? 'Consider adding a quantified percentage or business impact metric if verifiable.' : null,
           quickPolishNote,
           rewrite: cleanImproved,
+          rewritten: cleanImproved,
           improved: cleanImproved,
           issueId: issue?.id || null,
           category: issue?.category || null,
           verdict,
           fivePartFlags,
           isResponsibilityOnly,
+          impactScore: status === 'pass' ? 92 : status === 'warn' ? 68 : 35,
         })
       }
     }
+  }
+
+  // Fallback: If no experience bullets were found in canonical sections, but LLM bullet rewrites exist
+  if (audit.length === 0 && Array.isArray(llmBulletRewrites) && llmBulletRewrites.length > 0) {
+    llmBulletRewrites.forEach((rw, idx) => {
+      const orig = rw.original || rw.text || ''
+      if (!orig) return
+      const cleanRw = cleanRewriteText(rw.rewritten || rw.rewrite || rw.rewrittenText || orig)
+      const isPass = rw.status === 'pass' || rw.severity === 'PASS'
+      audit.push({
+        bulletId: rw.bulletId || rw.id || `llm_b_${idx}`,
+        section: 'experience',
+        itemName: 'Experience',
+        text: orig,
+        original: orig,
+        status: isPass ? 'pass' : 'warn',
+        reason: balanceParentheses(rw.critique || rw.reason || 'Flagged for impact enhancement'),
+        critique: balanceParentheses(rw.critique || rw.reason || 'Flagged for impact enhancement'),
+        rewrite: cleanRw,
+        rewritten: cleanRw,
+        improved: cleanRw,
+        verdict: isPass ? 'helping' : 'hurting',
+        fivePartFlags: rw.fiveParts || rw.fivePartFlags || {
+          actionVerb: true,
+          hardSkill: true,
+          collaboration: false,
+          metric: isPass,
+          outcome: isPass,
+        },
+        isResponsibilityOnly: Boolean(rw.isResponsibilityOnly),
+        impactScore: isPass ? 92 : 60,
+      })
+    })
   }
 
   return audit

@@ -880,6 +880,44 @@ export async function generateReportBundle(params = {}, options = {}) {
   report.funnel_stages = funnelStages
   normalizeAtlasShapes(report, answers)
 
+  // Ensure resume_agent and dashboard.bulletAudit are always populated for report consumption
+  if (!report.resume_agent) {
+    report.resume_agent = params.resumeAgent || params.precomputedResumeAgent || user?.resume_agent || {}
+  }
+  if (!report.resume_agent.dashboard || !report.resume_agent.dashboard.bulletAudit?.length) {
+    try {
+      const { computeScorecard } = await import('../agents/resume/scoring/resumeScorecard.js')
+      const scorecard = computeScorecard({
+        canonicalResume: resumeJson,
+        targetRole,
+        analysis: {
+          candidateSnapshot: {
+            name: resumeJson.candidate?.name || user?.name || '',
+            targetRole,
+          },
+          bulletRewrites: report.bulletRewrites || [],
+        },
+      })
+      if (scorecard) {
+        report.resume_agent.dashboard = scorecard
+        report.resume_agent.sectionAudit = scorecard.sectionAudit || report.resume_agent.sectionAudit
+      }
+    } catch (_scErr) {
+      console.warn('[ReportGen] Deterministic scorecard builder warning:', _scErr.message)
+    }
+  }
+
+  // Ensure bulletRewrites is mirrored across all canonical alias keys
+  const resolvedAuditBullets = report.resume_agent?.dashboard?.bulletAudit || report.bulletRewrites || []
+  if (resolvedAuditBullets.length > 0) {
+    report.bulletRewrites = resolvedAuditBullets
+    report.bullet_rewrites = resolvedAuditBullets
+    if (report.resume_agent) {
+      report.resume_agent.bulletRewrites = resolvedAuditBullets
+      report.resume_agent.bullet_rewrites = resolvedAuditBullets
+    }
+  }
+
   if (liveLinkedinData || user?.linkedinData) {
     report.linkedin_json = liveLinkedinData || user?.linkedinData
   }

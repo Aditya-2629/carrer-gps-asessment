@@ -57,15 +57,16 @@ function cleanRewriteText(text) {
   return cleaned
 }
 
-function cleanRecruiterSummary(rawReview, candidateName, dashboard) {
+function cleanRecruiterSummary(rawReview, candidateName, dashboard, resolvedBullets = []) {
   if (!rawReview || typeof rawReview !== 'string') return ''
   let text = rawReview.trim()
 
   const flatteryMatch = text.match(/^(?:[\w\s.-]+,\s*)?(?:you have built a solid foundation|your background shows a practical progression|your resume demonstrates clear technical competence|having hands-on experience[^\n.]*gives you a solid foundation|with your impressive background in)[^\n.]*[.]?\s*(.*)$/is)
 
   if (flatteryMatch && flatteryMatch[1]) {
-    const totalBullets = dashboard?.bulletAudit?.length || 0
-    const quantBullets = dashboard?.bulletAudit?.filter((b) => b.hasQuantifier || b.status === 'pass').length || 0
+    const bulletsList = (Array.isArray(resolvedBullets) && resolvedBullets.length > 0) ? resolvedBullets : (dashboard?.bulletAudit || [])
+    const totalBullets = bulletsList.length
+    const quantBullets = bulletsList.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
     const numbersRatio = totalBullets > 0 ? `Only ${quantBullets} of ${totalBullets} bullets contain numbers.` : ''
     const lead = candidateName ? `${candidateName}, you` : 'You'
 
@@ -138,6 +139,68 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
   const rawSummaryOpt = resumeAgent.summaryOptimization || null
   const summaryOptimization = rawSummaryOpt
+    ? {
+        ...rawSummaryOpt,
+        rewrittenSummary: cleanRewriteText(rawSummaryOpt.rewrittenSummary),
+      }
+    : null
+
+  // Unified resolvedBullets: reads from dashboard, bulletRewrites, or raw canonical parsed bullets
+  const resolvedBullets = useMemo(() => {
+    // 1. Check dashboard?.bulletAudit
+    if (Array.isArray(dashboard?.bulletAudit) && dashboard.bulletAudit.length > 0) {
+      return dashboard.bulletAudit
+    }
+    // 2. Check resumeAgent?.bulletRewrites / bullet_rewrites
+    const raBullets = resumeAgent?.bulletRewrites || resumeAgent?.bullet_rewrites
+    if (Array.isArray(raBullets) && raBullets.length > 0) {
+      return raBullets
+    }
+    // 3. Check reportData?.bullet_rewrites / resume_rewrites / resume_agent?.bulletRewrites
+    const repBullets =
+      reportData?.bullet_rewrites ||
+      reportData?.resume_rewrites ||
+      reportData?.bulletRewrites ||
+      reportData?.resume_agent?.bulletRewrites ||
+      reportData?.resume_agent?.bullet_rewrites
+    if (Array.isArray(repBullets) && repBullets.length > 0) {
+      return repBullets
+    }
+    // 4. Parsed experience bullets fallback from canonical resume
+    const expList =
+      resumeAgent?.canonicalResume?.experiences ||
+      resumeAgent?.canonicalResume?.experience ||
+      reportData?.resume_json?.experience ||
+      reportData?.resume_json?.experiences ||
+      []
+    const fallbackList = []
+    for (const exp of expList) {
+      for (const b of exp.bullets || []) {
+        const text = typeof b === 'string' ? b : b?.text || b?.original
+        if (text) {
+          fallbackList.push({
+            bulletId: b?.id || `exp_b_${fallbackList.length}`,
+            original: text,
+            text,
+            status: 'warn',
+            verdict: 'hurting',
+          })
+        }
+      }
+    }
+    return fallbackList
+  }, [
+    dashboard?.bulletAudit,
+    resumeAgent?.bulletRewrites,
+    resumeAgent?.bullet_rewrites,
+    reportData?.bullet_rewrites,
+    reportData?.resume_rewrites,
+    reportData?.bulletRewrites,
+    reportData?.resume_agent?.bulletRewrites,
+    reportData?.resume_agent?.bullet_rewrites,
+    resumeAgent?.canonicalResume,
+    reportData?.resume_json,
+  ])
 
   const rawSectionAudit = resumeAgent?.sectionAudit || dashboard?.sectionAudit || reportData?.resume_agent?.sectionAudit || null
   const effectiveSectionAudit = useMemo(() => {
@@ -145,8 +208,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       return rawSectionAudit
     }
     const grades = dashboard?.grades || {}
-    const quantBullets = dashboard?.bulletAudit?.filter((b) => b.hasQuantifier || b.status === 'pass').length || 0
-    const totalBullets = dashboard?.bulletAudit?.length || 0
+    const quantBullets = resolvedBullets.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
+    const totalBullets = resolvedBullets.length
     const kwScore = dashboard?.keywordAlignment?.score || 72
     const impactScore = grades?.impact?.score || 65
     const atsScore = grades?.ats_readability?.score || 85
@@ -199,11 +262,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       },
     }
   }, [rawSectionAudit, dashboard])
-    ? {
-        ...rawSummaryOpt,
-        rewrittenSummary: cleanRewriteText(rawSummaryOpt.rewrittenSummary),
-      }
-    : null
+
   const [copiedSummary, setCopiedSummary] = useState(false)
 
   const handleCopySummary = () => {
@@ -389,11 +448,11 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   // Filter out issues that are already rendered inline on bullet cards in ResumeBulletAudit
   const sectionLevelIssues = useMemo(() => {
     const auditedBulletIds = new Set(
-      (dashboard?.bulletAudit || []).map((b) => b.bulletId).filter(Boolean)
+      (resolvedBullets || []).map((b) => b.bulletId).filter(Boolean)
     )
     const auditedTexts = new Set(
-      (dashboard?.bulletAudit || [])
-        .map((b) => (b.text || '').trim().toLowerCase())
+      (resolvedBullets || [])
+        .map((b) => (b.text || b.original || '').trim().toLowerCase())
         .filter((t) => t.length > 15)
     )
 
@@ -438,7 +497,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       return true
     })
-  }, [issues, dashboard?.bulletAudit])
+  }, [issues, resolvedBullets])
 
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">
@@ -647,7 +706,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                     ? resumeAgent.overallReview
                     : resumeAgent.overallReview?.summary,
                   firstName,
-                  dashboard
+                  dashboard,
+                  resolvedBullets
                 )}
               </p>
             </div>
@@ -777,9 +837,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
-      {dashboard?.bulletAudit?.length > 0 && (
+      {resolvedBullets.length > 0 ? (
         <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-          <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
+          <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
+        </div>
+      ) : (
+        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 text-center text-xs text-[var(--text-muted)]">
+          <p>No parsed experience bullets found in the supplied resume.</p>
         </div>
       )}
 
@@ -895,7 +959,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       />
 
       {/* Deep issues (only shown when bullet audit is not available) */}
-      {!dashboard?.bulletAudit?.length && sectionLevelIssues.length > 0 && (
+      {!resolvedBullets.length && sectionLevelIssues.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
@@ -961,7 +1025,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Priority actions (only shown when bullet audit is not available) */}
-      {!dashboard?.bulletAudit?.length && priorityActions.length > 0 && (
+      {!resolvedBullets.length && priorityActions.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6">
           <h3 className="text-xs font-bold text-[var(--primary)] uppercase tracking-wider flex items-center gap-2 mb-4">
             <ListChecks size={15} /> Priority Action Items — Do These First

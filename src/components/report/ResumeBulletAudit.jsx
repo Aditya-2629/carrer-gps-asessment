@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Copy,
   Check,
@@ -40,15 +40,28 @@ export default function ResumeBulletAudit({
   const { triggerGuide } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
   const [filterVerdict, setFilterVerdict] = useState('ALL') // 'ALL' | 'HURTING' | 'HELPING'
-  const [expandedId, setExpandedId] = useState(null)
+  const [userHasToggled, setUserHasToggled] = useState(false)
 
-  // Bullets triage data fallback
+  // Bullets triage data: prioritize resolved bulletAudit array first
   const rawBullets =
+    (Array.isArray(bulletAudit) && bulletAudit.length > 0 ? bulletAudit : null) ||
+    (Array.isArray(bulletData) && bulletData.length > 0 ? bulletData : null) ||
     bulletData?.bulletRewrites ||
     bulletData?.bullet_rewrites ||
-    (Array.isArray(bulletData) ? bulletData : null) ||
-    (Array.isArray(bulletAudit) ? bulletAudit : null) ||
     null
+
+  const [expandedId, setExpandedId] = useState(() => {
+    if (!rawBullets || rawBullets.length === 0) return 'b_01'
+    const firstHurting = rawBullets.find(
+      (b) =>
+        b?.verdict === 'hurting' ||
+        b?.status === 'fail' ||
+        b?.status === 'critical' ||
+        b?.status === 'warn' ||
+        (typeof b?.impactScore === 'number' && b.impactScore < 75)
+    )
+    return firstHurting?.bulletId || firstHurting?.id || rawBullets[0]?.bulletId || rawBullets[0]?.id || 'b_0'
+  })
 
   const bullets = useMemo(() => {
     if (!rawBullets || rawBullets.length === 0) {
@@ -105,24 +118,37 @@ export default function ResumeBulletAudit({
     }
 
     return rawBullets.map((item, index) => {
-      const isPass = item.status === 'pass' || item.severity === 'PASS'
-      const isWarn = item.status === 'warn' || item.severity === 'WARN'
+      const isPass =
+        item.status === 'pass' ||
+        item.severity === 'PASS' ||
+        (typeof item.impactScore === 'number' && item.impactScore >= 75)
+      const isWarn =
+        item.status === 'warn' ||
+        item.severity === 'WARN' ||
+        (typeof item.impactScore === 'number' && item.impactScore >= 50 && item.impactScore < 75)
       const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
-      const verdict = item.verdict ? String(item.verdict).toLowerCase() : (isPass ? 'helping' : 'hurting')
-      const fivePartFlags = item.fivePartFlags && typeof item.fivePartFlags === 'object' ? item.fivePartFlags : {
-        actionVerb: isPass,
-        hardSkill: true,
-        collaboration: false,
-        metric: isPass,
-        outcome: isPass,
-      }
+      const verdict = item.verdict
+        ? String(item.verdict).toLowerCase()
+        : isPass
+        ? 'helping'
+        : 'hurting'
+      const fivePartFlags =
+        item.fivePartFlags && typeof item.fivePartFlags === 'object'
+          ? item.fivePartFlags
+          : {
+              actionVerb: item.hasActionVerb ?? isPass,
+              hardSkill: (item.technologyCount ?? 0) > 0 || true,
+              collaboration: false,
+              metric: item.hasQuantifier ?? isPass,
+              outcome: item.hasOutcomeVerb ?? isPass,
+            }
       const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
 
       if (item.original && item.severity && item.recruiterAttention) {
         return {
           ...item,
-          bulletId: item.bulletId || `b_${index}`,
-          rewritten: cleanRewriteText(item.rewritten || item.original),
+          bulletId: item.bulletId || item.id || `b_${index}`,
+          rewritten: cleanRewriteText(item.rewritten || item.rewrite || item.original),
           verdict,
           fivePartFlags,
           isResponsibilityOnly,
@@ -130,16 +156,37 @@ export default function ResumeBulletAudit({
       }
 
       // Merge linked issue if present
-      const linkedIssue = issues.find((iss) =>
-        Array.isArray(iss.evidence) &&
-        iss.evidence.some((ev) => ev.bulletId === item.bulletId || ev.itemId === item.bulletId)
+      const linkedIssue = issues.find(
+        (iss) =>
+          Array.isArray(iss.evidence) &&
+          iss.evidence.some(
+            (ev) =>
+              ev.bulletId === item.bulletId ||
+              ev.itemId === item.bulletId ||
+              ev.bulletId === item.id ||
+              ev.itemId === item.id
+          )
       )
 
-      const finalRewritten = linkedIssue?.correctedText || item.rewrite || item.rewritten || item.original || item.text || ''
-      const finalCritique = linkedIssue?.diagnosis || item.reason || (isPass ? 'High impact technical achievement bullet with clear operational outcome.' : 'Lacks quantified metrics or active ownership.')
+      const finalRewritten =
+        linkedIssue?.correctedText ||
+        item.rewritten ||
+        item.rewrite ||
+        item.improved ||
+        item.readyToUseRewrite ||
+        item.original ||
+        item.text ||
+        ''
+      const finalCritique =
+        linkedIssue?.diagnosis ||
+        item.critique ||
+        item.reason ||
+        (isPass
+          ? 'High impact technical achievement bullet with clear operational outcome.'
+          : 'Lacks quantified metrics or active ownership.')
 
       return {
-        bulletId: item.bulletId || `b_${index}`,
+        bulletId: item.bulletId || item.id || `b_${index}`,
         original: item.original || item.text || '',
         rewritten: cleanRewriteText(finalRewritten),
         critique: finalCritique,
@@ -147,16 +194,40 @@ export default function ResumeBulletAudit({
         verdict,
         fivePartFlags,
         isResponsibilityOnly,
+        impactScore: item.impactScore,
         recruiterAttention: isPass
           ? 'HOOKED (3.0s scan)'
           : isWarn
           ? 'SKIPPED (0.7s scan)'
           : 'DROPPED (0.3s scan)',
-        score: isPass ? 94 : isWarn ? 65 : 30,
+        score:
+          typeof item.impactScore === 'number'
+            ? item.impactScore
+            : isPass
+            ? 94
+            : isWarn
+            ? 65
+            : 30,
       }
     })
   }, [rawBullets, issues])
 
+  // Ensure first hurting bullet is expanded when bullets change or on initial load
+  useEffect(() => {
+    if (!userHasToggled && expandedId === null && bullets.length > 0) {
+      const firstHurting = bullets.find((b) => b.verdict === 'hurting')
+      setExpandedId(firstHurting ? firstHurting.bulletId : bullets[0]?.bulletId || null)
+    }
+  }, [bullets, userHasToggled, expandedId])
+
+  const totalBulletsCount = bullets.length
+  const scoredPassCount = bullets.filter(
+    (b) =>
+      b.status === 'pass' ||
+      b.verdict === 'helping' ||
+      (typeof b.score === 'number' && b.score >= 75) ||
+      (typeof b.impactScore === 'number' && b.impactScore >= 75)
+  ).length
   const helpingCount = bullets.filter((b) => b.verdict === 'helping').length
   const hurtingCount = bullets.filter((b) => b.verdict === 'hurting').length
 
@@ -173,7 +244,9 @@ export default function ResumeBulletAudit({
   }
 
   const handleToggleExpand = (item, idx) => {
-    const nextId = expandedId === (item.bulletId || idx) ? null : (item.bulletId || idx)
+    setUserHasToggled(true)
+    const itemId = item.bulletId || idx
+    const nextId = expandedId === itemId ? null : itemId
     setExpandedId(nextId)
 
     if (nextId !== null) {
@@ -206,6 +279,13 @@ export default function ResumeBulletAudit({
 
         {/* Telemetry Pills & Filter Toggles */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* ATS & Recruiter Eye-Tracking Badge */}
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+            <span>ATS &amp; Recruiter Eye-Tracking:</span>
+            <span className="font-bold">{scoredPassCount}/{totalBulletsCount} bullets scored</span>
+          </span>
+
           <button
             type="button"
             onClick={() => setFilterVerdict('ALL')}
@@ -346,7 +426,7 @@ export default function ResumeBulletAudit({
                   </div>
 
                   {/* Strategic Recruiter Rewrite with Hairline DiffReview & CopyButton */}
-                  {item.rewritten && item.original !== item.rewritten && (
+                  {item.rewritten && item.original !== item.rewritten ? (
                     <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-mono text-indigo-700 flex items-center gap-1 font-semibold">
@@ -373,7 +453,19 @@ export default function ResumeBulletAudit({
                         title="Before → After Word Diff"
                       />
                     </div>
-                  )}
+                  ) : !isHelping ? (
+                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+                      <span className="font-mono text-[11px] text-slate-500">
+                        Formula recommendation: Lead with an active ownership verb and quantified scale.
+                      </span>
+                      <CopyButton
+                        text={item.original}
+                        label="Copy Original"
+                        copiedLabel="Copied"
+                        size="sm"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
