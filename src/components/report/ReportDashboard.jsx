@@ -2,9 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Sun,
   Moon,
-  ArrowsClockwise,
-  Printer,
-  ShieldCheck,
   Compass,
   ArrowRight,
   SpinnerGap,
@@ -13,6 +10,7 @@ import {
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
@@ -1078,30 +1076,8 @@ function ReportDashboardContent() {
 
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
 
-  const handleDownloadPdf = async () => {
-    const effectiveUserId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
-    const effectiveEmail = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
-    try {
-      const apiBase = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api')
-      const downloadUrl = `${apiBase}/assessment/report-pdf?userId=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}`
-
-      const response = await fetch(downloadUrl)
-      if (!response.ok) throw new Error('PDF download failed')
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      const candidateName = reportData?.resume_agent?.candidateSnapshot?.name || 'Career_GPS'
-      a.download = `Career_GPS_Report_${candidateName.replace(/\s+/g, '_')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(blobUrl)
-    } catch (_err) {
-      // Fallback to print view if blob download fails
-      sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-      window.open(`/full-report?id=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}&print=true`, '_blank')
-    }
+  const handleDownloadPdf = () => {
+    downloadFullVisualReport(candidateName)
   }
 
   return (
@@ -1109,7 +1085,7 @@ function ReportDashboardContent() {
       {/* ─── Top Brand Header ─── */}
       <header
         role="banner"
-        className="px-4 py-3.5 bg-[var(--surface-card)] border-b border-[var(--border-default)]"
+        className="px-4 py-3 bg-[var(--surface-card)] border-b border-[var(--border-default)]"
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1125,58 +1101,27 @@ function ReportDashboardContent() {
               >
                 CAREER <span className="text-[var(--primary)]">GPS</span>
               </span>
-              <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-muted)] tracking-wider block">
-                Executive Intelligence Report
-              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Download print-perfect Career GPS Report PDF"
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+              title="Download full 21-page visual report as PDF"
             >
-              <DownloadSimple size={13} weight="bold" />
-              <span className="hidden sm:inline">Download PDF Report</span>
-            </button>
-
-            <button
-              onClick={() => {
-                sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                const userId = reportData?.userId || reportData?._id || ''
-                const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
-                window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}`, '_blank')
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Open full expanded document view for printing"
-            >
-              <Printer size={13} weight="bold" />
-              <span className="hidden md:inline">Print / Standardized View</span>
-            </button>
-
-            <button
-              onClick={() => useAppStore.getState().setPhase(PHASES.ASSESSMENT)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Return to assessment to re-test or edit inputs"
-            >
-              <ArrowsClockwise size={13} weight="bold" />
-              <span className="hidden sm:inline">Retest</span>
+              <DownloadSimple size={14} weight="bold" />
+              <span>Download Full Report</span>
             </button>
 
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-all cursor-pointer"
+              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-colors cursor-pointer"
               title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? <Sun size={16} weight="bold" /> : <Moon size={16} weight="bold" />}
             </button>
-
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-[var(--emerald)]">
-              <ShieldCheck size={14} weight="fill" />
-              <span>Verified Report</span>
-            </div>
           </div>
         </div>
       </header>

@@ -154,43 +154,43 @@ export default function ReportBottomNav({
           <button
             type="button"
             onClick={() => handleNav(nextTab.id)}
-            className="flex-1 max-w-full sm:max-w-xs flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white shadow-lg shadow-indigo-600/25 hover:shadow-xl hover:shadow-indigo-600/30 transition-all text-left group cursor-pointer ml-auto"
+            className="flex-1 max-w-full sm:max-w-xs flex items-center justify-between gap-3 p-3.5 rounded-xl bg-[var(--primary)] hover:opacity-95 text-white shadow-xs transition-opacity text-left group cursor-pointer ml-auto"
           >
             <div className="min-w-0 pl-1">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-indigo-200 flex items-center gap-1">
+              <div className="text-[10px] font-mono text-indigo-200 flex items-center gap-1">
                 <span>Next Section</span>
                 {nextTab.badge && (
-                  <span className="text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold bg-white/20 text-white">
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md font-medium bg-white/20 text-white">
                     {nextTab.badge}
                   </span>
                 )}
               </div>
-              <div className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-1.5 mt-0.5">
-                <span>{nextTab.icon}</span>
+              <div className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5 mt-0.5">
+                <span className="font-mono">{nextTab.icon}</span>
                 <span>{nextTab.label}</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:translate-x-1.5 transition-transform shrink-0">
-              <ArrowRight size={18} weight="bold" />
+            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white group-hover:translate-x-1 transition-transform shrink-0">
+              <ArrowRight size={16} weight="bold" />
             </div>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => handleNav('overview')}
-            className="flex-1 max-w-full sm:max-w-xs flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/25 transition-all text-left group cursor-pointer ml-auto"
+            className="flex-1 max-w-full sm:max-w-xs flex items-center justify-between gap-3 p-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors text-left group cursor-pointer ml-auto"
           >
             <div className="min-w-0 pl-1">
-              <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-200">
+              <div className="text-[10px] font-mono text-emerald-100">
                 Completed All 5 Sections
               </div>
-              <div className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-1.5 mt-0.5">
-                <span>🎯</span>
+              <div className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5 mt-0.5">
+                <span className="font-mono">01</span>
                 <span>Review From Overview</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:rotate-180 transition-transform duration-300 shrink-0">
-              <ArrowsClockwise size={18} weight="bold" />
+            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white shrink-0">
+              <ArrowsClockwise size={16} weight="bold" />
             </div>
           </button>
         )}

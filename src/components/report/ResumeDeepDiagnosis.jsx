@@ -4,7 +4,6 @@ import {
   WarningCircle,
   ArrowRight,
   CheckCircle,
-  ArrowSquareOut,
   User,
   ShieldCheck,
   Copy,
@@ -81,29 +80,17 @@ const severityChip = {
   low: 'bg-sky-500/10 text-sky-600 border-sky-500/25',
 }
 
-function SectionHeader({ icon, title, accent, onOpenReport }) {
+function SectionHeader({ icon, title, accent }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-[var(--border-default)] pb-4">
       <div className="flex items-center gap-3">
         <span className={accent}>{icon}</span>
         <div>
-          <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">{title}</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{title}</h2>
           <p className="text-xs text-[var(--text-muted)]">
             AI recruiter audit of your resume structure, impact metrics, and ATS compatibility.
           </p>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={onOpenReport}
-          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-hover)] border border-[var(--border-default)] text-[var(--text-primary)] flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-          title="Open the clean, print-ready standalone PDF diagnosis in a new window"
-        >
-          <span>Print / Full PDF Report</span>
-          <ArrowSquareOut size={13} weight="bold" />
-        </button>
       </div>
     </div>
   )
@@ -391,28 +378,12 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     })
   }, [issues, dashboard?.bulletAudit])
 
-  const handleOpenPrintReport = () => {
-    try {
-      sessionStorage.setItem(
-        'craftureResumeReport',
-        JSON.stringify({
-          analysis: resumeAgent,
-          meta: {
-            analyzedAt: new Date().toISOString(),
-          },
-        })
-      )
-    } catch (_e) {}
-    window.open('/resume-report', '_blank')
-  }
-
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">
       <SectionHeader
         icon={<Target size={22} weight="bold" className="text-indigo-600" />}
         title="Resume Diagnostic Lab & Bullet Rewrites"
         accent="text-indigo-600"
-        onOpenReport={handleOpenPrintReport}
       />
 
       {/* Candidate Snapshot Meta Bar */}

@@ -13,7 +13,7 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
-import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
+import { VALID_FORM_KEYS } from '../utils/assessmentFormatting.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
@@ -861,68 +861,6 @@ export const getReport = async (req, res) => {
   } catch (error) {
     console.error('Error in getReport controller:', error)
     return res.status(500).json({ message: 'Failed to retrieve report.' })
-  }
-}
-
-// Stream generated standardized Report PDF directly
-export const downloadReportPdf = async (req, res) => {
-  const userId = req.params?.userId || req.query?.userId
-  const email = req.query?.email
-
-  if (!userId && !email) {
-    return res.status(400).json({ message: 'User ID or Email is required.' })
-  }
-
-  try {
-    let user = null
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId)
-    }
-    if (!user && userId && userId.includes('@')) {
-      user = await User.findOne({ email: userId.toLowerCase().trim() })
-    }
-    if (!user && email) {
-      user = await User.findOne({ email: email.toLowerCase().trim() })
-    }
-    if (!user && userId) {
-      user = await User.findOne({ _id: userId })
-    }
-
-    const directPayload = req.body?.reportData || req.body?.report || null
-
-    if (!user && !directPayload) {
-      return res.status(404).json({ message: 'No completed report found for this user.' })
-    }
-
-    const effectiveUser = user || {
-      name: directPayload?.resume_agent?.candidateSnapshot?.name || directPayload?.user_answers?.fullName || 'Candidate',
-      email: email || directPayload?.user_answers?.email || 'candidate@example.com',
-      answers: directPayload?.user_answers || {},
-      semanticProfile: directPayload?.semantic_profile || null,
-      aiReport: directPayload,
-    }
-
-    const pdfBuffer = await generateStandardReportPdf({
-      user: effectiveUser,
-      answers: effectiveUser.answers || {},
-      semanticProfile: effectiveUser.semanticProfile || effectiveUser.aiReport?.semantic_profile || null,
-      aiReport: effectiveUser.aiReport,
-    })
-
-    const candidateName =
-      effectiveUser.aiReport?.resume_agent?.candidateSnapshot?.name ||
-      effectiveUser.answers?.fullName ||
-      effectiveUser.answers?.name ||
-      effectiveUser.name ||
-      (effectiveUser.email ? effectiveUser.email.split('@')[0] : 'Candidate')
-    const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
-
-    res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Disposition', `attachment; filename="Career_GPS_Report_${safeName}.pdf"`)
-    return res.send(pdfBuffer)
-  } catch (error) {
-    console.error('Error in downloadReportPdf controller:', error)
-    return res.status(500).json({ message: 'Failed to generate report PDF.' })
   }
 }
 

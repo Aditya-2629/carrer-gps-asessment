@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { saveAnswers, generateReport, generateReportStream, bookCall, chatResume, getReport, downloadReportPdf, downloadAtsResumeDocx } from '../controllers/assessmentController.js'
+import { saveAnswers, generateReport, generateReportStream, bookCall, chatResume, getReport, downloadAtsResumeDocx } from '../controllers/assessmentController.js'
 import { handleChatStream, handleChatMessage } from '../controllers/chatController.js'
 
 const router = express.Router()
@@ -36,7 +36,6 @@ router.post('/generate-report', generateReport)
 router.get('/generate-report-stream', generateReportStream)
 router.get('/report', getReport)
 router.get('/report/:userId', getReport)
-router.get('/report-pdf', downloadReportPdf)
 router.get('/user/:userId/download-resume-docx', downloadAtsResumeDocx)
 router.post('/user/:userId/download-resume-docx', downloadAtsResumeDocx)
 router.get('/report/:userId/download-resume-docx', downloadAtsResumeDocx)

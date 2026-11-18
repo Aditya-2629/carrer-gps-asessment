@@ -18,7 +18,7 @@ const getTransporter = () => {
   })
 }
 
-import { generateStandardReportPdf, formatAssessmentAnswer, VALID_FORM_KEYS } from './reportPdfGenerator.js'
+import { formatAssessmentAnswer, VALID_FORM_KEYS } from './assessmentFormatting.js'
 
 const ADMIN_EMAIL = 'inspiracustomer@gmail.com'
 
@@ -78,33 +78,8 @@ export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {
       </div>
     `
 
-    // Generate Standardized Career GPS PDF Attachment
+    // Attach candidate's uploaded resume if present
     const attachments = []
-    try {
-      const reportPdfBuffer = await generateStandardReportPdf({
-        user: { email: userEmail },
-        answers,
-        semanticProfile: aiReport?.semantic_profile || null,
-        aiReport,
-      })
-      if (reportPdfBuffer && reportPdfBuffer.length > 0) {
-        const candidateName =
-          aiReport?.resume_agent?.candidateSnapshot?.name ||
-          answers.fullName ||
-          answers.name ||
-          userEmail.split('@')[0] ||
-          'Candidate'
-        const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
-        attachments.push({
-          filename: `Career_GPS_Report_${safeName}.pdf`,
-          content: reportPdfBuffer,
-          contentType: 'application/pdf',
-        })
-      }
-    } catch (pdfErr) {
-      console.warn('[Email] Could not generate report PDF attachment:', pdfErr.message)
-    }
-
     if (resumeBuffer) {
       attachments.push({
         filename: resumeName || 'Candidate_Resume.pdf',
@@ -125,7 +100,7 @@ export const sendAdminReportEmail = async (userEmail, answers = {}, aiReport = {
           ${answersHtml}
           ${reportHtml}
           <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;">
-          <p style="font-size:12px; color:#9ca3af;">Both the candidate's uploaded resume and the Executive Career GPS Report PDF are attached.</p>
+          <p style="font-size:12px; color:#9ca3af;">Candidate assessment data and uploaded resume (if provided) are attached.</p>
         </div>
       `,
       attachments,

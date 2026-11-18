@@ -3,12 +3,13 @@ import {
   CalendarBlank,
   Clock,
   ArrowRight,
-  Printer,
+  DownloadSimple,
   ShieldCheck,
   Users,
   Briefcase,
   CheckCircle,
 } from '@phosphor-icons/react'
+import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 
@@ -41,6 +42,12 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
     typeof reportData?.risk_heatmap?.critical_risk === 'string'
       ? reportData.risk_heatmap.critical_risk
       : reportData?.risk_heatmap?.critical_risk?.title || null
+
+  const candidateName =
+    reportData?.resume_agent?.candidateSnapshot?.name ||
+    reportData?.user_answers?.fullName ||
+    reportData?.user_answers?.name ||
+    'Candidate'
 
   const ctaText = safeText(coachData?.cta_text, 'Book Free 1-on-1 Career Strategy Call')
 
@@ -167,11 +174,11 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
             <button
               type="button"
-              onClick={() => window.print()}
-              className="print:hidden px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+              onClick={() => downloadFullVisualReport(candidateName)}
+              className="print:hidden px-5 py-3 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] hover:bg-[var(--surface-sunken)] text-xs sm:text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
             >
-              <Printer size={16} />
-              <span>Print / Save PDF</span>
+              <DownloadSimple size={16} weight="bold" />
+              <span>Download Full Report (PDF)</span>
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
-import { DownloadSimple, ArrowsClockwise } from '@phosphor-icons/react'
-import useAppStore, { PHASES } from '../../store/useAppStore'
+import { DownloadSimple } from '@phosphor-icons/react'
+import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { COCKPIT_TABS } from './ReportDashboard'
 
 export default function StickyReportNav({
@@ -14,26 +14,8 @@ export default function StickyReportNav({
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
   const safeRole = typeof targetRole === 'string' ? targetRole.trim() : ''
 
-  const handleDownloadPdf = async () => {
-    try {
-      const userId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
-      const email = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
-      const params = new URLSearchParams()
-      if (userId) params.append('userId', userId)
-      if (email) params.append('email', email)
-      const url = `${import.meta.env.VITE_API_URL || '/api'}/assessment/report-pdf?${params.toString()}`
-      window.open(url, '_blank')
-    } catch (err) {
-      console.warn('PDF download fallback', err)
-      sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-      const userId = reportData?.userId || reportData?._id || ''
-      const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
-      window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&print=true`, '_blank')
-    }
-  }
-
-  const handleRetest = () => {
-    useAppStore.getState().setPhase(PHASES.ASSESSMENT)
+  const handleDownloadPdf = () => {
+    downloadFullVisualReport(safeName)
   }
 
   const tabs = COCKPIT_TABS || [
@@ -68,25 +50,16 @@ export default function StickyReportNav({
             )}
           </div>
 
-          {/* Action buttons on mobile/tablet */}
-          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+          {/* Action button on mobile/tablet */}
+          <div className="flex lg:hidden items-center shrink-0">
             <button
               type="button"
               onClick={handleDownloadPdf}
-              className="px-2 py-1 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
-              title="Download PDF Report"
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
+              title="Download Full Visual Report (PDF)"
             >
               <DownloadSimple size={12} weight="bold" />
               <span>PDF</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleRetest}
-              className="px-2 py-1 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1 cursor-pointer shrink-0"
-              title="Retest"
-            >
-              <ArrowsClockwise size={12} weight="bold" />
-              <span>Retest</span>
             </button>
           </div>
         </div>
@@ -137,25 +110,16 @@ export default function StickyReportNav({
           </nav>
         </div>
 
-        {/* Right: Desktop Actions (Download PDF + Retest) */}
-        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+        {/* Right: Desktop Action (Download Full Report PDF) */}
+        <div className="hidden lg:flex items-center shrink-0">
           <button
             type="button"
             onClick={handleDownloadPdf}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
-            title="Download PDF Report"
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Download Full Visual Report (PDF)"
           >
             <DownloadSimple size={13} weight="bold" />
-            <span>PDF</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleRetest}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1 cursor-pointer shrink-0"
-            title="Retest"
-          >
-            <ArrowsClockwise size={13} weight="bold" />
-            <span>Retest</span>
+            <span>Full Report</span>
           </button>
         </div>
       </div>
