@@ -41,6 +41,13 @@ function makeNoDataResult() {
     grade: 'F',
     gradeLabel: 'No Data',
     grades: {},
+    sectionAudit: {
+      headline: { score10: 0, status: 'fail', label: 'Headline', hurtingReason: 'Profile data unavailable' },
+      about: { score10: 0, status: 'fail', label: 'About Section', hurtingReason: 'Profile data unavailable' },
+      featured: { score10: 0, status: 'fail', label: 'Featured Section', hurtingReason: 'Profile data unavailable' },
+      skills: { score10: 0, status: 'fail', label: 'Skills Bank', hurtingReason: 'Profile data unavailable' },
+      activityAndNetworking: { score10: 0, status: 'fail', label: 'Activity & Networking', hurtingReason: 'Profile data unavailable' },
+    },
     checks: [],
     issues: [],
     timelineMismatches: [],
@@ -307,6 +314,7 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}, activityS
     grade: scorecard.grade,
     gradeLabel: scorecard.gradeLabel,
     grades: scorecard.grades,
+    sectionAudit: scorecard.sectionAudit,
     checks: scorecard.checks,
     issues: scorecard.issues,
     timelineMismatches: crossAnalysis.timelineMismatches,
@@ -504,18 +512,29 @@ export async function evaluateLinkedIn({
 
   const headlines = optimizations?.headlines || []
 
+  const networkingRecommendation =
+    activitySignals?.networkingRecommendation ||
+    baseResult?.activitySignals?.networkingRecommendation ||
+    null
+
+  const visualPrompts = optimizations?.visualPrompts || null
+
   return {
     ...baseResult,
     inferredFromResume: Boolean(normalized.inferredFromResume),
     activitySignals,
+    networkingRecommendation,
     thoughtLeadership,
     recruiterSeo,
+    visualPrompts,
     optimizedHeadlines: headlines,
     optimizations: {
       ...(optimizations || {}),
       thoughtLeadership,
       recruiterSeo,
       headlines,
+      networkingRecommendation,
+      visualPrompts,
     },
   }
 }

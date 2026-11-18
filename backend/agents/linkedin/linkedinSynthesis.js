@@ -58,6 +58,70 @@ export function deriveOpenToWorkTitles(targetRole, resumeContext = {}) {
 }
 
 /**
+ * Builds a 50+ categorized skills bank partitioned into 4 recruiter-friendly buckets:
+ * coreFunctional, toolsAndPlatforms, industrySpecific, transferable.
+ */
+export function buildCategorizedSkillsBank(effectiveSkills = [], targetRole = '', canonical = {}) {
+  const roleStr = String(targetRole || '').toLowerCase()
+  const isHealth = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(roleStr)
+  const isFinance = /finance|financial|accountant|accounting|audit|tax|cpa|banking/i.test(roleStr)
+  const isData = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(roleStr)) && !isFinance
+
+  const unique = Array.from(new Set(effectiveSkills.map((s) => String(s).trim()).filter(Boolean)))
+
+  // Domain baseline packs to ensure robust 40-50+ coverage
+  const defaultTools = isHealth
+    ? ['Epic Systems', 'Cerner EHR', 'Pyxis MedStation', 'PointClickCare', 'Meditech', 'Omnicell', 'CareStream', 'Allscripts', 'Telehealth Systems', 'McKesson']
+    : isFinance
+    ? ['Excel & VBA', 'SAP FICO', 'QuickBooks Enterprise', 'Oracle Financials', 'Power BI', 'Tableau', 'NetSuite ERP', 'Hyperion', 'Bloomberg Terminal', 'Workday Financials', 'SQL', 'Financial Modeling']
+    : isData
+    ? ['SQL', 'Python', 'Tableau', 'Power BI', 'dbt', 'BigQuery', 'Apache Spark', 'Databricks', 'Airflow', 'Kafka', 'PostgreSQL', 'Docker', 'AWS']
+    : ['Python', 'TypeScript', 'JavaScript', 'React', 'Node.js', 'Docker', 'AWS', 'PostgreSQL', 'Redis', 'GraphQL', 'Next.js', 'CI/CD Pipelines', 'REST APIs', 'Git']
+
+  const defaultCore = isHealth
+    ? ['Triage Assessment', 'Patient Care Coordination', 'Vital Signs Monitoring', 'Medication Administration', 'Infection Control Protocols', 'Emergency Response', 'Clinical Documentation', 'Wound Care Management', 'IV Therapy', 'Patient Education']
+    : isFinance
+    ? ['Financial Modeling', 'Variance Analysis', 'GAAP Compliance', 'General Ledger Reconciliation', 'Budget Forecasting', 'Cash Flow Analysis', 'Financial Statement Preparation', 'Internal Controls', 'Cost Allocation', 'Month-End Close Management', 'Scenario Modeling']
+    : isData
+    ? ['Data Modeling', 'ETL Pipeline Design', 'Data Warehousing', 'Statistical Analysis', 'A/B Testing Frameworks', 'Dimensional Modeling (Kimball)', 'Data Quality Validation', 'Query Optimization', 'Business Intelligence Architecture', 'Automated Metric Reporting']
+    : ['System Architecture Design', 'Microservices Architecture', 'Database Optimization', 'Distributed Systems', 'API Architecture', 'Automated Unit & Integration Testing', 'Performance Optimization', 'Security Compliance', 'Cloud Infrastructure Design']
+
+  const defaultIndustry = isHealth
+    ? ['HIPAA Compliance', 'AHA Life Support (BLS/ACLS)', 'JCAHO Standards', 'Electronic Health Records (EHR)', 'Patient Safety Goals', 'Clinical Quality Improvement', 'Evidence-Based Practice', 'Interdisciplinary Team Rounding']
+    : isFinance
+    ? ['SOX Compliance', 'IFRS Standards', 'SEC Financial Reporting', 'Audit Trail Management', 'Capital Budgeting', 'Working Capital Management', 'Risk Management Frameworks', 'Corporate Governance', 'M&A Due Diligence']
+    : isData
+    ? ['Data Governance & Security', 'GDPR/CCPA Compliance', 'Data Lineage Tracking', 'SLA Management for Data Pipelines', 'Data Cataloging', 'Enterprise Reporting Standards', 'Event-Driven Architecture']
+    : ['High Availability & Fault Tolerance', 'SaaS Scalability', 'SOC2 Compliance', 'Agile / Scrum Delivery', 'Enterprise Software Architecture', 'Zero-Downtime Deployment']
+
+  const defaultTransferable = [
+    'Cross-Functional Stakeholder Alignment',
+    'Technical Project Management',
+    'Root Cause Analysis & Post-Mortems',
+    'Process Optimization & Automation',
+    'Mentorship & Knowledge Transfer',
+    'Strategic Roadmapping',
+    'Executive Presentation & Reporting',
+    'Operational Excellence',
+    'Change Management',
+    'Data-Driven Decision Making',
+  ]
+
+  const toolsAndPlatforms = Array.from(new Set([...unique.filter((s) => isConcreteTechSkill(s)), ...defaultTools])).slice(0, 15)
+  const coreFunctional = Array.from(new Set([...unique.filter((s) => !isConcreteTechSkill(s)), ...defaultCore])).slice(0, 15)
+  const industrySpecific = Array.from(new Set(defaultIndustry)).slice(0, 12)
+  const transferable = Array.from(new Set(defaultTransferable)).slice(0, 10)
+
+  return {
+    coreFunctional,
+    toolsAndPlatforms,
+    industrySpecific,
+    transferable,
+    totalCount: toolsAndPlatforms.length + coreFunctional.length + industrySpecific.length + transferable.length,
+  }
+}
+
+/**
  * Builds deterministic fallback optimizations if LLM calls fail or are unavailable.
  *
  * @param {Object} profile - Normalized or scraped LinkedIn profile
@@ -384,33 +448,92 @@ export function buildDeterministicOptimizations(
     }),
   }
 
-  const featuredSectionRecommendations = rawProjects.length > 0
-    ? rawProjects.slice(0, 3).map((p) => {
-        const bulletList = Array.isArray(p.bullets) ? p.bullets : []
-        const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
-        const rawBullet = joinedBullets || p.description || ''
-        const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
-        const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
-        const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
-        const synthPitch = techArr.length > 0
-          ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-          : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
-        const pitch = cleanBullet
-          ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-          : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
-        return {
-          title: pTitle,
-          reason: pitch,
-          callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
-        }
-      })
-    : [
-        {
-          title: `${topCompany} Architecture Showcase`,
-          reason: 'Provides concrete technical proof of production impact and engineering scale.',
-          callToAction: 'Pin an architectural summary, case study post, or GitHub portfolio link.',
-        },
-      ]
+  const projectItems = rawProjects.slice(0, 3).map((p) => {
+    const bulletList = Array.isArray(p.bullets) ? p.bullets : []
+    const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+    const rawBullet = joinedBullets || p.description || ''
+    const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
+    const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
+    const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
+    const synthPitch = techArr.length > 0
+      ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
+      : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+    const pitch = cleanBullet
+      ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
+      : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
+    return {
+      title: pTitle,
+      reason: pitch,
+      callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+    }
+  })
+
+  const supplementalFeatured = [
+    {
+      title: `${targetRole} Technical Case Study & Architecture Deep-Dive`,
+      reason: `Proves practical system design depth, problem-solving methodologies, and technical decision-making at ${topCompany}.`,
+      callToAction: 'Pin an architectural summary, engineering teardown post, or case-study slide deck.',
+    },
+    {
+      title: 'Before-and-After Verified Metric Demonstration',
+      reason: `Visually substantiates your key performance gains (${metricPhrase || 'core delivery milestones'}) with benchmark charts or before-after graphs.`,
+      callToAction: 'Pin a 2-slide benchmark comparison highlighting operational velocity gains.',
+    },
+    {
+      title: 'Live Interactive Repository or Portfolio Demo',
+      reason: 'Gives recruiters and engineering leads instant 1-click proof of execution and clean code standards.',
+      callToAction: 'Pin a live demo link or GitHub repository with an executive README.',
+    },
+    {
+      title: '60-Second Video Intro & Project Walkthrough',
+      reason: 'Humanizes your engineering background and directly addresses the 30-second hiring manager attention span.',
+      callToAction: 'Pin a clean Loom or video walkthrough of your primary technical project.',
+    },
+  ]
+
+  const featuredSectionRecommendations = [
+    ...projectItems,
+    ...supplementalFeatured,
+  ].slice(0, 5)
+
+  const categorizedSkills = buildCategorizedSkillsBank(effectiveSkills, targetRole, canonical)
+
+  const topResultMetric = metricPhrase || (allBullets[0] ? allBullets[0].slice(0, 80).replace(/[.]+$/, '') : `Proven delivery in ${targetRole}`)
+  const topSkillStr = effectiveSkills.slice(0, 4).join(', ')
+
+  const profilePicturePrompt = `Professional studio headshot of a candidate targeting ${targetRole}. Maintain candidate's authentic facial features, natural hairstyle, and confident approachable expression. Upgrade styling to a modern tailored blazer / smart professional business attire in neutral tones (navy, charcoal, or dark graphite). Soft studio butterfly lighting with gentle fill, crisp focus on the eyes, head-and-shoulders composition. Clean, minimalist defocused architectural or neutral matte gradient background with zero clutter. 8k resolution, cinematic commercial photography style.`
+
+  const coverBannerPrompt = `Design a high-converting, professional LinkedIn Cover Banner (1584x396 px) for a ${targetRole} with 6 core visual elements:
+1. Main Authority Headline: "${targetRole} | ${topSkillStr}"
+2. Proof / Primary Metric Hook: "${topResultMetric}"
+3. 3-4 Core Value Pillars: ${effectiveSkills.slice(0, 4).map((s) => `• ${s}`).join(' ')}
+4. Target Audience / Specialty: Solving complex domain challenges for engineering and enterprise teams
+5. Soft CTA: "Let's Connect & Collaborate"
+6. Layout & Color Direction: Clean executive layout, high-contrast dark slate / deep navy base with subtle Electric Indigo accents. Keep the lower-left 30% area completely clear to prevent overlap with the mobile/desktop circular profile photo.`
+
+  const bannerShowcaseOptions = [
+    {
+      style: 'Minimalist Dark Slate',
+      colorPalette: 'Deep Charcoal (#111827), Electric Indigo (#6366F1), Crisp White typography',
+      layout: 'Headline on the top-right, 3 value pill badges horizontally centered, clean negative space on the left for avatar.',
+    },
+    {
+      style: 'Executive Clean Studio',
+      colorPalette: 'Soft Matte Gray (#F8FAFC), Navy (#0F172A), Slate Blue accent',
+      layout: 'Structured split layout: Bold role title and metric callout on the right, subtle architectural grid background.',
+    },
+    {
+      style: 'Modern Technical Dossier',
+      colorPalette: 'Deep Onyx (#090D16), Cyber Teal / Indigo gradient hairline border, mono-spaced pill badges',
+      layout: 'Terminal-inspired crisp typography highlighting core skills and scale outcomes, optimized for maximum recruiter glance value.',
+    },
+  ]
+
+  const visualPrompts = {
+    profilePicturePrompt,
+    coverBannerPrompt,
+    bannerShowcaseOptions,
+  }
 
   const visualPresenceTips = [
     'Profile Headshot: Use front-facing soft lighting with eyes aligned to the upper third. Avoid heavy background clutter.',
@@ -470,6 +593,8 @@ export function buildDeterministicOptimizations(
     featuredSectionRecommendations,
     top3PinnedSkills,
     visualPresenceTips,
+    visualPrompts,
+    categorizedSkills,
     recommendedSkillsToAdd: finalSkillsToAdd,
     recommendedSkills: finalSkillsToAdd.map((skill) => ({
       skill,
@@ -869,6 +994,9 @@ export async function runLinkedInSynthesis(
       visualPresenceTips = rawTips.slice(0, 4)
     }
 
+    const categorizedSkills = task2Result?.categorizedSkills || fallback.categorizedSkills
+    const visualPrompts = fallback.visualPrompts
+
     return {
       headlines,
       aboutRewrite,
@@ -879,6 +1007,8 @@ export async function runLinkedInSynthesis(
       featuredSectionRecommendations,
       top3PinnedSkills,
       visualPresenceTips,
+      visualPrompts,
+      categorizedSkills,
       recommendedSkillsToAdd,
       recommendedSkills: recommendedSkillsToAdd.map((skill) => ({
         skill,

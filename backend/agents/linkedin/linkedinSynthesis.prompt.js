@@ -212,16 +212,25 @@ Ground all suggestions strictly in the candidate's targetRole and verified resum
 - Tailor the headline and About narrative directly to the candidate's specific discipline, domain scope, and role specialization.
 - Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
-HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
-- 3 distinct formulas: "Recruiter-Search Optimized", "Impact-Driven", "Specialist / Authority".
-- Format: Target Role | Top 4 Recruiter Search Keywords | Scope Hook / Scale Win.
-- Avoid generic phrases like "Actively seeking" or "Open to work".
+HEADLINE DELIVERABLES (15–20 WORDS / <220 CHARACTERS EACH):
+- Deliver 3 distinct headline formulas grounded strictly in candidate's targetRole and verified resume facts:
+  * First 8 words: Conversational, curiosity-driven, or proof-based (lead with a hard number, scale milestone, or high-agency "I help...").
+  * Exactly 3 relevant industry/domain keywords showing what they do, for whom, and the measurable outcome from their resume.
+  * ZERO generic buzzwords (strictly forbid "passionate", "guru", "ninja", "dynamic", "hard-working", "seeking opportunities").
+  * Avoid generic phrases like "Actively seeking" or "Open to work".
+- 3 distinct formulas: "Proof & Scale First", "Curiosity & Problem-Solving", "Domain Specialist Authority".
 - In "whyItWorks", explain how this ranks in LinkedIn Recruiter boolean search and hooks hiring managers.
 
 ABOUT SECTION EXECUTIVE ARCHITECTURE (1,400–1,900 CHARACTERS / 240–300 WORDS):
 - LINKEDIN CHARACTER BUDGET: LinkedIn allows 2,600 characters. Writing a short 1-2 sentence stub is an amateur failure. Deliver a rich, comprehensive 1,400–1,900 character executive narrative that hooks recruiters and ranks in search algorithms.
 - VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as a confident, high-agency builder.
-- PARAGRAPH 1 (The Executive Hook & Core Foundation — 350-450 chars):
+- REWRITE STRUCTURE:
+  * Start with measurable results / credibility first: Lead with highest-impact verified achievement or scale metric from resume.
+  * Follow with career direction, core domain problems solved, and verified background foundation.
+  * Short, skimmable sentences with clean paragraph breaks (▸ bullets for 3 quantified pillars).
+  * ZERO EMOJIS: Strictly forbid emoji spam (>2 emojis). Corporate and executive hiring managers perceive emoji spam as amateur.
+  * 1 simple, confident closing line / CTA inviting hiring managers and domain leaders to connect.
+- PARAGRAPH 1 (The Executive Hook & Credibility Foundation — 350-450 chars):
   * Lead with target role title, verified years of experience, core verified tools/stack, and the domain challenges you solve.
   * Establish domain scope and execution scale grounded in the candidate's verified record.
 - PARAGRAPH 2 (Quantified Career Pillars & Technical Scale — 600-800 chars):
@@ -342,9 +351,16 @@ Ground all suggestions strictly in the candidate's targetRole and verified resum
   * Bullets 2-4: Problem → Architecture → Business Outcome highlights leading with business bottlenecks and measurable impact.
 
 FEATURED PROJECTS & SHOWCASES:
-- Top 2-3 projects with live demo / GitHub repo pinning advice.
+- Suggest 4–6 concrete Featured items tailored to candidate's actual resume projects/achievements (architecture case study, before-after metrics, live repo/portfolio demo, technical specification).
 - "projectShowcases": 2-sentence pitch (Sentence 1: problem & architecture; Sentence 2: scale/benchmark achieved for targetRole).
 - "sectionsToAddFromResume": Projects, certifications, and featured artifacts.
+
+50+ CATEGORIZED SKILLS BANK:
+- Group skills into 4 distinct buckets grounded in the candidate's verified resume and targetRole:
+  * "coreFunctional": Core methodologies, algorithms, and functional execution practices.
+  * "toolsAndPlatforms": Concrete tools, platforms, runtime engines, databases, cloud infrastructure.
+  * "industrySpecific": Domain-specific standards, compliance, protocols, and workflows.
+  * "transferable": Cross-functional delivery, technical leadership, and strategic planning.
 
 RECRUITER VISIBILITY TACTICS:
 - 4 hyper-specific tactics: Open to Work Titles (5 titles), Recruiter Boolean Search string, Top 3 Pinned Skills strategy, Custom Vanity URL & conversion.
@@ -364,6 +380,12 @@ REQUIRED JSON SCHEMA (RETURN ONLY VALID JSON):
       ]
     }
   ],
+  "categorizedSkills": {
+    "coreFunctional": ["Skill 1", "Skill 2"],
+    "toolsAndPlatforms": ["Tool 1", "Tool 2"],
+    "industrySpecific": ["Domain 1", "Domain 2"],
+    "transferable": ["Practice 1", "Practice 2"]
+  },
   "projectShowcases": [
     {
       "title": "Project Title",

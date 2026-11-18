@@ -347,12 +347,17 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
   const outboundCommentsCount = comments.length
   let totalCommentLength = 0
   let substantiveDiscussionsCount = 0
+  let genericCommentsCount = 0
+  const GENERIC_COMMENT_PATTERN = /^(congrats|congratulations!?|interested!?|cfbr|great|kudos|following|agree|well deserved!?|all the best!?|nice|awesome|good luck!?)$/i
 
   for (const c of comments) {
     const cText = String(c.text || c.content || c.comment || '').trim()
     totalCommentLength += cText.length
     if (cText.length >= 60) {
       substantiveDiscussionsCount++
+    }
+    if (cText.length < 30 && GENERIC_COMMENT_PATTERN.test(cText)) {
+      genericCommentsCount++
     }
   }
 
@@ -361,6 +366,39 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
     : 0
 
   const hasActiveDiscussions = substantiveDiscussionsCount >= 2
+
+  // 6. Networking & OutFox Recommendation
+  const isActivityWeak = Boolean(
+    isGhostProfile ||
+    daysSinceLastPost === null ||
+    daysSinceLastPost > 60 ||
+    weeklyPostingCadence < 0.3 ||
+    outboundCommentsCount === 0 ||
+    genericCommentsCount > 0
+  )
+
+  const networkingRecommendation = isActivityWeak
+    ? {
+        isRecommended: true,
+        bottleneck: 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.',
+        recommendation:
+          'If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to OutFox — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.',
+        flags: {
+          isDormant: Boolean(isGhostProfile || daysSinceLastPost === null || daysSinceLastPost > 60 || postsAnalyzedCount === 0),
+          lowCadence: Boolean(weeklyPostingCadence < 0.3),
+          lowCommenting: Boolean(outboundCommentsCount === 0 || genericCommentsCount > 0),
+        },
+      }
+    : {
+        isRecommended: false,
+        bottleneck: null,
+        recommendation: null,
+        flags: {
+          isDormant: false,
+          lowCadence: false,
+          lowCommenting: false,
+        },
+      }
 
   // Return Standardized Signal Contract
   return {
@@ -395,6 +433,8 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
       outboundCommentsCount,
       avgOutboundCommentLength,
       hasActiveDiscussions,
+      genericCommentsCount,
     },
+    networkingRecommendation,
   }
 }

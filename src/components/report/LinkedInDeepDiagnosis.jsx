@@ -24,6 +24,10 @@ import {
   CaretUp,
   Article,
   ChatCircleText,
+  Sparkle,
+  Camera,
+  EnvelopeSimple,
+  Lightning,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
@@ -733,6 +737,99 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
   const recommendedSkills = deduplicatedRecommended.sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
 
+  const sectionAudit = linkedinAgent?.sectionAudit || effectiveScorecard?.sectionAudit || null
+  const visualPrompts = optimizations?.visualPrompts || linkedinAgent?.visualPrompts || null
+  const networkingRecommendation =
+    optimizations?.networkingRecommendation ||
+    linkedinAgent?.networkingRecommendation ||
+    linkedinAgent?.activitySignals?.networkingRecommendation ||
+    null
+
+  const effectiveSectionAudit = useMemo(() => {
+    if (sectionAudit && typeof sectionAudit === 'object' && sectionAudit.headline) {
+      return sectionAudit
+    }
+    const hlLen = (linkedinAgent?.signals?.headline?.text || '').length
+    const abLen = (linkedinAgent?.signals?.about?.text || '').length
+    const skCount = linkedinAgent?.signals?.completeness?.skillsCount || 0
+    const ftCount = linkedinAgent?.signals?.featured?.count || 0
+    const connCount = linkedinAgent?.signals?.visibility?.connectionsCount || 0
+
+    return {
+      headline: {
+        score10: hlLen > 20 && hlLen <= 120 ? 8 : (hlLen > 120 ? 6 : 2),
+        status: hlLen > 20 && hlLen <= 120 ? 'pass' : (hlLen > 120 ? 'warn' : 'fail'),
+        label: 'Headline',
+        hurtingReason: hlLen > 120 ? 'Headline exceeds 120 chars causing mobile truncation.' : (hlLen <= 20 ? 'Headline is too short or missing target role.' : null),
+      },
+      about: {
+        score10: abLen >= 600 ? 9 : (abLen >= 150 ? 6 : 2),
+        status: abLen >= 600 ? 'pass' : (abLen >= 150 ? 'warn' : 'fail'),
+        label: 'About Section',
+        hurtingReason: abLen < 150 ? 'About section is too brief (< 150 chars).' : (abLen < 600 ? 'About section lacks quantified depth and clear CTA.' : null),
+      },
+      featured: {
+        score10: ftCount >= 2 ? 10 : (ftCount === 1 ? 6 : 0),
+        status: ftCount >= 2 ? 'pass' : (ftCount === 1 ? 'warn' : 'fail'),
+        label: 'Featured Section',
+        hurtingReason: ftCount === 0 ? 'Featured section is empty without visual case studies.' : null,
+      },
+      skills: {
+        score10: skCount >= 50 ? 10 : (skCount >= 15 ? 7 : 3),
+        status: skCount >= 50 ? 'pass' : (skCount >= 15 ? 'warn' : 'fail'),
+        label: 'Skills Bank',
+        hurtingReason: skCount < 15 ? `Only ${skCount} skills listed (severely throttles recruiter filter matching).` : (skCount < 50 ? `Underutilized 50-skill cap (${skCount}/50 skills).` : null),
+      },
+      activityAndNetworking: {
+        score10: connCount >= 500 ? 9 : (connCount >= 200 ? 6 : 3),
+        status: connCount >= 500 ? 'pass' : (connCount >= 200 ? 'warn' : 'fail'),
+        label: 'Activity & Networking',
+        hurtingReason: connCount < 500 ? 'Under 500 connections limits your 2nd and 3rd-degree recruiter reach.' : null,
+      },
+    }
+  }, [sectionAudit, linkedinAgent, effectiveScorecard])
+
+  const effectiveVisualPrompts = useMemo(() => {
+    if (visualPrompts && visualPrompts.profilePicturePrompt && visualPrompts.coverBannerPrompt) {
+      return visualPrompts
+    }
+    const role = targetRole || 'Target Role'
+    const skillsList = coreSkillList.slice(0, 4).join(', ') || 'Domain Specialization'
+    return {
+      profilePicturePrompt: `Professional studio headshot of a candidate targeting ${role}. Maintain candidate's authentic facial features, natural hairstyle, and confident approachable expression. Upgrade styling to a modern tailored blazer / smart professional business attire in neutral tones (navy, charcoal, or dark graphite). Soft studio butterfly lighting with gentle fill, crisp focus on the eyes, head-and-shoulders composition. Clean, minimalist defocused architectural or neutral matte gradient background with zero clutter. 8k resolution, cinematic commercial photography style.`,
+      coverBannerPrompt: `Design a high-converting, professional LinkedIn Cover Banner (1584x396 px) for a ${role} with 6 core visual elements:
+1. Main Authority Headline: "${role} | ${skillsList}"
+2. Proof / Primary Metric Hook: "Proven delivery and measurable outcomes in enterprise systems"
+3. 3-4 Core Value Pillars: ${coreSkillList.slice(0, 4).map((s) => `• ${s}`).join(' ')}
+4. Target Audience / Specialty: Solving complex domain challenges for engineering and enterprise teams
+5. Soft CTA: "Let's Connect & Collaborate"
+6. Layout & Color Direction: Clean executive layout, high-contrast dark slate / deep navy base with subtle Electric Indigo accents. Keep the lower-left 30% area completely clear to prevent overlap with the mobile/desktop circular profile photo.`,
+      bannerShowcaseOptions: [
+        {
+          style: 'Minimalist Dark Slate',
+          colorPalette: 'Deep Charcoal (#111827), Electric Indigo (#6366F1), Crisp White typography',
+          layout: 'Headline on the top-right, 3 value pill badges horizontally centered, clean negative space on the left for avatar.',
+        },
+        {
+          style: 'Executive Clean Studio',
+          colorPalette: 'Soft Matte Gray (#F8FAFC), Navy (#0F172A), Slate Blue accent',
+          layout: 'Structured split layout: Bold role title and metric callout on the right, subtle architectural grid background.',
+        },
+        {
+          style: 'Modern Technical Dossier',
+          colorPalette: 'Deep Onyx (#090D16), Cyber Teal / Indigo gradient hairline border, mono-spaced pill badges',
+          layout: 'Terminal-inspired crisp typography highlighting core skills and scale outcomes, optimized for maximum recruiter glance value.',
+        },
+      ],
+    }
+  }, [visualPrompts, targetRole, coreSkillList])
+
+  const showOutFox = Boolean(
+    networkingRecommendation?.isRecommended ||
+    effectiveSectionAudit?.activityAndNetworking?.score10 <= 6 ||
+    linkedinAgent?.activitySignals?.isGhostProfile
+  )
+
   const handleCopy = (text, id) => {
     if (!text) return
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -1214,6 +1311,136 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         title="LinkedIn Profile Score"
         scoreWord="LinkedIn profile"
       />
+
+      {/* ── 1B. Section-by-Section /10 Audit (Shraddha Playbook) ──────────── */}
+      <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+          <div className="space-y-0.5">
+            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkle size={15} weight="fill" className="text-[var(--primary)]" />
+              Section-by-Section LinkedIn Audit (/10)
+            </span>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Recruiter benchmark breakdown scoring each profile section out of 10 with actionable "what's hurting" diagnostics.
+            </p>
+          </div>
+          <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] px-2.5 py-0.5 rounded-full">
+            5 Core Sections Audited
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          {Object.entries(effectiveSectionAudit).map(([key, item]) => {
+            const score10 = item.score10 ?? 0
+            const isPassing = score10 >= 9
+            const isWarning = score10 >= 6 && score10 < 9
+            const badgeClass = isPassing
+              ? 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20'
+              : isWarning
+              ? 'text-amber-700 bg-amber-500/10 border-amber-500/20'
+              : 'text-rose-700 bg-rose-500/10 border-rose-500/20'
+
+            const barColor = isPassing
+              ? 'bg-emerald-500'
+              : isWarning
+              ? 'bg-amber-500'
+              : 'bg-rose-500'
+
+            return (
+              <div
+                key={key}
+                className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs font-bold text-[var(--text-primary)] truncate">
+                      {item.label}
+                    </span>
+                    <span className={`text-[11px] font-bold font-mono px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                      {score10}/10
+                    </span>
+                  </div>
+
+                  {/* Micro Progress Bar */}
+                  <div className="w-full h-1.5 bg-[var(--surface-card)] rounded-full overflow-hidden border border-[var(--border-default)]">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${barColor}`}
+                      style={{ width: `${Math.max(10, Math.min(100, score10 * 10))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* What's Hurting note */}
+                <div className="pt-2 border-t border-[var(--border-default)] text-[11px] leading-relaxed">
+                  {item.hurtingReason ? (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <WarningCircle size={12} weight="bold" /> What's Hurting
+                      </span>
+                      <p className="text-[var(--text-secondary)] text-[11px] leading-snug">
+                        {item.hurtingReason}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle size={12} weight="bold" /> Looking Strong
+                      </span>
+                      <p className="text-[var(--text-muted)] text-[11px] leading-snug">
+                        Well-calibrated for recruiter search indexing and candidate ranking.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── 1C. Gentle Crafture OutFox Recommendation (When Activity Is Hurting) ── */}
+      {showOutFox && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[var(--primary-light)] text-[var(--primary)]">
+                <Lightning size={16} weight="fill" />
+              </span>
+              <div>
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">
+                  Automate Your LinkedIn Reach With Crafture OutFox
+                </h4>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Safe, executive-grade networking automation to stay visible to hiring managers daily.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
+              Networking Velocity
+            </span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
+            <p className="text-xs text-[var(--text-primary)] leading-relaxed">
+              <strong className="text-amber-600 dark:text-amber-400 font-semibold">Activity Bottleneck: </strong>
+              {networkingRecommendation?.bottleneck || 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.'}
+            </p>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">OutFox</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
+            </p>
+
+            <div className="pt-1">
+              <a
+                href="mailto:aditya@crafture.in?subject=OutFox%20Access%20Inquiry%20-%20Career%20GPS"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-all shadow-xs cursor-pointer"
+              >
+                <EnvelopeSimple size={14} weight="bold" />
+                Inquire About OutFox Access
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── 1B. Recruiter SEO Scorecard & 1-Click Copy Headlines ────────────── */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
@@ -2083,6 +2310,116 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* ── Dynamic Profile Picture & Cover Banner Upgrade Prompts ── */}
+          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                  <Camera size={16} weight="fill" className="text-[var(--primary)]" />
+                  Profile Picture & Cover Banner Upgrade Prompts
+                </span>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Pre-filled generative prompts grounded in your target role and verified resume achievements.
+                </p>
+              </div>
+            </div>
+
+            {/* Note on image quality grading */}
+            <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] leading-relaxed">
+              <strong className="text-[var(--text-primary)] font-semibold">Visual Audit Policy: </strong>
+              We don't visually grade image quality — if you feel your profile picture or banner isn't strong enough, copy these pre-filled prompts to generate a studio-grade upgrade.
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Studio Headshot Prompt */}
+              <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Camera size={14} className="text-[var(--primary)]" /> Studio Headshot Prompt
+                    </span>
+                    <span className="text-[10px] font-mono uppercase bg-[var(--primary-light)] text-[var(--primary)] px-2 py-0.5 rounded border border-[var(--primary)]/20">
+                      Midjourney / DALL-E
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all">
+                    {effectiveVisualPrompts.profilePicturePrompt}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(effectiveVisualPrompts.profilePicturePrompt, 'copy_pfp_prompt')}
+                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                    copiedId === 'copy_pfp_prompt'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+                  }`}
+                >
+                  {copiedId === 'copy_pfp_prompt' ? (
+                    <><Check size={13} weight="bold" /> Copied Headshot Prompt</>
+                  ) : (
+                    <><Copy size={13} /> Copy Studio Headshot Prompt</>
+                  )}
+                </button>
+              </div>
+
+              {/* Cover Banner Prompt */}
+              <div className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
+                      <Sparkle size={14} className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
+                    </span>
+                    <span className="text-[10px] font-mono uppercase bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20">
+                      Canva / AI Banner
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--text-secondary)] font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] leading-relaxed select-all whitespace-pre-line max-h-48 overflow-y-auto">
+                    {effectiveVisualPrompts.coverBannerPrompt}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(effectiveVisualPrompts.coverBannerPrompt, 'copy_banner_prompt')}
+                  className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                    copiedId === 'copy_banner_prompt'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
+                  }`}
+                >
+                  {copiedId === 'copy_banner_prompt' ? (
+                    <><Check size={13} weight="bold" /> Copied Banner Prompt</>
+                  ) : (
+                    <><Copy size={13} /> Copy Cover Banner Prompt</>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* 3 Banner Layout Showcase Directions */}
+            {effectiveVisualPrompts.bannerShowcaseOptions?.length > 0 && (
+              <div className="space-y-2.5 pt-2 border-t border-[var(--border-default)]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  Recommended Banner Style Directions:
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {effectiveVisualPrompts.bannerShowcaseOptions.map((opt, oIdx) => (
+                    <div
+                      key={oIdx}
+                      className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-bold text-[var(--text-primary)]">{opt.style}</span>
+                      </div>
+                      <p className="text-[11px] text-[var(--primary)] font-mono">{opt.colorPalette}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)] leading-snug">{opt.layout}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

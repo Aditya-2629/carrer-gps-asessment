@@ -527,11 +527,198 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
       : []),
   ]
 
+  // ── 6. Shraddha Playbook Section-by-Section /10 Audit ────────────────────
+  const hlText = String(headline.text || '').trim()
+  const hlLength = hlText.length
+  const hlWords = hlText ? hlText.split(/\s+/).filter(Boolean) : []
+  const hlWordCount = hlWords.length
+  const isStudentOrFresher = /(student|intern|aspiring|fresher|graduate|looking for|seeking opportunities)/i.test(hlText)
+  const isTitleOnly = hlWordCount <= 3
+  const isBuzzwordHeavy = /(passionate|enthusiastic|hard-working|detail-oriented|dynamic|synergy|guru|ninja|motivated)/i.test(hlText)
+  const hlHasMetrics = Boolean(headline.hasMetrics || /\d/.test(hlText))
+
+  let headlineScore10 = 7
+  let headlineStatus = 'warn'
+  let headlineHurting = null
+
+  if (headline.isMissing || (isTitleOnly && !hlHasMetrics) || isStudentOrFresher || (!headline.targetRoleMatches && hlWordCount <= 4)) {
+    headlineScore10 = 1
+    headlineStatus = 'fail'
+    headlineHurting = 'Your headline only states a generic title, student status, or lacks your target role and proof metrics, causing recruiter search filters to miss you.'
+  } else if (hlLength > 120 || (isBuzzwordHeavy && !hlHasMetrics)) {
+    headlineScore10 = 6
+    headlineStatus = 'warn'
+    headlineHurting = `Headline exceeds 120 characters (${hlLength} chars) or relies on generic buzzwords without a proof hook, causing mobile search card truncation.`
+  } else if (hlWordCount >= 10 && hlWordCount <= 22 && hlHasMetrics && (headline.targetRoleMatches || headline.hasProfessionalRoleTitle)) {
+    headlineScore10 = 10
+    headlineStatus = 'pass'
+    headlineHurting = null
+  } else {
+    headlineScore10 = 7
+    headlineStatus = 'warn'
+    headlineHurting = 'Headline lacks a 15–20 word structure with a clear curiosity-driven or metric-backed proof hook and 3 core role keywords.'
+  }
+
+  // About Section /10
+  const abText = String(about.text || '').trim()
+  const abLength = abText.length
+  const emojiMatches = abText.match(/(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|[\ud83d\ud83e][\ud000-\udfff])/g) || []
+  const emojiCount = emojiMatches.length
+  const abParagraphCount = about.paragraphCount || (abText ? abText.split(/\n\s*\n/).filter((p) => p.trim().length > 0).length : 0)
+  const hasLineBreaks = abText.includes('\n')
+  const abHasMetrics = Boolean(about.hasMetrics || /\d/.test(abText))
+  const hasCta = /(connect|reach out|email|message|expand|collaborate|in touch)/i.test(abText)
+
+  let aboutScore10 = 7
+  let aboutStatus = 'warn'
+  let aboutHurting = null
+
+  if (about.isMissing || abLength < 150) {
+    aboutScore10 = 2
+    aboutStatus = 'fail'
+    aboutHurting = `About section is ${about.isMissing ? 'empty' : 'too brief (< 150 characters)'} to pass recruiter semantic indexing, leaving your career narrative unranked.`
+  } else if (emojiCount > 2 || !abHasMetrics) {
+    aboutScore10 = 4
+    aboutStatus = 'fail'
+    aboutHurting = emojiCount > 2
+      ? `About section contains excessive emoji usage (${emojiCount} emojis), which reads as informal or amateur to corporate and executive recruiters.`
+      : 'About section lacks quantified outcomes, scale metrics, or measurable proof of impact.'
+  } else if (abParagraphCount <= 1 || !hasLineBreaks) {
+    aboutScore10 = 6
+    aboutStatus = 'warn'
+    aboutHurting = 'About section is formatted as an unbroken dense wall of text lacking skimmable paragraph breaks.'
+  } else if (abLength >= 600 && abHasMetrics && emojiCount <= 2 && hasCta) {
+    aboutScore10 = 10
+    aboutStatus = 'pass'
+    aboutHurting = null
+  } else {
+    aboutScore10 = 8
+    aboutStatus = 'pass'
+    aboutHurting = 'About section is structured well but could feature a more compelling first-line credibility hook and peer invitation to connect.'
+  }
+
+  // Featured Section /10
+  const featuredCount = Number(
+    signals?.featured?.count ??
+    signals?.completeness?.featuredCount ??
+    completeness?.featuredCount ??
+    (signals?.featured?.items?.length || 0)
+  )
+
+  let featuredScore10 = 0
+  let featuredStatus = 'fail'
+  let featuredHurting = null
+
+  if (featuredCount === 0) {
+    featuredScore10 = 0
+    featuredStatus = 'fail'
+    featuredHurting = 'Your Featured section is empty. Recruiters cannot see visual social proof, project case studies, or architectural demos of your work.'
+  } else if (featuredCount === 1) {
+    featuredScore10 = 6
+    featuredStatus = 'warn'
+    featuredHurting = 'Featured section has only 1 item or lacks rich visual thumbnails, project case studies, or live interactive demonstrations.'
+  } else {
+    featuredScore10 = 10
+    featuredStatus = 'pass'
+    featuredHurting = null
+  }
+
+  // Skills Bank /10
+  const skillsCount = Number(completeness.skillsCount || signals?.completeness?.skillsCount || 0)
+  let skillsScore10 = 6
+  let skillsStatus = 'warn'
+  let skillsHurting = null
+
+  if (skillsCount < 15) {
+    skillsScore10 = skillsCount < 5 ? 2 : 4
+    skillsStatus = 'fail'
+    skillsHurting = `Only ${skillsCount} skills listed. Listing under 15 skills severely throttles your profile in LinkedIn Recruiter search algorithms, which rank candidates by exact skill-slot matches.`
+  } else if (skillsCount < 50) {
+    skillsScore10 = skillsCount < 30 ? 6 : 7
+    skillsStatus = 'warn'
+    skillsHurting = `You have underutilized LinkedIn's 50-skill allotment (${skillsCount}/50 skills). Missing domain keywords reduce your chances of matching boolean filters.`
+  } else {
+    skillsScore10 = 10
+    skillsStatus = 'pass'
+    skillsHurting = null
+  }
+
+  // Activity & Networking /10
+  const connCount = visibility.connectionsCount !== null && visibility.connectionsCount !== undefined
+    ? (typeof visibility.connectionsCount === 'number' ? visibility.connectionsCount : parseInt(String(visibility.connectionsCount).replace(/\D/g, '') || '0', 10))
+    : null
+  const isConnUnder500 = visibility.connectionBracket === '<200' || visibility.connectionBracket === '200-500' || visibility.connectionBracket === '200-499' || (connCount !== null && connCount < 500)
+  const isGhost = Boolean(effectiveActivity?.isGhostProfile || (effectiveActivity?.postsAnalyzedCount === 0 && hasActivitySignals))
+  const isDormant = isGhost || (effectiveActivity?.recencyTier === 'Dormant')
+  const cadence = Number(effectiveActivity?.weeklyPostingCadence ?? 0)
+  const commentCount = Number(effectiveActivity?.networking?.outboundCommentsCount ?? 0)
+  const hasGenericComments = Boolean(effectiveActivity?.networking?.genericCommentsCount > 0)
+
+  let activityScore10 = 7
+  let activityStatus = 'warn'
+  let activityHurting = null
+
+  if (isDormant || (!hasActivitySignals && isConnUnder500)) {
+    activityScore10 = 2
+    activityStatus = 'fail'
+    activityHurting = 'Dormant activity feed with 0 recent posts and under 500 connections tells hiring managers your profile is inactive, reducing inbound reach by up to 40%.'
+  } else if (isConnUnder500) {
+    activityScore10 = 4
+    activityStatus = 'fail'
+    activityHurting = `Connection network is below the 500+ recruiter benchmark (${connCount ? `${connCount} connections` : 'under 500'}). This severely limits 2nd and 3rd-degree search reach.`
+  } else if (cadence < 0.3 || (hasActivitySignals && commentCount === 0)) {
+    activityScore10 = 6
+    activityStatus = 'warn'
+    activityHurting = 'Posting cadence is sporadic (< 1 post per month) or lacking substantive technical discussions in your industry.'
+  } else if (hasGenericComments) {
+    activityScore10 = 6
+    activityStatus = 'warn'
+    activityHurting = 'Comments lack substantive technical discussion (generic congratulations/interest), failing to build algorithmic domain authority.'
+  } else {
+    activityScore10 = 10
+    activityStatus = 'pass'
+    activityHurting = null
+  }
+
+  const sectionAudit = {
+    headline: {
+      score10: headlineScore10,
+      status: headlineStatus,
+      label: 'Headline',
+      hurtingReason: headlineHurting,
+    },
+    about: {
+      score10: aboutScore10,
+      status: aboutStatus,
+      label: 'About Section',
+      hurtingReason: aboutHurting,
+    },
+    featured: {
+      score10: featuredScore10,
+      status: featuredStatus,
+      label: 'Featured Section',
+      hurtingReason: featuredHurting,
+    },
+    skills: {
+      score10: skillsScore10,
+      status: skillsStatus,
+      label: 'Skills Bank',
+      hurtingReason: skillsHurting,
+    },
+    activityAndNetworking: {
+      score10: activityScore10,
+      status: activityStatus,
+      label: 'Activity & Networking',
+      hurtingReason: activityHurting,
+    },
+  }
+
   return {
     score,
     grade,
     gradeLabel: label,
     grades,
+    sectionAudit,
     checks,
     issues,
     categoryWeights: Object.fromEntries(CATEGORY_META.map((m) => [m.key, m.weight])),
