@@ -208,9 +208,8 @@ Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 
 STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
 Ground all suggestions strictly in the candidate's targetRole and verified resume background:
-- Use ONLY tools, frameworks, and domain metrics verified in the candidate's own resume/experience for their targetRole; never inject unrelated stacks or alien technical buzzwords.
+- Use ONLY tools, methodologies, certifications, and domain metrics verified in the candidate's own resume/experience for their exact targetRole. Never inject tools or jargon from another discipline.
 - Tailor the headline and About narrative directly to the candidate's specific discipline, domain scope, and role specialization.
-- Do NOT inject Software Engineering tooling (e.g., Java, Spring Boot, microservices, Kubernetes) into non-SWE profiles (e.g., Data Analysts, QA, Product, Cloud, Healthcare, Finance), and vice-versa.
 - Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
 HEADLINE DELIVERABLES (<220 CHARACTERS EACH):
@@ -333,9 +332,8 @@ Generate high-converting LinkedIn Experience Upgrades, Featured Projects, Missin
 
 STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
 Ground all suggestions strictly in the candidate's targetRole and verified resume background:
-- Use ONLY tools, frameworks, and domain metrics verified in the candidate's own resume/experience for their targetRole; never inject unrelated stacks or alien technical buzzwords.
+- Use ONLY tools, methodologies, certifications, and domain metrics verified in the candidate's own resume/experience for their exact targetRole. Never inject tools or jargon from another discipline.
 - Tailor all recommendations, bullet rewrites, and projects directly to the candidate's specific discipline, domain scope, and role specialization.
-- Do NOT inject Software Engineering tooling (e.g., Java, Spring Boot, microservices, Kubernetes) into non-SWE profiles (e.g., Data Analysts, QA, Product, Cloud, Healthcare, Finance), and vice-versa.
 - Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
 3-ROLE EXPERIENCE BULLET UPGRADES:

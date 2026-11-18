@@ -63,7 +63,7 @@ export function buildDeterministicThoughtLeadership(
   projects = [],
   isGhost = false
 ) {
-  const role = String(targetRole || 'Professional').trim()
+  const role = String(targetRole || 'your target role').trim()
   const isFinance = /finance|financial|accountant|accounting|audit|tax|cpa|banking/i.test(role)
   const isHealth = /nurse|nursing|health|clinical|medical|hospital|patient/i.test(role)
   const isSales = /sales|account executive|b2b|marketing|revenue|bizdev/i.test(role)
@@ -101,7 +101,7 @@ export function buildDeterministicThoughtLeadership(
       {
         format: 'The Tooling Trade-Off & Migration Reality',
         hook: `After evaluating modern EHR workflows in ${skill1} vs legacy clinical charting in ${skill2}, here is our frontline perspective on clinician burnout vs compliance:`,
-        bodyOutline: `1. The clinical documentation burden\n2. Features that actually save time\n3. Where software vendors miss the frontline reality\n4. Recommendation for healthcare CIOs`,
+        bodyOutline: `1. The clinical documentation burden\n2. Features that actually save time\n3. Where health-tech solutions miss the frontline reality\n4. Recommendation for healthcare leaders`,
         callToAction: `Which EHR interface features have had the greatest positive impact on your team's workflow?`,
         targetHashtags: ['#HealthTech', '#EHR', '#MedicalInformatics'],
         recommendedMedia: 'Workflow comparison matrix',
@@ -177,7 +177,7 @@ export function buildDeterministicThoughtLeadership(
         hook: `A subtle connection leak between our ${skill1} service and ${skill2} cluster bypassed our integration tests and ran in staging for 48 hours. Here is the root cause mechanism:`,
         bodyOutline: `1. The symptom (gradual socket exhaustion over 4 hours under 10k simulated users)\n2. Why automated integration tests missed the leak\n3. Inspecting heap snapshots and socket descriptors\n4. The defensive timeout and connection pool rule we now enforce`,
         callToAction: `What defensive pooling rules does your team enforce to catch resource leaks before production?`,
-        targetHashtags: ['#SoftwareEngineering', '#DistributedSystems', '#ProductionReadiness'],
+        targetHashtags: ['#DistributedSystems', '#SystemArchitecture', '#ProductionReadiness'],
         recommendedMedia: 'Heap memory profile screenshot or clean architecture flow diagram',
       },
       {
@@ -356,7 +356,7 @@ export async function evaluateThoughtLeadershipAndSocialSeo({
   const targetRole =
     resumeContext?.targetRole ||
     resumeContext?.canonicalResume?.candidate?.targetRole ||
-    'Professional'
+    'your target role'
   const coreSkills = extractVerifiedSkills(resumeContext)
   const projects = extractVerifiedProjects(resumeContext)
 
