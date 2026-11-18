@@ -31,7 +31,7 @@ export default function RiskHeatMap({ data }) {
         {/* Left: 2x2 Risk Quadrant */}
         <div className="lg:col-span-7 quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] relative">
           {/* Impact Axis Header */}
-          <div className="text-[10px] font-mono text-slate-400 mb-1.5 flex justify-between">
+          <div className="text-xs font-mono text-[var(--text-muted)] mb-1.5 flex justify-between">
             <span>Impact: High ↑</span>
             <span>Impact: Low ↓</span>
           </div>
@@ -39,7 +39,7 @@ export default function RiskHeatMap({ data }) {
           <div className="grid grid-cols-2 gap-3.5 h-72 relative border-l-2 border-b-2 border-[var(--border-default)] pl-4 pb-4">
             {/* Top-Left Quadrant */}
             <div className="border border-dashed border-[var(--border-default)] rounded-xl p-3 bg-red-500/5 relative flex flex-col justify-end gap-1.5">
-              <span className="absolute top-3 right-3 text-[10px] font-mono text-[var(--text-muted)]">High Impact / Low Likelihood</span>
+              <span className="absolute top-3 right-3 text-xs font-mono text-[var(--text-muted)]">High Impact / Low Likelihood</span>
               {highImpactLowLikelihood.map((risk, i) => (
                 <div key={i} className="bg-red-500/20 text-red-500 dark:text-red-400 text-xs font-medium px-2.5 py-1 rounded-md border border-red-500/30 w-fit truncate max-w-full">
                   • {risk}
@@ -75,7 +75,7 @@ export default function RiskHeatMap({ data }) {
           </div>
 
           {/* X-Axis Label */}
-          <div className="text-center mt-3 text-[10px] font-mono text-[var(--text-muted)]">
+          <div className="text-center mt-3 text-xs font-mono text-[var(--text-muted)]">
             Likelihood (Low to High)
           </div>
         </div>

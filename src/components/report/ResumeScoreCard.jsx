@@ -64,7 +64,7 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
           className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-slate-900' : 'text-white'}`}
         />
         <div className={`text-lg font-semibold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
-        <div className={`text-[10px] font-mono tracking-normal mt-0.5 ${light ? 'text-slate-400' : 'text-gray-500'}`}>{gradeLabel}</div>
+        <div className={`text-xs font-mono tracking-normal mt-0.5 ${light ? 'text-[var(--text-muted)]' : 'text-gray-400'}`}>{gradeLabel}</div>
       </div>
     </div>
   )
@@ -109,8 +109,8 @@ export default function ResumeScoreCard({
 
   const cardBg = light ? 'bg-white border-slate-200' : 'bg-[#0f172a] border-gray-800/90'
   const headingText = light ? 'text-slate-900' : 'text-white'
-  const subText = light ? 'text-slate-500' : 'text-gray-500'
-  const labelColor = light ? 'text-slate-400' : 'text-gray-400'
+  const subText = light ? 'text-[var(--text-muted)]' : 'text-gray-400'
+  const labelColor = light ? 'text-[var(--text-muted)]' : 'text-gray-300'
 
   return (
     <div className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`}>
@@ -120,7 +120,7 @@ export default function ResumeScoreCard({
 
         <div className="flex-1 min-w-0 space-y-3 w-full">
           <div>
-            <div className={`text-[11px] font-mono tracking-normal font-medium ${labelColor}`}>{title}</div>
+            <div className={`text-xs font-mono tracking-normal font-medium ${labelColor}`}>{title}</div>
             <div className={`text-lg font-semibold ${headingText}`}>
               {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
@@ -138,10 +138,10 @@ export default function ResumeScoreCard({
               return (
                 <div key={key} className={`${chipBg} ${chipBorder} border rounded-lg px-3 py-2 print:break-inside-avoid`} title={g.facts?.join('\n')}>
                   <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-mono tracking-normal truncate ${light ? 'text-slate-600' : 'text-gray-300'}`}>{g.label}</span>
+                    <span className={`text-xs font-mono tracking-normal truncate ${light ? 'text-slate-700' : 'text-gray-200'}`}>{g.label}</span>
                     <span className={`text-sm font-semibold tabular-nums ${gradeText}`}>{g.grade}</span>
                   </div>
-                  <div className={`text-[10px] mt-0.5 tabular-nums ${subText}`}>{g.score}/100</div>
+                  <div className={`text-xs mt-0.5 tabular-nums ${subText}`}>{g.score}/100</div>
                 </div>
               )
             })}
@@ -170,7 +170,7 @@ export default function ResumeScoreCard({
             <h4 className={`text-xs font-semibold ${labelColor}`}>
               {scoreWord?.toLowerCase().includes('linkedin') ? 'LinkedIn Checklist' : 'Resume Checklist'}
             </h4>
-            <span className={`text-[11px] font-mono ${subText}`}>
+            <span className={`text-xs font-mono ${subText}`}>
               {summary?.checksPassed ?? checks?.filter((c) => c.status === 'pass').length}/{checks?.length ?? 0} passed
             </span>
           </div>

@@ -361,7 +361,7 @@ export default function ResumeBulletAudit({
                     <span>{isHelping ? 'Helping' : 'Hurting'}</span>
                   </span>
 
-                  <span className="text-[11px] font-mono text-slate-400 font-medium">
+                  <span className="text-xs font-mono text-[var(--text-muted)] font-medium">
                     {item.recruiterAttention}
                   </span>
                 </div>
@@ -373,10 +373,10 @@ export default function ResumeBulletAudit({
                     return (
                       <span
                         key={key}
-                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded border transition-all ${
+                        className={`text-xs font-semibold px-2 py-0.5 rounded border transition-colors ${
                           active
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-mono'
-                            : 'bg-slate-50 text-slate-400 border-slate-200 opacity-60 font-mono'
+                            : 'bg-slate-50 text-[var(--text-muted)] border-slate-200 font-mono'
                         }`}
                         title={`${label}: ${active ? 'Present' : 'Missing'}`}
                       >
@@ -385,7 +385,7 @@ export default function ResumeBulletAudit({
                     )
                   })}
 
-                  <div className="text-slate-400 ml-1">
+                  <div className="text-[var(--text-muted)] ml-1">
                     {isExpanded ? <CaretUp size={14} /> : <CaretDown size={14} />}
                   </div>
                 </div>
@@ -393,7 +393,7 @@ export default function ResumeBulletAudit({
 
               {/* Row 2: Resume Bullet Line */}
               <div className="text-xs text-slate-800 leading-relaxed font-sans pl-2">
-                <span className="font-bold text-slate-400 mr-2">•</span>
+                <span className="font-bold text-[var(--text-muted)] mr-2">•</span>
                 <span className={!isHelping ? 'text-slate-800 font-medium' : 'text-slate-900'}>
                   {item.original}
                 </span>
@@ -407,7 +407,7 @@ export default function ResumeBulletAudit({
                 >
                   {/* Original Line (Red strikethrough if hurting) */}
                   <div className="space-y-1">
-                    <span className="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">
+                    <span className="text-xs font-mono uppercase font-bold text-[var(--text-muted)] tracking-wider">
                       Original Statement:
                     </span>
                     <p className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200 line-through decoration-rose-500/80 decoration-1">

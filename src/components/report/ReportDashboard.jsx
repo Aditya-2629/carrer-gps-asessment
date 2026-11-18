@@ -942,7 +942,7 @@ function ReportDashboardContent() {
               setPhase(PHASES.ASSESSMENT)
               navigateTo('/')
             }}
-            className="w-full py-3.5 px-6 rounded-xl font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 px-6 rounded-xl font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Start Assessment</span>
             <ArrowRight size={18} weight="bold" />

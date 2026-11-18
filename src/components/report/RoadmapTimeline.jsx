@@ -446,7 +446,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
           <button
             type="button"
             onClick={() => setActiveView('7day')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
               activeView === '7day'
                 ? 'bg-white text-indigo-700 shadow-xs border border-indigo-200/60'
                 : 'text-slate-600 hover:text-slate-900'
@@ -457,7 +457,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
           <button
             type="button"
             onClick={() => setActiveView('pathway')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
               activeView === 'pathway'
                 ? 'bg-white text-emerald-700 shadow-xs border border-emerald-200/60'
                 : 'text-slate-600 hover:text-slate-900'
@@ -497,10 +497,10 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-800 shrink-0">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-800 shrink-0">
                       DAY 0{dayNum}
                     </span>
-                    <span className="text-[10px] font-mono text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 truncate max-w-[180px]">
+                    <span className="text-xs font-mono text-[var(--text-muted)] bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 truncate max-w-[180px]">
                       {dayTag}
                     </span>
                   </div>
@@ -514,16 +514,16 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[10px] font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs font-mono">
                   {item.deliverable && (
                     <div className="flex items-center gap-1.5 truncate max-w-[65%]">
-                      <span className="text-slate-400 font-sans">Artifact:</span>
+                      <span className="text-[var(--text-muted)] font-sans">Artifact:</span>
                       <span className="text-slate-700 font-medium truncate">{item.deliverable}</span>
                     </div>
                   )}
                   {item.metricTarget && (
                     <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-slate-400 font-sans">Target:</span>
+                      <span className="text-[var(--text-muted)] font-sans">Target:</span>
                       <span className="text-emerald-600 font-semibold tabular-nums">{item.metricTarget}</span>
                     </div>
                   )}
@@ -578,7 +578,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   {p.isGoal ? (
                     <Trophy size={16} weight="fill" className="text-amber-500" />
                   ) : (
-                    <span className="text-xs font-mono font-semibold text-slate-400 tabular-nums">
+                    <span className="text-xs font-mono font-semibold text-[var(--text-muted)] tabular-nums">
                       0{idx + 1}
                     </span>
                   )}
@@ -602,7 +602,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                         size={13}
                         weight="bold"
                         className={`shrink-0 mt-0.5 ${
-                          p.active || p.isGoal ? 'text-emerald-600' : 'text-slate-400'
+                          p.active || p.isGoal ? 'text-emerald-600' : 'text-[var(--text-muted)]'
                         }`}
                       />
                       <span>{act}</span>
@@ -612,16 +612,16 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               </div>
 
               {/* Deliverable & Success Signal Footers */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 text-[10px] font-mono">
+              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs font-mono">
                 {p.deliverable && (
                   <div className="space-y-0.5">
-                    <span className="text-slate-400 font-sans block text-[9px]">Key deliverable:</span>
+                    <span className="text-[var(--text-muted)] font-sans block text-xs">Key deliverable:</span>
                     <p className="text-slate-700 font-medium leading-tight">{p.deliverable}</p>
                   </div>
                 )}
                 {p.successSignal && (
                   <div className="space-y-0.5 pt-1">
-                    <span className="text-emerald-600 font-sans block text-[9px] font-medium">Success signal:</span>
+                    <span className="text-emerald-600 font-sans block text-xs font-medium">Success signal:</span>
                     <p className="text-slate-700 font-medium leading-tight">{p.successSignal}</p>
                   </div>
                 )}

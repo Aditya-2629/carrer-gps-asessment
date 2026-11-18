@@ -226,38 +226,38 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       },
       summary: {
         score10: Math.max(2, Math.min(10, Math.round(posScore / 10))),
-        status: posScore >= 80 ? 'pass' : posScore >= 60 ? 'warn' : 'fail',
+        status: posScore >= 80 ? 'pass' : posScore >= 50 ? 'warn' : 'fail',
         label: 'Professional Summary',
-        whatsHurting: posScore < 70 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
-        hurtingReason: posScore < 70 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+        whatsHurting: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+        hurtingReason: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
         requiredImprovement: 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], proven in [Primary Outcome].',
       },
       experience: {
         score10: Math.max(1, Math.min(10, Math.round(impactScore / 10))),
-        status: impactScore >= 80 ? 'pass' : impactScore >= 60 ? 'warn' : 'fail',
+        status: impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
         label: 'Experience Bullets & Quantified Impact',
-        whatsHurting: totalBullets > 0 && quantBullets < totalBullets * 0.4
+        whatsHurting: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
           ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
-          : null,
-        hurtingReason: totalBullets > 0 && quantBullets < totalBullets * 0.4
+          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
+        hurtingReason: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
           ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
-          : null,
+          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
         requiredImprovement: 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).',
       },
       skills: {
         score10: Math.max(1, Math.min(10, Math.round(kwScore / 10))),
-        status: kwScore >= 80 ? 'pass' : kwScore >= 60 ? 'warn' : 'fail',
+        status: kwScore >= 80 ? 'pass' : kwScore >= 50 ? 'warn' : 'fail',
         label: 'Skills & Market Keyword Alignment',
-        whatsHurting: kwScore < 75 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
-        hurtingReason: kwScore < 75 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+        whatsHurting: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+        hurtingReason: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
         requiredImprovement: 'Add missing core market tools directly to your Skills section and mirror them within work experience bullet points.',
       },
       formatting: {
         score10: Math.max(1, Math.min(10, Math.round(atsScore / 10))),
-        status: atsScore >= 80 ? 'pass' : atsScore >= 60 ? 'warn' : 'fail',
+        status: atsScore >= 80 ? 'pass' : atsScore >= 50 ? 'warn' : 'fail',
         label: 'Formatting, Length & ATS Safety',
-        whatsHurting: atsScore < 75 ? 'Formatting structure flags potential ATS parsing friction.' : null,
-        hurtingReason: atsScore < 75 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+        whatsHurting: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+        hurtingReason: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
         requiredImprovement: 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.',
       },
     }
@@ -553,7 +553,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                 USCIS Verified Sponsor
               </span>
             )}
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1">
               <ShieldCheck size={12} weight="fill" />
               Recruiter-Verified
             </span>
@@ -563,7 +563,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               type="button"
               onClick={() => handleDownloadDocx()}
               disabled={isDownloadingDocx}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ml-auto disabled:opacity-60"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60"
             >
               <DownloadSimple size={13} weight="bold" />
               <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
@@ -597,8 +597,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {Object.entries(effectiveSectionAudit).map(([key, item]) => {
             const score10 = item.score10 ?? 0
-            const isPassing = score10 >= 9
-            const isWarning = score10 >= 6 && score10 < 9
+            const isPassing = score10 >= 8
+            const isWarning = score10 >= 5 && score10 < 8
             const badgeClass = isPassing
               ? 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20'
               : isWarning
@@ -621,7 +621,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                     <span className="text-xs font-bold text-[var(--text-primary)] truncate" title={item.label}>
                       {item.label}
                     </span>
-                    <span className={`text-[11px] font-bold font-mono px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                    <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md border ${badgeClass}`}>
                       {score10}/10
                     </span>
                   </div>
@@ -629,40 +629,40 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                   {/* Micro Progress Bar */}
                   <div className="w-full h-1.5 bg-[var(--surface-card)] rounded-full overflow-hidden border border-[var(--border-default)]">
                     <div
-                      className={`h-full transition-all duration-500 rounded-full ${barColor}`}
+                      className={`h-full transition-[width] duration-500 rounded-full ${barColor}`}
                       style={{ width: `${Math.max(10, Math.min(100, score10 * 10))}%` }}
                     />
                   </div>
                 </div>
 
                 {/* What's Hurting note & Required Improvement */}
-                <div className="pt-2 border-t border-[var(--border-default)] text-[11px] leading-relaxed space-y-2">
-                  {item.whatsHurting || item.hurtingReason ? (
+                <div className="pt-2 border-t border-[var(--border-default)] text-xs leading-relaxed space-y-2">
+                  {!isPassing ? (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         <WarningCircle size={12} weight="bold" /> What&apos;s Hurting
                       </span>
-                      <p className="text-[var(--text-secondary)] text-[11px] leading-snug">
-                        {item.whatsHurting || item.hurtingReason}
+                      <p className="text-[var(--text-secondary)] text-xs leading-snug">
+                        {item.whatsHurting || item.hurtingReason || 'Scoring below the 8/10 recruiter benchmark; needs refinement.'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <CheckCircle size={12} weight="bold" /> Looking Strong
                       </span>
-                      <p className="text-[var(--text-muted)] text-[11px] leading-snug">
+                      <p className="text-[var(--text-muted)] text-xs leading-snug">
                         Well-calibrated for recruiter screening and ATS parsing safety.
                       </p>
                     </div>
                   )}
 
-                  {item.requiredImprovement && (
+                  {!isPassing && item.requiredImprovement && (
                     <div className="pt-1.5 border-t border-[var(--border-default)]/60 space-y-0.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] flex items-center gap-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] flex items-center gap-1">
                         <ArrowRight size={11} weight="bold" /> Required Fix
                       </span>
-                      <p className="text-[var(--text-primary)] text-[11px] leading-snug">
+                      <p className="text-[var(--text-primary)] text-xs leading-snug">
                         {item.requiredImprovement}
                       </p>
                     </div>
@@ -875,13 +875,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             {cutList.map((item, idx) => (
               <div
                 key={item.bulletId || idx}
-                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-rose-400/50 transition-all"
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-rose-400/50 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
                     {item.section || 'Resume Line'}
                   </span>
-                  <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                  <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
                     ✕ Recommended for Deletion
                   </span>
                 </div>
@@ -927,14 +927,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             {nearMissKeywords.map((item, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-indigo-400/50 transition-all"
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-indigo-400/50 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-semibold line-through text-rose-500 decoration-rose-500 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
                       {item.resumePhrase}
                     </span>
-                    <ArrowRight size={14} className="text-slate-400" />
+                    <ArrowRight size={14} className="text-[var(--text-muted)]" />
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
                       {item.jdPhrase}
                     </span>
