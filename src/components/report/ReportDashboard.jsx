@@ -36,7 +36,7 @@ export const COCKPIT_TABS = [
   { id: 'resume', label: 'Resume Lab', icon: '📄', badge: 'ATS' },
   { id: 'linkedin', label: 'LinkedIn Studio', icon: '💼', badge: 'SEO' },
   { id: 'funnel', label: 'Funnel & Risks', icon: '⚡', badge: 'Velocity' },
-  { id: 'roadmap', label: '7-Day Sprint & CTA', icon: '🚀', badge: 'Plan' },
+  { id: 'roadmap', label: '7-Day Sprint', icon: '🚀', badge: 'Plan' },
 ]
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'

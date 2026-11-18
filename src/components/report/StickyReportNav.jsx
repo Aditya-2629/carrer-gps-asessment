@@ -23,7 +23,8 @@ export default function StickyReportNav({
       if (email) params.append('email', email)
       const url = `${import.meta.env.VITE_API_URL || '/api'}/assessment/report-pdf?${params.toString()}`
       window.open(url, '_blank')
-    } catch (_e) {
+    } catch (err) {
+      console.warn('PDF download fallback', err)
       sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
       const userId = reportData?.userId || reportData?._id || ''
       const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
@@ -40,40 +41,61 @@ export default function StickyReportNav({
     { id: 'resume', label: 'Resume Lab', icon: '📄', badge: 'ATS' },
     { id: 'linkedin', label: 'LinkedIn Studio', icon: '💼', badge: 'SEO' },
     { id: 'funnel', label: 'Funnel & Risks', icon: '⚡', badge: 'Velocity' },
-    { id: 'roadmap', label: '7-Day Sprint & CTA', icon: '🚀', badge: 'Plan' },
+    { id: 'roadmap', label: '7-Day Sprint', icon: '🚀', badge: 'Plan' },
   ]
 
   return (
     <div className="sticky top-0 z-40 bg-[var(--surface-base)]/95 backdrop-blur-md border-b border-[var(--border-default)] transition-all duration-200 shadow-xs print:hidden">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Left: Candidate Context & Score Pill */}
-        <div className="flex items-center gap-2 shrink-0">
-          {safeName && (
-            <div className="hidden xl:flex items-center gap-2 pr-2.5 border-r border-[var(--border-default)] text-xs">
-              <span className="font-bold text-[var(--text-primary)] truncate max-w-[130px]">{safeName}</span>
-              {safeRole && (
-                <>
-                  <span className="text-[var(--text-muted)]">•</span>
-                  <span className="text-[var(--text-secondary)] truncate max-w-[110px] font-medium">
-                    {safeRole}
-                  </span>
-                </>
-              )}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-1.5 sm:py-2 flex flex-col lg:flex-row items-center justify-between gap-1.5 lg:gap-3">
+        {/* Row 1 for < lg: Candidate Score on Left, Actions on Right */}
+        <div className="w-full lg:w-auto flex items-center justify-between lg:justify-start gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Health Score Pill */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 border border-teal-500/25 text-teal-600 dark:text-teal-400 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+              <span className="font-mono">{healthScore}/100</span>
             </div>
-          )}
 
-          {/* Health Score Pill */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/10 border border-teal-500/25 text-teal-600 dark:text-teal-400 shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
-            <span className="font-mono">{healthScore}/100</span>
+            {safeName && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="font-bold text-[var(--text-primary)] truncate max-w-[120px]">{safeName}</span>
+                {safeRole && (
+                  <span className="text-[var(--text-muted)] hidden xl:inline truncate max-w-[110px] font-medium">
+                    • {safeRole}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons on mobile/tablet */}
+          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="px-2 py-1 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              title="Download PDF Report"
+            >
+              <DownloadSimple size={12} weight="bold" />
+              <span>PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRetest}
+              className="px-2 py-1 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1 cursor-pointer shrink-0"
+              title="Retest"
+            >
+              <ArrowsClockwise size={12} weight="bold" />
+              <span>Retest</span>
+            </button>
           </div>
         </div>
 
         {/* Center: Sleek 5-Tab Segmented Pill Bar with Overflow Protection */}
-        <div className="flex-1 min-w-0 flex justify-center overflow-x-auto no-scrollbar py-0.5">
+        <div className="w-full lg:w-auto lg:flex-1 min-w-0 flex justify-start sm:justify-center overflow-x-auto no-scrollbar py-0.5">
           <nav
             aria-label="Executive Cockpit Navigation"
-            className="inline-flex items-center gap-1 bg-[var(--surface-sunken)] p-1 rounded-xl border border-[var(--border-default)] shrink-0"
+            className="inline-flex items-center gap-0.5 sm:gap-1 bg-[var(--surface-sunken)] p-1 rounded-xl border border-[var(--border-default)] shrink-0 w-full sm:w-auto justify-between sm:justify-center"
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id
@@ -83,7 +105,7 @@ export default function StickyReportNav({
                   key={tab.id}
                   type="button"
                   onClick={() => onTabChange && onTabChange(tab.id)}
-                  className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
+                  className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
                     isActive
                       ? 'active text-teal-600 dark:text-teal-300 font-bold'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-card)]/60'
@@ -100,7 +122,7 @@ export default function StickyReportNav({
                   <span className="relative z-10">{tab.label}</span>
                   {tab.badge && (
                     <span
-                      className={`relative z-10 text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold ${
+                      className={`relative z-10 text-[9px] uppercase px-1.5 py-0.2 rounded-full font-bold hidden sm:inline ${
                         isActive
                           ? 'bg-teal-500/20 text-teal-700 dark:text-teal-300'
                           : 'bg-[var(--border-default)] text-[var(--text-muted)]'
@@ -115,8 +137,8 @@ export default function StickyReportNav({
           </nav>
         </div>
 
-        {/* Right: Actions (Download PDF + Retest) */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right: Desktop Actions (Download PDF + Retest) */}
+        <div className="hidden lg:flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={handleDownloadPdf}
@@ -124,7 +146,7 @@ export default function StickyReportNav({
             title="Download PDF Report"
           >
             <DownloadSimple size={13} weight="bold" />
-            <span className="hidden sm:inline">PDF</span>
+            <span>PDF</span>
           </button>
           <button
             type="button"
@@ -133,7 +155,7 @@ export default function StickyReportNav({
             title="Retest"
           >
             <ArrowsClockwise size={13} weight="bold" />
-            <span className="hidden sm:inline">Retest</span>
+            <span>Retest</span>
           </button>
         </div>
       </div>

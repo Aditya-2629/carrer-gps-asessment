@@ -22,6 +22,14 @@ const OBSERVED_SECTION_IDS = [
   'sprint-roadmap',
 ]
 
+// Safe bounding constants for viewport roaming and clamp safety
+const CLOUD_W = 320
+const TOTAL_H = 230
+const MIN_X = 16
+const MAX_X_OFFSET = 336 // window.innerWidth - 336 guarantees >= 16px right margin
+const MIN_Y = 84 // Clear top sticky navigation bar
+const MAX_Y_OFFSET = 240 // Clear viewport bottom
+
 export default function CraftureLivingCopilot() {
   const {
     emotion,
@@ -44,7 +52,7 @@ export default function CraftureLivingCopilot() {
   const thinkingTimerRef = useRef(null)
   const isCelebratingRef = useRef(false)
 
-  const [isCloudDismissed, setIsCloudDismissed] = useState(false)
+  const [cloudMinimized, setCloudMinimized] = useState(false)
   const [isThinking, setIsThinking] = useState(false)
   const [isCelebrating, setIsCelebrating] = useState(false)
   const [activeThought, setActiveThought] = useState(null)
@@ -53,8 +61,8 @@ export default function CraftureLivingCopilot() {
   const getDefaultDock = useCallback(() => {
     if (typeof window === 'undefined') return { x: 800, y: 600 }
     return {
-      x: Math.max(16, window.innerWidth - 240),
-      y: Math.max(80, window.innerHeight - 250),
+      x: Math.max(MIN_X, window.innerWidth - MAX_X_OFFSET),
+      y: Math.max(MIN_Y, window.innerHeight - MAX_Y_OFFSET),
     }
   }, [])
 
@@ -117,7 +125,7 @@ export default function CraftureLivingCopilot() {
 
     isCelebratingRef.current = true
     setIsCelebrating(true)
-    setIsCloudDismissed(false)
+    setCloudMinimized(false)
     setEmotion('victory')
 
     setActiveThought({
@@ -225,7 +233,7 @@ export default function CraftureLivingCopilot() {
       if (isCelebratingRef.current) return
 
       const now = Date.now()
-      if (now - lastHoverTimeRef.current < 220) return
+      if (now - lastHoverTimeRef.current < 200) return
       lastHoverTimeRef.current = now
 
       const target = e.target
@@ -251,51 +259,54 @@ export default function CraftureLivingCopilot() {
       }
 
       const rect = card.getBoundingClientRect()
-      if (rect.width < 80 || rect.height < 40) return
+      if (rect.width < 70 || rect.height < 36) return
 
-      // Compute safe coordinates beside the card
-      const MASCOT_WIDTH = 230
-      const MASCOT_HEIGHT = 250
-      const PADDING = 16
+      // Compute safe coordinates anchored to outer margin / corner of card
+      const spaceRight = window.innerWidth - rect.right
+      const spaceLeft = rect.left
 
-      let targetX = rect.right + PADDING
-      let targetY = rect.top + Math.min(30, rect.height * 0.15)
+      let targetX
+      let targetY = Math.max(MIN_Y, rect.top + 8)
 
-      // If it overflows right edge of screen, place on left of card
-      if (targetX + MASCOT_WIDTH > window.innerWidth - PADDING) {
-        targetX = rect.left - MASCOT_WIDTH - PADDING
+      if (spaceRight >= CLOUD_W + 24) {
+        // Comfortable space in right margin beside the card
+        targetX = rect.right + 12
+      } else if (spaceLeft >= CLOUD_W + 24) {
+        // Comfortable space in left margin beside the card
+        targetX = rect.left - CLOUD_W - 12
+      } else {
+        // Wide card or tight space: dock cleanly at bottom-right corner rather than floating over text/charts
+        targetX = window.innerWidth - MAX_X_OFFSET
+        targetY = window.innerHeight - MAX_Y_OFFSET
       }
 
-      // If it still overflows left or right, dock neatly to the right gutter of viewport
-      if (targetX < PADDING || targetX + MASCOT_WIDTH > window.innerWidth - PADDING) {
-        targetX = window.innerWidth - MASCOT_WIDTH - PADDING
-      }
-
-      // Clamp coordinates securely inside viewport
-      targetX = Math.max(PADDING, Math.min(targetX, window.innerWidth - MASCOT_WIDTH - PADDING))
-      targetY = Math.max(75, Math.min(targetY, window.innerHeight - MASCOT_HEIGHT - PADDING))
+      // Clamp coordinates strictly within [16, window.innerWidth - 336] and [84, window.innerHeight - 240]
+      targetX = Math.max(MIN_X, Math.min(targetX, window.innerWidth - MAX_X_OFFSET))
+      targetY = Math.max(MIN_Y, Math.min(targetY, window.innerHeight - MAX_Y_OFFSET))
 
       // Nudge if too close to mouse cursor
-      const distToCursorX = Math.abs(e.clientX - (targetX + MASCOT_WIDTH / 2))
-      const distToCursorY = Math.abs(e.clientY - (targetY + MASCOT_HEIGHT / 2))
-      if (distToCursorX < 90 && distToCursorY < 90) {
+      const distToCursor = Math.hypot(
+        e.clientX - (targetX + CLOUD_W / 2),
+        e.clientY - (targetY + TOTAL_H / 2)
+      )
+      if (distToCursor < 110) {
         if (e.clientX > window.innerWidth / 2) {
-          targetX = Math.max(PADDING, targetX - 110)
+          targetX = Math.max(MIN_X, targetX - 120)
         } else {
-          targetX = Math.min(window.innerWidth - MASCOT_WIDTH - PADDING, targetX + 110)
+          targetX = Math.min(window.innerWidth - MAX_X_OFFSET, targetX + 120)
         }
       }
 
       // Glide smoothly to target coordinates
       moveTo(targetX, targetY, 0.55)
 
-      // Reset idle timer to dock after 3.8s of no card interactions
+      // Reset idle timer to dock after 4s of no card interactions
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
       idleTimerRef.current = setTimeout(() => {
         if (!isCelebratingRef.current) {
           returnToDefaultDock(0.75)
         }
-      }, 3800)
+      }, 4000)
 
       // Derive smart insight from card content
       const explicitMsg = card.getAttribute('data-guide-msg')
@@ -303,47 +314,61 @@ export default function CraftureLivingCopilot() {
         'h1, h2, h3, h4, h5, [class*="font-bold"], [class*="font-black"], th'
       )
       const headingText = headingEl
-        ? headingEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 38)
+        ? headingEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 42)
         : ''
       const cardText = card.textContent || ''
+      const combinedMeta = `${headingText} ${card.getAttribute('data-category') || ''}`
 
-      let derivedEmotion = 'thinking'
+      let derivedEmotion = 'speaking'
       let derivedThought = ''
-      let derivedChip = 'Diagnostic'
+      let derivedChip = 'Coach'
 
-      if (explicitMsg) {
+      // 1. Solution / Action / Content Cards Check (HIGHEST PRIORITY)
+      const isSolutionOrAction =
+        /Top 3 Prioritized Actions|Prioritized Action|Thought Leadership|Leadership Post|Headline Selector|Optimized Headline|Proposed Rewrite|5-Part Winning Bullet|Winning Bullet|Rewrite|Interview Defense|STAR Behavioral|Elevator Pitch|7-Day Sprint|Sprint Execution|Sprint Checklist|Action Plan|What-If Simulator|Weaver|Next Mission|Recommended Fix|Actionable|Checklist/i.test(
+          combinedMeta
+        ) ||
+        /Top 3 Prioritized Actions|Thought Leadership Posts|Headline Selector|Proposed Rewrite|Interview Defense|7-Day Sprint|Google XYZ Rewrite|Actionable/i.test(
+          cardText.slice(0, 350)
+        )
+
+      if (isSolutionOrAction) {
+        derivedEmotion = 'speaking'
+        derivedChip = 'Actionable Fix'
+        derivedThought = `💡 Actionable fix for ${headingText || 'this section'} — click to copy or apply.`
+      } else if (explicitMsg) {
         derivedThought = explicitMsg
-        derivedEmotion = 'thinking'
-        derivedChip = 'Inspection'
+        derivedEmotion = 'speaking'
+        derivedChip = 'Section Guide'
+      } else if (/9[0-9]|100|Verified in Experience|Strong Signal|Pass Gate|Cleared|Signed Offer/i.test(cardText)) {
+        derivedEmotion = 'celebrating'
+        derivedThought = `✨ Strong signal in ${headingText || 'this section'}!`
+        derivedChip = 'Strong Signal'
       } else if (
-        /27\/100|Grade F|Dropped|Stuck|Phase [123]|0%|Dormant|Critical|Missing|Hurting|Leak/i.test(
+        /\bGrade F\b|0% callback|\bDropped\b|\bStuck\b|\bDormant\b|\bMissing from Resume\b|\bCritical Risk\b|\bLeak Gate\b/i.test(
           cardText
         )
       ) {
+        // Genuine problem/gap cards ONLY
         derivedEmotion = 'listening'
         derivedThought = `⚠️ Bottleneck spotted in ${headingText || 'this section'} — click to see the fix.`
         derivedChip = 'Bottleneck Alert'
       } else if (
-        /Stranded|4\.4%|Benchmark|Checklist|Skills|58%|Warning|Compare|Triage/i.test(cardText)
+        /Stranded|Benchmark|Compare|Checklist|Rubric|Conversion Rate|Timeline/i.test(cardText)
       ) {
         derivedEmotion = 'thinking'
         derivedThought = `🤔 Inspecting ${headingText || 'this metric'} — optimizing this lifts your callback rate.`
         derivedChip = 'Metric Analysis'
-      } else if (/93|100|Hooked|Verified|Strong|Pass|Offers/i.test(cardText)) {
-        derivedEmotion = 'celebrating'
-        derivedThought = `✨ Strong signal in ${headingText || 'this section'}!`
-        derivedChip = 'High Performance'
       } else if (headingText) {
-        derivedEmotion = 'thinking'
+        derivedEmotion = 'speaking'
         derivedThought = `💡 Reviewing ${headingText} — click to ask Atlas.`
         derivedChip = 'Section Guide'
       } else {
         return // Skip non-descriptive elements
       }
 
-      // Animate Thinking Cloud: brief 220ms thinking indicator before revealing
+      // Animate Thinking Cloud: brief 200ms thinking indicator before revealing
       setIsThinking(true)
-      setIsCloudDismissed(false)
       if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
       thinkingTimerRef.current = setTimeout(() => {
         setIsThinking(false)
@@ -352,7 +377,7 @@ export default function CraftureLivingCopilot() {
           text: derivedThought,
           emotion: derivedEmotion,
         })
-      }, 220)
+      }, 200)
     }
 
     document.addEventListener('mouseover', handleMouseOver, true)
@@ -445,6 +470,11 @@ export default function CraftureLivingCopilot() {
 
   const handleMascotClick = () => {
     if (isChatOpen) return
+    // If cloud is collapsed, clicking mascot restores the cloud
+    if (cloudMinimized) {
+      setCloudMinimized(false)
+      return
+    }
     handleLaunchChat()
   }
 
@@ -457,16 +487,16 @@ export default function CraftureLivingCopilot() {
       }}
       aria-label="Crafture Living Copilot Companion"
     >
-      {/* ─── Animated Thinking Cloud (Only visible when chat is closed & not dismissed) ─── */}
+      {/* ─── Animated Thinking Cloud (Only visible when chat is closed & cloud not minimized) ─── */}
       <AnimatePresence>
-        {!isChatOpen && !isCloudDismissed && (
+        {!isChatOpen && !cloudMinimized && (
           <motion.div
             key={`thought-cloud-${activeThought?.text || activeNodeId}`}
             initial={{ opacity: 0, scale: 0.88, y: 14 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 8, transition: { duration: 0.18 } }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="mb-1 max-w-[310px] sm:max-w-[340px] pointer-events-auto"
+            className="mb-1 w-[320px] max-w-[320px] pointer-events-auto"
           >
             {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
             <div className="flex flex-col items-end mr-12 mb-1 space-y-1">
@@ -531,11 +561,13 @@ export default function CraftureLivingCopilot() {
                     </button>
                   </div>
 
+                  {/* Clean Collapse (✕): Collapses only the cloud, keeping 3D mascot visible */}
                   <button
                     type="button"
-                    onClick={() => setIsCloudDismissed(true)}
+                    onClick={() => setCloudMinimized(true)}
                     className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                    aria-label="Dismiss thought"
+                    aria-label="Collapse thought cloud"
+                    title="Collapse thought cloud"
                   >
                     <X size={13} />
                   </button>
@@ -582,7 +614,7 @@ export default function CraftureLivingCopilot() {
           ref={mascotContainerRef}
           onClick={handleMascotClick}
           className="relative cursor-pointer transition-transform duration-200 hover:scale-105 active:scale-95 group/mascot"
-          title={isChatOpen ? 'Atlas Copilot Active' : 'Click to consult Crafture Guide'}
+          title={isChatOpen ? 'Atlas Copilot Active' : cloudMinimized ? 'Click to restore thought cloud' : 'Click to consult Crafture Guide'}
         >
           {/* Floor Ambient Drop Shadow */}
           <div
@@ -606,7 +638,7 @@ export default function CraftureLivingCopilot() {
               whileHover={{ opacity: 1, y: 0 }}
               className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-bold font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
             >
-              Ask Atlas
+              {cloudMinimized ? 'Expand Guide' : 'Ask Atlas'}
             </motion.div>
           )}
         </div>

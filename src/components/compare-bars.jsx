@@ -84,6 +84,8 @@ export function CompareBars({
   format,
   locales,
   className = "",
+  summaryMode = "sum",
+  maxScore = 100,
   ...props
 }) {
   const reduced = useReducedMotion();
@@ -97,6 +99,9 @@ export function CompareBars({
   const before = data.reduce((s, d) => s + d.previous, 0);
   const change = before ? (total - before) / before : 0;
   const up = change >= 0;
+  const avgCurrent = n ? Math.round(total / n) : 0;
+  const avgBefore = n ? Math.round(before / n) : 0;
+  const avgChange = avgBefore ? (avgCurrent - avgBefore) / avgBefore : change;
 
   const [visible, setVisible] = React.useState(false);
   const [active, setActive] = React.useState(null);
@@ -269,9 +274,21 @@ export function CompareBars({
           </button>
         </div>
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-          <p className="text-[22px] font-medium leading-tight tracking-[-0.03em] text-foreground tabular-nums @md:text-[26px]">
-            <NumberRoll value={visible ? total : 0} format={format} locales={locale} duration={1000} />
-          </p>
+          {summaryMode === "average" ? (
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-[22px] font-bold leading-tight tracking-[-0.03em] text-foreground tabular-nums @md:text-[26px]">
+                <NumberRoll value={visible ? avgCurrent : 0} duration={1000} />
+              </p>
+              <span className="text-[14px] text-muted-foreground font-semibold">/ {maxScore}</span>
+              <span className="text-[11.5px] font-mono text-muted-foreground/80 ml-1">
+                ({total} / {n * maxScore} pts)
+              </span>
+            </div>
+          ) : (
+            <p className="text-[22px] font-medium leading-tight tracking-[-0.03em] text-foreground tabular-nums @md:text-[26px]">
+              <NumberRoll value={visible ? total : 0} format={format} locales={locale} duration={1000} />
+            </p>
+          )}
           {/* The change folds open beside the total while comparing. */}
           <span
             className="grid self-center"
@@ -286,7 +303,7 @@ export function CompareBars({
                 <svg viewBox="0 0 12 12" aria-hidden="true" className="size-3" style={{ transform: up ? "none" : "rotate(180deg)" }}>
                   <path d="M6 9.5V2.5M2.8 5.6 6 2.5l3.2 3.1" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <NumberRoll value={on ? Math.abs(change) : 0} format={{ style: "percent", maximumFractionDigits: 1 }} locales={locale} duration={900} />
+                <NumberRoll value={on ? Math.abs(summaryMode === "average" ? avgChange : change) : 0} format={{ style: "percent", maximumFractionDigits: 1 }} locales={locale} duration={900} />
               </span>
             </span>
           </span>

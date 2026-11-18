@@ -71,21 +71,7 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
 }
 
 export default function ResumeScoreCard({ dashboard, candidateName, variant = 'dark', title = 'Resume Health Score', scoreWord = 'resume' }) {
-  if (!dashboard || typeof dashboard.score !== 'number') return null
-  const light = variant === 'light'
-  const { score, grade, gradeLabel, grades, checks, summary } = dashboard
-  const seenLabels = new Set()
-  const entries = Object.entries(grades || {}).filter(([, g]) => {
-    if (!g?.label || seenLabels.has(g.label)) return false
-    seenLabels.add(g.label)
-    return true
-  })
-
-  const cardBg = light ? 'bg-white border-slate-200' : 'bg-[#0f172a] border-gray-800/90'
-  const headingText = light ? 'text-slate-900' : 'text-white'
-  const subText = light ? 'text-slate-500' : 'text-gray-500'
-  const labelColor = light ? 'text-slate-400' : 'text-gray-400'
-
+  const grades = dashboard?.grades
   const compareData = useMemo(() => {
     const rawImpact = grades?.impact?.score ?? 62
     const rawPos = grades?.positioning?.score ?? 68
@@ -103,6 +89,21 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
       { label: 'US Alignment', current: rawUs, previous: Math.min(95, rawUs + 16) },
     ]
   }, [grades])
+
+  if (!dashboard || typeof dashboard.score !== 'number') return null
+  const light = variant === 'light'
+  const { score, grade, gradeLabel, checks, summary } = dashboard
+  const seenLabels = new Set()
+  const entries = Object.entries(grades || {}).filter(([, g]) => {
+    if (!g?.label || seenLabels.has(g.label)) return false
+    seenLabels.add(g.label)
+    return true
+  })
+
+  const cardBg = light ? 'bg-white border-slate-200' : 'bg-[#0f172a] border-gray-800/90'
+  const headingText = light ? 'text-slate-900' : 'text-white'
+  const subText = light ? 'text-slate-500' : 'text-gray-500'
+  const labelColor = light ? 'text-slate-400' : 'text-gray-400'
 
   return (
     <div className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`}>
@@ -149,6 +150,8 @@ export default function ResumeScoreCard({ dashboard, candidateName, variant = 'd
           currentLabel="Current Resume"
           previousLabel="Target Benchmark"
           defaultCompared={true}
+          summaryMode="average"
+          maxScore={100}
           className="w-full"
         />
       </div>
