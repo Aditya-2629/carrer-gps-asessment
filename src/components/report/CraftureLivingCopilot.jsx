@@ -12,6 +12,7 @@ import {
 import { crafturePerson } from '../../mascots/crafturePerson'
 import { ArrowRight, X, Sparkles } from 'lucide-react'
 
+// Main report sections observed for curated executive beats
 const OBSERVED_SECTION_IDS = [
   'overview-pulse',
   'overview-bottleneck',
@@ -20,15 +21,13 @@ const OBSERVED_SECTION_IDS = [
   'linkedin-studio',
   'funnel-leak',
   'sprint-roadmap',
+  'overview',
+  'bottleneck',
+  'resume-ai',
+  'linkedin',
+  'funnel',
+  'roadmap',
 ]
-
-// Safe bounding constants for viewport roaming and clamp safety
-const CLOUD_W = 320
-const TOTAL_H = 230
-const MIN_X = 16
-const MAX_X_OFFSET = 336 // window.innerWidth - 336 guarantees >= 16px right margin
-const MIN_Y = 84 // Clear top sticky navigation bar
-const MAX_Y_OFFSET = 240 // Clear viewport bottom
 
 export default function CraftureLivingCopilot() {
   const {
@@ -45,26 +44,14 @@ export default function CraftureLivingCopilot() {
     setEmotion,
   } = useReportGuideStore()
 
-  const wrapperRef = useRef(null)
   const mascotContainerRef = useRef(null)
-  const idleTimerRef = useRef(null)
-  const lastHoverTimeRef = useRef(0)
-  const thinkingTimerRef = useRef(null)
   const isCelebratingRef = useRef(false)
+  const scrollDebounceTimerRef = useRef(null)
 
   const [cloudMinimized, setCloudMinimized] = useState(false)
   const [isThinking, setIsThinking] = useState(false)
   const [isCelebrating, setIsCelebrating] = useState(false)
   const [activeThought, setActiveThought] = useState(null)
-
-  // Default dock position: bottom-right inside viewport
-  const getDefaultDock = useCallback(() => {
-    if (typeof window === 'undefined') return { x: 800, y: 600 }
-    return {
-      x: Math.max(MIN_X, window.innerWidth - MAX_X_OFFSET),
-      y: Math.max(MIN_Y, window.innerHeight - MAX_Y_OFFSET),
-    }
-  }, [])
 
   // Current fallback insight from store
   const storeInsight = useMemo(() => {
@@ -76,51 +63,15 @@ export default function CraftureLivingCopilot() {
   const currentThoughtText =
     activeThought?.text ||
     headline ||
-    (mode === 'solution' ? storeInsight?.solution : storeInsight?.problem)
+    (mode === 'solution' ? storeInsight?.solution : storeInsight?.thought || storeInsight?.problem)
 
   const currentEmotion = activeThought?.emotion || emotion || 'idle'
   const wobnimoState = isCelebrating ? 'celebrating' : EMOTION_TO_WOBNIMO[currentEmotion] || 'idle'
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
   const accentColor = currentPalette.shell || '#6366F1'
 
-  // Smooth GSAP Roaming Helper
-  const moveTo = useCallback((targetX, targetY, duration = 0.55) => {
-    if (!wrapperRef.current) return
-    gsap.to(wrapperRef.current, {
-      x: targetX,
-      y: targetY,
-      duration,
-      ease: 'power3.out',
-      overwrite: 'auto',
-    })
-  }, [])
-
-  // Return to default dock helper
-  const returnToDefaultDock = useCallback(
-    (duration = 0.75) => {
-      const dock = getDefaultDock()
-      moveTo(dock.x, dock.y, duration)
-    },
-    [getDefaultDock, moveTo]
-  )
-
-  // 1. Initialize mascot at default dock on mount and handle window resize
-  useEffect(() => {
-    const dock = getDefaultDock()
-    if (wrapperRef.current) {
-      gsap.set(wrapperRef.current, { x: dock.x, y: dock.y })
-    }
-
-    const handleResize = () => {
-      returnToDefaultDock(0.4)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [getDefaultDock, returnToDefaultDock])
-
-  // 2. Ronaldo "SIUUU!" Celebration Animation
-  const playRonaldoSiuuu = useCallback(() => {
+  // 1. Ronaldo "SIUUU!" Celebration Animation (Reserved strictly for genuine wins)
+  const triggerSiuuu = useCallback((customMsg = null) => {
     if (!mascotContainerRef.current) return
 
     isCelebratingRef.current = true
@@ -130,7 +81,7 @@ export default function CraftureLivingCopilot() {
 
     setActiveThought({
       chip: 'SIUUU! 🚀',
-      text: 'SIUUU! Milestone achieved — pipeline momentum unlocked! 🏆',
+      text: customMsg || 'SIUUU! Milestone achieved — pipeline momentum unlocked! 🏆',
       emotion: 'victory',
     })
 
@@ -193,219 +144,118 @@ export default function CraftureLivingCopilot() {
   // Watch for external store victory triggers (e.g. from 7-day sprint checks)
   useEffect(() => {
     if (emotion === GUIDE_EMOTIONS.VICTORY && !isCelebratingRef.current) {
-      playRonaldoSiuuu()
+      triggerSiuuu()
     }
-  }, [emotion, playRonaldoSiuuu])
+  }, [emotion, triggerSiuuu])
 
-  // 3. Screen-Wide Click Listener for Celebration Triggers (Copy, Weave, Checkbox, Simulate)
+  // 2. Explicit Click Reactions: Genuine Win Clicks or data-guide-msg handlers
   useEffect(() => {
     const handleDocumentClick = (e) => {
-      const btn = e.target.closest(
-        'button, [role="button"], input[type="checkbox"], [data-trigger-win]'
-      )
-      if (!btn) return
-
-      const text = `${btn.textContent || ''} ${btn.getAttribute('aria-label') || ''} ${btn.className || ''}`.toLowerCase()
-      const isWinTrigger =
-        text.includes('copy') ||
-        text.includes('copied') ||
-        text.includes('weave') ||
-        text.includes('check in') ||
-        text.includes('advance to next day') ||
-        text.includes('lock in') ||
-        text.includes('simulate') ||
-        text.includes('done') ||
-        btn.type === 'checkbox' ||
-        btn.hasAttribute('data-trigger-win')
-
-      if (isWinTrigger) {
-        playRonaldoSiuuu()
-      }
-    }
-
-    document.addEventListener('click', handleDocumentClick, true)
-    return () => document.removeEventListener('click', handleDocumentClick, true)
-  }, [playRonaldoSiuuu])
-
-  // 4. Smart Screen-Wide Hover Listener (document.addEventListener('mouseover', ...))
-  useEffect(() => {
-    const handleMouseOver = (e) => {
-      if (isCelebratingRef.current) return
-
-      const now = Date.now()
-      if (now - lastHoverTimeRef.current < 200) return
-      lastHoverTimeRef.current = now
-
       const target = e.target
       if (!target) return
 
-      // Ignore mascot itself or chatbot drawer
+      // Ignore clicks inside the living copilot container itself or chatbot
       if (
-        wrapperRef.current?.contains(target) ||
+        mascotContainerRef.current?.contains(target) ||
         target.closest('#report-chatbot, .report-chatbot')
       ) {
         return
       }
 
-      // Find closest meaningful card or row
-      const card = target.closest(
-        '[data-guide-msg], section, [class*="rounded-2xl"], [class*="rounded-xl"], [class*="rounded-3xl"], tr, li'
-      )
-      if (!card) return
-
-      // Ignore huge root wrappers
-      if (card.offsetWidth > window.innerWidth * 0.96 && card.offsetHeight > window.innerHeight * 0.9) {
-        return
-      }
-
-      const rect = card.getBoundingClientRect()
-      if (rect.width < 70 || rect.height < 36) return
-
-      // Compute safe coordinates anchored to outer margin / corner of card
-      const spaceRight = window.innerWidth - rect.right
-      const spaceLeft = rect.left
-
-      let targetX
-      let targetY = Math.max(MIN_Y, rect.top + 8)
-
-      if (spaceRight >= CLOUD_W + 24) {
-        // Comfortable space in right margin beside the card
-        targetX = rect.right + 12
-      } else if (spaceLeft >= CLOUD_W + 24) {
-        // Comfortable space in left margin beside the card
-        targetX = rect.left - CLOUD_W - 12
-      } else {
-        // Wide card or tight space: dock cleanly at bottom-right corner rather than floating over text/charts
-        targetX = window.innerWidth - MAX_X_OFFSET
-        targetY = window.innerHeight - MAX_Y_OFFSET
-      }
-
-      // Clamp coordinates strictly within [16, window.innerWidth - 336] and [84, window.innerHeight - 240]
-      targetX = Math.max(MIN_X, Math.min(targetX, window.innerWidth - MAX_X_OFFSET))
-      targetY = Math.max(MIN_Y, Math.min(targetY, window.innerHeight - MAX_Y_OFFSET))
-
-      // Nudge if too close to mouse cursor
-      const distToCursor = Math.hypot(
-        e.clientX - (targetX + CLOUD_W / 2),
-        e.clientY - (targetY + TOTAL_H / 2)
-      )
-      if (distToCursor < 110) {
-        if (e.clientX > window.innerWidth / 2) {
-          targetX = Math.max(MIN_X, targetX - 120)
-        } else {
-          targetX = Math.min(window.innerWidth - MAX_X_OFFSET, targetX + 120)
+      // Check for explicit data-guide-msg click
+      const msgEl = target.closest('[data-guide-msg]')
+      if (msgEl) {
+        const msg = msgEl.getAttribute('data-guide-msg')
+        if (msg) {
+          setIsThinking(true)
+          setCloudMinimized(false)
+          setTimeout(() => {
+            setIsThinking(false)
+            setActiveThought({
+              chip: 'Insight',
+              text: msg,
+              emotion: 'speaking',
+            })
+          }, 150)
+          return
         }
       }
 
-      // Glide smoothly to target coordinates
-      moveTo(targetX, targetY, 0.55)
-
-      // Reset idle timer to dock after 4s of no card interactions
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      idleTimerRef.current = setTimeout(() => {
-        if (!isCelebratingRef.current) {
-          returnToDefaultDock(0.75)
-        }
-      }, 4000)
-
-      // Derive smart insight from card content
-      const explicitMsg = card.getAttribute('data-guide-msg')
-      const headingEl = card.querySelector(
-        'h1, h2, h3, h4, h5, [class*="font-bold"], [class*="font-black"], th'
+      // Check for genuine win clicks ONLY
+      const winBtn = target.closest(
+        'button, [role="button"], input[type="checkbox"], [data-trigger-win]'
       )
-      const headingText = headingEl
-        ? headingEl.textContent.trim().replace(/\s+/g, ' ').slice(0, 42)
-        : ''
-      const cardText = card.textContent || ''
-      const combinedMeta = `${headingText} ${card.getAttribute('data-category') || ''}`
+      if (!winBtn) return
 
-      let derivedEmotion = 'speaking'
-      let derivedThought = ''
-      let derivedChip = 'Coach'
+      const btnText = `${winBtn.textContent || ''} ${winBtn.getAttribute('aria-label') || ''} ${winBtn.title || ''}`.toLowerCase()
 
-      // 1. Solution / Action / Content Cards Check (HIGHEST PRIORITY)
-      const isSolutionOrAction =
-        /Top 3 Prioritized Actions|Prioritized Action|Thought Leadership|Leadership Post|Headline Selector|Optimized Headline|Proposed Rewrite|5-Part Winning Bullet|Winning Bullet|Rewrite|Interview Defense|STAR Behavioral|Elevator Pitch|7-Day Sprint|Sprint Execution|Sprint Checklist|Action Plan|What-If Simulator|Weaver|Next Mission|Recommended Fix|Actionable|Checklist/i.test(
-          combinedMeta
-        ) ||
-        /Top 3 Prioritized Actions|Thought Leadership Posts|Headline Selector|Proposed Rewrite|Interview Defense|7-Day Sprint|Google XYZ Rewrite|Actionable/i.test(
-          cardText.slice(0, 350)
-        )
+      // Strict win triggers: Weave Skill, Copy Rewrite/Bullet/Summary, Sprint Check, Preset Apply
+      const isGenuineWin =
+        winBtn.hasAttribute('data-trigger-win') ||
+        btnText.includes('weave') ||
+        btnText.includes('copy rewrite') ||
+        btnText.includes('copy bullet') ||
+        btnText.includes('copy summary') ||
+        btnText.includes('check in') ||
+        btnText.includes('advance to next day') ||
+        btnText.includes('apply preset') ||
+        (btnText.includes('done') && Boolean(winBtn.closest('#action-sprint, #sprint-roadmap')))
 
-      if (isSolutionOrAction) {
-        derivedEmotion = 'speaking'
-        derivedChip = 'Actionable Fix'
-        derivedThought = `💡 Actionable fix for ${headingText || 'this section'} — click to copy or apply.`
-      } else if (explicitMsg) {
-        derivedThought = explicitMsg
-        derivedEmotion = 'speaking'
-        derivedChip = 'Section Guide'
-      } else if (/9[0-9]|100|Verified in Experience|Strong Signal|Pass Gate|Cleared|Signed Offer/i.test(cardText)) {
-        derivedEmotion = 'celebrating'
-        derivedThought = `✨ Strong signal in ${headingText || 'this section'}!`
-        derivedChip = 'Strong Signal'
-      } else if (
-        /\bGrade F\b|0% callback|\bDropped\b|\bStuck\b|\bDormant\b|\bMissing from Resume\b|\bCritical Risk\b|\bLeak Gate\b/i.test(
-          cardText
-        )
-      ) {
-        // Genuine problem/gap cards ONLY
-        derivedEmotion = 'listening'
-        derivedThought = `⚠️ Bottleneck spotted in ${headingText || 'this section'} — click to see the fix.`
-        derivedChip = 'Bottleneck Alert'
-      } else if (
-        /Stranded|Benchmark|Compare|Checklist|Rubric|Conversion Rate|Timeline/i.test(cardText)
-      ) {
-        derivedEmotion = 'thinking'
-        derivedThought = `🤔 Inspecting ${headingText || 'this metric'} — optimizing this lifts your callback rate.`
-        derivedChip = 'Metric Analysis'
-      } else if (headingText) {
-        derivedEmotion = 'speaking'
-        derivedThought = `💡 Reviewing ${headingText} — click to ask Atlas.`
-        derivedChip = 'Section Guide'
-      } else {
-        return // Skip non-descriptive elements
+      if (isGenuineWin) {
+        triggerSiuuu()
       }
-
-      // Animate Thinking Cloud: brief 200ms thinking indicator before revealing
-      setIsThinking(true)
-      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
-      thinkingTimerRef.current = setTimeout(() => {
-        setIsThinking(false)
-        setActiveThought({
-          chip: derivedChip,
-          text: derivedThought,
-          emotion: derivedEmotion,
-        })
-      }, 200)
     }
 
-    document.addEventListener('mouseover', handleMouseOver, true)
-    return () => {
-      document.removeEventListener('mouseover', handleMouseOver, true)
-      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
-      if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
-    }
-  }, [moveTo, returnToDefaultDock])
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => document.removeEventListener('click', handleDocumentClick, true)
+  }, [triggerSiuuu])
 
-  // 5. Section Scroll Tracking (IntersectionObserver fallback)
+  // 3. Curated Scroll-Based Section Beats (IntersectionObserver with 500ms Debounce)
   useEffect(() => {
     const observerCallback = (entries) => {
       const visibleEntries = entries.filter((e) => e.isIntersecting)
-      if (visibleEntries.length > 0) {
-        visibleEntries.sort((a, b) => b.intersectionRatio - a.intersectionRatio)
-        const activeTarget = visibleEntries[0].target
-        const sectionId = activeTarget.id
-        if (sectionId && sectionId !== activeNodeId) {
-          setActiveSection(sectionId)
-        }
+      if (visibleEntries.length === 0) return
+
+      // Sort by intersection ratio to find the primary focused section
+      visibleEntries.sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+      const topTarget = visibleEntries[0].target
+      const sectionId = topTarget.id
+      if (!sectionId) return
+
+      // Clear any pending scroll debounce timer
+      if (scrollDebounceTimerRef.current) {
+        clearTimeout(scrollDebounceTimerRef.current)
       }
+
+      // 500ms calm debounce so fast scrolling never triggers erratic jumps
+      scrollDebounceTimerRef.current = setTimeout(() => {
+        if (isCelebratingRef.current) return
+
+        const curated =
+          SECTION_INSIGHTS[sectionId] ||
+          SECTION_INSIGHTS[sectionId.replace('-leak', '')] ||
+          SECTION_INSIGHTS[sectionId.replace('sprint-', '')] ||
+          SECTION_INSIGHTS[sectionId.replace('overview-', '')]
+
+        if (curated) {
+          setIsThinking(true)
+          setTimeout(() => {
+            setIsThinking(false)
+            setActiveThought({
+              chip: curated.chip,
+              text: mode === 'solution' ? curated.solution : curated.thought || curated.problem,
+              emotion: curated.emotion || 'speaking',
+            })
+            setActiveSection(curated.id)
+          }, 180)
+        }
+      }, 500)
     }
 
     const observer = new IntersectionObserver(observerCallback, {
       root: null,
-      rootMargin: '-15% 0px -40% 0px',
-      threshold: [0.1, 0.3, 0.6],
+      rootMargin: '-10% 0px -30% 0px',
+      threshold: [0.15, 0.4, 0.7],
     })
 
     OBSERVED_SECTION_IDS.forEach((id) => {
@@ -413,28 +263,28 @@ export default function CraftureLivingCopilot() {
       if (el) observer.observe(el)
     })
 
-    return () => observer.disconnect()
-  }, [activeNodeId, setActiveSection])
+    return () => {
+      observer.disconnect()
+      if (scrollDebounceTimerRef.current) clearTimeout(scrollDebounceTimerRef.current)
+    }
+  }, [mode, setActiveSection])
 
-  // 6. Subtle Cursor Gaze/Tilt on Pointermove
-  const handleMouseMove = useCallback(
-    (e) => {
-      if (!mascotContainerRef.current || isCelebratingRef.current) return
-      const rect = mascotContainerRef.current.getBoundingClientRect()
-      const dx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth / 2)
-      const dy = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight / 2)
+  // 4. Subtle, Dignified Cursor Gaze Tracking (<= 8deg tilt)
+  const handleMouseMove = useCallback((e) => {
+    if (!mascotContainerRef.current || isCelebratingRef.current) return
+    const rect = mascotContainerRef.current.getBoundingClientRect()
+    const dx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth / 2)
+    const dy = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight / 2)
 
-      gsap.to(mascotContainerRef.current, {
-        rotationY: Math.max(-18, Math.min(18, dx * 18)),
-        rotationX: Math.max(-12, Math.min(12, -dy * 14)),
-        transformPerspective: 800,
-        duration: 0.3,
-        ease: 'power1.out',
-        overwrite: 'auto',
-      })
-    },
-    []
-  )
+    gsap.to(mascotContainerRef.current, {
+      rotationY: Math.max(-8, Math.min(8, dx * 8)),
+      rotationX: Math.max(-6, Math.min(6, -dy * 6)),
+      transformPerspective: 800,
+      duration: 0.45,
+      ease: 'power2.out',
+      overwrite: 'auto',
+    })
+  }, [])
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove)
@@ -447,7 +297,7 @@ export default function CraftureLivingCopilot() {
 
     const tween = gsap.to(mascotContainerRef.current, {
       y: -5,
-      duration: 2.2,
+      duration: 2.4,
       yoyo: true,
       repeat: -1,
       ease: 'sine.inOut',
@@ -480,11 +330,7 @@ export default function CraftureLivingCopilot() {
 
   return (
     <div
-      ref={wrapperRef}
-      className="fixed top-0 left-0 z-50 pointer-events-none select-none print:hidden flex flex-col items-end will-change-transform"
-      style={{
-        transform: `translate3d(${getDefaultDock().x}px, ${getDefaultDock().y}px, 0)`,
-      }}
+      className="fixed bottom-6 right-6 z-40 pointer-events-none select-none print:hidden flex flex-col items-end"
       aria-label="Crafture Living Copilot Companion"
     >
       {/* ─── Animated Thinking Cloud (Only visible when chat is closed & cloud not minimized) ─── */}
@@ -492,11 +338,11 @@ export default function CraftureLivingCopilot() {
         {!isChatOpen && !cloudMinimized && (
           <motion.div
             key={`thought-cloud-${activeThought?.text || activeNodeId}`}
-            initial={{ opacity: 0, scale: 0.88, y: 14 }}
+            initial={{ opacity: 0, scale: 0.92, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 8, transition: { duration: 0.18 } }}
-            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="mb-1 w-[320px] max-w-[320px] pointer-events-auto"
+            exit={{ opacity: 0, scale: 0.92, y: 8, transition: { duration: 0.2 } }}
+            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-1 w-[310px] sm:w-[330px] max-w-[340px] pointer-events-auto"
           >
             {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
             <div className="flex flex-col items-end mr-12 mb-1 space-y-1">
@@ -581,7 +427,7 @@ export default function CraftureLivingCopilot() {
                     <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                    <span className="text-[11px] font-mono text-slate-400 ml-1">Analyzing...</span>
+                    <span className="text-[11px] font-mono text-slate-400 ml-1">Calibrating...</span>
                   </div>
                 ) : (
                   <p className="text-xs font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
@@ -636,7 +482,7 @@ export default function CraftureLivingCopilot() {
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               whileHover={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-bold font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-bold font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
             >
               {cloudMinimized ? 'Expand Guide' : 'Ask Atlas'}
             </motion.div>

@@ -49,7 +49,8 @@ export const SECTION_INSIGHTS = {
     chip: 'Executive Pulse',
     problem: 'Screening drop-off at 86%: resume signals are stalling recruiter conversion.',
     solution: 'Targeted 5-part bullet tuning projected to unlock a 2.4x callback rate.',
-    emotion: 'alert',
+    thought: 'Screening callback rate is your primary lever — tuning high-impact bullet signals will unlock initial recruiter calls.',
+    emotion: 'speaking',
     chatPrompt: 'Analyze my Executive Pulse and tell me why recruiters are dropping off at screening.',
   },
   'overview-bottleneck': {
@@ -58,7 +59,8 @@ export const SECTION_INSIGHTS = {
     chip: 'Core Bottleneck',
     problem: 'Stalled at Phase 2: applications get viewed but fail to convert to technical panels.',
     solution: 'Calibrate STAR metrics and sharpen senior role positioning across all channels.',
-    emotion: 'alert',
+    thought: 'Primary pipeline bottleneck detected at recruiter screens — calibrate STAR metrics and role level.',
+    emotion: 'listening',
     chatPrompt: 'What is my single highest leverage fix to unblock technical interviews this week?',
   },
   'resume-scorecard': {
@@ -67,7 +69,8 @@ export const SECTION_INSIGHTS = {
     chip: 'ATS Scorecard',
     problem: 'Quantification and Impact score lag behind top 10% benchmark engineering resumes.',
     solution: 'Restructure bullets using the 5-Part formula with verifiable business metrics.',
-    emotion: 'inspect',
+    thought: 'Inspecting 6 Resume Pillars: quantifying achievements lifts your ATS ranking into the top quartile.',
+    emotion: 'thinking',
     chatPrompt: 'Break down my 6 Resume Pillars and show me which ones are hurting my ATS rank.',
   },
   'resume-bullets': {
@@ -76,7 +79,8 @@ export const SECTION_INSIGHTS = {
     chip: 'Line Audit',
     problem: 'Hurting bullets identified: passive phrasing, missing outcomes, and tool dumps.',
     solution: 'Adopt the 5-Part anatomy rewrites calibrated for senior engineering hiring bars.',
-    emotion: 'alert',
+    thought: 'Line-by-line audit: 5-part winning rewrites turn passive duties into proven business outcomes.',
+    emotion: 'thinking',
     chatPrompt: 'Help me rewrite my weakest resume bullets using the 5-part winning formula.',
   },
   'linkedin-studio': {
@@ -85,7 +89,8 @@ export const SECTION_INSIGHTS = {
     chip: 'Executive Narrative',
     problem: 'Current bio reads like a passive resume mirror without an executive hook.',
     solution: 'Deploy the 1,600-character story-driven About narrative crafted for decision-makers.',
-    emotion: 'coach',
+    thought: 'Recruiter SEO: deploy a story-driven narrative hook to attract direct outbound inquiries.',
+    emotion: 'speaking',
     chatPrompt: 'How can I optimize my LinkedIn profile to attract executive recruiters and direct outreach?',
   },
   'funnel-leak': {
@@ -94,7 +99,8 @@ export const SECTION_INSIGHTS = {
     chip: 'Pipeline Leak',
     problem: 'Critical Phase 3 leak: candidate loses 86% of pipeline at technical screens.',
     solution: 'Simulate callback lift and apply structured system design frameworks to reach 40%+.',
-    emotion: 'alert',
+    thought: 'Pipeline leak analysis: lifting your technical pass rate from 25% to 40% unlocks competing offers.',
+    emotion: 'listening',
     chatPrompt: 'Walk me through my funnel leak and show me how to prepare for technical interview rounds.',
   },
   'sprint-roadmap': {
@@ -103,10 +109,20 @@ export const SECTION_INSIGHTS = {
     chip: 'Action Sprint',
     problem: 'Unstructured job hunting averages 6–9 months with unpredictable conversion.',
     solution: 'Execute high-impact daily missions in order to generate interview momentum.',
-    emotion: 'victory',
+    thought: 'Immediate 7-Day sprint: complete rapid triage missions to convert search activity into offers.',
+    emotion: 'speaking',
     chatPrompt: 'What are my top 3 high-impact missions to complete today from the 7-day sprint?',
   },
 }
+
+// Aliases for seamless section resolution
+SECTION_INSIGHTS['overview'] = SECTION_INSIGHTS['overview-pulse']
+SECTION_INSIGHTS['bottleneck'] = SECTION_INSIGHTS['overview-bottleneck']
+SECTION_INSIGHTS['resume'] = SECTION_INSIGHTS['resume-scorecard']
+SECTION_INSIGHTS['resume-ai'] = SECTION_INSIGHTS['resume-scorecard']
+SECTION_INSIGHTS['linkedin'] = SECTION_INSIGHTS['linkedin-studio']
+SECTION_INSIGHTS['funnel'] = SECTION_INSIGHTS['funnel-leak']
+SECTION_INSIGHTS['roadmap'] = SECTION_INSIGHTS['sprint-roadmap']
 
 let settleTimer = null
 

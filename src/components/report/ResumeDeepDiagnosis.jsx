@@ -649,7 +649,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
       {dashboard?.bulletAudit?.length > 0 && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
+        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
           <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
         </div>
       )}
