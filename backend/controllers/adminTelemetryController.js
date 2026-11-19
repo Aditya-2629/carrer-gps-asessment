@@ -1,5 +1,8 @@
 import AgentRun from '../models/AgentRun.js'
 import User from '../models/User.js'
+import LearningSignal from '../models/LearningSignal.js'
+import PromptExample from '../models/PromptExample.js'
+import FindingFeedback from '../models/FindingFeedback.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
@@ -388,5 +391,53 @@ export async function pingJevDecisions(req, res) {
 }
 
 export const resetCooldowns = purgeKeyCooldowns
+
+/**
+ * GET /api/admin/learning/insights
+ * Returns:
+ * - Automatically promoted emerging skills
+ * - Top vetted dynamic few-shot prompt examples
+ * - User finding feedback breakdown (ups vs downs)
+ */
+export async function getSelfLearningInsights(req, res) {
+  try {
+    const [promotedSkills, topExamples, feedbackBreakdown] = await Promise.all([
+      LearningSignal.find({ signalType: 'MARKET_SKILL_TREND' })
+        .sort({ confidence: -1, observationCount: -1 })
+        .limit(20)
+        .lean(),
+
+      PromptExample.find()
+        .sort({ score: -1, upVotes: -1 })
+        .limit(20)
+        .lean(),
+
+      FindingFeedback.aggregate([
+        {
+          $group: {
+            _id: { agent: '$agent', findingId: '$findingId' },
+            total: { $sum: 1 },
+            ups: { $sum: { $cond: [{ $eq: ['$rating', 'up'] }, 1, 0] } },
+            downs: { $sum: { $cond: [{ $eq: ['$rating', 'down'] }, 1, 0] } },
+          },
+        },
+        { $sort: { downs: -1 } },
+        { $limit: 20 },
+      ]),
+    ])
+
+    return res.status(200).json({
+      success: true,
+      insights: {
+        promotedSkills,
+        topExamples,
+        feedbackBreakdown,
+      },
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] Failed to load learning insights:', err)
+    return res.status(500).json({ success: false, message: 'Failed to load self-learning insights.' })
+  }
+}
 
 

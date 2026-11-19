@@ -8,7 +8,9 @@
  */
 
 import JobMarketBucket from '../../models/JobMarketBucket.js'
+import User from '../../models/User.js'
 import { enqueueBucketRefresh } from './marketJdQueue.js'
+import { runSelfLearningRollup } from '../../agents/resume/market/marketLearning.js'
 
 export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 export const STAGGER_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes between buckets
@@ -35,23 +37,61 @@ export async function checkAndScheduleStaleBuckets() {
       status: { $ne: 'refreshing' },
     }).sort({ lastSuccessfulRefreshAt: 1 })
 
-    if (staleBuckets.length === 0) {
-      console.log('[MarketAutoScheduler] All market buckets are current (within 30 days). No refresh required.')
-      return
+    // Auto-detect popular candidate roles with >= 3 user assessments
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+    const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS)
+
+    let popularBuckets = []
+    try {
+      const popularRoleAgg = await User.aggregate([
+        { $match: { 'answers.targetRole': { $exists: true, $ne: '' } } },
+        { $group: { _id: '$answers.targetRole', assessmentCount: { $sum: 1 } } },
+        { $match: { assessmentCount: { $gte: 3 } } },
+      ])
+
+      const popularRoleNames = (popularRoleAgg || [])
+        .map((p) => String(p._id).toLowerCase().trim())
+        .filter(Boolean)
+
+      if (popularRoleNames.length > 0) {
+        popularBuckets = await JobMarketBucket.find({
+          $or: [
+            { roleName: { $in: popularRoleNames.map((r) => new RegExp(`^${r}$`, 'i')) } },
+            { jobCount: { $lt: 35 } },
+          ],
+          lastSuccessfulRefreshAt: { $lt: sevenDaysAgo },
+          status: { $ne: 'refreshing' },
+        })
+      }
+    } catch (popErr) {
+      console.warn('[MarketAutoScheduler] Popular role aggregation error:', popErr.message)
     }
 
-    console.log(`[MarketAutoScheduler] Found ${staleBuckets.length} bucket(s) due for monthly refresh. Enqueueing...`)
+    const bucketsToRefreshMap = new Map()
+    staleBuckets.forEach((b) => bucketsToRefreshMap.set(b.bucketKey, b))
+    popularBuckets.forEach((b) => bucketsToRefreshMap.set(b.bucketKey, b))
 
-    staleBuckets.forEach((bucket, index) => {
-      const delayMs = index * STAGGER_INTERVAL_MS
-      setTimeout(async () => {
-        try {
-          await enqueueBucketRefresh(bucket.bucketKey, { source: 'monthly_auto_scheduler' })
-        } catch (err) {
-          console.error(`[MarketAutoScheduler] Error refreshing ${bucket.bucketKey}:`, err.message)
-        }
-      }, delayMs)
-    })
+    const allBucketsToSchedule = Array.from(bucketsToRefreshMap.values())
+
+    if (allBucketsToSchedule.length === 0) {
+      console.log('[MarketAutoScheduler] All market buckets are current. No refresh required.')
+    } else {
+      console.log(`[MarketAutoScheduler] Found ${allBucketsToSchedule.length} bucket(s) due for scheduled refresh. Enqueueing with 5m stagger...`)
+
+      allBucketsToSchedule.forEach((bucket, index) => {
+        const delayMs = index * STAGGER_INTERVAL_MS
+        setTimeout(async () => {
+          try {
+            await enqueueBucketRefresh(bucket.bucketKey, { source: 'auto_scheduler' })
+          } catch (err) {
+            console.error(`[MarketAutoScheduler] Error refreshing ${bucket.bucketKey}:`, err.message)
+          }
+        }, delayMs)
+      })
+    }
+
+    // Execute self-learning rollup
+    await runSelfLearningRollup()
   } catch (error) {
     console.error('[MarketAutoScheduler] Error checking stale buckets:', error.message)
   } finally {

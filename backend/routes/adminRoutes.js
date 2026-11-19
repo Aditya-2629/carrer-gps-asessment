@@ -55,6 +55,7 @@ import {
   purgeKeyCooldowns,
   resetCooldowns,
   pingJevDecisions,
+  getSelfLearningInsights,
 } from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -90,6 +91,7 @@ router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
 router.post('/telemetry/reset-cooldowns', resetCooldowns)
 router.post('/telemetry/ping-jev', pingJevDecisions)
 router.get('/telemetry/ping-jev', pingJevDecisions)
+router.get('/learning/insights', getSelfLearningInsights)
 
 // ── User Management & Cascade Cleanup ───────────────────────────────────────
 router.get('/stats', getStats)
