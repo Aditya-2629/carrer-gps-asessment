@@ -5,13 +5,23 @@ import {
   View,
   Text,
   Svg,
+  Defs,
+  LinearGradient,
+  Stop,
+  Rect,
   Circle,
   Line,
-  Rect,
   Polygon,
+  Image,
+  Link,
   StyleSheet,
   Font,
 } from '@react-pdf/renderer'
+
+// Import Verified Brand & Scene Assets
+import craftureLogo from '../../assets/images/crafture-logo.jpg'
+import pdfHeroBanner from '../../assets/images/pdf-hero-banner.jpg'
+import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
 Font.registerHyphenationCallback((word) => [word])
@@ -69,6 +79,86 @@ function getRadarCoords(cx, cy, R, scores) {
   }).join(' ')
 }
 
+/**
+ * Seamless Editorial Banner with zero color seam.
+ * Layer 1: Full-bleed image (objectFit: 'cover')
+ * Layer 2: Soft white fade SVG gradient mask
+ * Layer 3: Foreground copy (maxWidth: '55%', padding: 18, gap: 6)
+ */
+function EditorialBanner({
+  imageSrc,
+  minHeight = 180,
+  gradientId = 'fadeLeft',
+  children,
+  style = {},
+}) {
+  return (
+    <View
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        backgroundColor: '#FFFFFF',
+        minHeight,
+        marginBottom: 8,
+        ...style,
+      }}
+      wrap={false}
+    >
+      {/* Layer 1: Full-Bleed Image */}
+      {imageSrc && (
+        <Image
+          src={imageSrc}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+      )}
+
+      {/* Layer 2: Unslop Soft White Fade Mask */}
+      <Svg
+        viewBox="0 0 530 190"
+        preserveAspectRatio="none"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+        }}
+      >
+        <Defs>
+          <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={1} />
+            <Stop offset="42%" stopColor="#FFFFFF" stopOpacity={0.95} />
+            <Stop offset="64%" stopColor="#FFFFFF" stopOpacity={0} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="530" height="190" fill={`url(#${gradientId})`} />
+      </Svg>
+
+      {/* Layer 3: Foreground Copy */}
+      <View
+        style={{
+          position: 'relative',
+          maxWidth: '55%',
+          padding: 16,
+          gap: 5,
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingTop: 40,
@@ -124,25 +214,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Helvetica-Bold',
     color: '#64748B',
   },
-  coverBanner: {
-    backgroundColor: '#0F172A',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  bannerScoreBox: {
-    backgroundColor: '#1E293B',
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: '#334155',
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 84,
-  },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -154,7 +225,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#CBD5E1',
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontFamily: 'Helvetica-Bold',
     color: '#0F172A',
     letterSpacing: -0.2,
@@ -218,7 +289,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 4,
-    padding: 8,
+    padding: 7,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
@@ -231,7 +302,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   kpiTileVal: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: 'Helvetica-Bold',
     color: '#0F172A',
   },
@@ -309,7 +380,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 4,
     padding: 7,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   diffOriginalCard: {
     backgroundColor: '#FFF1F2',
@@ -464,19 +535,22 @@ export default function CareerReportPdf({ reportData = {} }) {
   }
 
   // Active Phase for 6-Phase Hiring Journey (1 to 6)
-  // 1: Resume, 2: Screening, 3: Technical, 4: Final, 5: Offer, 6: Joining
   const currentPhaseId = Number(reportData?.current_phase_id || (Number(screenRate) < 5 ? 2 : Number(techPassRate) < 40 ? 3 : offers === 0 ? 5 : 2))
-  const currentPhaseName = currentPhaseId === 1
-    ? 'Phase 1: Resume Foundation'
+  const currentPhaseShort = currentPhaseId === 1
+    ? 'Resume Foundation'
     : currentPhaseId === 2
-    ? 'Phase 2: Screening Velocity'
+    ? 'Screening Velocity'
     : currentPhaseId === 3
-    ? 'Phase 3: Technical Loops'
+    ? 'Technical Loops'
     : currentPhaseId === 4
-    ? 'Phase 4: Final Rounds'
+    ? 'Final Rounds'
     : currentPhaseId === 5
-    ? 'Phase 5: Offer Acquisition'
-    : 'Phase 6: Joining & Transition'
+    ? 'Offer Acquisition'
+    : 'Joining & Transition'
+
+  const currentPhaseName = `Phase ${currentPhaseId}: ${currentPhaseShort}`
+
+  const bookingUrl = reportData?.strategy_call_url || reportData?.booking_url || 'https://crafture.io/strategy-call'
 
   // Top 3 Prioritized Actions
   const priorityActions = Array.isArray(reportData?.top_priorities) && reportData.top_priorities.length > 0
@@ -634,11 +708,6 @@ export default function CareerReportPdf({ reportData = {} }) {
       recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate OutFox -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
     }
 
-  // Circular gauge circumference calculation (r = 26, width = 60)
-  const gaugeR = 26
-  const gaugeCircumference = 2 * Math.PI * gaugeR
-  const gaugeDash = (overallScore / 100) * gaugeCircumference
-
   // 6 Radar Scores
   const sResume = Math.round((pResume / 25) * 100)
   const sMarket = Math.round((verifiedKeywords.length / Math.max(1, verifiedKeywords.length + missingKeywords.length)) * 100) || 68
@@ -662,7 +731,7 @@ export default function CareerReportPdf({ reportData = {} }) {
     <Document
       title={`Career GPS Report - ${candidateName}`}
       author="Crafture Career GPS"
-      subject="Executive Candidate Diagnostic Dossier"
+      subject="Executive Candidate Diagnostic Report"
       keywords="Career GPS, ATS Audit, Resume Analysis, LinkedIn Studio"
     >
       {/* ─────────────────────────────────────────────────────────────
@@ -670,104 +739,74 @@ export default function CareerReportPdf({ reportData = {} }) {
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
+          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
-        {/* Deep Slate Header Banner (#0F172A) */}
-        <View style={styles.coverBanner} wrap={false}>
-          <View style={{ flex: 1, paddingRight: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#818CF8', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                CRAFTURE CAREER GPS
+        {/* Seamless Editorial Hero Banner with Edge-Mask Blending */}
+        <EditorialBanner imageSrc={pdfHeroBanner} minHeight={185} gradientId="fadeLeftHero">
+          {/* Top Brand Strip */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
+            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              CRAFTURE CAREER GPS • EXECUTIVE REPORT
+            </Text>
+          </View>
+
+          {/* Candidate Name */}
+          <Text style={{ fontSize: 19, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 1 }}>
+            {candidateName}
+          </Text>
+
+          {/* Target Role & Meta */}
+          <Text style={{ fontSize: 7.8, color: '#475569' }}>
+            {targetRole} • Senior Engineering • {reportDate}
+          </Text>
+
+          {/* 1-Line Diagnostic Summary */}
+          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3, marginTop: 1 }}>
+            Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
+          </Text>
+
+          {/* Fixed Non-Wrapping Health Index Pill */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 9,
+              alignSelf: 'flex-start',
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#C7D2FE',
+              borderRadius: 7,
+              paddingVertical: 5,
+              paddingHorizontal: 10,
+              marginTop: 6,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12.5,
+                fontFamily: 'Helvetica-Bold',
+                color: '#0F172A',
+                flexShrink: 0,
+              }}
+            >
+              {overallScore}/100
+            </Text>
+            <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
+            <View style={{ flexDirection: 'column' }}>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
+                HEALTH INDEX
               </Text>
-              <Text style={{ fontSize: 6.5, color: '#64748B' }}>*</Text>
-              <Text style={{ fontSize: 7, color: '#CBD5E1' }}>EXECUTIVE DOSSIER</Text>
-            </View>
-            <Text style={{ fontSize: 17, fontFamily: 'Helvetica-Bold', color: '#FFFFFF', letterSpacing: -0.3, marginBottom: 2 }}>
-              {candidateName}
-            </Text>
-            <Text style={{ fontSize: 8, color: '#94A3B8' }}>
-              Target Role: <Text style={{ fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>{targetRole}</Text> • Evaluated on {reportDate}
-            </Text>
-          </View>
-          <View style={styles.bannerScoreBox}>
-            <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#818CF8', textTransform: 'uppercase', marginBottom: 1 }}>
-              OVERALL SCORE
-            </Text>
-            <Text style={{ fontSize: 15, fontFamily: 'Helvetica-Bold', color: '#FFFFFF', lineHeight: 1 }}>
-              {overallScore}
-              <Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/100</Text>
-            </Text>
-            <Text style={{ fontSize: 6, fontFamily: 'Helvetica-Bold', color: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.2)', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2, marginTop: 2 }}>
-              {scoreLabel.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        {/* Executive Summary Row: Clean SVG Arc Score Gauge + 4-Row Status Table */}
-        <View style={styles.grid2} wrap={false}>
-          {/* Left: Clean SVG Score Gauge */}
-          <View style={{ width: 116 }}>
-            <View style={[styles.card, { alignItems: 'center', justifyContent: 'center', padding: 8 }]}>
-              <Svg width="56" height="56" viewBox="0 0 56 56">
-                <Circle cx="28" cy="28" r="23" stroke="#E2E8F0" strokeWidth="5" fill="none" />
-                <Circle
-                  cx="28"
-                  cy="28"
-                  r="23"
-                  stroke="#6366F1"
-                  strokeWidth="5"
-                  fill="none"
-                  strokeDasharray={`${(overallScore / 100) * (2 * Math.PI * 23)} ${2 * Math.PI * 23}`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 28 28)"
-                />
-              </Svg>
-              <View style={{ alignItems: 'center', marginTop: 3 }}>
-                <Text style={{ fontSize: 16, fontFamily: 'Helvetica-Bold', color: '#0F172A', lineHeight: 1 }}>
-                  {overallScore}
-                </Text>
-                <Text style={{ fontSize: 6.8, color: '#64748B', marginTop: 1 }}>
-                  / 100 • {scoreLabel}
-                </Text>
-                <Text style={{ fontSize: 5.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', backgroundColor: '#EEF2FF', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2, marginTop: 2 }}>
-                  HEALTH INDEX
-                </Text>
-              </View>
+              <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
+                {scoreLabel} Stage
+              </Text>
             </View>
           </View>
+        </EditorialBanner>
 
-          {/* Right: 4-Row Diagnostic Summary */}
-          <View style={styles.col2}>
-            <View style={[styles.card, { padding: 8, gap: 4 }]}>
-              <View style={[styles.rowBetween, { borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }]}>
-                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#64748B' }}>CURRENT PIPELINE PHASE</Text>
-                <Text style={styles.tagNeutral}>{currentPhaseName}</Text>
-              </View>
-              <View style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }}>
-                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>PRIMARY ROOT CAUSE:</Text>
-                <Text style={{ fontSize: 7.2, color: '#334155', marginTop: 1 }}>
-                  {safeStr(bottleneck.whyItMatters || bottleneck.title)}
-                </Text>
-              </View>
-              <View style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }}>
-                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>TOP ASSET STRENGTH:</Text>
-                <Text style={{ fontSize: 7.2, color: '#334155', marginTop: 1 }}>
-                  Strong foundation in {verifiedKeywords.slice(0, 4).join(', ')} with verified production experience.
-                </Text>
-              </View>
-              <View>
-                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>PRIORITY RECOVERY ACTION:</Text>
-                <Text style={{ fontSize: 7.2, color: '#0F172A', fontFamily: 'Helvetica-Bold', marginTop: 1 }}>
-                  {safeStr(phase.metricGoal, 'Overhaul top 4 achievement bullets to lift callback conversion >= 5.0%.')}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* 4 Compact KPI Tiles (Standard flexbox, label -> bold score -> muted sublabel, gap: 3) */}
+        {/* 4 Compact KPI Tiles */}
         <View style={styles.grid4} wrap={false}>
           <View style={styles.col4}>
             <View style={styles.kpiTile}>
@@ -799,15 +838,14 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 6-Phase Hiring Journey Stepper (<Svg> diagram, wrap={false}) */}
+        {/* 6-Phase Hiring Journey Stepper */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>6-Phase Candidate Hiring Journey Stepper</Text>
           <Text style={styles.sectionTag}>ACTIVE PIPELINE TRACK</Text>
         </View>
 
         <View style={styles.card} wrap={false}>
-          <Svg width="480" height="46" viewBox="0 0 480 46">
-            {/* Connector Lines between nodes */}
+          <Svg width="480" height="44" viewBox="0 0 480 44">
             {[0, 1, 2, 3, 4].map((i) => {
               const x1 = 36 + i * 84 + 11
               const x2 = 36 + (i + 1) * 84 - 11
@@ -816,16 +854,15 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Line
                   key={i}
                   x1={x1}
-                  y1={15}
+                  y1={14}
                   x2={x2}
-                  y2={15}
+                  y2={14}
                   stroke={isPast ? '#16A34A' : '#CBD5E1'}
                   strokeWidth={isPast ? 2 : 1.5}
                 />
               )
             })}
 
-            {/* Stepper Nodes */}
             {stepperPhases.map((sp, idx) => {
               const x = 36 + idx * 84
               const isCompleted = sp.id < currentPhaseId
@@ -833,47 +870,38 @@ export default function CareerReportPdf({ reportData = {} }) {
 
               return (
                 <React.Fragment key={sp.id}>
-                  {/* Outer ring for current active node */}
                   {isCurrent && (
-                    <Circle cx={x} cy={15} r={12} fill="none" stroke="#C7D2FE" strokeWidth={1.5} />
+                    <Circle cx={x} cy={14} r={11} fill="none" stroke="#C7D2FE" strokeWidth={1.5} />
                   )}
-
-                  {/* Main Circle Node */}
                   <Circle
                     cx={x}
-                    cy={15}
-                    r={9}
+                    cy={14}
+                    r={8.5}
                     fill={isCompleted ? '#DCFCE7' : isCurrent ? '#EEF2FF' : '#F8FAFC'}
                     stroke={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#CBD5E1'}
                     strokeWidth={isCurrent ? 2 : 1.2}
                   />
-
-                  {/* Step Number */}
                   <Text
                     x={x}
-                    y={18}
-                    fontSize={6.5}
+                    y={17}
+                    fontSize={6.2}
                     textAnchor="middle"
                     fill={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#94A3B8'}
                   >
                     {isCompleted ? 'OK' : String(sp.id)}
                   </Text>
-
-                  {/* Phase Label */}
                   <Text
                     x={x}
-                    y={32}
+                    y={30}
                     fontSize={6.5}
                     textAnchor="middle"
                     fill={isCurrent ? '#0F172A' : isCompleted ? '#16A34A' : '#64748B'}
                   >
                     {sp.short}
                   </Text>
-
-                  {/* Status Indicator */}
                   <Text
                     x={x}
-                    y={41}
+                    y={39}
                     fontSize={5}
                     textAnchor="middle"
                     fill={isCurrent ? '#DC2626' : isCompleted ? '#16A34A' : '#94A3B8'}
@@ -886,9 +914,9 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Svg>
 
           {/* Concise 1-Line Diagnosis Callout Underneath */}
-          <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 6, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
-            <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
-            <Text style={{ fontSize: 7.2, color: '#991B1B', flex: 1 }}>
+          <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 5, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
+            <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
+            <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
               Candidate pipeline is currently bottlenecked at {currentPhaseName}. {safeStr(bottleneck.whyItMatters || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
             </Text>
           </View>
@@ -897,21 +925,21 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* Primary Bottleneck Callout Box */}
         <View style={styles.cardHighlighted} wrap={false}>
           <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-            <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#DC2626', textTransform: 'uppercase' }}>
+            <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#DC2626', textTransform: 'uppercase' }}>
               RECOVERY TARGET • {safeStr(phase.shortName, 'Top of Funnel')}
             </Text>
             <Text style={styles.tagCritical}>ACTION REQUIRED</Text>
           </View>
-          <Text style={{ fontSize: 9.2, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+          <Text style={{ fontSize: 8.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
             {safeStr(bottleneck.title, 'Application Filtering & Low Callback Velocity')}
           </Text>
-          <Text style={{ fontSize: 7.4, color: '#475569', lineHeight: 1.3 }}>
+          <Text style={{ fontSize: 7.2, color: '#475569', lineHeight: 1.3 }}>
             {safeStr(bottleneck.whyItMatters)}
           </Text>
         </View>
 
         <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
           <Text
             style={styles.footerRight}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
@@ -924,7 +952,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
+          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
@@ -942,7 +970,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                 6-Axis Career Health Radar
               </Text>
               <Svg width="210" height="150" viewBox="0 0 210 150">
-                {/* Concentric hexagonal grid lines (25%, 50%, 75%, 100%) */}
                 {[0.25, 0.5, 0.75, 1.0].map((frac, idx) => (
                   <Polygon
                     key={idx}
@@ -953,7 +980,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   />
                 ))}
 
-                {/* 6 Radial Axes */}
                 {[0, 1, 2, 3, 4, 5].map((i) => {
                   const angle = -Math.PI / 2 + (i * Math.PI / 3)
                   return (
@@ -969,7 +995,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   )
                 })}
 
-                {/* Target Benchmark Hexagon (80% green dashed) */}
                 <Polygon
                   points={getRadarCoords(105, 75, 46 * 0.8, [100, 100, 100, 100, 100, 100])}
                   fill="none"
@@ -978,7 +1003,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   strokeDasharray="2,2"
                 />
 
-                {/* Candidate Filled Score Polygon */}
                 <Polygon
                   points={getRadarCoords(105, 75, 46, radarScores)}
                   fill="rgba(99, 102, 241, 0.22)"
@@ -986,7 +1010,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   strokeWidth={1.8}
                 />
 
-                {/* Vertex Dots */}
                 {radarScores.map((s, i) => {
                   const angle = -Math.PI / 2 + (i * Math.PI / 3)
                   const r = 46 * (Math.max(15, Math.min(100, s)) / 100)
@@ -1001,7 +1024,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   )
                 })}
 
-                {/* Clean Non-Cramped Axis Labels */}
                 <Text x={105} y={19} fontSize={6.5} textAnchor="middle" fill="#0F172A" fontFamily="Helvetica-Bold">
                   Resume {sResume}%
                 </Text>
@@ -1114,25 +1136,21 @@ export default function CareerReportPdf({ reportData = {} }) {
           {/* SVG Proportional Funnel Flow */}
           <View style={{ marginTop: 6, marginBottom: 2, alignItems: 'center' }}>
             <Svg width="480" height="34" viewBox="0 0 480 34">
-              {/* Stage 1: Applications */}
               <Polygon points="6,4 120,6 120,28 6,30" fill="#EEF2FF" stroke="#6366F1" strokeWidth={1} />
               <Text x={63} y={19} fontSize={6.5} textAnchor="middle" fill="#6366F1" fontFamily="Helvetica-Bold">
                 100% Volume ({formatNum(totalAppsMonthly)})
               </Text>
 
-              {/* Stage 2: Screens */}
               <Polygon points="126,6 240,9 240,25 126,28" fill={Number(screenRate) < 5 ? '#FEE2E2' : '#EEF2FF'} stroke={Number(screenRate) < 5 ? '#DC2626' : '#6366F1'} strokeWidth={1} />
               <Text x={183} y={19} fontSize={6.5} textAnchor="middle" fill={Number(screenRate) < 5 ? '#DC2626' : '#6366F1'} fontFamily="Helvetica-Bold">
                 {screenRate}% Callback ({formatNum(screens)})
               </Text>
 
-              {/* Stage 3: Tech Rounds */}
               <Polygon points="246,9 360,11 360,23 246,25" fill="#FEF3C7" stroke="#D97706" strokeWidth={1} />
               <Text x={303} y={19} fontSize={6.5} textAnchor="middle" fill="#D97706" fontFamily="Helvetica-Bold">
                 {techPassRate}% Tech Pass ({formatNum(techs)})
               </Text>
 
-              {/* Stage 4: Offers */}
               <Polygon points="366,11 480,13 480,21 366,23" fill="#DCFCE7" stroke="#16A34A" strokeWidth={1} />
               <Text x={423} y={19} fontSize={6.5} textAnchor="middle" fill="#16A34A" fontFamily="Helvetica-Bold">
                 {offerRate}% Offer ({formatNum(offers)})
@@ -1162,7 +1180,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
           <Text
             style={styles.footerRight}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
@@ -1175,7 +1193,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
+          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
@@ -1184,7 +1202,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>IMMEDIATE LEVERAGE</Text>
         </View>
 
-        {/* Top 3 Strategic Priorities (Content-hugging cards, zero giant stretched boxes) */}
+        {/* Top 3 Strategic Priorities */}
         <View style={styles.grid3} wrap={false}>
           {priorityActions.map((pa, idx) => (
             <View key={idx} style={styles.col3}>
@@ -1211,7 +1229,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>DAILY SPRINT</Text>
         </View>
 
-        {/* 7-Day Quick-Win Plan: 7 rows with gap: 4 and zero overlap */}
+        {/* 7-Day Quick-Win Plan */}
         <View style={{ marginBottom: 6 }}>
           {sevenDayTasks.map((t, idx) => (
             <View key={idx} style={styles.dayCard} wrap={false}>
@@ -1288,7 +1306,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
           <Text
             style={styles.footerRight}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
@@ -1297,20 +1315,21 @@ export default function CareerReportPdf({ reportData = {} }) {
       </Page>
 
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 4: RESUME AUDIT & SIDE-BY-SIDE SUMMARY REWRITE
+          PAGES 4–5: RESUME AUDIT, SIDE-BY-SIDE BULLETS, LINKEDIN & CTA
+          (Dynamic continuous page flow without forced 50% blank bottoms)
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
+          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
+        {/* 1. Resume Section-by-Section 5-Row Audit Table */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>Resume Deep Diagnosis & ATS Scoring</Text>
           <Text style={styles.sectionTag}>5-POINT RUBRIC</Text>
         </View>
 
-        {/* Section-by-Section 5-Row Audit Table */}
         <View style={styles.card} wrap={false}>
           {Object.entries(resumeSectionAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
@@ -1349,14 +1368,13 @@ export default function CareerReportPdf({ reportData = {} }) {
           })}
         </View>
 
-        {/* Side-by-Side Executive Summary Rewrite (Bento Style, wrap={false}) */}
+        {/* 2. Side-by-Side Executive Summary Rewrite */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>Side-by-Side Executive Summary Rewrite</Text>
           <Text style={styles.sectionTag}>SIDE-BY-SIDE DIFF</Text>
         </View>
 
         <View style={styles.grid2} wrap={false}>
-          {/* Left: Original Weak Summary */}
           <View style={styles.col2}>
             <View style={styles.diffOriginalCard}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
@@ -1371,7 +1389,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
           </View>
 
-          {/* Right: Role-Aligned Optimized Rewrite */}
           <View style={styles.col2}>
             <View style={styles.diffRewrittenCard}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
@@ -1387,14 +1404,13 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* ATS Technical Keyword Matrix */}
+        {/* 3. ATS Technical Keyword Alignment Matrix */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>ATS Technical Keyword Alignment Matrix</Text>
           <Text style={styles.sectionTag}>MARKET ALIGNMENT</Text>
         </View>
 
         <View style={styles.grid3} wrap={false}>
-          {/* Verified in Work Experience */}
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
@@ -1409,7 +1425,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
           </View>
 
-          {/* In Skills Section Only */}
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
@@ -1424,7 +1439,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
           </View>
 
-          {/* Critical Missing Market Keywords */}
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
@@ -1440,31 +1454,13 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
-      </Page>
-
-      {/* ─────────────────────────────────────────────────────────────
-          PAGE 5: SIDE-BY-SIDE BULLET REWRITES (GOOGLE XYZ FRAMEWORK)
-          ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
-          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
-        </View>
-
+        {/* 4. Side-by-Side Quantified Bullet Rewrites */}
         <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>Side-by-Side Quantified Bullet Rewrites</Text>
-          <Text style={styles.sectionTag}>GOOGLE XYZ SYNTAX</Text>
+          <Text style={styles.sectionTitle}>High-Impact Bullet Rewrites (Google XYZ Framework)</Text>
+          <Text style={styles.sectionTag}>FULL SUITE</Text>
         </View>
 
-        {/* 5-Part Formula Reference Callout */}
-        <View style={[styles.card, { padding: 6, marginBottom: 6 }]} wrap={false}>
+        <View style={[styles.card, { padding: 5, marginBottom: 5 }]} wrap={false}>
           <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
             5-PART RESUME PLAYBOOK FORMULA:
           </Text>
@@ -1473,10 +1469,9 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Text>
         </View>
 
-        {/* Side-by-Side Bullet Rewrites (Bento Style, wrap={false} per card) */}
         {bulletRewrites.map((b, idx) => (
           <View key={idx} style={styles.bulletBentoCard} wrap={false}>
-            <View style={[styles.rowBetween, { marginBottom: 3 }]}>
+            <View style={[styles.rowBetween, { marginBottom: 2 }]}>
               <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
                 Bullet Rewrite #{idx + 1}
               </Text>
@@ -1484,7 +1479,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
 
             <View style={styles.grid2}>
-              {/* Left Column: BEFORE */}
               <View style={styles.col2}>
                 <View style={styles.diffOriginalCard}>
                   <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626', marginBottom: 2 }}>
@@ -1494,7 +1488,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </View>
               </View>
 
-              {/* Right Column: AFTER */}
               <View style={styles.col2}>
                 <View style={styles.diffRewrittenCard}>
                   <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
@@ -1506,7 +1499,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
 
             {(b.why || b.critique || b.recommendation) && (
-              <View style={{ marginTop: 3, paddingTop: 3, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+              <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
                 <Text style={{ fontSize: 6.8, color: '#475569' }}>
                   <Text style={{ fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>Why it works: </Text>
                   {safeStr(b.why || b.critique || b.recommendation)}
@@ -1516,30 +1509,12 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         ))}
 
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
-      </Page>
-
-      {/* ─────────────────────────────────────────────────────────────
-          PAGE 6: LINKEDIN STUDIO, 2x2 BENTO ABOUT & OUTFOX
-          ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Dossier</Text>
-          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
-        </View>
-
+        {/* 5. LinkedIn Studio & Recruiter Search SEO */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>LinkedIn Studio & Recruiter Search SEO</Text>
           <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
         </View>
 
-        {/* Section-by-Section /10 Audit Table */}
         <View style={styles.card} wrap={false}>
           {Object.entries(linkedinAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
@@ -1597,14 +1572,13 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         ))}
 
-        {/* 2x2 Bento Grid for 4-Part About Narrative (wrap={false}) */}
+        {/* 2x2 Bento Grid for 4-Part About Narrative */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>Story-Driven LinkedIn About Rewrite (2x2 Architecture)</Text>
           <Text style={styles.sectionTag}>EXECUTIVE NARRATIVE</Text>
         </View>
 
         <View style={styles.card} wrap={false}>
-          {/* Row 1 of 2x2 Bento */}
           <View style={[styles.grid2, { marginBottom: 4 }]}>
             <View style={styles.col2}>
               <View style={styles.aboutPillar}>
@@ -1620,7 +1594,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
           </View>
 
-          {/* Row 2 of 2x2 Bento */}
           <View style={[styles.grid2, { marginBottom: 0 }]}>
             <View style={styles.col2}>
               <View style={styles.aboutPillar}>
@@ -1674,7 +1647,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* Visual Identity & Crafture OutFox Networking Recommendation */}
+        {/* Visual Identity & Crafture OutFox Networking Card */}
         <View style={styles.grid2} wrap={false}>
           <View style={styles.col2}>
             <View style={styles.card}>
@@ -1701,8 +1674,47 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
+        {/* 6. Final Page 1-on-1 Strategy Call CTA Banner */}
+        <EditorialBanner
+          imageSrc={pdfCtaBanner}
+          minHeight={160}
+          gradientId="fadeLeftCta"
+          style={{ marginTop: 8 }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              NEXT STEP • LIVE EXECUTION BRIDGE
+            </Text>
+          </View>
+
+          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 2 }}>
+            Stuck at Phase {currentPhaseId} ({currentPhaseShort})? Fix It Live in a 1-on-1 Strategy Call
+          </Text>
+
+          <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
+            Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized 7-day sprint live.
+          </Text>
+
+          <Link
+            src={bookingUrl}
+            style={{
+              alignSelf: 'flex-start',
+              backgroundColor: '#6366F1',
+              borderRadius: 6,
+              paddingVertical: 7,
+              paddingHorizontal: 14,
+              marginTop: 6,
+              textDecoration: 'none',
+            }}
+          >
+            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+              Book Free 1-on-1 Strategy Call {'->'}
+            </Text>
+          </Link>
+        </EditorialBanner>
+
         <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Dossier</Text>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
           <Text
             style={styles.footerRight}
             render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
