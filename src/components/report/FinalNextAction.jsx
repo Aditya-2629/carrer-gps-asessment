@@ -155,13 +155,13 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             </div>
           </div>
 
-          {/* Right Column (lg:col-span-5) */}
-          <div className="lg:col-span-5">
-            <div className="rounded-xl overflow-hidden border border-[var(--border-default)] bg-white shadow-xs">
+          {/* Right Column (lg:col-span-5) - Seamless borderless illustration blend */}
+          <div className="lg:col-span-5 flex items-end justify-end">
+            <div className="relative w-full max-w-md dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
               <img
                 src={strategySessionImg}
                 alt="1-on-1 Strategy Session"
-                className="w-full h-auto object-cover"
+                className="w-full h-auto object-contain mix-blend-multiply dark:mix-blend-normal [mask-image:linear-gradient(to_right,transparent_0%,black_18%,black_95%,transparent_100%)] dark:[mask-image:none]"
               />
             </div>
           </div>

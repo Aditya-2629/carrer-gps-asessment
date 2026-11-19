@@ -20,7 +20,7 @@ import {
 
 // Import Verified Brand & Scene Assets
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
-import pdfHeroBanner from '../../assets/images/pdf-hero-banner.jpg'
+import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
@@ -80,87 +80,60 @@ function getRadarCoords(cx, cy, R, scores) {
 }
 
 /**
- * Seamless Editorial Banner with zero color seam.
- * Layer 1: Full-bleed image (objectFit: 'cover')
- * Layer 2: Soft fade SVG gradient mask with exact background color matching
- * Layer 3: Foreground copy (maxWidth: '46%' or '55%', padding: 16, gap: 5)
+ * Unified Editorial Banner with guaranteed non-overlapping 2-column flex row layout.
+ * Left: Children copy/meta/pills (width: '50%')
+ * Right: Crisp scene illustration (width: '48%', objectFit: 'contain')
  */
 function EditorialBanner({
   imageSrc,
-  minHeight = 180,
-  gradientId = 'fadeLeft',
-  bgColor = '#FFFFFF',
-  borderColor = '#E2E8F0',
-  textMaxWidth = '55%',
-  stop1 = { offset: '0%', opacity: 1 },
-  stop2 = { offset: '36%', opacity: 0.92 },
-  stop3 = { offset: '54%', opacity: 0 },
   children,
   style = {},
 }) {
   return (
     <View
       style={{
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: style?.borderColor || borderColor,
-        backgroundColor: bgColor,
-        minHeight,
+        borderColor: '#E2E8F0',
+        borderRadius: 10,
+        padding: 18,
+        gap: 14,
         marginBottom: 8,
         ...style,
       }}
       wrap={false}
     >
-      {/* Layer 1: Full-Bleed Image */}
-      {imageSrc && (
-        <Image
-          src={imageSrc}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
-        />
-      )}
-
-      {/* Layer 2: Soft Fade Mask with exact bgColor matching */}
-      <Svg
-        viewBox="0 0 530 190"
-        preserveAspectRatio="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <Defs>
-          <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset={stop1.offset} stopColor={bgColor} stopOpacity={stop1.opacity} />
-            <Stop offset={stop2.offset} stopColor={bgColor} stopOpacity={stop2.opacity} />
-            <Stop offset={stop3.offset} stopColor={bgColor} stopOpacity={stop3.opacity} />
-          </LinearGradient>
-        </Defs>
-        <Rect width="530" height="190" fill={`url(#${gradientId})`} />
-      </Svg>
-
-      {/* Layer 3: Foreground Copy with gap: 5 */}
       <View
         style={{
-          position: 'relative',
-          maxWidth: textMaxWidth,
-          padding: 16,
-          gap: 5,
+          width: '50%',
+          flexDirection: 'column',
+          gap: 6,
         }}
       >
         {children}
       </View>
+
+      {imageSrc && (
+        <View
+          style={{
+            width: '48%',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+          }}
+        >
+          <Image
+            src={imageSrc}
+            style={{
+              width: '100%',
+              maxHeight: 165,
+              objectFit: 'contain',
+            }}
+          />
+        </View>
+      )}
     </View>
   )
 }
@@ -765,15 +738,8 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* ─────────────────────────────────────────────────────────────
             1. EXECUTIVE COVER & 6-PHASE HIRING JOURNEY
             ───────────────────────────────────────────────────────────── */}
-        {/* Seamless Editorial Hero Banner with Edge-Mask Blending */}
-        <EditorialBanner
-          imageSrc={pdfHeroBanner}
-          minHeight={185}
-          gradientId="fadeLeftHero"
-          bgColor="#FCF4EB"
-          borderColor="#EADBC8"
-          textMaxWidth="46%"
-        >
+        {/* Unified Editorial Hero Banner */}
+        <EditorialBanner imageSrc={pdfHeroBanner}>
           {/* Top Brand Strip */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
@@ -782,8 +748,8 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
           </View>
 
-          {/* Candidate Name with generous bottom margin */}
-          <Text style={{ fontSize: 20, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 6 }}>
+          {/* Candidate Name */}
+          <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 2 }}>
             {candidateName}
           </Text>
 
@@ -793,7 +759,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Text>
 
           {/* 1-Line Diagnostic Summary */}
-          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3, marginTop: 1 }}>
+          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3 }}>
             Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
           </Text>
 
@@ -804,13 +770,13 @@ export default function CareerReportPdf({ reportData = {} }) {
               alignItems: 'center',
               gap: 9,
               alignSelf: 'flex-start',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: '#F8FAFC',
               borderWidth: 1,
-              borderColor: '#EADBC8',
+              borderColor: '#E2E8F0',
               borderRadius: 7,
               paddingVertical: 5,
               paddingHorizontal: 10,
-              marginTop: 6,
+              marginTop: 4,
             }}
           >
             <Text
@@ -1687,13 +1653,6 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* 7. Final Page 1-on-1 Strategy Call CTA Banner */}
         <EditorialBanner
           imageSrc={pdfCtaBanner}
-          minHeight={160}
-          gradientId="fadeLeftCta"
-          bgColor="#FFFFFF"
-          borderColor="#E2E8F0"
-          textMaxWidth="55%"
-          stop2={{ offset: '42%', opacity: 0.95 }}
-          stop3={{ offset: '64%', opacity: 0 }}
           style={{ marginTop: 8 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -1702,11 +1661,11 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
           </View>
 
-          <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 2 }}>
             Stuck at Phase {currentPhaseId} ({currentPhaseShort})? Fix It Live in a 1-on-1 Strategy Call
           </Text>
 
-          <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
+          <Text style={{ fontSize: 7.3, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
             Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
           </Text>
 
@@ -1718,7 +1677,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               borderRadius: 6,
               paddingVertical: 7,
               paddingHorizontal: 14,
-              marginTop: 6,
+              marginTop: 4,
               textDecoration: 'none',
             }}
           >
