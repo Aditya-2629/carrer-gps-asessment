@@ -20,7 +20,7 @@ import {
 
 // Import Verified Brand & Scene Assets
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
-import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
+import pdfHeroBanner from '../../assets/images/pdf-hero-banner.jpg'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
