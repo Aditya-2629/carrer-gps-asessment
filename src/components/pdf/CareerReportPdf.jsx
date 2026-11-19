@@ -6,6 +6,9 @@ import {
   Text,
   Svg,
   Circle,
+  Line,
+  Rect,
+  Polygon,
   StyleSheet,
   Font,
 } from '@react-pdf/renderer'
@@ -52,10 +55,24 @@ function formatNum(num) {
   return n.toLocaleString('en-US')
 }
 
+/**
+ * Computes polygon points for regular 6-axis radar charts.
+ */
+function getRadarCoords(cx, cy, R, scores) {
+  return scores.map((s, i) => {
+    const angle = -Math.PI / 2 + (i * Math.PI / 3)
+    const clamped = Math.max(15, Math.min(100, s || 0))
+    const r = R * (clamped / 100)
+    const x = Math.round((cx + r * Math.cos(angle)) * 10) / 10
+    const y = Math.round((cy + r * Math.sin(angle)) * 10) / 10
+    return `${x},${y}`
+  }).join(' ')
+}
+
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 42,
-    paddingBottom: 42,
+    paddingTop: 36,
+    paddingBottom: 36,
     paddingHorizontal: 36,
     backgroundColor: '#FFFFFF',
     fontFamily: 'Helvetica',
@@ -65,18 +82,18 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 18,
+    top: 16,
     left: 36,
     right: 36,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 5,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   headerLeft: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
     color: '#6366F1',
     letterSpacing: 0.5,
@@ -88,13 +105,13 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: 'absolute',
-    bottom: 18,
+    bottom: 16,
     left: 36,
     right: 36,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 5,
+    paddingTop: 4,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
   },
@@ -111,20 +128,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 5,
     paddingBottom: 3,
     borderBottomWidth: 1,
     borderBottomColor: '#CBD5E1',
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     color: '#0F172A',
     letterSpacing: -0.2,
   },
   sectionTag: {
-    fontSize: 7,
+    fontSize: 6.5,
     fontFamily: 'Helvetica-Bold',
     color: '#6366F1',
     backgroundColor: '#EEF2FF',
@@ -138,7 +155,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 4,
     padding: 8,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   cardHighlighted: {
     backgroundColor: '#F8FAFC',
@@ -146,55 +163,7 @@ const styles = StyleSheet.create({
     borderColor: '#C7D2FE',
     borderRadius: 4,
     padding: 8,
-    marginBottom: 6,
-  },
-  heroBanner: {
-    backgroundColor: '#0F172A',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroTitle: {
-    fontSize: 15,
-    fontFamily: 'Helvetica-Bold',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  heroSubtitle: {
-    fontSize: 8.5,
-    color: '#94A3B8',
-  },
-  scoreBadgeContainer: {
-    position: 'relative',
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gaugeOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gaugeScoreText: {
-    fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
-    color: '#FFFFFF',
-    lineHeight: 1,
-    textAlign: 'center',
-  },
-  gaugeSubText: {
-    fontSize: 6.5,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 2,
+    marginBottom: 5,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -204,7 +173,7 @@ const styles = StyleSheet.create({
   grid2: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   col2: {
     flex: 1,
@@ -212,7 +181,7 @@ const styles = StyleSheet.create({
   grid3: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   col3: {
     flex: 1,
@@ -220,35 +189,36 @@ const styles = StyleSheet.create({
   grid4: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   col4: {
     flex: 1,
   },
-  kpiBox: {
+  kpiTile: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 4,
-    padding: 6,
+    padding: 7,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    gap: 2,
   },
-  kpiLabel: {
+  kpiTileLabel: {
     fontSize: 6.5,
     fontFamily: 'Helvetica-Bold',
     color: '#64748B',
     textTransform: 'uppercase',
-    marginBottom: 1,
   },
-  kpiVal: {
-    fontSize: 11,
+  kpiTileVal: {
+    fontSize: 12,
     fontFamily: 'Helvetica-Bold',
     color: '#0F172A',
   },
-  kpiSub: {
+  kpiTileSub: {
     fontSize: 6.5,
     color: '#94A3B8',
-    marginTop: 1,
   },
   tagPass: {
     fontSize: 6.5,
@@ -291,8 +261,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
     borderRadius: 2.5,
     overflow: 'hidden',
-    marginTop: 3,
-    marginBottom: 3,
+    marginTop: 2,
+    marginBottom: 2,
     flexDirection: 'row',
   },
   dayCard: {
@@ -300,17 +270,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 4,
-    padding: 7,
-    marginBottom: 5,
+    padding: 6,
+    marginBottom: 4,
     flexDirection: 'column',
-    gap: 3,
+    gap: 2,
   },
   milestoneCard: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 4,
-    padding: 8,
+    padding: 7,
     flexDirection: 'column',
     gap: 3,
   },
@@ -326,7 +296,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF1F2',
     borderLeftWidth: 3,
     borderLeftColor: '#F43F5E',
-    padding: 5,
+    padding: 6,
     borderRadius: 3,
     marginBottom: 3,
   },
@@ -334,7 +304,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4',
     borderLeftWidth: 3,
     borderLeftColor: '#22C55E',
-    padding: 5,
+    padding: 6,
     borderRadius: 3,
     marginBottom: 3,
   },
@@ -342,6 +312,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
     fontSize: 7.5,
     color: '#1E293B',
+    lineHeight: 1.3,
+  },
+  monoBold: {
+    fontFamily: 'Courier-Bold',
+    fontSize: 7.5,
+    color: '#166534',
     lineHeight: 1.3,
   },
   chipVerified: {
@@ -409,7 +385,7 @@ export default function CareerReportPdf({ reportData = {} }) {
     reportData?.target_role ||
     reportData?.resume_json?.target_role ||
     reportData?.user_answers?.targetRole,
-    'Professional'
+    'Software Engineer'
   )
 
   const reportDate = new Date().toLocaleDateString('en-US', {
@@ -427,6 +403,8 @@ export default function CareerReportPdf({ reportData = {} }) {
       ? reportData.score
       : 72
   )))
+
+  const scoreLabel = overallScore >= 75 ? 'Strong' : overallScore >= 50 ? 'Developing' : 'Emerging'
 
   const pResume = Math.round(reportData?.score_breakdown?.resume?.score ?? 18)
   const pLinkedin = Math.round(reportData?.score_breakdown?.linkedin?.score ?? 17)
@@ -453,7 +431,7 @@ export default function CareerReportPdf({ reportData = {} }) {
   const finalPassRate = techs > 0 ? ((finals / techs) * 100).toFixed(1) : '0.0'
   const offerRate = finals > 0 ? ((offers / finals) * 100).toFixed(1) : '0.0'
 
-  // Primary Bottleneck
+  // Primary Bottleneck & Phase Identification
   const phase = reportData?.phase || {
     shortName: 'Top of Funnel',
     name: 'Application -> Screening Velocity',
@@ -464,6 +442,21 @@ export default function CareerReportPdf({ reportData = {} }) {
     whyItMatters: 'Recruiters scan resumes in under 10 seconds. Missing target keywords and unquantified achievements cause automated ATS drop-off.',
     evidence: 'High application volume yielding below-benchmark recruiter callbacks.',
   }
+
+  // Active Phase for 6-Phase Hiring Journey (1 to 6)
+  // 1: Resume, 2: Screening, 3: Technical, 4: Final, 5: Offer, 6: Joining
+  const currentPhaseId = Number(reportData?.current_phase_id || (Number(screenRate) < 5 ? 2 : Number(techPassRate) < 40 ? 3 : offers === 0 ? 5 : 2))
+  const currentPhaseName = currentPhaseId === 1
+    ? 'Phase 1: Resume Foundation'
+    : currentPhaseId === 2
+    ? 'Phase 2: Screening Velocity'
+    : currentPhaseId === 3
+    ? 'Phase 3: Technical Loops'
+    : currentPhaseId === 4
+    ? 'Phase 4: Final Rounds'
+    : currentPhaseId === 5
+    ? 'Phase 5: Offer Acquisition'
+    : 'Phase 6: Joining & Transition'
 
   // Top 3 Prioritized Actions
   const priorityActions = Array.isArray(reportData?.top_priorities) && reportData.top_priorities.length > 0
@@ -480,7 +473,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         { priority: 3, title: 'Optimize LinkedIn Headline & About', action: 'Deploy proof-first headline and 4-part value narrative to boost inbound recruiter discovery.', reason: 'Improves semantic ranking on LinkedIn Recruiter searches.' },
       ]
 
-  // 3. Dynamic Action Plan (7-Day & 30/60/90)
+  // Dynamic Action Plan (7-Day & 30/60/90)
   const actionPlan = reportData?.dynamic_action_plan || reportData?.action_plan || {}
   const sevenDayTasks = Array.isArray(actionPlan.sevenDayQuickPlan) && actionPlan.sevenDayQuickPlan.length > 0
     ? actionPlan.sevenDayQuickPlan.slice(0, 7)
@@ -621,9 +614,28 @@ export default function CareerReportPdf({ reportData = {} }) {
     }
 
   // Circular gauge circumference calculation (r = 26, width = 64)
-  const radius = 26
-  const circumference = 2 * Math.PI * radius // ~163.36
-  const strokeDash = (overallScore / 100) * circumference
+  const gaugeR = 26
+  const gaugeCircumference = 2 * Math.PI * gaugeR
+  const gaugeDash = (overallScore / 100) * gaugeCircumference
+
+  // 6 Radar Scores
+  const sResume = Math.round((pResume / 25) * 100)
+  const sMarket = Math.round((verifiedKeywords.length / Math.max(1, verifiedKeywords.length + missingKeywords.length)) * 100) || 68
+  const sLinkedin = Math.round((pLinkedin / 25) * 100)
+  const sActivity = Math.round((pOutbound / 25) * 100)
+  const sInterview = Math.round((pInterview / 25) * 100)
+  const sFunnel = Math.min(100, Math.max(20, Math.round((Number(screenRate) / 5) * 70))) || 55
+  const radarScores = [sResume, sMarket, sLinkedin, sActivity, sInterview, sFunnel]
+
+  // Stepper 6 Phases
+  const stepperPhases = [
+    { id: 1, name: '1. Resume', short: 'Resume' },
+    { id: 2, name: '2. Screening', short: 'Screen' },
+    { id: 3, name: '3. Technical', short: 'Technical' },
+    { id: 4, name: '4. Final', short: 'Final' },
+    { id: 5, name: '5. Offer', short: 'Offer' },
+    { id: 6, name: '6. Joining', short: 'Joining' },
+  ]
 
   return (
     <Document
@@ -633,7 +645,7 @@ export default function CareerReportPdf({ reportData = {} }) {
       keywords="Career GPS, ATS Audit, Resume Analysis, LinkedIn Studio"
     >
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 1: EXECUTIVE OVERVIEW, CAREER HEALTH & MONTHLY FUNNEL
+          PAGE 1: EXECUTIVE SUMMARY & 6-PHASE HIRING JOURNEY
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
@@ -641,194 +653,440 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
-        {/* Hero Banner with Centered Vector SVG Gauge */}
-        <View style={styles.heroBanner} wrap={false}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 }}>
-              <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#818CF8', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                CONFIDENTIAL CANDIDATE REPORT
-              </Text>
-              <Text style={{ fontSize: 7, color: '#94A3B8' }}>*</Text>
-              <Text style={{ fontSize: 7.5, color: '#CBD5E1' }}>{targetRole}</Text>
-            </View>
-            <Text style={styles.heroTitle}>{candidateName}</Text>
-            <Text style={styles.heroSubtitle}>
-              Target Role: <Text style={{ color: '#FFFFFF', fontFamily: 'Helvetica-Bold' }}>{targetRole}</Text> • Generated on {reportDate}
+        {/* Top Header Strip */}
+        <View style={{ marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }} wrap={false}>
+          <View style={[styles.rowBetween, { marginBottom: 2 }]}>
+            <Text style={{ fontSize: 16, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3 }}>
+              {candidateName}
             </Text>
+            <Text style={styles.sectionTag}>CAREER GPS DIAGNOSTIC REPORT</Text>
           </View>
-
-          {/* Perfectly Centered Score Badge */}
-          <View style={styles.scoreBadgeContainer}>
-            <Svg width="64" height="64" viewBox="0 0 64 64">
-              <Circle
-                cx="32"
-                cy="32"
-                r={radius}
-                stroke="#334155"
-                strokeWidth="5"
-                fill="none"
-              />
-              <Circle
-                cx="32"
-                cy="32"
-                r={radius}
-                stroke="#6366F1"
-                strokeWidth="5"
-                fill="none"
-                strokeDasharray={`${strokeDash} ${circumference}`}
-                strokeLinecap="round"
-                transform="rotate(-90 32 32)"
-              />
-            </Svg>
-            <View style={styles.gaugeOverlay}>
-              <Text style={styles.gaugeScoreText}>{overallScore}</Text>
-              <Text style={styles.gaugeSubText}>/ 100</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* 4 Pillar Breakdown */}
-        <View style={styles.grid4} wrap={false}>
-          <View style={styles.col4}>
-            <View style={styles.kpiBox}>
-              <Text style={styles.kpiLabel}>Resume</Text>
-              <Text style={styles.kpiVal}>{pResume}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
-              <Text style={styles.kpiSub}>ATS & Impact</Text>
-            </View>
-          </View>
-          <View style={styles.col4}>
-            <View style={styles.kpiBox}>
-              <Text style={styles.kpiLabel}>LinkedIn</Text>
-              <Text style={styles.kpiVal}>{pLinkedin}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
-              <Text style={styles.kpiSub}>Recruiter SEO</Text>
-            </View>
-          </View>
-          <View style={styles.col4}>
-            <View style={styles.kpiBox}>
-              <Text style={styles.kpiLabel}>Outbound</Text>
-              <Text style={styles.kpiVal}>{pOutbound}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
-              <Text style={styles.kpiSub}>Funnel Velocity</Text>
-            </View>
-          </View>
-          <View style={styles.col4}>
-            <View style={styles.kpiBox}>
-              <Text style={styles.kpiLabel}>Interview</Text>
-              <Text style={styles.kpiVal}>{pInterview}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
-              <Text style={styles.kpiSub}>Technical Loop</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Primary Bottleneck Diagnosis */}
-        <View style={styles.cardHighlighted} wrap={false}>
-          <View style={[styles.rowBetween, { marginBottom: 3 }]}>
-            <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#DC2626', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              PRIMARY CAREER BOTTLENECK • {safeStr(phase.shortName, 'Top of Funnel')}
-            </Text>
-            <Text style={styles.tagCritical}>ACTION REQUIRED</Text>
-          </View>
-          <Text style={{ fontSize: 10.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-            {safeStr(bottleneck.title, 'Top-of-Funnel Conversion Friction')}
+          <Text style={{ fontSize: 8, color: '#475569' }}>
+            Target Role: <Text style={{ fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>{targetRole}</Text> • Assessment Date: {reportDate} • Confidential Diagnostic
           </Text>
-          <Text style={{ fontSize: 8, color: '#475569', marginBottom: 4, lineHeight: 1.3 }}>
-            {safeStr(bottleneck.whyItMatters, 'Missing target keywords and unquantified achievements cause automated ATS filtering.')}
-          </Text>
-          <View style={{ backgroundColor: '#FFFFFF', padding: 5, borderRadius: 3, borderWidth: 1, borderColor: '#E2E8F0' }}>
-            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
-              PRIMARY RECOVERY TARGET:
-            </Text>
-            <Text style={{ fontSize: 7.5, color: '#1E293B' }}>
-              {safeStr(phase.metricGoal, 'Achieve >= 5.0% application-to-screen conversion within 14 days.')}
-            </Text>
-          </View>
         </View>
 
-        {/* Top 3 Prioritized Actions */}
-        <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>Top Strategic Priorities</Text>
-          <Text style={styles.sectionTag}>IMMEDIATE LEVERAGE</Text>
-        </View>
-
-        <View style={styles.grid3} wrap={false}>
-          {priorityActions.map((pa, idx) => (
-            <View key={idx} style={styles.col3}>
-              <View style={[styles.card, { height: '100%' }]}>
-                <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-                  <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
-                    PRIORITY 0{pa.priority || idx + 1}
-                  </Text>
-                  <Text style={styles.tagNeutral}>PHASE 1</Text>
-                </View>
-                <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-                  {safeStr(pa.title)}
+        {/* Executive Overview Row: Clean SVG Arc Score Gauge + 4-Row Status Table */}
+        <View style={styles.grid2} wrap={false}>
+          {/* Left: Clean SVG Score Gauge (score/100 centered with Text below, zero stroke collision) */}
+          <View style={{ width: 116 }}>
+            <View style={[styles.card, { alignItems: 'center', justifyContent: 'center', padding: 8 }]}>
+              <Svg width="60" height="60" viewBox="0 0 60 60">
+                <Circle cx="30" cy="30" r={gaugeR} stroke="#E2E8F0" strokeWidth="5.5" fill="none" />
+                <Circle
+                  cx="30"
+                  cy="30"
+                  r={gaugeR}
+                  stroke="#6366F1"
+                  strokeWidth="5.5"
+                  fill="none"
+                  strokeDasharray={`${gaugeDash} ${gaugeCircumference}`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 30 30)"
+                />
+              </Svg>
+              <View style={{ alignItems: 'center', marginTop: 3 }}>
+                <Text style={{ fontSize: 17, fontFamily: 'Helvetica-Bold', color: '#0F172A', lineHeight: 1 }}>
+                  {overallScore}
                 </Text>
-                <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.25 }}>
-                  {safeStr(pa.action || pa.description)}
+                <Text style={{ fontSize: 7, color: '#64748B', marginTop: 1 }}>
+                  / 100 • {scoreLabel}
+                </Text>
+                <Text style={{ fontSize: 6, fontFamily: 'Helvetica-Bold', color: '#6366F1', backgroundColor: '#EEF2FF', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2, marginTop: 3 }}>
+                  HEALTH INDEX
                 </Text>
               </View>
             </View>
-          ))}
+          </View>
+
+          {/* Right: 4-Row Executive Status Table */}
+          <View style={styles.col2}>
+            <View style={[styles.card, { padding: 8, gap: 4 }]}>
+              <View style={[styles.rowBetween, { borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }]}>
+                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#64748B' }}>CURRENT PIPELINE PHASE</Text>
+                <Text style={styles.tagNeutral}>{currentPhaseName}</Text>
+              </View>
+              <View style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }}>
+                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>PRIMARY ROOT CAUSE:</Text>
+                <Text style={{ fontSize: 7.4, color: '#334155', marginTop: 1 }}>
+                  {safeStr(bottleneck.whyItMatters || bottleneck.title)}
+                </Text>
+              </View>
+              <View style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 2 }}>
+                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>TOP ASSET STRENGTH:</Text>
+                <Text style={{ fontSize: 7.4, color: '#334155', marginTop: 1 }}>
+                  Strong foundation in {verifiedKeywords.slice(0, 4).join(', ')} with verified production experience.
+                </Text>
+              </View>
+              <View>
+                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>PRIORITY RECOVERY ACTION:</Text>
+                <Text style={{ fontSize: 7.4, color: '#0F172A', fontFamily: 'Helvetica-Bold', marginTop: 1 }}>
+                  {safeStr(phase.metricGoal, 'Overhaul top 4 achievement bullets to lift callback conversion >= 5.0%.')}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        {/* Monthly Funnel & Conversion Velocity */}
+        {/* 4 Compact KPI Tiles (Standard flexbox, label -> bold score -> muted sublabel, gap: 3) */}
+        <View style={styles.grid4} wrap={false}>
+          <View style={styles.col4}>
+            <View style={styles.kpiTile}>
+              <Text style={styles.kpiTileLabel}>Resume</Text>
+              <Text style={styles.kpiTileVal}>{pResume}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
+              <Text style={styles.kpiTileSub}>ATS & Impact</Text>
+            </View>
+          </View>
+          <View style={styles.col4}>
+            <View style={styles.kpiTile}>
+              <Text style={styles.kpiTileLabel}>LinkedIn</Text>
+              <Text style={styles.kpiTileVal}>{pLinkedin}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
+              <Text style={styles.kpiTileSub}>Recruiter SEO</Text>
+            </View>
+          </View>
+          <View style={styles.col4}>
+            <View style={styles.kpiTile}>
+              <Text style={styles.kpiTileLabel}>Outbound</Text>
+              <Text style={styles.kpiTileVal}>{pOutbound}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
+              <Text style={styles.kpiTileSub}>Funnel Velocity</Text>
+            </View>
+          </View>
+          <View style={styles.col4}>
+            <View style={styles.kpiTile}>
+              <Text style={styles.kpiTileLabel}>Interview</Text>
+              <Text style={styles.kpiTileVal}>{pInterview}<Text style={{ fontSize: 7.5, color: '#94A3B8' }}>/25</Text></Text>
+              <Text style={styles.kpiTileSub}>Technical Loop</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 6-Phase Hiring Journey Stepper (<Svg> diagram, wrap={false}) */}
+        <View style={styles.sectionTitleRow} wrap={false}>
+          <Text style={styles.sectionTitle}>6-Phase Candidate Hiring Journey Stepper</Text>
+          <Text style={styles.sectionTag}>ACTIVE PIPELINE TRACK</Text>
+        </View>
+
+        <View style={styles.card} wrap={false}>
+          <Svg width="480" height="46" viewBox="0 0 480 46">
+            {/* Connector Lines between nodes */}
+            {[0, 1, 2, 3, 4].map((i) => {
+              const x1 = 36 + i * 84 + 11
+              const x2 = 36 + (i + 1) * 84 - 11
+              const isPast = (i + 1) < currentPhaseId
+              return (
+                <Line
+                  key={i}
+                  x1={x1}
+                  y1={15}
+                  x2={x2}
+                  y2={15}
+                  stroke={isPast ? '#16A34A' : '#CBD5E1'}
+                  strokeWidth={isPast ? 2 : 1.5}
+                />
+              )
+            })}
+
+            {/* Stepper Nodes */}
+            {stepperPhases.map((sp, idx) => {
+              const x = 36 + idx * 84
+              const isCompleted = sp.id < currentPhaseId
+              const isCurrent = sp.id === currentPhaseId
+              const isUpcoming = sp.id > currentPhaseId
+
+              return (
+                <React.Fragment key={sp.id}>
+                  {/* Outer ring for current active node */}
+                  {isCurrent && (
+                    <Circle cx={x} cy={15} r={12} fill="none" stroke="#C7D2FE" strokeWidth={1.5} />
+                  )}
+
+                  {/* Main Circle Node */}
+                  <Circle
+                    cx={x}
+                    cy={15}
+                    r={9}
+                    fill={isCompleted ? '#DCFCE7' : isCurrent ? '#EEF2FF' : '#F8FAFC'}
+                    stroke={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#CBD5E1'}
+                    strokeWidth={isCurrent ? 2 : 1.2}
+                  />
+
+                  {/* Step Number */}
+                  <Text
+                    x={x}
+                    y={18}
+                    fontSize={6.5}
+                    textAnchor="middle"
+                    fill={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#94A3B8'}
+                  >
+                    {isCompleted ? 'OK' : String(sp.id)}
+                  </Text>
+
+                  {/* Phase Label */}
+                  <Text
+                    x={x}
+                    y={32}
+                    fontSize={6.5}
+                    textAnchor="middle"
+                    fill={isCurrent ? '#0F172A' : isCompleted ? '#16A34A' : '#64748B'}
+                  >
+                    {sp.short}
+                  </Text>
+
+                  {/* Status Indicator */}
+                  <Text
+                    x={x}
+                    y={41}
+                    fontSize={5}
+                    textAnchor="middle"
+                    fill={isCurrent ? '#DC2626' : isCompleted ? '#16A34A' : '#94A3B8'}
+                  >
+                    {isCurrent ? 'BOTTLENECK' : isCompleted ? 'DONE' : 'PENDING'}
+                  </Text>
+                </React.Fragment>
+              )
+            })}
+          </Svg>
+
+          {/* Concise 1-Line Diagnosis Callout Underneath */}
+          <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 6, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
+            <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
+            <Text style={{ fontSize: 7.2, color: '#991B1B', flex: 1 }}>
+              Candidate pipeline is currently bottlenecked at {currentPhaseName}. {safeStr(bottleneck.whyItMatters || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
+            </Text>
+          </View>
+        </View>
+
+        {/* Primary Bottleneck Callout Box */}
+        <View style={styles.cardHighlighted} wrap={false}>
+          <View style={[styles.rowBetween, { marginBottom: 2 }]}>
+            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#DC2626', textTransform: 'uppercase' }}>
+              RECOVERY ROADMAP • {safeStr(phase.shortName, 'Top of Funnel')}
+            </Text>
+            <Text style={styles.tagCritical}>ACTION REQUIRED</Text>
+          </View>
+          <Text style={{ fontSize: 9.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+            {safeStr(bottleneck.title, 'Application Filtering & Low Callback Velocity')}
+          </Text>
+          <Text style={{ fontSize: 7.5, color: '#475569', lineHeight: 1.3 }}>
+            {safeStr(bottleneck.whyItMatters)}
+          </Text>
+        </View>
+
+        <View fixed style={styles.footer}>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
+          <Text
+            style={styles.footerRight}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
+      </Page>
+
+      {/* ─────────────────────────────────────────────────────────────
+          PAGE 2: CAREER HEALTH DASHBOARD & MONTHLY FUNNEL
+          ───────────────────────────────────────────────────────────── */}
+      <Page size="A4" style={styles.page}>
+        <View fixed style={styles.header}>
+          <Text style={styles.headerLeft}>Crafture Career GPS • Diagnostic Report</Text>
+          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
+        </View>
+
+        <View style={styles.sectionTitleRow} wrap={false}>
+          <Text style={styles.sectionTitle}>Career Health Intelligence & Pipeline Telemetry</Text>
+          <Text style={styles.sectionTag}>RADAR & VELOCITY</Text>
+        </View>
+
+        {/* Career Health Visuals Row: 6-Axis Radar + Progress Bars */}
+        <View style={styles.grid2} wrap={false}>
+          {/* Left: 6-Axis SVG Radar Chart */}
+          <View style={{ width: 220 }}>
+            <View style={[styles.card, { padding: 6, alignItems: 'center' }]}>
+              <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                6-Axis Career Health Radar
+              </Text>
+              <Svg width="210" height="154" viewBox="0 0 210 154">
+                {/* Concentric hexagonal grid lines (25%, 50%, 75%, 100%) */}
+                {[0.25, 0.5, 0.75, 1.0].map((frac, idx) => (
+                  <Polygon
+                    key={idx}
+                    points={getRadarCoords(105, 75, 48 * frac, [100, 100, 100, 100, 100, 100])}
+                    fill="none"
+                    stroke="#E2E8F0"
+                    strokeWidth={0.8}
+                  />
+                ))}
+
+                {/* 6 Radial Axes */}
+                {[0, 1, 2, 3, 4, 5].map((i) => {
+                  const angle = -Math.PI / 2 + (i * Math.PI / 3)
+                  const x2 = 105 + 48 * Math.cos(angle)
+                  const y2 = 75 + 48 * Math.sin(angle)
+                  return (
+                    <Line
+                      key={i}
+                      x1={105}
+                      y1={75}
+                      x2={x2}
+                      y2={y2}
+                      stroke="#E2E8F0"
+                      strokeWidth={0.8}
+                    />
+                  )
+                })}
+
+                {/* Target Benchmark Hexagon (80% green dashed) */}
+                <Polygon
+                  points={getRadarCoords(105, 75, 48 * 0.8, [100, 100, 100, 100, 100, 100])}
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth={1}
+                  strokeDasharray="2,2"
+                />
+
+                {/* Candidate Filled Score Polygon */}
+                <Polygon
+                  points={getRadarCoords(105, 75, 48, radarScores)}
+                  fill="rgba(99, 102, 241, 0.22)"
+                  stroke="#6366F1"
+                  strokeWidth={1.8}
+                />
+
+                {/* Vertex Dots */}
+                {radarScores.map((s, i) => {
+                  const angle = -Math.PI / 2 + (i * Math.PI / 3)
+                  const r = 48 * (Math.max(15, Math.min(100, s)) / 100)
+                  const x = 105 + r * Math.cos(angle)
+                  const y = 75 + r * Math.sin(angle)
+                  return <Circle key={i} cx={x} cy={y} r={2.5} fill="#6366F1" />
+                })}
+
+                {/* Axis Labels outside the polygon */}
+                <Text x={105} y={18} fontSize={6.2} textAnchor="middle" fill="#0F172A">
+                  Resume ({sResume}%)
+                </Text>
+                <Text x={156} y={48} fontSize={6.2} textAnchor="start" fill="#0F172A">
+                  Market ({sMarket}%)
+                </Text>
+                <Text x={156} y={106} fontSize={6.2} textAnchor="start" fill="#0F172A">
+                  LinkedIn ({sLinkedin}%)
+                </Text>
+                <Text x={105} y={138} fontSize={6.2} textAnchor="middle" fill="#0F172A">
+                  Activity ({sActivity}%)
+                </Text>
+                <Text x={54} y={106} fontSize={6.2} textAnchor="end" fill="#0F172A">
+                  Interview ({sInterview}%)
+                </Text>
+                <Text x={54} y={48} fontSize={6.2} textAnchor="end" fill="#0F172A">
+                  Funnel ({sFunnel}%)
+                </Text>
+              </Svg>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
+                <Text style={{ fontSize: 6.2, color: '#6366F1' }}>■ Pipeline</Text>
+                <Text style={{ fontSize: 6.2, color: '#10B981' }}>-- Target (80%)</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Right: Category Performance Horizontal Progress Bars */}
+          <View style={styles.col2}>
+            <View style={[styles.card, { padding: 8, gap: 4 }]}>
+              <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
+                Category Performance Benchmarks
+              </Text>
+
+              {[
+                { label: 'Resume & ATS Readability', score: sResume, target: 85 },
+                { label: 'Market Keyword Alignment', score: sMarket, target: 80 },
+                { label: 'LinkedIn & Brand Authority', score: sLinkedin, target: 80 },
+                { label: 'Outbound & Referral Velocity', score: sActivity, target: 75 },
+                { label: 'Technical & Interview Loop', score: sInterview, target: 75 },
+                { label: 'Funnel Conversion Velocity', score: sFunnel, target: 70 },
+              ].map((row, idx) => {
+                const isPass = row.score >= row.target
+                const color = isPass ? '#16A34A' : row.score >= 60 ? '#D97706' : '#DC2626'
+                return (
+                  <View key={idx} style={{ marginBottom: 2 }}>
+                    <View style={styles.rowBetween}>
+                      <Text style={{ fontSize: 7, color: '#334155' }}>{row.label}</Text>
+                      <Text style={{ fontSize: 7, fontFamily: 'Courier-Bold', color }}>
+                        {row.score}% <Text style={{ fontSize: 6, color: '#94A3B8' }}>(Tgt {row.target}%)</Text>
+                      </Text>
+                    </View>
+                    <View style={styles.barTrack}>
+                      <View style={{ width: `${Math.min(100, row.score)}%`, height: 5, backgroundColor: color, borderRadius: 2.5 }} />
+                    </View>
+                  </View>
+                )
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* Monthly Funnel Outcomes & Conversion Velocity */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>Monthly Funnel Outcomes & Conversion Velocity</Text>
           <Text style={styles.sectionTag}>STAGE METRICS</Text>
         </View>
 
         <View style={styles.card} wrap={false}>
-          <View style={[styles.rowBetween, { marginBottom: 5 }]}>
+          <View style={[styles.rowBetween, { marginBottom: 4 }]}>
             <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
-              Monthly Application Pipeline: {formatNum(totalAppsMonthly)} Sent
+              Monthly Pipeline: {formatNum(totalAppsMonthly)} Applications Sent
             </Text>
-            <Text style={{ fontSize: 7.5, color: '#64748B' }}>
-              Screen Rate: <Text style={{ fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#16A34A' }}>{screenRate}%</Text> (Target: {'>='} 5.0%)
+            <Text style={{ fontSize: 7.2, color: '#64748B' }}>
+              Screen Callback: <Text style={{ fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#16A34A' }}>{screenRate}%</Text> (Target: {'>='} 5.0%)
             </Text>
           </View>
 
-          {/* Stage KPIs Row */}
+          {/* 4 Clean Stage Cards (Zero position: absolute, strict flexbox) */}
           <View style={styles.grid4}>
             <View style={styles.col4}>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiLabel}>Applications</Text>
-                <Text style={styles.kpiVal}>{formatNum(totalAppsMonthly)}</Text>
-                <Text style={styles.kpiSub}>sent / month</Text>
+              <View style={styles.kpiTile}>
+                <Text style={styles.kpiTileLabel}>Applications</Text>
+                <Text style={styles.kpiTileVal}>{formatNum(totalAppsMonthly)}</Text>
+                <Text style={styles.kpiTileSub}>sent / month</Text>
               </View>
             </View>
             <View style={styles.col4}>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiLabel}>Screens</Text>
-                <Text style={styles.kpiVal}>{formatNum(screens)}</Text>
-                <Text style={styles.kpiSub}>{screenRate}% callback</Text>
+              <View style={styles.kpiTile}>
+                <Text style={styles.kpiTileLabel}>Screens</Text>
+                <Text style={styles.kpiTileVal}>{formatNum(screens)}</Text>
+                <Text style={styles.kpiTileSub}>{screenRate}% callback</Text>
               </View>
             </View>
             <View style={styles.col4}>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiLabel}>Tech Rounds</Text>
-                <Text style={styles.kpiVal}>{formatNum(techs)}</Text>
-                <Text style={styles.kpiSub}>{techPassRate}% pass</Text>
+              <View style={styles.kpiTile}>
+                <Text style={styles.kpiTileLabel}>Tech Rounds</Text>
+                <Text style={styles.kpiTileVal}>{formatNum(techs)}</Text>
+                <Text style={styles.kpiTileSub}>{techPassRate}% pass</Text>
               </View>
             </View>
             <View style={styles.col4}>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiLabel}>Offers</Text>
-                <Text style={styles.kpiVal}>{formatNum(offers)}</Text>
-                <Text style={styles.kpiSub}>{offerRate}% final conv</Text>
+              <View style={styles.kpiTile}>
+                <Text style={styles.kpiTileLabel}>Offers</Text>
+                <Text style={styles.kpiTileVal}>{formatNum(offers)}</Text>
+                <Text style={styles.kpiTileSub}>{offerRate}% final conv</Text>
               </View>
             </View>
           </View>
 
-          {/* Benchmark Comparison Micro-Bars */}
-          <View style={{ marginTop: 4 }}>
-            <View style={[styles.rowBetween, { marginBottom: 1 }]}>
-              <Text style={{ fontSize: 7.2, color: '#475569' }}>Application to Screen Callback (Actual vs 5.0% Benchmark)</Text>
-              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#16A34A' }}>
-                {screenRate}% {Number(screenRate) < 5 ? '(BELOW BENCHMARK)' : '(HEALTHY)'}
+          {/* Horizontal Callback Benchmark Bar */}
+          <View style={{ marginTop: 6, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 4, padding: 8 }}>
+            <View style={[styles.rowBetween, { marginBottom: 3 }]}>
+              <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                Application-to-Screen Callback Velocity
+              </Text>
+              <Text style={{ fontSize: 7.5, fontFamily: 'Courier-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#16A34A' }}>
+                {screenRate}% Actual vs 5.0% Industry Benchmark
               </Text>
             </View>
             <View style={styles.barTrack}>
-              <View style={{ width: `${Math.min(100, (Number(screenRate) / 10) * 100)}%`, height: 5, backgroundColor: Number(screenRate) < 5 ? '#DC2626' : '#16A34A', borderRadius: 2.5 }} />
+              <View style={{ width: `${Math.min(100, (Number(screenRate) / 5) * 50)}%`, height: 5, backgroundColor: Number(screenRate) < 5 ? '#DC2626' : '#16A34A', borderRadius: 2.5 }} />
             </View>
+            <Text style={{ fontSize: 7, color: Number(screenRate) < 5 ? '#DC2626' : '#16A34A', marginTop: 3 }}>
+              {Number(screenRate) < 5
+                ? `CRITICAL BOTTLENECK: Actual callback (${screenRate}%) is lagging behind the 5.0% competitive baseline. High application volume without interview conversion indicates automated ATS keyword drop-off.`
+                : `HEALTHY PIPELINE: Callback rate (${screenRate}%) meets or exceeds the competitive 5.0% benchmark.`}
+            </Text>
           </View>
         </View>
 
@@ -842,7 +1100,7 @@ export default function CareerReportPdf({ reportData = {} }) {
       </Page>
 
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 2: DYNAMIC ACTION PLAN (7-DAY + 30/60/90 PATHWAY)
+          PAGE 3: PERSONALIZED ACTION ROADMAP
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
@@ -851,34 +1109,61 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>7-Day Rapid Triage Action Plan</Text>
-          <Text style={styles.sectionTag}>EXECUTION CHECKLIST</Text>
+          <Text style={styles.sectionTitle}>Top Strategic Priorities</Text>
+          <Text style={styles.sectionTag}>IMMEDIATE LEVERAGE</Text>
         </View>
 
-        {/* 7-Day Quick Plan - Vertical Column Flow with Zero Collisions */}
-        <View style={{ marginBottom: 8 }}>
+        {/* Top 3 Strategic Priorities (Content-hugging cards, zero giant stretched boxes) */}
+        <View style={styles.grid3} wrap={false}>
+          {priorityActions.map((pa, idx) => (
+            <View key={idx} style={styles.col3}>
+              <View style={styles.card}>
+                <View style={[styles.rowBetween, { marginBottom: 2 }]}>
+                  <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                    PRIORITY 0{pa.priority || idx + 1}
+                  </Text>
+                  <Text style={styles.tagNeutral}>PHASE 1</Text>
+                </View>
+                <Text style={{ fontSize: 8.2, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                  {safeStr(pa.title)}
+                </Text>
+                <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.25 }}>
+                  {safeStr(pa.action || pa.description)}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.sectionTitleRow} wrap={false}>
+          <Text style={styles.sectionTitle}>7-Day Rapid Triage Checklist</Text>
+          <Text style={styles.sectionTag}>DAILY SPRINT</Text>
+        </View>
+
+        {/* 7-Day Quick-Win Plan: 7 rows with gap: 4 and zero overlap */}
+        <View style={{ marginBottom: 6 }}>
           {sevenDayTasks.map((t, idx) => (
             <View key={idx} style={styles.dayCard} wrap={false}>
               <View style={styles.rowBetween}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, paddingRight: 6 }}>
-                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', backgroundColor: '#EEF2FF', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
+                  <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', backgroundColor: '#EEF2FF', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
                     DAY {t.day || idx + 1}
                   </Text>
-                  <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                  <Text style={{ fontSize: 8.2, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
                     {safeStr(t.title)}
                   </Text>
                 </View>
                 {t.metricTarget && (
-                  <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A', backgroundColor: '#DCFCE7', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
+                  <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', backgroundColor: '#DCFCE7', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
                     {safeStr(t.metricTarget)}
                   </Text>
                 )}
               </View>
-              <Text style={{ fontSize: 7.8, color: '#334155', lineHeight: 1.25 }}>
+              <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.25 }}>
                 {safeStr(t.action)}
               </Text>
               {t.deliverable && (
-                <Text style={{ fontSize: 7, color: '#64748B' }}>
+                <Text style={{ fontSize: 6.8, color: '#64748B' }}>
                   <Text style={{ fontFamily: 'Helvetica-Bold', color: '#475569' }}>Deliverable: </Text>
                   {safeStr(t.deliverable)}
                 </Text>
@@ -888,36 +1173,47 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>30 / 60 / 90 Day Milestone Pathway</Text>
-          <Text style={styles.sectionTag}>STRATEGIC ROADMAP</Text>
+          <Text style={styles.sectionTitle}>30 / 60 / 90-Day Connected Milestone Track</Text>
+          <Text style={styles.sectionTag}>LONG-TERM PATHWAY</Text>
         </View>
 
-        {/* 30/60/90 Pathway Row - Hugging Content Without Giant Gaps */}
-        <View style={styles.grid3} wrap={false}>
-          {milestonePathway.map((p, idx) => (
-            <View key={idx} style={styles.col3}>
-              <View style={styles.milestoneCard}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                  <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
-                    {safeStr(p.period)}
+        {/* 30/60/90 Connected Horizontal SVG Timeline */}
+        <View style={styles.card} wrap={false}>
+          <Svg width="480" height="28" viewBox="0 0 480 28">
+            <Line x1={116} y1={14} x2={204} y2={14} stroke="#C7D2FE" strokeWidth={2} />
+            <Line x1={276} y1={14} x2={364} y2={14} stroke="#CBD5E1" strokeWidth={2} />
+
+            <Rect x={44} y={3} width={72} height={20} rx={10} fill="#EEF2FF" stroke="#6366F1" strokeWidth={1.5} />
+            <Text x={80} y={16} fontSize={7.5} textAnchor="middle" fill="#6366F1">30 DAYS</Text>
+
+            <Rect x={204} y={3} width={72} height={20} rx={10} fill="#F8FAFC" stroke="#94A3B8" strokeWidth={1} />
+            <Text x={240} y={16} fontSize={7.5} textAnchor="middle" fill="#0F172A">60 DAYS</Text>
+
+            <Rect x={364} y={3} width={72} height={20} rx={10} fill="#F8FAFC" stroke="#94A3B8" strokeWidth={1} />
+            <Text x={400} y={16} fontSize={7.5} textAnchor="middle" fill="#0F172A">90 DAYS</Text>
+          </Svg>
+
+          {/* 3 Milestone Detail Cards */}
+          <View style={[styles.grid3, { marginTop: 4, marginBottom: 0 }]}>
+            {milestonePathway.map((p, idx) => (
+              <View key={idx} style={styles.col3}>
+                <View style={styles.milestoneCard}>
+                  <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                    {safeStr(p.stage)}
                   </Text>
-                  <Text style={{ fontSize: 6.8, color: '#94A3B8' }}>Phase 0{idx + 1}</Text>
-                </View>
-                <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-                  {safeStr(p.stage)}
-                </Text>
-                <Text style={{ fontSize: 7.3, color: '#475569', lineHeight: 1.25, marginBottom: 3 }}>
-                  {safeStr(p.goal)}
-                </Text>
-                <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 3 }}>
-                  <Text style={{ fontSize: 6.8, color: '#64748B' }}>
-                    <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
-                    {safeStr(p.successSignal || p.deliverable)}
+                  <Text style={{ fontSize: 7, color: '#475569', lineHeight: 1.25 }}>
+                    {safeStr(p.goal)}
                   </Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 2 }}>
+                    <Text style={{ fontSize: 6.5, color: '#64748B' }}>
+                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
+                      {safeStr(p.successSignal || p.deliverable)}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
 
         <View fixed style={styles.footer}>
@@ -930,7 +1226,7 @@ export default function CareerReportPdf({ reportData = {} }) {
       </Page>
 
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 3: RESUME COMPLETE AUDIT & KEYWORD ARCHITECTURE
+          PAGE 4: RESUME COMPLETE AUDIT & KEYWORD ARCHITECTURE
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
@@ -943,16 +1239,16 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>SECTION-BY-SECTION /10</Text>
         </View>
 
-        {/* Section Audit Table */}
+        {/* Section-by-Section /10 Audit Table */}
         <View style={styles.card} wrap={false}>
           {Object.entries(resumeSectionAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
             const isCrit = score < 6
             const isWarn = score >= 6 && score < 8
             return (
-              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 3 }}>
+              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2.5 }}>
                 <View style={styles.rowBetween}>
-                  <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
+                  <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
                     {secKey.replace(/([A-Z])/g, ' $1')}
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
@@ -965,13 +1261,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                   </View>
                 </View>
                 {secVal?.hurtingReason && (
-                  <Text style={{ fontSize: 7.2, color: '#DC2626', marginTop: 1 }}>
+                  <Text style={{ fontSize: 7, color: '#DC2626', marginTop: 1 }}>
                     <Text style={{ fontFamily: 'Helvetica-Bold' }}>Issue: </Text>
                     {safeStr(secVal.hurtingReason)}
                   </Text>
                 )}
                 {secVal?.requiredImprovement && (
-                  <Text style={{ fontSize: 7.2, color: '#475569', marginTop: 1 }}>
+                  <Text style={{ fontSize: 7, color: '#475569', marginTop: 1 }}>
                     <Text style={{ fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>Fix: </Text>
                     {safeStr(secVal.requiredImprovement)}
                   </Text>
@@ -981,7 +1277,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           })}
         </View>
 
-        {/* Professional Summary Rewrite */}
+        {/* Executive Professional Summary Rewrite (Unclipped, zero maxHeight) */}
         <View style={styles.sectionTitleRow} wrap={false}>
           <Text style={styles.sectionTitle}>Executive Professional Summary Rewrite</Text>
           <Text style={styles.sectionTag}>POSITIONING HOOK</Text>
@@ -990,32 +1286,32 @@ export default function CareerReportPdf({ reportData = {} }) {
         <View style={styles.card} wrap={false}>
           <View style={styles.diffOriginal}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626', marginBottom: 1 }}>
-              ORIGINAL / WEAK GENERIC SUMMARY:
+              BEFORE (ORIGINAL / WEAK GENERIC SUMMARY):
             </Text>
-            <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.25 }}>
+            <Text style={styles.monoText}>
               {originalSummary}
             </Text>
           </View>
           <View style={styles.diffRewritten}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 1 }}>
-              OPTIMIZED EXECUTIVE REWRITE (ROLE-ALIGNED):
+              AFTER (OPTIMIZED EXECUTIVE REWRITE):
             </Text>
-            <Text style={{ fontSize: 7.5, color: '#166534', fontFamily: 'Helvetica-Bold', lineHeight: 1.3 }}>
+            <Text style={styles.monoBold}>
               {rewrittenSummary}
             </Text>
           </View>
         </View>
 
-        {/* ATS Keyword Alignment */}
+        {/* ATS Technical Keyword Alignment Matrix */}
         <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>ATS Technical Keyword Alignment</Text>
+          <Text style={styles.sectionTitle}>ATS Technical Keyword Alignment Matrix</Text>
           <Text style={styles.sectionTag}>MARKET ALIGNMENT</Text>
         </View>
 
         <View style={styles.grid3} wrap={false}>
           {/* Verified in Work Experience */}
           <View style={styles.col3}>
-            <View style={[styles.card, { height: '100%' }]}>
+            <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
                 <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>VERIFIED IN ROLES</Text>
                 <Text style={styles.tagPass}>{verifiedKeywords.length}</Text>
@@ -1030,7 +1326,7 @@ export default function CareerReportPdf({ reportData = {} }) {
 
           {/* In Skills Section Only */}
           <View style={styles.col3}>
-            <View style={[styles.card, { height: '100%' }]}>
+            <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
                 <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#D97706' }}>SKILLS ONLY (UNPROVEN)</Text>
                 <Text style={styles.tagWarn}>{skillsOnlyKeywords.length}</Text>
@@ -1045,7 +1341,7 @@ export default function CareerReportPdf({ reportData = {} }) {
 
           {/* Critical Missing Market Keywords */}
           <View style={styles.col3}>
-            <View style={[styles.card, { height: '100%' }]}>
+            <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
                 <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>CRITICAL MISSING</Text>
                 <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
@@ -1069,7 +1365,7 @@ export default function CareerReportPdf({ reportData = {} }) {
       </Page>
 
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 4: QUANTIFIED BULLET REWRITES (GOOGLE XYZ FRAMEWORK)
+          PAGE 5: QUANTIFIED BULLET REWRITES (GOOGLE XYZ FRAMEWORK)
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
@@ -1078,17 +1374,28 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View style={styles.sectionTitleRow} wrap={false}>
-          <Text style={styles.sectionTitle}>High-Impact Bullet Rewrites (Full Suite)</Text>
-          <Text style={styles.sectionTag}>GOOGLE XYZ SYNTAX</Text>
+          <Text style={styles.sectionTitle}>High-Impact Bullet Rewrites (Google XYZ Framework)</Text>
+          <Text style={styles.sectionTag}>FULL SUITE</Text>
         </View>
 
+        {/* 5-Part Formula Reference Callout */}
+        <View style={[styles.card, { padding: 6, marginBottom: 5 }]} wrap={false}>
+          <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
+            5-PART RESUME PLAYBOOK FORMULA:
+          </Text>
+          <Text style={{ fontSize: 6.8, color: '#334155' }}>
+            Strong Action Verb + Hard Technical Tool/Scope + Scale/Collaboration + Natural Calibrated Metric + Business Outcome.
+          </Text>
+        </View>
+
+        {/* Un-capped Bullet Rewrites List */}
         {bulletRewrites.map((b, idx) => (
           <View key={idx} style={styles.diffBlock} wrap={false}>
             <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+              <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
                 Bullet Rewrite #{idx + 1}
               </Text>
-              <Text style={styles.tagNeutral}>5-PART PLAYBOOK FORMULA</Text>
+              <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
             </View>
 
             {/* Original Weak Bullet */}
@@ -1104,7 +1411,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 1 }}>
                 AFTER (MEASURABLE IMPACT & OUTCOME):
               </Text>
-              <Text style={styles.monoText}>{safeStr(b.rewritten || b.suggestedRewrite || b.correctedText || b.improved)}</Text>
+              <Text style={styles.monoBold}>{safeStr(b.rewritten || b.suggestedRewrite || b.correctedText || b.improved)}</Text>
             </View>
 
             {(b.why || b.critique || b.recommendation) && (
@@ -1126,7 +1433,7 @@ export default function CareerReportPdf({ reportData = {} }) {
       </Page>
 
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 5: LINKEDIN STUDIO & RECRUITER SEARCH OPTIMIZATION
+          PAGE 6: LINKEDIN STUDIO & RECRUITER SEARCH OPTIMIZATION
           ───────────────────────────────────────────────────────────── */}
       <Page size="A4" style={styles.page}>
         <View fixed style={styles.header}>
@@ -1146,13 +1453,13 @@ export default function CareerReportPdf({ reportData = {} }) {
             const isCrit = score < 6
             const isWarn = score >= 6 && score < 8
             return (
-              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2.5 }}>
+              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2 }}>
                 <View style={styles.rowBetween}>
-                  <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
+                  <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
                     {secKey.replace(/([A-Z])/g, ' $1')}
                   </Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: isCrit ? '#DC2626' : isWarn ? '#D97706' : '#16A34A' }}>
+                    <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: isCrit ? '#DC2626' : isWarn ? '#D97706' : '#16A34A' }}>
                       {score}/10
                     </Text>
                     <Text style={isCrit ? styles.tagCritical : isWarn ? styles.tagWarn : styles.tagPass}>
@@ -1184,7 +1491,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               </Text>
               <Text style={styles.tagNeutral}>15-20 WORDS</Text>
             </View>
-            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
+            <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
               {safeStr(h.headline)}
             </Text>
             {h.whyItWorks && (
@@ -1196,9 +1503,9 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         ))}
 
-        {/* 4-Part Video Copywriting About Rewrite */}
+        {/* 4-Part Story-Driven About Rewrite */}
         <View style={styles.card} wrap={false}>
-          <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 3 }}>
+          <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 3 }}>
             Story-Driven LinkedIn About Rewrite (Clean Narrative Architecture)
           </Text>
           <View style={styles.aboutPillar}>
