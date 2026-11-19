@@ -456,8 +456,8 @@ h1, h2, h3, h4, h5, h6 {
   border: 1.5px solid var(--border-default);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
-  width: clamp(44px, 14vw, 54px);
-  height: clamp(52px, 16vw, 62px);
+  width: clamp(38px, 11.5vw, 52px);
+  height: clamp(48px, 14vw, 60px);
   font-size: 1.5rem;
   font-weight: 700;
   background: var(--surface-card);

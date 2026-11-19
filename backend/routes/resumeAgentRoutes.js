@@ -8,6 +8,7 @@ import multer from 'multer'
 import { ResumeAgent } from '../agents/resume/index.js'
 import { listModelsForPurpose, getModel } from '../ai/config/modelRegistry.js'
 import { costTracker } from '../utils/costTracker.js'
+import { userSessionGuard } from '../utils/userAuth.js'
 
 const router = express.Router()
 
@@ -85,10 +86,35 @@ router.get('/market-context', async (req, res) => {
 })
 
 /**
+ * POST /api/resume-agent/parse-deterministic
+ * Extracts canonical resume JSON deterministically without triggering LLM synthesis.
+ * Safe for pre-OTP file dropzone preview (0 LLM calls).
+ */
+router.post('/parse-deterministic', upload.single('resume'), async (req, res) => {
+  try {
+    const canonicalCtx = await ResumeAgent.prepareCanonicalContext({
+      buffer: req.file?.buffer || null,
+      mimeType: req.file?.mimetype || '',
+      filename: req.file?.originalname || '',
+      resumeText: req.body?.resumeText || '',
+      targetRole: req.body?.targetRole || '',
+    })
+    return res.status(200).json({
+      success: true,
+      canonicalResume: canonicalCtx.canonicalResume,
+      targetRole: canonicalCtx.targetRole,
+    })
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+/**
  * POST /api/resume-agent/evaluate
  * Evaluates candidate resume via either multipart file upload or direct JSON text.
+ * Gated behind user session authentication or admin key.
  */
-router.post('/evaluate', upload.single('resume'), async (req, res) => {
+router.post('/evaluate', userSessionGuard, upload.single('resume'), async (req, res) => {
   const runId = `eval_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   costTracker.setActiveRunId(runId)
 

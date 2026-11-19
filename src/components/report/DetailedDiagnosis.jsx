@@ -68,9 +68,8 @@ function extractStarStories(canonicalResume, targetRole, skillsList, resumeJson)
   }
 
   candidates.sort((a, b) => b.score - a.score)
-  const topBullets = candidates.slice(0, 3)
 
-  if (topBullets.length === 0) {
+  if (candidates.length === 0) {
     const primarySkill = skillsList[0] || 'Cloud & API Architecture'
     const secondarySkill = skillsList[1] || 'Modern Frontend Systems'
     const tertiarySkill = skillsList[2] || 'Automated CI/CD Pipelines'
@@ -109,7 +108,7 @@ function extractStarStories(canonicalResume, targetRole, skillsList, resumeJson)
     ]
   }
 
-  return topBullets.map((item, idx) => {
+  return candidates.map((item, idx) => {
     const { text, role, company } = item
 
     let situation = `At ${company}, legacy workflows and architectural bottlenecks created friction for business-critical operations under growing user demand.`
@@ -165,6 +164,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
   const [copiedScriptId, setCopiedScriptId] = useState(null)
   const [copiedStoryId, setCopiedStoryId] = useState(null)
   const [copiedPitch, setCopiedPitch] = useState(false)
+  const [showAllStories, setShowAllStories] = useState(false)
 
   const handleCopyScript = (id, text) => {
     navigator.clipboard?.writeText(text)
@@ -886,6 +886,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
               skillsList,
               reportData?.resume_json
             )
+            const displayedStories = showAllStories ? starStories : starStories.slice(0, 5)
 
             return (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -969,13 +970,13 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                   </div>
                 </div>
 
-                {/* Hidden Gem #3B: Top 3 Resume-Grounded STAR Stories */}
+                {/* Hidden Gem #3B: Behavioral & Technical STAR Stories */}
                 <div className="space-y-4 pt-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <div>
                       <h4 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                         <ShieldCheck size={16} className="text-[var(--primary)]" weight="bold" />
-                        <span>Top 3 Behavioral & Technical STAR Stories Extracted From Your Resume</span>
+                        <span>Behavioral & Technical STAR Stories Extracted From Your Resume ({starStories.length})</span>
                       </h4>
                       <p className="text-xs text-[var(--text-muted)] mt-0.5">
                         Structured interview cheat-sheets grounded directly in your verifiable resume achievements
@@ -985,7 +986,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                   </div>
 
                   <div className="space-y-4">
-                    {starStories.map((story) => (
+                    {displayedStories.map((story) => (
                       <div
                         key={story.id}
                         className="p-5 rounded-2xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-4 shadow-xs"
@@ -1094,6 +1095,18 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                       </div>
                     ))}
                   </div>
+
+                  {starStories.length > 5 && (
+                    <div className="pt-2 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllStories(!showAllStories)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] hover:text-[var(--primary)] transition-all cursor-pointer shadow-xs"
+                      >
+                        {showAllStories ? 'Show top 5 stories' : `Show all (${starStories.length}) stories`}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )

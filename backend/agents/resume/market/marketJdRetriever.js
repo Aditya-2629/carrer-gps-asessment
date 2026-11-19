@@ -15,17 +15,72 @@ import mongoose from 'mongoose'
 import JobMarketBucket from '../../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
-import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText } from './llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText, deduplicateJds } from './llmJdSkillAnalyzer.js'
 
-export const MIN_SAMPLE_THRESHOLD = 15
+export const MIN_SAMPLE_THRESHOLD = 10
 export const MIN_SKILLS_THRESHOLD = 4
+
+// In-flight deduplication locking to prevent duplicate fast-catch calls for cold buckets
+const inFlightFastCatch = new Map()
+
+/**
+ * Finds the nearest populated adjacent experience bucket for the same roleKey.
+ * e.g., if "ui-ux-designer::6-8" is cold, checks "3-5", "8+", "0-2".
+ */
+async function findNearestPopulatedBucket(bucketKey) {
+  try {
+    const [roleKey, currentExp] = String(bucketKey || '').split('::')
+    if (!roleKey) return null
+
+    const expOrderMap = {
+      '0-2': ['3-5', '6-8', '8+'],
+      '3-5': ['6-8', '0-2', '8+'],
+      '6-8': ['3-5', '8+', '0-2'],
+      '8+': ['6-8', '3-5', '0-2'],
+    }
+    const searchOrder = expOrderMap[currentExp] || ['3-5', '6-8', '0-2', '8+']
+
+    for (const adjacentExp of searchOrder) {
+      const candidateKey = `${roleKey}::${adjacentExp}`
+      const candidateBucket = await JobMarketBucket.findOne({
+        bucketKey: candidateKey,
+        status: { $in: ['healthy', 'refreshing'] },
+        activeVersion: { $gt: 0 },
+      }).lean()
+
+      if (candidateBucket) {
+        const candidateVersion = await JobMarketVersion.findOne({
+          bucketKey: candidateKey,
+          version: candidateBucket.activeVersion,
+          isArchived: false,
+        }).lean()
+
+        const sampleSize = candidateVersion?.jobs?.length || candidateVersion?.marketProfile?.sampleSize || 0
+        const skillsCount = Array.isArray(candidateVersion?.marketProfile?.skills) ? candidateVersion.marketProfile.skills.length : 0
+
+        if (candidateVersion?.marketProfile && sampleSize >= MIN_SAMPLE_THRESHOLD && skillsCount >= MIN_SKILLS_THRESHOLD) {
+          return {
+            bucket: candidateBucket,
+            version: candidateVersion,
+            adjacentExp,
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[MarketJdRetriever] Nearest bucket search failed for ${bucketKey}:`, err.message)
+  }
+  return null
+}
 
 /**
  * Retrieves market intelligence for a specific bucket key.
  *
  * Implements Two-Phase Progressive Scraping:
  * - Phase 1: Fast-catch 12-15 JDs synchronously if bucket is empty/cold (~8-10s)
- * - Phase 2: Asynchronously enqueues full 85 JDs in background to reach 100 JDs
+ * - Phase 2: Asynchronously enqueues full 50 JDs in background
+ * - In-Flight Locking: Prevents thundering herd on cold buckets
+ * - Adjacent Fallback: Reuses populated adjacent experience bucket when available
  *
  * @param {string} bucketKey - e.g. "software-engineer::6-8"
  * @param {Object} [options]
@@ -53,10 +108,16 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
     }
   }
 
+  // In-flight locking: deduplicate concurrent fast-catch calls for the exact same bucketKey
+  if (inFlightFastCatch.has(bucketKey)) {
+    console.log(`[MarketJdRetriever] Fast-Catch already in-flight for bucket ${bucketKey}. Awaiting shared promise...`)
+    return inFlightFastCatch.get(bucketKey)
+  }
+
   try {
     const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
 
-    // 1. If valid active version exists in MongoDB (sampleSize >= 10 and skills >= 5), serve instantly (0ms)
+    // 1. If valid active version exists in MongoDB (sampleSize >= 10 and skills >= 4), serve instantly (0ms)
     if (bucket && (bucket.activeVersion > 0 || bucket.status === 'refreshing' || bucket.status === 'healthy')) {
       const activeVersion =
         (await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion }).lean()) ||
@@ -87,127 +148,200 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
       }
     }
 
-    // 2. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 35 JDs)
+    // 2. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 15 JDs, 30s timeout)
     if (!options.bypassFastCatch) {
-      const targetCount = Math.max(35, options.targetCount || 35)
-      console.log(`[MarketJdRetriever] Bucket ${bucketKey} is cold. Running synchronous Fast-Catch (target: ${targetCount} JDs)...`)
-      try {
-        const [roleKey, expBucket] = bucketKey.split('::')
-        const roleClean = bucket?.roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      const fastCatchPromise = (async () => {
+        const targetCount = options.targetCount || 15
+        const timeoutMs = options.timeoutMs || 30000
+        console.log(`[MarketJdRetriever] Bucket ${bucketKey} is cold. Running synchronous Fast-Catch (target: ${targetCount} JDs, timeout: ${timeoutMs}ms)...`)
+        try {
+          const [roleKey, expBucket] = bucketKey.split('::')
+          const roleClean = bucket?.roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
-        const fast35Jds = await fetchFastCatchJds({
-          role: roleClean,
-          bucketKey,
-          targetCount,
-          timeoutMs: options.timeoutMs || 90000,
-          mockJds: options.mockJds || null,
-        })
-
-        if (Array.isArray(fast35Jds) && fast35Jds.length >= MIN_SAMPLE_THRESHOLD) {
-          console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= ${MIN_SAMPLE_THRESHOLD}). Activating version...`)
-          console.log(`[MarketJdRetriever] Fast-Catch captured ${fast35Jds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
-          const analysis = await analyzeJdBatchWithGemini(roleClean, fast35Jds, { experienceBucket: expBucket })
-          const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
-
-          const fastMarketProfile = {
+          const fastJds = await fetchFastCatchJds({
+            role: roleClean,
             bucketKey,
-            sampleSize: analysis.sampleSize || fast35Jds.length,
-            skills: discoveredSkills,
-            totalAnalyzed: analysis.totalAnalyzed || fast35Jds.length,
-            topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
-            responsibilities: analysis.responsibilities || [],
-            senioritySignals: analysis.senioritySignals || [],
-            isFastCatch: true,
-            generatedAt: new Date().toISOString(),
-          }
+            targetCount,
+            timeoutMs,
+            mockJds: options.mockJds || null,
+          })
 
-          // Persist staged JobMarketVersion to MongoDB so subsequent requests return instantly in 0ms
-          let stagedVersion = (bucket?.activeVersion || 0) + 1
-          try {
-            if (mongoose.connection && mongoose.connection.readyState === 1) {
-              const currentBucket = await JobMarketBucket.findOne({ bucketKey })
-              stagedVersion = (currentBucket?.activeVersion || 0) + 1
+          const uniqueFastJds = deduplicateJds(fastJds)
 
-              await JobMarketVersion.create({
-                bucketKey,
-                version: stagedVersion,
-                jobs: fast35Jds.map((j, idx) => {
-                  const analyzed = (analysis.analyzedJobs || [])[idx] || {}
-                  return {
-                    title: j.title || roleClean,
-                    company: j.company || 'Enterprise Employer',
-                    location: 'United States',
-                    description: j.description || '',
-                    normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
-                    skills: analyzed.skills || [],
-                    responsibilities: analyzed.responsibilities || [],
-                    senioritySignals: analyzed.senioritySignals || [],
-                    source: 'apify_fast_catch',
-                    sourceUrl: j.url || null,
-                    fingerprint: `${bucketKey}_fc_${stagedVersion}_${idx}_${Date.now()}`,
-                  }
-                }),
-                marketProfile: fastMarketProfile,
-                metadata: {
-                  source: 'apify_live_batch_35',
-                  targetCount: fast35Jds.length,
-                },
-                validationSummary: {
-                  isValid: true,
-                  checkedAt: new Date(),
-                  jobCount: fast35Jds.length,
-                },
-                isArchived: false,
-              })
+          if (Array.isArray(uniqueFastJds) && uniqueFastJds.length >= MIN_SAMPLE_THRESHOLD) {
+            console.log(`[MarketJdJobs] Bucket verification passed (sampleSize >= ${MIN_SAMPLE_THRESHOLD}). Activating version...`)
+            console.log(`[MarketJdRetriever] Fast-Catch captured ${uniqueFastJds.length} real JDs. Analyzing dynamically via Gemini Flash...`)
+            const analysis = await analyzeJdBatchWithGemini(roleClean, uniqueFastJds, { experienceBucket: expBucket })
+            const discoveredSkills = analysis.discoveredSkills || analysis.marketSkills || []
 
-              const [bRoleKey, bExpBucket] = (bucketKey || '').split('::')
-              await JobMarketBucket.findOneAndUpdate(
-                { bucketKey },
-                {
-                  $set: {
-                    bucketKey,
-                    roleKey: bRoleKey || 'data-analyst',
-                    experienceBucket: bExpBucket || '6-8',
-                    roleName: roleClean,
-                    activeVersion: stagedVersion,
-                    jobCount: fast35Jds.length,
-                    status: 'healthy',
-                    lastSuccessfulRefreshAt: new Date(),
-                  },
-                },
-                { upsert: true }
-              )
-              console.log(`[MarketJdRetriever] Fast-Catch version v${stagedVersion} persisted to MongoDB for ${bucketKey}.`)
+            const fastMarketProfile = {
+              bucketKey,
+              sampleSize: analysis.sampleSize || uniqueFastJds.length,
+              skills: discoveredSkills,
+              totalAnalyzed: analysis.totalAnalyzed || uniqueFastJds.length,
+              topKeywords: discoveredSkills.slice(0, 30).map((s) => s.name),
+              responsibilities: analysis.responsibilities || [],
+              senioritySignals: analysis.senioritySignals || [],
+              isFastCatch: true,
+              generatedAt: new Date().toISOString(),
             }
-          } catch (persistErr) {
-            console.warn(`[MarketJdRetriever] Failed to persist Fast-Catch version: ${persistErr.message}`)
-          }
 
-          // Enqueue detached full 60-80 JDs in background to complete bucket asynchronously
+            // Persist staged JobMarketVersion to MongoDB so subsequent requests return instantly in 0ms
+            let stagedVersion = (bucket?.activeVersion || 0) + 1
+            try {
+              if (mongoose.connection && mongoose.connection.readyState === 1) {
+                const currentBucket = await JobMarketBucket.findOne({ bucketKey })
+                stagedVersion = (currentBucket?.activeVersion || 0) + 1
+
+                await JobMarketVersion.create({
+                  bucketKey,
+                  version: stagedVersion,
+                  jobs: uniqueFastJds.map((j, idx) => {
+                    const analyzed = (analysis.analyzedJobs || [])[idx] || {}
+                    return {
+                      title: j.title || roleClean,
+                      company: j.company || 'Enterprise Employer',
+                      location: 'United States',
+                      description: j.description || '',
+                      normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
+                      skills: analyzed.skills || [],
+                      responsibilities: analyzed.responsibilities || [],
+                      senioritySignals: analyzed.senioritySignals || [],
+                      source: 'apify_fast_catch',
+                      sourceUrl: j.url || null,
+                      fingerprint: `${bucketKey}_fc_${stagedVersion}_${idx}_${Date.now()}`,
+                    }
+                  }),
+                  marketProfile: fastMarketProfile,
+                  metadata: {
+                    source: 'apify_live_batch_15',
+                    targetCount: uniqueFastJds.length,
+                  },
+                  validationSummary: {
+                    isValid: true,
+                    checkedAt: new Date(),
+                    jobCount: uniqueFastJds.length,
+                  },
+                  isArchived: false,
+                })
+
+                const [bRoleKey, bExpBucket] = (bucketKey || '').split('::')
+                await JobMarketBucket.findOneAndUpdate(
+                  { bucketKey },
+                  {
+                    $set: {
+                      bucketKey,
+                      roleKey: bRoleKey || 'data-analyst',
+                      experienceBucket: bExpBucket || '6-8',
+                      roleName: roleClean,
+                      activeVersion: stagedVersion,
+                      jobCount: uniqueFastJds.length,
+                      status: 'healthy',
+                      lastSuccessfulRefreshAt: new Date(),
+                    },
+                  },
+                  { upsert: true }
+                )
+                console.log(`[MarketJdRetriever] Fast-Catch version v${stagedVersion} persisted to MongoDB for ${bucketKey}.`)
+              }
+            } catch (persistErr) {
+              console.warn(`[MarketJdRetriever] Failed to persist Fast-Catch version: ${persistErr.message}`)
+            }
+
+            // Enqueue background 50-JD enrichment on success
+            if (autoRefresh) {
+              console.log(`[MarketJdJobs] Background refresh queued for 50-JD enrichment.`)
+              enqueueFullBackgroundBucket(bucketKey).catch(() => {})
+            }
+
+            return {
+              status: 'available',
+              bucketKey,
+              version: stagedVersion,
+              sampleSize: uniqueFastJds.length,
+              marketProfile: fastMarketProfile,
+              jobs: uniqueFastJds,
+            }
+          } else {
+            console.warn(
+              `[MarketJdRetriever] Fast-Catch scrape returned insufficient sample (${uniqueFastJds?.length || 0} < ${MIN_SAMPLE_THRESHOLD}) for ${bucketKey}. Checking adjacent bucket fallback...`
+            )
+          }
+        } catch (fastErr) {
+          console.warn(`[MarketJdRetriever] Fast-Catch failed: ${fastErr.message}. Checking adjacent bucket fallback...`)
+        }
+
+        // 3. Fallback to nearest populated experienceBucket for the same roleKey
+        const adjacentFallback = await findNearestPopulatedBucket(bucketKey)
+        if (adjacentFallback) {
+          console.log(`[MarketJdRetriever] Serving adjacent populated bucket ${adjacentFallback.bucket.bucketKey} for ${bucketKey}`)
           if (autoRefresh) {
-            console.log(`[MarketJdJobs] Background refresh queued for full 60-80 JDs.`)
             enqueueFullBackgroundBucket(bucketKey).catch(() => {})
           }
-
           return {
             status: 'available',
-            bucketKey,
-            version: stagedVersion,
-            sampleSize: fast35Jds.length,
-            marketProfile: fastMarketProfile,
-            jobs: fast35Jds,
+            bucketKey: adjacentFallback.bucket.bucketKey,
+            originalBucketKey: bucketKey,
+            isFallback: true,
+            fallbackReason: `Adjacent experience level (${adjacentFallback.adjacentExp})`,
+            version: adjacentFallback.version.version,
+            sampleSize: adjacentFallback.version.jobs?.length || adjacentFallback.version.marketProfile?.sampleSize || 0,
+            marketProfile: adjacentFallback.version.marketProfile,
+            jobs: adjacentFallback.version.jobs || [],
+            lastRefreshedAt: adjacentFallback.bucket.lastSuccessfulRefreshAt,
           }
-        } else {
-          console.warn(
-            `[MarketJdRetriever] Fast-Catch scrape returned insufficient sample (${fast35Jds?.length || 0} < ${MIN_SAMPLE_THRESHOLD}) for ${bucketKey}. Aborting version persistence to prevent skewed data.`
-          )
         }
-      } catch (fastErr) {
-        console.warn(`[MarketJdRetriever] Fast-Catch failed: ${fastErr.message}. Enqueueing full background job.`)
+
+        // 4. Background queue fallback if no adjacent bucket exists
+        if (autoRefresh) {
+          console.log(`[MarketJdRetriever] Enqueueing full background refresh for ${bucketKey}...`)
+          enqueueFullBackgroundBucket(bucketKey).catch(() => {})
+          return {
+            status: 'refreshing',
+            bucketKey,
+            version: bucket?.activeVersion || 0,
+            sampleSize: bucket?.jobCount || 0,
+            message: 'Market data is actively refreshing in the background.',
+            marketProfile: null,
+          }
+        }
+
+        return {
+          status: 'unavailable',
+          bucketKey,
+          reason: 'Bucket has no active market data.',
+          marketProfile: null,
+        }
+      })()
+
+      inFlightFastCatch.set(bucketKey, fastCatchPromise)
+      try {
+        return await fastCatchPromise
+      } finally {
+        inFlightFastCatch.delete(bucketKey)
       }
     }
 
-    // 3. Graceful fallback if fast-catch yielded < 10 JDs or was bypassed
+    // If fast-catch was explicitly bypassed, check adjacent fallback or enqueue
+    const adjacentFallback = await findNearestPopulatedBucket(bucketKey)
+    if (adjacentFallback) {
+      if (autoRefresh) {
+        enqueueFullBackgroundBucket(bucketKey).catch(() => {})
+      }
+      return {
+        status: 'available',
+        bucketKey: adjacentFallback.bucket.bucketKey,
+        originalBucketKey: bucketKey,
+        isFallback: true,
+        fallbackReason: `Adjacent experience level (${adjacentFallback.adjacentExp})`,
+        version: adjacentFallback.version.version,
+        sampleSize: adjacentFallback.version.jobs?.length || adjacentFallback.version.marketProfile?.sampleSize || 0,
+        marketProfile: adjacentFallback.version.marketProfile,
+        jobs: adjacentFallback.version.jobs || [],
+        lastRefreshedAt: adjacentFallback.bucket.lastSuccessfulRefreshAt,
+      }
+    }
+
     if (autoRefresh) {
       console.log(`[MarketJdRetriever] Enqueueing full background refresh for ${bucketKey}...`)
       enqueueFullBackgroundBucket(bucketKey).catch(() => {})

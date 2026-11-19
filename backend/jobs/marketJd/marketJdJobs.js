@@ -24,7 +24,7 @@ import {
 } from '../../integrations/apify/apifyJdScraper.js'
 import { processAndSelectTopJds } from '../../agents/resume/market/jdNormalizer.js'
 import { buildMarketProfile } from '../../agents/resume/market/marketProfileBuilder.js'
-import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
+import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText, deduplicateJds } from '../../agents/resume/market/llmJdSkillAnalyzer.js'
 import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolver.js'
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
@@ -85,6 +85,8 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       })
       rawCandidates = scrapeResult.candidates || []
     }
+
+    rawCandidates = deduplicateJds(rawCandidates)
 
     if (rawCandidates.length < 5) {
       throw new Error(`Insufficient candidate JDs retrieved (${rawCandidates.length} items). Keeping current active version.`)
@@ -270,7 +272,7 @@ export async function fetchFastCatchJds({
     return []
   }
 
-  const fastCatchCount = Math.max(35, parseInt(targetCount || 35, 10))
+  const fastCatchCount = Math.max(10, parseInt(targetCount || 15, 10))
   console.log(`[MarketJdJobs] Starting Real Fast-Catch scrape for role: "${targetRoleTitle}" (Bucket: ${expBucket}, Specialization: ${resolvedSpecialization}, Target: ${fastCatchCount} JDs, Timeout: ${timeoutMs}ms)...`)
 
   // Attempt 1: Fast API-based actor (harvestapi/linkedin-job-search)
@@ -320,7 +322,7 @@ export async function fetchFastCatchJds({
         position: `${targetRoleTitle} ${resolvedSpecialization !== 'general' ? resolvedSpecialization : ''}`.trim(),
         country: 'US',
         location: 'United States',
-        maxItems: Math.max(35, fastCatchCount),
+        maxItems: Math.max(15, fastCatchCount),
       }, Math.min(45000, timeoutMs))
 
       const rawFallback = (fallbackItems || []).map((item) => ({
@@ -352,10 +354,11 @@ export async function fetchFastCatchJds({
     }
   }
 
-  console.log(`[MarketJdJobs] Scraped ${validJds.length} valid JDs for role: "${targetRoleTitle}" (Bucket: ${expBucket})`)
+  validJds = deduplicateJds(validJds)
+  console.log(`[MarketJdJobs] Scraped ${validJds.length} valid unique JDs for role: "${targetRoleTitle}" (Bucket: ${expBucket})`)
 
-  if (validJds.length < 15) {
-    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 15 live JDs for "${targetRoleTitle}". Found ${validJds.length}. Aborting to prevent fake data.`)
+  if (validJds.length < 10) {
+    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 10 live JDs for "${targetRoleTitle}". Found ${validJds.length}. Aborting to prevent fake data.`)
   }
 
   return validJds
@@ -365,6 +368,7 @@ export async function fetchFastCatchJds({
  * Persists an upgraded Market Version to MongoDB atomically swapping previous versions.
  */
 export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, sourceMetadata = {}) {
+  const dedupedJds = deduplicateJds(validJds)
   const parts = String(bucketKey || '').split('::')
   const roleKey = parts[0] || 'data-analyst'
   const validBuckets = ['0-2', '3-5', '6-8', '8+']
@@ -392,9 +396,9 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
 
   const marketProfile = {
     bucketKey: sanitizedBucketKey,
-    sampleSize: analysis.sampleSize || validJds.length,
+    sampleSize: analysis.sampleSize || dedupedJds.length,
     skills: discoveredSkills,
-    totalAnalyzed: analysis.totalAnalyzed || validJds.length,
+    totalAnalyzed: analysis.totalAnalyzed || dedupedJds.length,
     topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
     responsibilities: analysis.responsibilities || [],
     senioritySignals: analysis.senioritySignals || [],
@@ -409,7 +413,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
   await JobMarketVersion.create({
     bucketKey: sanitizedBucketKey,
     version: nextVersion,
-    jobs: validJds.map((j, idx) => {
+    jobs: dedupedJds.map((j, idx) => {
       const analyzed = analyzedJobs[idx] || {}
       return {
         title: j.title || bucket.roleName,
@@ -430,7 +434,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
     validationSummary: {
       isValid: true,
       checkedAt: new Date(),
-      jobCount: validJds.length,
+      jobCount: dedupedJds.length,
     },
     isArchived: false,
   })
@@ -442,7 +446,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
   )
 
   bucket.activeVersion = nextVersion
-  bucket.jobCount = validJds.length
+  bucket.jobCount = dedupedJds.length
   bucket.status = 'healthy'
   bucket.lastSuccessfulRefreshAt = new Date()
   bucket.refreshError = null
@@ -570,6 +574,8 @@ export async function runDetachedBackgroundScrape(bucketKey) {
         console.warn(`[MarketJdJobs] Background fallback scraper error: ${fbErr.message}`)
       }
     }
+
+    validBackgroundJds = deduplicateJds(validBackgroundJds)
 
     if (validBackgroundJds.length >= 15) {
       console.log(`[MarketJdJobs] Analyzing ${validBackgroundJds.length} background JDs dynamically via Gemini Flash...`)

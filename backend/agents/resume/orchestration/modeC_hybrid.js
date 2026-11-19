@@ -24,6 +24,8 @@ import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
 import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
+import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
+import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
@@ -250,6 +252,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
             skills: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
           })
         }
+        const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(origText, cleanedText)
         return {
           ...rw,
           original: origText,
@@ -258,6 +261,8 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           rewrittenText: cleanedText,
           readyToUseRewrite: cleanedText,
           critique: rw.critique || rw.reason || rw.diagnosis || '',
+          whyItWorks,
+          why: whyItWorks,
           fiveParts: rw.fiveParts || rw.fivePartFlags || null,
           impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
           status: rw.status || 'warn',
@@ -471,6 +476,7 @@ export function buildHybridPrompt({
   marketContext,
   assessmentDirectives = null,
   answers = {},
+  fewShotBlock = '',
 }) {
   const candidateContext = answers && Object.keys(answers).length > 0 ? `
 ==================================================
@@ -650,11 +656,12 @@ Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades"
 6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
 ==================================================
 Always populate "summaryOptimization" in the output JSON.
+ANTI-REPETITION MANDATE: Strictly FORBID copy-pasting the exact wording, sentences, or metrics of individual bulletRewrites into rewrittenSummary. The summary synthesizes the high-altitude career-level arc: total domain specialization, architectural scope, and 1-2 broad headline outcomes. Individual bullet rewrites carry granular implementation proof.
 - If the resume has NO summary section (or is empty/missing):
   * Set "status": "missing"
   * Set "currentSummary": "No Professional Summary section found on resume"
   * Set "diagnosis": Direct recruiter critique explaining why missing an executive summary hurts 6-second recruiter scan conversion for the target role (forces recruiter to hunt across old bullets to deduce seniority and engineering scope).
-  * Set "rewrittenSummary": You MUST synthesize a high-impact, powerhouse 3-to-4 sentence Executive Resume Summary tailored to the Target Role from their verified career achievements, scale metrics, and core tech stack so they can paste it directly at the top of their resume:
+  * Set "rewrittenSummary": You MUST synthesize a high-impact, ready-to-use 3-to-4 sentence Executive Resume Summary tailored to the Target Role from their verified career achievements, scale metrics, and core tech stack so they can paste it directly at the top of their resume:
     - Sentence 1: Role title, years of experience, and core architectural specialization.
     - Sentence 2: 2-3 signature quantified engineering/business outcomes from verified work history.
     - Sentence 3: Core production tech stack, cloud/AI capabilities, and target engineering value proposition.
@@ -662,7 +669,7 @@ Always populate "summaryOptimization" in the output JSON.
   * Set "currentSummary": Verbatim current summary text from resume.
   * If it lacks metrics, is generic, uses student/junior phrasing, or has clichés, set "status": "needs_rewrite" (or "strong" if already flawless).
   * Set "diagnosis": Direct recruiter critique of what weakens the current summary for the target role.
-  * Set "rewrittenSummary": Powerhouse 3-to-4 sentence Executive Resume Summary (Sentence 1: Role title & specialization; Sentence 2: 2-3 signature quantified outcomes; Sentence 3: Core production stack & value proposition).
+  * Set "rewrittenSummary": High-impact 3-to-4 sentence Executive Resume Summary (Sentence 1: Role title & specialization; Sentence 2: 2-3 signature quantified outcomes; Sentence 3: Core production stack & value proposition).
 
 - ZERO FABRICATED NUMBERS MANDATE FOR "rewrittenSummary": Use ONLY exact metrics that actually appear in the candidate's resume (or strong qualitative scale statements if no global metric exists). NEVER invent numbers like "2.5 seconds" or percentages not explicitly written in the resume bullets.
 
@@ -838,6 +845,12 @@ CANDIDATE ASSESSMENT & JOB-HUNT CONTEXT (PERSONALIZATION DIRECTIVES)
 ==================================================
 ${assessmentDirectives}
 ` : ''}
+${fewShotBlock ? `
+==================================================
+VETTED FEW-SHOT EXAMPLES (From Upvoted Recruiter Rewrites)
+==================================================
+${fewShotBlock}
+` : ''}
 Synthesize the final report now using this dossier as factual foundation. Return ONLY valid JSON.`,
     },
   ]
@@ -909,6 +922,13 @@ export async function executeModeC({
     state?.assessmentPersona?.agentDirectives?.forResumeAgent ||
     null
 
+  let fewShotBlock = ''
+  try {
+    fewShotBlock = await getDynamicFewShotExamples(effectiveRole, 'bullet_rewrite', 2)
+  } catch (_e) {
+    fewShotBlock = ''
+  }
+
   let messages = buildHybridPrompt({
     compactResume,
     dossier,
@@ -917,6 +937,7 @@ export async function executeModeC({
     marketContext,
     assessmentDirectives,
     answers: candidateAnswers,
+    fewShotBlock,
   })
 
   const contentHash = crypto

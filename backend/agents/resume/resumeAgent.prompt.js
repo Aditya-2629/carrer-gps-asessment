@@ -21,9 +21,10 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES:
      "Engineered high-throughput REST APIs using Node.js and Express, containerized using Docker and deployed through automated CI/CD pipelines."
    - Keep companion skill realism intact: only weave technologies that naturally belong in the candidate's core stack.
 
-2. HUMANIZE TONE & BAN CORPORATE BUZZWORDS:
-   - STRICTLY BANNED WORDS: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate", "dynamic", "responsible for", and em-dashes (—).
-   - Use plain, strong action verbs: built, cut, automated, migrated, engineered, architected, delivered, optimized.
+2. HUMANIZE TONE & BAN CORPORATE BUZZWORDS & INTERNAL IDs:
+   - STRICTLY BANNED WORDS: "spearheaded", "leveraged", "leveraging", "synergistic", "cutting-edge", "results-driven", "passionate", "dynamic", "powerhouse", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "responsible for", and em-dashes (—).
+   - Use plain, strong action verbs: built, cut, automated, migrated, engineered, architected, delivered, optimized, scaled, using.
+   - STRICTLY FORBID INTERNAL IDs IN USER PROSE: Never mention raw bullet or issue IDs (e.g., "exp_001_b01", "proj_002_b01", "iss_001") in priorityActions, recommendations, or overallReview prose. Always refer to achievements naturally (e.g. "your CloudScale Networks experience bullet" or "your telemetry ingestion project bullet").
 
 3. STAR/CAR BULLET FORMULA:
    - Every bullet must follow: [Context / Problem] -> [Action with specific Tool] -> [Measurable Outcome / Metric].
@@ -59,9 +60,10 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES
      "Engineered high-throughput REST APIs using Node.js and Express, containerized using Docker and deployed through automated CI/CD pipelines."
    - Keep companion skill realism intact: only weave technologies that naturally belong in the candidate's core stack.
 
-2. HUMANIZE TONE & BAN CORPORATE BUZZWORDS:
-   - STRICTLY BANNED WORDS: "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate", "dynamic", "responsible for", and em-dashes (—).
-   - Use plain, strong action verbs: built, cut, automated, migrated, engineered, architected, delivered, optimized.
+2. HUMANIZE TONE & BAN CORPORATE BUZZWORDS & INTERNAL IDs:
+   - STRICTLY BANNED WORDS: "spearheaded", "leveraged", "leveraging", "synergistic", "cutting-edge", "results-driven", "passionate", "dynamic", "powerhouse", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "responsible for", and em-dashes (—).
+   - Use plain, strong action verbs: built, cut, automated, migrated, engineered, architected, delivered, optimized, scaled, using.
+   - STRICTLY FORBID INTERNAL IDs IN USER PROSE: Never mention raw bullet or issue IDs (e.g., "exp_001_b01", "proj_002_b01", "iss_001") in priorityActions, recommendations, or overallReview prose. Always refer to achievements naturally (e.g. "your CloudScale Networks experience bullet" or "your telemetry ingestion project bullet").
 
 3. STAR/CAR BULLET FORMULA:
    - Every bullet must follow: [Context / Problem] -> [Action with specific Tool] -> [Measurable Outcome / Metric].

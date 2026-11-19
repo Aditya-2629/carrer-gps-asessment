@@ -53,8 +53,42 @@ export const BATCH_SIZE = 10
 export const MICRO_BATCH_SIZE = 5
 
 /**
+ * Deduplicates scraped Jds by jobUrl, url, sourceJobId, or title::company fallback.
+ * Prevents pagination overlaps and combined scrapers from counting identical jobs twice.
+ */
+export function deduplicateJds(jds = []) {
+  if (!Array.isArray(jds)) return []
+  const seen = new Set()
+  const unique = []
+
+  for (const job of jds) {
+    if (!job || typeof job !== 'object') continue
+
+    const rawUrl = job.jobUrl || job.url || job.sourceUrl || ''
+    const cleanUrl = rawUrl ? String(rawUrl).trim().toLowerCase().replace(/\/+$/, '') : ''
+
+    const sourceJobId = job.sourceJobId || job.id || job.jobId || ''
+    const cleanId = sourceJobId ? String(sourceJobId).trim() : ''
+
+    const title = String(job.title || job.jobTitle || '').toLowerCase().trim()
+    const company = String(job.company || job.companyName || '').toLowerCase().trim()
+    const fallbackKey = (title && company) ? `${title}::${company}` : ''
+
+    const key = cleanUrl || cleanId || fallbackKey
+
+    if (key) {
+      if (seen.has(key)) continue
+      seen.add(key)
+    }
+    unique.push(job)
+  }
+
+  return unique
+}
+
+/**
  * Clean and prune JD text to remove boilerplate noise (EEO, benefits, culture)
- * and preserve technical requirements, stack, and responsibilities up to 4000 characters.
+ * and preserve technical requirements, stack, and responsibilities up to 2200 characters.
  */
 export function pruneJdText(text = '') {
   if (!text || typeof text !== 'string') return ''
@@ -66,21 +100,17 @@ export function pruneJdText(text = '') {
     .replace(/(?:equal employment opportunity|equal opportunity employer|we are an equal opportunity|eeo statement|benefits and perks|compensation & benefits|accommodations|reasonable accommodation)[\s\S]*$/i, '')
     .trim() || trimmed
 
-  if (withoutEeo.length <= 4000) {
+  if (withoutEeo.length <= 2200) {
     return withoutEeo
   }
 
-  // 2. If text is long (> 4000 chars), prioritize tech stack, qualifications, and responsibilities
-  const match = withoutEeo.match(/(?:requirements|qualifications|skills|technical skills|tech stack|what you(?:'ll)? need|what we(?:'re)? looking for|to be considered|good fit|must have|who you are|what you will do|as a .*? you will|responsibilities)[\s\S]{300,4000}/i)
+  // 2. If text is long (> 2200 chars), prioritize tech stack, qualifications, and responsibilities
+  const match = withoutEeo.match(/(?:requirements|qualifications|skills|technical skills|tech stack|what you(?:'ll)? need|what we(?:'re)? looking for|to be considered|good fit|must have|who you are|what you will do|as a .*? you will|responsibilities)[\s\S]{300,2200}/i)
   if (match) {
     return match[0].trim()
   }
 
-  // 3. Fallback for long unstructured JDs: skip initial 300 chars of PR blurbs if very long, take next 3700 chars
-  if (withoutEeo.length > 5000) {
-    return withoutEeo.slice(300, 4000).trim()
-  }
-  return withoutEeo.slice(0, 4000).trim()
+  return withoutEeo.slice(0, 2200).trim()
 }
 
 // --- 1. SKILL EXTRACTION PROMPT (PER-JD ANALYSIS) ---
@@ -145,7 +175,7 @@ SCHEMA:
 }
 
 JOB DESCRIPTIONS:
-${jdsTextList.map((jd, idx) => `--- JD #${idx + 1} ---\n${String(jd).slice(0, 1500)}`).join('\n\n')}`;
+${jdsTextList.map((jd, idx) => `--- JD #${idx + 1} ---\n${pruneJdText(jd)}`).join('\n\n')}`;
 };
 
 /**
@@ -161,7 +191,7 @@ export async function extractSkillsFromBatch1Shot({ role = 'Professional', jdsTe
   const response = await llmGateway.generate({
     purpose: 'market_jd_analysis',
     stage: 'BATCH_1SHOT_JD_EXTRACTION',
-    model: 'google/gemini-3.5-flash-lite',
+    model: 'google/gemini-2.5-flash-lite',
     preferredProvider: 'openrouter',
     messages: [
       { role: 'user', content: prompt },
@@ -394,7 +424,7 @@ export async function extractSkillsFromSingleJd({ jobTitle = '', jobDescription 
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash-lite',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [
         { role: 'system', content: SKILL_EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: buildSkillExtractionUserMessage(jobTitle, jobDescription.slice(0, 3000)) },
@@ -466,7 +496,7 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash-lite',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [
         { role: 'system', content: TAXONOMY_NORMALIZER_SYSTEM_PROMPT },
         { role: 'user', content: buildTaxonomyNormalizerUserMessage(uniqueUncached) },
@@ -594,7 +624,8 @@ export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
  * Deterministic fallback corpus extraction for offline tests or when LLM gateway is unavailable.
  */
 export async function fallbackCorpusExtraction(jds = [], role = 'Professional') {
-  const totalJds = jds.length
+  const dedupedJds = deduplicateJds(jds)
+  const totalJds = dedupedJds.length
   const analyzedJobs = []
   const skillOccurrences = new Map()
   const respOccurrences = new Map()
@@ -602,7 +633,7 @@ export async function fallbackCorpusExtraction(jds = [], role = 'Professional') 
 
   console.log(`[LlmJdAnalyzer] Running deterministic corpus extraction for ${totalJds} JDs (${role})...`)
 
-  for (const job of jds) {
+  for (const job of dedupedJds) {
     const rawText = job.description || job.jobDescription || job.text || job.body || ''
     const cleanText = pruneJdText(rawText)
     const skills = extractSkillsFromJd(cleanText)
@@ -728,7 +759,8 @@ export const INTERN_OR_ENTRY_LEVEL_SKILLS = new Set([
  * Chunks JDs into small groups of 5 JDs to prevent token truncation, timeouts, and hallucinated frequencies.
  */
 export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], options = {}) {
-  if (!Array.isArray(jds) || jds.length === 0) {
+  const dedupedJds = deduplicateJds(jds)
+  if (!Array.isArray(dedupedJds) || dedupedJds.length === 0) {
     return {
       discoveredSkills: [],
       marketSkills: [],
@@ -742,11 +774,11 @@ export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], 
 
   const expBucket = options.experienceBucket || '3-5'
   const isSenior = expBucket === '6-8' || expBucket === '8+'
-  const totalJds = jds.length
+  const totalJds = dedupedJds.length
   console.log(`[LlmJdAnalyzer] Starting scalable micro-batch analysis for ${totalJds} JDs (Role: "${role}")...`)
 
   // Step 1: Pre-process each JD with smart pruning
-  const preparedJds = jds.map((jd, idx) => ({
+  const preparedJds = dedupedJds.map((jd, idx) => ({
     rawJob: jd,
     title: jd.title || jd.jobTitle || role,
     company: jd.company || 'Enterprise Employer',
@@ -810,7 +842,7 @@ ${formattedJobs}`
       const response = await aiGateway.execute({
         provider: 'gemini',
         preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash-lite',
+        model: 'google/gemini-2.5-flash-lite',
         systemPrompt: 'You are an expert talent taxonomy engine. Extract skills, responsibilities, and seniority signals strictly adhering to the JSON schema. No fluff, no markdown fences.',
         prompt,
         temperature: 0.1,
@@ -997,7 +1029,8 @@ ${formattedJobs}`
  * Backward-compatible entrypoint: Analyzes an entire pool of JDs and produces a normalized skill matrix.
  */
 export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
-  if (!Array.isArray(rawJds) || rawJds.length === 0) {
+  const dedupedJds = deduplicateJds(rawJds)
+  if (dedupedJds.length === 0) {
     return {
       totalAnalyzed: 0,
       marketSkills: [],
@@ -1010,14 +1043,15 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
   }
 
   const [roleKey, expPart] = (bucketKey || '').split('::')
-  const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
+  const roleClean = (dedupedJds[0]?.title || roleKey || 'Professional')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
 
-  return await analyzeJdBatchWithGemini(roleClean, rawJds, { experienceBucket: expPart || '3-5' })
+  return await analyzeJdBatchWithGemini(roleClean, dedupedJds, { experienceBucket: expPart || '3-5' })
 }
 
 export default {
+  deduplicateJds,
   SKILL_EXTRACTION_SYSTEM_PROMPT,
   buildSkillExtractionUserMessage,
   TAXONOMY_NORMALIZER_SYSTEM_PROMPT,

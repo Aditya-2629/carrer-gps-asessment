@@ -20,6 +20,7 @@ import {
   buildTask1HeadlinesAndBannerPrompt,
   buildTask2AboutAndFeaturedPrompt,
 } from './linkedinSynthesis.prompt.js'
+import { getDynamicFewShotExamples } from '../../services/promptExampleService.js'
 
 /**
  * Dynamically derives 5 Open-to-Work titles based on the candidate's actual target role.
@@ -250,21 +251,25 @@ export function buildDeterministicOptimizations(
   const bullet2 = allBullets[1] || ''
   const bullet3 = allBullets[2] || ''
 
+  const top5Skills = effectiveSkills.slice(0, 5).join(' | ') || topSkillList
+  const top6Skills = effectiveSkills.slice(0, 6).join(' • ') || topSkillList
+  const primaryDomainSkill = effectiveSkills[0] || targetRole
+
   const fallbackHeadlines = [
     {
       formula: 'Proof & Milestone First',
-      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency production systems'} | ${targetRole} specializing in ${topSkillList} to accelerate enterprise delivery`.slice(0, 220),
-      whyItWorks: 'Hooks recruiters immediately with verified scale before delivering exact searchable role and tool keywords.',
+      headline: `${metricPhrase ? `Delivered ${metricPhrase}` : `Delivering measurable outcomes in ${primaryDomainSkill}`} | ${targetRole} • Senior Specialist | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Hooks recruiters immediately with verified scale and packs 5-7 searchable technical keywords for boolean search algorithms.',
     },
     {
       formula: 'Curiosity & Problem Solver',
-      headline: `I help enterprise teams eliminate complex system and data bottlenecks | ${targetRole} driving ${topSkillList}`.slice(0, 220),
-      whyItWorks: 'Conversational human hook stating who you help and the business problem solved, followed by high-demand recruiter keywords.',
+      headline: `Helping teams resolve complex operational challenges & accelerate delivery | ${targetRole} specializing in ${effectiveSkills.slice(0, 5).join(' • ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Conversational hook stating who you help and problem solved, followed by high-demand recruiter keywords and target title.',
     },
     {
       formula: 'Specialist Authority',
-      headline: `Designing resilient architectures and low-latency workflows for scale | ${targetRole} focused on ${topSkillList} and operational excellence`.slice(0, 220),
-      whyItWorks: 'Positions deep domain authority and target role keywords without generic buzzwords or pipe-spam.',
+      headline: `Driving strategic impact and robust solutions in ${primaryDomainSkill} | ${targetRole} | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Positions deep domain authority with target role keywords and dense tool indexing for recruiter filters.',
     },
   ]
 
@@ -286,34 +291,34 @@ export function buildDeterministicOptimizations(
 
   // 4-Part Video Copywriting Framework (Credibility Hook -> Audience & Problem -> Approach & Skills -> Closing CTA)
   let hook = metricPhrase
-    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes.`
-    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact.`
+    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes while aligning engineering efforts directly with executive milestones.`
+    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows across enterprise applications. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact and dependable systems at scale.`
 
   if (isHealthRole) {
-    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes.`
+    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes and maintain pristine clinical documentation.`
   } else if (isFinanceRole) {
-    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence.`
+    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence, risk mitigation strategies, and high-velocity fiscal operations.`
   }
 
-  let audienceAndProblem = `I partner with engineering leaders and cross-functional teams looking to eliminate system bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing friction points so core platforms scale predictably under heavy operational demands.`
+  let audienceAndProblem = `I partner with engineering leaders, product directors, and cross-functional squads looking to eliminate architectural bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing operational friction points so core platforms scale predictably under heavy production demands without compromising code quality or release predictability.`
   if (isHealthRole) {
-    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions.`
+    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions. I focus on optimizing bedside workflow transitions and mitigating patient care delays across multi-disciplinary units.`
   } else if (isFinanceRole) {
-    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance.`
+    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance. I specialize in unblocking fragmented accounting workflows and establishing dependable financial controls.`
   }
 
-  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale seamlessly without technical debt or operational regressions.`
+  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale smoothly without technical debt or operational regressions. By grounding system designs in reliable monitoring and domain-driven patterns, I help teams build resilient infrastructure that stands up to sustained enterprise load.`
   if (isHealthRole) {
-    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings.`
+    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings, ensuring patient safety remains paramount while reducing inter-departmental handoff latency.`
   } else if (isFinanceRole) {
-    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment.`
+    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment, reducing cycle times while safeguarding regulatory integrity.`
   }
 
-  let closingCta = `If you are scaling high-reliability systems or looking for dedicated ${targetRole} expertise, let's connect.`
+  let closingCta = `If you are scaling high-reliability systems, navigating technical modernization, or looking for dedicated ${targetRole} expertise, let's connect and discuss how we can build together.`
   if (isHealthRole) {
-    closingCta = `If you are expanding your clinical team or advancing healthcare delivery standards, let's connect.`
+    closingCta = `If you are expanding your clinical team, driving patient safety initiatives, or advancing healthcare delivery standards, let's connect.`
   } else if (isFinanceRole) {
-    closingCta = `If you are modernizing financial analytics or expanding your fiscal leadership team, let's connect.`
+    closingCta = `If you are modernizing financial analytics, accelerating close cycles, or expanding your fiscal leadership team, let's connect.`
   }
 
   const fullText = `${hook}\n\n${audienceAndProblem}\n\n${approachAndSkills}\n\n${closingCta}`
@@ -401,8 +406,8 @@ export function buildDeterministicOptimizations(
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
 
       const synthPitch = mergedTech.length > 0
-        ? `Production-grade ${pTitle} engineered with ${mergedTech.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-        : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+        ? `${pTitle} focused on ${mergedTech.slice(0, 4).join(', ')} to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
+        : `${pTitle} designed to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
       const pitch = cleanBullet
         ? (cleanBullet.length > 240 ? cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
         : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
@@ -412,8 +417,8 @@ export function buildDeterministicOptimizations(
         description: pitch,
         technologies: mergedTech,
         replaceNote: isMissingOnLi && liProjects.length > 0
-          ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern architecture showcase.`
-          : 'Feature this modern project prominently on LinkedIn to prove hands-on architecture competency.',
+          ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern project showcase.`
+          : 'Feature this modern project prominently on LinkedIn to prove hands-on execution competency.',
       }
     }),
     certifications: (canonical.certifications || []).slice(0, 5).map((c) => ({
@@ -428,11 +433,11 @@ export function buildDeterministicOptimizations(
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
       const pitch = cleanBullet
         ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-        : 'Proves practical system design depth directly at the top of your profile without exposing contact info.'
+        : `Proves practical depth in ${primaryDomainSkill} directly at the top of your profile without exposing contact info.`
       return {
-        title: String(p.title || p.name || 'Featured Architecture Project').split('|')[0].trim(),
+        title: String(p.title || p.name || 'Featured Project').split('|')[0].trim(),
         reason: pitch,
-        callToAction: 'Pin GitHub repository link, architecture diagrams, and a live deployment demo rather than a raw resume PDF.',
+        callToAction: 'Pin project documentation, case study presentation, or live demo link rather than a raw resume PDF.',
       }
     }),
   }
@@ -445,15 +450,15 @@ export function buildDeterministicOptimizations(
     const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
     const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
     const synthPitch = techArr.length > 0
-      ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-      : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+      ? `${pTitle} focused on ${techArr.slice(0, 4).join(', ')} to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
+      : `${pTitle} designed to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
     const pitch = cleanBullet
       ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
       : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
     return {
       title: pTitle,
       reason: pitch,
-      callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+      callToAction: 'Pin this project with case study documentation, key results, and a live portfolio link or demo.',
     }
   })
 
@@ -550,19 +555,19 @@ export function buildDeterministicOptimizations(
       category: 'Recruiter Boolean String',
       trick: '3. Optimize for Recruiter Boolean Search Strings',
       advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
-      items: [`("${targetRole}") AND (${(effectiveSkills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
+      items: [`("${targetRole}") AND (${(effectiveSkills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || `"${effectiveSkills[0] || targetRole}"`})`],
     },
     {
       category: 'Featured Media Architecture',
-      trick: '4. Showcase High-Scale Technical Artifacts',
-      advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
-      items: [`${top3Tools.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
+      trick: '4. Showcase High-Impact Career Artifacts',
+      advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real execution. Pin high-impact professional artifacts directly to your profile top.',
+      items: [`${top3Tools.join(' + ')} Portfolio & Case Study`, 'Live Portfolio / Demo Link'],
     },
     {
       category: 'Featured Section Asset',
       trick: '5. Pin Live Case Study Over Raw Resume PDF',
-      advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a GitHub architecture repo with a live deployed demo.',
-      items: ['Pin top architecture case study to Featured section'],
+      advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a project case study with a live portfolio link or demo.',
+      items: ['Pin top project case study to Featured section'],
     },
   ]
 
@@ -676,6 +681,21 @@ export async function runLinkedInSynthesis(
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
+    // Fetch dynamic vetted few-shot examples for headlines & about in parallel (non-blocking)
+    let headlineExamples = ''
+    let aboutExamples = ''
+    try {
+      const [hlEx, abEx] = await Promise.all([
+        getDynamicFewShotExamples(targetRole, 'linkedin_headline', 2),
+        getDynamicFewShotExamples(targetRole, 'linkedin_about', 1),
+      ])
+      headlineExamples = hlEx || ''
+      aboutExamples = abEx || ''
+    } catch (_exErr) {
+      headlineExamples = ''
+      aboutExamples = ''
+    }
+
     const task1Messages = buildTask1HeadlinesAndBannerPrompt({
       profile,
       resumeContext,
@@ -684,6 +704,9 @@ export async function runLinkedInSynthesis(
       signals,
       answers: effectiveAnswers,
     })
+    if (headlineExamples && task1Messages[1]) {
+      task1Messages[1].content += `\n\n${headlineExamples}`
+    }
 
     const task2Messages = buildTask2AboutAndFeaturedPrompt({
       profile,
@@ -693,6 +716,9 @@ export async function runLinkedInSynthesis(
       signals,
       answers: effectiveAnswers,
     })
+    if (aboutExamples && task2Messages[1]) {
+      task2Messages[1].content += `\n\n${aboutExamples}`
+    }
 
     async function executeTask(taskName, messages, maxTokens) {
       try {
@@ -706,7 +732,7 @@ export async function runLinkedInSynthesis(
           temperature: 0.25,
           maxTokens,
           responseFormat: { type: 'json_object' },
-          timeoutMs: 25000,
+          timeoutMs: 45000,
         })
 
         let parsed = tryParseJson(response?.text)
@@ -723,9 +749,11 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // Run Task 1 then Task 2 sequentially to avoid rate-limit burst collisions
-    const task1Result = await executeTask('Task 1 (Headlines & About)', task1Messages, 4096)
-    const task2Result = await executeTask('Task 2 (Experience & Tricks)', task2Messages, 4096)
+    // Run Task 1 and Task 2 in parallel for lower latency
+    const [task1Result, task2Result] = await Promise.all([
+      executeTask('Task 1 (Headlines & About)', task1Messages, 4096),
+      executeTask('Task 2 (Experience & Tricks)', task2Messages, 4096),
+    ])
 
     if (!task1Result && !task2Result) {
       console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')

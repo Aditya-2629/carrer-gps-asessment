@@ -122,6 +122,21 @@ const useAppStore = create((set) => ({
   email: initial.email,
   userId: initial.userId,
   isVerified: initial.isVerified,
+  sessionToken: typeof localStorage !== 'undefined' ? (localStorage.getItem('crafture_session_token') || sessionStorage.getItem('crafture_session_token')) : null,
+  setSessionToken: (token) => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (token) {
+          localStorage.setItem('crafture_session_token', token)
+          sessionStorage.setItem('crafture_session_token', token)
+        } else {
+          localStorage.removeItem('crafture_session_token')
+          sessionStorage.removeItem('crafture_session_token')
+        }
+      }
+    } catch (_e) {}
+    set({ sessionToken: token })
+  },
   setEmail: (email) => {
     try {
       if (typeof window !== 'undefined') {
@@ -251,6 +266,20 @@ const useAppStore = create((set) => ({
     return { theme: next }
   }),
 
+  // Global Toast Notifications
+  toast: null,
+  showToast: (message, type = 'info') => {
+    if (!message) return
+    set({
+      toast: {
+        id: Date.now() + Math.random(),
+        message: typeof message === 'string' ? message : String(message),
+        type,
+      },
+    })
+  },
+  clearToast: () => set({ toast: null }),
+
   // Dev OTP fallback
   devOtp: '',
   setDevOtp: (devOtp) => set({ devOtp }),
@@ -264,6 +293,8 @@ const useAppStore = create((set) => ({
         localStorage.removeItem(STORAGE_KEYS.EMAIL)
         localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
         localStorage.removeItem(STORAGE_KEYS.IS_VERIFIED)
+        localStorage.removeItem('crafture_session_token')
+        sessionStorage.removeItem('crafture_session_token')
         window.__uploadedResumeFile = null
       }
       clearResumeFileFromStorage()
@@ -274,15 +305,21 @@ const useAppStore = create((set) => ({
       email: '',
       userId: null,
       isVerified: false,
+      sessionToken: null,
       currentStep: 0,
       direction: 1,
       formData: {},
       reportData: null,
       resumeFile: null,
       resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
+      toast: null,
     })
   },
 }))
+
+export const showToast = (message, type = 'info') => {
+  useAppStore.getState().showToast(message, type)
+}
 
 if (typeof window !== 'undefined') {
   window.__useAppStore = useAppStore

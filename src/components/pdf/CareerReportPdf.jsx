@@ -596,17 +596,20 @@ export default function CareerReportPdf({ reportData = {} }) {
 
   // ATS Keyword Alignment
   const kwData = resumeDashboard?.keywordAlignment || resumeAgent?.keywordAlignment || reportData?.keyword_alignment || {}
-  const verifiedKeywords = Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0
-    ? kwData.verifiedExperience.slice(0, 10).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : (Array.isArray(reportData?.verified_skills) ? reportData.verified_skills.slice(0, 10) : ['Python', 'SQL', 'Data Modeling', 'REST APIs', 'Git', 'Agile'])
+  const rawVerified = Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0
+    ? kwData.verifiedExperience
+    : (Array.isArray(reportData?.verified_skills) ? reportData.verified_skills : [])
+  const verifiedKeywords = rawVerified.slice(0, 18).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
-  const skillsOnlyKeywords = Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0
-    ? kwData.skillsOnly.slice(0, 8).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : ['Docker', 'AWS', 'PostgreSQL', 'CI/CD']
+  const rawSkillsOnly = Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0
+    ? kwData.skillsOnly
+    : (Array.isArray(reportData?.skills_only) ? reportData.skills_only : [])
+  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
-  const missingKeywords = Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0
-    ? kwData.criticalMissing.slice(0, 8).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : (Array.isArray(reportData?.missing_skills) ? reportData.missing_skills.slice(0, 8) : ['Snowflake', 'dbt', 'Kubernetes', 'Kafka'])
+  const rawMissing = Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0
+    ? kwData.criticalMissing
+    : (Array.isArray(reportData?.missing_skills) ? reportData.missing_skills : [])
+  const missingKeywords = rawMissing.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
   // Bullet Rewrites: Un-capped list
   const rawBullets = Array.isArray(resumeAgent.bulletRewrites || resumeAgent.bulletSuggestions || resumeDashboard.bulletAudit)
@@ -901,7 +904,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 5, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
             <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
-              Candidate pipeline is currently bottlenecked at {currentPhaseName}. {safeStr(bottleneck.whyItMatters || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
+              Pipeline conversion stalls at {currentPhaseName} ({screenRate}% actual callback vs 5.0% industry target). {safeStr(bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
             </Text>
           </View>
         </View>
@@ -918,7 +921,10 @@ export default function CareerReportPdf({ reportData = {} }) {
             {safeStr(bottleneck.title, 'Application Filtering & Low Callback Velocity')}
           </Text>
           <Text style={{ fontSize: 7.2, color: '#475569', lineHeight: 1.3 }}>
-            {safeStr(bottleneck.whyItMatters)}
+            {safeStr(
+              bottleneck.recommendedPivot || bottleneck.recoveryTarget,
+              'Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity to >= 5.0%.'
+            )}
           </Text>
         </View>
 
@@ -1372,9 +1378,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagPass}>{verifiedKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {verifiedKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipVerified}>{safeStr(kw)}</Text>
-                ))}
+                {verifiedKeywords.length > 0 ? (
+                  verifiedKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipVerified}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No verified skills identified in experience bullets.</Text>
+                )}
               </View>
             </View>
           </View>
@@ -1386,9 +1396,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagWarn}>{skillsOnlyKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {skillsOnlyKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(kw)}</Text>
-                ))}
+                {skillsOnlyKeywords.length > 0 ? (
+                  skillsOnlyKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>None listed exclusively in skills section.</Text>
+                )}
               </View>
             </View>
           </View>
@@ -1400,9 +1414,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {missingKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipMissing}>{safeStr(kw)}</Text>
-                ))}
+                {missingKeywords.length > 0 ? (
+                  missingKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipMissing}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No missing critical skills detected.</Text>
+                )}
               </View>
             </View>
           </View>
@@ -1454,11 +1472,17 @@ export default function CareerReportPdf({ reportData = {} }) {
               </View>
             </View>
 
-            {(b.why || b.critique || b.recommendation) && (
+            {(b.whyItWorks || b.why || b.critique) && (
               <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                <Text style={{ fontSize: 6.8, color: '#475569' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>Why it works: </Text>
-                  {safeStr(b.why || b.critique || b.recommendation)}
+                {b.critique && (
+                  <Text style={{ fontSize: 6.5, color: '#DC2626', marginBottom: 1 }}>
+                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#991B1B' }}>Issue: </Text>
+                    {safeStr(b.critique)}
+                  </Text>
+                )}
+                <Text style={{ fontSize: 6.8, color: '#166534' }}>
+                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#14532D' }}>Why it works: </Text>
+                  {safeStr(b.whyItWorks || b.why || 'Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.')}
                 </Text>
               </View>
             )}
@@ -1506,7 +1530,7 @@ export default function CareerReportPdf({ reportData = {} }) {
 
         {/* 3 AI Recruiter Headlines */}
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
-          <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (15-20 Words)</Text>
+          <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (Recruiter-SEO Optimized)</Text>
           <Text style={styles.sectionTag}>SEARCH INDEXED</Text>
         </View>
 
@@ -1516,7 +1540,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
                 Option 0{idx + 1} • {safeStr(h.formula || h.style || 'High-Impact')}
               </Text>
-              <Text style={styles.tagNeutral}>15-20 WORDS</Text>
+              <Text style={styles.tagNeutral}>RECRUITER-SEO OPTIMIZED</Text>
             </View>
             <Text style={{ fontSize: 7.6, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
               {safeStr(h.headline)}

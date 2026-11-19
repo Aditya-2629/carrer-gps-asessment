@@ -21,7 +21,6 @@ import { evaluateLinkedIn } from './linkedin/linkedinAgent.js'
 import { LINKEDIN_AGENT } from './core/agentContract.js'
 import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
 import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
 
@@ -154,10 +153,8 @@ export async function runCareerAgents(bundle) {
   }
 
   // ── Stage 0 (Background Apify Scraping Pipeline) ───────────────────────────
-  // When linkedinUrl is provided, start scrapeLinkedInProfile and scrapeLinkedInPosts
-  // immediately in the background and hold both promises concurrently.
+  // When linkedinUrl is provided, start scrapeLinkedInProfile immediately in the background
   let apifyScrapePromise = null
-  let apifyPostsPromise = null
   let effectiveLinkedinUrl = linkedinUrl || ''
   if (!effectiveLinkedinUrl && linkedinData) {
     try {
@@ -165,9 +162,7 @@ export async function runCareerAgents(bundle) {
     } catch (_e) {}
   }
 
-  const fallbackPosts = { posts: [], comments: [], isGhostProfile: true, available: false }
   const doScrapeProfile = bundle._scrapeLinkedInProfile || _scraperOverrides?.scrapeLinkedInProfile || scrapeLinkedInProfile
-  const doScrapePosts = bundle._scrapeLinkedInPosts || _scraperOverrides?.scrapeLinkedInPosts || scrapeLinkedInPosts
 
   if (effectiveLinkedinUrl) {
     if (!linkedinData) {
@@ -189,28 +184,6 @@ export async function runCareerAgents(bundle) {
       } catch (scrapeErr) {
         console.warn('[Orchestrator] Background Apify scrape failed to start:', scrapeErr.message)
         apifyScrapePromise = Promise.resolve(null)
-      }
-    }
-
-    if (!bundle.activityData) {
-      if (onProgress) {
-        onProgress({ stage: 'apify_posts_started', agent: 'linkedin', message: 'Retrieving recent LinkedIn activity & thought leadership…' })
-      }
-      try {
-        apifyPostsPromise = doScrapePosts(effectiveLinkedinUrl, { maxPosts: 15 })
-          .then((res) => {
-            if (onProgress && res) {
-              onProgress({ stage: 'apify_posts_done', agent: 'linkedin', message: 'Apify posts scrape complete: activity & posts retrieved' })
-            }
-            return res || fallbackPosts
-          })
-          .catch((postsErr) => {
-            console.warn('[Orchestrator] Background Apify posts scrape failed or skipped:', postsErr.message)
-            return fallbackPosts
-          })
-      } catch (postsErr) {
-        console.warn('[Orchestrator] Background Apify posts scrape failed to start:', postsErr.message)
-        apifyPostsPromise = Promise.resolve(fallbackPosts)
       }
     }
   }
@@ -376,15 +349,7 @@ export async function runCareerAgents(bundle) {
           activeProfile = null
         }
 
-        // Await background Apify posts scrape if one was started
-        let activePostsData = bundle.activityData || null
-        if (!activePostsData && apifyPostsPromise) {
-          try {
-            activePostsData = await apifyPostsPromise
-          } catch (_err) {
-            activePostsData = { posts: [], comments: [], isGhostProfile: true, available: false }
-          }
-        }
+        const activePostsData = bundle.activityData || null
 
         const linkedinId =
           activeProfile?.publicIdentifier ||

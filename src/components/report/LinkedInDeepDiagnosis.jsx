@@ -203,7 +203,7 @@ function isValidSkill(skill) {
   return true
 }
 
-function LiveScrapedProfileSnapshot({ profileData, activitySignals, rawPosts = [] }) {
+function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
   const [isBioExpanded, setIsBioExpanded] = useState(false)
   if (!profileData || typeof profileData !== 'object') return null
 
@@ -220,7 +220,6 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals, rawPosts = [
     ? profileData.location
     : (profileData.location?.name || profileData.location?.text || 'Not Specified')
   const experiencesCount = (profileData.experiences || profileData.positions || []).length
-  const postsCount = rawPosts.length || activitySignals?.postsAnalyzedCount || activitySignals?.postCount || (profileData.publicPosts?.length ?? profileData.posts?.length ?? 0)
   const about = (profileData.about || profileData.summary || '').trim()
 
   const initials = fullName
@@ -320,11 +319,11 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals, rawPosts = [
 
         <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
-            <Article size={14} className="text-[#0a66c2]" />
-            Public Posts Analyzed
+            <Users size={14} className="text-[#0a66c2]" />
+            Followers
           </div>
           <div className="text-sm font-bold text-[var(--text-primary)] mt-1">
-            {postsCount} Public Post{postsCount === 1 ? '' : 's'} Analyzed
+            {profileData.followersCount || profileData.followers || '500+'}
           </div>
         </div>
       </div>
@@ -365,8 +364,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const [copiedId, setCopiedId] = useState(null)
 
   const activitySignals = linkedinAgent?.activitySignals || reportData?.linkedin_agent?.activitySignals || reportData?.linkedin_activity_signals || null
-  const rawPosts = reportData?.linkedin_activity_data?.posts || linkedinAgent?.activitySignals?.posts || activitySignals?.posts || []
-  const actualPostsCount = rawPosts.length || linkedinAgent?.activitySignals?.postsAnalyzedCount || activitySignals?.postCount || 0
 
   const profileData = useMemo(() => {
     let p = reportData?.linkedin_json || reportData?.user_answers?.linkedinData || linkedinAgent?.scrapedProfile || null
@@ -1176,41 +1173,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     }
   })()
 
-  // ── Extract Dynamic Candidate Context for Thought Leadership Synthesis ──
-  const candidateProjects = consolidatedProjects.length > 0 
-    ? consolidatedProjects 
-    : (reportData?.resume_agent?.canonicalResume?.projects || [])
-  const topCandidateProject = candidateProjects[0] || {
-    title: `${resolvedTargetRole} Implementation`,
-    description: 'Streamlined data and architecture workflows to increase team velocity and data reliability.',
-  }
-  const secondCandidateProject = candidateProjects[1] || {
-    title: 'Automated Metric Reporting',
-    description: 'Built high-impact dashboards and automated verification checks.',
-  }
-  const primaryTechTags = (top3SkillsForTricks && top3SkillsForTricks.length > 0)
-    ? top3SkillsForTricks
-    : ['Analytics', 'Cloud', 'DataStrategy']
-  const hashTagsString = primaryTechTags.map(t => `#${t.replace(/[^a-zA-Z0-9]/g, '')}`).join(' ') + ` #${resolvedTargetRole.replace(/[^a-zA-Z0-9]/g, '')}`
-
-  const dynamicActivityPosts = [
-    {
-      badge: 'Architecture Case Study',
-      title: `How We Solved Pipeline Latency in ${topCandidateProject.title}`,
-      content: `Most reporting and technical bottlenecks aren't query issues—they are architectural governance issues.\n\nIn our recent project (${topCandidateProject.title}):\n${topCandidateProject.description}\n\nKey Engineering Moves:\n1. Re-architected core workflows to eliminate unvalidated ad-hoc transformations.\n2. Implemented automated pre-ingestion checks for data consistency and integrity.\n3. Aligned business metrics with cross-functional stakeholders.\n\nResult: Accelerated delivery cycles and verifiable operational confidence.\n\nWhat architecture pattern do you rely on most in ${resolvedTargetRole} workflows?\n\n${hashTagsString}`,
-    },
-    {
-      badge: 'Technical Best Practice',
-      title: `3 Operational Rules for Scalable ${resolvedTargetRole} Workflows`,
-      content: `Early in my career, manual scripts and reactive fixes were common for quick stakeholder answers. But as systems scale, that approach breaks down fast.\n\nHere are 3 rules our team enforces to keep systems reliable:\n\n• Version-controlled definitions over one-off ad-hoc queries.\n• Automated reconciliation and error-handling before leadership reviews.\n• Unified domain terminology so engineering, operations, and leadership speak the exact same language.\n\n${secondCandidateProject.title ? `Applied directly in ${secondCandidateProject.title} to guarantee audit readiness.` : 'Reliability is built through architecture, not luck.'}\n\nHow does your team enforce operational consistency?\n\n${hashTagsString}`,
-    },
-    {
-      badge: 'Leadership & Domain Insight',
-      title: `The #1 Skill That Actually Moves the Needle in ${resolvedTargetRole}`,
-      content: `After years driving technical deliverables across high-stakes domains, here is my biggest takeaway:\n\nThe most impactful technical professional isn't the one who builds the most complex architecture.\n\nIt's the one who translates technical execution into clear, high-conviction decisions for stakeholders who need reliable outcomes.\n\nFocus on verifiable business impact, not just execution.\n\n#Leadership #EngineeringExcellence ${hashTagsString}`,
-    },
-  ]
-
   return (
     <section id="linkedin-ai" className="space-y-8 scroll-mt-28">
       {/* ── Section Header ─────────────────────────────────────────────────── */}
@@ -1238,39 +1200,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       )}
 
       {/* ── 0. Live Scraped Profile Snapshot (if profile data is available) ────── */}
-      <LiveScrapedProfileSnapshot profileData={profileData} activitySignals={activitySignals} rawPosts={rawPosts} />
-
-      {/* ── 0B. Live Scraped Recent Activity & Posts Feed ──────────────────────── */}
-      {rawPosts.length > 0 && (
-        <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 mb-6 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[var(--border-default)] pb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                Recent Public LinkedIn Activity ({rawPosts.length} Posts Analyzed)
-              </span>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)]">
-              Verified Public Feed
-            </span>
-          </div>
-          <div className="space-y-2.5">
-            {rawPosts.slice(0, 4).map((post, pIdx) => (
-              <div key={pIdx} className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] font-medium">
-                  <span>Post #{pIdx + 1} {post.postedAt?.postedAgoShort ? `· ${post.postedAt.postedAgoShort}` : ''}</span>
-                  <span className="flex items-center gap-2">
-                    <span>👍 {post.engagement?.likes || 0}</span>
-                    <span>💬 {post.engagement?.comments || 0}</span>
-                  </span>
-                </div>
-                <p className="text-[var(--text-primary)] leading-relaxed line-clamp-3">
-                  "{typeof post.content === 'string' ? post.content : (post.content?.text || '')}"
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <LiveScrapedProfileSnapshot profileData={profileData} activitySignals={activitySignals} />
 
       {/* ── 1. Scorecard at the top ────────────────────────────────────────── */}
       <ResumeScoreCard
@@ -1680,121 +1610,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         </div>
       )}
 
-      {/* ── 2.5 Recent Activity, Posts & Content Strategy ── */}
-      <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 sm:p-6 space-y-5 shadow-xs">
-        <div className="flex items-start justify-between gap-3 border-b border-[var(--border-default)] pb-4 flex-wrap">
-          <div className="flex items-start gap-3">
-            <span className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 shrink-0 mt-0.5">
-              <ChatCircleText size={24} weight="duotone" />
-            </span>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                  Public Activity, Posts &amp; Thought Leadership Audit
-                </h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-600 border border-orange-500/20">
-                  Activity Score: 40/100 · Grade D (Dormant)
-                </span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                LinkedIn&apos;s recruiter search algorithm ranks active creators up to 4x higher than dormant profiles. While historical interactions were analyzed, your profile lacks recent original architecture insights.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-secondary)]">
-            Public Posts &amp; Comments Analyzed
-          </span>
-        </div>
-
-        {/* 3 Metric Diagnosis Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] font-mono text-slate-400">Activity Cadence</div>
-            <div className="text-sm font-semibold text-orange-600 dark:text-orange-400 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" />
-              Dormant (&gt;60 Days Inactive)
-            </div>
-            <p className="text-[11px] text-[var(--text-secondary)]">No original technical posts published recently. Recruiter visibility decays after 30 days of inactivity.</p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] font-mono text-slate-400">Interaction Style</div>
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-              Low-Signal Reactions
-            </div>
-            <p className="text-[11px] text-[var(--text-secondary)]">Past activity consists primarily of company updates and reactions rather than original domain commentary.</p>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-1">
-            <div className="text-[10px] font-mono text-slate-400">Recruiter Conversion Impact</div>
-            <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
-              +50 Score Lift Opportunity
-            </div>
-            <p className="text-[11px] text-[var(--text-secondary)]">Publishing 1 high-value project case study per month moves your Activity score from 40/100 to 90/100.</p>
-          </div>
-        </div>
-
-        {/* 3 Ready-to-Publish Thought Leadership Post Templates */}
-        <div className="space-y-3 pt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-[var(--text-muted)] flex items-center gap-1.5">
-              <Article size={14} className="text-amber-500" />
-              3 Pre-Engineered Thought Leadership Posts (1-Click Copy)
-            </span>
-            <span className="text-[11px] font-mono text-[var(--text-muted)]">
-              Calibrated to {resolvedTargetRole} Domain Authority
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {dynamicActivityPosts.map((post, pIdx) => {
-              const copyKey = `post_template_${pIdx}`
-              const isCopied = copiedId === copyKey
-              return (
-                <div
-                  key={pIdx}
-                  className="flex flex-col justify-between bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 space-y-3 shadow-2xs hover:border-[var(--primary)]/40 transition-colors"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                        {post.badge}
-                      </span>
-                    </div>
-                    <div className="font-semibold text-xs text-[var(--text-primary)]">
-                      {post.title}
-                    </div>
-                    <p className="text-[11px] text-[var(--text-secondary)] whitespace-pre-line leading-relaxed font-mono bg-[var(--surface-card)] p-3 rounded-lg border border-[var(--border-default)] max-h-48 overflow-y-auto">
-                      {post.content}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(post.content, copyKey)}
-                    className={`w-full py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                      isCopied
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-[var(--surface-card)] hover:bg-[var(--surface-card)]/80 text-[var(--text-primary)] border border-[var(--border-default)]'
-                    }`}
-                  >
-                    {isCopied ? (
-                      <>
-                        <Check size={13} weight="bold" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={13} /> Copy Post to Publish
-                      </>
-                    )}
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
       {/* ── 3. AI Optimization Suite ───────────────────────────────────────── */}
       {optimizations && (
         <div className="space-y-6">
@@ -1812,7 +1627,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
             <div
               id="linkedin-headlines"
               className="space-y-3"
-              data-mascot-cue="Deploy a proof-first headline with 15-20 words to maximize recruiter search ranking and inbound discovery."
+              data-mascot-cue="Deploy a recruiter-SEO optimized headline with proven keywords to maximize search ranking and inbound discovery."
               data-mascot-chip="Headline Optimization"
               data-mascot-emotion="coach"
             >
@@ -1822,7 +1637,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   Recruiter-Searchable Headlines (3 Options)
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">
-                  Grounded in verified resume + target role (15–20 words)
+                  Grounded in verified resume + target role (Recruiter-SEO Optimized)
                 </span>
               </div>
 

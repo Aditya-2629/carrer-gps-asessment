@@ -35,7 +35,7 @@ export default function GatePhase() {
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md"
       >
-        <div className="quiz-card p-8">
+        <div className="quiz-card p-5 sm:p-8">
           <AnimatePresence mode="wait">
             {gateStep === GATE_STEPS.EMAIL ? (
               <motion.div

@@ -13,6 +13,7 @@
 
 import { extractSkillsFromJd, extractResponsibilitiesFromJd, extractSenioritySignalsFromJd } from './jdNormalizer.js'
 import { dynamicClusterizer } from './dynamicCompetencyClusterizer.js'
+import { normalizeCanonicalSkill } from './llmJdSkillAnalyzer.js'
 
 export const MARKET_PROFILE_VERSION = 'market-profile-v1'
 
@@ -65,10 +66,16 @@ export function buildMarketProfile(bucketKeyOrJobs, jobsOrOptions = []) {
     const jobId = job.sourceJobId || `job_${idx + 1}`
 
     // 1. Skills frequency & evidence snippets (auto extract if empty)
-    const jobSkills = job.skills && job.skills.length > 0
+    const rawSkills = job.skills && job.skills.length > 0
       ? job.skills
       : extractSkillsFromJd(job.normalizedDescription || job.description || '')
-    const uniqueJobSkills = new Set(jobSkills)
+
+    // Normalize each skill to its canonical name before deduplicating in Set
+    const normalizedSkills = rawSkills
+      .map((s) => normalizeCanonicalSkill(s) || s)
+      .filter((s) => s && typeof s === 'string' && s.trim().length >= 2)
+
+    const uniqueJobSkills = new Set(normalizedSkills)
 
     uniqueJobSkills.forEach((skill) => {
       skillCounts.set(skill, (skillCounts.get(skill) || 0) + 1)
@@ -130,7 +137,7 @@ export function buildMarketProfile(bucketKeyOrJobs, jobsOrOptions = []) {
     .sort((a, b) => b.frequency - a.frequency)
 
   // Top keywords for search/indexing
-  const topKeywords = skills.slice(0, 15).map((s) => s.name)
+  const topKeywords = skills.slice(0, 30).map((s) => s.name)
 
   // Flatten evidence snippets for top skills
   const marketEvidence = []

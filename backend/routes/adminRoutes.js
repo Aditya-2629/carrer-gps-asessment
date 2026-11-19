@@ -46,6 +46,8 @@ import {
   updateScrapeSlider,
   injectDynamicKey,
   triggerLiveBucketScrape,
+  updateEngineConfig,
+  getAdminHealth,
 } from '../controllers/adminDynamicController.js'
 import {
   getFallbackAndErrorAnalytics,
@@ -53,6 +55,7 @@ import {
   purgeKeyCooldowns,
   resetCooldowns,
   pingJevDecisions,
+  getSelfLearningInsights,
 } from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -73,7 +76,9 @@ router.patch('/leads/:id', updateLeadStage)
 router.post('/leads/:id/override-bullet', overrideBulletRewrite)
 
 // ── Zero-Restart Dynamic Engine & SmartKeyPool ──────────────────────────────
+router.get('/health', getAdminHealth)
 router.get('/engine/config', getEngineConfig)
+router.patch('/engine/config', updateEngineConfig)
 router.post('/engine/roles', createDynamicRole)
 router.post('/engine/scrape-slider', updateScrapeSlider)
 router.post('/engine/keys', injectDynamicKey)
@@ -86,6 +91,7 @@ router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
 router.post('/telemetry/reset-cooldowns', resetCooldowns)
 router.post('/telemetry/ping-jev', pingJevDecisions)
 router.get('/telemetry/ping-jev', pingJevDecisions)
+router.get('/learning/insights', getSelfLearningInsights)
 
 // ── User Management & Cascade Cleanup ───────────────────────────────────────
 router.get('/stats', getStats)

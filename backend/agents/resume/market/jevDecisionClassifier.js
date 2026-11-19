@@ -10,7 +10,10 @@
  * - GENERIC_NOISE: General soft skills, non-technical business nouns
  */
 
+import mongoose from 'mongoose'
+import SkillDecisionCache from '../../../models/SkillDecisionCache.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
+import { normalizeCanonicalSkill } from './llmJdSkillAnalyzer.js'
 
 export const JEV_DECISION_CACHE = new Map()
 
@@ -66,6 +69,7 @@ export async function classifySkillsWithJev(tokens = [], role = 'Professional', 
   const rejectedTerms = []
   const uncached = []
 
+  // Stage 1: In-Memory O(1) Cache + Entity Rule Filter
   for (const token of tokens) {
     if (!token || typeof token !== 'string') continue
     const clean = token.trim()
@@ -76,7 +80,7 @@ export async function classifySkillsWithJev(tokens = [], role = 'Professional', 
       if (cached.isSkill) {
         validSkills.push(clean)
       } else {
-        rejectedTerms.push({ term: clean, decision: cached.decision, reason: 'Cached decision' })
+        rejectedTerms.push({ term: clean, decision: cached.decision, reason: 'Cached in-memory decision' })
       }
       continue
     }
@@ -96,26 +100,68 @@ export async function classifySkillsWithJev(tokens = [], role = 'Professional', 
     return { validSkills: Array.from(new Set(validSkills)), rejectedTerms }
   }
 
+  // Stage 2: Persistent MongoDB Cache Batch-Lookup
   const uniqueUncached = Array.from(new Set(uncached))
+  const missingFromBoth = []
 
-  // Attempt 1: Direct OpenRouter Decisions API with official slug typesafe/jev-1.14
+  if (mongoose.connection && mongoose.connection.readyState === 1) {
+    try {
+      const uncachedLowers = uniqueUncached.map((t) => t.toLowerCase())
+      const dbDocs = await SkillDecisionCache.find({
+        termLower: { $in: uncachedLowers },
+      }).lean()
+
+      const dbMap = new Map(dbDocs.map((d) => [d.termLower, d]))
+
+      for (const term of uniqueUncached) {
+        const lower = term.toLowerCase()
+        if (dbMap.has(lower)) {
+          const doc = dbMap.get(lower)
+          JEV_DECISION_CACHE.set(lower, {
+            decision: doc.decision,
+            isSkill: doc.isSkill,
+            canonical: doc.canonical,
+            confidence: 1.0,
+          })
+          if (doc.isSkill) {
+            validSkills.push(term)
+          } else {
+            rejectedTerms.push({ term, decision: doc.decision, reason: 'Cached DB decision' })
+          }
+        } else {
+          missingFromBoth.push(term)
+        }
+      }
+    } catch (dbErr) {
+      console.warn(`[JevClassifier] MongoDB cache lookup error: ${dbErr.message}`)
+      missingFromBoth.push(...uniqueUncached)
+    }
+  } else {
+    missingFromBoth.push(...uniqueUncached)
+  }
+
+  if (missingFromBoth.length === 0) {
+    return { validSkills: Array.from(new Set(validSkills)), rejectedTerms }
+  }
+
+  // Stage 3: Query typesafe/jev-1.14 ONLY for terms missing from both caches
   let decisionMap = new Map()
   let jevSucceeded = false
   const openRouterKey = (process.env.OPENROUTER_API_KEY || '').trim()
 
   if (openRouterKey) {
     try {
-      console.log(`[JevClassifier] Querying OpenRouter Decisions API (typesafe/jev-1.14) for ${uniqueUncached.length} terms...`)
+      console.log(`[JevClassifier] Querying typesafe/jev-1.14 for ${missingFromBoth.length} uncached terms...`)
       const questionsObj = {}
-      uniqueUncached.forEach((term, idx) => {
+      missingFromBoth.forEach((term, idx) => {
         questionsObj[`term_${idx}`] = {
           type: 'choice',
           instructions: `Classify the candidate term "${term}" for professional role "${role}".`,
           criteria: {
             VALID_SKILL: 'A legitimate software tool, framework, programming language, database, clinical competency, or financial methodology',
             LOCATION: 'A country, state, city code, or remote/hybrid work tag (e.g. UK, CA, US, NY, Texas)',
-            BOILERPLATE: 'A disclaimer (AI-generated), EEO statement, concatenated header (OverviewWe, OpportunityWe), or hiring perk'
-          }
+            BOILERPLATE: 'A disclaimer (AI-generated), EEO statement, concatenated header (OverviewWe, OpportunityWe), or hiring perk',
+          },
         }
       })
 
@@ -129,50 +175,48 @@ export async function classifySkillsWithJev(tokens = [], role = 'Professional', 
           const res = await fetch(endpoint, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${openRouterKey}`,
+              Authorization: `Bearer ${openRouterKey}`,
               'Content-Type': 'application/json',
               'HTTP-Referer': process.env.APP_URL || 'http://localhost:5000',
-              'X-Title': 'Career GPS Executive AI'
+              'X-Title': 'Career GPS Executive AI',
             },
             body: JSON.stringify({
               model: options.model || 'typesafe/jev-1.14',
               state: `Evaluating candidate skill extraction for target role: ${role}`,
-              questions: questionsObj
+              questions: questionsObj,
             }),
-            signal: AbortSignal.timeout(options.timeoutMs || 8000)
+            signal: AbortSignal.timeout(options.timeoutMs || 8000),
           })
           if (res.ok) {
             decJson = await res.json()
             break
           }
-        } catch (_epErr) {
-          // try next endpoint
-        }
+        } catch (_epErr) {}
       }
 
       if (decJson) {
         const answers = decJson?.answers || {}
-        uniqueUncached.forEach((term, idx) => {
+        missingFromBoth.forEach((term, idx) => {
           const ans = answers[`term_${idx}`]
           if (ans?.choice) {
             decisionMap.set(term.toLowerCase(), {
               term,
               choice: ans.choice,
-              confidence: ans.confidence || 0.95
+              confidence: ans.confidence || 0.95,
             })
           }
         })
         if (decisionMap.size > 0) {
           jevSucceeded = true
-          console.log(`[JevClassifier] ✔ Successfully classified ${decisionMap.size} terms via native typesafe/jev-1.14!`)
+          console.log(`[JevClassifier] ✔ Successfully classified ${decisionMap.size} terms via typesafe/jev-1.14!`)
         }
       }
     } catch (decErr) {
-      console.warn(`[JevClassifier] Direct Decisions API call failed: ${decErr.message}. Falling back to standard LLM gateway...`)
+      console.warn(`[JevClassifier] Direct Decisions API call failed: ${decErr.message}. Falling back to LLM gateway...`)
     }
   }
 
-  // Attempt 2: Standard LLM gateway fallback if Decisions API was not used or failed
+  // Gateway fallback (Gemini 2.5 Flash-Lite)
   if (!jevSucceeded) {
     try {
       const decisionPrompt = `You are the Jev System One Discriminative Classifier.
@@ -186,7 +230,7 @@ For each term in the candidate list below, output a structured Choice decision:
 - "GENERIC_NOISE": General soft skill or non-technical business noun (e.g. communication, insights, server, data).
 
 CANDIDATE TERMS:
-${JSON.stringify(uniqueUncached)}
+${JSON.stringify(missingFromBoth)}
 
 OUTPUT SCHEMA (STRICT JSON ONLY):
 {
@@ -203,7 +247,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
           preferredProvider: 'openrouter',
           model: 'google/gemini-2.5-flash-lite',
           messages: [
-            { role: 'system', content: 'You are a strict discriminative decision classifier. Classify each term into VALID_SKILL, LOCATION, BOILERPLATE, or GENERIC_NOISE.' },
+            { role: 'system', content: 'You are a strict discriminative decision classifier.' },
             { role: 'user', content: decisionPrompt },
           ],
           responseFormat: { type: 'json_object' },
@@ -220,29 +264,59 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
           if (d?.term) decisionMap.set(String(d.term).toLowerCase(), d)
         }
       }
-    } catch (_gwErr) {
-      // Gateway error, will use deterministic fallback below
-    }
+    } catch (_gwErr) {}
   }
 
-  // Final aggregation: populate cache and valid/rejected lists
-  for (const term of uniqueUncached) {
+  // Stage 4: Aggregate verdicts, update in-memory cache, and bulkWrite to MongoDB
+  const newDocsToPersist = []
+
+  for (const term of missingFromBoth) {
     const lower = term.toLowerCase()
     const d = decisionMap.get(lower)
     let choice = d?.choice
     let confidence = typeof d?.confidence === 'number' ? d.confidence : 0.9
 
     if (!choice) {
-      // Deterministic fallback if neither Jev nor Gateway answered for this term
       const isPass = isConcreteTechSkill(term)
       choice = isPass ? 'VALID_SKILL' : 'BOILERPLATE'
       confidence = 0.85
     }
 
     const isSkill = choice === 'VALID_SKILL'
-    JEV_DECISION_CACHE.set(lower, { decision: choice, isSkill, confidence })
+    const canonical = isSkill ? (normalizeCanonicalSkill(term) || term) : ''
+
+    JEV_DECISION_CACHE.set(lower, { decision: choice, isSkill, canonical, confidence })
+
     if (isSkill) validSkills.push(term)
     else rejectedTerms.push({ term, decision: choice, reason: `Jev classified as ${choice}` })
+
+    newDocsToPersist.push({
+      termLower: lower,
+      decision: choice,
+      isSkill,
+      canonical,
+    })
+  }
+
+  // Background bulkWrite upsert into MongoDB so verdicts persist forever
+  if (mongoose.connection && mongoose.connection.readyState === 1 && newDocsToPersist.length > 0) {
+    const ops = newDocsToPersist.map((rec) => ({
+      updateOne: {
+        filter: { termLower: rec.termLower },
+        update: {
+          $set: {
+            termLower: rec.termLower,
+            decision: rec.decision,
+            isSkill: rec.isSkill,
+            canonical: rec.canonical,
+          },
+        },
+        upsert: true,
+      },
+    }))
+    SkillDecisionCache.bulkWrite(ops, { ordered: false }).catch((err) => {
+      console.warn(`[JevClassifier] Failed to bulkWrite persistent skill decisions: ${err.message}`)
+    })
   }
 
   return {

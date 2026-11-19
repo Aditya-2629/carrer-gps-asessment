@@ -410,14 +410,26 @@ export default function ResumeBulletAudit({
                   className="mt-3.5 pt-3 border-t border-[var(--border-default)] space-y-3 animate-fadeIn"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Recruiter Evaluation */}
+                  {/* Recruiter Critique (What was weak in original) */}
                   {item.critique && (
-                    <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 text-xs text-amber-900 dark:text-amber-200 space-y-1">
-                      <span className="text-xs font-mono text-amber-700 dark:text-amber-400 flex items-center gap-1 font-semibold">
-                        <WarningCircle size={13} weight="bold" /> Recruiter Evaluation:
+                    <div className="p-2.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/50 text-xs text-rose-900 dark:text-rose-200 space-y-0.5">
+                      <span className="text-[11px] font-mono text-rose-700 dark:text-rose-400 flex items-center gap-1 font-semibold">
+                        <WarningCircle size={13} weight="bold" /> Recruiter Critique:
                       </span>
-                      <p className="leading-relaxed font-medium line-clamp-2">
+                      <p className="leading-relaxed font-medium">
                         {item.critique}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Why This Rewrite Works (What was upgraded) */}
+                  {(item.whyItWorks || item.why) && (
+                    <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5">
+                      <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+                        <CheckCircle size={13} weight="bold" /> Why This Rewrite Works:
+                      </span>
+                      <p className="leading-relaxed font-medium">
+                        {item.whyItWorks || item.why}
                       </p>
                     </div>
                   )}

@@ -5,7 +5,7 @@ import { STEPS, CHAPTERS } from '../../lib/assessmentSteps'
 import StepRenderer from './StepRenderer'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import { generateAllRandomAssessmentData } from '../../lib/randomQuizFiller'
-import { triggerResumeAgentFromLinkedInStep } from '../../lib/resumeAgentTrigger'
+import { api } from '../../lib/api'
 
 const slideVariants = {
   enter: (dir) => ({
@@ -77,9 +77,30 @@ export default function AssessmentShell() {
   }
 
   const goNext = () => {
-    // Run AI Resume Agent when user moves forward with the LinkedIn URL assessment question
+    // Scrape LinkedIn profile via Apify (0 LLM calls) when user advances from LinkedIn question
     if (step.name === 'linkedin') {
-      triggerResumeAgentFromLinkedInStep()
+      const linkedinUrl = formData?.linkedin
+      if (linkedinUrl && typeof window !== 'undefined') {
+        if (window.__linkedinScrapeInProgress !== linkedinUrl && !window.__linkedinScrapePromise) {
+          window.__linkedinScrapeInProgress = linkedinUrl
+          window.__linkedinScrapePromise = api
+            .scrapeLinkedInProfile(linkedinUrl)
+            .then((res) => {
+              window.__linkedinScrapeInProgress = null
+              if (res?.profile) {
+                useAppStore.getState().setFormData('linkedinData', res.profile)
+                try {
+                  sessionStorage.setItem('craftureLinkedinScrape', JSON.stringify(res.profile))
+                } catch (_e) {}
+              }
+              return res?.profile || null
+            })
+            .catch(() => {
+              window.__linkedinScrapeInProgress = null
+              return null
+            })
+        }
+      }
     }
 
     if (currentStep < totalSteps - 1) {

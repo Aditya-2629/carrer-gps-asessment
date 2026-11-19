@@ -10,6 +10,7 @@
 
 import mongoose from 'mongoose'
 import LearningSignal from '../../../models/LearningSignal.js'
+import FindingFeedback from '../../../models/FindingFeedback.js'
 
 const MONGO_CONNECTED = () => mongoose.connection?.readyState === 1
 
@@ -189,9 +190,89 @@ export function extractMarketSignalsFromProfile(marketProfile) {
   return signals
 }
 
+/**
+ * Automated Self-Learning Rollup:
+ * 1. Auto-promotes MARKET_SKILL_TREND signals with observationCount >= 5 and confidence >= 0.85 to 'approved'.
+ * 2. Aggregates candidate feedback on findings and flags repeated negative patterns as RECOMMENDATION_FEEDBACK.
+ */
+export async function runSelfLearningRollup() {
+  if (!MONGO_CONNECTED()) return { promotedSkills: 0, feedbackSignalsRecorded: 0 }
+
+  let promotedSkills = 0
+  let feedbackSignalsRecorded = 0
+
+  try {
+    // 1. Auto-promote vetted market skill trends
+    const promoteResult = await LearningSignal.updateMany(
+      {
+        signalType: 'MARKET_SKILL_TREND',
+        status: 'candidate',
+        observationCount: { $gte: 5 },
+        confidence: { $gte: 0.85 },
+      },
+      {
+        $set: {
+          status: 'approved',
+          'metadata.autoPromotedAt': new Date(),
+          'metadata.autoPromotionReason': 'Met threshold: observationCount >= 5 and confidence >= 0.85',
+        },
+      }
+    )
+    promotedSkills = promoteResult.modifiedCount || 0
+
+    // 2. Aggregate FindingFeedback counts per findingId and identify repeated downvotes
+    const feedbackAgg = await FindingFeedback.aggregate([
+      {
+        $group: {
+          _id: { agent: '$agent', findingId: '$findingId' },
+          total: { $sum: 1 },
+          ups: { $sum: { $cond: [{ $eq: ['$rating', 'up'] }, 1, 0] } },
+          downs: { $sum: { $cond: [{ $eq: ['$rating', 'down'] }, 1, 0] } },
+        },
+      },
+      {
+        $match: {
+          downs: { $gte: 3 }, // At least 3 thumbs down
+        },
+      },
+    ])
+
+    for (const item of feedbackAgg) {
+      const { agent, findingId } = item._id
+      const downRatio = item.downs / (item.total || 1)
+      if (downRatio >= 0.5) {
+        await recordLearningSignal({
+          signalType: 'RECOMMENDATION_FEEDBACK',
+          roleKey: 'general',
+          experienceBucket: 'any',
+          signal: `Negative user feedback pattern on finding "${findingId}" (${agent} agent)`,
+          evidence: {
+            findingId,
+            agent,
+            totalVotes: item.total,
+            upVotes: item.ups,
+            downVotes: item.downs,
+            negativeRatio: Math.round(downRatio * 100),
+          },
+          confidence: Number(Math.min(0.95, 0.7 + item.downs * 0.05).toFixed(2)),
+          source: 'user_feedback',
+        })
+        feedbackSignalsRecorded += 1
+      }
+    }
+
+    console.log(`[MarketLearning] Self-learning rollup complete: Promoted ${promotedSkills} skills, recorded ${feedbackSignalsRecorded} feedback signals.`)
+  } catch (err) {
+    console.warn('[MarketLearning] Self-learning rollup error:', err.message)
+  }
+
+  return { promotedSkills, feedbackSignalsRecorded }
+}
+
 export default {
   recordLearningSignal,
   listLearningSignals,
   updateSignalReview,
   extractMarketSignalsFromProfile,
+  runSelfLearningRollup,
 }

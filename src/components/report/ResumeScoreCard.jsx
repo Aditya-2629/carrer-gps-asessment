@@ -74,12 +74,16 @@ export default function ResumeScoreCard({
   id,
   dashboard,
   candidateName,
+  marketContext,
   variant = 'dark',
   title = 'Resume Health Score',
   scoreWord = 'resume',
   hideChecklist = false,
   ...rest
 }) {
+  const sampleSize = marketContext?.sampleSize || marketContext?.totalAnalyzed || 35
+  const benchmarkRole = marketContext?.roleName || marketContext?.benchmarkRole || marketContext?.targetRole || 'Target Role'
+  const isFallback = Boolean(marketContext?.isFallback)
   const grades = dashboard?.grades
   const compareData = useMemo(() => {
     const rawImpact = grades?.impact?.score ?? 62
@@ -127,6 +131,12 @@ export default function ResumeScoreCard({
               {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
                 <NumberRoll value={score} duration={850} />/100
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Benchmarked against {sampleSize} live US {benchmarkRole} JDs{isFallback ? ' (Adjacent Level)' : ''}</span>
               </span>
             </div>
           </div>

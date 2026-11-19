@@ -25,7 +25,8 @@ import InterviewDefenseSheet from './InterviewDefenseSheet.jsx'
 import InterviewDefenseInteractive from './InterviewDefenseInteractive.jsx'
 import Toast from '../common/Toast.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
-import useAppStore from '../../store/useAppStore'
+import useAppStore, { showToast } from '../../store/useAppStore'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import { getCompanySponsorStatus } from '../../lib/sponsorIntelligence.js'
 
@@ -437,9 +438,10 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       if (document.body.contains(a)) {
         document.body.removeChild(a)
       }
+      showToast('Resume downloaded successfully!', 'success')
     } catch (error) {
       console.error('Failed to download tailored docx:', error)
-      alert(`Could not download resume: ${error.message}`)
+      showToast(getFriendlyErrorMessage(error, 'Could not download resume.'), 'error')
     } finally {
       setIsDownloadingDocx(false)
     }
@@ -581,6 +583,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           data-mascot-emotion="thinking"
           dashboard={dashboard}
           candidateName={firstName}
+          marketContext={reportData?.marketContext || reportData?.resume_agent?.marketContext || resumeAgent?.marketContext}
           variant={variant}
         />
       )}

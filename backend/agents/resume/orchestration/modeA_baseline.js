@@ -47,7 +47,7 @@ export async function executeModeA({
   const startTime = Date.now()
   const llmCalls = []
 
-  let messages = buildSynthesisMessages(state)
+  let messages = await buildSynthesisMessages(state)
   const promptVersion = SYNTHESIS_PROMPT_VERSION
 
   let gatewayResponse = null

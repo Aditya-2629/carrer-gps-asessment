@@ -22,6 +22,7 @@
 
 import { normalizeGerundVerb, toPresentTense } from '../signals/patterns.js'
 import { computeKeywordAlignment } from '../market/keywordAlignment.js'
+import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 
 export const SCORECARD_VERSION = 'resume-scorecard-v1'
 
@@ -1336,6 +1337,13 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
         }
 
+        const finalWhyItWorks =
+          llmMatch?.whyItWorks ||
+          llmMatch?.why ||
+          upgrade?.whyItWorks ||
+          upgrade?.why ||
+          synthesizeWhyItWorks(b.text, cleanImproved)
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -1345,6 +1353,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           status,
           reason: balanceParentheses(reason),
           critique: balanceParentheses(reason),
+          whyItWorks: finalWhyItWorks,
+          why: finalWhyItWorks,
           guidance: lacksOutcome ? 'Consider adding a quantified percentage or business impact metric if verifiable.' : null,
           quickPolishNote,
           rewrite: cleanImproved,
@@ -1368,6 +1378,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       if (!orig) return
       const cleanRw = cleanRewriteText(rw.rewritten || rw.rewrite || rw.rewrittenText || orig)
       const isPass = rw.status === 'pass' || rw.severity === 'PASS'
+      const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(orig, cleanRw)
       audit.push({
         bulletId: rw.bulletId || rw.id || `llm_b_${idx}`,
         section: 'experience',
@@ -1377,6 +1388,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         status: isPass ? 'pass' : 'warn',
         reason: balanceParentheses(rw.critique || rw.reason || 'Flagged for impact enhancement'),
         critique: balanceParentheses(rw.critique || rw.reason || 'Flagged for impact enhancement'),
+        whyItWorks,
+        why: whyItWorks,
         rewrite: cleanRw,
         rewritten: cleanRw,
         improved: cleanRw,

@@ -11,8 +11,12 @@ import {
   deleteRAGDocument,
   testRAGQuery,
 } from '../controllers/knowledgeBaseController.js'
+import { adminGuard } from '../utils/adminAuth.js'
 
 const router = express.Router()
+
+// Protect ALL Knowledge Base & RAG endpoints
+router.use(adminGuard)
 
 // Multer in-memory storage for PDF, DOCX, TXT, MD document uploads (Max 15MB)
 const upload = multer({

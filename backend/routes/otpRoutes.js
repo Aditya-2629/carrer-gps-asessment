@@ -1,25 +1,40 @@
 import express from 'express'
 import rateLimit from 'express-rate-limit'
-import { sendOtp, verifyOtp } from '../controllers/otpController.js'
+import { sendOtp, resendOtp, verifyOtp } from '../controllers/otpController.js'
 
 const router = express.Router()
 
-// Rate limiting: max 3 OTP requests per email (or IP) per 15 minutes
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 3,
-  message: {
-    message: 'Too many OTP requests from this email. Please try again after 15 minutes.',
-  },
+// Max 5 OTP send/resend requests per email + IP per 15 min
+const sendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Limit by email address in request body if present, fallback to IP
-    return req.body.email ? req.body.email.toLowerCase().trim() : req.ip
+    const email = req.body?.email ? req.body.email.toLowerCase().trim() : 'noemail'
+    return `${email}_${req.ip}`
+  },
+  message: {
+    success: false,
+    message: 'Too many verification code requests for this email. Please wait 15 minutes before requesting again.',
   },
 })
 
-router.post('/send-otp', otpLimiter, sendOtp)
-router.post('/verify-otp', verifyOtp)
+// Max 10 verification attempts per IP per 15 min (brute-force defense)
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+  message: {
+    success: false,
+    message: 'Too many verification attempts. Please wait 15 minutes before trying again.',
+  },
+})
+
+router.post('/send-otp', sendLimiter, sendOtp)
+router.post('/resend-otp', sendLimiter, resendOtp)
+router.post('/verify-otp', verifyLimiter, verifyOtp)
 
 export default router

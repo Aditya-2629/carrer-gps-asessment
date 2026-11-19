@@ -24,5 +24,9 @@ const reportJobSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+// 24-hour TTL index: automatically purges completed/failed in-flight job documents after 24 hours
+// without affecting the permanent User.aiReport stored on the User document.
+reportJobSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 })
+
 const ReportJob = mongoose.model('ReportJob', reportJobSchema)
 export default ReportJob

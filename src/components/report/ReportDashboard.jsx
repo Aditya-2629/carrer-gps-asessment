@@ -7,10 +7,11 @@ import {
   SpinnerGap,
   DownloadSimple,
 } from '@phosphor-icons/react'
-import useAppStore, { PHASES } from '../../store/useAppStore'
+import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
@@ -1042,8 +1043,10 @@ function ReportDashboardContent() {
     if (email) {
       try {
         await api.bookCall({ email })
+        showToast('Strategy call requested! Our team will reach out shortly.', 'success')
       } catch (err) {
         console.error('Failed to register book call lead:', err)
+        showToast(getFriendlyErrorMessage(err, 'Could not register strategy call request.'), 'error')
       }
     }
   }
@@ -1138,7 +1141,19 @@ function ReportDashboardContent() {
               title="Download full diagnostic report as PDF"
             >
               <DownloadSimple size={14} weight="bold" />
-              <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download Full Report'}</span>
+              <span>
+                {isDownloadingPdf ? (
+                  <>
+                    <span className="sm:hidden">PDF...</span>
+                    <span className="hidden sm:inline">Generating PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="sm:hidden">PDF</span>
+                    <span className="hidden sm:inline">Download Full Report</span>
+                  </>
+                )}
+              </span>
             </button>
 
             <button
@@ -1164,7 +1179,7 @@ function ReportDashboardContent() {
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}
-      <main className="max-w-7xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-24 sm:pb-12 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
         {/* Top-Level Diagnostic Error Gate */}
         {(reportData.partialFailure || (Array.isArray(reportData.failedAgents) && reportData.failedAgents.length > 0)) && (
           <div className="rounded-2xl border-2 border-red-500 bg-red-500/10 p-5 mb-6 text-red-900 dark:text-red-200">

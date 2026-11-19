@@ -1,33 +1,66 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpinnerGap, ArrowLeft, ArrowRight, WarningCircle } from '@phosphor-icons/react'
-import useAppStore, { GATE_STEPS, PHASES } from '../../store/useAppStore'
+import useAppStore, { GATE_STEPS, PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 
 const OTP_LENGTH = 6
 
 export default function OTPStep() {
-  const { email, setGateStep, setUserId, setPhase, setReportData, devOtp } = useAppStore()
+  const { email, setGateStep, setUserId, setPhase, setReportData, devOtp, setSessionToken } = useAppStore()
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))
   const [isError, setIsError] = useState(false)
   const [shaking, setShaking] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(30)
+  const [isResending, setIsResending] = useState(false)
   const inputsRef = useRef([])
+
+  // 30s countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0 || isResending) return
+    setIsResending(true)
+    try {
+      const res = await api.resendOtp({ email })
+      if (res?.dev_otp) {
+        useAppStore.getState().setDevOtp?.(res.dev_otp)
+      }
+      showToast('Verification code resent to your email.', 'success')
+      setResendCooldown(30)
+    } catch (err) {
+      showToast(getFriendlyErrorMessage(err, 'Failed to resend verification code. Please try again shortly.'), 'error')
+    } finally {
+      setIsResending(false)
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: api.verifyOtp,
     onSuccess: (data) => {
       setUserId(data.userId)
+      if (data.sessionToken) {
+        setSessionToken(data.sessionToken)
+      }
       setReportData(null)
       // Always transition to loading phase so candidate watches the live SSE agent pipeline
       setPhase(PHASES.LOADING)
       navigateTo('/loading')
     },
-    onError: () => {
+    onError: (err) => {
       setIsError(true)
       setShaking(true)
       setTimeout(() => setShaking(false), 500)
+      showToast(getFriendlyErrorMessage(err, 'Invalid verification code. Please check your inbox or code and try again.'), 'error')
     },
   })
 
@@ -134,7 +167,7 @@ export default function OTPStep() {
         <label className="sr-only">One-Time Password Verification Code</label>
 
         {/* OTP Boxes */}
-        <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
+        <div className="flex gap-1.5 sm:gap-2 justify-center mb-6" onPaste={handlePaste}>
           {otp.map((digit, i) => (
             <motion.input
               key={i}
@@ -156,6 +189,28 @@ export default function OTPStep() {
               aria-label={`Digit ${i + 1} of ${OTP_LENGTH}`}
             />
           ))}
+        </div>
+
+        {/* Resend OTP with 30s cooldown */}
+        <div className="flex justify-center mb-6">
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={resendCooldown > 0 || isResending}
+            className={`text-xs font-medium transition-colors cursor-pointer bg-transparent border-0 ${
+              resendCooldown > 0
+                ? 'text-[var(--text-tertiary)] cursor-not-allowed opacity-70'
+                : 'text-[var(--primary)] hover:underline hover:text-indigo-400'
+            }`}
+          >
+            {isResending ? (
+              'Sending code...'
+            ) : resendCooldown > 0 ? (
+              `Resend code in ${resendCooldown}s`
+            ) : (
+              'Resend OTP'
+            )}
+          </button>
         </div>
 
         {/* Error message */}
