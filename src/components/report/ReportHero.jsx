@@ -237,7 +237,7 @@ export default function ReportHero({ reportData, user }) {
 
         {/* ── 6-Axis Career Health Radar Visualizer ── */}
         <div className="pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-          <div className="md:col-span-7 h-[260px] w-full">
+          <div className="md:col-span-7 h-[220px] sm:h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData} outerRadius="75%">
                 <PolarGrid stroke="var(--border-default, #E2E8F0)" />

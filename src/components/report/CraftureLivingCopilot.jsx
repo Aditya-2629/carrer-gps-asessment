@@ -525,7 +525,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     gsap.set(mascotContainerRef.current, { transformPerspective: 800 })
 
     const handleMouseMove = (e) => {
-      if (!mascotContainerRef.current || isCelebratingRef.current || isChoreographingRef.current || isAsleep) return
+      if (window.innerWidth < 640 || !mascotContainerRef.current || isCelebratingRef.current || isChoreographingRef.current || isAsleep) return
 
       const rect = mascotContainerRef.current.getBoundingClientRect()
       const centerX = rect.left + rect.width / 2
@@ -677,7 +677,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
   return (
     <div
-      className="fixed bottom-6 right-6 z-40 pointer-events-none select-none print:hidden flex flex-col items-end"
+      className="fixed bottom-16 right-3 sm:bottom-20 sm:right-6 z-40 pointer-events-none select-none print:hidden flex flex-col items-end max-w-[calc(100vw-1.5rem)]"
       aria-label="Crafture Living Copilot Companion"
     >
       {/* ─── Animated Thinking Cloud (Only visible when chat is closed & cloud not minimized) ─── */}
@@ -689,7 +689,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 8, transition: { duration: 0.2 } }}
             transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-1 w-80 pointer-events-auto"
+            className="mb-1 w-[calc(100vw-2rem)] max-w-[320px] sm:w-80 pointer-events-auto"
           >
             {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
             <div className="flex flex-col items-end mr-12 mb-1 space-y-1">
@@ -801,7 +801,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
       </AnimatePresence>
 
       {/* ─── Transparent Floating 3D Mascot Character ─── */}
-      <div className="relative pointer-events-auto flex flex-col items-center">
+      <div className="relative pointer-events-auto flex flex-col items-center scale-[0.78] sm:scale-100 origin-bottom-right">
         {/* Mascot Click Area with Hover Lift */}
         <div
           ref={mascotContainerRef}

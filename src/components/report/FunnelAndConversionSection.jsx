@@ -190,6 +190,11 @@ export default function FunnelAndConversionSection({
           </span>
         </div>
 
+        {/* Mobile Swipe Hint */}
+        <div className="flex sm:hidden items-center justify-end text-[11px] font-mono text-[var(--text-muted)]">
+          <span>Swipe horizontally to inspect full funnel →</span>
+        </div>
+
         {/* ── SVG Sankey Visualization ── */}
         <div className="w-full overflow-x-auto bg-[var(--surface-sunken)] p-4 rounded-xl border border-[var(--border-default)]">
           <svg viewBox="0 0 760 160" className="w-full min-w-[680px] h-[160px] select-none">

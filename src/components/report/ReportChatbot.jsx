@@ -835,14 +835,15 @@ export default function ReportChatbot({ hideLauncher = false }) {
             setOpen(true)
             openChat()
           }}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer group"
+          className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-xs min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl shadow-md transition-colors cursor-pointer group"
           aria-label="Open Atlas Copilot"
         >
           <span className="relative flex h-2 w-2">
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
           </span>
           <ChatCircleDots size={18} weight="bold" />
-          <span>Ask Crafture Copilot</span>
+          <span className="sm:hidden">Ask Atlas</span>
+          <span className="hidden sm:inline">Ask Crafture Copilot</span>
           <span className="text-[10px] font-mono bg-white/20 dark:bg-white/10 px-1.5 py-0.5 rounded-md tabular-nums">
             {overallScore}/100
           </span>
@@ -852,12 +853,12 @@ export default function ReportChatbot({ hideLauncher = false }) {
       {/* Expandable Executive Workspace Drawer */}
       {open && (
         <div
-          className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-colors duration-150 ease-in-out ${
+          className={`fixed bottom-3 sm:bottom-6 right-3 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-colors duration-150 ease-in-out ${
             isExpanded
-              ? 'w-[calc(100vw-2rem)] sm:w-[680px]'
-              : 'w-[calc(100vw-2rem)] sm:w-[440px]'
+              ? 'w-[calc(100vw-1.5rem)] sm:w-[680px]'
+              : 'w-[calc(100vw-1.5rem)] sm:w-[440px]'
           }`}
-          style={{ height: 'min(680px, 85vh)' }}
+          style={{ height: 'min(680px, 85dvh)' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)] bg-[var(--surface-card)]">
@@ -873,7 +874,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
                     Active Diagnostic
                   </span>
                 </div>
-                <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[280px]">
+                <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[160px] sm:max-w-[280px]">
                   {targetRole} • Health Score {overallScore}/100
                 </div>
               </div>
@@ -884,7 +885,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               <button
                 type="button"
                 onClick={() => setIsExpanded((prev) => !prev)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
+                className="hidden sm:inline-flex text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
                 title={isExpanded ? 'Restore width' : 'Expand workspace'}
                 aria-label={isExpanded ? 'Minimize width' : 'Expand width'}
               >
