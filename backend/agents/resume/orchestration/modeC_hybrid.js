@@ -12,7 +12,7 @@
  *
  * Injects a structured "Deterministic Pre-Audit Dossier" into ONE strong
  * recruiter-level reasoning call focused strictly on high-conviction diagnosis,
- * prioritization, conservative rewrites, and recruiter synthesis.
+ * prioritization, full 5-part Google XYZ rewrites with calibrated metrics, and recruiter synthesis.
  */
 
 import crypto from 'crypto'
@@ -23,9 +23,9 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder, cleanRewriteText } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
 
-export { cleanRewriteText }
+export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
 export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = []) {
@@ -211,11 +211,25 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           iss.diagnosis = iss.diagnosis.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
         }
       }
+      const origText = iss.evidence?.[0]?.originalText || iss.originalText || ''
+      const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
       if (iss?.correctedText) {
         iss.correctedText = cleanRewriteText(iss.correctedText)
+        if (origText && isLazySuffixAppend(iss.correctedText, origText)) {
+          iss.correctedText = buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: state.marketProfile?.topSkills || [],
+          })
+        }
       }
       if (iss?.rewrite) {
         iss.rewrite = cleanRewriteText(iss.rewrite)
+        if (origText && isLazySuffixAppend(iss.rewrite, origText)) {
+          iss.rewrite = iss.correctedText || buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: state.marketProfile?.topSkills || [],
+          })
+        }
       }
     })
   } else {
@@ -224,11 +238,18 @@ export function sanitizeModeCOutput(analysis, state = {}) {
 
   // 5b. bulletRewrites normalization (supporting V4 readyToUseRewrite & wovenKeywords)
   if (Array.isArray(analysis.bulletRewrites)) {
+    const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
     analysis.bulletRewrites = analysis.bulletRewrites
       .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText || rw.original || rw.text) && (rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite))
       .map((rw) => {
         const origText = rw.original || rw.originalText || rw.text || ''
-        const cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
+        let cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
+        if (origText && isLazySuffixAppend(cleanedText, origText)) {
+          cleanedText = buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
+          })
+        }
         return {
           ...rw,
           original: origText,
@@ -293,6 +314,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
   }
 
   // 5c. bulletUpgrades normalization
+  const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
   analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
     ? analysis.bulletUpgrades.map((upg) => {
         let reason = upg.reason
@@ -302,10 +324,16 @@ export function sanitizeModeCOutput(analysis, state = {}) {
             reason = reason.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
           }
         }
+        let rwText = cleanRewriteText(upg.rewrittenText)
+        if (upg.originalText && isLazySuffixAppend(rwText, upg.originalText)) {
+          rwText = buildFivePartPlaybookRewrite(upg.originalText, {
+            targetRole: effectiveRole,
+          })
+        }
         return {
           ...upg,
           reason,
-          rewrittenText: cleanRewriteText(upg.rewrittenText),
+          rewrittenText: rwText,
         }
       })
     : []
@@ -508,30 +536,34 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Flag bullets that undercut senior positioning or lack tangible operational impact.
    - Rewrite them into punchy, executive-grade engineering bullets following the Google XYZ standard:
      "Accomplished [X], evidenced by [Y], by executing [Z]."
-   - CRITICAL HUMANIZATION MANDATE (ZERO PLACEHOLDERS):
+   - CRITICAL 5-PART RESUME PLAYBOOK MANDATE (18–32 WORDS, ZERO PLACEHOLDERS):
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
-     * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
+     * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
+     * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
+     * When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (~20–35% latency/efficiency gain, 10–15 hrs/week saved, 3x throughput, 99.9% uptime, or dataset/user scale) matching the candidate's seniority without inventing fake employer names.
      * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
    - Flag bullets that list 5+ tools without explaining the architectural problem solved or the system built.
-   - Flag bullets opening with weak verbs ("Contributed to", "Managed", "Helped", "Assisted in", "Responsible for") or "-ing" participles ("Working on", "Developing").
-   - Restructure them so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated").
+   - Flag bullets opening with weak verbs ("Contributed to", "Managed", "Helped", "Assisted in", "Responsible for", "Utilized", "Worked on") or "-ing" participles ("Working on", "Developing").
+   - Restructure them from scratch so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated", "Reduced", "Led", "Optimized").
 
 ==================================================
-3. MANDATORY FULL REWRITES (THE 5-PART WINNING BULLET FORMULA)
+3. MANDATORY FULL REWRITES (THE 5-PART RESUME PLAYBOOK FORMULA)
 ==================================================
 Every single issue in "issues" MUST have a non-null "correctedText" ("correctionType": "rewrite"). Never return "correctedText": null.
-BAN COSMETIC SWAPS: Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
+BAN COSMETIC SWAPS & LAZY SUFFIX APPENDS:
+- Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
+- Strictly forbid lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
 
-All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST strictly follow the 5-Part Winning Bullet Formula:
-[1. Strong Action Verb] + [2. Relevant Hard Skill/Tool] + [3. Collaboration/Leadership Signal] + [4. Realistic Calibrated Metric] + [5. Concrete Achievement/Outcome]
+All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST strictly follow the 5-Part Winning Bullet Formula (18–32 words):
+[1. Strong Action Verb] + [2. Relevant Hard Skill/Scope] + [3. Scale / Collaboration] + [4. Natural Calibrated Metric] + [5. Business Outcome]
 
-- Part 1 (Strong Action Verb): Lead with a high-conviction engineering action verb (e.g. Architected, Engineered, Spearheaded, Automated, Optimized). Strictly ban weak verbs ("Assisted", "Helped", "Worked on") and "-ing" participles ("Developing", "Managing").
-- Part 2 (Relevant Hard Skill/Tool): Weave concrete technical mechanisms, tools, or frameworks directly into the implementation (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS).
-- Part 3 (Collaboration / Leadership Signal): Contextualize organizational ownership or cross-functional scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
-- Part 4 (Realistic Calibrated Metric): Ground in verified candidate metrics or realistic role-calibrated benchmarks (e.g. "reducing p99 query latency by 35%", "cutting release turnaround from 4 days to 45 mins", "saving 12+ engineering hours weekly") — ZERO [ADD: ...] or bracketed placeholders.
-- Part 5 (Concrete Achievement/Outcome): Explicitly state the delivered business or system impact (e.g. "supporting 2M+ active sessions with 99.99% uptime", "eliminating cross-system reporting discrepancies across 1,500+ SKUs").
+- Part 1 (Strong Action Verb): Lead with a high-conviction engineering action verb (e.g. Architected, Engineered, Automated, Reduced, Led, Spearheaded, Optimized). Replace weak openers ("Worked on", "Helped with", "Responsible for", "Utilized", "Assisted in", "Tasked with") and "-ing" participles.
+- Part 2 (Relevant Hard Skill/Scope): Weave verified tools, systems, or frameworks naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS). Zero keyword stuffing.
+- Part 3 (Scale / Collaboration): Contextualize organizational ownership or cross-functional scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
+- Part 4 (Natural Calibrated Metric): When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (e.g. "~20–35% latency reduction", "10–15 engineering hours saved weekly", "3x throughput", "99.9% uptime", "across 250k+ records") matching candidate seniority without inventing fake employer names. Zero [ADD: ...] or bracketed placeholders.
+- Part 5 (Business Outcome): Explicitly state the delivered business or system impact (e.g. "eliminating release bottlenecks", "preventing production defect escapes", "sustaining zero-downtime rollouts").
 
 CRITICAL SEPARATION IN issues[].diagnosis:
 In every issue diagnosis, you MUST explicitly separate:
@@ -555,8 +587,8 @@ DOMAIN ARCHETYPE ENFORCEMENT:
   * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
   * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
   * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
-- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Conservative: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
-- Do NOT invent new technologies or concrete fake numbers in "correctedText". Ground rewrites strictly in verified resume facts and natural operational outcomes.
+- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Efficiency: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
+- Ground rewrites strictly in verified candidate facts and role-calibrated operational metrics without inventing fake employer names.
 
 ==================================================
 4. LLM SEMANTIC AUDIT MANDATE (bulletEvaluations, cutList, nearMissKeywords)
@@ -612,7 +644,7 @@ In addition to the 5 to 7 primary issues, identify and rewrite up to 8 additiona
 Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
 - Set "status": "warn" (or "fix").
 - Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
-- Set "rewrittenText": Complete Google XYZ rewrite using only facts from the resume and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.
+- Set "rewrittenText": Complete 5-part Google XYZ rewrite (18–32 words) with strong action verb, verified skills, team scope, calibrated metric, and concrete outcome. STRICTLY NO lazy suffix appends and NO [ADD: ...] placeholders.
 
 ==================================================
 6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")

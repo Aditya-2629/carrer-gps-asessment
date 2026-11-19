@@ -154,7 +154,7 @@ function InlineDiff({
             {run.removed.length > 0 && (
               <del
                 aria-hidden={decision === "accepted" || undefined}
-                className={`rounded-[3px] ${pending ? "bg-red-500/10 text-red-600 decoration-red-500/50 dark:text-red-400" : "bg-transparent text-inherit decoration-transparent no-underline"}`}
+                className={`line-through text-rose-600 bg-rose-50/80 dark:bg-rose-950/40 px-1 rounded ${pending ? "decoration-rose-500/80" : "bg-transparent text-inherit decoration-transparent no-underline"}`}
                 style={gone(decision === "accepted", reduced)}
               >
                 {run.removed.join("")}
@@ -163,7 +163,7 @@ function InlineDiff({
             {run.added.length > 0 && (
               <ins
                 aria-hidden={decision === "rejected" || undefined}
-                className={`rounded-[3px] no-underline ${pending ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-transparent text-inherit"}`}
+                className={`no-underline text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-1 rounded font-medium ${pending ? "" : "bg-transparent text-inherit"}`}
                 style={{ ...gone(decision === "rejected", reduced), marginLeft: pending && run.removed.length > 0 ? 2 : 0 }}
               >
                 {run.added.join("")}

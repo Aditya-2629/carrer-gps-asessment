@@ -405,31 +405,23 @@ export default function ResumeBulletAudit({
                   className="mt-3.5 pt-3 border-t border-slate-200/60 space-y-3 animate-fadeIn"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Original Line (Red strikethrough if hurting) */}
-                  <div className="space-y-1">
-                    <span className="text-xs font-mono uppercase font-bold text-[var(--text-muted)] tracking-wider">
-                      Original Statement:
-                    </span>
-                    <p className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-xl border border-slate-200 line-through decoration-rose-500/80 decoration-1">
-                      {item.original}
-                    </p>
-                  </div>
+                  {/* Recruiter Evaluation */}
+                  {item.critique && (
+                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/80 text-xs text-amber-900 space-y-1">
+                      <span className="text-xs font-mono text-amber-700 flex items-center gap-1 font-semibold">
+                        <WarningCircle size={13} weight="bold" /> Recruiter Evaluation:
+                      </span>
+                      <p className="leading-relaxed font-medium line-clamp-2">
+                        {item.critique}
+                      </p>
+                    </div>
+                  )}
 
-                  {/* Recruiter Diagnosis */}
-                  <div className="p-3 rounded-lg bg-amber-50/60 border border-amber-200/80 text-xs text-amber-900 space-y-1">
-                    <span className="text-[10px] font-mono text-amber-700 flex items-center gap-1 font-semibold">
-                      <WarningCircle size={13} weight="bold" /> Recruiter Evaluation:
-                    </span>
-                    <p className="leading-relaxed font-medium">
-                      {item.critique}
-                    </p>
-                  </div>
-
-                  {/* Strategic Recruiter Rewrite with Hairline DiffReview & CopyButton */}
+                  {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
                   {item.rewritten && item.original !== item.rewritten ? (
-                    <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-lg space-y-3">
+                    <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono text-indigo-700 flex items-center gap-1 font-semibold">
+                        <span className="text-xs font-mono text-indigo-700 flex items-center gap-1 font-semibold">
                           <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                         </span>
                         <CopyButton
@@ -454,8 +446,8 @@ export default function ResumeBulletAudit({
                       />
                     </div>
                   ) : !isHelping ? (
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
-                      <span className="font-mono text-[11px] text-slate-500">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+                      <span className="font-mono text-xs text-slate-500">
                         Formula recommendation: Lead with an active ownership verb and quantified scale.
                       </span>
                       <CopyButton

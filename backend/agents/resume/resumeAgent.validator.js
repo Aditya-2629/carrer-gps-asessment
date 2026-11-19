@@ -15,6 +15,7 @@ import {
 import { jsonrepair } from 'jsonrepair'
 import { stripFillInSlots, findMalformedFillInSlots } from './validation/fillInSlots.js'
 import { QUALITATIVE_OUTCOME_REGEX } from './signals/patterns.js'
+import { buildFivePartPlaybookRewrite } from './scoring/resumeScorecard.js'
 
 export class ResumeAgentValidator {
   /**
@@ -122,16 +123,8 @@ export class ResumeAgentValidator {
       return polished.endsWith('.') ? polished : `${polished}.`
     }
 
-    // 4. Transform standard bullet using Google X-Y-Z
-    const stripped = clean.replace(/[.!?]+$/, '').trim()
-    const verbMatch = stripped.match(/^([A-Z][a-z]+(?:ed|ted|zed|sed|lt|ilt|ound|ken|ven|wn))\b\s*(.*)$/)
-    if (verbMatch) {
-      const verb = verbMatch[1]
-      const rest = verbMatch[2]
-      return `${verb} ${rest} to optimize system reliability and operational performance.`
-    }
-
-    return `Delivered core system improvements by ${stripped.replace(/^[A-Z]/, (c) => c.toLowerCase())}.`
+    // 4. Transform standard bullet using the 5-Part Playbook Formula
+    return buildFivePartPlaybookRewrite(clean)
   }
 
   /**

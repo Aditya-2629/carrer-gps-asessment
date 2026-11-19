@@ -89,6 +89,173 @@ export function toPastTense(verb) {
 }
 
 /**
+ * Detects if a rewrite is merely an unchanged original bullet prefix with a lazy suffix appended.
+ * Rejects rewrites matching: rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))
+ * or that preserve weak openers while tacking on "by [doing X]" / ", using [Y]".
+ */
+export function isLazySuffixAppend(rewrite, original) {
+  if (!rewrite || !original || typeof rewrite !== 'string' || typeof original !== 'string') return false
+  const cleanOrig = original.trim().replace(/^[•\-*▪–—·\s]+/, '').trim()
+  const cleanRw = rewrite.trim().replace(/^[•\-*▪–—·\s]+/, '').trim()
+  if (cleanOrig.length < 10 || cleanRw.length < 10) return false
+
+  const origLower = cleanOrig.toLowerCase()
+  const rwLower = cleanRw.toLowerCase()
+
+  // 1. Core requirement: rewrite starts with the first 35 chars of original
+  const checkLen = Math.min(35, origLower.replace(/[.!?]+$/, '').length)
+  if (checkLen >= 15 && rwLower.startsWith(origLower.slice(0, checkLen))) {
+    // If it starts with the unchanged prefix and appends a mechanism/metric at the tail
+    if (rwLower.length > origLower.length || /\s+by\s+[a-z]+ing\b/i.test(rwLower) || /,\s*(?:using|with|via)\s+/i.test(rwLower)) {
+      return true
+    }
+  }
+
+  // 2. Weak opening preserved: e.g. "Worked on ... by establishing ..."
+  const weakOpeners = /^(?:worked on|working on|helped with|helped to|assisted in|assisted with|responsible for|was responsible for|participated in|tasked with|utilized|using)\b/i
+  if (weakOpeners.test(origLower) && weakOpeners.test(rwLower)) {
+    return true
+  }
+
+  // 3. Known boilerplate suffix tacked onto original prefix
+  if (/,\s*(?:using|by establishing|applying|powered by|containerized and automated via|adopting)\s+[^,.]+\s+(?:for|to|with)\s+[^.]+\.?$/i.test(rwLower) &&
+      rwLower.slice(0, 25) === origLower.slice(0, 25)) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Enforces the 5-Part Resume Playbook Formula on any bullet:
+ * 1. Strong Action Verb (Engineered, Architected, Automated, Reduced, Led, Spearheaded, Optimized)
+ * 2. Hard Skill & Scope (verified tools/skills naturally woven without stuffing)
+ * 3. Scale / Collaboration (team/stakeholder/system scope)
+ * 4. Natural Calibrated Metric (~20–35% latency/efficiency, 10–15 hrs/wk, 3x throughput, 99.9% uptime, 250k+ records)
+ * 5. Business Outcome (clear deliverable impact)
+ * Target length: 18–32 words (crisp 1–2 lines)
+ */
+export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCurrentRole = false, skills = [], sig = null, company = '' } = {}) {
+  if (!bulletText || typeof bulletText !== 'string') return ''
+  let clean = bulletText
+    .replace(/^[•\-*▪–—·\s]+/, '')
+    .replace(/^(?:action|task|situation|result|challenge|accomplished):\s*/i, '')
+    .trim()
+
+  const lowerText = clean.toLowerCase()
+  const lowerRole = (targetRole || '').toLowerCase()
+
+  // Domain archetype classification
+  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power\s*bi|snowflake|dbt/i.test(lowerRole) || /data|analyst|analytics|bi\b|sql|tableau|power\s*bi|snowflake|dbt|etl|pipeline/i.test(lowerText)
+  const isAiRole = /ai\b|machine learning|ml\b|llm|nlp|rag\b|agent|prompt/i.test(lowerRole) || /llm|langchain|rag|pytorch|vector|embeddings|fastmcp/i.test(lowerText)
+  const isDevopsRole = /devops|cloud|sre|platform|infra|kubernetes/i.test(lowerRole) || /kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|ansible/i.test(lowerText)
+  const isFrontendRole = /frontend|ui\b|ux\b|react|vue|angular|web|mobile/i.test(lowerRole) || /react|next\.?js|tailwind|component|ui\b|frontend/i.test(lowerText)
+  const isSecurityRole = /security|cyber|soc2|cve|vulnerabilit|audit/i.test(lowerRole) || /security|cve|vulnerabilit|jwt|oauth|auth|sanitize/i.test(lowerText)
+
+  // 1. Strip weak/passive openers to isolate the core task/deliverable
+  const weakOpeners = /^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i
+  let coreTask = clean.replace(weakOpeners, '')
+
+  // Remove trailing boilerplate suffixes
+  coreTask = coreTask.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '')
+  coreTask = coreTask.replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '')
+  coreTask = coreTask.replace(/,?\s*by implementing automated DevSecOps vulnerability scanning.*?compliance across release pipelines\.?/gi, '')
+  coreTask = coreTask.replace(/,?\s*using\s+[^,.]+\s+for\s+scalable\s+(?:transformation|analytical)\s+[^.]+\.?/gi, '')
+  coreTask = coreTask.replace(/[.,;:\s]+$/, '').trim()
+
+  // Extract first word of core task
+  const firstWord = coreTask.split(/\s+/)[0] || ''
+  if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
+    coreTask = coreTask.replace(/^[a-zA-Z]+ing\s+/i, '')
+  } else if (/^[A-Z][a-z]+(?:ed|ted|zed|sed|lt|ilt|ound|ken|ven|wn)\b/i.test(firstWord)) {
+    coreTask = coreTask.replace(/^[A-Za-z]+\s+/i, '')
+  }
+
+  if (coreTask.length > 0) {
+    coreTask = coreTask.charAt(0).toLowerCase() + coreTask.slice(1)
+  }
+
+  // 2. Select Strong Action Verb (Part 1)
+  let actionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  if (isSecurityRole) {
+    actionVerb = isCurrentRole ? 'Harden' : 'Hardened'
+  } else if (isDevopsRole) {
+    actionVerb = isCurrentRole ? 'Orchestrate' : 'Orchestrated'
+  } else if (isDataRole) {
+    actionVerb = isCurrentRole ? 'Architect' : 'Architected'
+  } else if (isAiRole) {
+    actionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  } else if (isFrontendRole) {
+    actionVerb = isCurrentRole ? 'Modernize' : 'Modernized'
+  } else {
+    if (/api|service|microservice|backend|system|pipeline|infrastructure/i.test(coreTask)) {
+      actionVerb = isCurrentRole ? 'Architect' : 'Architected'
+    } else if (/test|ci\/cd|deploy|automation|process|workflow/i.test(coreTask)) {
+      actionVerb = isCurrentRole ? 'Automate' : 'Automated'
+    } else if (/latency|performance|query|speed|database|throughput/i.test(coreTask)) {
+      actionVerb = isCurrentRole ? 'Optimize' : 'Optimized'
+    } else if (/feature|product|deliverable|cross-functional/i.test(coreTask)) {
+      actionVerb = isCurrentRole ? 'Lead' : 'Led'
+    }
+  }
+
+  // 3. Resolve Tools / Skills (Part 2)
+  let skillPhrase = ''
+  const skillList = Array.isArray(skills) ? skills.filter(Boolean) : []
+  if (skillList.length > 0) {
+    const topSkills = skillList.slice(0, 2).join(' and ')
+    if (!new RegExp(`\\b${topSkills.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(coreTask)) {
+      skillPhrase = ` using ${topSkills}`
+    }
+  }
+
+  // 4. Resolve Scale / Collaboration Scope (Part 3)
+  let collabScope = 'partnering with cross-functional engineering squads'
+  if (isDataRole) {
+    collabScope = 'collaborating with analytics leads and executive stakeholders'
+  } else if (isAiRole) {
+    collabScope = 'collaborating with ML platform engineers and product teams'
+  } else if (isDevopsRole) {
+    collabScope = 'partnering with QA and release squads'
+  } else if (isFrontendRole) {
+    collabScope = 'partnering with UX designers and backend engineers'
+  }
+
+  // 5. Resolve Natural Calibrated Metric & Business Outcome (Parts 4 & 5)
+  const cleanWithoutVersions = clean
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css)\.?\s*\d+(?:\.\d+)?\b/gi, '')
+    .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
+  const hasExistingMetric = /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+/i.test(cleanWithoutVersions)
+
+  let metricAndOutcome = ''
+  if (hasExistingMetric) {
+    if (/latency|speed|performance/i.test(coreTask)) {
+      metricAndOutcome = 'sustaining 99.9% production availability and eliminating release regressions'
+    } else {
+      metricAndOutcome = 'ensuring 99.9% service reliability and accelerating delivery turnaround'
+    }
+  } else {
+    if (isSecurityRole) {
+      metricAndOutcome = 'eliminating high-severity CVEs and ensuring 100% security audit compliance across release pipelines'
+    } else if (isDataRole) {
+      metricAndOutcome = 'cutting reporting query latency by 35% and saving 12+ analyst hours weekly'
+    } else if (isAiRole) {
+      metricAndOutcome = 'reducing retrieval latency by 32% and sustaining 99.5% factual precision'
+    } else if (isDevopsRole) {
+      metricAndOutcome = 'cutting deployment turnaround by 45% while sustaining 99.99% service uptime'
+    } else if (isFrontendRole) {
+      metricAndOutcome = 'accelerating page load times by 28% and eliminating client-side rendering bottlenecks'
+    } else {
+      metricAndOutcome = 'cutting p99 query latency by 32% and supporting 500k+ daily transactions with 99.9% uptime'
+    }
+  }
+
+  let result = `${actionVerb} ${coreTask}${skillPhrase} ${collabScope}, ${metricAndOutcome}.`
+  result = result.replace(/\s{2,}/g, ' ').replace(/\.+$/, '.').trim()
+  return cleanRewriteText(result)
+}
+
+/**
  * Generates a deterministic action-oriented rewrite for a bullet.
  * Normalizes opening gerund participles (-ing) into direct action verbs and
  * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
@@ -257,26 +424,19 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   const hasArchitecturalMechanism = /\bby\s+(?:architecting|engineering|transitioning|developing|implementing|establishing|building|automating|optimizing|orchestrating|designing|deploying|adopting|utilizing)\b/i.test(clean)
 
-  if (!hasArchitecturalMechanism) {
-    clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean} ${domainMechanism}`
-  }
-
-  if (!hasRealMetric && !clean.includes('[ADD:')) {
-    clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, ${domainOutcome}.`
+  // If the rewrite is a lazy suffix append or lacks a real metric/mechanism, build a complete 5-Part Playbook Rewrite
+  if (isLazySuffixAppend(clean, originalClean) || (!hasRealMetric && !hasArchitecturalMechanism)) {
+    return buildFivePartPlaybookRewrite(originalClean, {
+      targetRole,
+      isCurrentRole,
+      sig,
+    })
   }
 
   // 5. Clean punctuation and whitespace
   clean = clean.replace(/\s{2,}/g, ' ').trim()
   if (!/[.!?]$/.test(clean) && !clean.endsWith(']')) {
     clean = `${clean}.`
-  }
-
-  // 6. Fallback: If after transformation the text is identical to original, append outcome to ensure concrete rewrite
-  if (clean.toLowerCase().replace(/[^a-z0-9]/g, '') === originalClean.toLowerCase().replace(/[^a-z0-9]/g, '')) {
-    clean = clean.replace(/[.!?]+$/, '')
-    clean = `${clean}, ${domainOutcome}.`
   }
 
   return sanitizeSingleAddPlaceholder(clean)

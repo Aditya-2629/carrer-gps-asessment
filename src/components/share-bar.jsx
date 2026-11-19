@@ -12,8 +12,8 @@ const BAR = 14; // the bar's height, stacked and in each row
 /** The mark: a segment is a run of 2px upright hairlines, one every 4px. */
 const TICKS = "repeating-linear-gradient(to right, #000 0 2px, transparent 2px 4px)";
 const GAP = 3; // between stacked segments
-const ROW = 46; // one row of the list
-const LABEL = 18; // the name line over a row's bar
+const ROW = 52; // one row of the list with generous breathing room
+const LABEL = 20; // the name line over a row's bar (text-xs / 12px)
 const STAGGER = 0.4; // how much of the move the stagger takes
 
 const reducedQuery = "(prefers-reduced-motion: reduce)";
@@ -151,7 +151,7 @@ export function ShareBar({
     const stage = stageRef.current;
     if (stage) {
       const closedH = BAR + 14 + L.legendH;
-      const openH = Math.max(1, L.n) * ROW - (ROW - LABEL - BAR);
+      const openH = Math.max(1, L.n) * ROW + 16;
       stage.style.height = `${closedH + (openH - closedH) * ease(clamp01(p * 1.1))}px`;
     }
   }, []);
@@ -258,7 +258,15 @@ export function ShareBar({
           <TextMorph>{shown ? `${shown.label} · ${pct(shares[shownIndex])}` : (caption ?? "Total")}</TextMorph>
         </p>
 
-        <div ref={stageRef} className="relative mt-4 @md:mt-5" style={{ height: BAR + 14 + legendH }} onPointerLeave={point(null)}>
+        <div
+          ref={stageRef}
+          className="relative mt-4 @md:mt-5"
+          style={{
+            height: open ? Math.max(1, ranked.length) * ROW + 16 : BAR + 14 + legendH,
+            minHeight: open ? `${Math.max(1, ranked.length) * ROW + 16}px` : undefined,
+          }}
+          onPointerLeave={point(null)}
+        >
           {/* Row tracks: the whole width is 100%, so a short bar reads as a small share. */}
           {ranked.map((it, i) => (
             <div
@@ -267,7 +275,7 @@ export function ShareBar({
                 trackRefs.current[i] = el;
               }}
               aria-hidden="true"
-              className="absolute inset-x-0 bg-foreground/[0.1]"
+              className="absolute inset-x-0 bg-foreground/[0.1] rounded-sm"
               style={{ top: i * ROW + LABEL, height: BAR, opacity: 0, maskImage: TICKS, WebkitMaskImage: TICKS }}
             />
           ))}
@@ -289,7 +297,7 @@ export function ShareBar({
                   if (e.pointerType === "mouse" || e.buttons) setActive(it.key);
                 }}
                 onPointerDown={() => setActive(it.key)}
-                className="absolute left-0 top-0"
+                className="absolute left-0 top-0 rounded-sm"
                 style={{
                   height: BAR,
                   background: it.color,
@@ -304,17 +312,17 @@ export function ShareBar({
           </div>
 
           {/* Closed: a legend under the bar. */}
-          <div ref={legendRef} aria-hidden={open} className="absolute inset-x-0 flex flex-wrap gap-x-4 gap-y-1" style={{ top: BAR + 14, pointerEvents: open ? "none" : undefined }}>
+          <div ref={legendRef} aria-hidden={open} className="absolute inset-x-0 flex flex-wrap gap-x-4 gap-y-1.5" style={{ top: BAR + 14, pointerEvents: open ? "none" : undefined }}>
             {ranked.map((it, i) => (
               <span
                 key={it.key}
                 onPointerEnter={point(it.key)}
-                className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11.5px] text-muted-foreground transition-opacity duration-200 @md:text-[12.5px]"
+                className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground transition-opacity duration-200"
                 style={{ opacity: active && active !== it.key ? 0.45 : 1 }}
               >
-                <span className="size-2 rounded-[2px]" style={{ background: it.color }} />
-                {it.label}
-                <span className="tabular-nums text-foreground">{pct(shares[i])}</span>
+                <span className="size-2.5 rounded-[2px]" style={{ background: it.color }} />
+                <span>{it.label}</span>
+                <span className="tabular-nums font-mono text-xs text-foreground font-semibold">{pct(shares[i])}</span>
               </span>
             ))}
           </div>
@@ -329,13 +337,13 @@ export function ShareBar({
                 }}
                 aria-hidden={!open}
                 onPointerEnter={point(it.key)}
-                className="absolute inset-x-0 flex items-baseline justify-between gap-3 text-[12px] @md:text-[13px]"
-                style={{ top: i * ROW, height: LABEL + BAR + 4, opacity: 0, transition: reduced ? "none" : `color 200ms ${EASE}` }}
+                className="absolute inset-x-0 flex items-baseline justify-between gap-3 text-xs"
+                style={{ top: i * ROW, height: LABEL + BAR + 6, minHeight: '36px', opacity: 0, transition: reduced ? "none" : `color 200ms ${EASE}` }}
               >
-                <span className={`truncate transition-colors duration-200 ${active && active !== it.key ? "text-muted-foreground" : "text-foreground"}`}>{it.label}</span>
-                <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                <span className={`truncate font-semibold transition-colors duration-200 ${active && active !== it.key ? "text-muted-foreground" : "text-foreground"}`}>{it.label}</span>
+                <span className="flex shrink-0 items-baseline gap-2 tabular-nums font-mono text-xs">
                   <span className="text-muted-foreground">{fmt(it.value)}</span>
-                  <span className="w-[3.2em] text-right font-medium text-foreground">{pct(shares[i])}</span>
+                  <span className="w-[3.5em] text-right font-bold text-foreground">{pct(shares[i])}</span>
                 </span>
               </li>
             ))}

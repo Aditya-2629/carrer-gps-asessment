@@ -271,13 +271,25 @@ export default function ResumeKeywordAlignment({
         </div>
       </div>
 
-      {/* ── Hairline ShareBar: 21 Verified | 25 Stranded | 5 Missing ── */}
+      {/* ── Hairline ShareBar: Verified in Work Experience | In Skills Section Only | Critical Missing ── */}
       <div className="pt-1 pb-2">
         <ShareBar
           items={[
-            { label: 'Verified in Experience', value: cleanMatched.length || 21, color: '#10B981' },
-            { label: 'Stranded (Skills-Only)', value: cleanSkillsOnly.length || 25, color: '#F59E0B' },
-            { label: 'Missing from Resume', value: uniqueMissing.length || 5, color: '#F43F5E' },
+            {
+              label: 'Verified in Work Experience',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanMatched.length : 21,
+              color: '#10B981',
+            },
+            {
+              label: 'In Skills Section Only',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanSkillsOnly.length : 25,
+              color: '#F59E0B',
+            },
+            {
+              label: 'Critical Missing',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? uniqueMissing.length : 5,
+              color: '#F43F5E',
+            },
           ]}
           title="Candidate Keyword Inventory Breakdown"
           caption="Distribution of job description target skills across verifiable experience vs stranded lists"
