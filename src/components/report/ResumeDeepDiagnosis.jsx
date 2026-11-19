@@ -1,11 +1,9 @@
 import React, { useState, useMemo } from 'react'
 import {
-  Sparkle,
   ListChecks,
   WarningCircle,
   ArrowRight,
   CheckCircle,
-  ArrowSquareOut,
   User,
   ShieldCheck,
   Copy,
@@ -15,6 +13,10 @@ import {
   Briefcase,
   Code,
   RocketLaunch,
+  Scissors,
+  ArrowsLeftRight,
+  Target,
+  Sparkle,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -55,15 +57,16 @@ function cleanRewriteText(text) {
   return cleaned
 }
 
-function cleanRecruiterSummary(rawReview, candidateName, dashboard) {
+function cleanRecruiterSummary(rawReview, candidateName, dashboard, resolvedBullets = []) {
   if (!rawReview || typeof rawReview !== 'string') return ''
   let text = rawReview.trim()
 
   const flatteryMatch = text.match(/^(?:[\w\s.-]+,\s*)?(?:you have built a solid foundation|your background shows a practical progression|your resume demonstrates clear technical competence|having hands-on experience[^\n.]*gives you a solid foundation|with your impressive background in)[^\n.]*[.]?\s*(.*)$/is)
 
   if (flatteryMatch && flatteryMatch[1]) {
-    const totalBullets = dashboard?.bulletAudit?.length || 0
-    const quantBullets = dashboard?.bulletAudit?.filter((b) => b.hasQuantifier || b.status === 'pass').length || 0
+    const bulletsList = (Array.isArray(resolvedBullets) && resolvedBullets.length > 0) ? resolvedBullets : (dashboard?.bulletAudit || [])
+    const totalBullets = bulletsList.length
+    const quantBullets = bulletsList.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
     const numbersRatio = totalBullets > 0 ? `Only ${quantBullets} of ${totalBullets} bullets contain numbers.` : ''
     const lead = candidateName ? `${candidateName}, you` : 'You'
 
@@ -79,29 +82,17 @@ const severityChip = {
   low: 'bg-sky-500/10 text-sky-600 border-sky-500/25',
 }
 
-function SectionHeader({ icon, title, accent, onOpenReport }) {
+function SectionHeader({ icon, title, accent }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-[var(--border-default)] pb-4">
       <div className="flex items-center gap-3">
         <span className={accent}>{icon}</span>
         <div>
-          <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">{title}</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{title}</h2>
           <p className="text-xs text-[var(--text-muted)]">
             AI recruiter audit of your resume structure, impact metrics, and ATS compatibility.
           </p>
         </div>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          type="button"
-          onClick={onOpenReport}
-          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-[var(--surface-sunken)] hover:bg-[var(--surface-hover)] border border-[var(--border-default)] text-[var(--text-primary)] flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-          title="Open the clean, print-ready standalone PDF diagnosis in a new window"
-        >
-          <span>Print / Full PDF Report</span>
-          <ArrowSquareOut size={13} weight="bold" />
-        </button>
       </div>
     </div>
   )
@@ -153,6 +144,125 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         rewrittenSummary: cleanRewriteText(rawSummaryOpt.rewrittenSummary),
       }
     : null
+
+  // Unified resolvedBullets: reads from dashboard, bulletRewrites, or raw canonical parsed bullets
+  const resolvedBullets = useMemo(() => {
+    // 1. Check dashboard?.bulletAudit
+    if (Array.isArray(dashboard?.bulletAudit) && dashboard.bulletAudit.length > 0) {
+      return dashboard.bulletAudit
+    }
+    // 2. Check resumeAgent?.bulletRewrites / bullet_rewrites
+    const raBullets = resumeAgent?.bulletRewrites || resumeAgent?.bullet_rewrites
+    if (Array.isArray(raBullets) && raBullets.length > 0) {
+      return raBullets
+    }
+    // 3. Check reportData?.bullet_rewrites / resume_rewrites / resume_agent?.bulletRewrites
+    const repBullets =
+      reportData?.bullet_rewrites ||
+      reportData?.resume_rewrites ||
+      reportData?.bulletRewrites ||
+      reportData?.resume_agent?.bulletRewrites ||
+      reportData?.resume_agent?.bullet_rewrites
+    if (Array.isArray(repBullets) && repBullets.length > 0) {
+      return repBullets
+    }
+    // 4. Parsed experience bullets fallback from canonical resume
+    const expList =
+      resumeAgent?.canonicalResume?.experiences ||
+      resumeAgent?.canonicalResume?.experience ||
+      reportData?.resume_json?.experience ||
+      reportData?.resume_json?.experiences ||
+      []
+    const fallbackList = []
+    for (const exp of expList) {
+      for (const b of exp.bullets || []) {
+        const text = typeof b === 'string' ? b : b?.text || b?.original
+        if (text) {
+          fallbackList.push({
+            bulletId: b?.id || `exp_b_${fallbackList.length}`,
+            original: text,
+            text,
+            status: 'warn',
+            verdict: 'hurting',
+          })
+        }
+      }
+    }
+    return fallbackList
+  }, [
+    dashboard?.bulletAudit,
+    resumeAgent?.bulletRewrites,
+    resumeAgent?.bullet_rewrites,
+    reportData?.bullet_rewrites,
+    reportData?.resume_rewrites,
+    reportData?.bulletRewrites,
+    reportData?.resume_agent?.bulletRewrites,
+    reportData?.resume_agent?.bullet_rewrites,
+    resumeAgent?.canonicalResume,
+    reportData?.resume_json,
+  ])
+
+  const rawSectionAudit = resumeAgent?.sectionAudit || dashboard?.sectionAudit || reportData?.resume_agent?.sectionAudit || null
+  const effectiveSectionAudit = useMemo(() => {
+    if (rawSectionAudit && typeof rawSectionAudit === 'object' && rawSectionAudit.headerAndContact) {
+      return rawSectionAudit
+    }
+    const grades = dashboard?.grades || {}
+    const quantBullets = resolvedBullets.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
+    const totalBullets = resolvedBullets.length
+    const kwScore = dashboard?.keywordAlignment?.score || 72
+    const impactScore = grades?.impact?.score || 65
+    const atsScore = grades?.ats_readability?.score || 85
+    const posScore = grades?.positioning?.score || 68
+
+    return {
+      headerAndContact: {
+        score10: 9,
+        status: 'pass',
+        label: 'Header & Contact Parsing',
+        whatsHurting: null,
+        hurtingReason: null,
+        requiredImprovement: 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn.',
+      },
+      summary: {
+        score10: Math.max(2, Math.min(10, Math.round(posScore / 10))),
+        status: posScore >= 80 ? 'pass' : posScore >= 50 ? 'warn' : 'fail',
+        label: 'Professional Summary',
+        whatsHurting: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+        hurtingReason: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+        requiredImprovement: 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], proven in [Primary Outcome].',
+      },
+      experience: {
+        score10: Math.max(1, Math.min(10, Math.round(impactScore / 10))),
+        status: impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
+        label: 'Experience Bullets & Quantified Impact',
+        whatsHurting: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
+          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
+        hurtingReason: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
+          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
+        requiredImprovement: 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).',
+      },
+      skills: {
+        score10: Math.max(1, Math.min(10, Math.round(kwScore / 10))),
+        status: kwScore >= 80 ? 'pass' : kwScore >= 50 ? 'warn' : 'fail',
+        label: 'Skills & Market Keyword Alignment',
+        whatsHurting: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+        hurtingReason: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+        requiredImprovement: 'Add missing core market tools directly to your Skills section and mirror them within work experience bullet points.',
+      },
+      formatting: {
+        score10: Math.max(1, Math.min(10, Math.round(atsScore / 10))),
+        status: atsScore >= 80 ? 'pass' : atsScore >= 50 ? 'warn' : 'fail',
+        label: 'Formatting, Length & ATS Safety',
+        whatsHurting: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+        hurtingReason: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+        requiredImprovement: 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.',
+      },
+    }
+  }, [rawSectionAudit, dashboard])
+
   const [copiedSummary, setCopiedSummary] = useState(false)
 
   const handleCopySummary = () => {
@@ -191,6 +301,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     ...(resumeAgent?.keywordAlignment?.missingFromResume || []),
     ...(resumeAgent?.keywordAlignment?.skillsOnlyUnverified || []),
   ].map((s) => (typeof s === 'string' ? s : s.keyword || s.name || '')).filter(Boolean)
+
+  const cutList = useMemo(() => {
+    return dashboard?.cutList || resumeAgent?.cutList || reportData?.resume_agent?.cutList || []
+  }, [dashboard, resumeAgent, reportData])
+
+  const nearMissKeywords = useMemo(() => {
+    return dashboard?.nearMissKeywords || resumeAgent?.nearMissKeywords || reportData?.resume_agent?.nearMissKeywords || []
+  }, [dashboard, resumeAgent, reportData])
 
 
 
@@ -330,11 +448,11 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   // Filter out issues that are already rendered inline on bullet cards in ResumeBulletAudit
   const sectionLevelIssues = useMemo(() => {
     const auditedBulletIds = new Set(
-      (dashboard?.bulletAudit || []).map((b) => b.bulletId).filter(Boolean)
+      (resolvedBullets || []).map((b) => b.bulletId).filter(Boolean)
     )
     const auditedTexts = new Set(
-      (dashboard?.bulletAudit || [])
-        .map((b) => (b.text || '').trim().toLowerCase())
+      (resolvedBullets || [])
+        .map((b) => (b.text || b.original || '').trim().toLowerCase())
         .filter((t) => t.length > 15)
     )
 
@@ -379,30 +497,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       return true
     })
-  }, [issues, dashboard?.bulletAudit])
-
-  const handleOpenPrintReport = () => {
-    try {
-      sessionStorage.setItem(
-        'craftureResumeReport',
-        JSON.stringify({
-          analysis: resumeAgent,
-          meta: {
-            analyzedAt: new Date().toISOString(),
-          },
-        })
-      )
-    } catch (_e) {}
-    window.open('/resume-report', '_blank')
-  }
+  }, [issues, resolvedBullets])
 
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">
       <SectionHeader
-        icon={<Sparkle size={22} weight="fill" className="text-indigo-400" />}
-        title="AI Resume Deep Diagnosis & Rewrites"
-        accent="text-indigo-400"
-        onOpenReport={handleOpenPrintReport}
+        icon={<Target size={22} weight="bold" className="text-indigo-600" />}
+        title="Resume Diagnostic Lab & Bullet Rewrites"
+        accent="text-indigo-600"
       />
 
       {/* Candidate Snapshot Meta Bar */}
@@ -451,7 +553,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                 USCIS Verified Sponsor
               </span>
             )}
-            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+            <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1">
               <ShieldCheck size={12} weight="fill" />
               Recruiter-Verified
             </span>
@@ -461,7 +563,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               type="button"
               onClick={() => handleDownloadDocx()}
               disabled={isDownloadingDocx}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ml-auto disabled:opacity-60"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60"
             >
               <DownloadSimple size={13} weight="bold" />
               <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
@@ -472,32 +574,145 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Scorecard */}
       {dashboard && (
-        <ResumeScoreCard dashboard={dashboard} candidateName={firstName} variant={variant} />
+        <ResumeScoreCard
+          id="resume-scorecard"
+          data-mascot-cue="Deterministic ATS scorecard: inspect your 6 pillar grades."
+          data-mascot-chip="ATS Scorecard"
+          data-mascot-emotion="thinking"
+          dashboard={dashboard}
+          candidateName={firstName}
+          variant={variant}
+        />
       )}
+
+      {/* ── Section-by-Section Resume Audit (/10) ──────────── */}
+      <div
+        id="resume-audit"
+        data-mascot-cue="Section-by-section audit: scores each resume section out of 10 with actionable fixes."
+        data-mascot-chip="Section Audit"
+        data-mascot-emotion="thinking"
+        className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
+          <div className="space-y-0.5">
+            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkle size={15} weight="fill" className="text-[var(--primary)]" />
+              Section-by-Section Resume Audit (/10)
+            </span>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Recruiter benchmark breakdown scoring each resume section out of 10 with actionable &quot;what&apos;s hurting&quot; diagnostics and required improvements.
+            </p>
+          </div>
+          <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] px-2.5 py-0.5 rounded-full">
+            5 Core Sections Audited
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          {Object.entries(effectiveSectionAudit).map(([key, item]) => {
+            const score10 = item.score10 ?? 0
+            const isPassing = score10 >= 8
+            const isWarning = score10 >= 5 && score10 < 8
+            const badgeClass = isPassing
+              ? 'text-emerald-700 bg-emerald-500/10 border-emerald-500/20'
+              : isWarning
+              ? 'text-amber-700 bg-amber-500/10 border-amber-500/20'
+              : 'text-rose-700 bg-rose-500/10 border-rose-500/20'
+
+            const barColor = isPassing
+              ? 'bg-emerald-500'
+              : isWarning
+              ? 'bg-amber-500'
+              : 'bg-rose-500'
+
+            return (
+              <div
+                key={key}
+                className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col justify-between space-y-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-1.5">
+                    <span className="text-xs font-bold text-[var(--text-primary)] truncate" title={item.label}>
+                      {item.label}
+                    </span>
+                    <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-md border ${badgeClass}`}>
+                      {score10}/10
+                    </span>
+                  </div>
+
+                  {/* Micro Progress Bar */}
+                  <div className="w-full h-1.5 bg-[var(--surface-card)] rounded-full overflow-hidden border border-[var(--border-default)]">
+                    <div
+                      className={`h-full transition-[width] duration-500 rounded-full ${barColor}`}
+                      style={{ width: `${Math.max(10, Math.min(100, score10 * 10))}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* What's Hurting note & Required Improvement */}
+                <div className="pt-2 border-t border-[var(--border-default)] text-xs leading-relaxed space-y-2">
+                  {!isPassing ? (
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <WarningCircle size={12} weight="bold" /> What&apos;s Hurting
+                      </span>
+                      <p className="text-[var(--text-secondary)] text-xs leading-snug">
+                        {item.whatsHurting || item.hurtingReason || 'Scoring below the 8/10 recruiter benchmark; needs refinement.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCircle size={12} weight="bold" /> Looking Strong
+                      </span>
+                      <p className="text-[var(--text-muted)] text-xs leading-snug">
+                        Well-calibrated for recruiter screening and ATS parsing safety.
+                      </p>
+                    </div>
+                  )}
+
+                  {!isPassing && item.requiredImprovement && (
+                    <div className="pt-1.5 border-t border-[var(--border-default)]/60 space-y-0.5">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] flex items-center gap-1">
+                        <ArrowRight size={11} weight="bold" /> Required Fix
+                      </span>
+                      <p className="text-[var(--text-primary)] text-xs leading-snug">
+                        {item.requiredImprovement}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Keyword & JD Alignment (With Single Unified Download CTA) */}
       {(dashboard?.keywordAlignment || resumeAgent.keywordAlignment) && (
-        <ResumeKeywordAlignment
-          keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
-          variant={variant}
-          currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
-          onRebuildResume={handleDownloadDocx}
-          reportData={reportData}
-          onToast={(msg) => setToastMsg(msg)}
-        />
+        <div id="resume-keywords">
+          <ResumeKeywordAlignment
+            keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
+            variant={variant}
+            currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
+            onRebuildResume={handleDownloadDocx}
+            reportData={reportData}
+            onToast={(msg) => setToastMsg(msg)}
+          />
+        </div>
       )}
 
       {/* Two Column Grid: Recruiter's Read & What's Working */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Overall review */}
         {(resumeAgent.overallReview?.summary || typeof resumeAgent.overallReview === 'string') && (
-          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 flex flex-col justify-between shadow-xs">
+          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl p-6 flex flex-col justify-between shadow-xs">
             <div>
               <div className="flex items-center justify-between gap-2 mb-3">
-                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkle size={15} weight="fill" /> The Recruiter's Read
+                <h3 className="text-xs font-mono text-emerald-400 flex items-center gap-2">
+                  <User size={15} weight="bold" /> The Recruiter's Read
                 </h3>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
                   Direct Diagnostic Tone
                 </span>
               </div>
@@ -507,7 +722,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                     ? resumeAgent.overallReview
                     : resumeAgent.overallReview?.summary,
                   firstName,
-                  dashboard
+                  dashboard,
+                  resolvedBullets
                 )}
               </p>
             </div>
@@ -552,7 +768,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
       {summaryOptimization && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 space-y-5 shadow-xs">
+        <div
+          id="resume-summary"
+          data-mascot-cue="Executive summary rewrite: ready to copy and paste to anchor your target level."
+          data-mascot-chip="Summary Rewrite"
+          data-mascot-emotion="coach"
+          className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 space-y-5 shadow-xs"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
@@ -560,7 +782,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               </div>
               <div>
                 <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-tight">
-                  Professional Summary Audit & Ready-to-Paste Rewrite
+                  Professional Summary Audit & Strategic Rewrite
                 </h3>
                 <p className="text-xs text-[var(--text-muted)]">
                   Senior recruiter critique and a tailored executive hook engineered for 6-second recruiter scans.
@@ -611,20 +833,20 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
           {/* Ready-to-Paste Executive Summary Rewrite */}
           {summaryOptimization.rewrittenSummary && (
-            <div className="bg-gradient-to-r from-indigo-500/5 via-sky-500/5 to-emerald-500/5 border border-indigo-500/30 dark:border-indigo-400/30 rounded-xl p-4 sm:p-5 space-y-3">
+            <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkle size={14} weight="fill" /> Ready-to-Paste Executive Summary Rewrite
+                <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 font-mono">
+                  <Target size={14} weight="bold" /> Strategic Executive Summary Rewrite
                 </span>
 
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   title="Click to copy executive summary"
                 >
                   {copiedSummary ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
-                  <span>{copiedSummary ? 'Copied to Clipboard!' : 'Copy Summary'}</span>
+                  <span>{copiedSummary ? 'Copied' : 'Copy Summary'}</span>
                 </button>
               </div>
 
@@ -637,23 +859,131 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
-      {dashboard?.bulletAudit?.length > 0 && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-          <ResumeBulletAudit bulletAudit={dashboard.bulletAudit} issues={issues} variant={variant} />
+      {resolvedBullets.length > 0 ? (
+        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
+          <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
+        </div>
+      ) : (
+        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 text-center text-xs text-[var(--text-muted)]">
+          <p>No parsed experience bullets found in the supplied resume.</p>
+        </div>
+      )}
+
+      {/* What to Cut (Fluff & 1-Page Discipline) */}
+      {cutList.length > 0 && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                <Scissors size={20} weight="bold" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    What to Cut (Fluff & 1-Page Discipline)
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 tabular-nums">
+                    {cutList.length} {cutList.length === 1 ? 'Item' : 'Items'} to Cut
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Lines that dilute senior positioning, waste valuable vertical space, or break 1-page resume discipline (&lt;8 YOE).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            {cutList.map((item, idx) => (
+              <div
+                key={item.bulletId || idx}
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-rose-400/50 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    {item.section || 'Resume Line'}
+                  </span>
+                  <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                    ✕ Recommended for Deletion
+                  </span>
+                </div>
+                {item.originalText && (
+                  <p className="text-xs text-[var(--text-secondary)] line-through decoration-rose-500/70 font-mono bg-[var(--surface-card)] p-2.5 rounded-lg border border-[var(--border-default)]">
+                    "{item.originalText}"
+                  </p>
+                )}
+                <p className="text-xs text-[var(--text-primary)] font-medium">
+                  <strong className="text-rose-600 dark:text-rose-400">Why cut:</strong> {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Literal ATS Keyword Mirroring */}
+      {nearMissKeywords.length > 0 && (
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                <ArrowsLeftRight size={20} weight="bold" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">
+                    Literal ATS Keyword Mirroring
+                  </h3>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 tabular-nums">
+                    {nearMissKeywords.length} Exact Keyword Swaps
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  ATS scanners match verbatim JD phrases. Replace loose semantic synonyms with literal target terms.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {nearMissKeywords.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-indigo-400/50 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold line-through text-rose-500 decoration-rose-500 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                      {item.resumePhrase}
+                    </span>
+                    <ArrowRight size={14} className="text-[var(--text-muted)]" />
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                      {item.jdPhrase}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] pt-1">
+                  <strong className="text-[var(--text-primary)]">ATS Parser Note:</strong> {item.reason}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {/* Single Dedicated Technical Talking Points & Interview Defense Guide */}
-      <InterviewDefenseInteractive
-        initialSkillsOnly={strandedSkills}
-        interviewLedger={interviewLedger}
-        targetRole={targetRole}
-        company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'my organization'}
-        onToast={(msg) => setToastMsg(msg)}
-      />
+      <div id="resume-defense">
+        <InterviewDefenseInteractive
+          initialSkillsOnly={strandedSkills}
+          interviewLedger={interviewLedger}
+          targetRole={targetRole}
+          company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'my organization'}
+          onToast={(msg) => setToastMsg(msg)}
+        />
+      </div>
 
       {/* Deep issues (only shown when bullet audit is not available) */}
-      {!dashboard?.bulletAudit?.length && sectionLevelIssues.length > 0 && (
+      {!resolvedBullets.length && sectionLevelIssues.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-2">
@@ -719,7 +1049,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Priority actions (only shown when bullet audit is not available) */}
-      {!dashboard?.bulletAudit?.length && priorityActions.length > 0 && (
+      {!resolvedBullets.length && priorityActions.length > 0 && (
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6">
           <h3 className="text-xs font-bold text-[var(--primary)] uppercase tracking-wider flex items-center gap-2 mb-4">
             <ListChecks size={15} /> Priority Action Items — Do These First

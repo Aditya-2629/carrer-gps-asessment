@@ -24,6 +24,20 @@ def decode_html_entities(s):
     s = s.replace('&amp;', '&').replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")
     return s.strip()
 
+def clean_location(loc):
+    if not loc or not isinstance(loc, str):
+        return ""
+    s = decode_html_entities(loc).strip()
+    s = re.sub(r'^\s*\d+[\w\s.,#-]+?(?=[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}\b)', '', s)
+    s = re.sub(r'\b(?:apt|suite|ste|unit|bldg|floor|fl|rm)\s*#?\d+[\w-]*\s*,?', '', s, flags=re.I)
+    s = re.sub(r'\s{2,}', ' ', s).strip()
+    return s
+
+def is_reference_noise(text):
+    if not text or not isinstance(text, str):
+        return False
+    return bool(re.match(r'^\s*[-•*▪]?\s*references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?\s*$', text.strip(), re.I))
+
 def clean_skill_name(s):
     if not s or not isinstance(s, str):
         return ""
@@ -176,6 +190,11 @@ def build_docx_from_json(resume_data, output_path):
             if s_str: candidate_skills.append(s_str)
 
     # 1. Header: Candidate Name, Title, Contact
+    yoe_raw = str(resume_data.get('years_of_experience') or '')
+    yoe_match = re.search(r'\d+(?:\.\d+)?', yoe_raw)
+    yoe = float(yoe_match.group(0)) if yoe_match else 3.0
+    is_under_8_yoe = yoe < 8.0
+
     name = decode_html_entities(resume_data.get('candidate_name') or resume_data.get('name') or 'Candidate Name')
     p_name = add_p(space_after=1.5, align=WD_ALIGN_PARAGRAPH.CENTER)
     r_name = p_name.add_run(name.upper())
@@ -194,7 +213,7 @@ def build_docx_from_json(resume_data, output_path):
     contact_parts = []
     phone = decode_html_entities(resume_data.get('phone') or '')
     email = decode_html_entities(resume_data.get('email') or '')
-    location = decode_html_entities(resume_data.get('location') or '')
+    location = clean_location(resume_data.get('location') or '')
     linkedin = decode_html_entities(resume_data.get('linkedin') or '')
     github = decode_html_entities(resume_data.get('github') or '')
 
@@ -229,6 +248,7 @@ def build_docx_from_json(resume_data, output_path):
 
     # 2. Professional Summary (Mandatory Executive Section)
     summary = decode_html_entities(resume_data.get('summary') or '')
+    summary = re.sub(r'references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?', '', summary, flags=re.I).strip()
     if not summary:
         # Dynamic fallback synthesis
         summary = (
@@ -247,11 +267,11 @@ def build_docx_from_json(resume_data, output_path):
     experiences = resume_data.get('experiences') or resume_data.get('experience') or []
     if experiences:
         add_header("Work Experience")
-        for exp in experiences:
+        for exp_idx, exp in enumerate(experiences):
             company = decode_html_entities(exp.get('company') or '')
             role = decode_html_entities(exp.get('role') or exp.get('title') or '')
             dates = decode_html_entities(exp.get('duration') or exp.get('dates') or '')
-            loc = decode_html_entities(exp.get('location') or '')
+            loc = clean_location(exp.get('location') or '')
 
             p_exp = add_p(space_before=3, space_after=1.5)
             p_exp.paragraph_format.tab_stops.add_tab_stop(RIGHT_TAB, WD_TAB_ALIGNMENT.RIGHT)
@@ -281,9 +301,14 @@ def build_docx_from_json(resume_data, output_path):
                     r_loc.font.italic = True
 
             bullets = exp.get('bullets') or []
+            filtered_bullets = []
             for b in bullets:
                 b_text = decode_html_entities(b if isinstance(b, str) else b.get('text', ''))
-                if not b_text: continue
+                if b_text and not is_reference_noise(b_text):
+                    filtered_bullets.append(b_text)
+
+            bullets_to_render = (filtered_bullets[:5] if exp_idx == 0 else filtered_bullets[:2]) if is_under_8_yoe else filtered_bullets
+            for b_text in bullets_to_render:
                 pb = add_p(space_after=2)
                 pb.paragraph_format.left_indent = Inches(0.2)
                 r_dot = pb.add_run("•  ")
@@ -310,9 +335,14 @@ def build_docx_from_json(resume_data, output_path):
                 r_ps.font.color.rgb = RGBColor(0x44, 0x44, 0x44)
 
             pbullets = proj.get('bullets') or []
+            filtered_pbullets = []
             for pb_item in pbullets:
                 pb_text = decode_html_entities(pb_item if isinstance(pb_item, str) else pb_item.get('text', ''))
-                if not pb_text: continue
+                if pb_text and not is_reference_noise(pb_text):
+                    filtered_pbullets.append(pb_text)
+
+            pbullets_to_render = filtered_pbullets[:2] if is_under_8_yoe else filtered_pbullets
+            for pb_text in pbullets_to_render:
                 pb = add_p(space_after=2)
                 pb.paragraph_format.left_indent = Inches(0.2)
                 r_dot = pb.add_run("•  ")
@@ -381,6 +411,25 @@ def build_docx_from_json(resume_data, output_path):
                     r_dl.font.name = 'Times New Roman'
                     r_dl.font.size = Pt(9.5)
                     r_dl.font.italic = True
+
+    # 7. Certifications
+    certifications = resume_data.get('certifications') or []
+    valid_certs = []
+    for cert in certifications:
+        c_text = decode_html_entities(cert if isinstance(cert, str) else (cert.get('name') or cert.get('title') or ''))
+        if c_text and not is_reference_noise(c_text):
+            valid_certs.append(c_text)
+    if valid_certs:
+        add_header("Certifications")
+        for cert_text in valid_certs:
+            pb = add_p(space_after=2)
+            pb.paragraph_format.left_indent = Inches(0.2)
+            r_dot = pb.add_run("•  ")
+            r_dot.font.name = 'Times New Roman'
+            r_dot.font.size = Pt(9)
+            r_cert = pb.add_run(cert_text)
+            r_cert.font.name = 'Times New Roman'
+            r_cert.font.size = Pt(10)
 
     doc.save(output_path)
 

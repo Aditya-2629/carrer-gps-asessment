@@ -34,14 +34,14 @@ export default function CareerJourneyPhases({ data }) {
       {/* Executive Section Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
             <span>Career Journey Architecture</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
             Where Am I In My Career Journey?
           </h2>
           <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
-            Every job search has distinct phases. <span className="text-[var(--primary)] font-bold">You are currently in Positioning.</span>
+            Every job search has distinct phases. <span className="text-[var(--primary)] font-semibold">You are currently in Positioning.</span>
           </p>
         </div>
       </div>

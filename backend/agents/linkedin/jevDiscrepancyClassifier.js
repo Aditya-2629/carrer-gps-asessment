@@ -14,36 +14,36 @@ export const JEV_DISCREPANCY_CACHE = new Map()
 // Pre-seed common equivalent and severe mismatch pairs into O(1) cache
 const SEED_DISCREPANCY_DECISIONS = [
   {
-    r: 'senior data analyst',
+    r: 'senior analyst',
     l: 'lead bi & analytics specialist',
     choice: 'IDENTICAL_OR_EQUIVALENT',
     isDiscrepancy: false,
     confidence: 0.98,
-    explanation: 'Both roles represent data analysis, business intelligence, and analytics leadership.'
+    explanation: 'Both roles represent domain analysis, business intelligence, and analytics leadership.'
   },
   {
-    r: 'software engineer',
+    r: 'systems developer',
     l: 'real estate sales agent',
     choice: 'SEVERE_ROLE_MISMATCH',
     isDiscrepancy: true,
     confidence: 0.99,
-    explanation: 'Software engineering and real estate sales are conflicting career tracks.'
+    explanation: 'Technical engineering and real estate sales are conflicting career tracks.'
   },
   {
     r: 'full stack developer',
-    l: 'software engineer',
+    l: 'systems developer',
     choice: 'IDENTICAL_OR_EQUIVALENT',
     isDiscrepancy: false,
     confidence: 0.99,
-    explanation: 'Full stack developer and software engineer are standard industry synonyms.'
+    explanation: 'Full stack developer and systems developer are standard technical development functions.'
   },
   {
-    r: 'software developer',
-    l: 'software engineer',
+    r: 'application developer',
+    l: 'systems developer',
     choice: 'IDENTICAL_OR_EQUIVALENT',
     isDiscrepancy: false,
     confidence: 0.99,
-    explanation: 'Software developer and software engineer represent equivalent technical development functions.'
+    explanation: 'Application developer and systems developer represent equivalent technical development functions.'
   }
 ]
 
@@ -149,9 +149,9 @@ export async function classifyTitleDriftWithJev(resumeTitle = '', linkedinTitle 
                   type: 'choice',
                   instructions: `Compare candidate resume title "${resumeTitle}" with LinkedIn title "${linkedinTitle}".`,
                   criteria: {
-                    IDENTICAL_OR_EQUIVALENT: 'Both titles represent the exact same core functional role or modern industry synonyms (e.g. Senior Data Analyst vs Lead BI Specialist)',
+                    IDENTICAL_OR_EQUIVALENT: 'Both titles represent the exact same core functional role or modern industry synonyms (e.g. Senior Analyst vs Lead Specialist)',
                     NATURAL_PROMOTION_OR_SENIORITY: 'Same technical domain with natural seniority/lead progression',
-                    SEVERE_ROLE_MISMATCH: 'Conflicting functional tracks that would trigger an automated background check red flag (e.g. Software Engineer vs Real Estate Sales)'
+                    SEVERE_ROLE_MISMATCH: 'Conflicting functional tracks that would trigger an automated background check red flag (e.g. Systems Developer vs Real Estate Agent)'
                   }
                 }
               }

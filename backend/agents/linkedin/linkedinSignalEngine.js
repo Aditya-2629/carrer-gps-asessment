@@ -33,6 +33,11 @@ export function extractLinkedInSignals(rawOrNormalizedProfile = {}, resumeContex
   const connections = profile.connectionsCount
   const recommendations = profile.recommendationsCount
   const hasCustomUrl = profile.hasCustomUrl
+  const featured = Array.isArray(profile.featured)
+    ? profile.featured
+    : Array.isArray(profile.featuredProjects)
+    ? profile.featuredProjects
+    : []
 
   // ── 1. Headline Strength Signals ──────────────────────────────────────────
   const headlineWords = headline ? headline.split(/\s+/).filter(Boolean) : []
@@ -133,6 +138,11 @@ export function extractLinkedInSignals(rawOrNormalizedProfile = {}, resumeContex
       profileUrl: profile.url,
       hasCustomUrl,
     },
+    featured: {
+      count: featured.length,
+      hasFeatured: featured.length > 0,
+      items: featured,
+    },
     completeness: {
       experienceCount: experiences.length,
       expWithDescription,
@@ -141,6 +151,7 @@ export function extractLinkedInSignals(rawOrNormalizedProfile = {}, resumeContex
       hasEducation: education.length > 0,
       skillsCount: skills.length,
       skills,
+      featuredCount: featured.length,
     },
     raw: {
       experiences,

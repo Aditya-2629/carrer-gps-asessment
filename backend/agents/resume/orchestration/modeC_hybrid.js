@@ -12,7 +12,7 @@
  *
  * Injects a structured "Deterministic Pre-Audit Dossier" into ONE strong
  * recruiter-level reasoning call focused strictly on high-conviction diagnosis,
- * prioritization, conservative rewrites, and recruiter synthesis.
+ * prioritization, full 5-part Google XYZ rewrites with calibrated metrics, and recruiter synthesis.
  */
 
 import crypto from 'crypto'
@@ -23,9 +23,9 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder, cleanRewriteText } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
 
-export { cleanRewriteText }
+export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
 export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = []) {
@@ -211,11 +211,25 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           iss.diagnosis = iss.diagnosis.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
         }
       }
+      const origText = iss.evidence?.[0]?.originalText || iss.originalText || ''
+      const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
       if (iss?.correctedText) {
         iss.correctedText = cleanRewriteText(iss.correctedText)
+        if (origText && isLazySuffixAppend(iss.correctedText, origText)) {
+          iss.correctedText = buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: state.marketProfile?.topSkills || [],
+          })
+        }
       }
       if (iss?.rewrite) {
         iss.rewrite = cleanRewriteText(iss.rewrite)
+        if (origText && isLazySuffixAppend(iss.rewrite, origText)) {
+          iss.rewrite = iss.correctedText || buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: state.marketProfile?.topSkills || [],
+          })
+        }
       }
     })
   } else {
@@ -224,14 +238,29 @@ export function sanitizeModeCOutput(analysis, state = {}) {
 
   // 5b. bulletRewrites normalization (supporting V4 readyToUseRewrite & wovenKeywords)
   if (Array.isArray(analysis.bulletRewrites)) {
+    const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
     analysis.bulletRewrites = analysis.bulletRewrites
-      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText) && (rw.rewrittenText || rw.readyToUseRewrite))
+      .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText || rw.original || rw.text) && (rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite))
       .map((rw) => {
-        const cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite)
+        const origText = rw.original || rw.originalText || rw.text || ''
+        let cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
+        if (origText && isLazySuffixAppend(cleanedText, origText)) {
+          cleanedText = buildFivePartPlaybookRewrite(origText, {
+            targetRole: effectiveRole,
+            skills: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
+          })
+        }
         return {
           ...rw,
+          original: origText,
+          originalText: origText,
+          rewritten: cleanedText,
           rewrittenText: cleanedText,
           readyToUseRewrite: cleanedText,
+          critique: rw.critique || rw.reason || rw.diagnosis || '',
+          fiveParts: rw.fiveParts || rw.fivePartFlags || null,
+          impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
+          status: rw.status || 'warn',
           wovenKeywords: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
         }
       })
@@ -285,6 +314,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
   }
 
   // 5c. bulletUpgrades normalization
+  const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
   analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
     ? analysis.bulletUpgrades.map((upg) => {
         let reason = upg.reason
@@ -294,10 +324,16 @@ export function sanitizeModeCOutput(analysis, state = {}) {
             reason = reason.replace(/participle\s*\(['"][^'"]+['"]\)/i, `participle ('${matchIng[1]}')`)
           }
         }
+        let rwText = cleanRewriteText(upg.rewrittenText)
+        if (upg.originalText && isLazySuffixAppend(rwText, upg.originalText)) {
+          rwText = buildFivePartPlaybookRewrite(upg.originalText, {
+            targetRole: effectiveRole,
+          })
+        }
         return {
           ...upg,
           reason,
-          rewrittenText: cleanRewriteText(upg.rewrittenText),
+          rewrittenText: rwText,
         }
       })
     : []
@@ -363,6 +399,62 @@ export function sanitizeModeCOutput(analysis, state = {}) {
         }
       }
     })
+  }
+
+  // 8. bulletEvaluations normalization (5-Part Formula & Helping/Hurting Verdict)
+  if (Array.isArray(analysis.bulletEvaluations)) {
+    analysis.bulletEvaluations = analysis.bulletEvaluations
+      .filter((be) => be && typeof be === 'object' && be.bulletId)
+      .map((be) => {
+        const rawVerdict = String(be.verdict || '').toLowerCase().trim()
+        const isHurting = rawVerdict === 'hurting' || be.isResponsibilityOnly === true || (Array.isArray(be.missingElements) && be.missingElements.length >= 2)
+        const verdict = isHurting ? 'hurting' : 'helping'
+        const flags = be.fivePartFlags && typeof be.fivePartFlags === 'object' ? be.fivePartFlags : {}
+        return {
+          bulletId: String(be.bulletId).trim(),
+          verdict,
+          fivePartFlags: {
+            actionVerb: Boolean(flags.actionVerb),
+            hardSkill: Boolean(flags.hardSkill),
+            collaboration: Boolean(flags.collaboration),
+            metric: Boolean(flags.metric),
+            outcome: Boolean(flags.outcome),
+          },
+          isResponsibilityOnly: Boolean(be.isResponsibilityOnly),
+          missingElements: Array.isArray(be.missingElements) ? be.missingElements.map(String) : [],
+        }
+      })
+  } else {
+    analysis.bulletEvaluations = []
+  }
+
+  // 9. cutList normalization (Filler, outdated, and overflow items)
+  if (Array.isArray(analysis.cutList)) {
+    analysis.cutList = analysis.cutList
+      .filter((cl) => cl && typeof cl === 'object' && (cl.originalText || cl.bulletId || cl.reason))
+      .map((cl) => ({
+        section: String(cl.section || 'experience').trim(),
+        itemId: cl.itemId ? String(cl.itemId).trim() : null,
+        bulletId: cl.bulletId ? String(cl.bulletId).trim() : null,
+        originalText: cleanTokens(cl.originalText || ''),
+        reason: cleanTokens(cl.reason || 'Prune low-value filler to preserve vertical space and recruiter focus'),
+      }))
+  } else {
+    analysis.cutList = []
+  }
+
+  // 10. nearMissKeywords normalization (Literal ATS Keyword Mirroring)
+  if (Array.isArray(analysis.nearMissKeywords)) {
+    analysis.nearMissKeywords = analysis.nearMissKeywords
+      .filter((nmk) => nmk && typeof nmk === 'object' && (nmk.resumePhrase || nmk.jdPhrase))
+      .map((nmk) => ({
+        resumePhrase: cleanTokens(nmk.resumePhrase || ''),
+        jdPhrase: cleanTokens(nmk.jdPhrase || ''),
+        bulletId: nmk.bulletId ? String(nmk.bulletId).trim() : null,
+        reason: cleanTokens(nmk.reason || 'Exact JD keyword phrase required for ATS scanner matching'),
+      }))
+  } else {
+    analysis.nearMissKeywords = []
   }
 
   return analysis
@@ -444,23 +536,41 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Flag bullets that undercut senior positioning or lack tangible operational impact.
    - Rewrite them into punchy, executive-grade engineering bullets following the Google XYZ standard:
      "Accomplished [X], evidenced by [Y], by executing [Z]."
-   - CRITICAL HUMANIZATION MANDATE (ZERO PLACEHOLDERS):
+   - CRITICAL 5-PART RESUME PLAYBOOK MANDATE (18–32 WORDS, ZERO PLACEHOLDERS):
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
-     * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
+     * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
+     * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
+     * When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (~20–35% latency/efficiency gain, 10–15 hrs/week saved, 3x throughput, 99.9% uptime, or dataset/user scale) matching the candidate's seniority without inventing fake employer names.
      * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
    - Flag bullets that list 5+ tools without explaining the architectural problem solved or the system built.
-   - Flag bullets opening with weak verbs ("Contributed to", "Managed", "Helped", "Assisted in", "Responsible for") or "-ing" participles ("Working on", "Developing").
-   - Restructure them so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated").
+   - Flag bullets opening with weak verbs ("Contributed to", "Managed", "Helped", "Assisted in", "Responsible for", "Utilized", "Worked on") or "-ing" participles ("Working on", "Developing").
+   - Restructure them from scratch so strong ownership action verbs lead ("Architected", "Engineered", "Spearheaded", "Automated", "Reduced", "Led", "Optimized").
 
 ==================================================
-3. MANDATORY FULL REWRITES (GOOGLE XYZ + ARCHITECTURAL MECHANISM)
+3. MANDATORY FULL REWRITES (THE 5-PART RESUME PLAYBOOK FORMULA)
 ==================================================
 Every single issue in "issues" MUST have a non-null "correctedText" ("correctionType": "rewrite"). Never return "correctedText": null.
-BAN COSMETIC SWAPS: Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
-Mandatory Structure:
-[Action Verb] + [Specific System / Product Delivered] + [by engineering Z Architectural Mechanism] + [resulting in Y Quantified / Operational Impact].
+BAN COSMETIC SWAPS & LAZY SUFFIX APPENDS:
+- Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
+- Strictly forbid lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
+
+All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST strictly follow the 5-Part Winning Bullet Formula (18–32 words):
+[1. Strong Action Verb] + [2. Relevant Hard Skill/Scope] + [3. Scale / Collaboration] + [4. Natural Calibrated Metric] + [5. Business Outcome]
+
+- Part 1 (Strong Action Verb): Lead with a high-conviction engineering action verb (e.g. Architected, Engineered, Automated, Reduced, Led, Spearheaded, Optimized). Replace weak openers ("Worked on", "Helped with", "Responsible for", "Utilized", "Assisted in", "Tasked with") and "-ing" participles.
+- Part 2 (Relevant Hard Skill/Scope): Weave verified tools, systems, or frameworks naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS). Zero keyword stuffing.
+- Part 3 (Scale / Collaboration): Contextualize organizational ownership or cross-functional scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
+- Part 4 (Natural Calibrated Metric): When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (e.g. "~20–35% latency reduction", "10–15 engineering hours saved weekly", "3x throughput", "99.9% uptime", "across 250k+ records") matching candidate seniority without inventing fake employer names. Zero [ADD: ...] or bracketed placeholders.
+- Part 5 (Business Outcome): Explicitly state the delivered business or system impact (e.g. "eliminating release bottlenecks", "preventing production defect escapes", "sustaining zero-downtime rollouts").
+
+CRITICAL SEPARATION IN issues[].diagnosis:
+In every issue diagnosis, you MUST explicitly separate:
+1. Candidate Activity (Responsibility/Task): What the candidate did on a task/duty level.
+2. Outcome Deficit (What was built/achieved): The missing scale, technical mechanism, or measurable result that recruiters require for senior positioning.
+Structure diagnosis like:
+"Candidate Activity (Task): [Task/duty described]. Outcome Deficit: [Missing scale, technical mechanism, or measurable result], causing hiring managers to perceive this as passive routine duty rather than high-impact engineering ownership."
 
 DOMAIN ARCHETYPE ENFORCEMENT:
 1. Data & Business Analyst: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
@@ -473,22 +583,71 @@ DOMAIN ARCHETYPE ENFORCEMENT:
    Example: "Reduced deployment lead time from 4 days to 45 minutes while sustaining 99.99% service availability by orchestrating multi-stage Docker container builds, automated Terraform infrastructure, and blue-green Kubernetes deployments."
 - SECURITY & COMPLIANCE NON-ABSURDITY: For security/vulnerability/sanitization bullets, anchor ONLY on eliminating high-severity CVEs, zero-day threat prevention, and achieving 100% security audit compliance (SOC2/HIPAA/PCI-DSS). NEVER claim security sanitization or input validation increased processing speed, system throughput, or execution latency.
 
-- ZERO PLACEHOLDER MANDATE: NEVER use bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
-- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Conservative: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
-- Do NOT invent new technologies or concrete fake numbers in "correctedText". Ground rewrites strictly in verified resume facts and natural operational outcomes.
-- The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
+- CRITICAL HUMANIZATION MANDATE (ZERO PLACEHOLDERS):
+  * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
+  * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
+  * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
+- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Efficiency: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
+- Ground rewrites strictly in verified candidate facts and role-calibrated operational metrics without inventing fake employer names.
 
 ==================================================
-4. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")
+4. LLM SEMANTIC AUDIT MANDATE (bulletEvaluations, cutList, nearMissKeywords)
+==================================================
+You must perform an exhaustive semantic audit across the candidate resume and output 3 top-level arrays:
+
+1. "bulletEvaluations":
+Evaluate EVERY experience and project bullet in the supplied resume:
+- "bulletId": String matching the canonical bullet ID (e.g. "exp_001_b01", "proj_001_b01").
+- "verdict": "helping" | "hurting" (STRICT BINARY VERDICT — NO NEUTRAL).
+  * "helping": Demonstrates proactive engineering ownership, concrete technical mechanism, and quantified or measurable outcome.
+  * "hurting": Weak duty/task phrasing, missing metric/outcome, tool dump, or pure responsibility description without business impact.
+- "fivePartFlags": Object with boolean flags for each part of the 5-part formula:
+  {
+    "actionVerb": boolean (true if starts with strong active verb; false if weak or -ing),
+    "hardSkill": boolean (true if mentions concrete technical skills or tools),
+    "collaboration": boolean (true if mentions team, stakeholder, or leadership context),
+    "metric": boolean (true if contains hard numbers, percentages, time savings, or scale),
+    "outcome": boolean (true if delivers clear business or system achievement)
+  }
+- "isResponsibilityOnly": boolean (true if bullet only lists a job duty or task without tangible outcome or ownership).
+- "missingElements": Array of missing parts from the 5-part formula (e.g. ["metric", "collaboration"]).
+
+2. "cutList":
+Flag lines, bullets, or sections that actively hurt the resume, waste valuable vertical space, or violate 1-page discipline (<8 YOE):
+- Items to cut: Generic meeting/task filler (e.g. "Attended daily agile standups and sprint planning", "Wrote clean code and fixed bugs"), outdated >5-year irrelevant legacy projects, full street addresses (privacy/space leak), or obsolete references ("References available upon request").
+- Format: Array of objects:
+  {
+    "section": "experience" | "projects" | "summary" | "education" | "skills",
+    "itemId": "exp_001",
+    "bulletId": "exp_001_b04" (or null if entire item),
+    "originalText": "Exact verbatim text from candidate resume",
+    "reason": "Clear explanation of why this should be pruned or cut to preserve page space and recruiter focus"
+  }
+- If no items qualify for cut, return empty array [].
+
+3. "nearMissKeywords" & Literal ATS Keyword Mirroring:
+Compare candidate resume phrasing against TARGET JOB DESCRIPTION and marketEvidenceGaps to identify semantic synonyms that ATS filters fail to match:
+- E.g., candidate wrote "large-scale systems" or "distributed web apps" while JD demands "distributed systems".
+- Format: Array of objects:
+  {
+    "resumePhrase": "large-scale systems",
+    "jdPhrase": "distributed systems",
+    "bulletId": "exp_001_b01" (or null),
+    "reason": "ATS scanners look for the exact JD keyword phrase 'distributed systems' rather than generic synonyms."
+  }
+- LITERAL ATS KEYWORD MIRRORING MANDATE: In "issues[].correctedText" and "bulletUpgrades[].rewrittenText", mirror the exact "jdPhrase" directly inside the rewrite rather than using a loose synonym or appending it awkwardly at the end.
+
+==================================================
+5. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")
 ==================================================
 In addition to the 5 to 7 primary issues, identify and rewrite up to 8 additional weak, unquantified, or "-ing" bullets across the candidate's experience and projects for the Per-Bullet Audit UI.
 Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
 - Set "status": "warn" (or "fix").
 - Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
-- Set "rewrittenText": Complete Google XYZ rewrite using only facts from the resume and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.
+- Set "rewrittenText": Complete 5-part Google XYZ rewrite (18–32 words) with strong action verb, verified skills, team scope, calibrated metric, and concrete outcome. STRICTLY NO lazy suffix appends and NO [ADD: ...] placeholders.
 
 ==================================================
-4B. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
+6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
 ==================================================
 Always populate "summaryOptimization" in the output JSON.
 - If the resume has NO summary section (or is empty/missing):
@@ -508,7 +667,7 @@ Always populate "summaryOptimization" in the output JSON.
 - ZERO FABRICATED NUMBERS MANDATE FOR "rewrittenSummary": Use ONLY exact metrics that actually appear in the candidate's resume (or strong qualitative scale statements if no global metric exists). NEVER invent numbers like "2.5 seconds" or percentages not explicitly written in the resume bullets.
 
 ==================================================
-5. ACTION-ORIENTED RECOMMENDATIONS (NO MERE REPETITION)
+7. ACTION-ORIENTED RECOMMENDATIONS (NO MERE REPETITION)
 ==================================================
 Every issue recommendation MUST be distinct, actionable advice:
 - Diagnosis answers: WHAT was noticed and why it is a problem.
@@ -517,13 +676,13 @@ Every issue recommendation MUST be distinct, actionable advice:
 CRITICAL: Do NOT repeat the diagnosis as the recommendation!
 
 ==================================================
-6. TARGET JD & MARKET INTELLIGENCE CITATION RULES
+8. TARGET JD & MARKET INTELLIGENCE CITATION RULES
 ==================================================
 - Target JD Gaps: If a skill is requested in the Target JD but unverified in the resume, categorize as "skill_evidence_gap" and phrase it strictly as "NOT_EVIDENCED_IN_RESUME". Never state the candidate lacks knowledge; only that the resume provides no direct evidence.
 - Market Gaps: When referencing market signals from the pre-audit dossier, use precise observational language (e.g. "appears in 4 of 5 sampled roles at this level in our market library, but current resume does not provide clear direct evidence"). Never say "mandatory" or "you don't know X".
 
 ==================================================
-7. CAREER STORY & RECRUITER PERSPECTIVE
+9. CAREER STORY & RECRUITER PERSPECTIVE
 ==================================================
 - Frame your analysis like a seasoned senior recruiter evaluating the candidate's real journey.
 - Respect the precomputed timeline facts: do NOT calculate dates, do not guess whether they are employed, and do not invent gaps.
@@ -532,7 +691,7 @@ CRITICAL: Do NOT repeat the diagnosis as the recommendation!
 - Frame issues around candidate positioning and clarity: "What I noticed, why it matters, and what I would change."
 
 ==================================================
-8. REQUIRED V2.2 JSON SCHEMA
+10. REQUIRED V2.2 JSON SCHEMA
 ==================================================
 Return ONLY a valid JSON object matching this structure:
 {
@@ -576,10 +735,10 @@ Return ONLY a valid JSON object matching this structure:
       "severity": "high",
       "category": "impact",
       "title": "Clear, punchy issue title",
-      "diagnosis": "Conversational, direct breakdown of what was noticed in this bullet.",
+      "diagnosis": "Candidate Activity (Task): Built and maintained API endpoints. Outcome Deficit: Lacks technical scale, throughput, or business outcome, reading as routine duty rather than engineering ownership.",
       "whyItMatters": "Why a senior hiring manager or recruiter cares for this target role.",
       "recommendation": "Concrete, actionable guidance on what to change.",
-      "correctedText": "Complete humanized Google XYZ rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.",
+      "correctedText": "Complete humanized 5-part rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.",
       "metricDiscoveryQuestions": [
         "What was the measurable latency improvement or percentage throughput gain?"
       ],
@@ -608,7 +767,39 @@ Return ONLY a valid JSON object matching this structure:
       "bulletId": "exp_001_b05",
       "status": "warn",
       "reason": "Specific 1-sentence recruiter critique of why this bullet is weak or unquantified",
-      "rewrittenText": "Complete humanized Google XYZ rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders."
+      "rewrittenText": "Complete humanized 5-part rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders."
+    }
+  ],
+  "bulletEvaluations": [
+    {
+      "bulletId": "exp_001_b01",
+      "verdict": "helping",
+      "fivePartFlags": {
+        "actionVerb": true,
+        "hardSkill": true,
+        "collaboration": true,
+        "metric": true,
+        "outcome": true
+      },
+      "isResponsibilityOnly": false,
+      "missingElements": []
+    }
+  ],
+  "cutList": [
+    {
+      "section": "experience",
+      "itemId": "exp_001",
+      "bulletId": "exp_001_b04",
+      "originalText": "Attended daily standup meetings and contributed to sprint planning sessions.",
+      "reason": "Generic meeting attendance filler that consumes prime resume real estate without signaling technical ability."
+    }
+  ],
+  "nearMissKeywords": [
+    {
+      "resumePhrase": "large-scale systems",
+      "jdPhrase": "distributed systems",
+      "bulletId": "exp_001_b01",
+      "reason": "ATS scanners look for the exact JD keyword 'distributed systems' rather than generic synonyms."
     }
   ]
 }`,

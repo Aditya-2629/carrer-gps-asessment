@@ -60,7 +60,8 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         setFormData('finalRounds', finals)
         setFormData('offers', value.offers ?? 0)
         setFormData('joiningStatus', value.joiningStatus || 'No Offer Yet')
-        setFormData('applications90d', value.applications90d ?? 60)
+        const dynamicDefaultApps90 = formData.apps30d ? parseRangeOrNumber(formData.apps30d, 0) * 3 : 0
+        setFormData('applications90d', value.applications90d ?? dynamicDefaultApps90)
       } else if (step.name === 'apps30d') {
         const rawNum = parseRangeOrNumber(value, 0)
         const weekly = Math.round(rawNum / 4.33)

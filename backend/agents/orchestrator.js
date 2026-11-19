@@ -471,10 +471,31 @@ export async function runCareerAgents(bundle) {
     })()
   }
 
-  // Merge both agent outputs into the report bundle
-  const [resumeSettled, linkedinSettled] = await Promise.all([
+  // Stage 2C: Dynamic Action Plan Agent (Pipelined in parallel alongside Resume & LinkedIn)
+  let actionPlanJobPromise = null
+  if (effectiveTargetRole || effectiveAnswers) {
+    actionPlanJobPromise = (async () => {
+      try {
+        const { generateDynamicActionPlan } = await import('../services/dynamicActionPlanAgent.js')
+        return await generateDynamicActionPlan({
+          targetRole: effectiveTargetRole,
+          answers: effectiveAnswers,
+          resumeJson: resumeContext?.canonicalResume || canonicalResume || {},
+          verifiedSkills: resumeContext?.extractedFacts?.skills || [],
+          bottleneck: effectiveAssessmentPersona?.phase?.metricGoal ? { title: effectiveAssessmentPersona.phase.metricGoal } : {},
+          funnelStages: effectiveAnswers?.funnel90d || {},
+        })
+      } catch (_planErr) {
+        return null
+      }
+    })()
+  }
+
+  // Merge all agent outputs in parallel batch
+  const [resumeSettled, linkedinSettled, actionPlanSettled] = await Promise.all([
     resumeJobPromise || Promise.resolve(null),
     linkedinJobPromise || Promise.resolve(null),
+    actionPlanJobPromise || Promise.resolve(null),
   ])
 
   const activeResumeAgent = resumeSettled?.analysis || bundle.precomputedResumeAgent || null
@@ -507,6 +528,7 @@ export async function runCareerAgents(bundle) {
     linkedinData: linkedinSettled?.linkedinData || null,
     linkedinActivityData: linkedinSettled?.activityData || null,
     linkedinActivitySignals: activeLinkedinAgent?.activitySignals || null,
+    actionPlan: actionPlanSettled || null,
     assessmentPersona: effectiveAssessmentPersona,
     partialFailure: failedAgents.length > 0,
     failedAgents,

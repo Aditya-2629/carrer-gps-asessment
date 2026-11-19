@@ -17,52 +17,107 @@ import { llmGateway } from '../../ai/gateway/llmGateway.js'
 import { matchCompany, isConcreteTechSkill, formatSkillName, isValidSkill } from './linkedinCrossAnalyzer.js'
 import { cleanTargetRoleTitle } from '../../services/resumeValidator.js'
 import {
-  buildLinkedInSynthesisPrompt,
   buildTask1HeadlinesAndBannerPrompt,
   buildTask2AboutAndFeaturedPrompt,
 } from './linkedinSynthesis.prompt.js'
 
 /**
  * Dynamically derives 5 Open-to-Work titles based on the candidate's actual target role.
- * Never defaults or hardcodes Software Engineer for non-SWE roles.
+ * Never defaults or hardcodes roles for candidates.
  */
-export function deriveOpenToWorkTitles(targetRole) {
-  const cleanBase = String(targetRole || 'Software Engineer')
-    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level)\s+/i, '')
-    .trim() || 'Software Engineer'
+export function deriveOpenToWorkTitles(targetRole, resumeContext = {}) {
+  const rawRole =
+    targetRole ||
+    resumeContext?.targetRole ||
+    resumeContext?.canonicalResume?.candidate?.targetRole ||
+    resumeContext?.canonicalResume?.experience?.[0]?.role ||
+    resumeContext?.domain ||
+    ''
+  const roleStr = typeof rawRole === 'string' ? rawRole.trim() : (rawRole?.title || String(rawRole || '')).trim()
+  const cleanBase = roleStr
+    .replace(/^(?:Senior|Lead|Staff|Principal|Junior|Associate|Mid-Level|Executive|Head of|VP of)\s+/i, '')
+    .trim() || 'Target Role'
 
-  if (/data\s+analyst|business\s+intelligence|bi\s+analyst|analytics/i.test(cleanBase)) {
-    return [
-      'Data Analyst',
-      'Senior Data Analyst',
-      'Business Intelligence Analyst',
-      'Healthcare / Enterprise Data Analyst',
-      'Lead Analytics Specialist',
-    ]
-  } else if (/data\s+scientist|machine\s+learning|ai\s+engineer|ml\s+engineer/i.test(cleanBase)) {
-    return [
-      targetRole || 'Data Scientist',
-      `Senior ${cleanBase}`,
-      'Applied AI / ML Engineer',
-      'Lead Data Scientist',
-      `Staff ${cleanBase}`,
-    ]
-  } else if (/data\s+engineer/i.test(cleanBase)) {
-    return [
-      'Data Engineer',
-      'Senior Data Engineer',
-      'Lead Data Engineer',
-      'Analytics & BigQuery Data Engineer',
-      'Cloud Data Architect',
-    ]
-  } else {
-    return [
-      targetRole || 'Software Engineer',
-      `Senior ${cleanBase}`,
-      `Lead ${cleanBase}`,
-      `Staff ${cleanBase}`,
-      `Principal ${cleanBase}`,
-    ]
+  const baseTitle = roleStr || cleanBase || 'Target Role'
+
+  const adjacentRoles = Array.isArray(resumeContext?.adjacentRoles) ? resumeContext.adjacentRoles.filter(Boolean) : []
+
+  const titles = [
+    baseTitle,
+    ...adjacentRoles,
+    `Senior ${cleanBase}`,
+    `Lead ${cleanBase}`,
+    `Principal ${cleanBase}`,
+    `Staff ${cleanBase}`,
+    `${cleanBase} Specialist`,
+    `${cleanBase} Consultant`,
+  ]
+
+  const uniqueTitles = Array.from(new Set(titles.map((t) => t.trim()))).filter(Boolean)
+  return uniqueTitles.slice(0, 5)
+}
+
+/**
+ * Builds a 50+ categorized skills bank partitioned into 4 recruiter-friendly buckets:
+ * coreFunctional, toolsAndPlatforms, industrySpecific, transferable.
+ */
+export function buildCategorizedSkillsBank(effectiveSkills = [], targetRole = '', canonical = {}) {
+  const roleStr = String(targetRole || '').toLowerCase()
+  const isHealth = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(roleStr)
+  const isFinance = /finance|financial|accountant|accounting|audit|tax|cpa|banking/i.test(roleStr)
+  const isData = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(roleStr)) && !isFinance
+
+  const unique = Array.from(new Set(effectiveSkills.map((s) => String(s).trim()).filter(Boolean)))
+
+  // Domain baseline packs to ensure robust 40-50+ coverage
+  const defaultTools = isHealth
+    ? ['Epic Systems', 'Cerner EHR', 'Pyxis MedStation', 'PointClickCare', 'Meditech', 'Omnicell', 'CareStream', 'Allscripts', 'Telehealth Systems', 'McKesson']
+    : isFinance
+    ? ['Excel & VBA', 'SAP FICO', 'QuickBooks Enterprise', 'Oracle Financials', 'Power BI', 'Tableau', 'NetSuite ERP', 'Hyperion', 'Bloomberg Terminal', 'Workday Financials', 'SQL', 'Financial Modeling']
+    : isData
+    ? ['SQL', 'Python', 'Tableau', 'Power BI', 'dbt', 'BigQuery', 'Apache Spark', 'Databricks', 'Airflow', 'Kafka', 'PostgreSQL', 'Docker', 'AWS']
+    : ['Python', 'TypeScript', 'JavaScript', 'React', 'Node.js', 'Docker', 'AWS', 'PostgreSQL', 'Redis', 'GraphQL', 'Next.js', 'CI/CD Pipelines', 'REST APIs', 'Git']
+
+  const defaultCore = isHealth
+    ? ['Triage Assessment', 'Patient Care Coordination', 'Vital Signs Monitoring', 'Medication Administration', 'Infection Control Protocols', 'Emergency Response', 'Clinical Documentation', 'Wound Care Management', 'IV Therapy', 'Patient Education']
+    : isFinance
+    ? ['Financial Modeling', 'Variance Analysis', 'GAAP Compliance', 'General Ledger Reconciliation', 'Budget Forecasting', 'Cash Flow Analysis', 'Financial Statement Preparation', 'Internal Controls', 'Cost Allocation', 'Month-End Close Management', 'Scenario Modeling']
+    : isData
+    ? ['Data Modeling', 'ETL Pipeline Design', 'Data Warehousing', 'Statistical Analysis', 'A/B Testing Frameworks', 'Dimensional Modeling (Kimball)', 'Data Quality Validation', 'Query Optimization', 'Business Intelligence Architecture', 'Automated Metric Reporting']
+    : ['System Architecture Design', 'Microservices Architecture', 'Database Optimization', 'Distributed Systems', 'API Architecture', 'Automated Unit & Integration Testing', 'Performance Optimization', 'Security Compliance', 'Cloud Infrastructure Design']
+
+  const defaultIndustry = isHealth
+    ? ['HIPAA Compliance', 'AHA Life Support (BLS/ACLS)', 'JCAHO Standards', 'Electronic Health Records (EHR)', 'Patient Safety Goals', 'Clinical Quality Improvement', 'Evidence-Based Practice', 'Interdisciplinary Team Rounding']
+    : isFinance
+    ? ['SOX Compliance', 'IFRS Standards', 'SEC Financial Reporting', 'Audit Trail Management', 'Capital Budgeting', 'Working Capital Management', 'Risk Management Frameworks', 'Corporate Governance', 'M&A Due Diligence']
+    : isData
+    ? ['Data Governance & Security', 'GDPR/CCPA Compliance', 'Data Lineage Tracking', 'SLA Management for Data Pipelines', 'Data Cataloging', 'Enterprise Reporting Standards', 'Event-Driven Architecture']
+    : ['High Availability & Fault Tolerance', 'SaaS Scalability', 'SOC2 Compliance', 'Agile / Scrum Delivery', 'Enterprise Software Architecture', 'Zero-Downtime Deployment']
+
+  const defaultTransferable = [
+    'Cross-Functional Stakeholder Alignment',
+    'Technical Project Management',
+    'Root Cause Analysis & Post-Mortems',
+    'Process Optimization & Automation',
+    'Mentorship & Knowledge Transfer',
+    'Strategic Roadmapping',
+    'Executive Presentation & Reporting',
+    'Operational Excellence',
+    'Change Management',
+    'Data-Driven Decision Making',
+  ]
+
+  const toolsAndPlatforms = Array.from(new Set([...unique.filter((s) => isConcreteTechSkill(s)), ...defaultTools])).slice(0, 15)
+  const coreFunctional = Array.from(new Set([...unique.filter((s) => !isConcreteTechSkill(s)), ...defaultCore])).slice(0, 15)
+  const industrySpecific = Array.from(new Set(defaultIndustry)).slice(0, 12)
+  const transferable = Array.from(new Set(defaultTransferable)).slice(0, 10)
+
+  return {
+    coreFunctional,
+    toolsAndPlatforms,
+    industrySpecific,
+    transferable,
+    totalCount: toolsAndPlatforms.length + coreFunctional.length + industrySpecific.length + transferable.length,
   }
 }
 
@@ -96,168 +151,132 @@ export function buildDeterministicOptimizations(
 
   const canonical = effectiveResumeContext?.canonicalResume || effectiveResumeContext || {}
   const candidateSnap = effectiveResumeContext?.candidateSnapshot || {}
+  const exp = canonical.experience || canonical.experiences || []
+
   let rawRole =
     effectiveResumeContext?.targetRole ||
     candidateSnap.targetRole ||
     canonical?.candidate?.targetRole ||
     canonical?.target_role ||
     canonical?.targetRole ||
+    exp[0]?.role ||
     effectiveProfile?.headline ||
     ''
   let targetRole = (typeof rawRole === 'string' ? rawRole : (rawRole?.title || rawRole?.name || rawRole?.targetRole || String(rawRole || ''))).trim()
+  if (!targetRole) {
+    targetRole = 'Target Role'
+  }
 
-  // Extract candidate skills & bullet context for skill-informed domain resolution
-  const rawSkillsForInference = [
+  const topCompany = exp[0]?.company || 'Enterprise'
+
+  // Extract candidate verified skills strictly from resume context & profile
+  const candidateSkills = [
     ...(canonical.skills || []),
     ...(canonical.top_skills || []),
     ...(canonical.technical_skills || []),
     ...(candidateSnap.coreSkills || []),
     ...(candidateSnap.topSkills || []),
-  ].map((s) => (typeof s === 'string' ? s : s?.name || s?.skill)).filter(Boolean)
-
-  const expBullets = (canonical.experience || canonical.experiences || []).flatMap((e) =>
-    (e.bullets || e.bulletPoints || []).map((b) => (typeof b === 'string' ? b : b.text || ''))
-  )
-  const combinedContextText = `${rawSkillsForInference.join(' ')} ${expBullets.join(' ')}`.toLowerCase()
-
-  const hasStrongDataIndicators = (
-    /(?:sql\b|statistical analysis|hypothesis|a\/b testing|ab testing|tableau|power bi|looker|data modeling|data warehousing|snowflake|bigquery|dbt\b|pandas|business intelligence|reporting analyst|variance modeling)/i.test(combinedContextText)
-  )
-  const hasBackendWebFrameworks = (
-    /(?:react(?:\.js)?|angular|vue|node(?:\.js)?|spring boot|express(?:\.js)?|django|flask|asp\.net|microservices|kubernetes|docker|graphql|rest api\b|ci\/cd)/i.test(combinedContextText)
-  )
-
-  let isHealthRole = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(targetRole)
-  let isFinanceRole = /finance|financial|accountant|accounting|audit|tax|cpa|banking|bank/i.test(targetRole)
-  let isSalesRole = /sales|account executive|b2b|marketing|revenue|bizdev|business dev/i.test(targetRole)
-  let isSoftwareRole = /software|developer|engineer|backend|frontend|fullstack|sde|web/i.test(targetRole)
-  let isDataRole = (/data|analytics|bi\b|machine learning|ml\b|ai\b|scientist/i.test(targetRole)) && !isFinanceRole
-  let isDevopsRole = /devops|cloud|sre|infrastructure/i.test(targetRole)
-
-  // Skill-Informed Domain Override:
-  // If candidate has strong data skills and lacks backend web frameworks,
-  // or if targetRole is generic ('Software Professional', 'Technical Professional', 'Professional'),
-  // automatically resolve to Data Analyst (isDataRole = true, isSoftwareRole = false).
-  if (hasStrongDataIndicators && !hasBackendWebFrameworks) {
-    isDataRole = true
-    isSoftwareRole = false
-    if (!/data|analytics|bi\b|scientist/i.test(targetRole) || /software professional|technical professional|professional/i.test(targetRole) || !targetRole) {
-      targetRole = 'Data Analyst'
-    }
-  }
-
-  if (!targetRole) {
-    targetRole = isDataRole ? 'Data Analyst' : 'Software Engineer'
-  }
-
-  const exp = canonical.experience || canonical.experiences || []
-  const topCompany = exp[0]?.company || 'Tech'
-
-  // Extract candidate verified skills (modern data warehouse tools preserved for SWEs)
-  const candidateSkills = (canonical.skills || [])
-    .map((s) => (typeof s === 'string' ? s : s?.name))
+    ...(effectiveResumeContext.verifiedSkills || []),
+    ...(effectiveProfile.skills || []),
+  ]
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
     .filter(Boolean)
     .filter(isValidSkill)
     .map(formatSkillName)
-    .sort((a, b) => (isConcreteTechSkill(b) ? 1 : 0) - (isConcreteTechSkill(a) ? 1 : 0))
 
-  // Role-appropriate stacks
-  const defaultStack = isSoftwareRole
-    ? ['Python', 'React', 'Node.js', 'AWS', 'Docker']
-    : isDataRole
-      ? ['SQL', 'Python', 'Power BI', 'Tableau', 'PostgreSQL']
-      : isDevopsRole
-        ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD']
-        : isHealthRole
-          ? ['Patient Assessment', 'EHR Systems', 'HIPAA Protocol', 'Acute Care', 'Care Coordination']
-          : isFinanceRole
-            ? ['Financial Modeling', 'GAAP / IFRS', 'Variance Analysis', 'ERP Systems', 'Month-End Close']
-            : isSalesRole
-              ? ['B2B Pipeline', 'Salesforce CRM', 'Enterprise Accounts', 'Contract Negotiation']
-              : ['Cross-functional Leadership', 'Strategic Planning', 'Process Optimization', 'KPI Dashboards']
-
-  const effectiveSkills = candidateSkills.length >= 3 ? candidateSkills : defaultStack
-  const topStack = effectiveSkills.slice(0, 3).join(' | ')
-
-  // Dynamic Specialist Headline formula
-  let specialistTopic = 'Strategic Planning, Process Optimization & Operational Leadership'
-  if (isSoftwareRole || isDevopsRole) specialistTopic = 'Cloud Architecture, Distributed Services & System Performance'
-  else if (isDataRole) specialistTopic = 'Data Architecture, Analytics Pipelines & Decision Systems'
-  else if (isHealthRole) specialistTopic = 'Clinical Operations, Patient Care Excellence & Healthcare Compliance'
-  else if (isFinanceRole) specialistTopic = 'Financial Reporting, Variance Modeling & Capital Strategy'
-  else if (isSalesRole) specialistTopic = 'Enterprise Revenue Growth, Strategic Partnerships & Pipeline Acceleration'
-
-  const fallbackHeadlines = [
-    {
-      formula: 'Search-Optimized',
-      headline: `${targetRole} | ${topStack} | Scalable Execution`.slice(0, 220),
-      whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
-    },
-    {
-      formula: 'Impact-Driven',
-      headline: `${targetRole} | Driving Measurable Operational & Strategic Impact`.slice(0, 220),
-      whyItWorks: 'Anchors on concrete outcomes and domain execution to stand out from generic applicant profiles.',
-    },
-    {
-      formula: 'Specialist',
-      headline: `Specialist in ${specialistTopic}`.slice(0, 220),
-      whyItWorks: 'Appeals directly to specialized hiring managers looking for proven functional expertise.',
-    },
-  ]
-
-  const top3PinnedSkills = effectiveSkills.slice(0, 3)
-
-  const recommendedSkillsToAdd = isSoftwareRole
-    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture']
-    : isDataRole
-      ? ['BigQuery', 'Tableau', 'Snowflake', 'dbt', 'Data Modeling']
-      : isDevopsRole
-        ? ['AWS', 'Kubernetes', 'Docker', 'Terraform', 'CI/CD Pipelines']
-        : isHealthRole
-          ? ['Patient Assessment', 'EHR Systems', 'HIPAA Protocol', 'Acute Care', 'Care Coordination']
-          : isFinanceRole
-            ? ['Financial Modeling', 'GAAP / IFRS', 'Variance Analysis', 'ERP Systems', 'Month-End Close']
-            : isSalesRole
-              ? ['B2B Pipeline', 'Salesforce CRM', 'Enterprise Accounts', 'Contract Negotiation']
-              : ['Cross-functional Leadership', 'Strategic Planning', 'Process Optimization', 'KPI Dashboards']
+  const uniqueCandidateSkills = Array.from(new Set(candidateSkills))
 
   const filteredMissing = (Array.isArray(missingSkills) ? missingSkills : [])
     .filter(isValidSkill)
     .map(formatSkillName)
 
-  const finalSkillsToAdd = filteredMissing.length > 0
-    ? Array.from(new Set([...filteredMissing, ...recommendedSkillsToAdd])).slice(0, 10)
-    : recommendedSkillsToAdd
+  const marketSkills = (effectiveResumeContext.marketTopMissingSkills || [])
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
+    .filter(Boolean)
+    .filter(isValidSkill)
+    .map(formatSkillName)
+
+  const effectiveSkills = uniqueCandidateSkills.length > 0
+    ? uniqueCandidateSkills
+    : (marketSkills.length > 0
+        ? marketSkills
+        : (filteredMissing.length > 0
+            ? filteredMissing
+            : ['Core Domain Execution', 'Operational Excellence', 'Strategic Planning']))
+
+  const topStack = effectiveSkills.slice(0, 3).join(' | ')
+  const topSkillList = effectiveSkills.slice(0, 3).join(', ') || 'Domain Specialization'
+
+  let isHealthRole = /nurse|clinical|health|patient|medical|doctor|therapy/i.test(targetRole)
+  let isFinanceRole = /finance|financial|accountant|accounting|audit|tax|cpa|banking|bank/i.test(targetRole)
+
+  let specialistTopic = isHealthRole
+    ? 'Clinical Operations, Patient Care Excellence & Healthcare Compliance'
+    : (isFinanceRole
+        ? 'Financial Reporting, Variance Modeling & Capital Strategy'
+        : `${topSkillList} & High-Impact Delivery`)
 
   // Scan all experience bullets across the resume for high-impact metric clauses
+  const allBullets = exp.flatMap((e) =>
+    (Array.isArray(e.bullets) ? e.bullets : [])
+      .map((b) => (typeof b === 'string' ? b : b.text || ''))
+      .filter(Boolean)
+  )
+
   let bestMetricPhrase = ''
   let bestMetricNum = ''
 
-  for (const e of exp) {
-    const bullets = Array.isArray(e.bullets)
-      ? e.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean)
-      : []
-    for (const b of bullets) {
-      if (!bestMetricPhrase) {
-        const verbMetricMatch = b.match(/\b(reducing|improving|scaling|boosting|increasing|accelerating|cutting|delivering|optimizing|saving)\s+([^,.;]{10,80}?(?:\d+[%xXkKMbB]?|\d+)[^,.;]*)/i)
-        if (verbMetricMatch) {
-          bestMetricPhrase = `${verbMetricMatch[1]} ${verbMetricMatch[2]}`.trim()
-        }
+  for (const b of allBullets) {
+    if (!bestMetricPhrase) {
+      const verbMetricMatch = b.match(/\b(reducing|improving|scaling|boosting|increasing|accelerating|cutting|delivering|optimizing|saving)\s+([^,.;]{10,80}?(?:\d+[%xXkKMbB]?|\d+)[^,.;]*)/i)
+      if (verbMetricMatch) {
+        bestMetricPhrase = `${verbMetricMatch[1]} ${verbMetricMatch[2]}`.trim()
       }
-      if (!bestMetricNum) {
-        const numMatch = b.match(/\b\d+[%xXkKMbB]?\b/)
-        if (numMatch) {
-          bestMetricNum = numMatch[0]
-        }
+    }
+    if (!bestMetricNum) {
+      const numMatch = b.match(/\b\d+[%xXkKMbB]?\b/)
+      if (numMatch) {
+        bestMetricNum = numMatch[0]
       }
-      if (bestMetricPhrase && bestMetricNum) break
     }
     if (bestMetricPhrase && bestMetricNum) break
   }
 
   const metricPhrase = bestMetricPhrase || (bestMetricNum ? `driving ${bestMetricNum} performance gains` : '')
-  const metricMatch = bestMetricNum ? [bestMetricNum] : null
-  const metricSnippet = metricPhrase || (metricMatch ? `driving ${metricMatch[0]} performance gains` : 'Scalable Architecture & High-Performance Systems')
+  const yoeText = canonical.years_of_experience || canonical.totalExperienceYears || '3+ years'
+  const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
+
+  const bullet1 = allBullets[0] || ''
+  const bullet2 = allBullets[1] || ''
+  const bullet3 = allBullets[2] || ''
+
+  const fallbackHeadlines = [
+    {
+      formula: 'Proof & Milestone First',
+      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency production systems'} | ${targetRole} specializing in ${topSkillList} to accelerate enterprise delivery`.slice(0, 220),
+      whyItWorks: 'Hooks recruiters immediately with verified scale before delivering exact searchable role and tool keywords.',
+    },
+    {
+      formula: 'Curiosity & Problem Solver',
+      headline: `I help enterprise teams eliminate complex system and data bottlenecks | ${targetRole} driving ${topSkillList}`.slice(0, 220),
+      whyItWorks: 'Conversational human hook stating who you help and the business problem solved, followed by high-demand recruiter keywords.',
+    },
+    {
+      formula: 'Specialist Authority',
+      headline: `Designing resilient architectures and low-latency workflows for scale | ${targetRole} focused on ${topSkillList} and operational excellence`.slice(0, 220),
+      whyItWorks: 'Positions deep domain authority and target role keywords without generic buzzwords or pipe-spam.',
+    },
+  ]
+
+  const top3PinnedSkills = effectiveSkills.slice(0, 3)
+
+  const recommendedSkillsToAdd = Array.from(new Set([
+    ...filteredMissing,
+    ...marketSkills,
+    ...effectiveSkills.slice(3, 10),
+  ])).slice(0, 10)
+
+  const finalSkillsToAdd = recommendedSkillsToAdd
 
   // Critique current LinkedIn profile
   const currentAbout = profile?.about || ''
@@ -265,72 +284,45 @@ export function buildDeterministicOptimizations(
     ? 'Your current About section is under 210 characters, wasting prime above-the-fold real estate before recruiters click "...see more".'
     : 'Your current About section reads as a generic summary without leading with your strongest verified production metrics or target specialization.'
 
-  // Full 180–250 Word 3-Paragraph Executive LinkedIn Storytelling
-  const yoeText = canonical.years_of_experience || '3+ years'
-  let hook = `I am a ${targetRole} with ${yoeText} of hands-on engineering experience designing high-concurrency microservices, distributed data streaming pipelines, and mission-critical cloud backends. My core architectural focus centers on modernizing legacy workflows, enforcing strict API contract safety, and sustaining low-latency system performance using ${topStack} across resilient production environments.`
-  if (isDataRole) {
-    hook = `I am a ${targetRole} with ${yoeText} of experience transforming enterprise datasets into automated reporting pipelines, modern cloud data architectures, and decision-support intelligence. My specialization centers on architecting scalable star-schema data models, optimizing analytical SQL queries across Snowflake and BigQuery, and delivering self-service executive dashboards using ${topStack} to eliminate organizational reporting bottlenecks.`
-  } else if (isHealthRole) {
-    hook = `I am a ${targetRole} with ${yoeText} of dedicated clinical experience providing empathetic patient care, executing acute clinical protocols, and driving patient advocacy across multidisciplinary healthcare environments. My practice centers on clinical safety, meticulous EHR documentation, and collaborative care coordination using ${topStack} to optimize patient recovery outcomes.`
-  } else if (isFinanceRole) {
-    hook = `I am a ${targetRole} with ${yoeText} of quantitative financial experience in comprehensive reporting, variance modeling, GAAP/IFRS adherence, and strategic capital planning. My focus centers on building resilient financial models, automating month-end close reconciliations, and delivering executive dashboards using ${topStack} to guide sound fiscal decisions.`
-  } else if (isSalesRole) {
-    hook = `I am a ${targetRole} with ${yoeText} of enterprise sales experience accelerating B2B pipeline, closing strategic accounts, and aligning complex customer challenges with measurable business value. My expertise centers on consultative value-selling, predictable revenue forecasting, and executive relationship management using ${topStack} to exceed quota targets.`
-  }
+  // 4-Part Video Copywriting Framework (Credibility Hook -> Audience & Problem -> Approach & Skills -> Closing CTA)
+  let hook = metricPhrase
+    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes.`
+    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact.`
 
-  let pillar1 = `▸ System Architecture & Scale: Engineered scalable microservices and distributed event-driven pipelines at ${topCompany} that sustain high throughput and low-latency performance.`
-  let pillar2 = `▸ Cloud & Production Engineering: Containerized multi-stage builds and automated CI/CD release gating on Kubernetes, maintaining 99.99% production availability.`
-  if (isDataRole) {
-    pillar1 = `▸ Data Architecture & Analytics: Engineered scalable data models and automated BI pipelines across ${topStack} that eliminate organizational reporting bottlenecks.`
-    pillar2 = `▸ Enterprise Intelligence & Pipelines: Deployed automated analytics workflows and dbt transformation models across modern cloud data infrastructure.`
-  } else if (isHealthRole) {
-    pillar1 = `▸ Clinical Excellence & Quality Care: Executed rigorous patient assessments, medication administration, and emergency response procedures under strict safety standards.`
-    pillar2 = `▸ Care Coordination & EHR Workflow: Managed patient charts and cross-functional handoffs across enterprise EHR systems, ensuring 100% HIPAA compliance.`
-  } else if (isFinanceRole) {
-    pillar1 = `▸ Financial Analysis & Modeling: Built dynamic financial models and multi-year variance forecasts that identified high-ROI efficiency opportunities.`
-    pillar2 = `▸ Compliance & Financial Controls: Enforced GAAP/IFRS accounting standards, managed audit trail readiness, and streamlined month-end close schedules.`
-  } else if (isSalesRole) {
-    pillar1 = `▸ Pipeline Generation & Account Strategy: Sourced and nurtured high-value B2B enterprise pipelines, consistently surpassing outbound acquisition targets.`
-    pillar2 = `▸ Contract Negotiation & Deal Execution: Orchestrated full-cycle sales engagements from discovery to final contract signing across C-suite buyers.`
-  }
-
-  const pillar3 = metricPhrase
-    ? `▸ Measurable Business Impact: Drove tangible performance and operational reliability, including ${metricPhrase}.`
-    : (isHealthRole
-      ? `▸ Patient Advocacy & Team Leadership: Championed multidisciplinary care alignment and family education, driving high patient satisfaction ratings.`
-      : (isFinanceRole
-        ? `▸ Strategic Impact & Optimization: Automated ledger reconciliation workflows, reducing reporting cycle times and eliminating reporting discrepancies.`
-        : (isSalesRole
-          ? `▸ Revenue Execution: Consistently outperformed pipeline milestones, maintaining high deal conversion velocity across core territories.`
-          : (isDataRole
-            ? `▸ Statistical Insights & Decision ROI: Executed hypothesis testing, A/B experiments, and variance analysis to deliver executive KPI visibility.`
-            : `▸ Engineering Excellence & Mentorship: Established clean modular architecture, automated test gating, and continuous cross-functional engineering standards.`))))
-
-  const proof = `${pillar1}\n\n${pillar2}\n\n${pillar3}`
-
-  // 1. Domain-Adaptive Call-To-Action
-  let domainMission = 'My professional philosophy is rooted in clean system architecture, automated test gating, and technical mentorship.'
-  let domainFocus = `I am currently exploring ${targetRole} roles where I can drive scalable system architecture and meaningful operational impact.`
   if (isHealthRole) {
-    domainMission = 'My clinical practice is centered on empathetic patient advocacy, clinical safety protocols, and cross-functional care delivery.'
-    domainFocus = `I am actively exploring ${targetRole} opportunities where I can elevate patient care standards and clinical outcomes.`
+    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes.`
   } else if (isFinanceRole) {
-    domainMission = 'My financial philosophy focuses on analytical precision, rigorous GAAP compliance, and strategic capital management.'
-    domainFocus = `I am open to ${targetRole} roles where I can drive operational efficiencies and strategic financial planning.`
-  } else if (isSalesRole) {
-    domainMission = 'My sales philosophy centers on consultative value-selling, strategic account alignment, and predictable pipeline execution.'
-    domainFocus = `I am exploring ${targetRole} opportunities where I can accelerate enterprise revenue growth and build strategic partnerships.`
-  } else if (isDataRole) {
-    domainMission = 'My professional philosophy focuses on data integrity, scalable dimensional modeling, and actionable business intelligence.'
-    domainFocus = `I am currently exploring ${targetRole} roles where I can optimize analytics pipelines and deliver decision-critical intelligence.`
+    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence.`
   }
 
-  const callToAction = `${domainMission} ${domainFocus} If you are expanding your team or looking for proven domain execution, let's connect!`
-  const fullText = `${hook}\n\n${proof}\n\n${callToAction}`
+  let audienceAndProblem = `I partner with engineering leaders and cross-functional teams looking to eliminate system bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing friction points so core platforms scale predictably under heavy operational demands.`
+  if (isHealthRole) {
+    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions.`
+  } else if (isFinanceRole) {
+    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance.`
+  }
+
+  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale seamlessly without technical debt or operational regressions.`
+  if (isHealthRole) {
+    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings.`
+  } else if (isFinanceRole) {
+    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment.`
+  }
+
+  let closingCta = `If you are scaling high-reliability systems or looking for dedicated ${targetRole} expertise, let's connect.`
+  if (isHealthRole) {
+    closingCta = `If you are expanding your clinical team or advancing healthcare delivery standards, let's connect.`
+  } else if (isFinanceRole) {
+    closingCta = `If you are modernizing financial analytics or expanding your fiscal leadership team, let's connect.`
+  }
+
+  const fullText = `${hook}\n\n${audienceAndProblem}\n\n${approachAndSkills}\n\n${closingCta}`
+  const proof = approachAndSkills
+  const callToAction = closingCta
 
   const bannerStrategy = {
-    bannerTagline: `${targetRole} | ${isHealthRole ? 'Clinical Excellence & Patient Care' : (isFinanceRole ? 'Financial Strategy & Analytical Modeling' : (isSalesRole ? 'Enterprise Revenue Growth & Strategic Sales' : (isDataRole ? 'Data Architecture & Analytics' : 'Scalable Systems & High-Impact Architecture')))}`,
-    bannerSecondaryText: `${topStack} · ${isHealthRole ? 'Clinical Protocols · Care Delivery' : (isFinanceRole ? 'GAAP / IFRS · Variance Modeling' : (isSalesRole ? 'B2B Pipeline · Deal Execution' : (isDataRole ? 'Scalable Pipelines · Business Intelligence' : 'Distributed Microservices · Clean Code Delivery')))}`,
+    bannerTagline: `${targetRole} | ${isHealthRole ? 'Clinical Excellence & Patient Care' : (isFinanceRole ? 'Financial Strategy & Analytical Modeling' : 'Operational Excellence & Scalable Impact')}`,
+    bannerSecondaryText: `${topStack} · ${isHealthRole ? 'Clinical Protocols · Care Delivery' : (isFinanceRole ? 'GAAP / IFRS · Variance Modeling' : 'Proven Execution · Measurable Delivery')}`,
     designAdvice: 'Design a clean 1584x396px canvas in Canva. Keep key text in the center-right to avoid the circular profile avatar on mobile. Use professional background with bold typography.',
   }
 
@@ -338,30 +330,20 @@ export function buildDeterministicOptimizations(
   const liProjects = profile?.projects || []
   const liExp = profile?.experiences || []
 
-  // 2. Domain-Adaptive Experience Bullet Prefixes & Upgrades
+  // Domain-Adaptive Experience Bullet Prefixes & Upgrades
   const experienceUpgrades = exp.slice(0, 3).map((e) => {
-    let p0 = 'Strategic Delivery'
-    let p1 = 'Operational Impact'
-    if (isSoftwareRole) {
-      p0 = 'Distributed Architecture'
-      p1 = 'Engineering Impact'
-    } else if (isHealthRole) {
-      p0 = 'Clinical Excellence'
-      p1 = 'Patient Care & Safety'
-    } else if (isFinanceRole) {
-      p0 = 'Financial Analysis'
-      p1 = 'Process Optimization'
-    } else if (isDataRole) {
-      p0 = 'Data Architecture'
-      p1 = 'Analytics Impact'
-    } else if (isSalesRole) {
-      p0 = 'Revenue Growth'
-      p1 = 'Account Strategy'
-    }
+    let p0 = isHealthRole ? 'Clinical Excellence' : (isFinanceRole ? 'Financial Analysis' : 'Core Execution')
+    let p1 = isHealthRole ? 'Patient Care & Safety' : (isFinanceRole ? 'Process Optimization' : 'Operational Impact')
 
     const rawBullets = Array.isArray(e.bullets)
       ? e.bullets.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean)
       : []
+
+    const upgradedBullets = rawBullets.slice(0, 4).map((b, idx) => {
+      const cleanB = b.replace(/^[•\s\t*▸-]+\s*/, '').trim()
+      const prefix = idx === 0 ? p0 : (idx === 1 ? p1 : (idx === 2 ? 'Strategic Impact' : 'Operational Excellence'))
+      return `${prefix}: ${cleanB}`
+    })
 
     // Find corresponding LinkedIn role using multi-segment vendor/client matching
     const compParts = String(e.company || '').split(/[/|\\—–-]/).map((p) => p.trim()).filter(Boolean)
@@ -373,32 +355,25 @@ export function buildDeterministicOptimizations(
       return compParts.some((part) => matchCompany(part, liComp)?.matched)
     })
 
-    const rawMatchedComp = matchedLi ? (matchedLi.company || matchedLi.companyName || '') : ''
-    const matchedCompName = typeof rawMatchedComp === 'string' ? rawMatchedComp : (rawMatchedComp?.name || '')
-
-    let linkedinGap = `LinkedIn Optimization Focus: Align vendor/client naming ('${e.company}') with your LinkedIn experience entry and replace task-heavy descriptions with the quantified executive bullets below.`
+    let linkedinGap = 'Resume bullets provide concrete domain scope; adding these structured impact bullets bridges your recruiter credibility gap.'
     const matchedLiTitle = typeof matchedLi?.title === 'string' ? matchedLi.title : (matchedLi?.title?.text || '')
     if (matchedLi && matchedLiTitle && e.role && matchedLiTitle.toLowerCase() !== String(e.role).toLowerCase()) {
       linkedinGap = `Job title alignment: Your LinkedIn profile lists "${matchedLiTitle}" while your resume positions you as "${e.role}". Standardize to "${e.role}" to maintain unified recruiter indexing.`
     }
 
-    const beforeText = matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed'
-    const b0Clean = (rawBullets[0] ? rawBullets[0].replace(/^[•\-*▪–—\s]+/, '') : '').trim()
-    const b1Clean = (rawBullets[1] ? rawBullets[1].replace(/^[•\-*▪–—\s]+/, '') : '').trim()
-
-    const upgraded = [
-      b0Clean ? `${p0}: ${b0Clean.slice(0, 120)}` : `${p0}: Led core initiatives using ${topStack}, driving measurable delivery turnaround.`,
-      b1Clean ? `${p1}: ${b1Clean.slice(0, 120)}` : `${p1}: Optimized operational workflows, sustaining high delivery reliability.`,
+    const bullets = upgradedBullets.length > 0 ? upgradedBullets : [
+      `${p0}: Spearheaded key initiatives utilizing ${topStack} to drive core operational goals.`,
+      `${p1}: Optimized workflow throughput and elevated delivery standards across cross-functional teams.`,
     ]
 
     return {
-      company: e.company || 'Company',
-      role: e.role || e.title || targetRole,
-      dates: e.dates || 'Recent',
+      company: e.company || 'Enterprise',
+      role: e.role || targetRole,
+      dates: e.dates || e.duration || `${e.startDate || ''} – ${e.endDate || 'Present'}`,
       linkedinGap,
-      beforeText,
-      afterText: upgraded.join('\n'),
-      bullets: upgraded,
+      beforeText: matchedLi?.description || 'Blank description on LinkedIn — 0 keywords indexed',
+      afterText: bullets.join('\n'),
+      bullets,
     }
   })
 
@@ -462,33 +437,92 @@ export function buildDeterministicOptimizations(
     }),
   }
 
-  const featuredSectionRecommendations = rawProjects.length > 0
-    ? rawProjects.slice(0, 3).map((p) => {
-        const bulletList = Array.isArray(p.bullets) ? p.bullets : []
-        const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
-        const rawBullet = joinedBullets || p.description || ''
-        const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
-        const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
-        const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
-        const synthPitch = techArr.length > 0
-          ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-          : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
-        const pitch = cleanBullet
-          ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-          : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
-        return {
-          title: pTitle,
-          reason: pitch,
-          callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
-        }
-      })
-    : [
-        {
-          title: `${topCompany} Architecture Showcase`,
-          reason: 'Provides concrete technical proof of production impact and engineering scale.',
-          callToAction: 'Pin an architectural summary, case study post, or GitHub portfolio link.',
-        },
-      ]
+  const projectItems = rawProjects.slice(0, 3).map((p) => {
+    const bulletList = Array.isArray(p.bullets) ? p.bullets : []
+    const joinedBullets = bulletList.map((b) => (typeof b === 'string' ? b : b.text || '')).filter(Boolean).join(' ')
+    const rawBullet = joinedBullets || p.description || ''
+    const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
+    const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
+    const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
+    const synthPitch = techArr.length > 0
+      ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
+      : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+    const pitch = cleanBullet
+      ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
+      : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
+    return {
+      title: pTitle,
+      reason: pitch,
+      callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+    }
+  })
+
+  const supplementalFeatured = [
+    {
+      title: `${targetRole} Technical Case Study & Architecture Deep-Dive`,
+      reason: `Proves practical system design depth, problem-solving methodologies, and technical decision-making at ${topCompany}.`,
+      callToAction: 'Pin an architectural summary, engineering teardown post, or case-study slide deck.',
+    },
+    {
+      title: 'Before-and-After Verified Metric Demonstration',
+      reason: `Visually substantiates your key performance gains (${metricPhrase || 'core delivery milestones'}) with benchmark charts or before-after graphs.`,
+      callToAction: 'Pin a 2-slide benchmark comparison highlighting operational velocity gains.',
+    },
+    {
+      title: 'Live Interactive Repository or Portfolio Demo',
+      reason: 'Gives recruiters and engineering leads instant 1-click proof of execution and clean code standards.',
+      callToAction: 'Pin a live demo link or GitHub repository with an executive README.',
+    },
+    {
+      title: '60-Second Video Intro & Project Walkthrough',
+      reason: 'Humanizes your engineering background and directly addresses the 30-second hiring manager attention span.',
+      callToAction: 'Pin a clean Loom or video walkthrough of your primary technical project.',
+    },
+  ]
+
+  const featuredSectionRecommendations = [
+    ...projectItems,
+    ...supplementalFeatured,
+  ].slice(0, 5)
+
+  const categorizedSkills = buildCategorizedSkillsBank(effectiveSkills, targetRole, canonical)
+
+  const topResultMetric = metricPhrase || (allBullets[0] ? allBullets[0].slice(0, 80).replace(/[.]+$/, '') : `Proven delivery in ${targetRole}`)
+  const topSkillStr = effectiveSkills.slice(0, 4).join(', ')
+
+  const profilePicturePrompt = `Professional studio headshot of a candidate targeting ${targetRole}. Maintain candidate's authentic facial features, natural hairstyle, and confident approachable expression. Upgrade styling to a modern tailored blazer / smart professional business attire in neutral tones (navy, charcoal, or dark graphite). Soft studio butterfly lighting with gentle fill, crisp focus on the eyes, head-and-shoulders composition. Clean, minimalist defocused architectural or neutral matte gradient background with zero clutter. 8k resolution, cinematic commercial photography style.`
+
+  const coverBannerPrompt = `Design a high-converting, professional LinkedIn Cover Banner (1584x396 px) for a ${targetRole} with 6 core visual elements:
+1. Main Authority Headline: "${targetRole} | ${topSkillStr}"
+2. Proof / Primary Metric Hook: "${topResultMetric}"
+3. 3-4 Core Value Pillars: ${effectiveSkills.slice(0, 4).map((s) => `• ${s}`).join(' ')}
+4. Target Audience / Specialty: Solving complex domain challenges for engineering and enterprise teams
+5. Soft CTA: "Let's Connect & Collaborate"
+6. Layout & Color Direction: Clean executive layout, high-contrast dark slate / deep navy base with subtle Electric Indigo accents. Keep the lower-left 30% area completely clear to prevent overlap with the mobile/desktop circular profile photo.`
+
+  const bannerShowcaseOptions = [
+    {
+      style: 'Minimalist Dark Slate',
+      colorPalette: 'Deep Charcoal (#111827), Electric Indigo (#6366F1), Crisp White typography',
+      layout: 'Headline on the top-right, 3 value pill badges horizontally centered, clean negative space on the left for avatar.',
+    },
+    {
+      style: 'Executive Clean Studio',
+      colorPalette: 'Soft Matte Gray (#F8FAFC), Navy (#0F172A), Slate Blue accent',
+      layout: 'Structured split layout: Bold role title and metric callout on the right, subtle architectural grid background.',
+    },
+    {
+      style: 'Modern Technical Dossier',
+      colorPalette: 'Deep Onyx (#090D16), Cyber Teal / Indigo gradient hairline border, mono-spaced pill badges',
+      layout: 'Terminal-inspired crisp typography highlighting core skills and scale outcomes, optimized for maximum recruiter glance value.',
+    },
+  ]
+
+  const visualPrompts = {
+    profilePicturePrompt,
+    coverBannerPrompt,
+    bannerShowcaseOptions,
+  }
 
   const visualPresenceTips = [
     'Profile Headshot: Use front-facing soft lighting with eyes aligned to the upper third. Avoid heavy background clutter.',
@@ -537,8 +571,9 @@ export function buildDeterministicOptimizations(
     aboutRewrite: {
       currentCritique,
       hook,
-      proof,
-      callToAction,
+      audienceAndProblem,
+      approachAndSkills,
+      closingCta,
       fullText,
     },
     experienceUpgrades,
@@ -548,6 +583,8 @@ export function buildDeterministicOptimizations(
     featuredSectionRecommendations,
     top3PinnedSkills,
     visualPresenceTips,
+    visualPrompts,
+    categorizedSkills,
     recommendedSkillsToAdd: finalSkillsToAdd,
     recommendedSkills: finalSkillsToAdd.map((skill) => ({
       skill,
@@ -610,9 +647,16 @@ export async function runLinkedInSynthesis(
   signals = null,
   options = {}
 ) {
-  const fallback = buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
   if (options?.bypassAI) {
-    return fallback
+    return buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
+  }
+
+  let lazyFallback = null
+  const getFallback = () => {
+    if (!lazyFallback) {
+      lazyFallback = buildDeterministicOptimizations(profile, resumeContext, missingSkills, discrepancies)
+    }
+    return lazyFallback
   }
 
   const canonical = resumeContext?.canonicalResume || resumeContext?.resumeJson || {}
@@ -622,10 +666,12 @@ export async function runLinkedInSynthesis(
     canonical?.target_role ||
     canonical?.targetRole ||
     profile?.headline ||
-    'Senior Software Engineer'
+    'Professional'
 
-  // Route via task-based OpenRouter model routing
-  const preferredProvider = options?.preferredProvider || 'openrouter'
+  // Route via task-based OpenRouter model routing with provider isolation
+  const resumeProvider = resumeContext?.provider || resumeContext?.lastProvider
+  const excludeProvider = options?.excludeProvider || (resumeProvider ? resumeProvider : null)
+  const preferredProvider = options?.preferredProvider || (resumeProvider === 'gemini' ? 'groq' : (resumeProvider === 'groq' ? 'gemini' : 'openrouter'))
   const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : null)
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
@@ -654,6 +700,7 @@ export async function runLinkedInSynthesis(
           purpose: 'linkedin_analysis',
           task: 'linkedin_synthesis',
           preferredProvider,
+          excludeProvider,
           model: effectiveModel,
           messages,
           temperature: 0.25,
@@ -682,46 +729,49 @@ export async function runLinkedInSynthesis(
 
     if (!task1Result && !task2Result) {
       console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')
-      return fallback
+      return getFallback()
     }
 
+    const fallback = getFallback()
+
     // Merge outputs from Task 1 and Task 2
-    // Headlines (Task 1)
+    // Headlines (Task 1) - Natural Recruiter-Searchable Headlines (15–20 words)
     let headlines = fallback.headlines
     const rawHeadlines = task1Result?.headlines || task2Result?.headlines
-    if (Array.isArray(rawHeadlines) && rawHeadlines.length >= 2) {
+    if (Array.isArray(rawHeadlines) && rawHeadlines.length > 0) {
       headlines = rawHeadlines.slice(0, 3).map((h, i) => ({
         formula: h.formula || fallback.headlines[i]?.formula || `Option ${i + 1}`,
         headline: (h.headline || h.text || fallback.headlines[i]?.headline || '').slice(0, 220),
         whyItWorks: h.whyItWorks || fallback.headlines[i]?.whyItWorks || 'Recruiter search ranking optimization.',
       }))
+      // If LLM returned fewer than 3, backfill from fallback
+      while (headlines.length < 3 && fallback.headlines[headlines.length]) {
+        headlines.push(fallback.headlines[headlines.length])
+      }
     }
 
-    // About rewrite (Task 1) - Strict 1,400-1,800 Character Recruiter Standard
+    // About rewrite (Task 1) - 4-Part Video Copywriting Framework
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
-      const { currentCritique, hook, proof, callToAction, fullText } = rawAbout
-      let combined = fullText || [hook, proof, callToAction].filter(Boolean).join('\n\n')
-      const wordCount = (combined.match(/\b\w+\b/g) || []).length
-      // Permanently purge short stubs: enforce strict 140+ word / 900+ char executive standard
-      const isShortStub = wordCount < 140 || combined.length < 850 || (hook && hook.length < 160) || (proof && proof.length < 260)
-      if (isShortStub && fallback?.aboutRewrite) {
-        aboutRewrite = {
-          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
-          hook: (hook && hook.length >= 200) ? hook : fallback.aboutRewrite.hook,
-          proof: (proof && proof.length >= 300) ? proof : fallback.aboutRewrite.proof,
-          callToAction: (callToAction && callToAction.length >= 150) ? callToAction : fallback.aboutRewrite.callToAction,
-          fullText: fallback.aboutRewrite.fullText || combined,
-        }
-      } else {
-        aboutRewrite = {
-          currentCritique: currentCritique || fallback.aboutRewrite.currentCritique || '',
-          hook: hook || fallback.aboutRewrite.hook || '',
-          proof: proof || fallback.aboutRewrite.proof || '',
-          callToAction: callToAction || fallback.aboutRewrite.callToAction || '',
-          fullText: combined || fallback.aboutRewrite.fullText || '',
-        }
+      const hook = rawAbout.hook || fallback.aboutRewrite.hook
+      const audienceAndProblem = rawAbout.audienceAndProblem || fallback.aboutRewrite.audienceAndProblem
+      const approachAndSkills = rawAbout.approachAndSkills || fallback.aboutRewrite.approachAndSkills
+      const closingCta = rawAbout.closingCta || fallback.aboutRewrite.closingCta
+      const combined = rawAbout.fullText || [hook, audienceAndProblem, approachAndSkills, closingCta].filter(Boolean).join('\n\n')
+
+      aboutRewrite = {
+        currentCritique: rawAbout.currentCritique || fallback.aboutRewrite.currentCritique || '',
+        hook,
+        audienceAndProblem,
+        approachAndSkills,
+        closingCta,
+        fullText: combined || fallback.aboutRewrite.fullText,
+      }
+    } else if (typeof rawAbout === 'string' && rawAbout.length > 80) {
+      aboutRewrite = {
+        ...fallback.aboutRewrite,
+        fullText: rawAbout,
       }
     }
 
@@ -877,12 +927,10 @@ export async function runLinkedInSynthesis(
         ...recommendedSkillsToAdd.filter(isConcreteTechSkill),
       ])).filter(isValidSkill).filter(isConcreteTechSkill).slice(0, 4)
 
-      const booleanRolePart = /data\s+analyst/i.test(targetRole)
-        ? '("Data Analyst" OR "Business Intelligence Analyst")'
-        : `("${targetRole}")`
+      const booleanRolePart = `("${targetRole || 'Professional'}")`
       const booleanSkillsPart = candidateHardSkills.length > 0
         ? `(${candidateHardSkills.map((s) => `"${s}"`).join(' OR ')})`
-        : '("Technical Architecture")'
+        : '("Core Expertise")'
       const booleanQuery = `${booleanRolePart} AND ${booleanSkillsPart}`
 
       visibilityTricks = [
@@ -937,6 +985,9 @@ export async function runLinkedInSynthesis(
       visualPresenceTips = rawTips.slice(0, 4)
     }
 
+    const categorizedSkills = task2Result?.categorizedSkills || fallback.categorizedSkills
+    const visualPrompts = fallback.visualPrompts
+
     return {
       headlines,
       aboutRewrite,
@@ -947,6 +998,8 @@ export async function runLinkedInSynthesis(
       featuredSectionRecommendations,
       top3PinnedSkills,
       visualPresenceTips,
+      visualPrompts,
+      categorizedSkills,
       recommendedSkillsToAdd,
       recommendedSkills: recommendedSkillsToAdd.map((skill) => ({
         skill,
@@ -957,7 +1010,7 @@ export async function runLinkedInSynthesis(
     }
   } catch (err) {
     console.warn('[LinkedInSynthesis] Synthesis failed, using deterministic fallback:', err.message)
-    return fallback
+    return getFallback()
   }
 }
 

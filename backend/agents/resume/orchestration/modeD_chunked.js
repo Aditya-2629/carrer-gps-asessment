@@ -940,6 +940,7 @@ export async function executeModeD({
     console.warn('[ModeD Chunked] Scorecard computation warning:', err.message)
   }
   consolidatedAnalysis.dashboard = dashboard
+  consolidatedAnalysis.sectionAudit = dashboard?.sectionAudit || null
   consolidatedAnalysis.keywordAlignment = dashboard?.keywordAlignment || null
 
   const totalDuration = Date.now() - startTime

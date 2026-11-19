@@ -41,6 +41,13 @@ function makeNoDataResult() {
     grade: 'F',
     gradeLabel: 'No Data',
     grades: {},
+    sectionAudit: {
+      headline: { score10: 0, status: 'fail', label: 'Headline', hurtingReason: 'Profile data unavailable' },
+      about: { score10: 0, status: 'fail', label: 'About Section', hurtingReason: 'Profile data unavailable' },
+      featured: { score10: 0, status: 'fail', label: 'Featured Section', hurtingReason: 'Profile data unavailable' },
+      skills: { score10: 0, status: 'fail', label: 'Skills Bank', hurtingReason: 'Profile data unavailable' },
+      activityAndNetworking: { score10: 0, status: 'fail', label: 'Activity & Networking', hurtingReason: 'Profile data unavailable' },
+    },
     checks: [],
     issues: [],
     timelineMismatches: [],
@@ -261,60 +268,6 @@ export function calculateRecruiterSeoScore({ headline = '', about = '', experien
 }
 
 /**
- * Generates 3 Recruiter-Optimized Headlines based on candidate's verified skills & role.
- */
-export function generateOptimizedHeadlines({ role = 'Professional', topSkills = [], yearsExp = 3, company = '' }) {
-  const skillsSlice = topSkills.slice(0, 3).join(', ') || 'Modern Tech Stack'
-  const expLabel = yearsExp >= 6 ? 'Senior' : ''
-
-  return [
-    {
-      style: 'Executive & Proof-Driven',
-      headline: `${expLabel ? `${expLabel} ` : ''}${role} | ${skillsSlice} | Scaled High-Throughput Production Systems`,
-      reason: 'Balances title keyword density with immediate proof of scale.',
-    },
-    {
-      style: 'Specialist & Technology Stack',
-      headline: `${role} specializing in ${skillsSlice}${company ? ` at ${company}` : ''}`,
-      reason: 'Direct match for recruiter boolean searches looking for specific stack depth.',
-    },
-    {
-      style: 'Business Impact & Outcomes',
-      headline: `${role} | Architecting Data Solutions & Automating Workflows with ${skillsSlice}`,
-      reason: 'Attracts hiring managers looking for business ROI rather than pure coding.',
-    },
-  ]
-}
-
-/**
- * Evaluates Thought Leadership & Activity Authority
- */
-export function evaluateThoughtLeadership(postsData = {}) {
-  const posts = Array.isArray(postsData?.posts) ? postsData.posts : []
-
-  if (posts.length === 0) {
-    return {
-      activityScore: 30,
-      postCount: 0,
-      status: 'PASSIVE_LURKER',
-      critique: 'Zero posts detected in the last 30 days. Recruiters perceive dormant profiles as higher placement risk.',
-      action: 'Publish 1 technical breakdown or architecture learning per week to demonstrate domain currency.',
-    }
-  }
-
-  const hasHighEngagement = posts.some((p) => (p.likesCount || p.reactionsCount || 0) >= 15)
-  const score = Math.min(100, 50 + posts.length * 3 + (hasHighEngagement ? 20 : 0))
-
-  return {
-    activityScore: score,
-    postCount: posts.length,
-    status: score >= 75 ? 'AUTHORITY_CREATOR' : 'OCCASIONAL_CONTRIBUTOR',
-    critique: `Published ${posts.length} posts recently. ${hasHighEngagement ? 'Strong audience engagement detected.' : 'Increase domain-specific technical reflections to elevate authority.'}`,
-    action: 'Share real engineering challenges and architectural trade-offs to attract inbound founder DMs.',
-  }
-}
-
-/**
  * Deterministic analysis of the candidate's scraped LinkedIn profile and resume context.
  * Can be run synchronously or used as the deterministic base for LLM synthesis.
  *
@@ -350,28 +303,18 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}, activityS
     targetRole,
   })
 
-  const rawSkills = profile.skills || []
-  const topSkills = (Array.isArray(rawSkills) ? rawSkills : [])
-    .map((s) => (typeof s === 'string' ? s : s?.name || ''))
-    .filter(Boolean)
-
-  const optimizedHeadlines = generateOptimizedHeadlines({
-    role: targetRole || profile.headline || 'Professional',
-    topSkills,
-    yearsExp: profile.experiences?.length || 3,
-    company: profile.experiences?.[0]?.company || '',
-  })
-
   return {
     agent: 'linkedin',
     version: LINKEDIN_AGENT_VERSION,
     computedAt: new Date().toISOString(),
     dataAvailable: true,
     inferredFromResume: Boolean(profile.inferredFromResume),
+    signals,
     score: scorecard.score,
     grade: scorecard.grade,
     gradeLabel: scorecard.gradeLabel,
     grades: scorecard.grades,
+    sectionAudit: scorecard.sectionAudit,
     checks: scorecard.checks,
     issues: scorecard.issues,
     timelineMismatches: crossAnalysis.timelineMismatches,
@@ -386,7 +329,7 @@ export function analyzeLinkedInProfile(rawProfile, resumeContext = {}, activityS
     activitySignals: activitySignals || null,
     thoughtLeadership: null,
     recruiterSeo,
-    optimizedHeadlines,
+    optimizedHeadlines: null,
     optimizations: null,
     summary: {
       ...scorecard.summary,
@@ -500,7 +443,7 @@ export async function evaluateLinkedIn({
       })
     }
 
-    const signals = extractLinkedInSignals(normalized, resumeContext)
+    const signals = baseResult.signals || extractLinkedInSignals(normalized, resumeContext)
 
     const optPromise = synthesizeLinkedInOptimizations(
       normalized,
@@ -567,32 +510,31 @@ export async function evaluateLinkedIn({
     targetRole,
   })
 
-  const yearsExp = Number(
-    resumeContext?.canonicalResume?.totalExperienceYears ||
-    resumeContext?.canonicalResume?.years_of_experience ||
-    normalized?.experiences?.length ||
-    3
-  )
+  const headlines = optimizations?.headlines || []
 
-  const optimizedHeadlines = generateOptimizedHeadlines({
-    role: targetRole || 'Professional',
-    topSkills: coreSkills.length > 0 ? coreSkills : (normalized.skills || []),
-    yearsExp,
-    company: normalized.experiences?.[0]?.company || '',
-  })
+  const networkingRecommendation =
+    activitySignals?.networkingRecommendation ||
+    baseResult?.activitySignals?.networkingRecommendation ||
+    null
+
+  const visualPrompts = optimizations?.visualPrompts || null
 
   return {
     ...baseResult,
     inferredFromResume: Boolean(normalized.inferredFromResume),
     activitySignals,
+    networkingRecommendation,
     thoughtLeadership,
     recruiterSeo,
-    optimizedHeadlines,
+    visualPrompts,
+    optimizedHeadlines: headlines,
     optimizations: {
       ...(optimizations || {}),
       thoughtLeadership,
       recruiterSeo,
-      optimizedHeadlines,
+      headlines,
+      networkingRecommendation,
+      visualPrompts,
     },
   }
 }
@@ -607,12 +549,6 @@ export class LinkedInAgent {
   static calculateRecruiterSeoScore(params) {
     return calculateRecruiterSeoScore(params)
   }
-  static generateOptimizedHeadlines(params) {
-    return generateOptimizedHeadlines(params)
-  }
-  static evaluateThoughtLeadership(params) {
-    return evaluateThoughtLeadership(params)
-  }
 }
 
 export default {
@@ -620,7 +556,5 @@ export default {
   evaluateLinkedIn,
   analyzeLinkedInProfile,
   calculateRecruiterSeoScore,
-  generateOptimizedHeadlines,
-  evaluateThoughtLeadership,
   LINKEDIN_AGENT_VERSION,
 }

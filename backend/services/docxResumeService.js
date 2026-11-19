@@ -84,6 +84,26 @@ export function splitIntoSentencesSafely(text) {
 }
 
 /**
+ * Strips street numbers and building identifiers, preserving City, State or City, Country for ATS safety.
+ */
+export function sanitizeLocation(loc) {
+  if (!loc || typeof loc !== 'string') return ''
+  let s = decodeHtmlEntities(loc).trim()
+  s = s.replace(/^\s*\d+[\w\s.,#-]+?(?=[A-Z][a-zA-Z\s]+,\s*[A-Z]{2}\b)/, '')
+  s = s.replace(/\b(?:apt|suite|ste|unit|bldg|floor|fl|rm)\s*#?\d+[\w-]*\s*,?/gi, '')
+  s = s.replace(/\s{2,}/g, ' ').trim()
+  return s
+}
+
+/**
+ * Detects obsolete filler like "References available upon request" to protect 1-page resume discipline.
+ */
+export function isReferenceNoise(text) {
+  if (!text || typeof text !== 'string') return false
+  return /^\s*[-•*▪]?\s*references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?\s*$/i.test(text.trim())
+}
+
+/**
  * Eliminates stray bracketed placeholders ([ADD: ...]), collapses duplicated prepositions
  * (e.g. "by by", "with with"), removes dangling prepositions before punctuation, and normalizes whitespace.
  */
@@ -374,6 +394,9 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   const margin = config.tightMargin ? PAGE_CONFIG.marginTight : PAGE_CONFIG.marginNormal
   const bodySize = config.tightFont ? 19 : 20 // 9.5pt tight, 10pt normal
 
+  const yoe = parseFloat(String(sanitizedResume.years_of_experience || '').match(/\d+(?:\.\d+)?/)?.[0] || '3')
+  const isUnder8Yoe = yoe < 8
+
   const candidateName = decodeHtmlEntities(
     sanitizedResume.candidate_name ||
     sanitizedResume.candidate?.name ||
@@ -388,13 +411,13 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
     ...(sanitizedResume.email ? { email: sanitizedResume.email } : {}),
     ...(sanitizedResume.linkedin ? { linkedin: sanitizedResume.linkedin } : {}),
     ...(sanitizedResume.github ? { github: sanitizedResume.github } : {}),
-    ...(sanitizedResume.location ? { location: sanitizedResume.location } : {}),
+    ...(sanitizedResume.location ? { location: sanitizeLocation(sanitizedResume.location) } : {}),
   }
   const summary = decodeHtmlEntities(sanitizedResume.summary || '')
   const experiences = sanitizedResume.experiences || []
   const projects = sanitizedResume.projects || []
   const education = sanitizedResume.education || []
-  const certifications = sanitizedResume.certifications || []
+  const certifications = (sanitizedResume.certifications || []).filter((c) => !isReferenceNoise(typeof c === 'string' ? c : c?.name || c?.title || ''))
 
   const rawSkills = sanitizedResume.skills || []
   const skillGroups = groupByCategory(rawSkills, targetRole)
@@ -473,28 +496,30 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
   }
 
   // 2. PROFESSIONAL SUMMARY
-  if (summary && summary.trim()) {
-    let cleanSummary = summary.trim()
+  if (summary && summary.trim() && !isReferenceNoise(summary)) {
+    let cleanSummary = summary.trim().replace(/references?\s+(?:are\s+)?available\s+(?:upon|on)\s+request[.!]?/gi, '').trim()
     if (config.shortenSummary) {
       const sentences = cleanSummary.split(/(?<=[.?!])\s+/)
       cleanSummary = sentences.slice(0, 3).join(' ')
     }
-    children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
-    children.push(
-      new Paragraph({
-        spacing: { before: 0, after: config.tightSpacing ? 50 : 70 },
-        children: [
-          new TextRun({ text: cleanSummary, size: bodySize, font: 'Times New Roman', color: '222222' }),
-        ],
-      })
-    )
+    if (cleanSummary) {
+      children.push(createSectionHeading('Professional Summary', config.tightSpacing ? 120 : 160, 60))
+      children.push(
+        new Paragraph({
+          spacing: { before: 0, after: config.tightSpacing ? 50 : 70 },
+          children: [
+            new TextRun({ text: cleanSummary, size: bodySize, font: 'Times New Roman', color: '222222' }),
+          ],
+        })
+      )
+    }
   }
 
   // 3. WORK EXPERIENCE (Strict Alekya 2-Line Format)
   if (experiences.length > 0) {
     children.push(createSectionHeading('Work Experience', config.tightSpacing ? 120 : 160, 60))
 
-    experiences.forEach((exp) => {
+    experiences.forEach((exp, expIdx) => {
       const role = decodeHtmlEntities(exp.role || exp.title || '')
       const duration = decodeHtmlEntities(exp.duration || '')
       const line1Runs = [
@@ -516,7 +541,7 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
       )
 
       // Line 2: Company Name | City, State/Country (Work Mode)
-      const companyMeta = [decodeHtmlEntities(exp.company), decodeHtmlEntities(exp.location)].filter(Boolean).join(' | ')
+      const companyMeta = [decodeHtmlEntities(exp.company), sanitizeLocation(exp.location)].filter(Boolean).join(' | ')
       if (companyMeta) {
         children.push(
           new Paragraph({
@@ -528,7 +553,13 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
         )
       }
 
-      ;(exp.bullets || []).forEach((b) => {
+      const rawBullets = (exp.bullets || []).filter((b) => !isReferenceNoise(typeof b === 'string' ? b : b?.text || ''))
+      let bulletsToRender = rawBullets
+      if (config.prioritizeBullets || isUnder8Yoe) {
+        bulletsToRender = expIdx === 0 ? rawBullets.slice(0, 5) : rawBullets.slice(0, 2)
+      }
+
+      bulletsToRender.forEach((b) => {
         children.push(
           new Paragraph({
             bullet: { level: 0 },
@@ -573,7 +604,10 @@ function buildDocxModel(sanitizedResume = {}, config = {}) {
         })
       )
 
-      ;(proj.bullets || []).forEach((pb) => {
+      const rawProjBullets = (proj.bullets || []).filter((pb) => !isReferenceNoise(typeof pb === 'string' ? pb : pb?.text || ''))
+      const projBulletsToRender = (config.prioritizeBullets || isUnder8Yoe) ? rawProjBullets.slice(0, 2) : rawProjBullets
+
+      projBulletsToRender.forEach((pb) => {
         children.push(
           new Paragraph({
             bullet: { level: 0 },
@@ -775,10 +809,10 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
   const targetPages = allowTwoPages ? 2 : 1
 
   // 3. Progressive Tightening Passes
-  const standardConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: false }
-  const summaryShortenConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: true }
-  const tightSpacingConfig = { tightMargin: false, tightFont: false, tightSpacing: true, shortenSummary: true }
-  const fullTightConfig = { tightMargin: true, tightFont: true, tightSpacing: true, shortenSummary: true }
+  const standardConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: false, prioritizeBullets: !allowTwoPages }
+  const summaryShortenConfig = { tightMargin: false, tightFont: false, tightSpacing: false, shortenSummary: true, prioritizeBullets: !allowTwoPages }
+  const tightSpacingConfig = { tightMargin: false, tightFont: false, tightSpacing: true, shortenSummary: true, prioritizeBullets: !allowTwoPages }
+  const fullTightConfig = { tightMargin: true, tightFont: true, tightSpacing: true, shortenSummary: true, prioritizeBullets: true }
 
   const configs = [standardConfig, summaryShortenConfig, tightSpacingConfig, fullTightConfig]
 

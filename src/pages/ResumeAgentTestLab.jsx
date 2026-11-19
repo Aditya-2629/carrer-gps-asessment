@@ -265,7 +265,7 @@ function ResumeAgentTestLabContent() {
     URL.revokeObjectURL(url)
   }
 
-  // Opens the polished /resume-report view for the current analysis
+  // Opens the visual Career GPS report view for the current analysis
   const openFullReport = (result) => {
     const analysis = result?.parsedOutput
     if (!analysis) return
@@ -278,7 +278,7 @@ function ResumeAgentTestLabContent() {
     }
     try {
       sessionStorage.setItem('craftureResumeReport', JSON.stringify(payload))
-      window.open('/resume-report', '_blank')
+      window.open('/report', '_blank')
     } catch (_e) {
       // sessionStorage full/unavailable — report page shows its empty state
     }

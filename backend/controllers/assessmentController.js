@@ -10,10 +10,10 @@ import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
-import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
+import { analyzeLinkedInProfile, evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
-import { generateStandardReportPdf, VALID_FORM_KEYS } from '../utils/reportPdfGenerator.js'
+import { VALID_FORM_KEYS } from '../utils/assessmentFormatting.js'
 import { generateAtsResumeDocx } from '../utils/resumeDocxGenerator.js'
 import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 import { determineSkillBucket, cleanTargetRoleTitle, sanitizeAndValidateResume } from '../services/resumeValidator.js'
@@ -327,52 +327,7 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
-    // Detect LinkedIn URL in submitted answers
-    let extractedLinkedinUrl = null
-    for (const [key, val] of Object.entries(answers)) {
-      if (typeof val === 'string' && val.includes('linkedin.com/in/')) {
-        extractedLinkedinUrl = val.trim()
-        break
-      }
-    }
-
-    if (extractedLinkedinUrl) {
-      user.linkedinUrl = extractedLinkedinUrl
-      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
-      const needsProfile = !user.linkedinData
-      const needsPosts = !user.linkedinActivityData
-
-      if (needsProfile || needsPosts) {
-        try {
-          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
-          const [scrapedProfile, scrapedPosts] = await Promise.all([
-            needsProfile
-              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinData),
-            needsPosts
-              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinActivityData),
-          ])
-
-          if (scrapedProfile) {
-            user.linkedinData = scrapedProfile
-          }
-          if (scrapedPosts) {
-            user.linkedinActivityData = scrapedPosts
-          }
-        } catch (scrapeErr) {
-          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
-        }
-      }
-    }
-
-    // Handle uploaded file if present via Multer
+    // 1. Handle uploaded resume file FIRST via Multer so parsed resume context is immediately ready
     if (req.file) {
       user.resumeData = req.file.buffer
       user.resumeName = req.file.originalname
@@ -444,6 +399,85 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
+    // 2. Detect LinkedIn URL in submitted answers and perform concurrent scraping with verified resumeContext
+    let extractedLinkedinUrl = null
+    for (const [key, val] of Object.entries(answers)) {
+      if (typeof val === 'string' && val.includes('linkedin.com/in/')) {
+        extractedLinkedinUrl = val.trim()
+        break
+      }
+    }
+
+    if (extractedLinkedinUrl) {
+      user.linkedinUrl = extractedLinkedinUrl
+      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
+      const needsProfile = !user.linkedinData
+      const needsPosts = !user.linkedinActivityData
+
+      if (needsProfile || needsPosts) {
+        try {
+          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
+          const [scrapedProfile, scrapedPosts] = await Promise.all([
+            needsProfile
+              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinData),
+            needsPosts
+              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinActivityData),
+          ])
+
+          if (scrapedProfile) {
+            user.linkedinData = scrapedProfile
+          }
+          if (scrapedPosts) {
+            user.linkedinActivityData = scrapedPosts
+          }
+        } catch (scrapeErr) {
+          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
+        }
+      }
+    }
+
+    // 3. Re-run LinkedIn synthesis with fresh resumeContext after resume parsing completes.
+    // Do NOT reuse a pre-assessment linkedin_agent result that ran before the resume existed.
+    // Reuse already-scraped Apify linkedinData & linkedinActivityData (0 extra Apify calls).
+    if (user.resumeJson && (user.linkedinData || user.linkedinUrl)) {
+      try {
+        console.log('[AssessmentController] Running fresh LinkedIn synthesis with parsed resumeContext...')
+        const targetRole = answers.targetRole || answers.role || user.resumeJson?.candidate?.targetRole || user.resumeJson?.targetRole || 'Professional'
+        const coreSkills = Array.isArray(user.resumeJson?.skills)
+          ? user.resumeJson.skills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+          : (typeof user.resumeJson?.skills === 'object' ? Object.values(user.resumeJson.skills).flat().filter(Boolean) : [])
+
+        const freshLinkedInEval = await evaluateLinkedIn({
+          profile: user.linkedinData,
+          linkedinData: user.linkedinData,
+          activityData: user.linkedinActivityData,
+          resumeContext: {
+            canonicalResume: user.resumeJson,
+            extractedFacts: user.resumeJson?.candidateSnapshot || user.resumeJson?.facts || null,
+            targetRole,
+            coreSkills,
+          },
+          answers,
+          runLlm: true,
+        })
+
+        if (freshLinkedInEval) {
+          user.linkedin_agent = freshLinkedInEval
+          user.linkedinAgent = freshLinkedInEval
+        }
+      } catch (liErr) {
+        console.warn('[AssessmentController] Non-fatal evaluateLinkedIn synthesis error with fresh resumeContext:', liErr.message)
+      }
+    }
+
     await user.save()
 
     return res.status(200).json({
@@ -452,6 +486,8 @@ export const saveAnswers = async (req, res) => {
       linkedinData: user.linkedinData,
       linkedinActivityData: user.linkedinActivityData,
       linkedinActivitySignals: user.linkedinActivitySignals,
+      linkedinAgent: user.linkedin_agent || user.linkedinAgent || null,
+      linkedin_agent: user.linkedin_agent || user.linkedinAgent || null,
     })
   } catch (error) {
     console.error('Error in saveAnswers controller:', error)
@@ -861,68 +897,6 @@ export const getReport = async (req, res) => {
   } catch (error) {
     console.error('Error in getReport controller:', error)
     return res.status(500).json({ message: 'Failed to retrieve report.' })
-  }
-}
-
-// Stream generated standardized Report PDF directly
-export const downloadReportPdf = async (req, res) => {
-  const userId = req.params?.userId || req.query?.userId
-  const email = req.query?.email
-
-  if (!userId && !email) {
-    return res.status(400).json({ message: 'User ID or Email is required.' })
-  }
-
-  try {
-    let user = null
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId)
-    }
-    if (!user && userId && userId.includes('@')) {
-      user = await User.findOne({ email: userId.toLowerCase().trim() })
-    }
-    if (!user && email) {
-      user = await User.findOne({ email: email.toLowerCase().trim() })
-    }
-    if (!user && userId) {
-      user = await User.findOne({ _id: userId })
-    }
-
-    const directPayload = req.body?.reportData || req.body?.report || null
-
-    if (!user && !directPayload) {
-      return res.status(404).json({ message: 'No completed report found for this user.' })
-    }
-
-    const effectiveUser = user || {
-      name: directPayload?.resume_agent?.candidateSnapshot?.name || directPayload?.user_answers?.fullName || 'Candidate',
-      email: email || directPayload?.user_answers?.email || 'candidate@example.com',
-      answers: directPayload?.user_answers || {},
-      semanticProfile: directPayload?.semantic_profile || null,
-      aiReport: directPayload,
-    }
-
-    const pdfBuffer = await generateStandardReportPdf({
-      user: effectiveUser,
-      answers: effectiveUser.answers || {},
-      semanticProfile: effectiveUser.semanticProfile || effectiveUser.aiReport?.semantic_profile || null,
-      aiReport: effectiveUser.aiReport,
-    })
-
-    const candidateName =
-      effectiveUser.aiReport?.resume_agent?.candidateSnapshot?.name ||
-      effectiveUser.answers?.fullName ||
-      effectiveUser.answers?.name ||
-      effectiveUser.name ||
-      (effectiveUser.email ? effectiveUser.email.split('@')[0] : 'Candidate')
-    const safeName = candidateName.replace(/[^a-zA-Z0-9_-]/g, '_')
-
-    res.setHeader('Content-Type', 'application/pdf')
-    res.setHeader('Content-Disposition', `attachment; filename="Career_GPS_Report_${safeName}.pdf"`)
-    return res.send(pdfBuffer)
-  } catch (error) {
-    console.error('Error in downloadReportPdf controller:', error)
-    return res.status(500).json({ message: 'Failed to generate report PDF.' })
   }
 }
 

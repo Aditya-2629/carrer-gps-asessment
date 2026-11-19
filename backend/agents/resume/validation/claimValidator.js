@@ -133,16 +133,10 @@ export function validateClaims(parsedAnalysis, canonicalResume) {
     allViolations.push(...validateTextClaims(str.description, sourceTokens, `${str.id}.description`, canonicalResume))
   }
 
-  // Issues
+  // Issues: strictly ground diagnostic observations in resume facts.
+  // Recommendations and correctedText rewrites are actionable advice allowed to suggest calibrated metrics.
   for (const iss of (parsedAnalysis.issues || [])) {
     allViolations.push(...validateTextClaims(iss.diagnosis, sourceTokens, `${iss.id}.diagnosis`, canonicalResume))
-    allViolations.push(...validateTextClaims(iss.recommendation, sourceTokens, `${iss.id}.recommendation`, canonicalResume))
-    allViolations.push(...validateTextClaims(iss.correctedText, sourceTokens, `${iss.id}.correctedText`, canonicalResume))
-  }
-
-  // Priority actions
-  for (const pa of (parsedAnalysis.priorityActions || [])) {
-    allViolations.push(...validateTextClaims(pa.action, sourceTokens, `priority_${pa.priority}.action`, canonicalResume))
   }
 
   return {

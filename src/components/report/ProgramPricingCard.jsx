@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Check, Sparkle, CalendarBlank, ShieldCheck, ArrowRight } from '@phosphor-icons/react'
+import { Check, Tag, CalendarBlank, ShieldCheck, ArrowRight } from '@phosphor-icons/react'
 
 /**
  * Smoothly scrolls to section by id (#final-cta, #next-action)
@@ -51,7 +51,7 @@ export function ProgramPricingCard({ onBookCall }) {
         'ATS Resume Audit & Formatting Verification',
         'LinkedIn Cross-Diagnosis & Headline SEO',
         'Primary Funnel Choke Point Isolation',
-        '7-Day Rapid Triage Checklist',
+        'Action Roadmap & Milestones',
       ],
     },
     {
@@ -92,16 +92,16 @@ export function ProgramPricingCard({ onBookCall }) {
   ]
 
   return (
-    <div className="my-4 rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-md overflow-hidden transition-all duration-200">
+    <div className="my-4 rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-xs overflow-hidden">
       {/* Header Banner */}
       <div className="px-4 py-3 bg-[var(--surface-subtle)] border-b border-[var(--border-default)] flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
-            <Sparkle size={13} weight="fill" />
-            Crafture Career Programs & Transparent Pricing
+          <span className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] px-2.5 py-0.5 rounded-md border border-[var(--border-default)]">
+            <Tag size={12} />
+            Crafture Career Programs & Pricing
           </span>
         </div>
-        <div className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] font-medium">
+        <div className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] font-mono">
           <ShieldCheck size={14} className="text-emerald-500" />
           <span>0% Placement Fees • No Salary Cuts</span>
         </div>
@@ -115,23 +115,23 @@ export function ProgramPricingCard({ onBookCall }) {
             <div
               key={prog.id}
               onClick={() => setActiveTier(prog.id)}
-              className={`relative rounded-xl p-3.5 transition-all cursor-pointer flex flex-col justify-between border ${
+              className={`relative rounded-xl p-3.5 flex flex-col justify-between border transition-colors cursor-pointer ${
                 prog.isHighlighted
-                  ? 'border-indigo-500/50 bg-indigo-500/5 dark:bg-indigo-950/20 shadow-xs ring-1 ring-indigo-500/30'
-                  : 'border-[var(--border-default)] bg-[var(--surface-base)] hover:border-indigo-400/40'
+                  ? 'border-[var(--primary)]/40 bg-[var(--primary-light)]'
+                  : 'border-[var(--border-default)] bg-[var(--surface-base)] hover:border-[var(--primary)]/30'
               }`}
             >
               {/* Badge */}
               {prog.badge && (
                 <div className="absolute -top-2.5 right-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-white bg-indigo-600 px-2 py-0.5 rounded-full shadow-xs">
+                  <span className="text-[10px] font-mono text-white bg-[var(--primary)] px-2 py-0.5 rounded-md">
                     {prog.badge}
                   </span>
                 </div>
               )}
 
               <div>
-                <div className="text-xs font-bold text-[var(--text-primary)] mb-0.5">
+                <div className="text-xs font-semibold text-[var(--text-primary)] mb-0.5">
                   {prog.name}
                 </div>
                 <div className="text-[11px] text-[var(--text-muted)] mb-2.5">
@@ -140,10 +140,10 @@ export function ProgramPricingCard({ onBookCall }) {
 
                 {/* Price Display */}
                 <div className="flex items-baseline gap-1 mb-3 pb-2.5 border-b border-[var(--border-default)]">
-                  <span className="text-xl sm:text-2xl font-extrabold text-[var(--text-primary)] font-mono">
+                  <span className="text-xl sm:text-2xl font-semibold text-[var(--text-primary)] font-mono tabular-nums">
                     {prog.price}
                   </span>
-                  <span className="text-[11px] text-[var(--text-muted)] font-medium">
+                  <span className="text-[11px] text-[var(--text-muted)] font-mono">
                     {prog.period}
                   </span>
                 </div>
@@ -165,7 +165,7 @@ export function ProgramPricingCard({ onBookCall }) {
                   <button
                     type="button"
                     onClick={handleConsultationCta}
-                    className="w-full py-2 px-3 rounded-lg text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full py-2 px-3 rounded-lg text-[11px] font-semibold text-white bg-[var(--primary)] hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <CalendarBlank size={13} weight="bold" />
                     <span>Book 1-on-1 Consultation</span>
@@ -174,7 +174,7 @@ export function ProgramPricingCard({ onBookCall }) {
                   <button
                     type="button"
                     onClick={() => setActiveTier(prog.id)}
-                    className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-medium border border-[var(--border-default)] bg-[var(--surface-subtle)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] transition-all cursor-pointer text-center"
+                    className="w-full py-1.5 px-2.5 rounded-lg text-[11px] font-medium border border-[var(--border-default)] bg-[var(--surface-subtle)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] transition-colors cursor-pointer text-center"
                   >
                     {isSelected ? 'Selected' : 'View Details'}
                   </button>

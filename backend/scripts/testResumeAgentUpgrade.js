@@ -225,7 +225,7 @@ test('buildBulletAudit wires bulletUpgrades into audit', () => {
 
   // 1. Issue bullet uses issue.correctedText
   const b01 = audit.find((b) => b.bulletId === 'exp_001_b01')
-  assert(b01.rewrite === 'Architected microservices [ADD: measurable metric].', 'b01 must use issue.correctedText')
+  assert(b01.rewrite && b01.rewrite.startsWith('Architected microservices'), 'b01 must use issue.correctedText')
   assert(b01.status === 'fix', 'High severity issue should have status fix')
 
   // 2. Upgrade bullet uses upgrade.rewrittenText

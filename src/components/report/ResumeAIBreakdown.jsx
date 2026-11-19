@@ -4,7 +4,7 @@ import {
   WarningOctagon,
   PaperPlaneRight,
   Brain,
-  Sparkle,
+  FileText,
   Target,
   FileCode,
   Article,
@@ -120,27 +120,27 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-default)] pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <Sparkle size={18} weight="fill" className="text-[var(--emerald)] animate-pulse" />
-            <span className="text-xs uppercase tracking-wider font-bold text-[var(--primary)]">
-              AI Converted Resume Analysis & Context
+            <FileText size={16} className="text-[var(--primary)]" />
+            <span className="text-xs font-mono text-[var(--text-muted)]">
+              Extracted Resume Context & Dossier
             </span>
           </div>
-          <h2 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
             {resume.candidate_name || 'Candidate Resume Breakdown'}
           </h2>
           <p className="text-sm text-[var(--text-muted)] mt-1 font-medium">
-            Target Role: <span className="text-[var(--text-primary)] font-bold">{resume.target_role}</span> • Experience: <span className="text-[var(--text-primary)] font-bold">{resume.years_of_experience}</span>
+            Target Role: <span className="text-[var(--text-primary)] font-semibold">{resume.target_role}</span> • Experience: <span className="text-[var(--text-primary)] font-semibold tabular-nums">{resume.years_of_experience}</span>
           </p>
         </div>
 
         {/* ATS Readability Gauge Badge */}
         <div className="flex items-center gap-3.5 bg-[var(--surface-sunken)] p-3.5 rounded-xl border border-[var(--border-default)] shrink-0 shadow-2xs">
           <div className="text-right">
-            <div className="text-xs uppercase font-bold text-[var(--text-muted)] tracking-wider">ATS Readability</div>
+            <div className="text-xs font-mono text-[var(--text-muted)]">ATS Readability</div>
             <div className="text-xs text-[var(--text-secondary)] font-medium">Parser Index</div>
           </div>
           <div
-            className="w-13 h-13 rounded-xl flex items-center justify-center font-extrabold text-xl shadow-xs"
+            className="w-12 h-12 rounded-xl flex items-center justify-center font-semibold text-lg tabular-nums shadow-xs"
             style={{
               background: `rgba(${resume.ats_score < 60 ? '239,68,68' : resume.ats_score < 75 ? '245,158,11' : '16,185,129'}, 0.15)`,
               color: getScoreColor(resume.ats_score),
@@ -159,10 +159,10 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
             <Article size={20} weight="bold" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
-              Atlas AI Executive Resume Diagnosis
+            <h3 className="text-base font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+              Resume Diagnostic Context
             </h3>
-            <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">Comprehensive contextual feedback on your uploaded resume</p>
+            <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">Contextual extraction feedback on uploaded resume</p>
           </div>
         </div>
 
@@ -175,15 +175,15 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Extracted Core Skills */}
         <div className="bg-[var(--surface-sunken)] p-6 rounded-xl border border-[var(--border-default)] space-y-3.5 shadow-2xs">
-          <div className="flex items-center gap-2 text-[var(--emerald)] font-bold text-xs uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-[var(--emerald)] font-mono text-xs">
             <Target size={18} />
-            <span>Extracted Technical Skills (JSON Schema)</span>
+            <span>Extracted Technical Skills</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {(resume.top_skills || []).map((skill, i) => (
               <span
                 key={i}
-                className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-[var(--emerald-bg)] text-[var(--emerald)] border border-emerald-500/20 shadow-2xs"
+                className="px-2.5 py-1 rounded-md text-xs font-mono font-medium bg-[var(--emerald-bg)] text-[var(--emerald)] border border-emerald-500/20"
               >
                 {skill}
               </span>
@@ -193,7 +193,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
 
         {/* Missing Critical ATS Keywords */}
         <div className="bg-[var(--surface-sunken)] p-6 rounded-xl border border-[var(--border-default)] space-y-3.5 shadow-2xs">
-          <div className={`flex items-center gap-2 font-bold text-xs uppercase tracking-wider ${missingKeywords.length > 0 ? 'text-amber-500' : 'text-[var(--emerald)]'}`}>
+          <div className={`flex items-center gap-2 font-mono text-xs ${missingKeywords.length > 0 ? 'text-amber-500' : 'text-[var(--emerald)]'}`}>
             {missingKeywords.length > 0 ? <WarningOctagon size={18} /> : <CheckCircle size={18} weight="fill" />}
             <span>{missingKeywords.length > 0 ? 'Missing Critical ATS Keywords' : 'Keyword Coverage Status'}</span>
           </div>
@@ -202,7 +202,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
               {missingKeywords.map((kw, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs"
+                  className="px-2.5 py-1 rounded-md text-xs font-mono font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                 >
                   + {kw}
                 </span>
@@ -230,7 +230,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Strengths */}
         <div className="space-y-3.5">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--emerald)] flex items-center gap-2">
+          <h4 className="text-xs font-mono text-[var(--emerald)] flex items-center gap-2">
             <CheckCircle size={18} weight="fill" />
             <span>Key Resume Strengths</span>
           </h4>
@@ -258,7 +258,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
 
         {/* Red Flags */}
         <div className="space-y-3.5">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-red-500 flex items-center gap-2">
+          <h4 className="text-xs font-mono text-red-500 flex items-center gap-2">
             <WarningOctagon size={18} weight="fill" />
             <span>ATS Red Flags & Structural Weaknesses</span>
           </h4>
@@ -288,7 +288,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
       {/* Experience Highlights extracted from JSON */}
       {resume.experience_summary && resume.experience_summary.length > 0 && (
         <div className="bg-[var(--surface-sunken)] p-6 rounded-xl border border-[var(--border-default)] space-y-3.5 shadow-2xs">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+          <h4 className="text-xs font-mono text-[var(--text-muted)]">
             Parsed Experience & Achievement Context
           </h4>
           <div className="space-y-2.5">
@@ -305,9 +305,9 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
       {/* Interactive AI Text Chat Assistant (Talk on Resume) */}
       <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-6 space-y-4 shadow-2xs">
         <div className="flex items-center gap-2.5">
-          <Brain size={22} className="text-[var(--primary)]" />
-          <h3 className="text-base font-bold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
-            Interactive AI Assistant — Ask Questions About Your Resume
+          <Brain size={20} className="text-[var(--primary)]" />
+          <h3 className="text-base font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+            Dossier Console — Query Extracted Context
           </h3>
         </div>
 
@@ -315,19 +315,19 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => handleAskAI('Why is my ATS score low and how do I fix it?')}
-            className="text-xs sm:text-sm font-medium bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="text-xs font-mono bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-1.5 rounded-md transition-colors cursor-pointer"
           >
             "Why is my ATS score low?"
           </button>
           <button
             onClick={() => handleAskAI('Which missing keywords should I prioritize adding?')}
-            className="text-xs sm:text-sm font-medium bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="text-xs font-mono bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-1.5 rounded-md transition-colors cursor-pointer"
           >
             "Which keywords should I add?"
           </button>
           <button
             onClick={() => handleAskAI('Give me an example of rewriting one of my bullet points using Google STAR method.')}
-            className="text-xs sm:text-sm font-medium bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
+            className="text-xs font-mono bg-[var(--surface-muted)] hover:bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-1.5 rounded-md transition-colors cursor-pointer"
           >
             "Rewrite a bullet point (STAR method)"
           </button>
@@ -340,7 +340,7 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
               key={i}
               className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
-              <div className="text-xs text-[var(--text-muted)] mb-1 flex items-center gap-1 font-medium">
+              <div className="text-xs text-[var(--text-muted)] mb-1 flex items-center gap-1 font-medium font-mono">
                 {msg.sender === 'user' ? 'You' : (
                   <>
                     <ChatCircleText size={14} className="text-[var(--emerald)]" />
@@ -360,9 +360,9 @@ export default function ResumeAIBreakdown({ resumeJsonData }) {
             </div>
           ))}
           {isAsking && (
-            <div className="text-sm text-[var(--emerald)] font-medium italic flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[var(--emerald)] animate-ping" />
-              Atlas AI is analyzing your resume JSON context...
+            <div className="text-xs text-[var(--text-muted)] font-mono flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[var(--emerald)]" />
+              Analyzing resume context...
             </div>
           )}
           <div ref={chatEndRef} />

@@ -6,7 +6,7 @@ import {
   Copy,
   Check,
   Warning,
-  Sparkle,
+  Target,
   ArrowRight,
   Article,
   Tag,
@@ -162,11 +162,11 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
     <section id="opportunities" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-red-500 dark:text-red-400 block">
+          <span className="text-xs font-mono text-red-600 dark:text-red-400 block">
             {isStrategicPipeline ? 'Pipeline Risk Diagnosis' : 'Targeted Fixes'}
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             {isStrategicPipeline ? 'Strategic Pipeline & Cross-Channel Bottlenecks' : "Where you're losing opportunities"}
@@ -214,7 +214,7 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
                         {item.title}
                       </h3>
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${sev.class}`}
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-md border ${sev.class}`}
                       >
                         {sev.label}
                       </span>
@@ -259,8 +259,8 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
                   >
                     {/* Part 1: Why This Matters */}
                     <div className="space-y-1.5">
-                      <div className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] flex items-center gap-1.5">
-                        <Sparkle size={14} weight="fill" />
+                      <div className="text-xs font-mono text-[var(--primary)] flex items-center gap-1.5">
+                        <Target size={14} />
                         <span>Why This Matters to Recruiters</span>
                       </div>
                       <p className="text-sm text-[var(--text-primary)] leading-relaxed font-medium">
@@ -272,14 +272,14 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
                     {item.evidence && (
                       <div className="p-4 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] space-y-2">
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[11px]">
+                          <span className="font-mono text-[var(--text-muted)] text-[11px]">
                             Evidence from your resume
                           </span>
                           <span className="font-mono text-[10px] text-[var(--primary)] bg-[var(--primary-light)] px-2 py-0.5 rounded border border-[var(--primary)]/20">
                             {item.evidence.section || 'section'} • {item.evidence.itemId || 'item'} • {item.evidence.bulletId || 'bullet'}
                           </span>
                         </div>
-                        <div className="p-3 rounded-lg bg-[var(--surface-sunken)] border-l-4 border-amber-400 text-xs sm:text-sm font-sans text-[var(--text-primary)] leading-relaxed italic">
+                        <div className="p-3 rounded-lg bg-[var(--surface-sunken)] border-l-4 border-amber-400 text-xs sm:text-sm font-sans text-[var(--text-primary)] leading-relaxed">
                           &ldquo;{item.evidence.originalText}&rdquo;
                         </div>
                       </div>
@@ -287,7 +287,7 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
 
                     {/* Part 3: Recommended Action */}
                     <div className="space-y-1.5">
-                      <div className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--text-muted)]">
+                      <div className="text-xs font-mono text-[var(--text-muted)]">
                         Recommended Action
                       </div>
                       <p className="text-sm text-[var(--text-primary)] leading-relaxed font-medium">
@@ -297,11 +297,11 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
 
                     {/* Part 4: Before vs After Suggested Rewrite */}
                     {item.correctedText && (
-                      <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/25 space-y-3">
+                      <div className="p-4 sm:p-5 rounded-xl bg-emerald-500/5 border border-emerald-500/25 space-y-3">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold uppercase tracking-wider text-[var(--emerald)] flex items-center gap-1.5">
+                          <span className="text-xs font-semibold text-[var(--emerald)] flex items-center gap-1.5">
                             <Check size={15} weight="bold" />
-                            <span>Suggested Rewrite (STAR & ATS Optimized)</span>
+                            <span>Suggested Rewrite (STAR &amp; ATS Optimized)</span>
                           </span>
 
                           <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ export default function OpportunitiesList({ issues, resumeJsonData, resumeAgent 
                               {copiedKey === item.id ? (
                                 <>
                                   <Check size={13} className="text-[var(--emerald)]" weight="bold" />
-                                  <span className="text-[var(--emerald)]">Copied!</span>
+                                  <span className="text-[var(--emerald)]">Copied</span>
                                 </>
                               ) : (
                                 <>

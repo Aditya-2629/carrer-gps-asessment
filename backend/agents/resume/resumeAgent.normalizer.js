@@ -763,6 +763,59 @@ export class ResumeNormalizer {
   }
 
   /**
+   * Determines if a line consists solely of contact information, URLs, location, or contact banners
+   * with no substantive narrative prose.
+   */
+  static isPureContactLine(line) {
+    if (!line || typeof line !== 'string') return false
+    const clean = line.trim()
+    if (!clean) return false
+
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g
+    const urlRegex = /(?:https?:\/\/[^\s]+|www\.[^\s]+|(?:linkedin|github|gitlab)\.com\/[^\s]+)/gi
+    const locationRegex = /^[A-Z][a-zA-Z\s]+,\s*([A-Z]{2}|[A-Za-z\s]+)(\s+\d{5}(-\d{4})?)?$/
+
+    if (locationRegex.test(clean) && clean.length < 80) return true
+
+    const hasContact = emailRegex.test(clean) || phoneRegex.test(clean) || urlRegex.test(clean)
+    if (!hasContact) {
+      if (/[|•·]/.test(clean) && clean.length < 140 && !/[.!?]$/.test(clean)) {
+        return true
+      }
+      return false
+    }
+
+    const stripped = clean
+      .replace(emailRegex, '')
+      .replace(phoneRegex, '')
+      .replace(urlRegex, '')
+      .replace(/[|•·\-,:/()]/g, '')
+      .replace(/\b(?:email|phone|mobile|cell|tel|portfolio|website|github|linkedin|location|address)\b/gi, '')
+      .trim()
+
+    return stripped.length < 25 && !/[.!?]$/.test(stripped)
+  }
+
+  /**
+   * Determines if a line is genuine narrative summary prose (sentences / paragraphs)
+   * rather than a contact banner, role headline, or structural metadata.
+   */
+  static isNarrativeProse(line) {
+    if (!line || typeof line !== 'string') return false
+    const clean = line.trim()
+    if (clean.length < 35) return false
+
+    if (this.isPureContactLine(clean)) return false
+
+    const words = clean.split(/\s+/).filter(Boolean)
+    if (words.length < 6) return false
+
+    const narrativeSignals = /\b(?:experience|proven|track record|responsible|seeking|passionate|skilled|years|results-driven|expert|developer|engineer|specialist|background|demonstrated|proficient|architect|leading|spearheaded|building|designed|specialized|achieving|collaborating)\b/i
+    return narrativeSignals.test(clean) || /[.!?]$/.test(clean)
+  }
+
+  /**
    * Segments lines into major resume sections based on recognizable headings
    */
   static segmentSections(lines) {
@@ -778,6 +831,7 @@ export class ResumeNormalizer {
     }
 
     let currentSection = 'header'
+    let hasEncounteredSection = false
 
     const sectionPatterns = [
       { key: 'experience', regex: /^(work\s+experience|professional\s+experience|experience|employment\s+history|relevant\s+experience|career\s+history|work\s+history)$/i },
@@ -800,6 +854,7 @@ export class ResumeNormalizer {
 
     for (const line of lines) {
       const cleanLine = line.replace(/^[\s#*_-]+|[\s#*_-]+$/g, '').trim()
+      if (!cleanLine) continue
       let matchedSection = null
 
       for (const pattern of sectionPatterns) {
@@ -811,20 +866,23 @@ export class ResumeNormalizer {
 
       if (matchedSection) {
         currentSection = matchedSection
+        hasEncounteredSection = true
         continue
       }
 
-      if (currentSection === 'header') {
-        if (this.isContactOrHeaderLine(cleanLine)) {
+      if (!hasEncounteredSection) {
+        // Pre-header lines before any recognized section header:
+        // Contact info (email, phone, URLs, location, contact banners) MUST go to header metadata, NEVER to summary
+        if (this.isPureContactLine(cleanLine) || this.isContactOrHeaderLine(cleanLine)) {
           sections.header.push(cleanLine)
-        } else {
-          currentSection = 'summary'
+        } else if (this.isNarrativeProse(cleanLine)) {
           sections.summary.push(cleanLine)
+        } else {
+          sections.header.push(cleanLine)
         }
       } else if (currentSection === 'summary') {
-        // Even AFTER currentSection has switched to 'summary', if a line matches isContactOrHeaderLine,
-        // push to header instead of contaminating summary!
-        if (this.isContactOrHeaderLine(cleanLine)) {
+        // Inside explicit summary section: route pure contact lines to header, keep prose (even with embedded contact) in summary
+        if (this.isPureContactLine(cleanLine)) {
           sections.header.push(cleanLine)
         } else {
           sections.summary.push(cleanLine)
@@ -874,27 +932,20 @@ export class ResumeNormalizer {
    * Parses summary section
    */
   static parseSummary(lines) {
-    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
-    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g
-    const urlRegex = /(?:https?:\/\/[^\s]+|www\.[^\s]+|(?:linkedin|github)\.com\/[^\s]+)/gi
-
-    let filteredLines = lines.filter((l) => {
-      const trimmed = l.trim()
-      if (this.isContactOrHeaderLine(trimmed)) {
-        const withoutContact = trimmed.replace(emailRegex, '').replace(phoneRegex, '').replace(urlRegex, '').replace(/[|•·\-,]/g, '').trim()
-        if (withoutContact.length < 25) return false
+    let filteredLines = (lines || []).filter((l) => {
+      const trimmed = (l || '').trim()
+      if (!trimmed) return false
+      if (this.isPureContactLine(trimmed)) {
+        return false
       }
       return true
     })
 
     let text = filteredLines.join(' ').trim()
 
-    // Strip leading contact info, social URLs, or role banners from the start of summary string
+    // Strip standalone leading contact banner tokens at the very start of summary text if any slipped through
     text = text
-      .replace(emailRegex, '')
-      .replace(phoneRegex, '')
-      .replace(urlRegex, '')
-      .replace(/^[|•·\-\s,]+/, '')
+      .replace(/^(?:[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|(?:https?:\/\/[^\s]+|www\.[^\s]+|(?:linkedin|github)\.com\/[^\s]+)|[|•·\-,])+\s*/i, '')
       .replace(/\s{2,}/g, ' ')
       .trim()
 

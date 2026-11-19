@@ -208,10 +208,10 @@ export function matchCompany(rComp, lComp) {
 
 export const PRIORITY_TECH = [
   // Programming & Cloud Tech
-  'Python', 'Java', 'Go', 'TypeScript', 'GraphQL', 'Redis', 'Kubernetes', 'AWS', 'Azure', 'Docker', 'PostgreSQL', 'MongoDB', 'Microservices', 'REST APIs',
+  'Python', 'Java', 'Go', 'TypeScript', 'GraphQL', 'Redis', 'Cloud Infrastructure', 'AWS', 'Azure', 'Docker', 'PostgreSQL', 'MongoDB', 'Microservices', 'REST APIs',
   'LangGraph', 'LangChain', 'FastAPI', 'Next.js',
   // Data & BI
-  'SQL', 'Power BI', 'Tableau', 'Snowflake', 'BigQuery', 'Looker Studio', 'dbt', 'Databricks', 'Excel',
+  'SQL', 'Power BI', 'Tableau', 'Data Warehouse', 'BigQuery', 'Looker Studio', 'dbt', 'Databricks', 'Excel',
   // Healthcare & Clinical
   'EHR', 'Epic Systems', 'HIPAA', 'Patient Care', 'Triage', 'Care Coordination', 'Clinical Documentation',
   // Finance & Accounting
@@ -233,9 +233,9 @@ export function isConcreteTechSkill(skill) {
   if (words.length > 3) return false
 
   const KNOWN_TOOLS = new Set([
-    'sql', 'python', 'r', 'power bi', 'tableau', 'snowflake', 'bigquery', 'looker', 'looker studio',
+    'sql', 'python', 'r', 'power bi', 'tableau', 'bigquery', 'looker', 'looker studio',
     'dbt', 'databricks', 'excel', 'postgresql', 'postgres', 'mysql', 'oracle', 'aws', 'azure', 'gcp',
-    'docker', 'kubernetes', 'git', 'java', 'c++', 'c#', 'go', 'golang', 'typescript', 'javascript',
+    'docker', 'cloud infrastructure', 'data warehouse', 'git', 'java', 'c++', 'c#', 'go', 'golang', 'typescript', 'javascript',
     'react', 'node.js', 'nodejs', 'kafka', 'spark', 'pyspark', 'hadoop', 'airflow', 'pandas', 'numpy',
     'scikit-learn', 'tensorflow', 'pytorch', 'redshift', 'mongodb', 'redis', 'graphql', 'rest apis',
     'fastapi', 'spring boot', 'langchain', 'langgraph', 'rag', 'chromadb', 'jira', 'confluence', 'linux',
@@ -246,7 +246,7 @@ export function isConcreteTechSkill(skill) {
   if (KNOWN_TOOLS.has(lower)) return true
 
   // Check known tool patterns
-  if (/^(sql|python|power\s+bi|tableau|snowflake|bigquery|looker|dbt|databricks|aws|azure|gcp|react|node|docker|kubernetes|kafka|spark|airflow|excel)/i.test(trimmed)) {
+  if (/^(sql|python|power\s+bi|tableau|bigquery|looker|dbt|databricks|aws|azure|gcp|react|node|docker|kafka|spark|airflow|excel)/i.test(trimmed)) {
     return true
   }
 
@@ -1134,7 +1134,7 @@ export function classifyConsistencyTier({ summary = {}, discrepancies = [], time
       points: 1.5,
       maxPoints: 2,
       badge: 'Minor Differences',
-      description: 'Normal title variations or equivalent wording (e.g. Senior Data Analyst vs Data Analyst, Full Stack vs Software Engineer).',
+      description: 'Minor title variations or equivalent domain wording between resume and LinkedIn.',
     }
   }
 

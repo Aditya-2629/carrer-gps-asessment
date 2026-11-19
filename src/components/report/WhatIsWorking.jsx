@@ -1,15 +1,14 @@
 import { motion } from 'framer-motion'
 import {
-  Sparkle,
   CheckCircle,
   Lightning,
   ShieldCheck,
   Cpu,
   ChartLineUp,
-  Star,
+  Target,
 } from '@phosphor-icons/react'
 
-const ICONS = [Cpu, Lightning, ShieldCheck, ChartLineUp, Sparkle, Star]
+const ICONS = [Cpu, Lightning, ShieldCheck, ChartLineUp, Target, CheckCircle]
 
 export default function WhatIsWorking({ resumeJsonData, resumeAgent, reportData }) {
   // Collect actual strengths from the resume agent or report payload
@@ -113,11 +112,11 @@ export default function WhatIsWorking({ resumeJsonData, resumeAgent, reportData 
     <section id="strengths" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--emerald)] block">
+          <span className="text-xs font-mono text-[var(--emerald)] block">
             Competitive Foundation
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             What is already working
@@ -137,22 +136,22 @@ export default function WhatIsWorking({ resumeJsonData, resumeAgent, reportData 
             <motion.div
               key={item.id}
               whileHover={{ y: -3, transition: { duration: 0.2 } }}
-              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-emerald-500/20 bg-emerald-500/[0.02] shadow-xs flex flex-col justify-between space-y-4 h-full"
+              className="p-5 rounded-xl bg-[var(--surface-card)] border border-emerald-500/20 bg-emerald-500/[0.02] shadow-xs flex flex-col justify-between space-y-4 h-full"
             >
               <div className="space-y-3">
                 {/* Header Icon + Metric Badge */}
                 <div className="flex items-center justify-between gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-[var(--emerald)]">
-                    <Icon size={20} weight="fill" />
+                  <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-[var(--emerald)]">
+                    <Icon size={18} weight="bold" />
                   </div>
-                  <span className="text-[10px] font-bold font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 text-[var(--emerald)] border border-emerald-500/20">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-[var(--emerald)] border border-emerald-500/20">
                     {item.metricBadge}
                   </span>
                 </div>
 
                 {/* Strength Title */}
                 <h3
-                  className="text-base font-bold text-[var(--text-primary)] tracking-tight"
+                  className="text-base font-semibold text-[var(--text-primary)] tracking-tight"
                   style={{ fontFamily: 'var(--font-head)' }}
                 >
                   {item.title}

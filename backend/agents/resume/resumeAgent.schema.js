@@ -67,3 +67,45 @@ export const REQUIRED_ANALYSIS_FIELDS = [
   'issues',
   'priorityActions',
 ]
+
+/**
+ * Expected shape of an individual bullet evaluation (Phase 1/2 contract)
+ * Supports 5-part anatomy scoring (actionVerb, hardSkill, collaboration, metric, outcome)
+ * and helping vs hurting verdicts.
+ */
+export const BULLET_EVALUATION_CONTRACT = {
+  bulletId: 'exp_001_b01',
+  verdict: 'helping', // 'helping' | 'hurting'
+  fivePartFlags: {
+    actionVerb: true,
+    hardSkill: true,
+    collaboration: false,
+    metric: true,
+    outcome: true,
+  },
+  isResponsibilityOnly: false,
+  missingElements: [],
+}
+
+/**
+ * Expected shape of a cut list item
+ * For filler lines, outdated >5yr irrelevant projects, or 1-page overflow bloat.
+ */
+export const CUT_LIST_ITEM_CONTRACT = {
+  section: 'experience', // 'experience' | 'projects' | 'summary' | 'education' | 'skills'
+  itemId: 'exp_001',
+  bulletId: null, // string | null
+  originalText: 'Exact verbatim text from candidate resume',
+  reason: 'Explanation of why this line should be pruned or cut',
+}
+
+/**
+ * Expected shape of a near-miss keyword item
+ * For literal ATS keyword mirroring (e.g., "large-scale systems" -> "distributed systems").
+ */
+export const NEAR_MISS_KEYWORD_CONTRACT = {
+  resumePhrase: 'large-scale systems',
+  jdPhrase: 'distributed systems',
+  bulletId: 'exp_001_b01', // string | null
+  reason: 'ATS scanner matches exact synonym required by target job description',
+}

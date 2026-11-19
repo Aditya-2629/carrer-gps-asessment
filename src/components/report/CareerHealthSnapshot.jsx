@@ -191,11 +191,11 @@ export default function CareerHealthSnapshot({ reportData, onNavigateSection }) 
     <section id="snapshot" className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-[var(--primary)] block">
+          <span className="text-xs font-mono text-[var(--text-muted)] block">
             100-Point Weighted Scoring Rubric
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             6 Weighted Career GPS Areas
@@ -216,35 +216,35 @@ export default function CareerHealthSnapshot({ reportData, onNavigateSection }) 
           return (
             <div
               key={card.id}
-              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between shadow-xs break-inside-avoid page-break-inside-avoid"
+              className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs break-inside-avoid page-break-inside-avoid"
             >
               <div>
                 {/* Header Row */}
                 <div className="flex items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2.5">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border border-[var(--border-default)]"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-[var(--border-default)]"
                       style={{ backgroundColor: `${card.color}15`, color: card.color }}
                     >
                       <Icon size={18} weight="bold" />
                     </div>
-                    <span className="text-xs font-bold font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                    <span className="text-xs font-mono text-[var(--text-muted)] tracking-normal">
                       Area Scorecard
                     </span>
                   </div>
 
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${card.badgeClass}`}>
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded-md border tabular-nums ${card.badgeClass}`}>
                     {card.percentage}%
                   </span>
                 </div>
 
                 {/* Title & Points */}
                 <div className="flex items-baseline justify-between mb-2">
-                  <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-snug">
+                  <h3 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] leading-snug">
                     {card.title}
                   </h3>
                   <div className="flex items-baseline gap-1 shrink-0 ml-2">
-                    <span className="text-lg font-black text-[var(--text-primary)] font-mono">
+                    <span className="text-lg font-semibold text-[var(--text-primary)] font-mono tabular-nums">
                       {card.points}
                     </span>
                     <span className="text-xs font-mono font-bold text-[var(--text-muted)]">

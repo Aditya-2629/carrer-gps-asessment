@@ -1,10 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import {
-  Sparkle,
+  ChatCircleDots,
   X,
   PaperPlaneRight,
   SpinnerGap,
-  ChatCircleDots,
   Copy,
   Check,
   CalendarBlank,
@@ -16,6 +15,7 @@ import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import DiffSnippetCard from './DiffSnippetCard'
 import ProgramPricingCard from './ProgramPricingCard'
+import { useReportGuideStore } from '../../store/useReportGuideStore'
 
 /**
  * Smoothly scrolls to a section by element id (supports `#final-cta`, `#next-action`, etc.)
@@ -67,13 +67,13 @@ function CopyableSnippetCard({ snippet }) {
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--surface-base)] px-2.5 py-1 rounded-lg border border-[var(--border-default)] cursor-pointer transition-all active:scale-95 shadow-2xs"
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] bg-[var(--surface-base)] px-2.5 py-1 rounded-lg border border-[var(--border-default)] cursor-pointer transition-colors shadow-2xs"
           title="Copy to clipboard"
         >
           {copied ? (
             <>
               <Check size={13} weight="bold" className="text-emerald-500" />
-              <span className="text-emerald-500 font-semibold">Copied!</span>
+              <span className="text-emerald-500 font-semibold">Copied</span>
             </>
           ) : (
             <>
@@ -390,11 +390,12 @@ function renderMessageContent(text, options = {}) {
   )
 }
 
-export default function ReportChatbot() {
+export default function ReportChatbot({ hideLauncher = false }) {
   const storeUserId = useAppStore((s) => s.userId)
   const reportData = useAppStore((s) => s.reportData)
   const formData = useAppStore((s) => s.formData)
   const email = useAppStore((s) => s.email)
+  const { isChatOpen, chatInitialPrompt, closeChat, openChat } = useReportGuideStore()
 
   const effectiveUserId = useMemo(() => {
     return (
@@ -505,6 +506,28 @@ export default function ReportChatbot() {
 
   const [open, setOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Synchronize open state with global Living Copilot store
+  useEffect(() => {
+    if (isChatOpen) {
+      setOpen(true)
+      if (chatInitialPrompt) {
+        setInput(chatInitialPrompt)
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.focus()
+          }
+        }, 120)
+      }
+    } else {
+      setOpen(false)
+    }
+  }, [isChatOpen, chatInitialPrompt])
+
+  const handleClose = () => {
+    setOpen(false)
+    closeChat()
+  }
   const [messages, setMessages] = useState([
     {
       role: 'agent',
@@ -583,8 +606,8 @@ export default function ReportChatbot() {
       },
       {
         id: 'plan',
-        label: '🚀 7-Day Rapid Triage',
-        prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
+        label: '🎯 Action Roadmap',
+        prompt: 'Give me a concrete 30/60/90 day milestone execution plan based on my report diagnosis.',
       },
     ],
     [bottleneckTitle, latestCompany, shortCompany, targetRole, topSkill]
@@ -628,9 +651,9 @@ export default function ReportChatbot() {
       } else if (/interview|star|behavioral|mock|question|answer/i.test(q)) {
         setFollowUpChips([
           {
-            id: 'add-7day',
-            label: '🚀 Add to my 7-day plan',
-            prompt: 'How do I incorporate this interview defense into my daily 7-day prep schedule?',
+            id: 'add-roadmap',
+            label: '🎯 Add to my action roadmap',
+            prompt: 'How do I incorporate this interview defense into my action roadmap?',
           },
           {
             id: 'live-consult',
@@ -660,8 +683,8 @@ export default function ReportChatbot() {
           },
           {
             id: 'plan-choke',
-            label: '🚀 7-Day Rapid Triage',
-            prompt: 'Give me a concrete 7-day daily execution checklist based on my report diagnosis.',
+            label: '🎯 Action Roadmap',
+            prompt: 'Give me a concrete 30/60/90 day milestone execution plan based on my report diagnosis.',
           },
         ])
       }
@@ -796,27 +819,29 @@ export default function ReportChatbot() {
         await api.post('/assessment/book-call', { email })
       } catch (_e) {}
     }
-    setOpen(false)
+    handleClose()
     scrollToSection('#final-cta')
   }
 
   return (
     <>
-      {/* Floating Copilot Pill Launcher */}
-      {!open && (
+      {/* Floating Copilot Pill Launcher (Suppressed when using Living Copilot) */}
+      {!hideLauncher && !open && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gradient-to-r from-[var(--primary)] to-emerald-600 hover:from-[var(--primary-hover)] hover:to-emerald-500 text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-xl shadow-[var(--primary-ring)] hover:scale-105 active:scale-95 transition-all cursor-pointer group"
+          onClick={() => {
+            setOpen(true)
+            openChat()
+          }}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-semibold text-xs px-4 py-2.5 rounded-xl shadow-md transition-colors cursor-pointer group"
           aria-label="Open Atlas Copilot"
         >
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300"></span>
+          <span className="relative flex h-2 w-2">
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
           </span>
-          <ChatCircleDots size={20} weight="fill" />
+          <ChatCircleDots size={18} weight="bold" />
           <span>Ask Crafture Copilot</span>
-          <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-full">
+          <span className="text-[10px] font-mono bg-white/20 dark:bg-white/10 px-1.5 py-0.5 rounded-md tabular-nums">
             {overallScore}/100
           </span>
         </button>
@@ -825,7 +850,7 @@ export default function ReportChatbot() {
       {/* Expandable Executive Workspace Drawer */}
       {open && (
         <div
-          className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ease-in-out ${
+          className={`fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-colors duration-150 ease-in-out ${
             isExpanded
               ? 'w-[calc(100vw-2rem)] sm:w-[680px]'
               : 'w-[calc(100vw-2rem)] sm:w-[440px]'
@@ -836,14 +861,14 @@ export default function ReportChatbot() {
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)] bg-[var(--surface-card)]">
             <div className="flex items-center gap-3">
               <span className="w-8 h-8 rounded-xl bg-[var(--primary-light)] text-[var(--primary)] flex items-center justify-center border border-[var(--primary)]/20 shadow-2xs">
-                <Sparkle size={18} weight="fill" />
+                <ChatCircleDots size={18} weight="bold" />
               </span>
               <div>
-                <div className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <div className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
                   <span>Atlas • Crafture Career GPS</span>
-                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Active Intelligence
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    Active Diagnostic
                   </span>
                 </div>
                 <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[280px]">
@@ -867,7 +892,7 @@ export default function ReportChatbot() {
               {/* Close Button */}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={handleClose}
                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
                 aria-label="Close chat"
               >
@@ -923,17 +948,17 @@ export default function ReportChatbot() {
 
                     {/* Contextual 1-on-1 Strategy Call Callout */}
                     {showCallCta && (
-                      <div className="mt-3.5 p-3 rounded-xl bg-gradient-to-br from-[var(--primary-light)] via-[var(--surface-card)] to-[var(--surface-base)] border border-[var(--primary)]/30 space-y-2 shadow-xs">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-primary)]">
+                      <div className="mt-3.5 p-3 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 shadow-xs">
+                        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-primary)]">
                           <CalendarBlank size={14} className="text-[var(--primary)]" weight="bold" />
-                          <span>Want hands-on execution help for your {targetRole} search?</span>
+                          <span>Need hands-on execution guidance for your {targetRole} search?</span>
                         </div>
                         <button
                           type="button"
                           onClick={handleStrategyCallCta}
-                          className="w-full flex items-center justify-center gap-1.5 bg-gradient-to-r from-[var(--primary)] to-emerald-600 hover:from-[var(--primary-hover)] hover:to-emerald-500 text-white font-bold text-[11px] py-1.5 px-3 rounded-lg shadow-xs hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1.5 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white font-medium text-[11px] py-1.5 px-3 rounded-md shadow-xs transition-colors cursor-pointer"
                         >
-                          <span>📅 Book Free 1-on-1 Strategy Call ➔</span>
+                          <span>Schedule 1-on-1 Strategy Session</span>
                         </button>
                       </div>
                     )}

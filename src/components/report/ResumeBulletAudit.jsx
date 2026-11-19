@@ -1,10 +1,15 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
-  Sparkle,
   Copy,
   Check,
-  Eye,
+  CaretDown,
+  CaretUp,
+  CheckCircle,
+  WarningCircle,
 } from '@phosphor-icons/react'
+import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
+import { DiffReview } from '../diff-review'
+import { CopyButton } from '../copy-button'
 
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
@@ -18,11 +23,13 @@ export function cleanRewriteText(text) {
     .trim()
 }
 
-export const STATUS_STYLES = {
-  fix: { chip: 'bg-rose-50 border-rose-200 text-rose-700 font-bold', label: 'Critical Fix' },
-  warn: { chip: 'bg-amber-50 border-amber-200 text-amber-700 font-bold', label: 'Improvement' },
-  pass: { chip: 'bg-emerald-50 border-emerald-200 text-emerald-700 font-bold', label: 'Strong' },
-}
+const FIVE_PARTS = [
+  { key: 'actionVerb', label: 'Action' },
+  { key: 'hardSkill', label: 'Hard Skill' },
+  { key: 'collaboration', label: 'Collab' },
+  { key: 'metric', label: 'Metric' },
+  { key: 'outcome', label: 'Outcome' },
+]
 
 export default function ResumeBulletAudit({
   bulletData,
@@ -30,101 +37,205 @@ export default function ResumeBulletAudit({
   issues = [],
   variant = 'light',
 }) {
+  const { triggerGuide } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
-  const [filterSeverity, setFilterSeverity] = useState('ALL') // 'ALL' | 'CRITICAL' | 'WARN' | 'PASS'
+  const [filterVerdict, setFilterVerdict] = useState('ALL') // 'ALL' | 'HURTING' | 'HELPING'
+  const [userHasToggled, setUserHasToggled] = useState(false)
 
-  // Bullets triage data fallback
+  // Bullets triage data: prioritize resolved bulletAudit array first
   const rawBullets =
+    (Array.isArray(bulletAudit) && bulletAudit.length > 0 ? bulletAudit : null) ||
+    (Array.isArray(bulletData) && bulletData.length > 0 ? bulletData : null) ||
     bulletData?.bulletRewrites ||
     bulletData?.bullet_rewrites ||
-    (Array.isArray(bulletData) ? bulletData : null) ||
-    (Array.isArray(bulletAudit) ? bulletAudit : null) ||
     null
+
+  const [expandedId, setExpandedId] = useState(() => {
+    if (!rawBullets || rawBullets.length === 0) return 'b_01'
+    const firstHurting = rawBullets.find(
+      (b) =>
+        b?.verdict === 'hurting' ||
+        b?.status === 'fail' ||
+        b?.status === 'critical' ||
+        b?.status === 'warn' ||
+        (typeof b?.impactScore === 'number' && b.impactScore < 75)
+    )
+    return firstHurting?.bulletId || firstHurting?.id || rawBullets[0]?.bulletId || rawBullets[0]?.id || 'b_0'
+  })
 
   const bullets = useMemo(() => {
     if (!rawBullets || rawBullets.length === 0) {
       return [
         {
+          bulletId: 'b_01',
           original: 'Responsible for writing code for web applications using JavaScript and React.',
           rewritten: 'Architected and deployed 4 high-throughput React & TypeScript web applications, reducing page load latency by 42% for 250k MAUs.',
           critique: 'Passive "Responsible for" opener with zero measurable scale, latency impact, or user metrics.',
           severity: 'CRITICAL',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: true, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'DROPPED (0.4s scan)',
           score: 32,
         },
         {
+          bulletId: 'b_02',
           original: 'Assisted senior developers with backend bug fixing and routine database maintenance tasks.',
           rewritten: 'Automated database query optimization across PostgreSQL cluster, resolving 85+ production bug tickets and cutting p99 latency by 28%.',
           critique: 'Weak supportive verb ("Assisted"). Fails to demonstrate technical ownership or system-level impact.',
           severity: 'WARN',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: true, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'SKIPPED (0.8s scan)',
           score: 55,
         },
         {
+          bulletId: 'b_03',
           original: 'Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.',
           rewritten: 'Designed and shipped an event-driven telemetry ingestion engine in Go and Kafka, scaling throughput from 5,000 to 45,000 events/second.',
           critique: 'Elite structure: Strong active verb ("Designed & shipped") + Exact Tech Stack (Go, Kafka) + 9x Quantified Throughput Scale.',
           severity: 'PASS',
+          verdict: 'helping',
+          fivePartFlags: { actionVerb: true, hardSkill: true, collaboration: false, metric: true, outcome: true },
+          isResponsibilityOnly: false,
           recruiterAttention: 'HOOKED (3.2s scan)',
           score: 96,
         },
         {
+          bulletId: 'b_04',
           original: 'Handled customer support tickets and investigated client issues in production.',
           rewritten: 'Engineered automated root-cause diagnostics pipeline, slashing Mean Time to Resolution (MTTR) by 38% across 1,200+ enterprise client tickets.',
           critique: 'Customer support phrasing in an engineering resume. Reframe as root-cause engineering diagnostics.',
           severity: 'CRITICAL',
+          verdict: 'hurting',
+          fivePartFlags: { actionVerb: false, hardSkill: false, collaboration: false, metric: false, outcome: false },
+          isResponsibilityOnly: true,
           recruiterAttention: 'DROPPED (0.3s scan)',
           score: 28,
         },
       ]
     }
 
-    return rawBullets.map((item) => {
+    return rawBullets.map((item, index) => {
+      const isPass =
+        item.status === 'pass' ||
+        item.severity === 'PASS' ||
+        (typeof item.impactScore === 'number' && item.impactScore >= 75)
+      const isWarn =
+        item.status === 'warn' ||
+        item.severity === 'WARN' ||
+        (typeof item.impactScore === 'number' && item.impactScore >= 50 && item.impactScore < 75)
+      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+      const verdict = item.verdict
+        ? String(item.verdict).toLowerCase()
+        : isPass
+        ? 'helping'
+        : 'hurting'
+      const fivePartFlags =
+        item.fivePartFlags && typeof item.fivePartFlags === 'object'
+          ? item.fivePartFlags
+          : {
+              actionVerb: item.hasActionVerb ?? isPass,
+              hardSkill: (item.technologyCount ?? 0) > 0 || true,
+              collaboration: false,
+              metric: item.hasQuantifier ?? isPass,
+              outcome: item.hasOutcomeVerb ?? isPass,
+            }
+      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
+
       if (item.original && item.severity && item.recruiterAttention) {
         return {
           ...item,
-          rewritten: cleanRewriteText(item.rewritten || item.original),
+          bulletId: item.bulletId || item.id || `b_${index}`,
+          rewritten: cleanRewriteText(item.rewritten || item.rewrite || item.original),
+          verdict,
+          fivePartFlags,
+          isResponsibilityOnly,
         }
       }
 
-      const original = item.original || item.text || item.originalText || ''
-      const rawRewritten = item.rewritten || item.rewrite || item.correctedText || original
-      const rewritten = cleanRewriteText(rawRewritten)
-      const isPass = item.status === 'pass' || item.severity === 'PASS'
-      const isWarn = item.status === 'warn' || item.severity === 'WARN'
-      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+      // Merge linked issue if present
+      const linkedIssue = issues.find(
+        (iss) =>
+          Array.isArray(iss.evidence) &&
+          iss.evidence.some(
+            (ev) =>
+              ev.bulletId === item.bulletId ||
+              ev.itemId === item.bulletId ||
+              ev.bulletId === item.id ||
+              ev.itemId === item.id
+          )
+      )
 
-      const recruiterAttention =
-        item.recruiterAttention ||
-        (isPass
-          ? 'HOOKED (3.2s scan)'
-          : isWarn
-          ? 'SKIPPED (0.8s scan)'
-          : 'DROPPED (0.4s scan)')
-
-      const score = item.score ?? (isPass ? 96 : isWarn ? 55 : 32)
-      const critique =
+      const finalRewritten =
+        linkedIssue?.correctedText ||
+        item.rewritten ||
+        item.rewrite ||
+        item.improved ||
+        item.readyToUseRewrite ||
+        item.original ||
+        item.text ||
+        ''
+      const finalCritique =
+        linkedIssue?.diagnosis ||
         item.critique ||
         item.reason ||
-        item.diagnosis ||
         (isPass
-          ? 'Strong impact structure with clear ownership.'
-          : isWarn
-          ? 'Weak supportive verb or passive duty phrasing — lacks system-level metrics.'
-          : 'Concatenated sentence or vague nouns with zero quantified impact metrics.')
+          ? 'High impact technical achievement bullet with clear operational outcome.'
+          : 'Lacks quantified metrics or active ownership.')
 
       return {
-        original,
-        rewritten,
-        critique,
+        bulletId: item.bulletId || item.id || `b_${index}`,
+        original: item.original || item.text || '',
+        rewritten: cleanRewriteText(finalRewritten),
+        critique: finalCritique,
         severity,
-        recruiterAttention,
-        score,
-        bulletId: item.bulletId,
-        itemName: item.itemName,
+        verdict,
+        fivePartFlags,
+        isResponsibilityOnly,
+        impactScore: item.impactScore,
+        recruiterAttention: isPass
+          ? 'HOOKED (3.0s scan)'
+          : isWarn
+          ? 'SKIPPED (0.7s scan)'
+          : 'DROPPED (0.3s scan)',
+        score:
+          typeof item.impactScore === 'number'
+            ? item.impactScore
+            : isPass
+            ? 94
+            : isWarn
+            ? 65
+            : 30,
       }
     })
-  }, [rawBullets])
+  }, [rawBullets, issues])
+
+  // Ensure first hurting bullet is expanded when bullets change or on initial load
+  useEffect(() => {
+    if (!userHasToggled && expandedId === null && bullets.length > 0) {
+      const firstHurting = bullets.find((b) => b.verdict === 'hurting')
+      setExpandedId(firstHurting ? firstHurting.bulletId : bullets[0]?.bulletId || null)
+    }
+  }, [bullets, userHasToggled, expandedId])
+
+  const totalBulletsCount = bullets.length
+  const scoredPassCount = bullets.filter(
+    (b) =>
+      b.status === 'pass' ||
+      b.verdict === 'helping' ||
+      (typeof b.score === 'number' && b.score >= 75) ||
+      (typeof b.impactScore === 'number' && b.impactScore >= 75)
+  ).length
+  const helpingCount = bullets.filter((b) => b.verdict === 'helping').length
+  const hurtingCount = bullets.filter((b) => b.verdict === 'hurting').length
+
+  const filteredBullets = useMemo(() => {
+    if (filterVerdict === 'HURTING') return bullets.filter((b) => b.verdict === 'hurting')
+    if (filterVerdict === 'HELPING') return bullets.filter((b) => b.verdict === 'helping')
+    return bullets
+  }, [bullets, filterVerdict])
 
   const handleCopy = (text, idx) => {
     navigator.clipboard.writeText(text)
@@ -132,171 +243,226 @@ export default function ResumeBulletAudit({
     setTimeout(() => setCopiedIdx(null), 2000)
   }
 
-  const filteredBullets = bullets.filter((b) => {
-    if (filterSeverity === 'ALL') return true
-    return b.severity === filterSeverity
-  })
+  const handleToggleExpand = (item, idx) => {
+    setUserHasToggled(true)
+    const itemId = item.bulletId || idx
+    const nextId = expandedId === itemId ? null : itemId
+    setExpandedId(nextId)
 
-  const criticalCount = bullets.filter((b) => b.severity === 'CRITICAL').length
-  const warnCount = bullets.filter((b) => b.severity === 'WARN').length
-  const passCount = bullets.filter((b) => b.severity === 'PASS').length
+    if (nextId !== null) {
+      triggerGuide({
+        nodeId: item.bulletId || `line_${idx}`,
+        emotion: item.verdict === 'helping' ? GUIDE_EMOTIONS.VICTORY : GUIDE_EMOTIONS.ALERT,
+        headline: item.verdict === 'helping'
+          ? `Helping line: Strong technical action and verified scale.`
+          : `Hurting line: ${item.critique || 'Lacks quantified metric or Google XYZ outcome structure.'}`,
+        metricChip: item.verdict === 'helping' ? '🟢 Helping Bullet' : '🔴 Hurting Bullet',
+      })
+    }
+  }
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-      {/* Header & Eye-Tracking Filter Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+    <div id="resume-bullets" className="space-y-6">
+      {/* ── Paper X-Ray Header & Telemetry ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-default)] pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <Eye size={20} className="text-indigo-600 dark:text-indigo-400" weight="bold" />
-            <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              ATS & Recruiter Eye-Tracking Heatmap
+            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] tracking-tight">
+              Interactive Resume Paper X-Ray
             </h3>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Simulates where a human recruiter's eyes linger during a standard 6-second scan. Bullets lacking numbers and strong verbs are discarded in &lt;0.5 seconds.
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+            1-Page diagnostic scan: inspect 5-part anatomy, recruiter eye-tracking attention, and verified inline rewrites.
           </p>
         </div>
 
-        {/* Severity Filter Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 rounded-2xl shrink-0">
+        {/* Telemetry Pills & Filter Toggles */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* ATS & Recruiter Eye-Tracking Badge */}
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <span>ATS &amp; Recruiter Eye-Tracking:</span>
+            <span className="font-bold">{scoredPassCount}/{totalBulletsCount} bullets scored</span>
+          </span>
+
           <button
             type="button"
-            onClick={() => setFilterSeverity('ALL')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-              filterSeverity === 'ALL'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-slate-700'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+            onClick={() => setFilterVerdict('ALL')}
+            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer ${
+              filterVerdict === 'ALL'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
+                : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
-            All ({bullets.length})
+            All Lines ({bullets.length})
           </button>
+
           <button
             type="button"
-            onClick={() => setFilterSeverity('CRITICAL')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-              filterSeverity === 'CRITICAL'
+            onClick={() => setFilterVerdict('HURTING')}
+            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              filterVerdict === 'HURTING'
                 ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-950/50'
             }`}
           >
-            Red Flags ({criticalCount})
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400" />
+            <span>Hurting Lines ({hurtingCount})</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setFilterSeverity('WARN')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-              filterSeverity === 'WARN'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-            }`}
-          >
-            Passive ({warnCount})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterSeverity('PASS')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-              filterSeverity === 'PASS'
+            onClick={() => setFilterVerdict('HELPING')}
+            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              filterVerdict === 'HELPING'
                 ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-100 dark:hover:bg-emerald-950/50'
             }`}
           >
-            Hooks ({passCount})
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+            <span>Helping Lines ({helpingCount})</span>
           </button>
         </div>
       </div>
 
-      {/* Bullets List */}
-      <div className="space-y-4">
+      {/* ── Realistic Laser-Clean Resume Paper Sheet ── */}
+      <div className="bg-[var(--surface-card)] rounded-xl border border-[var(--border-default)] shadow-xs p-5 sm:p-7 relative font-sans divide-y divide-[var(--border-default)]">
+        <div className="pb-3 mb-2 flex items-center justify-between text-[11px] font-mono tracking-normal text-[var(--text-muted)] border-b border-[var(--border-default)]">
+          <span>Experience bullets &amp; statement x-ray</span>
+          <span>Click any line to inspect diff</span>
+        </div>
+
         {filteredBullets.map((item, idx) => {
-          const isCritical = item.severity === 'CRITICAL'
-          const isWarn = item.severity === 'WARN'
-          const isPass = item.severity === 'PASS'
+          const isExpanded = expandedId === (item.bulletId || idx)
+          const isHelping = item.verdict === 'helping'
 
           return (
             <div
               key={item.bulletId || idx}
-              className={`rounded-2xl border p-5 transition-all space-y-4 ${
-                isCritical
-                  ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-200/90 dark:border-rose-900/50 hover:border-rose-300 dark:hover:border-rose-700'
-                  : isWarn
-                  ? 'bg-amber-50/30 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/50 hover:border-amber-300 dark:hover:border-amber-700'
-                  : 'bg-emerald-50/20 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/50 hover:border-emerald-300 dark:hover:border-emerald-700'
+              onClick={() => handleToggleExpand(item, idx)}
+              className={`py-3.5 px-3 -mx-3 rounded-lg transition-colors cursor-pointer group border-l-4 ${
+                isHelping
+                  ? 'border-l-emerald-500 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20'
+                  : 'border-l-rose-500 bg-rose-50/25 dark:bg-rose-950/20 hover:bg-rose-50/50 dark:hover:bg-rose-950/30'
               }`}
+              {...(!isHelping ? {
+                'data-mascot-cue': `Hurting resume line: "${item.critique || 'Lacks quantified metrics or active outcome structure.'}"`,
+                'data-mascot-chip': 'Weak Bullet Audit',
+                'data-mascot-emotion': 'alert',
+              } : {})}
             >
-              {/* Eye-Tracking Banner */}
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800/80 pb-3">
+              {/* Row 1: Status Pill, Attention Scan, and 5-Part Formula */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-wider ${
-                      isCritical
-                        ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
-                        : isWarn
-                        ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200'
-                        : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded tracking-normal flex items-center gap-1.5 font-medium ${
+                      isHelping
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                        : 'bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
                     }`}
                   >
-                    {item.severity === 'CRITICAL'
-                      ? '🔴 Critical Drop'
-                      : item.severity === 'WARN'
-                      ? '🟡 Passive Phrasing'
-                      : '🟢 Recruiter Hook'}
+                    <span className={`w-1.5 h-1.5 rounded-full ${isHelping ? 'bg-emerald-600' : 'bg-rose-600'}`} />
+                    <span>{isHelping ? 'Helping' : 'Hurting'}</span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold">
-                    Recruiter Attention:{' '}
-                    <strong className="text-slate-900 dark:text-white">
-                      {item.recruiterAttention}
-                    </strong>
+
+                  <span className="text-xs font-mono text-[var(--text-muted)] font-medium">
+                    {item.recruiterAttention}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white font-mono tabular-nums">
-                    Impact: {item.score}/100
-                  </span>
-                </div>
-              </div>
+                {/* 5-Part Compact Anatomy Indicators */}
+                <div className="flex items-center gap-1">
+                  {FIVE_PARTS.map(({ key, label }) => {
+                    const active = Boolean(item.fivePartFlags?.[key])
+                    return (
+                      <span
+                        key={key}
+                        className={`text-xs font-semibold px-2 py-0.5 rounded border transition-colors ${
+                          active
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50 font-mono'
+                            : 'bg-[var(--surface-sunken)] text-[var(--text-muted)] border-[var(--border-default)] font-mono'
+                        }`}
+                        title={`${label}: ${active ? 'Present' : 'Missing'}`}
+                      >
+                        {active ? '✓' : '✕'} {label}
+                      </span>
+                    )
+                  })}
 
-              {/* Original Bullet */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Original Resume Statement:
-                </span>
-                <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed font-sans line-through decoration-rose-400/80 decoration-1 bg-white dark:bg-slate-950/70 p-3 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                  {item.original}
-                </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                  <strong className="text-slate-700 dark:text-slate-300">Recruiter Critique:</strong>{' '}
-                  {item.critique}
-                </p>
-              </div>
-
-              {/* Proposed AI Recruiter Rewrite */}
-              {item.rewritten && item.original !== item.rewritten && (
-                <div className="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1 font-mono">
-                      <Sparkle size={13} weight="fill" /> Proposed Recruiter-Grade Rewrite:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(item.rewritten, idx)}
-                      className="text-xs font-bold bg-white dark:bg-indigo-900 hover:bg-indigo-600 hover:text-white text-indigo-700 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                    >
-                      {copiedIdx === idx ? (
-                        <>
-                          <Check size={13} weight="bold" /> Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={13} /> 1-Click Copy
-                        </>
-                      )}
-                    </button>
+                  <div className="text-[var(--text-muted)] ml-1">
+                    {isExpanded ? <CaretUp size={14} /> : <CaretDown size={14} />}
                   </div>
-                  <p className="text-xs font-bold text-slate-900 dark:text-white leading-relaxed font-sans">
-                    {item.rewritten}
-                  </p>
+                </div>
+              </div>
+
+              {/* Row 2: Resume Bullet Line */}
+              <div className="text-xs text-[var(--text-primary)] leading-relaxed font-sans pl-2">
+                <span className="font-bold text-[var(--text-muted)] mr-2">•</span>
+                <span className={!isHelping ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-primary)]'}>
+                  {item.original}
+                </span>
+              </div>
+
+              {/* Row 3: Expanded Inline Before -> After Diff */}
+              {isExpanded && (
+                <div
+                  className="mt-3.5 pt-3 border-t border-[var(--border-default)] space-y-3 animate-fadeIn"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Recruiter Evaluation */}
+                  {item.critique && (
+                    <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                      <span className="text-xs font-mono text-amber-700 dark:text-amber-400 flex items-center gap-1 font-semibold">
+                        <WarningCircle size={13} weight="bold" /> Recruiter Evaluation:
+                      </span>
+                      <p className="leading-relaxed font-medium line-clamp-2">
+                        {item.critique}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
+                  {item.rewritten && item.original !== item.rewritten ? (
+                    <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
+                          <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
+                        </span>
+                        <CopyButton
+                          text={item.rewritten}
+                          label="Copy Rewrite"
+                          copiedLabel="Copied"
+                          size="sm"
+                        />
+                      </div>
+                      <DiffReview
+                        changes={[
+                          {
+                            id: item.bulletId || String(idx),
+                            label: 'Bullet Rewrite',
+                            before: item.original,
+                            after: item.rewritten,
+                          },
+                        ]}
+                        mode="words"
+                        readOnly={true}
+                        title="Before → After Word Diff"
+                      />
+                    </div>
+                  ) : !isHelping ? (
+                    <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
+                      <span className="font-mono text-xs text-[var(--text-muted)]">
+                        Formula recommendation: Lead with an active ownership verb and quantified scale.
+                      </span>
+                      <CopyButton
+                        text={item.original}
+                        label="Copy Original"
+                        copiedLabel="Copied"
+                        size="sm"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

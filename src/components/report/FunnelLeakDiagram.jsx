@@ -34,14 +34,14 @@ export default function FunnelLeakDiagram({ data }) {
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Executive Section Header */}
       <div className="space-y-1.5">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold uppercase tracking-wider text-[var(--primary)] border border-[var(--primary)]/20 shadow-2xs">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
           <span>Funnel Conversion Analysis</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+        <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
           Where Am I Losing Interviews?
         </h2>
         <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
-          <span className="text-red-500 font-bold">{dropOffPct}% drop-off</span> detected at {leakStage}. This is a conversion bottleneck, not a volume problem.
+          <span className="text-red-500 font-semibold">{dropOffPct}% drop-off</span> detected at {leakStage}. This is a conversion bottleneck, not a volume problem.
         </p>
       </div>
 
@@ -67,12 +67,12 @@ export default function FunnelLeakDiagram({ data }) {
                 </span>
 
                 <div className="flex items-center gap-2.5">
-                  <span className="font-extrabold text-base md:text-lg font-mono">{item.count}</span>
+                  <span className="font-semibold text-base md:text-lg font-mono tabular-nums">{item.count}</span>
                   <span className="text-xs font-mono font-medium text-white/90">({item.pct})</span>
 
                   {item.isLeak && (
-                    <span className="hidden sm:inline-flex items-center gap-1 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ml-2 animate-pulse shadow-sm">
-                      <ArrowLeft size={14} weight="bold" /> BIGGEST LEAK
+                    <span className="hidden sm:inline-flex items-center gap-1 bg-red-600 text-white text-xs font-mono px-2 py-0.5 rounded-md ml-2 shadow-xs">
+                      <ArrowLeft size={14} weight="bold" /> Primary Leak
                     </span>
                   )}
                 </div>

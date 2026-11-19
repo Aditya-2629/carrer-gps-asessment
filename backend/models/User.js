@@ -57,6 +57,18 @@ const userSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    linkedin_agent: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    linkedinAgent: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    resume_agent: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: true,

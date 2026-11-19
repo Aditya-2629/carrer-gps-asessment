@@ -14,7 +14,10 @@ import JobMarketBucket from '../models/JobMarketBucket.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
-import { calculateRecruiterSeoScore, generateOptimizedHeadlines, evaluateThoughtLeadership } from '../agents/linkedin/linkedinAgent.js'
+import { calculateRecruiterSeoScore } from '../agents/linkedin/linkedinAgent.js'
+import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
+import { buildDeterministicThoughtLeadership } from '../agents/linkedin/linkedinThoughtLeadershipEvaluator.js'
+import { generateDynamicActionPlan, buildDeterministicActionPlan } from './dynamicActionPlanAgent.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -239,16 +242,16 @@ export function deriveFunnelFromAnswers(answers = {}) {
   const f90 = (answers.funnel90d && typeof answers.funnel90d === 'object') ? answers.funnel90d : {}
 
   const apps30d = parseRangeOrNumber(
-    answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? answers.appsWeek * 4 : 60),
-    60
+    answers.apps30d ?? answers.applications_count ?? (answers.appsWeek ? Math.round(answers.appsWeek * 4.33) : 0),
+    0
   )
-  let totalApps90d = parseRangeOrNumber(
-    f90.applications90d ?? answers.applications90d ?? (apps30d * 3),
-    180
+  const totalAppsMonthly = apps30d > 0
+    ? apps30d
+    : parseRangeOrNumber(f90.applications90d ?? answers.applications90d ?? answers.applications_count, 0)
+  const totalApps90d = parseRangeOrNumber(
+    f90.applications90d ?? (totalAppsMonthly > 0 ? totalAppsMonthly * 3 : 0),
+    totalAppsMonthly
   )
-  if (totalApps90d > 1500) {
-    totalApps90d = Math.min(Math.round(totalApps90d / 10), 300)
-  }
 
   const recruiterScreens = parseRangeOrNumber(
     f90.recruiterScreens ?? f90.screens ?? answers.recruiterScreens ?? answers.humanScreen ?? 0
@@ -276,20 +279,20 @@ export function deriveFunnelFromAnswers(answers = {}) {
     ? (recruiterScreens + assessments + aiInterviews)
     : recruiterScreens
 
-  const appToScreenRate = totalApps90d > 0 ? (totalScreens / totalApps90d) * 100 : 0
+  const appToScreenRate = totalAppsMonthly > 0 ? (totalScreens / totalAppsMonthly) * 100 : 0
   const screenToTechRate = totalScreens > 0 ? (technicalRounds / totalScreens) * 100 : 0
   const techToFinalRate = technicalRounds > 0 ? (finalRounds / technicalRounds) * 100 : 0
   const finalToOfferRate = finalRounds > 0 ? (offers / finalRounds) * 100 : 0
 
   let biggest_leak_stage = 'top_of_funnel'
   let leak_title = 'Top-of-Funnel Application Black Hole'
-  let diagnosis_message = `You submitted ${totalApps90d} applications yielding only ${totalScreens} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
+  let diagnosis_message = `You submitted ${totalAppsMonthly.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
 
-  if (totalApps90d > 80 && totalScreens < 3) {
+  if (totalAppsMonthly > 80 && totalScreens < 3) {
     diagnosis_message = 'The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization.'
   }
 
-  if (totalApps90d < 15 && totalScreens === 0) {
+  if (totalAppsMonthly < 15 && totalScreens === 0) {
     biggest_leak_stage = 'readiness_stall'
     leak_title = 'Application Readiness & Search Inactivity'
     diagnosis_message = 'Pipeline has stalled before launch with under 15 applications and 0 recruiter screens. Focus on resume tailoring and initiating active outreach.'
@@ -320,9 +323,10 @@ export function deriveFunnelFromAnswers(answers = {}) {
   }
 
   return {
-    applications_count: totalApps90d,
-    applications30d: apps30d,
+    applications_count: totalAppsMonthly,
+    applications30d: totalAppsMonthly,
     applications90d: totalApps90d,
+    totalAppsMonthly,
     recruiter_calls_count: recruiterScreens,
     recruiterScreens,
     assessments,
@@ -351,27 +355,33 @@ export function normalizeAtlasShapes(report, answers = {}) {
   if (!report.funnel_stages || typeof report.funnel_stages !== 'object' || Array.isArray(report.funnel_stages)) {
     report.funnel_stages = funnel
   } else {
+    const leakTitle = report.funnel_stages.leak_title || report.funnel_stages.biggest_leak_stage || funnel.leak_title
     report.funnel_stages = {
       ...funnel,
       ...report.funnel_stages,
       biggest_leak_stage: report.funnel_stages.biggest_leak_stage || funnel.biggest_leak_stage,
-      leak_title: report.funnel_stages.leak_title || funnel.leak_title,
+      leak_title: leakTitle,
       diagnosis_message: report.funnel_stages.diagnosis_message || funnel.diagnosis_message,
     }
   }
 
   const targetRole = answers.targetRole || report.target_role || report.targetRole || 'Professional'
+  const effectiveLeakTitle = report.funnel_stages.leak_title || funnel.leak_title
 
   if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
     report.coach_intervention = {
       title: 'Strategic Advisory Diagnostic',
-      urgency_statement: `You are targeting ${targetRole} positions with friction in ${report.funnel_stages.leak_title}. An executive consultation will realign your conversion strategy.`,
+      urgency_statement: `You are targeting ${targetRole} positions with friction in ${effectiveLeakTitle}. An executive consultation will realign your conversion strategy.`,
+      value_prop: 'Gain direct executive clarity on your resume positioning, ATS alignment, and interview conversion strategy.',
       message: 'Schedule a tailored strategy session to optimize your positioning.',
       cta_text: 'Book Free 1-on-1 Strategy Session'
     }
   } else {
     if (!report.coach_intervention.urgency_statement) {
-      report.coach_intervention.urgency_statement = `You are targeting ${targetRole} positions with friction in ${report.funnel_stages.leak_title}. An executive consultation will realign your conversion strategy.`
+      report.coach_intervention.urgency_statement = `You are targeting ${targetRole} positions with friction in ${effectiveLeakTitle}. An executive consultation will realign your conversion strategy.`
+    }
+    if (!report.coach_intervention.value_prop) {
+      report.coach_intervention.value_prop = 'Gain direct executive clarity on your resume positioning, ATS alignment, and interview conversion strategy.'
     }
     if (!report.coach_intervention.cta_text) {
       report.coach_intervention.cta_text = 'Book Free 1-on-1 Strategy Session'
@@ -581,14 +591,26 @@ export async function executeSinglePassSynthesis({ triage, user, resumeJson, liv
     targetRole: triage.targetRole,
   })
 
-  const headlines = generateOptimizedHeadlines({
-    role: triage.targetRole,
-    topSkills: triage.verifiedSkills,
-    yearsExp: Number(user?.experienceLevel || user?.experienceYears || triage.experienceYears || 3),
-    company: liveLinkedinData?.experiences?.[0]?.company || '',
-  })
+  const deterministicOpts = buildDeterministicOptimizations(
+    liveLinkedinData || {},
+    {
+      targetRole: triage.targetRole,
+      verifiedSkills: triage.verifiedSkills,
+      canonicalResume: resumeJson,
+    }
+  )
+  const headlines = deterministicOpts?.headlines || []
 
-  const thoughtLeadership = evaluateThoughtLeadership(liveLinkedinPosts)
+  const isGhostPosts = !liveLinkedinPosts ||
+    (Array.isArray(liveLinkedinPosts) && liveLinkedinPosts.length === 0) ||
+    (Array.isArray(liveLinkedinPosts?.posts) && liveLinkedinPosts.posts.length === 0)
+
+  const thoughtLeadership = buildDeterministicThoughtLeadership(
+    triage.targetRole,
+    triage.verifiedSkills,
+    resumeJson?.projects || resumeJson?.experience || [],
+    isGhostPosts
+  )
 
   const systemPrompt = `You are the Lead Executive Career Architect at Career GPS.
 Generate a comprehensive, recruiter-grade ATS and Career Diagnosis Report in STRICT JSON format.
@@ -689,6 +711,13 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     },
   ]
 
+  const defaultActionPlan = buildDeterministicActionPlan({
+    targetRole: triage.targetRole,
+    verifiedSkills: triage.verifiedSkills || [],
+    bottleneck,
+    answers: user?.answers || {},
+  })
+
   const durationMs = Date.now() - startTime
 
   return {
@@ -704,6 +733,8 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     bullet_rewrites: bulletRewrites,
     strategicRoadmap: roadmap,
     roadmap,
+    sevenDayQuickPlan: defaultActionPlan.sevenDayQuickPlan,
+    milestonePathway: defaultActionPlan.milestonePathway,
     competencyClusters: triage.clusterEvaluation,
     competency_clusters_audit: triage.clusterEvaluation?.clusterBreakdown || [],
     recruiterSeo,
@@ -807,21 +838,94 @@ export async function generateReportBundle(params = {}, options = {}) {
     } catch (_pErr) {}
   }
 
-  // Stage 1: Single Unified LLM Synthesis (~3.5s)
-  const report = await executeSinglePassSynthesis({
-    triage,
-    user,
-    resumeJson,
-    liveLinkedinData: liveLinkedinData || user?.linkedinData,
-    liveLinkedinPosts: liveLinkedinPosts || user?.linkedinActivityData,
-    options,
-  })
+  const funnelStages = deriveFunnelFromAnswers(answers)
+
+  // Stage 1: Parallel LLM Synthesis + Dynamic Action Plan (~3.5s)
+  const [report, dynamicActionPlan] = await Promise.all([
+    executeSinglePassSynthesis({
+      triage,
+      user,
+      resumeJson,
+      liveLinkedinData: liveLinkedinData || user?.linkedinData,
+      liveLinkedinPosts: liveLinkedinPosts || user?.linkedinActivityData,
+      options,
+    }),
+    generateDynamicActionPlan({
+      targetRole,
+      answers,
+      resumeJson,
+      verifiedSkills: triage?.verifiedSkills || [],
+      bottleneck: triage?.deterministicScores || {},
+      funnelStages,
+      options,
+    }).catch((planErr) => {
+      console.warn('[ReportGen] Dynamic action plan generation error:', planErr.message)
+      return null
+    }),
+  ])
+
+  if (dynamicActionPlan?.sevenDayQuickPlan) {
+    report.sevenDayQuickPlan = dynamicActionPlan.sevenDayQuickPlan
+  }
+  if (dynamicActionPlan?.milestonePathway) {
+    report.milestonePathway = dynamicActionPlan.milestonePathway
+    report.strategicRoadmap = dynamicActionPlan.milestonePathway
+    report.roadmap = dynamicActionPlan.milestonePathway
+  }
+  if (dynamicActionPlan) {
+    report.action_plan = dynamicActionPlan
+  }
+
+  report.user_answers = answers
+  report.funnel_stages = funnelStages
+  normalizeAtlasShapes(report, answers)
+
+  // Ensure resume_agent and dashboard.bulletAudit are always populated for report consumption
+  if (!report.resume_agent) {
+    report.resume_agent = params.resumeAgent || params.precomputedResumeAgent || user?.resume_agent || {}
+  }
+  if (!report.resume_agent.dashboard || !report.resume_agent.dashboard.bulletAudit?.length) {
+    try {
+      const { computeScorecard } = await import('../agents/resume/scoring/resumeScorecard.js')
+      const scorecard = computeScorecard({
+        canonicalResume: resumeJson,
+        targetRole,
+        analysis: {
+          candidateSnapshot: {
+            name: resumeJson.candidate?.name || user?.name || '',
+            targetRole,
+          },
+          bulletRewrites: report.bulletRewrites || [],
+        },
+      })
+      if (scorecard) {
+        report.resume_agent.dashboard = scorecard
+        report.resume_agent.sectionAudit = scorecard.sectionAudit || report.resume_agent.sectionAudit
+      }
+    } catch (_scErr) {
+      console.warn('[ReportGen] Deterministic scorecard builder warning:', _scErr.message)
+    }
+  }
+
+  // Ensure bulletRewrites is mirrored across all canonical alias keys
+  const resolvedAuditBullets = report.resume_agent?.dashboard?.bulletAudit || report.bulletRewrites || []
+  if (resolvedAuditBullets.length > 0) {
+    report.bulletRewrites = resolvedAuditBullets
+    report.bullet_rewrites = resolvedAuditBullets
+    if (report.resume_agent) {
+      report.resume_agent.bulletRewrites = resolvedAuditBullets
+      report.resume_agent.bullet_rewrites = resolvedAuditBullets
+    }
+  }
 
   if (liveLinkedinData || user?.linkedinData) {
     report.linkedin_json = liveLinkedinData || user?.linkedinData
   }
   if (liveLinkedinPosts || user?.linkedinActivityData) {
     report.linkedin_activity_data = liveLinkedinPosts || user?.linkedinActivityData
+  }
+  if (user?.linkedin_agent || user?.linkedinAgent || params.linkedinAgent) {
+    report.linkedin_agent = user?.linkedin_agent || user?.linkedinAgent || params.linkedinAgent
   }
 
   if (targetRole && (!report.target_role || !isConcreteRole(report.target_role))) {

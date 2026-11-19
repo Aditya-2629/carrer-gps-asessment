@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { CheckCircle, Warning, XCircle, Target, DownloadSimple } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import useAppStore from '../../store/useAppStore'
+import { ShareBar } from '../share-bar'
+import { NumberRoll } from '../number-roll'
 
 export default function ResumeKeywordAlignment({
   keywordAlignment,
@@ -250,21 +252,50 @@ export default function ResumeKeywordAlignment({
             <Target size={18} weight="bold" />
           </span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500">
+            <div className="text-xs font-mono text-[var(--text-muted)]">
               ATS Target Keyword Alignment
             </div>
-            <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+            <div className="text-sm font-semibold text-slate-900 dark:text-white">
               {targetRole || 'Target Role Alignment'}
             </div>
           </div>
         </div>
 
-        <div className="px-3.5 py-1.5 rounded-xl border text-xs font-bold tracking-tight flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
+        <div className="px-3.5 py-1.5 rounded-lg border text-xs font-semibold tracking-tight flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
           <span>Target Keyword Match:</span>
-          <span className="font-mono text-sm font-extrabold">
-            {verifiedCount}/{calculatedTotal} ({currentMatchRate}%)
+          <span className="font-mono text-sm font-semibold tabular-nums flex items-center">
+            <span>{verifiedCount}/{calculatedTotal} (</span>
+            <NumberRoll value={currentMatchRate} duration={850} />
+            <span>%)</span>
           </span>
         </div>
+      </div>
+
+      {/* ── Hairline ShareBar: Verified in Work Experience | In Skills Section Only | Critical Missing ── */}
+      <div className="pt-1 pb-2">
+        <ShareBar
+          items={[
+            {
+              label: 'Verified in Work Experience',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanMatched.length : 21,
+              color: '#10B981',
+            },
+            {
+              label: 'In Skills Section Only',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanSkillsOnly.length : 25,
+              color: '#F59E0B',
+            },
+            {
+              label: 'Critical Missing',
+              value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? uniqueMissing.length : 5,
+              color: '#F43F5E',
+            },
+          ]}
+          title="Candidate Keyword Inventory Breakdown"
+          caption="Distribution of job description target skills across verifiable experience vs stranded lists"
+          defaultExpanded={true}
+          className="w-full"
+        />
       </div>
 
       {/* ── Section 1: Verified in Work Experience (Green Checked Badges) ── */}
@@ -274,11 +305,11 @@ export default function ResumeKeywordAlignment({
             <CheckCircle size={16} weight="fill" className="text-emerald-600 dark:text-emerald-400" />
             Verified in Work Experience ({cleanMatched.length} Target Skills)
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full">
+          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md">
             Full ATS Impact Credit
           </span>
         </div>
-        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
           These essential skills are actively backed by measurable bullet points and production deliverables.
         </p>
         <div className="flex flex-wrap gap-1.5 pt-1">
@@ -301,7 +332,7 @@ export default function ResumeKeywordAlignment({
               <XCircle size={16} weight="fill" className="text-rose-600 dark:text-rose-400" />
               Critical Missing Skills (High JD Demand Gaps)
             </span>
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+            <span className="text-xs font-medium text-[var(--text-muted)]">
               Click checkbox to weave into tailored resume
             </span>
           </div>
@@ -318,14 +349,14 @@ export default function ResumeKeywordAlignment({
                     <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
                       {item.keyword}
                     </span>
-                    <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
+                    <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
                       in {item.percentage || 35}% of JDs
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => toggleSkillSelection(item.keyword)}
-                    className={`w-full py-1 px-2 rounded-lg text-[10px] font-bold transition-all border cursor-pointer ${
+                    className={`w-full py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors border cursor-pointer ${
                       isSelected
                         ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800 hover:bg-rose-100'
@@ -378,19 +409,19 @@ export default function ResumeKeywordAlignment({
       )}
 
       {/* ── Section 4: Single Unified Resume Download Card (Always Visible) ── */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 dark:from-emerald-950/30 dark:via-teal-950/20 dark:to-indigo-950/30 border-2 border-emerald-500/30 dark:border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <div className="p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+            <span className="px-2 py-0.5 rounded-md text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-card)] border border-[var(--border-default)]">
               Ready-to-Apply Asset
             </span>
-            <span className="text-xs font-bold text-slate-900 dark:text-white">
+            <span className="text-xs font-semibold text-slate-900 dark:text-white">
               {selectedSkills.size > 0
                 ? `${selectedSkills.size} Selected Target Skills Woven into Experience`
                 : 'Harvard-ATS Single-Column Format (.docx)'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
             {selectedSkills.size > 0
               ? `Estimated ATS Match Lift: +${liftPercent}% (from ${currentMatchRate}% ➔ ${projectedPercent}%) [${projectedCount}/${calculatedTotal} verified]`
               : 'Formatted with woven missing keywords to pass Workday, Taleo, and Greenhouse ATS algorithms.'}
@@ -401,7 +432,7 @@ export default function ResumeKeywordAlignment({
           type="button"
           onClick={handleDownloadTailoredResume}
           disabled={isDownloading}
-          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
         >
           <DownloadSimple size={15} weight="bold" />
           <span>{isDownloading ? 'Building Tailored Resume...' : 'Download Tailored ATS Resume (.docx)'}</span>

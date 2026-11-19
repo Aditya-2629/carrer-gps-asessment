@@ -31,8 +31,8 @@ function MiniRing({ score, grade }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-sm font-extrabold text-[var(--text-primary)] tabular-nums leading-none">{score}</span>
-        <span className="text-[9px] font-bold mt-0.5" style={{ color }}>{grade}</span>
+        <span className="text-sm font-semibold text-[var(--text-primary)] tabular-nums leading-none">{score}</span>
+        <span className="text-[9px] font-medium mt-0.5" style={{ color }}>{grade}</span>
       </div>
     </div>
   )
@@ -103,11 +103,11 @@ export default function AgentScoreboard({ reportData }) {
     <section id="agent-team" className="scroll-mt-24">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-[var(--primary)] mb-1">
-            Multi-Agent Analysis
+          <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1">
+            Diagnostic Specialists
           </div>
-          <h2 className="text-xl font-bold text-[var(--text-primary)] font-['Poppins']">
-            Three specialists reviewed your career
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] font-['Poppins']">
+            Specialist Review Scores
           </h2>
         </div>
       </div>
@@ -118,17 +118,17 @@ export default function AgentScoreboard({ reportData }) {
             key={a.id}
             type="button"
             onClick={() => scrollTo(a.id)}
-            className="text-left bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 shadow-xs hover:shadow-md hover:border-[var(--primary)]/40 transition-all group cursor-pointer"
+            className="text-left bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl p-5 shadow-xs hover:border-[var(--primary)]/40 transition-colors group cursor-pointer"
           >
             <div className="flex items-center gap-4">
               <MiniRing score={a.score} grade={a.grade} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   {a.icon}
-                  <span className="text-sm font-bold text-[var(--text-primary)]">{a.name}</span>
+                  <span className="text-sm font-semibold text-[var(--text-primary)]">{a.name}</span>
                 </div>
                 <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-snug">{a.desc}</p>
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)] mt-2 group-hover:gap-2 transition-all">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--primary)] mt-2 group-hover:gap-1.5 transition-all">
                   {a.cta} <CaretRight size={12} weight="bold" />
                 </span>
               </div>

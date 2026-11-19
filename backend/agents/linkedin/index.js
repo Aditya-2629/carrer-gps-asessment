@@ -29,7 +29,6 @@ export {
   LINKEDIN_SYSTEM_PROMPT,
   LINKEDIN_SYNTHESIS_SYSTEM_PROMPT,
   buildLinkedInUserPrompt,
-  buildLinkedInSynthesisPrompt,
 } from './linkedinSynthesis.prompt.js'
 
 export {
@@ -45,8 +44,6 @@ export {
   evaluateLinkedIn,
   analyzeLinkedInProfile,
   calculateRecruiterSeoScore,
-  generateOptimizedHeadlines,
-  evaluateThoughtLeadership,
   LINKEDIN_AGENT_VERSION,
 } from './linkedinAgent.js'
 

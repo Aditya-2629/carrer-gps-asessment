@@ -2,10 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Sun,
   Moon,
-  ArrowsClockwise,
-  ShareNetwork,
-  Printer,
-  ShieldCheck,
   Compass,
   ArrowRight,
   SpinnerGap,
@@ -14,10 +10,12 @@ import {
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
 import ReportHero from './ReportHero'
+import CraftureLivingCopilot from './CraftureLivingCopilot'
 import StickyReportNav from './StickyReportNav'
 import PrimaryBottleneck from './PrimaryBottleneck'
 import FunnelAndConversionSection from './FunnelAndConversionSection'
@@ -30,13 +28,12 @@ import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
 import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
+import { useReportGuideStore } from '../../store/useReportGuideStore'
 
 export const COCKPIT_TABS = [
-  { id: 'overview', label: 'Overview & Pulse', icon: '🎯', badge: null },
-  { id: 'resume', label: 'Resume Lab', icon: '📄', badge: 'ATS' },
-  { id: 'linkedin', label: 'LinkedIn Studio', icon: '💼', badge: 'SEO' },
-  { id: 'funnel', label: 'Funnel & Risks', icon: '⚡', badge: 'Velocity' },
-  { id: 'roadmap', label: '7-Day Sprint & CTA', icon: '🚀', badge: 'Plan' },
+  { id: 'overview', label: 'Overview & Action Plan', icon: '01' },
+  { id: 'resume', label: 'Resume Lab', icon: '02' },
+  { id: 'linkedin', label: 'LinkedIn Studio', icon: '03' },
 ]
 
 import brandLogo from '../../assets/images/crafture-logo.jpg'
@@ -575,8 +572,9 @@ const MOCK_REPORT = {
       "checksTotal": 7
     }
   },
-  career_health_score: 41,
-  score_label: 'Emerging',
+  career_health_score: 78,
+  score_label: 'Good',
+  gps_score: 78,
   scores: {
     resume: { score: 34, diagnosis: 'Lacks quantitative metrics and ATS context keywords.' },
     linkedin: { score: 38, diagnosis: 'Decent profile completeness but low weekly networking activity.' },
@@ -745,9 +743,6 @@ const MOCK_REPORT = {
     value_prop: 'Consulting with a senior talent partner eliminates ATS blind spots and matches you to unlisted direct channels.',
     cta_text: 'Book Free 1-on-1 Strategy Call',
   },
-  gps_score: 78,
-  career_health_score: 78,
-  score_label: 'Good',
   phase: {
     id: 2,
     name: 'Screening → Technical Round',
@@ -819,6 +814,7 @@ function ReportDashboardContent() {
   const setPhase = useAppStore((s) => s.setPhase)
   const theme = useAppStore((s) => s.theme)
   const toggleTheme = useAppStore((s) => s.toggleTheme)
+  const hydrateDynamicInsights = useReportGuideStore((s) => s.hydrateDynamicInsights)
 
   const isMockPreview = typeof window !== 'undefined' && (
     window.location.search.includes('mock=true') ||
@@ -853,7 +849,66 @@ function ReportDashboardContent() {
     return () => { isMounted = false }
   }, [storeReportData, userId, email, isMockPreview, setReportData])
 
-  const [activeDiagnosisTab, setActiveDiagnosisTab] = useState('resume')
+  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+
+  // Active tab resolution with URL hash synchronization
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace('#', '').toLowerCase()
+      if (['overview', 'resume', 'linkedin'].includes(hash)) {
+        return hash
+      }
+      if (
+        hash === 'funnel' ||
+        hash === 'roadmap' ||
+        hash === 'action-sprint' ||
+        hash === 'sprint-roadmap' ||
+        hash === 'roadmap-section' ||
+        hash === 'next-actions' ||
+        hash === 'funnel-risks' ||
+        hash === 'funnel-leak' ||
+        hash === 'funnel-sankey' ||
+        hash === 'risk-matrix' ||
+        hash === 'risks' ||
+        hash === 'missions' ||
+        hash === 'bottleneck' ||
+        hash === 'action-plan' ||
+        hash === 'action'
+      ) {
+        return 'overview'
+      }
+      if (hash === 'resume-ai' || hash === 'resume-scorecard') return 'resume'
+      if (hash === 'linkedin-ai' || hash === 'linkedin-studio') return 'linkedin'
+    }
+    return 'overview'
+  }
+
+  const [activeTab, setActiveTab] = useState(getInitialTab)
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', `#${tabId}`)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const initial = getInitialTab()
+      setActiveTab(initial)
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
+
+  const effectiveReportData = storeReportData || (isMockPreview ? MOCK_REPORT : null)
+
+  useEffect(() => {
+    if (effectiveReportData && hydrateDynamicInsights) {
+      hydrateDynamicInsights(effectiveReportData)
+    }
+  }, [effectiveReportData, hydrateDynamicInsights])
 
   // Case 1: Fetching persisted report from backend for verified user
   if (isRecovering) {
@@ -869,8 +924,6 @@ function ReportDashboardContent() {
       </div>
     )
   }
-
-  const storeResumeAnalysis = useAppStore((s) => s.resumeAnalysis)
 
   // Case 2: Assessment completed + verified, but report generation pending
   const hasResumeData = Boolean(storeResumeAnalysis?.data || storeResumeAnalysis?.status === 'completed')
@@ -899,7 +952,7 @@ function ReportDashboardContent() {
               setPhase(PHASES.ASSESSMENT)
               navigateTo('/')
             }}
-            className="w-full py-3.5 px-6 rounded-xl font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 px-6 rounded-xl font-semibold text-white bg-[var(--primary)] hover:bg-[var(--primary-hover)] transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>Start Assessment</span>
             <ArrowRight size={18} weight="bold" />
@@ -995,41 +1048,6 @@ function ReportDashboardContent() {
     }
   }
 
-  // Active tab resolution with URL hash synchronization
-  const getInitialTab = () => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      const hash = window.location.hash.replace('#', '').toLowerCase()
-      if (['overview', 'resume', 'linkedin', 'funnel', 'roadmap'].includes(hash)) {
-        return hash
-      }
-      if (hash === 'bottleneck') return 'overview'
-      if (hash === 'resume-ai') return 'resume'
-      if (hash === 'linkedin-ai') return 'linkedin'
-      if (hash === 'funnel-risks' || hash === 'risk-matrix' || hash === 'risks' || hash === 'missions') return 'funnel'
-      if (hash === 'roadmap-section' || hash === 'next-actions') return 'roadmap'
-    }
-    return 'overview'
-  }
-
-  const [activeTab, setActiveTab] = useState(getInitialTab)
-
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId)
-    if (typeof window !== 'undefined') {
-      window.history.replaceState(null, '', `#${tabId}`)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
-  }
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      const initial = getInitialTab()
-      setActiveTab(initial)
-    }
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [])
-
   // Cross-component smooth navigation
   const handleNavigateSection = (sectionId, tabId = null) => {
     let targetId = sectionId
@@ -1045,11 +1063,7 @@ function ReportDashboardContent() {
       handleTabChange('resume')
     } else if (targetId === 'linkedin-ai' || targetId === 'linkedin') {
       handleTabChange('linkedin')
-    } else if (targetId === 'risk-matrix' || targetId === 'funnel-risks' || targetId === 'funnel' || targetId === 'missions') {
-      handleTabChange('funnel')
-    } else if (targetId === 'roadmap' || targetId === 'action-plan') {
-      handleTabChange('roadmap')
-    } else if (targetId === 'bottleneck' || targetId === 'overview') {
+    } else {
       handleTabChange('overview')
     }
 
@@ -1081,30 +1095,14 @@ function ReportDashboardContent() {
     72
 
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   const handleDownloadPdf = async () => {
-    const effectiveUserId = reportData?.userId || reportData?._id || reportData?.user_answers?.userId || useAppStore.getState().userId || ''
-    const effectiveEmail = reportData?.user_answers?.email || reportData?.candidate_email || reportData?.email || useAppStore.getState().email || ''
+    setIsDownloadingPdf(true)
     try {
-      const apiBase = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api')
-      const downloadUrl = `${apiBase}/assessment/report-pdf?userId=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}`
-
-      const response = await fetch(downloadUrl)
-      if (!response.ok) throw new Error('PDF download failed')
-      const blob = await response.blob()
-      const blobUrl = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = blobUrl
-      const candidateName = reportData?.resume_agent?.candidateSnapshot?.name || 'Career_GPS'
-      a.download = `Career_GPS_Report_${candidateName.replace(/\s+/g, '_')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      window.URL.revokeObjectURL(blobUrl)
-    } catch (_err) {
-      // Fallback to print view if blob download fails
-      sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-      window.open(`/full-report?id=${encodeURIComponent(effectiveUserId)}&email=${encodeURIComponent(effectiveEmail)}&print=true`, '_blank')
+      await downloadFullVisualReport(reportData, candidateName)
+    } finally {
+      setIsDownloadingPdf(false)
     }
   }
 
@@ -1113,7 +1111,7 @@ function ReportDashboardContent() {
       {/* ─── Top Brand Header ─── */}
       <header
         role="banner"
-        className="px-4 py-3.5 bg-[var(--surface-card)] border-b border-[var(--border-default)]"
+        className="px-4 py-3 bg-[var(--surface-card)] border-b border-[var(--border-default)]"
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1129,58 +1127,28 @@ function ReportDashboardContent() {
               >
                 CAREER <span className="text-[var(--primary)]">GPS</span>
               </span>
-              <span className="text-[10px] font-mono uppercase font-bold text-[var(--text-muted)] tracking-wider block">
-                Executive Intelligence Report
-              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={handleDownloadPdf}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Download print-perfect Career GPS Report PDF"
+              disabled={isDownloadingPdf}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+              title="Download full diagnostic report as PDF"
             >
-              <DownloadSimple size={13} weight="bold" />
-              <span className="hidden sm:inline">Download PDF Report</span>
-            </button>
-
-            <button
-              onClick={() => {
-                sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
-                const userId = reportData?.userId || reportData?._id || ''
-                const email = reportData?.user_answers?.email || reportData?.candidate_email || ''
-                window.open(`/full-report?id=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}`, '_blank')
-              }}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Open full expanded document view for printing"
-            >
-              <Printer size={13} weight="bold" />
-              <span className="hidden md:inline">Print / Standardized View</span>
-            </button>
-
-            <button
-              onClick={() => useAppStore.getState().setPhase(PHASES.ASSESSMENT)}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Return to assessment to re-test or edit inputs"
-            >
-              <ArrowsClockwise size={13} weight="bold" />
-              <span className="hidden sm:inline">Retest</span>
+              <DownloadSimple size={14} weight="bold" />
+              <span>{isDownloadingPdf ? 'Generating PDF...' : 'Download Full Report'}</span>
             </button>
 
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-all cursor-pointer"
+              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-colors cursor-pointer"
               title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? <Sun size={16} weight="bold" /> : <Moon size={16} weight="bold" />}
             </button>
-
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-[var(--emerald)]">
-              <ShieldCheck size={14} weight="fill" />
-              <span>Verified Report</span>
-            </div>
           </div>
         </div>
       </header>
@@ -1195,8 +1163,8 @@ function ReportDashboardContent() {
         reportData={reportData}
       />
 
-      {/* ─── Main Story-Driven Content Container (Max Width 1200px) ─── */}
-      <main className="max-w-6xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
+      {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}
+      <main className="max-w-7xl mx-auto px-4 pt-6 pb-0 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
         {/* Top-Level Diagnostic Error Gate */}
         {(reportData.partialFailure || (Array.isArray(reportData.failedAgents) && reportData.failedAgents.length > 0)) && (
           <div className="rounded-2xl border-2 border-red-500 bg-red-500/10 p-5 mb-6 text-red-900 dark:text-red-200">
@@ -1215,47 +1183,30 @@ function ReportDashboardContent() {
           </div>
         )}
 
-        {/* Screen View (Interactive 5-Tab Executive Cockpit) */}
-        <div className="print:hidden">
+        {/* Screen View (100% Full-Width Editorial Layout) */}
+        <div className="print:hidden space-y-10 w-full">
           {activeTab === 'overview' && (
-            <div className="space-y-8 animate-fadeIn">
-              <ReportHero reportData={reportData} />
-              <PrimaryBottleneck
-                reportData={reportData}
-                onNavigateSection={handleNavigateSection}
-              />
-            </div>
-          )}
-
-          {activeTab === 'resume' && (
-            <div className="space-y-8 animate-fadeIn">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {activeTab === 'linkedin' && (
-            <div className="space-y-8 animate-fadeIn">
-              <LinkedInDeepDiagnosis
-                linkedinAgent={reportData.linkedin_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {activeTab === 'funnel' && (
-            <div className="space-y-8 animate-fadeIn">
-              <FunnelAndConversionSection
-                funnelData={reportData.funnel_stages}
-                rejectionData={{
-                  factors: reportData.rejection_factors,
-                  insight: reportData.rejection_insight,
-                }}
-                riskData={reportData.risk_heatmap}
-                reportData={reportData}
-              />
+            <div className="space-y-10 animate-fadeIn">
+              <div id="overview-pulse">
+                <ReportHero reportData={reportData} />
+              </div>
+              <div id="overview-bottleneck">
+                <PrimaryBottleneck
+                  reportData={reportData}
+                  onNavigateSection={handleNavigateSection}
+                />
+              </div>
+              <div id="funnel-leak">
+                <FunnelAndConversionSection
+                  funnelData={reportData.funnel_stages}
+                  rejectionData={{
+                    factors: reportData.rejection_factors,
+                    insight: reportData.rejection_insight,
+                  }}
+                  riskData={reportData.risk_heatmap}
+                  reportData={reportData}
+                />
+              </div>
               <div id="risk-matrix" className="space-y-6">
                 {reportData.risk_heatmap && (
                   <RiskHeatMap data={reportData.risk_heatmap} />
@@ -1264,23 +1215,40 @@ function ReportDashboardContent() {
                   <MissionBoard data={reportData.mission_board} />
                 )}
               </div>
+              <div id="sprint-roadmap" className="space-y-10">
+                <RoadmapTimeline
+                  roadmapData={reportData.roadmap}
+                  currentPhaseId={reportData.career_journey?.current_phase_id}
+                  reportData={reportData}
+                />
+              </div>
             </div>
           )}
 
-          {activeTab === 'roadmap' && (
-            <div className="space-y-8 animate-fadeIn">
-              <RoadmapTimeline
-                roadmapData={reportData.roadmap}
-                currentPhaseId={reportData.career_journey?.current_phase_id}
+          {activeTab === 'resume' && (
+            <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
+              <ResumeDeepDiagnosis
+                resumeAgent={reportData.resume_agent}
                 reportData={reportData}
-              />
-              <FinalNextAction
-                coachData={reportData.coach_intervention}
-                reportData={reportData}
-                onBookCall={handleBookCall}
               />
             </div>
           )}
+
+          {activeTab === 'linkedin' && (
+            <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
+              <LinkedInDeepDiagnosis
+                linkedinAgent={reportData.linkedin_agent}
+                reportData={reportData}
+              />
+            </div>
+          )}
+
+          {/* Execution Bridge CTA Session & PDF Download (Across All 3 Tabs) */}
+          <FinalNextAction
+            coachData={reportData.coach_intervention}
+            reportData={reportData}
+            onBookCall={handleBookCall}
+          />
 
           {/* Interactive Bottom Section Navigation Controls */}
           <ReportBottomNav
@@ -1291,75 +1259,10 @@ function ReportDashboardContent() {
           />
         </div>
 
-        {/* Print / PDF Sequential View (Preserves all 5 sections for full printing) */}
-        <div className="hidden print:block print:space-y-6">
-          {/* Tab 1: Overview */}
-          <div className="space-y-6">
-            <ReportHero reportData={reportData} />
-            <PrimaryBottleneck
-              reportData={reportData}
-              onNavigateSection={handleNavigateSection}
-            />
-          </div>
-
-          {/* Tab 2: Resume */}
-          {reportData.resume_agent && (
-            <div className="space-y-6 break-before-page page-break-before-always">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
-            </div>
-          )}
-
-          {/* Tab 3: LinkedIn */}
-          <div className="space-y-6 break-before-page page-break-before-always">
-            <LinkedInDeepDiagnosis
-              linkedinAgent={reportData.linkedin_agent}
-              reportData={reportData}
-            />
-          </div>
-
-          {/* Tab 4: Funnel & Risks */}
-          <div className="space-y-6 break-before-page page-break-before-always">
-            <FunnelAndConversionSection
-              funnelData={reportData.funnel_stages}
-              rejectionData={{
-                factors: reportData.rejection_factors,
-                insight: reportData.rejection_insight,
-              }}
-              riskData={reportData.risk_heatmap}
-              reportData={reportData}
-            />
-            <div id="risk-matrix" className="space-y-6">
-              {reportData.risk_heatmap && (
-                <RiskHeatMap data={reportData.risk_heatmap} />
-              )}
-              {reportData.mission_board && (
-                <MissionBoard data={reportData.mission_board} />
-              )}
-            </div>
-          </div>
-
-          {/* Tab 5: Roadmap & Action */}
-          <div className="space-y-6 break-before-page page-break-before-always">
-            <RoadmapTimeline
-              roadmapData={reportData.roadmap}
-              currentPhaseId={reportData.career_journey?.current_phase_id}
-              reportData={reportData}
-            />
-            <FinalNextAction
-              coachData={reportData.coach_intervention}
-              reportData={reportData}
-              onBookCall={handleBookCall}
-            />
-          </div>
-        </div>
-
-        {/* ─── Footer (Anchored with FinalNextAction to avoid trailing blank page) ─── */}
+        {/* ─── Footer ─── */}
         <footer className="border-t border-[var(--border-default)] mt-8 pt-4 pb-4 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
           <p className="font-medium">
-            Crafture Career GPS AI • Confidential Candidate Career Intelligence
+            Crafture Career GPS • Confidential Candidate Career Intelligence
           </p>
           <p className="text-[11px]">
             Proprietary scoring and ATS diagnostic algorithms. &copy; {new Date().getFullYear()} Crafture Inc. All rights reserved.
@@ -1367,8 +1270,11 @@ function ReportDashboardContent() {
         </footer>
       </main>
 
-      {/* Floating agent chat (Atlas) */}
-      <ReportChatbot />
+      {/* ─── Living Copilot 1+3 Combo: Transparent Floating 3D Mascot + Scroll-Along Thinking Cloud ─── */}
+      <CraftureLivingCopilot activeTab={activeTab} />
+
+      {/* Atlas Expandable Chat Drawer (Static pill launcher hidden in favor of living copilot) */}
+      <ReportChatbot hideLauncher={true} />
     </div>
   )
 }

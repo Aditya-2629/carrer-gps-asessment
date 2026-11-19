@@ -122,11 +122,11 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
       {/* Section Title */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <span className="text-xs uppercase font-mono font-bold tracking-wider text-amber-600 dark:text-amber-400 block">
+          <span className="text-xs font-mono text-amber-600 dark:text-amber-400 block">
             6-Phase Root Cause Diagnosis
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             Where & Why You Are Stuck
@@ -140,38 +140,38 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
       {/* 2-Part Framework: WHERE YOU ARE STUCK vs WHY YOU ARE STUCK */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* WHERE YOU ARE STUCK (Current Phase) */}
-        <div className="lg:col-span-5 p-6 rounded-3xl bg-[var(--surface-card)] border-2 border-[var(--primary)]/30 flex flex-col justify-between shadow-sm relative overflow-hidden">
+        <div className="lg:col-span-5 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--primary-light)] text-xs font-bold font-mono text-[var(--primary)] uppercase tracking-wider">
-                <MapPin size={14} weight="fill" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
+                <MapPin size={14} weight="bold" />
                 Where You Are Stuck
               </span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${phase.isProvisional ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ${phase.isProvisional ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
                 {phase.isProvisional ? 'Provisional' : `Confidence: ${phase.confidence || 'High'}`}
               </span>
             </div>
 
             <div>
-              <span className="text-xs font-mono font-bold text-[var(--text-muted)] uppercase block mb-1">
+              <span className="text-xs font-mono text-[var(--text-muted)] block mb-1">
                 Detected Hiring Phase
               </span>
               <h3
-                className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight leading-tight"
+                className="text-xl sm:text-2xl font-semibold text-[var(--text-primary)] tracking-tight leading-tight"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
                 Phase {phase.id}: {phase.name}
               </h3>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <div className="p-3.5 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)]">
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
                 {phase.stuckDescription || 'Pipeline stalls at this exact transition point.'}
               </p>
             </div>
 
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] font-mono block">
+              <span className="text-[10px] text-[var(--text-muted)] font-mono block">
                 Target Phase Metric Goal:
               </span>
               <p className="text-xs font-semibold text-[var(--text-primary)]">
@@ -181,32 +181,37 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
           </div>
 
           <div className="pt-4 border-t border-[var(--border-subtle)] mt-4">
-            <span className="text-[11px] text-[var(--text-muted)] italic">
+            <span className="text-[11px] text-[var(--text-muted)] font-mono">
               Phase priority evaluated using deterministic 90-day funnel data.
             </span>
           </div>
         </div>
 
         {/* WHY YOU ARE STUCK (Primary & Secondary Root Cause) */}
-        <div className="lg:col-span-7 p-6 sm:p-7 rounded-3xl bg-[var(--surface-card)] border-2 border-amber-500/30 flex flex-col justify-between shadow-sm relative overflow-hidden">
+        <div
+          className="lg:col-span-7 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden"
+          data-mascot-cue={`Critical root bottleneck detected: "${safeText(primaryBottleneck.title)}". Focus your immediate efforts here.`}
+          data-mascot-chip="Bottleneck Focus"
+          data-mascot-emotion="alert"
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-xs font-bold font-mono text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                <ShieldWarning size={14} weight="fill" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
+                <ShieldWarning size={14} weight="bold" />
                 Why You Are Stuck (Root Cause)
               </span>
-              <span className="text-xs font-mono font-bold text-red-500">
+              <span className="text-xs font-mono text-red-600 font-semibold">
                 Primary Friction
               </span>
             </div>
 
             {/* Primary Root Cause */}
             <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-red-500 font-mono block">
+              <span className="text-[10px] text-red-600 font-mono block">
                 1. Primary Root Cause
               </span>
               <h3
-                className="text-lg sm:text-xl font-extrabold text-[var(--text-primary)] tracking-tight leading-snug"
+                className="text-lg sm:text-xl font-semibold text-[var(--text-primary)] tracking-tight leading-snug"
                 style={{ fontFamily: 'var(--font-head)' }}
               >
                 &ldquo;{primaryBottleneck.title}&rdquo;
@@ -218,10 +223,10 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
 
             {/* Secondary Root Cause */}
             <div className="pt-3 border-t border-[var(--border-subtle)] space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500 font-mono block">
+              <span className="text-[10px] text-amber-600 font-mono block">
                 2. Secondary Root Cause
               </span>
-              <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)]">
+              <h4 className="text-xs sm:text-sm font-semibold text-[var(--text-primary)]">
                 {secondaryProblem.title}
               </h4>
               <p className="text-xs text-[var(--text-muted)] leading-relaxed">
@@ -231,12 +236,12 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
           </div>
 
           {/* Next Best Action Banner */}
-          <div className="mt-4 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3">
+          <div className="mt-4 p-3.5 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--emerald)] font-mono block">
+              <span className="text-[10px] text-emerald-700 font-mono block">
                 Immediate Next Best Action
               </span>
-              <p className="text-xs font-bold text-[var(--text-primary)] truncate">
+              <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
                 {reportData?.next_best_action || 'Rewrite top 5 resume achievement bullets with hard numbers'}
               </p>
             </div>
@@ -259,8 +264,8 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Flag size={18} weight="fill" className="text-[var(--primary)]" />
-            <h3 className="text-lg sm:text-xl font-extrabold text-[var(--text-primary)] tracking-tight">
+            <Flag size={18} weight="bold" className="text-[var(--primary)]" />
+            <h3 className="text-lg sm:text-xl font-semibold text-[var(--text-primary)] tracking-tight">
               Top 3 Prioritized Actions
             </h3>
           </div>
@@ -273,27 +278,27 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
           {topActions.map((action, idx) => (
             <div
               key={idx}
-              className="p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card"
+              className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card"
             >
               <div className="space-y-3">
                 {/* Header: Priority Number + Category */}
                 <div className="flex items-center justify-between">
-                  <span className="w-6 h-6 rounded-full bg-[var(--primary-light)] text-[var(--primary)] text-xs font-black flex items-center justify-center font-mono">
+                  <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
                     #{idx + 1}
                   </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)] font-mono">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)]">
                     {action.category || 'Strategic Fix'}
                   </span>
                 </div>
 
                 {/* Action Title */}
-                <h4 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-snug">
+                <h4 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] leading-snug">
                   {action.title}
                 </h4>
 
                 {/* Why It Matters */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] font-mono block">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
                     Why It Matters:
                   </span>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -302,8 +307,8 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
                 </div>
 
                 {/* Concrete What To Do */}
-                <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-subtle)] space-y-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] font-mono block">
+                <div className="p-3 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-subtle)] space-y-1">
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
                     What To Do:
                   </span>
                   <p className="text-xs font-medium text-[var(--text-primary)] leading-relaxed">

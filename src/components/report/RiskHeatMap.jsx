@@ -16,14 +16,14 @@ export default function RiskHeatMap({ data }) {
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
       {/* Executive Section Header */}
       <div className="space-y-1.5">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 text-xs font-bold uppercase tracking-wider text-red-500 border border-red-500/20 shadow-2xs">
-          <span>Vulnerability & Risk Matrix</span>
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
+          <span>Vulnerability &amp; Risk Matrix</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
+        <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight" style={{ fontFamily: 'var(--font-head)' }}>
           What Are My Biggest Job Search Risks?
         </h2>
         <p className="text-sm sm:text-base text-[var(--text-muted)] font-medium">
-          <span className="text-red-500 font-bold">{criticalRisk}</span> is your critical risk item. Address it proactively before final round stages.
+          <span className="text-red-500 font-semibold">{criticalRisk}</span> is your critical risk item. Address it proactively before final round stages.
         </p>
       </div>
 
@@ -31,7 +31,7 @@ export default function RiskHeatMap({ data }) {
         {/* Left: 2x2 Risk Quadrant */}
         <div className="lg:col-span-7 quiz-card p-6 border border-[var(--border-default)] bg-[var(--surface-sunken)] relative">
           {/* Impact Axis Header */}
-          <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between">
+          <div className="text-xs font-mono text-[var(--text-muted)] mb-1.5 flex justify-between">
             <span>Impact: High ↑</span>
             <span>Impact: Low ↓</span>
           </div>
@@ -39,9 +39,9 @@ export default function RiskHeatMap({ data }) {
           <div className="grid grid-cols-2 gap-3.5 h-72 relative border-l-2 border-b-2 border-[var(--border-default)] pl-4 pb-4">
             {/* Top-Left Quadrant */}
             <div className="border border-dashed border-[var(--border-default)] rounded-xl p-3 bg-red-500/5 relative flex flex-col justify-end gap-1.5">
-              <span className="absolute top-3 right-3 text-xs font-mono font-semibold text-[var(--text-muted)] uppercase">High Impact / Low Likelihood</span>
+              <span className="absolute top-3 right-3 text-xs font-mono text-[var(--text-muted)]">High Impact / Low Likelihood</span>
               {highImpactLowLikelihood.map((risk, i) => (
-                <div key={i} className="bg-red-500/20 text-red-500 dark:text-red-400 text-xs font-semibold px-2.5 py-1 rounded-md border border-red-500/30 w-fit truncate max-w-full">
+                <div key={i} className="bg-red-500/20 text-red-500 dark:text-red-400 text-xs font-medium px-2.5 py-1 rounded-md border border-red-500/30 w-fit truncate max-w-full">
                   • {risk}
                 </div>
               ))}
@@ -49,20 +49,17 @@ export default function RiskHeatMap({ data }) {
 
             {/* Top-Right Quadrant (CRITICAL RISK ZONE) */}
             <div className="border border-red-500/40 rounded-xl p-3.5 bg-red-500/10 relative flex flex-col justify-between shadow-2xs">
-              <span className="text-xs font-mono text-red-500 font-bold uppercase tracking-wider">Critical Risk Zone</span>
+              <span className="text-xs font-mono text-red-600 dark:text-red-400 font-semibold">Critical Risk Zone</span>
 
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="self-center bg-red-600 text-white font-bold text-sm px-4 py-2 rounded-full shadow-lg shadow-red-500/30 flex items-center gap-2 cursor-pointer animate-pulse text-center"
-              >
-                <span className="w-2.5 h-2.5 rounded-full bg-white shrink-0" />
-                <span className="text-[11px] leading-tight break-words">+ {criticalRisk}</span>
-              </motion.div>
+              <div className="self-center bg-red-600 text-white font-medium text-xs px-3.5 py-1.5 rounded-lg shadow-xs flex items-center gap-2 text-center">
+                <span className="w-2 h-2 rounded-full bg-white dark:bg-rose-100 shrink-0" />
+                <span className="text-[11px] leading-tight break-words">{criticalRisk}</span>
+              </div>
             </div>
 
             {/* Bottom-Left Quadrant */}
             <div className="border border-[var(--border-default)] rounded-xl p-3 bg-emerald-500/5 relative flex flex-wrap items-end justify-start gap-2">
-               <div className="bg-emerald-500/20 text-[var(--emerald)] text-xs font-semibold px-3 py-1 rounded-full border border-emerald-500/30">
+               <div className="bg-emerald-500/20 text-[var(--emerald)] text-xs font-medium px-2.5 py-1 rounded-md border border-emerald-500/30">
                 ✓ Market Macro
               </div>
             </div>
@@ -70,16 +67,16 @@ export default function RiskHeatMap({ data }) {
             {/* Bottom-Right Quadrant */}
             <div className="border border-amber-500/20 rounded-xl p-3 bg-amber-500/5 relative flex flex-col justify-center items-center gap-2">
               {lowImpactHighLikelihood.map((risk, i) => (
-                <div key={i} className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-semibold px-3 py-1 rounded-full border border-amber-500/30 truncate max-w-full">
-                  + {risk}
+                <div key={i} className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium px-2.5 py-1 rounded-md border border-amber-500/30 truncate max-w-full">
+                  • {risk}
                 </div>
               ))}
             </div>
           </div>
 
           {/* X-Axis Label */}
-          <div className="text-center mt-3 text-xs font-mono font-bold text-[var(--text-muted)] uppercase tracking-widest">
-            LIKELIHOOD (LOW TO HIGH)
+          <div className="text-center mt-3 text-xs font-mono text-[var(--text-muted)]">
+            Likelihood (Low to High)
           </div>
         </div>
 

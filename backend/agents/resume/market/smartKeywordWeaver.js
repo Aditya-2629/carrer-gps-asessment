@@ -3,6 +3,7 @@ import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { toPresentTense } from '../signals/patterns.js'
 import { isConcreteTechSkill, isGenuineTechnicalSkill } from './dynamicSkillExtractor.js'
+import { isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
 
 // In-memory cache for rewritten bullets (hash -> rewritten result)
 export const BULLET_REWRITE_CACHE = new Map()
@@ -19,14 +20,31 @@ export function getRewriteHash(bulletId, originalText, skills = []) {
 
 export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Interviewer, FAANG Bar Raiser, and Executive Resume Architect.
 Your task is twofold for each candidate experience bullet:
-1. NATURALLY RE-ENGINEER THE BULLET to weave the target skills using Google XYZ impact framing (Accomplished [X] measured by [Y] by doing [Z]).
+1. NATURALLY RE-ENGINEER THE BULLET to weave the target skills using the 5-Part Winning Bullet Formula:
+   [1. Strong Action Verb] + [2. Target Hard Skill/Tool] + [3. Collaboration/Leadership Signal] + [4. Preserved/Calibrated Metric] + [5. Concrete Achievement/Outcome]
 2. GENERATE AN ELITE TECHNICAL INTERVIEW DEFENSE SCRIPT so the candidate can defend every woven tool convincingly in technical rounds.
+
+THE 5-PART RESUME PLAYBOOK FORMULA (MANDATORY FOR ALL REWRITES - 18 TO 32 WORDS):
+Every single "rewrittenText" MUST integrate all 5 parts seamlessly:
+1. Strong Action Verb: Lead with a decisive past-tense (or present-tense for active current role) active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized", "Optimized", "Led"). Banned: "Assisted", "Helped", "Worked on", "Responsible for", "Utilized", or "-ing" participles.
+2. Target Hard Skill / Tool: Weave target skills naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, Snowflake, dbt). Zero keyword stuffing.
+3. Collaboration / Ownership Signal: Embed team or leadership scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
+4. Metric Grounding (Zero Placeholders): Preserve original candidate metrics whenever present; when missing, supply a realistic role-calibrated metric (e.g. "~20–35% latency reduction", "cutting release turnaround by 45%", "saving 12+ engineering hours weekly", "3x throughput", "99.9% uptime"). STRICTLY ZERO [ADD: ...] or bracketed placeholders.
+5. Concrete Achievement / Operational Outcome: Deliverable business or system impact (e.g. "ensuring 99.99% service availability with zero downtime", "eliminating reporting discrepancies across 1,500+ SKUs").
+
+STRICT BAN ON LAZY SUFFIX APPENDS:
+- NEVER take the candidate's existing bullet and merely append ', using [Tool]...' or ' by ...' to an unchanged original prefix.
+- Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
+- Completely re-engineer the bullet from scratch so the new Strong Action Verb leads, followed by the hard skill/mechanism, collaboration/scope, calibrated metric, and concrete outcome (18 to 32 words).
+
+LITERAL ATS KEYWORD MIRRORING RULE:
+- When a target skill or JD phrase has a close synonym in the original bullet (e.g., candidate wrote "large-scale web apps", "relational DB", or "data ingestion", while the target skill is "distributed systems", "PostgreSQL", or "Kafka pipelines"), REPLACE the loose synonym with the EXACT target JD phrase rather than appending it awkwardly to the end.
+- Never keyword-stuff or append raw skill lists in parentheses at the end of the sentence. Weave the literal keyword directly into the technical implementation mechanism.
 
 CRITICAL RULES:
 - NATURAL COMPLEMENTARY PAIRING: When cohesive, weave up to 2 complementary tools into a single bullet (e.g. "Docker & Kubernetes", "React & TypeScript", "Kafka & Redis", "FastAPI & Python", "PostgreSQL & SQL") so technical depth is maximized without sounding stuffed.
 - DISTRIBUTE ACROSS EXPERIENCES: Do not overload a single job. Balance woven tools across current and previous roles/projects.
 - PRESERVE AND ANCHOR TO CANDIDATE DATA: Reference their real company, real metrics (e.g. percentages, turnaround times, record counts), and real domain scope.
-- ACTION VERB LEAD: Start every bullet with a strong past-tense active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized").
 - LENGTH FLOOR: Each rewritten bullet must be 18 to 32 words (punchy, clean, 1 to 2 lines in Word/PDF).
 - TECHNICAL MECHANISMS: Provide concrete technical implementations:
   - If Snowflake/BigQuery: mention partitioning, clustering keys, or query cost reduction.
@@ -37,10 +55,10 @@ CRITICAL RULES:
 
 SPOKEN INTERVIEW CADENCE & 3-SENTENCE SPOKEN FORMULA:
 - Spoken Cadence: Use natural first-person spoken English with conversational contractions ("we'd", "wasn't", "I've", "we're").
-- The 3-Sentence Spoken Interview Formula:
+- The 3-Sentence Spoken Interview Formula (must align directly with the rewritten bullet and calibrated metric):
   1. The Practical Problem: "In our microservices layer at [Company], we ran into a bottleneck where [specific issue]."
   2. The Technical Trade-off: "I evaluated [Tool A] vs [Tool B], and we chose [Tool A] specifically because [concrete technical reason, e.g. lower memory overhead / better concurrency support]."
-  3. The Verified Result: "That brought our [latency/build time/query time] down to [metric] and kept the deployment stable."
+  3. The Verified Result: "That brought our [latency/build time/query time] down to [calibrated metric] and kept the deployment stable."
 - Banned in Spoken Scripts: Purge phrases like "integrated into our operational workflows to deliver measurable efficiency gains", "spearheaded", "leveraged", "synergistic", "cutting-edge".
 
 OUTPUT FORMAT (STRICT JSON ONLY):
@@ -50,7 +68,7 @@ OUTPUT FORMAT (STRICT JSON ONLY):
       "bulletId": "exp_001_b01",
       "wovenSkills": ["Docker", "Kubernetes"],
       "wovenSkill": "Docker, Kubernetes",
-      "rewrittenText": "Orchestrated multi-stage Docker container builds and automated Kubernetes deployments across production clusters, cutting release turnaround by 45% and ensuring zero-downtime rollouts.",
+      "rewrittenText": "Orchestrated multi-stage Docker container builds and automated Kubernetes deployments partnering with cross-functional QA squads, cutting release turnaround by 45% and ensuring zero-downtime rollouts.",
       "interviewDefense": {
         "interviewerQuestion": "How did you manage container lifecycle and cluster resource limits using Docker and Kubernetes?",
         "talkingScript": "In our microservices layer at my company, we ran into a bottleneck where manual VM deployments caused inconsistent builds and slow release cycles. I evaluated standalone containers versus Kubernetes orchestration, and we chose Kubernetes specifically because horizontal pod autoscaling and rolling updates handled peak spikes without manual intervention. That brought our release turnaround down by 45% and kept our production uptime at 99.99%.",
@@ -206,10 +224,20 @@ export async function batchWeaveBulletsWithLLM({
     if (Array.isArray(parsed?.rewrittenBullets)) {
       parsed.rewrittenBullets.forEach((item) => {
         if (item?.bulletId && item?.rewrittenText && item.rewrittenText.length >= 20) {
+          const original = bulletsToRewrite.find((b) => b.bulletId === item.bulletId)?.originalText || ''
+          if (original && isLazySuffixAppend(item.rewrittenText, original)) {
+            const skillsToUse = Array.isArray(item.wovenSkills) && item.wovenSkills.length > 0
+              ? item.wovenSkills
+              : (item.wovenSkill ? [item.wovenSkill] : cleanSkills)
+            item.rewrittenText = buildFivePartPlaybookRewrite(original, {
+              targetRole,
+              company: item.company,
+              skills: skillsToUse,
+            })
+          }
           rewrittenMap.set(item.bulletId, item)
 
           // Store in LRU Cache
-          const original = bulletsToRewrite.find((b) => b.bulletId === item.bulletId)?.originalText || ''
           const hash = getRewriteHash(item.bulletId, original, cleanSkills)
           if (BULLET_REWRITE_CACHE.size >= MAX_CACHE_SIZE) {
             const firstKey = BULLET_REWRITE_CACHE.keys().next().value
@@ -336,65 +364,19 @@ export function classifyToolCategory(kw, targetRole = '') {
 }
 
 /**
- * Universal Natural Clause Weaver
- * Injects ANY tool into an existing bullet using grammatically sound technical phrasing
- * based on dynamic semantic category without hardcoding specific tools.
+ * Universal Natural 5-Part Playbook Weaver
+ * Re-engineers the bullet using the 5-Part Resume Playbook Formula to weave
+ * the target tool naturally without lazy suffix appends.
  */
 export function weaveToolIntoSentence(text, kw, category) {
   const clean = text.replace(/[.!?]+$/, '').trim()
   const kwRegex = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
   if (kwRegex.test(clean)) return text
 
-  // Universal dynamic category weaving for ANY technology across ALL domains
-  switch (category) {
-    case 'data_warehouse':
-      if (/(?:sql|query|queries|data|pipeline|report|dashboard|analytics|warehouse)/i.test(clean)) {
-        return `${clean}, using ${kw} for scalable transformation pipelines, dimensional modeling, and automated reporting refresh.`
-      }
-      return `${clean}, using ${kw} for scalable analytical data processing.`
-
-    case 'ai_ml':
-      if (/(?:ai|model|search|query|chat|assistant|retrieval|nlp|agent)/i.test(clean)) {
-        return `${clean}, integrating ${kw} to optimize vector retrieval precision and sustain sub-second query latency.`
-      }
-      return `${clean}, powered by ${kw} for automated contextual intelligence.`
-
-    case 'messaging_streaming':
-      if (/(?:event|stream|queue|sync|message|worker|async|transaction|ingestion|database|queries)/i.test(clean)) {
-        return `${clean}, using ${kw} event streams to decouple asynchronous workers and eliminate message drops during high-volume spikes.`
-      }
-      return `${clean}, with ${kw} message queues for decoupled asynchronous processing.`
-
-    case 'cloud_devops':
-      if (/(?:deploy|cloud|pipeline|build|infrastructure|cluster|service|release)/i.test(clean)) {
-        return `${clean}, containerized and automated via ${kw} for zero-downtime rolling releases.`
-      }
-      return `${clean}, deployed across modern ${kw} infrastructure.`
-
-    case 'frontend_ui':
-      if (/(?:ui|frontend|component|page|view|interface|dashboard|client|web|react|node|service|api|backend)/i.test(clean)) {
-        return `${clean}, adopting ${kw} to enforce strict payload contracts and eliminate runtime errors across service boundaries.`
-      }
-      return `${clean}, using ${kw} for modular, responsive interface delivery.`
-
-    case 'testing_qa':
-      if (/(?:test|quality|ci|pipeline|release|coverage|code|defect|review)/i.test(clean)) {
-        return `${clean}, verified through automated test suites using ${kw} to prevent production regressions.`
-      }
-      return `${clean}, validated with ${kw} test suites to ensure production reliability.`
-
-    case 'backend_api':
-      if (/(?:services?|endpoints?|microservices?|backend|api)/i.test(clean)) {
-        return `${clean}, architected with ${kw} to support high-throughput transactions and sub-second response times.`
-      }
-      return `${clean}, engineered with ${kw} for enhanced production reliability.`
-
-    default:
-      if (/(?:using|with|via)\s+([^,.;]+)/i.test(clean)) {
-        return clean.replace(/(using|with|via)\s+([^,.;]+)/i, `$1 $2 and ${kw}`) + '.'
-      }
-      return `${clean}, applying ${kw} to enhance production execution and reliability.`
-  }
+  return buildFivePartPlaybookRewrite(clean, {
+    skills: [kw],
+    targetRole: category || '',
+  })
 }
 
 /**
