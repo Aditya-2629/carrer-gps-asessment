@@ -137,7 +137,7 @@ export function buildMarketProfile(bucketKeyOrJobs, jobsOrOptions = []) {
     .sort((a, b) => b.frequency - a.frequency)
 
   // Top keywords for search/indexing
-  const topKeywords = skills.slice(0, 15).map((s) => s.name)
+  const topKeywords = skills.slice(0, 30).map((s) => s.name)
 
   // Flatten evidence snippets for top skills
   const marketEvidence = []

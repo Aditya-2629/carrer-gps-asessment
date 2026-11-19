@@ -596,17 +596,20 @@ export default function CareerReportPdf({ reportData = {} }) {
 
   // ATS Keyword Alignment
   const kwData = resumeDashboard?.keywordAlignment || resumeAgent?.keywordAlignment || reportData?.keyword_alignment || {}
-  const verifiedKeywords = Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0
-    ? kwData.verifiedExperience.slice(0, 10).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : (Array.isArray(reportData?.verified_skills) ? reportData.verified_skills.slice(0, 10) : ['Python', 'SQL', 'Data Modeling', 'REST APIs', 'Git', 'Agile'])
+  const rawVerified = Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0
+    ? kwData.verifiedExperience
+    : (Array.isArray(reportData?.verified_skills) ? reportData.verified_skills : [])
+  const verifiedKeywords = rawVerified.slice(0, 18).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
-  const skillsOnlyKeywords = Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0
-    ? kwData.skillsOnly.slice(0, 8).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : ['Docker', 'AWS', 'PostgreSQL', 'CI/CD']
+  const rawSkillsOnly = Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0
+    ? kwData.skillsOnly
+    : (Array.isArray(reportData?.skills_only) ? reportData.skills_only : [])
+  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
-  const missingKeywords = Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0
-    ? kwData.criticalMissing.slice(0, 8).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
-    : (Array.isArray(reportData?.missing_skills) ? reportData.missing_skills.slice(0, 8) : ['Snowflake', 'dbt', 'Kubernetes', 'Kafka'])
+  const rawMissing = Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0
+    ? kwData.criticalMissing
+    : (Array.isArray(reportData?.missing_skills) ? reportData.missing_skills : [])
+  const missingKeywords = rawMissing.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
   // Bullet Rewrites: Un-capped list
   const rawBullets = Array.isArray(resumeAgent.bulletRewrites || resumeAgent.bulletSuggestions || resumeDashboard.bulletAudit)
@@ -1375,9 +1378,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagPass}>{verifiedKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {verifiedKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipVerified}>{safeStr(kw)}</Text>
-                ))}
+                {verifiedKeywords.length > 0 ? (
+                  verifiedKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipVerified}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No verified skills identified in experience bullets.</Text>
+                )}
               </View>
             </View>
           </View>
@@ -1389,9 +1396,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagWarn}>{skillsOnlyKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {skillsOnlyKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(kw)}</Text>
-                ))}
+                {skillsOnlyKeywords.length > 0 ? (
+                  skillsOnlyKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>None listed exclusively in skills section.</Text>
+                )}
               </View>
             </View>
           </View>
@@ -1403,9 +1414,13 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {missingKeywords.map((kw, idx) => (
-                  <Text key={idx} style={styles.chipMissing}>{safeStr(kw)}</Text>
-                ))}
+                {missingKeywords.length > 0 ? (
+                  missingKeywords.map((kw, idx) => (
+                    <Text key={idx} style={styles.chipMissing}>{safeStr(kw)}</Text>
+                  ))
+                ) : (
+                  <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No missing critical skills detected.</Text>
+                )}
               </View>
             </View>
           </View>

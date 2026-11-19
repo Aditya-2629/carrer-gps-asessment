@@ -252,21 +252,22 @@ export function buildDeterministicOptimizations(
 
   const top5Skills = effectiveSkills.slice(0, 5).join(' | ') || topSkillList
   const top6Skills = effectiveSkills.slice(0, 6).join(' • ') || topSkillList
+  const primaryDomainSkill = effectiveSkills[0] || targetRole
 
   const fallbackHeadlines = [
     {
       formula: 'Proof & Milestone First',
-      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency systems for scale'} | ${targetRole} • Senior Specialist | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      headline: `${metricPhrase ? `Delivered ${metricPhrase}` : `Delivering measurable outcomes in ${primaryDomainSkill}`} | ${targetRole} • Senior Specialist | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
       whyItWorks: 'Hooks recruiters immediately with verified scale and packs 5-7 searchable technical keywords for boolean search algorithms.',
     },
     {
       formula: 'Curiosity & Problem Solver',
-      headline: `I help engineering teams eliminate production bottlenecks & accelerate delivery | ${targetRole} specializing in ${effectiveSkills.slice(0, 5).join(' • ') || topSkillList}`.slice(0, 220),
+      headline: `Helping teams resolve complex operational challenges & accelerate delivery | ${targetRole} specializing in ${effectiveSkills.slice(0, 5).join(' • ') || topSkillList}`.slice(0, 220),
       whyItWorks: 'Conversational hook stating who you help and problem solved, followed by high-demand recruiter keywords and target title.',
     },
     {
       formula: 'Specialist Authority',
-      headline: `Designing resilient distributed architectures & data workflows at scale | ${targetRole} | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      headline: `Driving strategic impact and robust solutions in ${primaryDomainSkill} | ${targetRole} | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
       whyItWorks: 'Positions deep domain authority with target role keywords and dense tool indexing for recruiter filters.',
     },
   ]
@@ -404,8 +405,8 @@ export function buildDeterministicOptimizations(
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
 
       const synthPitch = mergedTech.length > 0
-        ? `Production-grade ${pTitle} engineered with ${mergedTech.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-        : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+        ? `${pTitle} focused on ${mergedTech.slice(0, 4).join(', ')} to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
+        : `${pTitle} designed to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
       const pitch = cleanBullet
         ? (cleanBullet.length > 240 ? cleanBullet.slice(0, 240).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
         : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
@@ -415,8 +416,8 @@ export function buildDeterministicOptimizations(
         description: pitch,
         technologies: mergedTech,
         replaceNote: isMissingOnLi && liProjects.length > 0
-          ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern architecture showcase.`
-          : 'Feature this modern project prominently on LinkedIn to prove hands-on architecture competency.',
+          ? `Archive/replace outdated older project "${liProjects[0]?.title || 'Older Project'}" on LinkedIn with this modern project showcase.`
+          : 'Feature this modern project prominently on LinkedIn to prove hands-on execution competency.',
       }
     }),
     certifications: (canonical.certifications || []).slice(0, 5).map((c) => ({
@@ -431,11 +432,11 @@ export function buildDeterministicOptimizations(
       const cleanBullet = rawBullet.replace(/^[•\-*▪–—\s]+/, '').trim()
       const pitch = cleanBullet
         ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
-        : 'Proves practical system design depth directly at the top of your profile without exposing contact info.'
+        : `Proves practical depth in ${primaryDomainSkill} directly at the top of your profile without exposing contact info.`
       return {
-        title: String(p.title || p.name || 'Featured Architecture Project').split('|')[0].trim(),
+        title: String(p.title || p.name || 'Featured Project').split('|')[0].trim(),
         reason: pitch,
-        callToAction: 'Pin GitHub repository link, architecture diagrams, and a live deployment demo rather than a raw resume PDF.',
+        callToAction: 'Pin project documentation, case study presentation, or live demo link rather than a raw resume PDF.',
       }
     }),
   }
@@ -448,15 +449,15 @@ export function buildDeterministicOptimizations(
     const techArr = Array.isArray(p.technologies) ? p.technologies : Array.isArray(p.skills) ? p.skills : []
     const pTitle = String(p.title || p.name || 'Core Project').split('|')[0].trim()
     const synthPitch = techArr.length > 0
-      ? `Production-grade ${pTitle} engineered with ${techArr.slice(0, 4).join(', ')} to solve core technical workflows and deliver verified business impact.`
-      : `Production-grade ${pTitle} engineered to solve core technical workflows and deliver verified business impact.`
+      ? `${pTitle} focused on ${techArr.slice(0, 4).join(', ')} to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
+      : `${pTitle} designed to deliver verified outcomes and measurable impact in ${primaryDomainSkill}.`
     const pitch = cleanBullet
       ? (cleanBullet.length > 200 ? cleanBullet.slice(0, 200).replace(/[.]+$/, '') + '.' : (cleanBullet.replace(/[.]+$/, '') + '.'))
       : (typeof p?.description === 'string' && p.description.trim() ? p.description.trim() : synthPitch)
     return {
       title: pTitle,
       reason: pitch,
-      callToAction: 'Pin this project with GitHub repository link, architecture diagrams, and a live deployment demo.',
+      callToAction: 'Pin this project with case study documentation, key results, and a live portfolio link or demo.',
     }
   })
 
@@ -553,19 +554,19 @@ export function buildDeterministicOptimizations(
       category: 'Recruiter Boolean String',
       trick: '3. Optimize for Recruiter Boolean Search Strings',
       advice: 'Technical recruiters find candidates using exact boolean operators. Ensure your profile headline and about section match this search query:',
-      items: [`("${targetRole}") AND (${(effectiveSkills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || '"Cloud"'})`],
+      items: [`("${targetRole}") AND (${(effectiveSkills.slice(0, 4)).map((s) => `"${s}"`).join(' OR ') || `"${effectiveSkills[0] || targetRole}"`})`],
     },
     {
       category: 'Featured Media Architecture',
-      trick: '4. Showcase High-Scale Technical Artifacts',
-      advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real system delivery. Pin high-impact technical artifacts directly to your profile top.',
-      items: [`${top3Tools.join(' + ')} Portfolio & Case Study`, 'Live Demo URL'],
+      trick: '4. Showcase High-Impact Career Artifacts',
+      advice: 'Recruiters and hiring managers spend 80% of their review time on evidence of real execution. Pin high-impact professional artifacts directly to your profile top.',
+      items: [`${top3Tools.join(' + ')} Portfolio & Case Study`, 'Live Portfolio / Demo Link'],
     },
     {
       category: 'Featured Section Asset',
       trick: '5. Pin Live Case Study Over Raw Resume PDF',
-      advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a GitHub architecture repo with a live deployed demo.',
-      items: ['Pin top architecture case study to Featured section'],
+      advice: 'Never pin a raw PDF resume with your phone number and physical address exposed to scrapers. Instead, pin a project case study with a live portfolio link or demo.',
+      items: ['Pin top project case study to Featured section'],
     },
   ]
 
@@ -709,7 +710,7 @@ export async function runLinkedInSynthesis(
           temperature: 0.25,
           maxTokens,
           responseFormat: { type: 'json_object' },
-          timeoutMs: 25000,
+          timeoutMs: 45000,
         })
 
         let parsed = tryParseJson(response?.text)
@@ -726,9 +727,11 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // Run Task 1 then Task 2 sequentially to avoid rate-limit burst collisions
-    const task1Result = await executeTask('Task 1 (Headlines & About)', task1Messages, 4096)
-    const task2Result = await executeTask('Task 2 (Experience & Tricks)', task2Messages, 4096)
+    // Run Task 1 and Task 2 in parallel for lower latency
+    const [task1Result, task2Result] = await Promise.all([
+      executeTask('Task 1 (Headlines & About)', task1Messages, 4096),
+      executeTask('Task 2 (Experience & Tricks)', task2Messages, 4096),
+    ])
 
     if (!task1Result && !task2Result) {
       console.warn('[LinkedInSynthesis] Both tasks failed, using deterministic fallback')

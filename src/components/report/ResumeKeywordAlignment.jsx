@@ -40,6 +40,7 @@ export default function ResumeKeywordAlignment({
   const [selectedSkills, setSelectedSkills] = useState(new Set())
   // Always true by default so skills are instantly visible
   const [showAllTags, setShowAllTags] = useState(true)
+  const [showAllMissing, setShowAllMissing] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
 
   const toggleSkillSelection = (skillName) => {
@@ -243,7 +244,9 @@ export default function ResumeKeywordAlignment({
     }
   }
 
-  const itemsToRender = (criticalMissing.length > 0 ? criticalMissing : uniqueMissing).slice(0, 5)
+  const targetMissingList = criticalMissing.length > 0 ? criticalMissing : uniqueMissing
+  const displayedMissing = showAllMissing ? targetMissingList : targetMissingList.slice(0, 10)
+  const itemsToRender = displayedMissing
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
@@ -340,7 +343,7 @@ export default function ResumeKeywordAlignment({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {uniqueMissing.slice(0, 5).map((item, i) => {
+            {displayedMissing.map((item, i) => {
               const isSelected = selectedSkills.has(item.keyword)
               return (
                 <div
@@ -348,7 +351,7 @@ export default function ResumeKeywordAlignment({
                   className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
                 >
                   <div className="space-y-1 mb-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate" title={item.keyword}>
                       {item.keyword}
                     </span>
                     <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
@@ -371,17 +374,26 @@ export default function ResumeKeywordAlignment({
             })}
           </div>
 
-          {uniqueMissing.length > 5 && (
-            <div className="pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {targetMissingList.length > 10 && (
+              <button
+                type="button"
+                onClick={() => setShowAllMissing(!showAllMissing)}
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                {showAllMissing ? 'Show top 10 missing skills' : `Show all (${targetMissingList.length}) missing skills`}
+              </button>
+            )}
+            {uniqueMissing.length > 5 && (
               <button
                 type="button"
                 onClick={() => setShowAllTags(!showAllTags)}
-                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:underline cursor-pointer ml-auto"
               >
                 {showAllTags ? 'Hide full inventory' : 'Show full keyword inventory'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 

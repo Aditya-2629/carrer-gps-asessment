@@ -367,7 +367,7 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   userPrompt += `\n\n==================================================\nSENIOR SILICON VALLEY EXECUTIVE RECRUITER TEARDOWN INSTRUCTIONS (V4)\n==================================================\n${v4RoastBlock}`
 
   if (wovenRewrites.length > 0) {
-    const wovenSummary = wovenRewrites.slice(0, 5).map((rw) =>
+    const wovenSummary = wovenRewrites.map((rw) =>
       `- [${rw.bulletId}] (${rw.slot}) Wove "${rw.wovenKeyword}": "${rw.readyToUseRewrite}"`
     ).join('\n')
     userPrompt += `\n\n### DETERMINISTIC KEYWORD WEAVER BENCHMARKS (Pre-computed for injection):\n${wovenSummary}`

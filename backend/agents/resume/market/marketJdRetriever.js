@@ -179,7 +179,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
               sampleSize: analysis.sampleSize || uniqueFastJds.length,
               skills: discoveredSkills,
               totalAnalyzed: analysis.totalAnalyzed || uniqueFastJds.length,
-              topKeywords: discoveredSkills.slice(0, 20).map((s) => s.name),
+              topKeywords: discoveredSkills.slice(0, 30).map((s) => s.name),
               responsibilities: analysis.responsibilities || [],
               senioritySignals: analysis.senioritySignals || [],
               isFastCatch: true,

@@ -125,24 +125,24 @@ export function extractCandidateDossier(user = {}) {
     rawExp[0]?.employer ||
     'your previous company'
 
-  const topExperiences = rawExp.slice(0, 3).map((e) => ({
+  const topExperiences = rawExp.slice(0, 6).map((e) => ({
     company: e.company || e.employer || '',
     role: e.role || e.title || '',
     dates: e.dates || e.duration || '',
-    bullets: (Array.isArray(e.bullets) ? e.bullets : (e.bullet ? [e.bullet] : [])).slice(0, 4).map((b) => (typeof b === 'string' ? b : b?.text || '')),
+    bullets: (Array.isArray(e.bullets) ? e.bullets : (e.bullet ? [e.bullet] : [])).slice(0, 8).map((b) => (typeof b === 'string' ? b : b?.text || '')),
   }))
 
   const verifiedSkills = (
     report.resume_agent?.verifiedSkills ||
     report.resume_agent?.dashboard?.keywordAlignment?.matchedInExperience ||
     (Array.isArray(resume.skills) ? resume.skills : [])
-  ).slice(0, 10).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+  ).slice(0, 20).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
 
   const missingSkills = (
     report.resume_agent?.missingTargetKeywords ||
     report.resume_agent?.dashboard?.keywordAlignment?.missingFromResume ||
     []
-  ).slice(0, 6).map((s) => (typeof s === 'string' ? s : s?.keyword || s?.name || '')).filter(Boolean)
+  ).slice(0, 15).map((s) => (typeof s === 'string' ? s : s?.keyword || s?.name || '')).filter(Boolean)
 
   const discrepancies = (report.linkedin_agent?.discrepancies || []).slice(0, 3).map((d) => d.title || d.diagnosis || '')
 
@@ -217,7 +217,7 @@ export function extractCandidateDossier(user = {}) {
     report.resume_agent?.bulletRewrites ||
     report.bullet_audit ||
     []
-  const bulletGaps = (Array.isArray(rawBulletAudit) ? rawBulletAudit : []).slice(0, 5).map((b) => ({
+  const bulletGaps = (Array.isArray(rawBulletAudit) ? rawBulletAudit : []).slice(0, 12).map((b) => ({
     bullet: typeof b === 'string' ? b : b?.bullet || b?.text || b?.original || '',
     status: b?.status || (b?.severity === 'high' ? 'fix' : 'warn'),
     issue: b?.issue || b?.diagnosis || b?.reason || 'Missing quantified business outcome metrics',
@@ -417,7 +417,7 @@ EXECUTIVE COACHING VOICE & RULES:
 /**
  * Streams tokens from OpenRouter completions with SSE chunks.
  */
-async function streamFromOpenRouter({ model = 'google/gemini-3.5-flash-lite', messages, onToken, timeoutMs = 20000 }) {
+async function streamFromOpenRouter({ model = 'google/gemini-2.5-flash-lite', messages, onToken, timeoutMs = 20000 }) {
   const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
   if (!apiKey) throw new Error('Missing OPENROUTER_API_KEY')
 
@@ -534,23 +534,36 @@ async function streamFromGroq({ model = 'openai/gpt-oss-120b', messages, onToken
  */
 export async function handleChatStream(req, res) {
   try {
-    const rawQuestion = req.body.message || req.body.question || ''
-    const conversationHistory = req.body.conversationHistory || req.body.history || []
-    const userId = req.user?._id || req.body.userId
+    const rawQuestion = String(req.body?.message || req.body?.question || '').trim().slice(0, 600)
+    const conversationHistory = req.body?.conversationHistory || req.body?.history || []
+    const userId = req.user?._id || req.userId || req.body?.userId || req.query?.userId
 
     if (!rawQuestion) {
-      return res.status(400).json({ message: 'message or question is required.' })
+      return res.status(400).json({ success: false, message: 'message or question is required.' })
     }
 
-    let user = null
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId).lean()
+    // Strict Security Guard: Never leak latest user's dossier
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please reload your report.' })
     }
+
+    const user = await User.findById(userId).lean()
     if (!user) {
-      user = await User.findOne().sort({ createdAt: -1 }).lean()
+      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please reload your report.' })
     }
 
-    const dossier = extractCandidateDossier(user || {})
+    const dossier = extractCandidateDossier(user)
+
+    // Optional RAG context enrichment with 2s timeout guard
+    let ragKnowledgeContext = ''
+    try {
+      const ragQuery = `${rawQuestion} ${dossier.targetRole} ${dossier.verifiedSkills.slice(0, 3).join(' ')}`
+      ragKnowledgeContext = await Promise.race([
+        buildRAGContext(ragQuery),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('RAG timeout')), 2000)),
+      ])
+    } catch (_ragErr) {}
+
     const faqContext = getCraftureFaqContext(rawQuestion)
     let intentId = 'GENERAL_CAREER_ADVICE'
     try {
@@ -559,20 +572,26 @@ export async function handleChatStream(req, res) {
     } catch (_clErr) {
       intentId = 'GENERAL_CAREER_ADVICE'
     }
-    const systemPrompt = buildChatbotSystemPrompt(dossier, faqContext, intentId)
 
-    // Sliding memory window: keep only last 6 turns; truncate user inputs to 300 chars
+    const combinedExtraContext = [ragKnowledgeContext, faqContext].filter(Boolean).join('\n\n')
+    const systemPrompt = buildChatbotSystemPrompt(dossier, combinedExtraContext, intentId)
+
+    // Sliding memory window: keep only last 6 turns; expand truncation to 800 chars for bullet memory
     const historyMessages = Array.isArray(conversationHistory)
       ? conversationHistory.slice(-6).map((m) => ({
           role: m.role === 'agent' || m.role === 'assistant' ? 'assistant' : 'user',
-          content: String(m.text || m.content || '').slice(0, 300),
+          content: String(m.text || m.content || '').slice(0, 800),
         }))
       : []
+
+    const userMessageContent = ragKnowledgeContext
+      ? `[RELEVANT BENCHMARK INTELLIGENCE]\n${ragKnowledgeContext}\n\n[CANDIDATE QUESTION]\n${rawQuestion}`
+      : rawQuestion
 
     const messages = [
       { role: 'system', content: systemPrompt },
       ...historyMessages,
-      { role: 'user', content: String(rawQuestion).slice(0, 500) },
+      { role: 'user', content: String(userMessageContent).slice(0, 1200) },
     ]
 
     // Set SSE headers
@@ -588,10 +607,10 @@ export async function handleChatStream(req, res) {
 
     let streamedSuccess = false
 
-    // Primary: OpenRouter Gemini 3.5 Flash Lite
+    // Primary: OpenRouter Gemini 2.5 Flash Lite
     try {
       await streamFromOpenRouter({
-        model: 'google/gemini-3.5-flash-lite',
+        model: 'google/gemini-2.5-flash-lite',
         messages,
         onToken,
         timeoutMs: 20000,
@@ -609,11 +628,11 @@ export async function handleChatStream(req, res) {
         })
         streamedSuccess = true
       } catch (groqErr) {
-        console.warn('[ChatController] Groq streaming fallback failed, trying OpenRouter DeepSeek:', groqErr.message)
-        // Tertiary: OpenRouter DeepSeek V3
+        console.warn('[ChatController] Groq streaming fallback failed, trying OpenRouter DeepSeek V3.2:', groqErr.message)
+        // Tertiary: OpenRouter DeepSeek V3.2
         try {
           await streamFromOpenRouter({
-            model: 'deepseek/deepseek-chat',
+            model: 'deepseek/deepseek-v3.2',
             messages,
             onToken,
             timeoutMs: 25000,
@@ -633,7 +652,7 @@ export async function handleChatStream(req, res) {
           task: 'report_chatbot',
           stage: 'REPORT_CHATBOT',
           preferredProvider: 'openrouter',
-          model: 'google/gemini-3.5-flash-lite',
+          model: 'google/gemini-2.5-flash-lite',
           messages,
           responseFormat: 'text',
           temperature: 0.3,
@@ -666,30 +685,35 @@ export async function handleChatStream(req, res) {
  */
 export async function handleChatMessage(req, res) {
   try {
-    const rawQuestion = req.body.message || req.body.question || ''
-    const conversationHistory = req.body.conversationHistory || req.body.history || []
-    const userId = req.user?._id || req.body.userId
+    const rawQuestion = String(req.body?.message || req.body?.question || '').trim().slice(0, 600)
+    const conversationHistory = req.body?.conversationHistory || req.body?.history || []
+    const userId = req.user?._id || req.userId || req.body?.userId || req.query?.userId
 
     if (!rawQuestion) {
-      return res.status(400).json({ message: 'message or question is required.' })
+      return res.status(400).json({ success: false, message: 'message or question is required.' })
     }
 
-    let user = null
-    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-      user = await User.findById(userId).lean()
+    // Strict Security Guard: Never leak latest user's dossier
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please reload your report.' })
     }
+
+    const user = await User.findById(userId).lean()
     if (!user) {
-      user = await User.findOne().sort({ createdAt: -1 }).lean()
+      return res.status(401).json({ success: false, message: 'Session expired or user not found. Please reload your report.' })
     }
 
-    const dossier = extractCandidateDossier(user || {})
+    const dossier = extractCandidateDossier(user)
     const intent = classifyChatIntent(rawQuestion)
 
-    // Optional RAG context enrichment & Crafture FAQ injection
+    // Optional RAG context enrichment with 2s timeout guard & Crafture FAQ injection
     let ragKnowledgeContext = ''
     try {
       const ragQuery = `${rawQuestion} ${dossier.targetRole} ${dossier.verifiedSkills.slice(0, 3).join(' ')}`
-      ragKnowledgeContext = await buildRAGContext(ragQuery)
+      ragKnowledgeContext = await Promise.race([
+        buildRAGContext(ragQuery),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('RAG timeout')), 2000)),
+      ])
     } catch (_ragErr) {}
 
     const faqContext = getCraftureFaqContext(rawQuestion)
@@ -703,11 +727,11 @@ export async function handleChatMessage(req, res) {
     const combinedExtraContext = [ragKnowledgeContext, faqContext].filter(Boolean).join('\n\n')
     const systemPrompt = buildChatbotSystemPrompt(dossier, combinedExtraContext, intentId)
 
-    // Sliding memory window: last 6 turns, user turns max 300 chars
+    // Sliding memory window: last 6 turns, expanded to 800 chars for bullet memory
     const historyMessages = Array.isArray(conversationHistory)
       ? conversationHistory.slice(-6).map((m) => ({
           role: m.role === 'agent' || m.role === 'assistant' ? 'assistant' : 'user',
-          content: String(m.text || m.content || '').slice(0, 300),
+          content: String(m.text || m.content || '').slice(0, 800),
         }))
       : []
 
@@ -718,22 +742,22 @@ export async function handleChatMessage(req, res) {
     const messages = [
       { role: 'system', content: systemPrompt },
       ...historyMessages,
-      { role: 'user', content: userMessageContent },
+      { role: 'user', content: String(userMessageContent).slice(0, 1200) },
     ]
 
-    const chatReqId = `chat_${user?._id || 'anon'}_${Date.now()}`
+    const chatReqId = `chat_${user._id}_${Date.now()}`
     costTracker.setActiveRunId(chatReqId)
 
     let replyText = ''
     try {
-      // Priority 1: OpenRouter Gemini 3.5 Flash Lite
+      // Priority 1: OpenRouter Gemini 2.5 Flash Lite
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         stage: 'REPORT_CHATBOT',
         reqId: chatReqId,
         preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash-lite',
+        model: 'google/gemini-2.5-flash-lite',
         messages,
         responseFormat: 'text',
         temperature: 0.3,
@@ -760,8 +784,8 @@ export async function handleChatMessage(req, res) {
         })
         replyText = fallbackResponse.text
       } catch (groqErr) {
-        console.warn('[ChatController] Groq fallback failed, falling back to DeepSeek:', groqErr.message)
-        // Priority 3: OpenRouter DeepSeek V3
+        console.warn('[ChatController] Groq fallback failed, falling back to DeepSeek V3.2:', groqErr.message)
+        // Priority 3: OpenRouter DeepSeek V3.2
         try {
           const tertiaryResponse = await llmGateway.generate({
             purpose: 'assessment_report',
@@ -769,7 +793,7 @@ export async function handleChatMessage(req, res) {
             stage: 'REPORT_CHATBOT',
             reqId: chatReqId,
             preferredProvider: 'openrouter',
-            model: 'deepseek/deepseek-chat',
+            model: 'deepseek/deepseek-v3.2',
             messages,
             responseFormat: 'text',
             temperature: 0.3,
