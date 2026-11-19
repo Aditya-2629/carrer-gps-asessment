@@ -25,6 +25,7 @@ import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
 import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
+import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
@@ -475,6 +476,7 @@ export function buildHybridPrompt({
   marketContext,
   assessmentDirectives = null,
   answers = {},
+  fewShotBlock = '',
 }) {
   const candidateContext = answers && Object.keys(answers).length > 0 ? `
 ==================================================
@@ -843,6 +845,12 @@ CANDIDATE ASSESSMENT & JOB-HUNT CONTEXT (PERSONALIZATION DIRECTIVES)
 ==================================================
 ${assessmentDirectives}
 ` : ''}
+${fewShotBlock ? `
+==================================================
+VETTED FEW-SHOT EXAMPLES (From Upvoted Recruiter Rewrites)
+==================================================
+${fewShotBlock}
+` : ''}
 Synthesize the final report now using this dossier as factual foundation. Return ONLY valid JSON.`,
     },
   ]
@@ -914,6 +922,13 @@ export async function executeModeC({
     state?.assessmentPersona?.agentDirectives?.forResumeAgent ||
     null
 
+  let fewShotBlock = ''
+  try {
+    fewShotBlock = await getDynamicFewShotExamples(effectiveRole, 'bullet_rewrite', 2)
+  } catch (_e) {
+    fewShotBlock = ''
+  }
+
   let messages = buildHybridPrompt({
     compactResume,
     dossier,
@@ -922,6 +937,7 @@ export async function executeModeC({
     marketContext,
     assessmentDirectives,
     answers: candidateAnswers,
+    fewShotBlock,
   })
 
   const contentHash = crypto

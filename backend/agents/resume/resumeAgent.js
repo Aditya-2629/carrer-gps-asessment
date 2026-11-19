@@ -382,7 +382,7 @@ export class ResumeAgent {
         state.marketProfile = marketData?.marketProfile || null
 
         // Step 6: Build Synthesis Messages (compact context only)
-        messages = buildSynthesisMessages(state)
+        messages = await buildSynthesisMessages(state)
         promptVersion = SYNTHESIS_PROMPT_VERSION
       } else {
         // V2.2 legacy path (static import at top of file)

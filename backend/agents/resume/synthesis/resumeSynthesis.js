@@ -28,6 +28,7 @@ import { formatSkillGuidanceForPrompt } from '../skillsEngine/index.js'
 import { formatDomainContextForPrompt } from '../market/domainClassifier.js'
 import { formatUsMarketSignalsForPrompt } from '../market/usMarketSignals.js'
 import { formatMarketProfileForPrompt } from '../market/marketProfileBuilder.js'
+import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 import {
   computeKeywordAlignment,
   weaveKeywordsIntoBullets,
@@ -179,7 +180,7 @@ function buildRoleContextBlock(targetRole) {
  * @param {Object} state - Full ResumeState
  * @returns {Array<{role: string, content: string}>}
  */
-export function buildSynthesisMessages(state) {
+export async function buildSynthesisMessages(state) {
   const compactResume = state.compactResume || ''
   const signals = state.signals
   const resumeFacts = state.resumeFacts
@@ -280,6 +281,16 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   const roleContext = buildRoleContextBlock(resolvedTargetRole)
   if (roleContext) {
     userPrompt += `\n\n${roleContext}`
+  }
+
+  let fewShotBlock = ''
+  try {
+    fewShotBlock = await getDynamicFewShotExamples(resolvedTargetRole, 'bullet_rewrite', 2)
+  } catch (_e) {
+    fewShotBlock = ''
+  }
+  if (fewShotBlock) {
+    userPrompt += `\n\n${fewShotBlock}`
   }
 
   if (signalSummary && signalSummary.trim()) {
@@ -388,8 +399,8 @@ export class ResumeSynthesis {
    * @param {Object} state - Full ResumeState (V3)
    * @returns {Array<{role: string, content: string}>}
    */
-  static buildMessages(state) {
-    return buildSynthesisMessages(state)
+  static async buildMessages(state) {
+    return await buildSynthesisMessages(state)
   }
 
   /**

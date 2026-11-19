@@ -20,6 +20,7 @@ import {
   buildTask1HeadlinesAndBannerPrompt,
   buildTask2AboutAndFeaturedPrompt,
 } from './linkedinSynthesis.prompt.js'
+import { getDynamicFewShotExamples } from '../../services/promptExampleService.js'
 
 /**
  * Dynamically derives 5 Open-to-Work titles based on the candidate's actual target role.
@@ -680,6 +681,21 @@ export async function runLinkedInSynthesis(
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
+    // Fetch dynamic vetted few-shot examples for headlines & about in parallel (non-blocking)
+    let headlineExamples = ''
+    let aboutExamples = ''
+    try {
+      const [hlEx, abEx] = await Promise.all([
+        getDynamicFewShotExamples(targetRole, 'linkedin_headline', 2),
+        getDynamicFewShotExamples(targetRole, 'linkedin_about', 1),
+      ])
+      headlineExamples = hlEx || ''
+      aboutExamples = abEx || ''
+    } catch (_exErr) {
+      headlineExamples = ''
+      aboutExamples = ''
+    }
+
     const task1Messages = buildTask1HeadlinesAndBannerPrompt({
       profile,
       resumeContext,
@@ -688,6 +704,9 @@ export async function runLinkedInSynthesis(
       signals,
       answers: effectiveAnswers,
     })
+    if (headlineExamples && task1Messages[1]) {
+      task1Messages[1].content += `\n\n${headlineExamples}`
+    }
 
     const task2Messages = buildTask2AboutAndFeaturedPrompt({
       profile,
@@ -697,6 +716,9 @@ export async function runLinkedInSynthesis(
       signals,
       answers: effectiveAnswers,
     })
+    if (aboutExamples && task2Messages[1]) {
+      task2Messages[1].content += `\n\n${aboutExamples}`
+    }
 
     async function executeTask(taskName, messages, maxTokens) {
       try {
