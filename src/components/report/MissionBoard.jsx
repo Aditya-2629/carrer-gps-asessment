@@ -31,7 +31,13 @@ export default function MissionBoard({ data }) {
   }
 
   return (
-    <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
+    <div
+      id="top-priorities"
+      data-mascot-cue="High-ROI mission board: complete top priorities first to generate immediate recruiter callbacks."
+      data-mascot-chip="Top Priorities"
+      data-mascot-emotion="coach"
+      className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6"
+    >
       {/* Executive Section Header */}
       <div className="flex items-center justify-between">
         <div className="space-y-1.5">

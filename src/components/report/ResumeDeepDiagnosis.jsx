@@ -574,11 +574,25 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Scorecard */}
       {dashboard && (
-        <ResumeScoreCard dashboard={dashboard} candidateName={firstName} variant={variant} />
+        <ResumeScoreCard
+          id="resume-scorecard"
+          data-mascot-cue="Deterministic ATS scorecard: inspect your 6 pillar grades."
+          data-mascot-chip="ATS Scorecard"
+          data-mascot-emotion="thinking"
+          dashboard={dashboard}
+          candidateName={firstName}
+          variant={variant}
+        />
       )}
 
       {/* ── Section-by-Section Resume Audit (/10) ──────────── */}
-      <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+      <div
+        id="resume-audit"
+        data-mascot-cue="Section-by-section audit: scores each resume section out of 10 with actionable fixes."
+        data-mascot-chip="Section Audit"
+        data-mascot-emotion="thinking"
+        className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
           <div className="space-y-0.5">
             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
@@ -676,14 +690,16 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Keyword & JD Alignment (With Single Unified Download CTA) */}
       {(dashboard?.keywordAlignment || resumeAgent.keywordAlignment) && (
-        <ResumeKeywordAlignment
-          keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
-          variant={variant}
-          currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
-          onRebuildResume={handleDownloadDocx}
-          reportData={reportData}
-          onToast={(msg) => setToastMsg(msg)}
-        />
+        <div id="resume-keywords">
+          <ResumeKeywordAlignment
+            keywordAlignment={dashboard?.keywordAlignment || resumeAgent.keywordAlignment}
+            variant={variant}
+            currentMatchRate={resumeAgent?.keywordAlignment?.matchPercent}
+            onRebuildResume={handleDownloadDocx}
+            reportData={reportData}
+            onToast={(msg) => setToastMsg(msg)}
+          />
+        </div>
       )}
 
       {/* Two Column Grid: Recruiter's Read & What's Working */}
@@ -752,7 +768,13 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Dedicated Professional Summary Audit & Ready-to-Paste Rewrite Card */}
       {summaryOptimization && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 space-y-5 shadow-xs">
+        <div
+          id="resume-summary"
+          data-mascot-cue="Executive summary rewrite: ready to copy and paste to anchor your target level."
+          data-mascot-chip="Summary Rewrite"
+          data-mascot-emotion="coach"
+          className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-6 space-y-5 shadow-xs"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
@@ -950,13 +972,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Single Dedicated Technical Talking Points & Interview Defense Guide */}
-      <InterviewDefenseInteractive
-        initialSkillsOnly={strandedSkills}
-        interviewLedger={interviewLedger}
-        targetRole={targetRole}
-        company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'my organization'}
-        onToast={(msg) => setToastMsg(msg)}
-      />
+      <div id="resume-defense">
+        <InterviewDefenseInteractive
+          initialSkillsOnly={strandedSkills}
+          interviewLedger={interviewLedger}
+          targetRole={targetRole}
+          company={snapshot.presentCompany || reportData?.resume_json?.experiences?.[0]?.company || 'my organization'}
+          onToast={(msg) => setToastMsg(msg)}
+        />
+      </div>
 
       {/* Deep issues (only shown when bullet audit is not available) */}
       {!resolvedBullets.length && sectionLevelIssues.length > 0 && (

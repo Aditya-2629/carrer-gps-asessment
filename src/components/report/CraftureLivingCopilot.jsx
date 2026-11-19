@@ -14,22 +14,32 @@ import { ArrowRight, X, MessageSquare } from 'lucide-react'
 
 // Main report sections observed for curated executive beats
 const OBSERVED_SECTION_IDS = [
+  // Tab 1 (Overview & Action Plan)
   'overview-pulse',
   'overview-bottleneck',
-  'resume-scorecard',
-  'resume-bullets',
-  'linkedin-studio',
+  'top-priorities',
   'funnel-leak',
   'sprint-roadmap',
-  'overview',
-  'bottleneck',
-  'resume-ai',
-  'linkedin',
-  'funnel',
-  'roadmap',
+  'next-action',
+
+  // Tab 2 (Resume Lab)
+  'resume-scorecard',
+  'resume-audit',
+  'resume-summary',
+  'resume-keywords',
+  'resume-bullets',
+  'resume-defense',
+
+  // Tab 3 (LinkedIn Studio)
+  'linkedin-scorecard',
+  'linkedin-audit',
+  'linkedin-headlines',
+  'linkedin-about',
+  'linkedin-skills',
+  'linkedin-outfox',
 ]
 
-export default function CraftureLivingCopilot() {
+export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
   const {
     emotion,
     mode,
@@ -212,6 +222,60 @@ export default function CraftureLivingCopilot() {
     return () => document.removeEventListener('click', handleDocumentClick, true)
   }, [triggerSiuuu])
 
+  const lastAnimatedCategoryRef = useRef(null)
+
+  const triggerCategoryChoreography = useCallback((category) => {
+    if (!mascotContainerRef.current || isCelebratingRef.current) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (lastAnimatedCategoryRef.current === category) return
+    lastAnimatedCategoryRef.current = category
+
+    gsap.killTweensOf(mascotContainerRef.current)
+
+    switch (category) {
+      case 'alert':
+        // Bottleneck / Funnel Leak (alert): Subtle attention double-nudge (x: [0, -5, 5, -3, 0], duration: 0.45)
+        gsap.timeline()
+          .to(mascotContainerRef.current, { x: -5, duration: 0.1, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: 5, duration: 0.12, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: -3, duration: 0.11, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: 0, duration: 0.12, ease: 'power2.out' })
+        break
+
+      case 'thinking':
+        // 7-Day Plan / Resume Audit / Keywords / Defense / Skills (thinking): Attentive forward lean (y: -4, rotateX: 6, duration: 0.35)
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -4, rotationX: 6, duration: 0.35, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: 0, rotationX: 0, duration: 0.4, ease: 'power2.inOut', delay: 1.2 })
+        break
+
+      case 'curious':
+        // Bullet Rewrites / Summary (curious): Crisp side-tilt (rotateZ: -4, scale: 1.03, duration: 0.35)
+        gsap.timeline()
+          .to(mascotContainerRef.current, { rotation: -4, scale: 1.03, duration: 0.35, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotation: 0, scale: 1, duration: 0.4, ease: 'power2.inOut', delay: 1.2 })
+        break
+
+      case 'proud':
+        // LinkedIn Headlines / About / OutFox (proud): Confident upright bounce (y: [0, -8, 0], duration: 0.5, ease: 'power2.out')
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -8, scaleY: 1.05, duration: 0.22, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: 0, scaleY: 1, duration: 0.28, ease: 'bounce.out' })
+        break
+
+      case 'cta':
+        // 1-on-1 Strategy Call CTA (cta): Welcoming hop + gentle wave tilt (y: [0, -10, 0], rotateZ: [0, -5, 5, 0])
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -10, rotation: -5, duration: 0.22, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotation: 5, duration: 0.15, ease: 'power1.inOut' })
+          .to(mascotContainerRef.current, { y: 0, rotation: 0, duration: 0.25, ease: 'bounce.out' })
+        break
+
+      default:
+        break
+    }
+  }, [])
+
   // 3. Curated Scroll-Based Section Beats (IntersectionObserver with 500ms Debounce)
   useEffect(() => {
     const observerCallback = (entries) => {
@@ -241,6 +305,7 @@ export default function CraftureLivingCopilot() {
 
         if (curated) {
           setIsThinking(true)
+          triggerCategoryChoreography(curated.category || curated.emotion)
           setTimeout(() => {
             setIsThinking(false)
             setActiveThought({
@@ -254,22 +319,26 @@ export default function CraftureLivingCopilot() {
       }, 500)
     }
 
-    const observer = new IntersectionObserver(observerCallback, {
-      root: null,
-      rootMargin: '-10% 0px -30% 0px',
-      threshold: [0.15, 0.4, 0.7],
-    })
+    let observer = null
+    const timer = setTimeout(() => {
+      observer = new IntersectionObserver(observerCallback, {
+        root: null,
+        rootMargin: '-10% 0px -30% 0px',
+        threshold: [0.15, 0.4, 0.7],
+      })
 
-    OBSERVED_SECTION_IDS.forEach((id) => {
-      const el = document.getElementById(id)
-      if (el) observer.observe(el)
-    })
+      OBSERVED_SECTION_IDS.forEach((id) => {
+        const el = document.getElementById(id)
+        if (el) observer.observe(el)
+      })
+    }, 140)
 
     return () => {
-      observer.disconnect()
+      clearTimeout(timer)
+      if (observer) observer.disconnect()
       if (scrollDebounceTimerRef.current) clearTimeout(scrollDebounceTimerRef.current)
     }
-  }, [mode, setActiveSection])
+  }, [activeTab, mode, setActiveSection, triggerCategoryChoreography])
 
   // 4. Subtle, Smooth Cursor Gaze Tracking via gsap.quickTo (Respects prefers-reduced-motion)
   useEffect(() => {

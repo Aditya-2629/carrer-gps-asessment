@@ -423,7 +423,13 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       : defaultPhases
 
   return (
-    <section id="roadmap" className="space-y-6">
+    <section
+      id="sprint-roadmap"
+      data-mascot-cue="Action plan & milestone pathway: follow the 7-day tactical sprint and 30/60/90-day targets."
+      data-mascot-chip="Action Plan"
+      data-mascot-emotion="thinking"
+      className="space-y-6"
+    >
       {/* Section Header with Segmented View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--border-default)] pb-4">
         <div>

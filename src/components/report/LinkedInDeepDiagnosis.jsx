@@ -1274,6 +1274,10 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
       {/* ── 1. Scorecard at the top ────────────────────────────────────────── */}
       <ResumeScoreCard
+        id="linkedin-scorecard"
+        data-mascot-cue="LinkedIn profile score: inspect recruiter SEO and visibility metrics."
+        data-mascot-chip="LinkedIn Scorecard"
+        data-mascot-emotion="thinking"
         dashboard={effectiveScorecard}
         variant={variant}
         title="LinkedIn Profile Score"
@@ -1282,7 +1286,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       />
 
       {/* ── 1B. Section-by-Section /10 Audit (Shraddha Playbook) ──────────── */}
-      <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
+      <div
+        id="linkedin-audit"
+        data-mascot-cue="5 core LinkedIn sections audited: scorecards and actionable fixes."
+        data-mascot-chip="Profile Audit"
+        data-mascot-emotion="thinking"
+        className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
           <div className="space-y-0.5">
             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
@@ -1370,6 +1380,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       {/* ── 1C. Gentle Crafture OutFox Recommendation (When Activity Is Hurting) ── */}
       {showOutFox && (
         <div
+          id="linkedin-outfox"
           className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs"
           data-mascot-cue="Automate daily connection limits safely with Crafture OutFox to boost visibility without manual outreach exhaustion."
           data-mascot-chip="Networking Velocity"
@@ -1799,6 +1810,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           {/* 3 Interactive Headline Options (One-Click Copy) */}
           {Array.isArray(optimizations.headlines) && optimizations.headlines.length > 0 && (
             <div
+              id="linkedin-headlines"
               className="space-y-3"
               data-mascot-cue="Deploy a proof-first headline with 15-20 words to maximize recruiter search ranking and inbound discovery."
               data-mascot-chip="Headline Optimization"
@@ -1875,7 +1887,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
           {/* Story-Driven About Section Card */}
           {rawAbout && (
-            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs">
+            <div
+              id="linkedin-about"
+              data-mascot-cue="Story-driven 4-part About section: hook decision-makers within 8 seconds."
+              data-mascot-chip="Story Narrative"
+              data-mascot-emotion="speaking"
+              className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -2126,7 +2144,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           )}
 
           {/* ── Unified: Skills & Recruiter SEO Bank (50+ Target) ── */}
-          <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs">
+          <div
+            id="linkedin-skills"
+            data-mascot-cue="Skills & SEO bank: pin your top 3 core skills to anchor your profile on recruiter search cards."
+            data-mascot-chip="Skills Bank"
+            data-mascot-emotion="thinking"
+            className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-5 shadow-xs"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
               <div className="space-y-0.5">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">

@@ -28,6 +28,7 @@ import FinalNextAction from './FinalNextAction'
 import ReportChatbot from './ReportChatbot'
 import ReportBottomNav from './ReportBottomNav'
 import { evaluateAssessmentPersona } from '../../../backend/agents/assessment/assessmentAgent'
+import { useReportGuideStore } from '../../store/useReportGuideStore'
 
 export const COCKPIT_TABS = [
   { id: 'overview', label: 'Overview & Action Plan', icon: '01' },
@@ -813,6 +814,7 @@ function ReportDashboardContent() {
   const setPhase = useAppStore((s) => s.setPhase)
   const theme = useAppStore((s) => s.theme)
   const toggleTheme = useAppStore((s) => s.toggleTheme)
+  const hydrateDynamicInsights = useReportGuideStore((s) => s.hydrateDynamicInsights)
 
   const isMockPreview = typeof window !== 'undefined' && (
     window.location.search.includes('mock=true') ||
@@ -899,6 +901,14 @@ function ReportDashboardContent() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
+
+  const effectiveReportData = storeReportData || (isMockPreview ? MOCK_REPORT : null)
+
+  useEffect(() => {
+    if (effectiveReportData && hydrateDynamicInsights) {
+      hydrateDynamicInsights(effectiveReportData)
+    }
+  }, [effectiveReportData, hydrateDynamicInsights])
 
   // Case 1: Fetching persisted report from backend for verified user
   if (isRecovering) {
@@ -1261,7 +1271,7 @@ function ReportDashboardContent() {
       </main>
 
       {/* ─── Living Copilot 1+3 Combo: Transparent Floating 3D Mascot + Scroll-Along Thinking Cloud ─── */}
-      <CraftureLivingCopilot />
+      <CraftureLivingCopilot activeTab={activeTab} />
 
       {/* Atlas Expandable Chat Drawer (Static pill launcher hidden in favor of living copilot) */}
       <ReportChatbot hideLauncher={true} />

@@ -71,12 +71,14 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
 }
 
 export default function ResumeScoreCard({
+  id,
   dashboard,
   candidateName,
   variant = 'dark',
   title = 'Resume Health Score',
   scoreWord = 'resume',
   hideChecklist = false,
+  ...rest
 }) {
   const grades = dashboard?.grades
   const compareData = useMemo(() => {
@@ -113,7 +115,7 @@ export default function ResumeScoreCard({
   const labelColor = light ? 'text-[var(--text-muted)]' : 'text-gray-300'
 
   return (
-    <div className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`}>
+    <div id={id} className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`} {...rest}>
       {/* Header: score ring + grade chips */}
       <div className="p-6 flex flex-col sm:flex-row items-center gap-6 border-b border-[var(--border-default)]/70 print:break-inside-avoid">
         <ScoreRing score={score} grade={grade} gradeLabel={gradeLabel} light={light} />
