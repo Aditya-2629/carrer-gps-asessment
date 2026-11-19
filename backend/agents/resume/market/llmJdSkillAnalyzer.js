@@ -88,7 +88,7 @@ export function deduplicateJds(jds = []) {
 
 /**
  * Clean and prune JD text to remove boilerplate noise (EEO, benefits, culture)
- * and preserve technical requirements, stack, and responsibilities up to 4000 characters.
+ * and preserve technical requirements, stack, and responsibilities up to 2200 characters.
  */
 export function pruneJdText(text = '') {
   if (!text || typeof text !== 'string') return ''
@@ -100,21 +100,17 @@ export function pruneJdText(text = '') {
     .replace(/(?:equal employment opportunity|equal opportunity employer|we are an equal opportunity|eeo statement|benefits and perks|compensation & benefits|accommodations|reasonable accommodation)[\s\S]*$/i, '')
     .trim() || trimmed
 
-  if (withoutEeo.length <= 4000) {
+  if (withoutEeo.length <= 2200) {
     return withoutEeo
   }
 
-  // 2. If text is long (> 4000 chars), prioritize tech stack, qualifications, and responsibilities
-  const match = withoutEeo.match(/(?:requirements|qualifications|skills|technical skills|tech stack|what you(?:'ll)? need|what we(?:'re)? looking for|to be considered|good fit|must have|who you are|what you will do|as a .*? you will|responsibilities)[\s\S]{300,4000}/i)
+  // 2. If text is long (> 2200 chars), prioritize tech stack, qualifications, and responsibilities
+  const match = withoutEeo.match(/(?:requirements|qualifications|skills|technical skills|tech stack|what you(?:'ll)? need|what we(?:'re)? looking for|to be considered|good fit|must have|who you are|what you will do|as a .*? you will|responsibilities)[\s\S]{300,2200}/i)
   if (match) {
     return match[0].trim()
   }
 
-  // 3. Fallback for long unstructured JDs: skip initial 300 chars of PR blurbs if very long, take next 3700 chars
-  if (withoutEeo.length > 5000) {
-    return withoutEeo.slice(300, 4000).trim()
-  }
-  return withoutEeo.slice(0, 4000).trim()
+  return withoutEeo.slice(0, 2200).trim()
 }
 
 // --- 1. SKILL EXTRACTION PROMPT (PER-JD ANALYSIS) ---
