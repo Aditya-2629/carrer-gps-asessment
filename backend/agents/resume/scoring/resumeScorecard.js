@@ -712,7 +712,8 @@ export function computeScorecard({
   const headerImprovement = 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn (no tables, text boxes, or embedded graphics).'
 
   // 2. Professional Summary (/10)
-  const sumText = (canonicalResume?.summary || canonicalResume?.candidate?.summary || '').trim()
+  const rawSum = canonicalResume?.summary ?? canonicalResume?.candidate?.summary ?? ''
+  const sumText = (typeof rawSum === 'string' ? rawSum : (rawSum?.text || rawSum?.summary || '')).trim()
   const sumIssues = issues.filter((i) => i.category === 'generic_summary' || i.category === 'weak_positioning' || i.bulletId === 'summary_001')
   let summaryScore = 10
   if (!sumText || sumText.length < 40) {
