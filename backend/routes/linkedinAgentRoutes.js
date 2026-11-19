@@ -16,6 +16,7 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { listModelsForPurpose } from '../ai/config/modelRegistry.js'
+import User from '../models/User.js'
 
 const router = express.Router()
 
@@ -266,8 +267,30 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
       }
     }
 
+    // Parse direct resumeJson or canonicalResume if passed in body
+    let directResumeJson = null
+    if (req.body?.resumeJson) {
+      directResumeJson = typeof req.body.resumeJson === 'object' ? req.body.resumeJson : null
+      if (!directResumeJson && typeof req.body.resumeJson === 'string') {
+        try { directResumeJson = JSON.parse(req.body.resumeJson) } catch (_e) {}
+      }
+    } else if (req.body?.canonicalResume) {
+      directResumeJson = typeof req.body.canonicalResume === 'object' ? req.body.canonicalResume : null
+      if (!directResumeJson && typeof req.body.canonicalResume === 'string') {
+        try { directResumeJson = JSON.parse(req.body.canonicalResume) } catch (_e) {}
+      }
+    }
+
+    // If userId is provided, look up persisted user resumeJson
+    if (!directResumeJson && req.body?.userId) {
+      try {
+        const foundUser = await User.findById(req.body.userId).lean()
+        if (foundUser?.resumeJson) directResumeJson = foundUser.resumeJson
+      } catch (_uErr) {}
+    }
+
     // Validate that at least one relevant input source is provided
-    const hasResume = Boolean(req.file || (resumeText && resumeText.trim()))
+    const hasResume = Boolean(req.file || (resumeText && resumeText.trim()) || directResumeJson)
     const hasLinkedIn = Boolean(linkedinData || (linkedinUrl && linkedinUrl.trim()))
     if (!hasResume && !hasLinkedIn && !targetRole) {
       return res.status(400).json({
@@ -314,9 +337,20 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
       canonicalResume: null,
       extractedFacts: null,
       targetRole,
+      coreSkills: [],
     }
 
-    if (hasResume) {
+    if (directResumeJson) {
+      const skills = Array.isArray(directResumeJson.skills)
+        ? directResumeJson.skills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+        : (typeof directResumeJson.skills === 'object' ? Object.values(directResumeJson.skills).flat().filter(Boolean) : [])
+      resumeContext = {
+        canonicalResume: directResumeJson,
+        extractedFacts: directResumeJson.candidateSnapshot || directResumeJson.facts || null,
+        targetRole: directResumeJson.targetRole || directResumeJson.candidate?.targetRole || targetRole,
+        coreSkills: skills,
+      }
+    } else if (hasResume) {
       try {
         const prepared = await ResumeAgent.prepareCanonicalContext({
           buffer: req.file?.buffer || null,
@@ -325,10 +359,14 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
           resumeText,
           targetRole,
         })
+        const skills = Array.isArray(prepared.canonicalResume?.skills)
+          ? prepared.canonicalResume.skills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+          : []
         resumeContext = {
           canonicalResume: prepared.canonicalResume,
           extractedFacts: prepared.extractedFacts,
           targetRole: prepared.targetRole || targetRole,
+          coreSkills: skills,
         }
       } catch (resErr) {
         console.warn('[LinkedInAgentRoute] Could not prepare canonical resume context:', resErr.message)

@@ -123,6 +123,34 @@ export function isLazySuffixAppend(rewrite, original) {
     return true
   }
 
+  // 4. Middle-body overlap check: even if first 1–2 verbs changed (e.g. "Worked on X" -> "Engineered X by ...")
+  // Check if >65% of the original body words match the rewrite body without introducing a genuine new metric.
+  const origWords = origLower.replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2)
+  const rwWords = rwLower.replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2)
+
+  if (origWords.length >= 5 && rwWords.length >= 5) {
+    // Strip leading 1–2 words (verb swap)
+    const origBody = origWords.slice(Math.min(2, Math.floor(origWords.length * 0.25)))
+    const rwBodySet = new Set(rwWords.slice(Math.min(2, Math.floor(rwWords.length * 0.25))))
+
+    let matchCount = 0
+    for (const w of origBody) {
+      if (rwBodySet.has(w)) matchCount++
+    }
+    const overlapRatio = matchCount / origBody.length
+
+    // Check if rewrite contains any new metric token that wasn't already in original
+    const origMetrics = origLower.match(/(\$?\d+(?:\.\d+)?%?|\b\d+x\b)/g) || []
+    const rwMetrics = rwLower.match(/(\$?\d+(?:\.\d+)?%?|\b\d+x\b)/g) || []
+    const origMetricSet = new Set(origMetrics)
+    const hasNewMetric = rwMetrics.some((m) => !origMetricSet.has(m))
+
+    // If >65% of the middle body words are identical and no new metric was introduced, it's a lazy verb swap
+    if (overlapRatio >= 0.65 && !hasNewMetric) {
+      return true
+    }
+  }
+
   return false
 }
 

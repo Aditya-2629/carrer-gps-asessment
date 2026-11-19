@@ -580,37 +580,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     }
   }, [linkedinAgent, reportData, profileData, headline, targetRole])
 
-  const optimizedHeadlines = useMemo(() => {
-    if (Array.isArray(linkedinAgent?.optimizedHeadlines) && linkedinAgent.optimizedHeadlines.length > 0) {
-      return linkedinAgent.optimizedHeadlines
-    }
-    if (Array.isArray(reportData?.linkedin_agent?.optimizedHeadlines) && reportData.linkedin_agent.optimizedHeadlines.length > 0) {
-      return reportData.linkedin_agent.optimizedHeadlines
-    }
-    const skillsSlice = (effectiveSkills || []).slice(0, 3).join(', ') || 'Modern Tech Stack'
-    const yearsExp = Number(yoe) || 3
-    const expLabel = yearsExp >= 6 ? 'Senior' : ''
-    const company = profileData?.experiences?.[0]?.company || ''
-
-    return [
-      {
-        style: 'Executive & Proof-Driven',
-        headline: `${expLabel ? `${expLabel} ` : ''}${targetRole} | ${skillsSlice} | Scaled High-Throughput Production Systems`,
-        reason: 'Balances title keyword density with immediate proof of scale.',
-      },
-      {
-        style: 'Specialist & Technology Stack',
-        headline: `${targetRole} specializing in ${skillsSlice}${company ? ` at ${company}` : ''}`,
-        reason: 'Direct match for recruiter boolean searches looking for specific stack depth.',
-      },
-      {
-        style: 'Business Impact & Outcomes',
-        headline: `${targetRole} | Architecting Data Solutions & Automating Workflows with ${skillsSlice}`,
-        reason: 'Attracts hiring managers looking for business ROI rather than pure coding.',
-      },
-    ]
-  }, [linkedinAgent, reportData, effectiveSkills, yoe, targetRole, profileData])
-
   const isVisualItem = (item) => {
     if (!item) return false
     const str = [item.id, item.type, item.section, item.title, item.name, item.diagnosis].filter(Boolean).join(' ').toLowerCase()
@@ -676,11 +645,13 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     },
   ]
 
-  const fallbackRecommendedSkills = isSoftwareRole
-    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture']
-    : isDataRole
-      ? ['BigQuery', 'Tableau', 'Snowflake', 'dbt', 'Data Modeling']
-      : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards']
+  const fallbackRecommendedSkills = cleanCandidateSkills.length > 0
+    ? cleanCandidateSkills
+    : missingSkills.length > 0
+    ? missingSkills.map((m) => (typeof m === 'string' ? m : m.skill || m.name)).filter(Boolean)
+    : coreSkillList.length > 0
+    ? coreSkillList
+    : defaultSkills
 
   const optimizations = rawOptimizations || {
     headlines: fallbackHeadlinesList,
@@ -688,12 +659,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       hook: richFallbackHook,
       audienceAndProblem: richFallbackAudience,
       approachAndSkills: richFallbackApproach,
-      proof: richFallbackProof,
       callToAction: richFallbackCta,
       fullText: richFallbackAbout,
     },
     top3PinnedSkills: pinnedSkills,
-    recommendedSkillsToAdd: cleanCandidateSkills.length > 0 ? cleanCandidateSkills : fallbackRecommendedSkills,
+    recommendedSkillsToAdd: fallbackRecommendedSkills,
   }
 
   const experienceUpgrades = (optimizations?.experienceUpgrades || []).filter(Boolean)
@@ -1118,7 +1088,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const aboutIsString = typeof rawAbout === 'string'
   let hookText = safeText(rawAbout?.hook)
   let audienceText = safeText(rawAbout?.audienceAndProblem)
-  let approachText = safeText(rawAbout?.approachAndSkills || rawAbout?.proof)
+  let approachText = safeText(rawAbout?.approachAndSkills)
   let ctaText = safeText(rawAbout?.closingCta || rawAbout?.callToAction)
   let fallbackFullText = safeText(rawAbout?.fullText)
 

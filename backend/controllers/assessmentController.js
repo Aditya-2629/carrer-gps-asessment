@@ -327,52 +327,7 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
-    // Detect LinkedIn URL in submitted answers
-    let extractedLinkedinUrl = null
-    for (const [key, val] of Object.entries(answers)) {
-      if (typeof val === 'string' && val.includes('linkedin.com/in/')) {
-        extractedLinkedinUrl = val.trim()
-        break
-      }
-    }
-
-    if (extractedLinkedinUrl) {
-      user.linkedinUrl = extractedLinkedinUrl
-      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
-      const needsProfile = !user.linkedinData
-      const needsPosts = !user.linkedinActivityData
-
-      if (needsProfile || needsPosts) {
-        try {
-          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
-          const [scrapedProfile, scrapedPosts] = await Promise.all([
-            needsProfile
-              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinData),
-            needsPosts
-              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinActivityData),
-          ])
-
-          if (scrapedProfile) {
-            user.linkedinData = scrapedProfile
-          }
-          if (scrapedPosts) {
-            user.linkedinActivityData = scrapedPosts
-          }
-        } catch (scrapeErr) {
-          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
-        }
-      }
-    }
-
-    // Handle uploaded file if present via Multer
+    // 1. Handle uploaded resume file FIRST via Multer so parsed resume context is immediately ready
     if (req.file) {
       user.resumeData = req.file.buffer
       user.resumeName = req.file.originalname
@@ -440,6 +395,51 @@ export const saveAnswers = async (req, res) => {
           }
         } catch (warmupErr) {
           console.warn('[AssessmentController] Upload-time market bucket warming non-fatal error:', warmupErr.message)
+        }
+      }
+    }
+
+    // 2. Detect LinkedIn URL in submitted answers and perform concurrent scraping with verified resumeContext
+    let extractedLinkedinUrl = null
+    for (const [key, val] of Object.entries(answers)) {
+      if (typeof val === 'string' && val.includes('linkedin.com/in/')) {
+        extractedLinkedinUrl = val.trim()
+        break
+      }
+    }
+
+    if (extractedLinkedinUrl) {
+      user.linkedinUrl = extractedLinkedinUrl
+      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
+      const needsProfile = !user.linkedinData
+      const needsPosts = !user.linkedinActivityData
+
+      if (needsProfile || needsPosts) {
+        try {
+          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
+          const [scrapedProfile, scrapedPosts] = await Promise.all([
+            needsProfile
+              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinData),
+            needsPosts
+              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
+                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
+                  return null
+                })
+              : Promise.resolve(user.linkedinActivityData),
+          ])
+
+          if (scrapedProfile) {
+            user.linkedinData = scrapedProfile
+          }
+          if (scrapedPosts) {
+            user.linkedinActivityData = scrapedPosts
+          }
+        } catch (scrapeErr) {
+          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
         }
       }
     }

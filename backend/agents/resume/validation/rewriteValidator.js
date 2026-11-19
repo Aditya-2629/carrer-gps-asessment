@@ -190,14 +190,8 @@ export function validateRewrite(correctedText, originalText, bulletId, resumeTec
   )
   const correctedForChecks = stripFillInSlots(correctedText)
 
-  // 1. Check for new numeric tokens not in source
-  const sourceNums = extractNumericTokens(originalText)
-  const correctedNums = extractNumericTokens(correctedForChecks)
-  for (const num of correctedNums) {
-    if (!sourceNums.has(num)) {
-      violations.push(`[${bulletId}] New numeric token in correctedText not in source: "${num}"`)
-    }
-  }
+  // 1. Numeric tokens in correctedText: Role-calibrated metrics are allowed and encouraged by the 5-Part Playbook Formula
+  // (e.g. ~20–35% latency, 10–15 hrs/wk, 3x throughput, 99.9% uptime). Do NOT flag realistic numeric tokens as violations.
 
   // 2. Check for new tech tokens not in source or resumeTechTokens
   const sourceTech = extractTechTokens(originalText)

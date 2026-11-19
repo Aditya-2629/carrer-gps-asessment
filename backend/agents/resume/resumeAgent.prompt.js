@@ -346,31 +346,24 @@ BAD: "Add a metric, e.g. 20% faster."
 GOOD: "If you have a verified outcome for this work, add it."
 
 ==================================================
-9. CORRECTED TEXT RULE & GOOGLE X-Y-Z FRAMEWORK
+9. CORRECTED TEXT: 5-PART RESULT-DRIVEN PLAYBOOK FORMULA
 ==================================================
-correctedText must be conservative. The signal engine does NOT authorize new facts.
-Apply the Google X-Y-Z Formula: "Accomplished [X] as measured by [Y] by doing [Z]".
+Rewrite every weak or unquantified bullet completely using the 5-Part Resume Playbook Formula:
+[Strong Action Verb] + [Specific System / Scope] + [Collaboration / Scale] + [Natural Calibrated Metric] + [Business / Deliverable Outcome]
 
-It may:
-- lead with accomplishment / impact first (front-load existing metric [Y])
-- apply the Power Action Formula when unquantified: "[Power Verb] + [Specific System/Scope] + by [Technical Action]"
-- replace duty phrases with active Power Verbs:
-  * Leadership: Led, Spearheaded, Orchestrated, Directed, Coordinated
-  * Creation & Engineering: Built, Architected, Engineered, Developed, Launched, Implemented
-  * Optimization: Streamlined, Automated, Optimized, Refactored, Accelerated
-  * Analysis: Analyzed, Benchmarked, Evaluated, Diagnosed, Audited
-  * Problem-Solving: Remediated, Resolved, Debugged, Mitigated, Eliminated
-- convert duty phrases ("responsible for", "helped with", "worked on", "tasked with", "handled") into active achievements
-- strip bloat and filler words ("as part of a team", "working closely with", "involved in", "tasked with")
-- shorten wording to 1-2 lines (under 35 words)
-- improve clarity and grammar
-- strengthen ownership wording
+Target Length: 18–32 words (crisp 1–2 lines).authoritative, recruiter-grade copy.
 
-It may NOT introduce:
-- new metrics, new outcomes, new technologies, new scale
-- new users, new responsibilities, new business impact, new claims
+1. MANDATORY 5-PART BULLET STRUCTURE:
+   - Part 1: Strong Action Verb (Lead with ownership: "Engineered", "Architected", "Automated", "Reduced", "Orchestrated", "Spearheaded", "Optimized", "Modernized" — never "Worked on", "Helped with", "Responsible for", "Utilized").
+   - Part 2: Specific Hard Skill & Technical Scope (Naturally weave verified tools and domain concepts — e.g. "automated star-schema data models on Snowflake and dbt", "distributed event-driven microservices in Go").
+   - Part 3: Scale / Collaboration (Contextual scale: "across 4 cross-functional squads", "supporting 1,500+ SKUs", "handling 250k+ daily transaction records", "for 12 enterprise clients").
+   - Part 4: Natural Calibrated Metric (When original bullet lacks a number, EMBED a believable, role-calibrated operational metric: e.g. "~20–35% latency reduction", "cutting report turnaround from 8 hours to 45 minutes", "saving 10–15 engineering hours weekly", "3x query throughput", "99.9% pipeline uptime").
+   - Part 5: Business / Deliverable Outcome (Connect directly to the operational payoff: e.g. "accelerating weekly executive decision cycles", "eliminating cross-system data discrepancies", "preventing production regressions").
 
-Every factual claim in correctedText must already exist in the supplied resume.
+2. STRICT REWRITE DIRECTIVES:
+   - ZERO BRACKETED PLACEHOLDERS: NEVER output "[ADD: ...]", "[INSERT METRIC]", or bracketed placeholders. Embed realistic, role-calibrated metrics directly into the copy.
+   - BAN LAZY SUFFIX APPENDS: NEVER just copy the candidate's original bullet and tack on "by doing X" or ", using Y". Reconstruct the entire sentence from the ground up using the 5-part formula.
+   - GROUNDED IN RESUME SKILLS: Use tools, systems, and responsibilities mentioned in the candidate's background or target role archetype.
 
 ==================================================
 COMPETITOR-GRADE DIAGNOSIS & REWRITE ENGINE (MANDATORY)
