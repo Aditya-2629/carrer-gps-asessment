@@ -39,6 +39,56 @@ const OBSERVED_SECTION_IDS = [
   'linkedin-outfox',
 ]
 
+// Section to Choreography Mapping
+const SECTION_TO_REACTION = {
+  // 1. welcome_wave
+  'overview-pulse': 'welcome_wave',
+
+  // 2. alarm_double_take
+  'overview-bottleneck': 'alarm_double_take',
+  'funnel-leak': 'alarm_double_take',
+
+  // 3. confident_nod
+  'top-priorities': 'confident_nod',
+  'sprint-roadmap': 'confident_nod',
+
+  // 4. inspector_lean
+  'resume-scorecard': 'inspector_lean',
+  'resume-audit': 'inspector_lean',
+
+  // 5. deep_think_rock
+  'resume-summary': 'deep_think_rock',
+  'resume-bullets': 'deep_think_rock',
+
+  // 6. lightbulb_pop
+  'resume-keywords': 'lightbulb_pop',
+  'resume-defense': 'lightbulb_pop',
+
+  // 7. swagger_bounce
+  'linkedin-headlines': 'swagger_bounce',
+  'linkedin-about': 'swagger_bounce',
+  'linkedin-skills': 'swagger_bounce',
+  'linkedin-outfox': 'swagger_bounce',
+  'linkedin-scorecard': 'swagger_bounce',
+  'linkedin-audit': 'swagger_bounce',
+
+  // 8. call_invite_wave
+  'next-action': 'call_invite_wave',
+}
+
+const REACTION_TO_WOBNIMO = {
+  welcome_wave: 'speaking',
+  alarm_double_take: 'surprised',
+  confident_nod: 'listening',
+  inspector_lean: 'curious',
+  deep_think_rock: 'thinking',
+  lightbulb_pop: 'happy',
+  swagger_bounce: 'happy',
+  call_invite_wave: 'celebrating',
+  siuuu_celebrate: 'celebrating',
+  idle_sleep: 'sleep',
+}
+
 export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
   const {
     emotion,
@@ -62,6 +112,37 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
   const [isThinking, setIsThinking] = useState(false)
   const [isCelebrating, setIsCelebrating] = useState(false)
   const [activeThought, setActiveThought] = useState(null)
+  const [reactionWobnimo, setReactionWobnimo] = useState(null)
+  const [isAsleep, setIsAsleep] = useState(false)
+
+  const isChoreographingRef = useRef(false)
+  const choreoTimerRef = useRef(null)
+  const inactivityTimerRef = useRef(null)
+
+  // 15s Inactivity Sleep Tracker
+  useEffect(() => {
+    const resetInactivity = () => {
+      setIsAsleep(false)
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+      }
+      inactivityTimerRef.current = setTimeout(() => {
+        if (!isCelebratingRef.current && !isChatOpen) {
+          setIsAsleep(true)
+        }
+      }, 15000)
+    }
+
+    resetInactivity()
+
+    const events = ['mousemove', 'scroll', 'keydown', 'click', 'touchstart']
+    events.forEach((ev) => window.addEventListener(ev, resetInactivity, { passive: true }))
+
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+      events.forEach((ev) => window.removeEventListener(ev, resetInactivity))
+    }
+  }, [isChatOpen])
 
   // Current fallback insight from store
   const storeInsight = useMemo(() => {
@@ -76,7 +157,11 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     (mode === 'solution' ? storeInsight?.solution : storeInsight?.thought || storeInsight?.problem)
 
   const currentEmotion = activeThought?.emotion || emotion || 'idle'
-  const wobnimoState = isCelebrating ? 'celebrating' : EMOTION_TO_WOBNIMO[currentEmotion] || 'idle'
+  const wobnimoState = isCelebrating
+    ? 'celebrating'
+    : isAsleep
+    ? 'sleep'
+    : reactionWobnimo || EMOTION_TO_WOBNIMO[currentEmotion] || 'idle'
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
   const accentColor = currentPalette.shell || '#6366F1'
 
@@ -224,51 +309,98 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
   const lastAnimatedCategoryRef = useRef(null)
 
-  const triggerCategoryChoreography = useCallback((category) => {
+  // Trigger Section Reaction with Tween Isolation and QuickTo Pause
+  const triggerSectionReaction = useCallback((sectionId) => {
     if (!mascotContainerRef.current || isCelebratingRef.current) return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    if (lastAnimatedCategoryRef.current === category) return
-    lastAnimatedCategoryRef.current = category
 
+    const reactionKey = SECTION_TO_REACTION[sectionId] || 'welcome_wave'
+    if (lastAnimatedCategoryRef.current === reactionKey) return
+    lastAnimatedCategoryRef.current = reactionKey
+
+    // Clean Isolation: Kill previous section-reaction tweens
     gsap.killTweensOf(mascotContainerRef.current)
 
-    switch (category) {
-      case 'alert':
-        // Bottleneck / Funnel Leak (alert): Subtle attention double-nudge (x: [0, -5, 5, -3, 0], duration: 0.45)
+    // Pause quickTo cursor gaze for 550ms
+    isChoreographingRef.current = true
+    if (choreoTimerRef.current) clearTimeout(choreoTimerRef.current)
+    choreoTimerRef.current = setTimeout(() => {
+      isChoreographingRef.current = false
+    }, 550)
+
+    // Set Wobnimo state for the reaction
+    const wobState = REACTION_TO_WOBNIMO[reactionKey] || 'speaking'
+    setReactionWobnimo(wobState)
+    setTimeout(() => {
+      setReactionWobnimo(null)
+    }, 2200)
+
+    switch (reactionKey) {
+      case 'welcome_wave':
+        // overview-pulse: Gentle welcome bow + double-tilt
         gsap.timeline()
-          .to(mascotContainerRef.current, { x: -5, duration: 0.1, ease: 'power2.inOut' })
-          .to(mascotContainerRef.current, { x: 5, duration: 0.12, ease: 'power2.inOut' })
-          .to(mascotContainerRef.current, { x: -3, duration: 0.11, ease: 'power2.inOut' })
-          .to(mascotContainerRef.current, { x: 0, duration: 0.12, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: -4, rotation: -6, duration: 0.22, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotation: 6, duration: 0.2, ease: 'power1.inOut' })
+          .to(mascotContainerRef.current, { y: 0, rotation: -3, duration: 0.18, ease: 'power1.inOut' })
+          .to(mascotContainerRef.current, { rotation: 0, duration: 0.15, ease: 'power2.out' })
         break
 
-      case 'thinking':
-        // 7-Day Plan / Resume Audit / Keywords / Defense / Skills (thinking): Attentive forward lean (y: -4, rotateX: 6, duration: 0.35)
+      case 'alarm_double_take':
+        // overview-bottleneck & funnel-leak: Crisp alert shake
         gsap.timeline()
-          .to(mascotContainerRef.current, { y: -4, rotationX: 6, duration: 0.35, ease: 'power2.out' })
-          .to(mascotContainerRef.current, { y: 0, rotationX: 0, duration: 0.4, ease: 'power2.inOut', delay: 1.2 })
+          .to(mascotContainerRef.current, { x: -7, rotation: -4, duration: 0.09, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: 7, rotation: 4, duration: 0.1, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: -5, rotation: -2, duration: 0.09, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: 5, rotation: 2, duration: 0.08, ease: 'power2.inOut' })
+          .to(mascotContainerRef.current, { x: 0, rotation: 0, duration: 0.1, ease: 'power2.out' })
         break
 
-      case 'curious':
-        // Bullet Rewrites / Summary (curious): Crisp side-tilt (rotateZ: -4, scale: 1.03, duration: 0.35)
+      case 'confident_nod':
+        // top-priorities & sprint-roadmap: Double executive nod
         gsap.timeline()
-          .to(mascotContainerRef.current, { rotation: -4, scale: 1.03, duration: 0.35, ease: 'power2.out' })
-          .to(mascotContainerRef.current, { rotation: 0, scale: 1, duration: 0.4, ease: 'power2.inOut', delay: 1.2 })
+          .to(mascotContainerRef.current, { rotationX: 14, y: 3, duration: 0.16, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotationX: 0, y: 0, duration: 0.14, ease: 'power2.in' })
+          .to(mascotContainerRef.current, { rotationX: 12, y: 2, duration: 0.14, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotationX: 0, y: 0, duration: 0.14, ease: 'power2.in' })
         break
 
-      case 'proud':
-        // LinkedIn Headlines / About / OutFox (proud): Confident upright bounce (y: [0, -8, 0], duration: 0.5, ease: 'power2.out')
+      case 'inspector_lean':
+        // resume-scorecard & resume-audit: Forward zoom-in inspect
         gsap.timeline()
-          .to(mascotContainerRef.current, { y: -8, scaleY: 1.05, duration: 0.22, ease: 'power2.out' })
-          .to(mascotContainerRef.current, { y: 0, scaleY: 1, duration: 0.28, ease: 'bounce.out' })
+          .to(mascotContainerRef.current, { scale: 1.08, rotationY: -12, y: -4, duration: 0.32, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { scale: 1, rotationY: 0, y: 0, duration: 0.35, ease: 'power2.inOut', delay: 1.1 })
         break
 
-      case 'cta':
-        // 1-on-1 Strategy Call CTA (cta): Welcoming hop + gentle wave tilt (y: [0, -10, 0], rotateZ: [0, -5, 5, 0])
+      case 'deep_think_rock':
+        // resume-summary & resume-bullets: Thoughtful tilt & subtle float
         gsap.timeline()
-          .to(mascotContainerRef.current, { y: -10, rotation: -5, duration: 0.22, ease: 'power2.out' })
-          .to(mascotContainerRef.current, { rotation: 5, duration: 0.15, ease: 'power1.inOut' })
-          .to(mascotContainerRef.current, { y: 0, rotation: 0, duration: 0.25, ease: 'bounce.out' })
+          .to(mascotContainerRef.current, { rotation: -6, y: -5, duration: 0.3, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotation: 0, y: 0, duration: 0.35, ease: 'power2.inOut', delay: 1.1 })
+        break
+
+      case 'lightbulb_pop':
+        // resume-keywords & resume-defense: Crisp upward "aha" pop
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -11, scale: 1.09, duration: 0.22, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: 0, scale: 1, duration: 0.28, ease: 'bounce.out' })
+        break
+
+      case 'swagger_bounce':
+        // linkedin-headlines, linkedin-about, linkedin-outfox, etc.: Confident double-hop + side turn
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -9, rotationY: 14, duration: 0.2, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: 0, duration: 0.16, ease: 'power2.in' })
+          .to(mascotContainerRef.current, { y: -5, rotationY: 0, duration: 0.14, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { y: 0, duration: 0.18, ease: 'bounce.out' })
+        break
+
+      case 'call_invite_wave':
+        // next-action: Warm welcoming wave-tilt
+        gsap.timeline()
+          .to(mascotContainerRef.current, { y: -6, rotation: -9, duration: 0.22, ease: 'power2.out' })
+          .to(mascotContainerRef.current, { rotation: 7, duration: 0.18, ease: 'power1.inOut' })
+          .to(mascotContainerRef.current, { rotation: -4, duration: 0.15, ease: 'power1.inOut' })
+          .to(mascotContainerRef.current, { y: 0, rotation: 0, duration: 0.2, ease: 'power2.out' })
         break
 
       default:
@@ -305,7 +437,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
         if (curated) {
           setIsThinking(true)
-          triggerCategoryChoreography(curated.category || curated.emotion)
+          triggerSectionReaction(sectionId)
           setTimeout(() => {
             setIsThinking(false)
             setActiveThought({
@@ -338,7 +470,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
       if (observer) observer.disconnect()
       if (scrollDebounceTimerRef.current) clearTimeout(scrollDebounceTimerRef.current)
     }
-  }, [activeTab, mode, setActiveSection, triggerCategoryChoreography])
+  }, [activeTab, mode, setActiveSection, triggerSectionReaction])
 
   // 4. Subtle, Smooth Cursor Gaze Tracking via gsap.quickTo (Respects prefers-reduced-motion)
   useEffect(() => {
@@ -367,7 +499,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     gsap.set(mascotContainerRef.current, { transformPerspective: 800 })
 
     const handleMouseMove = (e) => {
-      if (!mascotContainerRef.current || isCelebratingRef.current) return
+      if (!mascotContainerRef.current || isCelebratingRef.current || isChoreographingRef.current || isAsleep) return
 
       const rect = mascotContainerRef.current.getBoundingClientRect()
       const centerX = rect.left + rect.width / 2
@@ -387,7 +519,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
     return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
+  }, [isAsleep])
 
   // 5. Purposeful [data-mascot-cue] Hover Reactions (350ms Debounced, Zero Spam)
   const hoverTimerRef = useRef(null)
@@ -674,7 +806,11 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
               whileHover={{ opacity: 1, y: 0 }}
               className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
             >
-              {cloudMinimized ? 'Expand Guide' : 'Consult Atlas'}
+              {isAsleep
+                ? 'Paused — scroll or hover to wake'
+                : cloudMinimized
+                ? 'Expand Guide'
+                : 'Consult Atlas'}
             </motion.div>
           )}
         </div>
