@@ -1211,11 +1211,6 @@ function ReportDashboardContent() {
                   currentPhaseId={reportData.career_journey?.current_phase_id}
                   reportData={reportData}
                 />
-                <FinalNextAction
-                  coachData={reportData.coach_intervention}
-                  reportData={reportData}
-                  onBookCall={handleBookCall}
-                />
               </div>
             </div>
           )}
@@ -1237,6 +1232,13 @@ function ReportDashboardContent() {
               />
             </div>
           )}
+
+          {/* Execution Bridge CTA Session & PDF Download (Across All 3 Tabs) */}
+          <FinalNextAction
+            coachData={reportData.coach_intervention}
+            reportData={reportData}
+            onBookCall={handleBookCall}
+          />
 
           {/* Interactive Bottom Section Navigation Controls */}
           <ReportBottomNav
