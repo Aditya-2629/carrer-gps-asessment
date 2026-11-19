@@ -20,7 +20,7 @@ import {
 
 // Import Verified Brand & Scene Assets
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
-import pdfHeroBanner from '../../assets/images/pdf-hero-banner.jpg'
+import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
@@ -82,13 +82,19 @@ function getRadarCoords(cx, cy, R, scores) {
 /**
  * Seamless Editorial Banner with zero color seam.
  * Layer 1: Full-bleed image (objectFit: 'cover')
- * Layer 2: Soft white fade SVG gradient mask
- * Layer 3: Foreground copy (maxWidth: '55%', padding: 16, gap: 5)
+ * Layer 2: Soft fade SVG gradient mask with exact background color matching
+ * Layer 3: Foreground copy (maxWidth: '46%' or '55%', padding: 16, gap: 5)
  */
 function EditorialBanner({
   imageSrc,
   minHeight = 180,
   gradientId = 'fadeLeft',
+  bgColor = '#FFFFFF',
+  borderColor = '#E2E8F0',
+  textMaxWidth = '55%',
+  stop1 = { offset: '0%', opacity: 1 },
+  stop2 = { offset: '36%', opacity: 0.92 },
+  stop3 = { offset: '54%', opacity: 0 },
   children,
   style = {},
 }) {
@@ -99,8 +105,8 @@ function EditorialBanner({
         overflow: 'hidden',
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#E2E8F0',
-        backgroundColor: '#FFFFFF',
+        borderColor: style?.borderColor || borderColor,
+        backgroundColor: bgColor,
         minHeight,
         marginBottom: 8,
         ...style,
@@ -122,7 +128,7 @@ function EditorialBanner({
         />
       )}
 
-      {/* Layer 2: Unslop Soft White Fade Mask */}
+      {/* Layer 2: Soft Fade Mask with exact bgColor matching */}
       <Svg
         viewBox="0 0 530 190"
         preserveAspectRatio="none"
@@ -136,9 +142,9 @@ function EditorialBanner({
       >
         <Defs>
           <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={1} />
-            <Stop offset="42%" stopColor="#FFFFFF" stopOpacity={0.95} />
-            <Stop offset="64%" stopColor="#FFFFFF" stopOpacity={0} />
+            <Stop offset={stop1.offset} stopColor={bgColor} stopOpacity={stop1.opacity} />
+            <Stop offset={stop2.offset} stopColor={bgColor} stopOpacity={stop2.opacity} />
+            <Stop offset={stop3.offset} stopColor={bgColor} stopOpacity={stop3.opacity} />
           </LinearGradient>
         </Defs>
         <Rect width="530" height="190" fill={`url(#${gradientId})`} />
@@ -148,7 +154,7 @@ function EditorialBanner({
       <View
         style={{
           position: 'relative',
-          maxWidth: '55%',
+          maxWidth: textMaxWidth,
           padding: 16,
           gap: 5,
         }}
@@ -760,7 +766,14 @@ export default function CareerReportPdf({ reportData = {} }) {
             1. EXECUTIVE COVER & 6-PHASE HIRING JOURNEY
             ───────────────────────────────────────────────────────────── */}
         {/* Seamless Editorial Hero Banner with Edge-Mask Blending */}
-        <EditorialBanner imageSrc={pdfHeroBanner} minHeight={185} gradientId="fadeLeftHero">
+        <EditorialBanner
+          imageSrc={pdfHeroBanner}
+          minHeight={185}
+          gradientId="fadeLeftHero"
+          bgColor="#FCF4EB"
+          borderColor="#EADBC8"
+          textMaxWidth="46%"
+        >
           {/* Top Brand Strip */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
@@ -791,9 +804,9 @@ export default function CareerReportPdf({ reportData = {} }) {
               alignItems: 'center',
               gap: 9,
               alignSelf: 'flex-start',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: '#FFFFFF',
               borderWidth: 1,
-              borderColor: '#C7D2FE',
+              borderColor: '#EADBC8',
               borderRadius: 7,
               paddingVertical: 5,
               paddingHorizontal: 10,
@@ -1676,6 +1689,11 @@ export default function CareerReportPdf({ reportData = {} }) {
           imageSrc={pdfCtaBanner}
           minHeight={160}
           gradientId="fadeLeftCta"
+          bgColor="#FFFFFF"
+          borderColor="#E2E8F0"
+          textMaxWidth="55%"
+          stop2={{ offset: '42%', opacity: 0.95 }}
+          stop3={{ offset: '64%', opacity: 0 }}
           style={{ marginTop: 8 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
