@@ -583,6 +583,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           data-mascot-emotion="thinking"
           dashboard={dashboard}
           candidateName={firstName}
+          marketContext={reportData?.marketContext || reportData?.resume_agent?.marketContext || resumeAgent?.marketContext}
           variant={variant}
         />
       )}

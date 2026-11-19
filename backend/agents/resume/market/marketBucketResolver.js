@@ -128,6 +128,78 @@ export const CONTROLLED_ROLES = [
     },
   },
   {
+    roleKey: 'ui-ux-designer',
+    roleName: 'UI/UX & Product Designer',
+    synonyms: [
+      'ui/ux designer', 'ui designer', 'ux designer', 'product designer', 'ux researcher',
+      'user experience designer', 'interaction designer', 'visual designer', 'web designer'
+    ],
+    specializations: {
+      product_design: ['product design', 'design system', 'figma', 'design systems'],
+      research: ['user research', 'usability', 'interviews', 'user testing'],
+    },
+  },
+  {
+    roleKey: 'financial-analyst',
+    roleName: 'Financial Analyst',
+    synonyms: [
+      'financial analyst', 'finance analyst', 'fp&a analyst', 'corporate finance analyst',
+      'investment analyst', 'financial modeling', 'finance specialist'
+    ],
+    specializations: {
+      fpa: ['fp&a', 'forecasting', 'budgeting', 'variance'],
+      investment: ['valuation', 'dcf', 'portfolio', 'equity', 'm&a'],
+    },
+  },
+  {
+    roleKey: 'digital-marketing',
+    roleName: 'Digital Marketing Specialist',
+    synonyms: [
+      'digital marketing', 'digital marketer', 'digital marketing specialist', 'seo specialist',
+      'growth marketer', 'performance marketer', 'content marketer', 'marketing manager'
+    ],
+    specializations: {
+      growth: ['paid ads', 'sem', 'ppc', 'performance marketing', 'paid social'],
+      seo_content: ['seo', 'organic search', 'content strategy', 'copywriting'],
+    },
+  },
+  {
+    roleKey: 'hr-people-ops',
+    roleName: 'HR & People Operations Specialist',
+    synonyms: [
+      'hr specialist', 'human resources', 'people operations', 'talent acquisition',
+      'recruiter', 'technical recruiter', 'hr manager', 'hr generalist', 'people partner'
+    ],
+    specializations: {
+      recruiting: ['recruiting', 'talent acquisition', 'sourcing', 'ats'],
+      people_ops: ['employee relations', 'onboarding', 'hris', 'culture', 'retention'],
+    },
+  },
+  {
+    roleKey: 'project-manager',
+    roleName: 'Project Manager & Scrum Master',
+    synonyms: [
+      'project manager', 'scrum master', 'agile coach', 'program manager', 'delivery manager',
+      'project coordinator', 'project lead'
+    ],
+    specializations: {
+      agile_scrum: ['scrum', 'sprint', 'kanban', 'jira', 'agile'],
+      program_management: ['program manager', 'pmo', 'governance', 'stakeholder', 'cross-functional'],
+    },
+  },
+  {
+    roleKey: 'supply-chain-ops',
+    roleName: 'Supply Chain & Operations Manager',
+    synonyms: [
+      'supply chain', 'operations manager', 'logistics manager', 'procurement specialist',
+      'inventory analyst', 'supply chain manager', 'logistics coordinator'
+    ],
+    specializations: {
+      logistics: ['logistics', 'freight', 'warehouse', 'distribution', 'inventory'],
+      procurement: ['procurement', 'vendor management', 'sourcing', 'purchasing'],
+    },
+  },
+  {
     roleKey: 'clinical-nurse',
     roleName: 'Registered Nurse & Clinical Specialist',
     synonyms: [
@@ -247,7 +319,15 @@ export function mapYearsToBucket(years) {
  * @returns {{ roleKey: string, roleName: string, specialization: string, confidence: number, method: string }}
  */
 export function normalizeRoleTaxonomy(rawRole = '', contextText = '') {
-  const query = `${rawRole} ${contextText}`.toLowerCase().trim()
+  // Strip parenthetical/bracket noise and seniority terms from role title
+  const cleanRole = (rawRole || '')
+    .replace(/\s*\([^)]*\)/g, ' ')
+    .replace(/\s*\[[^\]]*\]/g, ' ')
+    .replace(/\b(senior|sr\.?|junior|jr\.?|lead|principal|staff|associate|intern|director|head\s+of)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const query = `${cleanRole} ${contextText}`.toLowerCase().trim()
 
   for (const roleDef of CONTROLLED_ROLES) {
     // Check synonyms
@@ -273,8 +353,8 @@ export function normalizeRoleTaxonomy(rawRole = '', contextText = '') {
   }
 
   // Fallback: slugify clean title without forcing an unrelated role
-  const clean = rawRole.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'general-professional'
-  const formattedName = rawRole.trim() || 'General Professional'
+  const clean = cleanRole.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'general-professional'
+  const formattedName = cleanRole.trim() || rawRole.trim() || 'General Professional'
 
   return {
     roleKey: clean,

@@ -53,6 +53,40 @@ export const BATCH_SIZE = 10
 export const MICRO_BATCH_SIZE = 5
 
 /**
+ * Deduplicates scraped Jds by jobUrl, url, sourceJobId, or title::company fallback.
+ * Prevents pagination overlaps and combined scrapers from counting identical jobs twice.
+ */
+export function deduplicateJds(jds = []) {
+  if (!Array.isArray(jds)) return []
+  const seen = new Set()
+  const unique = []
+
+  for (const job of jds) {
+    if (!job || typeof job !== 'object') continue
+
+    const rawUrl = job.jobUrl || job.url || job.sourceUrl || ''
+    const cleanUrl = rawUrl ? String(rawUrl).trim().toLowerCase().replace(/\/+$/, '') : ''
+
+    const sourceJobId = job.sourceJobId || job.id || job.jobId || ''
+    const cleanId = sourceJobId ? String(sourceJobId).trim() : ''
+
+    const title = String(job.title || job.jobTitle || '').toLowerCase().trim()
+    const company = String(job.company || job.companyName || '').toLowerCase().trim()
+    const fallbackKey = (title && company) ? `${title}::${company}` : ''
+
+    const key = cleanUrl || cleanId || fallbackKey
+
+    if (key) {
+      if (seen.has(key)) continue
+      seen.add(key)
+    }
+    unique.push(job)
+  }
+
+  return unique
+}
+
+/**
  * Clean and prune JD text to remove boilerplate noise (EEO, benefits, culture)
  * and preserve technical requirements, stack, and responsibilities up to 4000 characters.
  */
@@ -594,7 +628,8 @@ export async function analyzeJdBatch(jobsBatch = [], startIndex = 0) {
  * Deterministic fallback corpus extraction for offline tests or when LLM gateway is unavailable.
  */
 export async function fallbackCorpusExtraction(jds = [], role = 'Professional') {
-  const totalJds = jds.length
+  const dedupedJds = deduplicateJds(jds)
+  const totalJds = dedupedJds.length
   const analyzedJobs = []
   const skillOccurrences = new Map()
   const respOccurrences = new Map()
@@ -602,7 +637,7 @@ export async function fallbackCorpusExtraction(jds = [], role = 'Professional') 
 
   console.log(`[LlmJdAnalyzer] Running deterministic corpus extraction for ${totalJds} JDs (${role})...`)
 
-  for (const job of jds) {
+  for (const job of dedupedJds) {
     const rawText = job.description || job.jobDescription || job.text || job.body || ''
     const cleanText = pruneJdText(rawText)
     const skills = extractSkillsFromJd(cleanText)
@@ -728,7 +763,8 @@ export const INTERN_OR_ENTRY_LEVEL_SKILLS = new Set([
  * Chunks JDs into small groups of 5 JDs to prevent token truncation, timeouts, and hallucinated frequencies.
  */
 export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], options = {}) {
-  if (!Array.isArray(jds) || jds.length === 0) {
+  const dedupedJds = deduplicateJds(jds)
+  if (!Array.isArray(dedupedJds) || dedupedJds.length === 0) {
     return {
       discoveredSkills: [],
       marketSkills: [],
@@ -742,11 +778,11 @@ export async function analyzeJdBatchWithGemini(role = 'Professional', jds = [], 
 
   const expBucket = options.experienceBucket || '3-5'
   const isSenior = expBucket === '6-8' || expBucket === '8+'
-  const totalJds = jds.length
+  const totalJds = dedupedJds.length
   console.log(`[LlmJdAnalyzer] Starting scalable micro-batch analysis for ${totalJds} JDs (Role: "${role}")...`)
 
   // Step 1: Pre-process each JD with smart pruning
-  const preparedJds = jds.map((jd, idx) => ({
+  const preparedJds = dedupedJds.map((jd, idx) => ({
     rawJob: jd,
     title: jd.title || jd.jobTitle || role,
     company: jd.company || 'Enterprise Employer',
@@ -997,7 +1033,8 @@ ${formattedJobs}`
  * Backward-compatible entrypoint: Analyzes an entire pool of JDs and produces a normalized skill matrix.
  */
 export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
-  if (!Array.isArray(rawJds) || rawJds.length === 0) {
+  const dedupedJds = deduplicateJds(rawJds)
+  if (dedupedJds.length === 0) {
     return {
       totalAnalyzed: 0,
       marketSkills: [],
@@ -1010,14 +1047,15 @@ export async function analyzeAndAggregateJdCorpus(rawJds = [], bucketKey = '') {
   }
 
   const [roleKey, expPart] = (bucketKey || '').split('::')
-  const roleClean = (rawJds[0]?.title || roleKey || 'Professional')
+  const roleClean = (dedupedJds[0]?.title || roleKey || 'Professional')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
 
-  return await analyzeJdBatchWithGemini(roleClean, rawJds, { experienceBucket: expPart || '3-5' })
+  return await analyzeJdBatchWithGemini(roleClean, dedupedJds, { experienceBucket: expPart || '3-5' })
 }
 
 export default {
+  deduplicateJds,
   SKILL_EXTRACTION_SYSTEM_PROMPT,
   buildSkillExtractionUserMessage,
   TAXONOMY_NORMALIZER_SYSTEM_PROMPT,
