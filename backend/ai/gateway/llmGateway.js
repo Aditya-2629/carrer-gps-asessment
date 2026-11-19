@@ -37,13 +37,13 @@ export const TRAP_MODELS = new Set([
 export const TASK_MODEL_ROUTING = {
   jd_extraction: 'google/gemini-2.5-flash-lite',
   fast_catch: 'google/gemini-2.5-flash-lite',
-  resume_synthesis: 'google/gemini-2.5-flash-lite',
-  bullet_rewrites: 'google/gemini-2.5-flash-lite',
-  linkedin_synthesis: 'meta-llama/llama-3.3-70b-instruct',
-  thought_leadership: 'meta-llama/llama-3.3-70b-instruct',
-  report_generation: 'google/gemini-2.5-flash-lite',
+  resume_synthesis: 'deepseek/deepseek-v3.2',
+  bullet_rewrites: 'deepseek/deepseek-v3.2',
+  linkedin_synthesis: 'deepseek/deepseek-v3.2',
+  thought_leadership: 'deepseek/deepseek-v3.2',
+  report_generation: 'deepseek/deepseek-v3.2',
   judge_gate: 'google/gemini-2.5-flash-lite',
-  unified_synthesis: 'google/gemini-2.5-flash-lite',
+  unified_synthesis: 'deepseek/deepseek-v3.2',
   jev_decision: 'typesafe/jev-1.14',
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
@@ -52,8 +52,8 @@ export const TASK_MODEL_ROUTING = {
 
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
+    'deepseek/deepseek-v3.2',
     'google/gemini-2.5-flash-lite',
-    'google/gemini-3.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
   ],
   groq: [

@@ -29,6 +29,7 @@ export const DEFAULT_PRICING = {
     'openai/gpt-oss-120b': { input: 0.15, output: 0.60 },
     'openai/gpt-oss-20b': { input: 0.08, output: 0.20 },
     'deepseek/deepseek-chat': { input: 0.14, output: 0.28 },
+    'deepseek/deepseek-v3.2': { input: 0.26, output: 0.38 },
 
     // Fallback default for unspecified models
     default: { input: 0.10, output: 0.40 },

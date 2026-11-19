@@ -126,6 +126,27 @@ export const MODEL_REGISTRY = {
     enabled: true,
   },
 
+  'deepseek/deepseek-v3.2': {
+    id: 'deepseek/deepseek-v3.2',
+    displayName: 'DeepSeek V3.2 (OpenRouter)',
+    provider: 'openrouter',
+    purpose: [
+      'resume_analysis',
+      'assessment_report',
+      'career_chatbot',
+      'linkedin_analysis',
+      'bullet_batch_weave',
+    ],
+    supportsJsonObject: true,
+    supportsJsonSchema: true,
+    supportsReasoning: true,
+    supportsSystemRole: true,
+    allowPersonalData: true,
+    contextWindow: 131072,
+    maxOutputTokens: 8192,
+    enabled: true,
+  },
+
   'google/gemini-3.5-flash': {
     id: 'google/gemini-3.5-flash',
     displayName: 'Google Gemini 3.5 Flash (OpenRouter Paid)',
