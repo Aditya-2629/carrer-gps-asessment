@@ -79,6 +79,20 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
     }
   }
 
+  const whyItMattersText = safeText(primaryBottleneck.whyItMatters || primaryBottleneck.diagnosis)
+  const phaseStuckText = safeText(phase.stuckDescription)
+
+  // Guarantee non-repetition between Where You Are Stuck and Why You Are Stuck
+  const effectivePhaseDescription =
+    phaseStuckText && phaseStuckText !== whyItMattersText
+      ? phaseStuckText
+      : `Candidate pipeline stalls at Phase ${phase.id}: ${phase.shortName || phase.name} where conversion drops below target benchmarks.`
+
+  const effectiveWhyItMatters =
+    whyItMattersText && whyItMattersText !== phaseStuckText
+      ? whyItMattersText
+      : (primaryBottleneck.diagnosis || 'Achievement bullets describe passive duties rather than quantified outcomes, triggering automated ATS filtering.')
+
   const secondaryProblem = reportData?.secondary_problem ?? {
     title: 'Over-Reliance on Public Job Boards & Low Outreach Velocity',
     description: 'Submitting through standard Easy Apply boards produces low ATS conversion compared to direct recruiter outreach or referrals.',
@@ -166,7 +180,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
 
             <div className="p-3.5 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)]">
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                {phase.stuckDescription || 'Pipeline stalls at this exact transition point.'}
+                {effectivePhaseDescription}
               </p>
             </div>
 
@@ -217,7 +231,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
                 &ldquo;{primaryBottleneck.title}&rdquo;
               </h3>
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                {primaryBottleneck.whyItMatters}
+                {effectiveWhyItMatters}
               </p>
             </div>
 

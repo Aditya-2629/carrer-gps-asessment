@@ -3,7 +3,6 @@ import User from '../models/User.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
@@ -62,11 +61,11 @@ CRITICAL: Return ONLY a valid, raw JSON object (NO markdown fences, NO backticks
 
 STRICT EXPERIENCE & BOUNDARY RULES:
 1. EXPERIENCE BOUNDARIES: A company name, employment date range, or location header must NEVER be placed inside the "bullets" array of any experience block.
-2. If you encounter a new company name (e.g. "Recibo Technologies", "Kitcoek", "Accenture"), treat it as the START of a completely new experience object.
+2. If you encounter a new company name (e.g. "Company A", "Company B", "Enterprise Corp"), treat it as the START of a completely new experience object.
 3. In each experience object:
    - "role": ONLY the candidate's exact title (e.g. "Software Engineer", "Full Stack Developer"). NEVER put company name or dates inside "role".
-   - "company": ONLY the employer organization name (e.g. "Kitcoek", "Recibo Technologies").
-   - "location": City and State/Country (e.g. "Maharashtra, India", "Bengaluru, India"). NEVER put programming languages or skills in "location".
+   - "company": ONLY the employer organization name (e.g. "Company A", "Company B").
+   - "location": City and State/Country (e.g. "New York, NY", "San Francisco, CA"). NEVER put programming languages or skills in "location".
    - "startDate" and "endDate": The timeline (e.g. "Jul 2022", "Jun 2024").
 4. "bullets": Every item MUST be an actual technical achievement or responsibility starting with an active action verb. Discard any bullet that is simply a company name, date, or location header.
 5. "skills": Return an array of discrete, individual technical skills (e.g. ["Python", "Go", "Docker", "AWS"]). Do not return malformed strings with unbalanced parentheses.
@@ -134,13 +133,16 @@ Use this exact schema:
         resumeText = pdfData?.text?.trim() || ''
       }
     } catch (pdfErr) {
-      console.warn('[AssessmentController] PDF parser fallback, reading raw text:', pdfErr.message)
-      resumeText = fileBuffer.toString('latin1')
+      console.warn('[AssessmentController] PDF parsing failed:', pdfErr.message)
+      resumeText = ''
     }
   }
 
-  if (!resumeText || resumeText.length < 30) {
-    throw new Error('Could not extract text from resume file. The file may be empty, password-protected, or scanned.')
+  const readableCharsCount = (resumeText.match(/[a-zA-Z0-9]/g) || []).length
+  const isBinaryPdf = /%PDF-\d\.\d/.test(resumeText.slice(0, 50))
+
+  if (!resumeText || readableCharsCount < 40 || isBinaryPdf) {
+    throw new Error('Could not extract readable text from this PDF. It may be scanned/image-only or password-protected.')
   }
 
   const userPrompt = `${prompt}\n\nCANDIDATE RESUME TEXT CONTENT:\n\n${resumeText.slice(0, 15000)}`
@@ -202,6 +204,19 @@ Use this exact schema:
   if (Array.isArray(parsed.skills)) parsed.skills = parsed.skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
   if (Array.isArray(parsed.top_skills)) parsed.top_skills = parsed.top_skills.map(s => typeof s === 'string' ? decodeHtmlEntities(s) : s)
 
+  if (parsed.summary != null) {
+    if (typeof parsed.summary === 'string') {
+      parsed.summary = decodeHtmlEntities(parsed.summary).trim()
+    } else if (typeof parsed.summary === 'object') {
+      const summaryText = parsed.summary.text || parsed.summary.content || parsed.summary.summary || ''
+      parsed.summary = decodeHtmlEntities(String(summaryText)).trim()
+    } else {
+      parsed.summary = String(parsed.summary).trim()
+    }
+  } else {
+    parsed.summary = ''
+  }
+
   if (parsed.executive_ai_critique) {
     parsed.executive_ai_critique = balanceParentheses(decodeHtmlEntities(parsed.executive_ai_critique))
   }
@@ -230,6 +245,73 @@ Use this exact schema:
   }
 
   return parsed
+}
+
+export function mapCanonicalResumeToResumeJson(canonicalResume) {
+  if (!canonicalResume || typeof canonicalResume !== 'object') return null
+  const cand = canonicalResume.candidate || {}
+  const rawExp = canonicalResume.experiences || canonicalResume.experience || []
+  const experiences = Array.isArray(rawExp) ? rawExp.map((e) => ({
+    role: e.role || e.title || '',
+    company: e.company || e.organization || '',
+    location: e.location || '',
+    startDate: e.startDate || e.start_date || '',
+    endDate: e.endDate || e.end_date || '',
+    isCurrent: Boolean(e.isCurrent || e.current),
+    bullets: Array.isArray(e.bullets)
+      ? e.bullets.map((b) => (typeof b === 'string' ? b : b?.text || b?.bullet || '')).filter(Boolean)
+      : (Array.isArray(e.bulletPoints) ? e.bulletPoints : []),
+  })) : []
+
+  const rawProj = canonicalResume.projects || []
+  const projects = Array.isArray(rawProj) ? rawProj.map((p) => ({
+    title: p.title || p.name || '',
+    techStack: Array.isArray(p.techStack) ? p.techStack.join(', ') : (p.techStack || (Array.isArray(p.technologies) ? p.technologies.join(', ') : '')),
+    bullets: Array.isArray(p.bullets)
+      ? p.bullets.map((b) => (typeof b === 'string' ? b : b?.text || b?.bullet || '')).filter(Boolean)
+      : [],
+  })) : []
+
+  const rawSkills = canonicalResume.skills || []
+  let skills = []
+  if (Array.isArray(rawSkills)) {
+    skills = rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+  } else if (rawSkills && typeof rawSkills === 'object') {
+    skills = Object.values(rawSkills).flat().map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+  }
+
+  const rawEdu = canonicalResume.education || []
+  const education = Array.isArray(rawEdu) ? rawEdu.map((ed) => {
+    if (typeof ed === 'string') return ed
+    return [ed.degree, ed.institution || ed.school, ed.year || ed.graduationYear].filter(Boolean).join(', ')
+  }).filter(Boolean) : []
+
+  let summary = ''
+  if (typeof canonicalResume.summary === 'string') {
+    summary = canonicalResume.summary.trim()
+  } else if (canonicalResume.summary && typeof canonicalResume.summary === 'object') {
+    summary = (canonicalResume.summary.text || canonicalResume.summary.content || '').trim()
+  }
+
+  return {
+    candidate_name: cand.name || canonicalResume.candidate_name || '',
+    target_role: cand.targetRole || canonicalResume.target_role || '',
+    years_of_experience: canonicalResume.years_of_experience || canonicalResume.totalExperienceYears || '3+ years',
+    contact: {
+      email: cand.email || '',
+      phone: cand.phone || '',
+      location: cand.location || '',
+      linkedin: cand.linkedin || '',
+      github: cand.github || '',
+    },
+    summary,
+    experiences,
+    experience: experiences,
+    projects,
+    skills,
+    education,
+    canonicalResume,
+  }
 }
 
 // Save answers and resume upload
@@ -335,26 +417,55 @@ export const saveAnswers = async (req, res) => {
       // Wipe previous candidate resumeJson to prevent stale cache contamination across tests!
       user.resumeJson = null
 
-      // Only accept precomputedResumeJson if its filename matches the currently uploaded file:
+      // Check for precomputed canonicalResume from background ResumeAgent or request
+      let precomputed = null
       if (req.body?.precomputedResumeJson) {
         try {
-          const parsedPrecomputed = typeof req.body.precomputedResumeJson === 'string'
+          precomputed = typeof req.body.precomputedResumeJson === 'string'
             ? JSON.parse(req.body.precomputedResumeJson)
             : req.body.precomputedResumeJson
-
-          // Verify it belongs to the current upload, not a previous candidate
-          if (parsedPrecomputed && !parsedPrecomputed.isStale) {
-            user.resumeJson = parsedPrecomputed
-          }
         } catch (_e) {
-          user.resumeJson = null
+          precomputed = null
+        }
+      }
+      if (!precomputed && req.body?.canonicalResume) {
+        try {
+          precomputed = typeof req.body.canonicalResume === 'string'
+            ? JSON.parse(req.body.canonicalResume)
+            : req.body.canonicalResume
+        } catch (_e) {
+          precomputed = null
         }
       }
 
-      // If not precomputed for this specific file, parse fresh from buffer
-      if (!user.resumeJson) {
+      // 1. If ResumeAgent has already parsed the uploaded file into canonicalResume,
+      // map canonicalResume directly to user.resumeJson in 0ms (0 LLM calls)!
+      if (precomputed && (precomputed.candidate || precomputed.experience || precomputed.experiences || precomputed.skills)) {
+        console.log(`[AssessmentController] Reusing precomputed canonicalResume for ${req.file.originalname} (0ms mapping, 0 LLM calls)`)
+        user.resumeJson = mapCanonicalResumeToResumeJson(precomputed)
+      } else {
+        // Deterministic parse via ResumeAgent.prepareCanonicalContext (0 LLM calls, ~50ms)
         try {
-          console.log(`[AssessmentController] Parsing fresh resume for: ${req.file.originalname}`)
+          const targetRole = answers.targetRole || answers.role || ''
+          const canonicalCtx = await ResumeAgent.prepareCanonicalContext({
+            buffer: req.file.buffer,
+            mimeType: req.file.mimetype,
+            filename: req.file.originalname,
+            targetRole,
+          })
+          if (canonicalCtx?.canonicalResume && (canonicalCtx.canonicalResume.experience?.length || canonicalCtx.canonicalResume.experiences?.length || canonicalCtx.canonicalResume.skills?.length)) {
+            console.log(`[AssessmentController] Mapped canonicalResume from ResumeAgent for ${req.file.originalname} (0ms LLM time)`)
+            user.resumeJson = mapCanonicalResumeToResumeJson(canonicalCtx.canonicalResume)
+          }
+        } catch (prepErr) {
+          console.warn('[AssessmentController] Deterministic prepareCanonicalContext fallback:', prepErr.message)
+        }
+      }
+
+      // 2. Only invoke parseResumeToJSON as a fallback if canonicalResume is missing or empty
+      if (!user.resumeJson || (!user.resumeJson.experiences?.length && !user.resumeJson.experience?.length && !user.resumeJson.skills?.length)) {
+        try {
+          console.log(`[AssessmentController] Parsing fresh resume fallback via parseResumeToJSON for: ${req.file.originalname}`)
           const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
           user.resumeJson = resumeJson
         } catch (parseErr) {
@@ -410,36 +521,21 @@ export const saveAnswers = async (req, res) => {
 
     if (extractedLinkedinUrl) {
       user.linkedinUrl = extractedLinkedinUrl
-      // Concurrent dual scraping for profile + posts if not already present (non-fatal, never reject saveAnswers with 400)
+      // Profile scraping if not already present (non-fatal, never reject saveAnswers with 400)
       const needsProfile = !user.linkedinData
-      const needsPosts = !user.linkedinActivityData
 
-      if (needsProfile || needsPosts) {
+      if (needsProfile) {
         try {
-          console.log(`[AssessmentController] Starting concurrent dual LinkedIn scrape for ${extractedLinkedinUrl}...`)
-          const [scrapedProfile, scrapedPosts] = await Promise.all([
-            needsProfile
-              ? scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinData),
-            needsPosts
-              ? scrapeLinkedInPosts(extractedLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-                  console.warn('[AssessmentController] scrapeLinkedInPosts error:', err.message)
-                  return null
-                })
-              : Promise.resolve(user.linkedinActivityData),
-          ])
-
+          console.log(`[AssessmentController] Starting live LinkedIn profile scrape for ${extractedLinkedinUrl}...`)
+          const scrapedProfile = await scrapeLinkedInProfile(extractedLinkedinUrl).catch((err) => {
+            console.warn('[AssessmentController] scrapeLinkedInProfile error:', err.message)
+            return null
+          })
           if (scrapedProfile) {
             user.linkedinData = scrapedProfile
           }
-          if (scrapedPosts) {
-            user.linkedinActivityData = scrapedPosts
-          }
         } catch (scrapeErr) {
-          console.warn('[AssessmentController] Live Apify LinkedIn concurrent scraping non-fatal error:', scrapeErr.message)
+          console.warn('[AssessmentController] Live Apify LinkedIn scraping non-fatal error:', scrapeErr.message)
         }
       }
     }

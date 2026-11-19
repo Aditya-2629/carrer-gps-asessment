@@ -33,6 +33,7 @@ export class PDFParser {
       let aggregatedText = ''
 
       // Attempt per-page extraction
+      let perPageFailed = false
       for (let p = 1; p <= pageCount; p++) {
         try {
           const pageRes = await parser.getPageText(p)
@@ -46,12 +47,16 @@ export class PDFParser {
 
           aggregatedText += `\n--- Page ${p} ---\n${cleanedPageText}\n`
         } catch (_pageErr) {
-          // If per-page text extraction fails, fallback to full document text
+          // If per-page text extraction fails, break immediately to full getText()
+          perPageFailed = true
+          break
         }
       }
 
-      // If per-page loop didn't yield text, call full getText()
-      if (!aggregatedText.trim()) {
+      // If per-page loop failed or didn't yield text, call full getText()
+      if (perPageFailed || !aggregatedText.trim()) {
+        pages.length = 0
+        aggregatedText = ''
         const fullTextRes = await parser.getText()
         const rawFullText = typeof fullTextRes === 'string' ? fullTextRes : fullTextRes?.text || ''
         aggregatedText = TextNormalizer.cleanText(rawFullText)

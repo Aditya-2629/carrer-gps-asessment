@@ -38,6 +38,7 @@ export const EMOTION_PALETTES = {
   celebrating: { shell: '#10B981', bulb: '#ECFDF5', lamp: '#10B981', ring: '#34D399' },
   cta: { shell: '#6366F1', bulb: '#EEF2FF', lamp: '#6366F1', ring: '#818CF8' },
   sleep: { shell: '#64748B', bulb: '#F1F5F9', lamp: '#64748B', ring: '#94A3B8' },
+  sleeping: { shell: '#64748B', bulb: '#F1F5F9', lamp: '#64748B', ring: '#94A3B8' },
   move: { shell: '#38BDF8', bulb: '#F0F9FF', lamp: '#38BDF8', ring: '#7DD3FC' },
 }
 
@@ -49,15 +50,16 @@ export const EMOTION_TO_WOBNIMO = {
   listening: 'listening',
   inspect: 'thinking',
   thinking: 'thinking',
-  curious: 'curious',
+  curious: 'thinking',
   surprised: 'surprised',
   coach: 'speaking',
   speaking: 'speaking',
-  proud: 'happy',
-  happy: 'happy',
+  proud: 'celebrating',
+  happy: 'celebrating',
   victory: 'celebrating',
   celebrating: 'celebrating',
-  sleep: 'sleep',
+  sleep: 'sleeping',
+  sleeping: 'sleeping',
   cta: 'celebrating',
   move: 'working',
 }

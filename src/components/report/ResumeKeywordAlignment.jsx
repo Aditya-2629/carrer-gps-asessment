@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { CheckCircle, Warning, XCircle, Target, DownloadSimple } from '@phosphor-icons/react'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
-import useAppStore from '../../store/useAppStore'
+import useAppStore, { showToast } from '../../store/useAppStore'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { ShareBar } from '../share-bar'
 import { NumberRoll } from '../number-roll'
 
@@ -233,9 +234,10 @@ export default function ResumeKeywordAlignment({
       if (document.body.contains(a)) {
         document.body.removeChild(a)
       }
+      showToast('Tailored resume downloaded successfully!', 'success')
     } catch (err) {
       console.error('Failed to download tailored resume:', err)
-      alert(`Could not download resume: ${err.message}`)
+      showToast(getFriendlyErrorMessage(err, 'Could not download resume.'), 'error')
     } finally {
       setIsDownloading(false)
     }

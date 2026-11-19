@@ -14,7 +14,6 @@ import {
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { listModelsForPurpose } from '../ai/config/modelRegistry.js'
 import User from '../models/User.js'
 
@@ -58,19 +57,13 @@ router.post('/scrape', async (req, res) => {
 
   try {
     const cleanUrl = url.trim()
-    console.log(`[LinkedInAgentRoute] Launching concurrent Profile and Posts scrape for: ${cleanUrl}`)
-    const [profile, posts] = await Promise.all([
-      scrapeLinkedInProfile(cleanUrl).catch((err) => {
-        console.warn('[LinkedInAgentRoute] Profile scrape non-fatal error:', err.message)
-        return null
-      }),
-      scrapeLinkedInPosts(cleanUrl, { maxPosts: 15 }).catch((err) => {
-        console.warn('[LinkedInAgentRoute] Posts scrape non-fatal error:', err.message)
-        return null
-      }),
-    ])
+    console.log(`[LinkedInAgentRoute] Launching Profile scrape for: ${cleanUrl}`)
+    const profile = await scrapeLinkedInProfile(cleanUrl).catch((err) => {
+      console.warn('[LinkedInAgentRoute] Profile scrape non-fatal error:', err.message)
+      return null
+    })
 
-    if (!profile && !posts) {
+    if (!profile) {
       return res.status(200).json({
         success: false,
         profile: null,
@@ -81,63 +74,30 @@ router.post('/scrape', async (req, res) => {
     return res.status(200).json({
       success: true,
       profile,
-      posts,
+      posts: null,
     })
   } catch (err) {
-    console.warn('[LinkedInAgentRoute] Concurrent scrape error:', err.message)
+    console.warn('[LinkedInAgentRoute] Scrape error:', err.message)
     return res.status(200).json({ success: false, profile: null, posts: null, error: err.message })
   }
 })
 
 /**
  * POST /api/linkedin-agent/scrape-posts
- * Scrapes recent posts & comments for a given candidate LinkedIn profile URL.
- * Accepts: { url, linkedinUrl, maxPosts, scrapeComments, maxComments, includeReposts, includeQuotePosts }
+ * Decommissioned: Returns structured ghost profile fallback.
  */
 router.post('/scrape-posts', async (req, res) => {
-  const url = req.body?.url || req.body?.linkedinUrl || req.body?.targetUrl || ''
-  if (!url || typeof url !== 'string' || !url.trim()) {
-    return res.status(200).json({
-      success: false,
-      data: {
-        posts: [],
-        comments: [],
-        isGhostProfile: true,
-        available: false,
-        error: 'INVALID_URL',
-      },
-      error: 'Missing or empty LinkedIn profile URL.',
-    })
-  }
-
-  try {
-    const result = await scrapeLinkedInPosts(url.trim(), {
-      maxPosts: req.body?.maxPosts,
-      scrapeComments: req.body?.scrapeComments,
-      maxComments: req.body?.maxComments,
-      includeReposts: req.body?.includeReposts,
-      includeQuotePosts: req.body?.includeQuotePosts,
-    })
-
-    return res.status(200).json({
-      success: Boolean(result?.available),
-      data: result,
-    })
-  } catch (err) {
-    console.warn('[LinkedInAgentRoute] scrape-posts endpoint non-fatal error:', err.message)
-    return res.status(200).json({
-      success: false,
-      data: {
-        posts: [],
-        comments: [],
-        isGhostProfile: true,
-        available: false,
-        error: err.message,
-        fallbackReason: 'ROUTE_ERROR',
-      },
-      error: err.message,
-    })
-  }
+  return res.status(200).json({
+    success: false,
+    data: {
+      posts: [],
+      comments: [],
+      isGhostProfile: true,
+      available: false,
+      error: 'POSTS_SCRAPING_DEPRECATED',
+    },
+    error: 'LinkedIn posts scraping has been decommissioned.',
+  })
 })
 
 /**
@@ -313,17 +273,6 @@ router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res
             .catch((scrapeErr) => {
               scrapeWarning = `Apify LinkedIn profile scraping failed: ${scrapeErr.message}. Falling back to resume-inferred LinkedIn optimization.`
               console.warn(`[LinkedInAgentRoute] ${scrapeWarning}`)
-            })
-        )
-      }
-      if (!activityData) {
-        scrapeTasks.push(
-          scrapeLinkedInPosts(cleanUrl, { maxPosts: 15 })
-            .then((posts) => {
-              if (posts) activityData = posts
-            })
-            .catch((postsErr) => {
-              console.warn('[LinkedInAgentRoute] Apify posts scrape failed:', postsErr.message)
             })
         )
       }

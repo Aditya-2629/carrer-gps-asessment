@@ -1,5 +1,6 @@
 import React from 'react'
-import useAppStore from '../store/useAppStore'
+import useAppStore, { showToast } from '../store/useAppStore'
+import { getFriendlyErrorMessage } from './errorMessages'
 
 /**
  * downloadFullReport.js
@@ -63,9 +64,11 @@ export async function downloadFullVisualReport(reportDataOrName, candidateNamePa
       URL.revokeObjectURL(url)
     }, 15000)
 
+    showToast('Career GPS Report downloaded successfully!', 'success')
     return true
   } catch (err) {
     console.error('Failed to generate Career GPS PDF:', err)
+    showToast(getFriendlyErrorMessage(err, 'Failed to generate Career GPS PDF.'), 'error')
     return false
   } finally {
     isCurrentlyGenerating = false

@@ -69,6 +69,13 @@ Check the candidate's targetRole and resume background:
   * REALISTIC EMBEDDED METRICS: Automatically embed realistic data metrics directly into bullet rewrites (e.g. "cutting executive report generation time from 8 hours to 45 minutes", "reconciling 250k+ daily healthcare transaction records with 99.9% accuracy", "designing 15+ interactive Power BI dashboards adopted by 400+ business stakeholders").
 
 ==================================================
+EXECUTIVE SUMMARY FORMULA & ANTI-REPETITION (CRITICAL):
+==================================================
+Synthesize executiveSummaryRewrite at the overarching career-arc, domain leadership, and high-level commercial outcomes level.
+It must provide a holistic, recruiter-facing narrative that complements the resume rather than word-for-word copy-pasting individual bullet rewrites.
+Focus on years of experience, core technical pillars, system scale, and strategic domain impact. Individual experience bullets should handle granular metrics and architectural mechanisms.
+
+==================================================
 ENGINEERING MECHANISM BULLET FORMULA:
 ==================================================
 Every rewritten bullet MUST synthesize:
@@ -120,7 +127,7 @@ OUTPUT JSON FORMAT ONLY:
       }
     }
   ],
-  "executiveSummaryRewrite": "Punchy 3-4 line executive summary highlighting scale, domain, and modern stack"
+  "executiveSummaryRewrite": "High-altitude 3-4 line executive summary synthesizing career arc, core technical pillars, and strategic domain impact without copy-pasting individual bullet wording"
 }
 `;
 

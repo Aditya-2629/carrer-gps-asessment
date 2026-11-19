@@ -12,12 +12,12 @@ import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../a
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { scrapeLinkedInPosts } from '../utils/apifyLinkedInPostsScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
 import { calculateRecruiterSeoScore } from '../agents/linkedin/linkedinAgent.js'
 import { buildDeterministicOptimizations } from '../agents/linkedin/linkedinSynthesis.js'
 import { buildDeterministicThoughtLeadership } from '../agents/linkedin/linkedinThoughtLeadershipEvaluator.js'
 import { generateDynamicActionPlan, buildDeterministicActionPlan } from './dynamicActionPlanAgent.js'
+import { sanitizeReportObject, synthesizeWhyItWorks } from '../utils/humanizeReportCopy.js'
 
 export function safeParseJson(rawContent) {
   if (!rawContent || typeof rawContent !== 'string') return null
@@ -601,21 +601,26 @@ export async function executeSinglePassSynthesis({ triage, user, resumeJson, liv
   )
   const headlines = deterministicOpts?.headlines || []
 
-  const isGhostPosts = !liveLinkedinPosts ||
-    (Array.isArray(liveLinkedinPosts) && liveLinkedinPosts.length === 0) ||
-    (Array.isArray(liveLinkedinPosts?.posts) && liveLinkedinPosts.posts.length === 0)
+  const isGhostPosts = true
 
   const thoughtLeadership = buildDeterministicThoughtLeadership(
     triage.targetRole,
     triage.verifiedSkills,
     resumeJson?.projects || resumeJson?.experience || [],
-    isGhostPosts
+    true
   )
 
   const systemPrompt = `You are the Lead Executive Career Architect at Career GPS.
 Generate a comprehensive, recruiter-grade ATS and Career Diagnosis Report in STRICT JSON format.
 Follow strict deterministic facts provided. Zero fluff, zero generic commentary.
-Cluster Equivalence Rule: If candidate has any tool in a competency cluster, grant full credit.`
+Cluster Equivalence Rule: If candidate has any tool in a competency cluster, grant full credit.
+
+STRICT COPYWRITING RULES:
+1. BANNED BUZZWORDS: Strictly forbid "powerhouse", "synergistic", "cutting-edge", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "seamlessly", "leveraging". Use plain verbs: built, cut, scaled, automated, using.
+2. NO INTERNAL CODE IDs: Strictly forbid referencing internal IDs (exp_001_b01, proj_002_b01, iss_001) in executiveSummary, bottleneck, or bulletRewrites prose. Refer to items naturally by company or project name.
+3. THREE DISTINCT BOTTLENECK ROLES:
+   - "primaryBottleneck.diagnosis": Explain WHY this stage is stalling using candidate's actual funnel and resume/interview signals (1-2 crisp sentences).
+   - "primaryBottleneck.recommendedPivot": State the CONCRETE TACTICAL FIX + MEASURABLE TARGET (never duplicate diagnosis text).`
 
   const userPrompt = `CANDIDATE CONTEXT:
 Target Role: ${triage.targetRole}
@@ -634,14 +639,15 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
   "primaryBottleneck": {
     "title": "Clear 4-6 word bottleneck diagnosis",
     "severity": "CRITICAL" | "MODERATE" | "LOW",
-    "diagnosis": "Why this specifically blocks recruiter screens",
-    "recommendedPivot": "Exact tactical remediation"
+    "diagnosis": "Why this specifically blocks recruiter screens using actual funnel & resume signals (1-2 crisp sentences)",
+    "recommendedPivot": "Concrete tactical fix + measurable recovery target (distinct from diagnosis)"
   },
   "bulletRewrites": [
     {
       "original": "Original unquantified bullet point",
       "rewritten": "Action Verb + Technical Scope + Quantified Outcome ($ or %)",
-      "critique": "What was wrong with original"
+      "critique": "What was weak in the original bullet",
+      "whyItWorks": "Why this rewrite works and what concrete elements were upgraded"
     }
   ],
   "strategicRoadmap": [
@@ -693,11 +699,20 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
 
   const execSummary = parsed?.executiveSummary || parsed?.executive_summary || defaultSummary
   const bottleneck = parsed?.primaryBottleneck || parsed?.primary_bottleneck || defaultBottleneck
-  const bulletRewrites = parsed?.bulletRewrites || parsed?.bullet_rewrites || (triage.bulletPoints || []).slice(0, 3).map((b) => ({
-    original: b,
-    rewritten: `Drove core initiatives utilizing verified domain tools, improving operational outcomes and metrics by measurable margins.`,
-    critique: 'Quantify specific business impact and highlight verified tools.',
-  }))
+  const bulletRewrites = (Array.isArray(parsed?.bulletRewrites) && parsed.bulletRewrites.length > 0)
+    ? parsed.bulletRewrites.map((rw) => ({
+        ...rw,
+        whyItWorks: rw.whyItWorks || rw.why || synthesizeWhyItWorks(rw.original, rw.rewritten),
+      }))
+    : (triage.bulletPoints || []).slice(0, 3).map((b) => {
+        const defaultRw = 'Drove core initiatives utilizing verified domain tools, improving operational outcomes and metrics by measurable margins.'
+        return {
+          original: b,
+          rewritten: defaultRw,
+          critique: 'Quantify specific business impact and highlight verified tools.',
+          whyItWorks: synthesizeWhyItWorks(b, defaultRw),
+        }
+      })
   const roadmap = parsed?.strategicRoadmap || parsed?.roadmap || [
     {
       phase: 'Immediate (Days 1-14)',
@@ -716,11 +731,12 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
     verifiedSkills: triage.verifiedSkills || [],
     bottleneck,
     answers: user?.answers || {},
+    resumeJson,
   })
 
   const durationMs = Date.now() - startTime
 
-  return {
+  const rawOut = {
     heroScore: triage.deterministicScores,
     score: triage.deterministicScores.overall,
     career_health_score: triage.deterministicScores,
@@ -748,6 +764,8 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
       triageCoverage: triage.clusterEvaluation?.coveragePercentage || 100,
     },
   }
+
+  return sanitizeReportObject(rawOut, resumeJson)
 }
 
 /**
@@ -798,22 +816,15 @@ export async function generateReportBundle(params = {}, options = {}) {
   const shouldScrapeLinkedin = Boolean(effectiveLinkedinUrl && user && !user.linkedinData && !precomputedLinkedinData)
 
   let liveLinkedinData = precomputedLinkedinData
-  let liveLinkedinPosts = params.liveLinkedinPosts || params.activityData || user?.linkedinActivityData || null
+  let liveLinkedinPosts = null
 
   if (shouldScrapeLinkedin) {
     try {
-      const [scrapedProfile, scrapedPosts] = await Promise.all([
-        scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
-          console.warn('[ReportGen] LinkedIn profile scrape non-fatal fallback:', err.message)
-          return null
-        }),
-        scrapeLinkedInPosts(effectiveLinkedinUrl, { maxPosts: 15 }).catch((err) => {
-          console.warn('[ReportGen] LinkedIn posts scrape non-fatal fallback:', err.message)
-          return null
-        }),
-      ])
+      const scrapedProfile = await scrapeLinkedInProfile(effectiveLinkedinUrl).catch((err) => {
+        console.warn('[ReportGen] LinkedIn profile scrape non-fatal fallback:', err.message)
+        return null
+      })
       if (scrapedProfile) liveLinkedinData = scrapedProfile
-      if (scrapedPosts) liveLinkedinPosts = scrapedPosts
     } catch (_sErr) {}
   }
 

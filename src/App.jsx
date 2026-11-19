@@ -5,22 +5,12 @@ import GatePhase from './components/gate/GatePhase'
 import AssessmentShell from './components/assessment/AssessmentShell'
 import AnalysisLoader from './components/loading/AnalysisLoader'
 import ReportDashboard from './components/report/ReportDashboard'
-import KnowledgeBaseManager from './components/admin/KnowledgeBaseManager'
-import ResumeAgentTestLab from './pages/ResumeAgentTestLab'
-import LinkedInAgentTestLab from './pages/LinkedInAgentTestLab'
-import AdminPanel from './pages/admin/AdminPanel.jsx'
-import AdminLogin from './pages/admin/AdminLogin.jsx'
+import { GlobalToast } from './components/common/Toast'
 
 const phaseVariants = {
   initial: { opacity: 0 },
   animate: { opacity: 1, transition: { duration: 0.4 } },
   exit: { opacity: 0, transition: { duration: 0.3 } },
-}
-
-function AdminRoute() {
-  const [authed, setAuthed] = useState(() => Boolean(localStorage.getItem('craftureAdminToken')))
-  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />
-  return <AdminPanel onLogout={() => setAuthed(false)} />
 }
 
 export default function App() {
@@ -37,49 +27,7 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange)
   }, [])
 
-  // Admin console route: token-gated login panel
-  const isAdminRoute = ['/admin', '/admin-panel'].includes(pathname.toLowerCase())
-  if (isAdminRoute) {
-    return <AdminRoute />
-  }
-
-  // Check if current route is the special unlinked knowledge base route
-  const isKnowledgeBaseRoute = [
-    '/admin/knowledge-base',
-    '/knowledge-base',
-    '/admin/kb',
-    '/kb',
-  ].includes(pathname.toLowerCase())
-
-  if (isKnowledgeBaseRoute) {
-    return <KnowledgeBaseManager />
-  }
-
-  // Check if current route is the development-only resume test lab
-  const isTestLabRoute = [
-    '/test-lab',
-    '/admin/test-lab',
-    '/resume-test',
-    '/resume-lab',
-  ].includes(pathname.toLowerCase())
-
-  if (isTestLabRoute) {
-    return <ResumeAgentTestLab />
-  }
-
-  // Check if current route is the LinkedIn Agent test lab
-  const isLinkedInTestRoute = [
-    '/linkedin-test',
-    '/linkedin-lab',
-    '/admin/linkedin-lab',
-    '/test-linkedin',
-  ].includes(pathname.toLowerCase())
-
-  if (isLinkedInTestRoute) {
-    return <LinkedInAgentTestLab />
-  }
-
-  // Check if direct report preview route is requested OR phase is REPORT (takes precedence over loading)
+  // Public Report Route
   const isReportRoute = [
     '/report',
     '/report-preview',
@@ -88,55 +36,58 @@ export default function App() {
 
   if (isReportRoute) {
     return (
-      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
-        <ReportDashboard />
-      </div>
+      <>
+        <GlobalToast />
+        <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+          <ReportDashboard />
+        </div>
+      </>
     )
   }
 
-  // Check if loading route is requested (ONLY when report is not ready)
+  // Public Loading Route
   const isLoadingRoute = ['/loading', '/analysis-loading'].includes(pathname.toLowerCase())
   if (isLoadingRoute && phase !== PHASES.REPORT && !reportData) {
     return (
-      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
-        <AnalysisLoader />
-      </div>
-    )
-  }
-  if (isLoadingRoute && (phase === PHASES.REPORT || reportData)) {
-    return (
-      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
-        <ReportDashboard />
-      </div>
+      <>
+        <GlobalToast />
+        <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+          <AnalysisLoader />
+        </div>
+      </>
     )
   }
 
+  // Standard Public Assessment & Gate Phases
   return (
-    <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
-      <div className="relative z-10">
-        <AnimatePresence mode="wait">
-          {phase === PHASES.GATE && (
-            <motion.div key="gate" {...phaseVariants}>
-              <GatePhase />
-            </motion.div>
-          )}
-          {phase === PHASES.ASSESSMENT && (
-            <motion.div key="assessment" {...phaseVariants}>
-              <AssessmentShell />
-            </motion.div>
-          )}
-          {phase === PHASES.LOADING && (
-            <motion.div key="loading" {...phaseVariants}>
-              <AnalysisLoader />
-            </motion.div>
-          )}
-          {phase === PHASES.REPORT && (
-            <motion.div key="report" {...phaseVariants}>
-              <ReportDashboard />
-            </motion.div>
-          )}
-        </AnimatePresence>
+    <>
+      <GlobalToast />
+      <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
+        <div className="relative z-10">
+          <AnimatePresence mode="wait">
+            {phase === PHASES.GATE && (
+              <motion.div key="gate" {...phaseVariants}>
+                <GatePhase />
+              </motion.div>
+            )}
+            {phase === PHASES.ASSESSMENT && (
+              <motion.div key="assessment" {...phaseVariants}>
+                <AssessmentShell />
+              </motion.div>
+            )}
+            {phase === PHASES.LOADING && (
+              <motion.div key="loading" {...phaseVariants}>
+                <AnalysisLoader />
+              </motion.div>
+            )}
+            {phase === PHASES.REPORT && (
+              <motion.div key="report" {...phaseVariants}>
+                <ReportDashboard />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

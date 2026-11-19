@@ -80,13 +80,38 @@ const REACTION_TO_WOBNIMO = {
   welcome_wave: 'speaking',
   alarm_double_take: 'surprised',
   confident_nod: 'listening',
-  inspector_lean: 'curious',
+  inspector_lean: 'thinking',
   deep_think_rock: 'thinking',
-  lightbulb_pop: 'happy',
-  swagger_bounce: 'happy',
+  lightbulb_pop: 'celebrating',
+  swagger_bounce: 'celebrating',
   call_invite_wave: 'celebrating',
   siuuu_celebrate: 'celebrating',
-  idle_sleep: 'sleep',
+  idle_sleep: 'sleeping',
+}
+
+const VALID_WOBNIMO_STATES = new Set([
+  'idle',
+  'thinking',
+  'listening',
+  'speaking',
+  'sleeping',
+  'working',
+  'error',
+  'surprised',
+  'celebrating',
+  'sad',
+])
+
+export function sanitizeWobnimoState(state) {
+  if (!state || typeof state !== 'string') return 'idle'
+  const s = state.toLowerCase().trim()
+  if (s === 'sleep') return 'sleeping'
+  if (s === 'curious' || s === 'inspect') return 'thinking'
+  if (s === 'happy' || s === 'proud' || s === 'victory' || s === 'cta') return 'celebrating'
+  if (s === 'alert' || s === 'concerned') return 'surprised'
+  if (s === 'coach') return 'speaking'
+  if (s === 'move') return 'working'
+  return VALID_WOBNIMO_STATES.has(s) ? s : 'idle'
 }
 
 export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
@@ -157,11 +182,12 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     (mode === 'solution' ? storeInsight?.solution : storeInsight?.thought || storeInsight?.problem)
 
   const currentEmotion = activeThought?.emotion || emotion || 'idle'
-  const wobnimoState = isCelebrating
+  const rawWobnimoState = isCelebrating
     ? 'celebrating'
     : isAsleep
-    ? 'sleep'
+    ? 'sleeping'
     : reactionWobnimo || EMOTION_TO_WOBNIMO[currentEmotion] || 'idle'
+  const wobnimoState = sanitizeWobnimoState(rawWobnimoState)
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
   const accentColor = currentPalette.shell || '#6366F1'
 

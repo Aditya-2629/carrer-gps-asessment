@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { UploadSimple, FileDoc, FilePdf, CheckCircle, WarningCircle, Sparkle } from '@phosphor-icons/react'
-import useAppStore from '../../store/useAppStore'
+import useAppStore, { showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
@@ -130,12 +131,14 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       } catch (err) {
         if (err.name === 'CanceledError' || err.name === 'AbortError') return
         console.warn('[FileUpload] Background resume analysis warning:', err.message)
+        const friendlyMsg = getFriendlyErrorMessage(err, 'Background analysis failed.')
         setResumeAnalysis({
           status: 'error',
           filename: file.name,
-          error: err.message || 'Background analysis failed.',
+          error: friendlyMsg,
           data: null,
         })
+        showToast(friendlyMsg, 'warning')
       }
     },
     [formData, setResumeAnalysis]
@@ -146,7 +149,9 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       if (!file) return
       const maxBytes = (step?.maxSizeMB || 5) * 1024 * 1024
       if (file.size > maxBytes) {
-        setFileError(`File too large. Maximum size is ${step?.maxSizeMB || 5}MB.`)
+        const msg = `File too large. Maximum size is ${step?.maxSizeMB || 5}MB.`
+        setFileError(msg)
+        showToast(msg, 'error')
         return
       }
 
@@ -165,7 +170,9 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       ]
 
       if (!isAllowedExt && !allowedMimes.includes(file.type)) {
-        setFileError('Please upload a PDF or DOCX Word document.')
+        const msg = 'Please upload a PDF or DOCX Word document.'
+        setFileError(msg)
+        showToast(msg, 'error')
         return
       }
 

@@ -93,6 +93,18 @@ export class TextNormalizer {
       charCount,
     }
   }
+  /**
+   * Normalizes summary input to a clean, non-null string.
+   */
+  static normalizeSummary(summary) {
+    if (!summary) return ''
+    if (typeof summary === 'string') return this.cleanText(summary)
+    if (typeof summary === 'object') {
+      const text = summary.text || summary.content || summary.summary || summary.value || ''
+      return this.cleanText(String(text))
+    }
+    return this.cleanText(String(summary))
+  }
 }
 
 export default TextNormalizer

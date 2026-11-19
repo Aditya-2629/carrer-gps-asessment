@@ -9,6 +9,7 @@
  * - Live key telemetry & bucket health configuration retrieval
  */
 
+import mongoose from 'mongoose'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import {
@@ -21,6 +22,9 @@ import { enqueueBucketRefresh } from '../jobs/marketJd/marketJdQueue.js'
 export const runtimeEngineConfig = {
   fastCatchTargetJds: parseInt(process.env.FAST_CATCH_TARGET_JDS || '35', 10),
   backgroundTargetJds: parseInt(process.env.MARKET_JD_TARGET_COUNT || '50', 10),
+  primaryModel: process.env.PRIMARY_MODEL || 'google/gemini-2.5-flash-lite',
+  fallbackModel: process.env.FALLBACK_MODEL || 'openai/gpt-oss-120b',
+  enableLinkedinPlaybook: process.env.ENABLE_LINKEDIN_PLAYBOOK !== 'false',
   lastUpdated: new Date(),
 }
 
@@ -303,4 +307,90 @@ export async function triggerLiveBucketScrape(req, res) {
     return res.status(500).json({ success: false, message: 'Failed to trigger bucket scrape.' })
   }
 }
+
+// Add PATCH /api/admin/engine/config
+export async function updateEngineConfig(req, res) {
+  try {
+    const {
+      fastCatchTargetJds,
+      backgroundTargetJds,
+      primaryModel,
+      fallbackModel,
+      enableLinkedinPlaybook,
+    } = req.body || {}
+
+    if (fastCatchTargetJds !== undefined) {
+      const val = parseInt(fastCatchTargetJds, 10)
+      if (!isNaN(val) && val >= 5 && val <= 100) {
+        runtimeEngineConfig.fastCatchTargetJds = val
+      }
+    }
+    if (backgroundTargetJds !== undefined) {
+      const val = parseInt(backgroundTargetJds, 10)
+      if (!isNaN(val) && val >= 10 && val <= 200) {
+        runtimeEngineConfig.backgroundTargetJds = val
+      }
+    }
+    if (primaryModel !== undefined && typeof primaryModel === 'string') {
+      runtimeEngineConfig.primaryModel = primaryModel.trim()
+    }
+    if (fallbackModel !== undefined && typeof fallbackModel === 'string') {
+      runtimeEngineConfig.fallbackModel = fallbackModel.trim()
+    }
+    if (enableLinkedinPlaybook !== undefined) {
+      runtimeEngineConfig.enableLinkedinPlaybook = Boolean(enableLinkedinPlaybook)
+    }
+
+    runtimeEngineConfig.lastUpdated = new Date()
+
+    return res.status(200).json({
+      success: true,
+      message: 'Engine runtime configuration updated successfully.',
+      runtimeEngineConfig,
+    })
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+// Add GET /api/admin/health
+export async function getAdminHealth(_req, res) {
+  try {
+    const mongoStateMap = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting',
+    }
+    const mongoState = mongoStateMap[mongoose.connection.readyState] || 'unknown'
+    const apifyKeys = apifyKeyPool.getAllKeys()
+    const geminiKeys = geminiKeyPool.getAllKeys()
+
+    return res.status(200).json({
+      success: true,
+      status: mongoState === 'connected' ? 'HEALTHY' : 'DEGRADED',
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      mongo: {
+        state: mongoState,
+        readyState: mongoose.connection.readyState,
+        host: mongoose.connection.host || 'unknown',
+      },
+      keyPools: {
+        apify: {
+          total: apifyKeys.length,
+          cooling: apifyKeyPool.cooldowns.size,
+        },
+        gemini: {
+          total: geminiKeys.length,
+          cooling: geminiKeyPool.cooldowns.size,
+        },
+      },
+      config: runtimeEngineConfig,
+    })
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 

@@ -901,7 +901,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 5, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
             <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
-              Candidate pipeline is currently bottlenecked at {currentPhaseName}. {safeStr(bottleneck.whyItMatters || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
+              Pipeline conversion stalls at {currentPhaseName} ({screenRate}% actual callback vs 5.0% industry target). {safeStr(bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
             </Text>
           </View>
         </View>
@@ -918,7 +918,10 @@ export default function CareerReportPdf({ reportData = {} }) {
             {safeStr(bottleneck.title, 'Application Filtering & Low Callback Velocity')}
           </Text>
           <Text style={{ fontSize: 7.2, color: '#475569', lineHeight: 1.3 }}>
-            {safeStr(bottleneck.whyItMatters)}
+            {safeStr(
+              bottleneck.recommendedPivot || bottleneck.recoveryTarget,
+              'Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity to >= 5.0%.'
+            )}
           </Text>
         </View>
 
@@ -1454,11 +1457,17 @@ export default function CareerReportPdf({ reportData = {} }) {
               </View>
             </View>
 
-            {(b.why || b.critique || b.recommendation) && (
+            {(b.whyItWorks || b.why || b.critique) && (
               <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                <Text style={{ fontSize: 6.8, color: '#475569' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>Why it works: </Text>
-                  {safeStr(b.why || b.critique || b.recommendation)}
+                {b.critique && (
+                  <Text style={{ fontSize: 6.5, color: '#DC2626', marginBottom: 1 }}>
+                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#991B1B' }}>Issue: </Text>
+                    {safeStr(b.critique)}
+                  </Text>
+                )}
+                <Text style={{ fontSize: 6.8, color: '#166534' }}>
+                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#14532D' }}>Why it works: </Text>
+                  {safeStr(b.whyItWorks || b.why || 'Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.')}
                 </Text>
               </View>
             )}
@@ -1506,7 +1515,7 @@ export default function CareerReportPdf({ reportData = {} }) {
 
         {/* 3 AI Recruiter Headlines */}
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
-          <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (15-20 Words)</Text>
+          <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (Recruiter-SEO Optimized)</Text>
           <Text style={styles.sectionTag}>SEARCH INDEXED</Text>
         </View>
 
@@ -1516,7 +1525,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
                 Option 0{idx + 1} • {safeStr(h.formula || h.style || 'High-Impact')}
               </Text>
-              <Text style={styles.tagNeutral}>15-20 WORDS</Text>
+              <Text style={styles.tagNeutral}>RECRUITER-SEO OPTIMIZED</Text>
             </View>
             <Text style={{ fontSize: 7.6, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
               {safeStr(h.headline)}

@@ -7,10 +7,11 @@ import {
   SpinnerGap,
   DownloadSimple,
 } from '@phosphor-icons/react'
-import useAppStore, { PHASES } from '../../store/useAppStore'
+import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import AnalysisLoader from '../loading/AnalysisLoader'
 
 // Redesigned Modern Report Components
@@ -1042,8 +1043,10 @@ function ReportDashboardContent() {
     if (email) {
       try {
         await api.bookCall({ email })
+        showToast('Strategy call requested! Our team will reach out shortly.', 'success')
       } catch (err) {
         console.error('Failed to register book call lead:', err)
+        showToast(getFriendlyErrorMessage(err, 'Could not register strategy call request.'), 'error')
       }
     }
   }

@@ -251,6 +251,20 @@ const useAppStore = create((set) => ({
     return { theme: next }
   }),
 
+  // Global Toast Notifications
+  toast: null,
+  showToast: (message, type = 'info') => {
+    if (!message) return
+    set({
+      toast: {
+        id: Date.now() + Math.random(),
+        message: typeof message === 'string' ? message : String(message),
+        type,
+      },
+    })
+  },
+  clearToast: () => set({ toast: null }),
+
   // Dev OTP fallback
   devOtp: '',
   setDevOtp: (devOtp) => set({ devOtp }),
@@ -280,9 +294,14 @@ const useAppStore = create((set) => ({
       reportData: null,
       resumeFile: null,
       resumeAnalysis: { status: 'idle', data: null, error: null, filename: null },
+      toast: null,
     })
   },
 }))
+
+export const showToast = (message, type = 'info') => {
+  useAppStore.getState().showToast(message, type)
+}
 
 if (typeof window !== 'undefined') {
   window.__useAppStore = useAppStore

@@ -2,9 +2,10 @@ import { useRef, useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SpinnerGap, ArrowLeft, ArrowRight, WarningCircle } from '@phosphor-icons/react'
-import useAppStore, { GATE_STEPS, PHASES } from '../../store/useAppStore'
+import useAppStore, { GATE_STEPS, PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 
 const OTP_LENGTH = 6
 
@@ -24,10 +25,11 @@ export default function OTPStep() {
       setPhase(PHASES.LOADING)
       navigateTo('/loading')
     },
-    onError: () => {
+    onError: (err) => {
       setIsError(true)
       setShaking(true)
       setTimeout(() => setShaking(false), 500)
+      showToast(getFriendlyErrorMessage(err, 'Invalid verification code. Please check your inbox or code and try again.'), 'error')
     },
   })
 

@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import mongoose from 'mongoose'
+import rateLimit from 'express-rate-limit'
 import otpRoutes from './routes/otpRoutes.js'
 import assessmentRoutes from './routes/assessmentRoutes.js'
 import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes.js'
@@ -11,7 +12,6 @@ import linkedinAgentRoutes from './routes/linkedinAgentRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
-import resumeAgentTestRoutes from './routes/resumeAgentTestRoutes.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
@@ -20,51 +20,64 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// CORS — allow the deployed Render frontend + localhost for development
+// Parse optional admin frontend URLs (comma-separated support)
+const adminOrigins = (process.env.ADMIN_FRONTEND_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+// CORS — public web, external admin panels, and localhost
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:4173',
   process.env.FRONTEND_URL,
+  ...adminOrigins,
 ].filter(Boolean)
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true)
-    
     const normalizedOrigin = origin.replace(/\/$/, '')
-    
-    // Strict match checks (ignoring trailing slashes)
-    const isAllowed = allowedOrigins.some(
-      (allowed) => allowed.replace(/\/$/, '') === normalizedOrigin
-    )
-    
-    // Resilient fallback: Allow local development on any localhost or 127.0.0.1 port
+    const isAllowed = allowedOrigins.some((allowed) => allowed.replace(/\/$/, '') === normalizedOrigin)
     const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)
-
-    // Resilient fallback: Allow any Render subdomain of yours containing 'carrer-gps'
-    const isRenderFallback =
-      normalizedOrigin.includes('carrer-gps') &&
-      normalizedOrigin.includes('onrender.com')
+    const isRenderFallback = normalizedOrigin.includes('carrer-gps') && normalizedOrigin.includes('onrender.com')
 
     if (isAllowed || isLocalhost || isRenderFallback) {
       return callback(null, true)
     }
-    
     callback(new Error(`CORS blocked: ${origin} not in allowed list`))
   },
   credentials: true,
 }))
+
 app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ limit: '50mb', extended: true }))
+
+// Public Rate Limiter for expensive generation routes (30 requests per 15 min per IP)
+const publicApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests, please try again shortly.',
+  },
+})
+
+// Mount rate limiters on public entrypoints
+app.use('/api/assessment', publicApiLimiter)
+app.use('/api/otp', publicApiLimiter)
+app.use('/api/resume-agent', publicApiLimiter)
+app.use('/api/linkedin-agent', publicApiLimiter)
 
 // Mount routes
 app.use('/api/otp', otpRoutes)
 app.use('/api/assessment', assessmentRoutes)
 app.use('/api/knowledge-base', knowledgeBaseRoutes)
+app.use('/api/admin/knowledge-base', knowledgeBaseRoutes) // Admin unified alias
 app.use('/api/resume-agent', resumeAgentRoutes)
-app.use('/api/resume-agent/test', resumeAgentTestRoutes)
 app.use('/api/linkedin-agent', linkedinAgentRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/report-jobs', reportJobRoutes)
@@ -82,7 +95,6 @@ const startServer = async () => {
     await mongoose.connect(mongoUri)
     console.log('Successfully connected to MongoDB database.')
 
-    // Initialize automated weekly JD refresh scheduler
     initMarketAutoScheduler()
 
     app.listen(PORT, () => {

@@ -250,21 +250,24 @@ export function buildDeterministicOptimizations(
   const bullet2 = allBullets[1] || ''
   const bullet3 = allBullets[2] || ''
 
+  const top5Skills = effectiveSkills.slice(0, 5).join(' | ') || topSkillList
+  const top6Skills = effectiveSkills.slice(0, 6).join(' • ') || topSkillList
+
   const fallbackHeadlines = [
     {
       formula: 'Proof & Milestone First',
-      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency production systems'} | ${targetRole} specializing in ${topSkillList} to accelerate enterprise delivery`.slice(0, 220),
-      whyItWorks: 'Hooks recruiters immediately with verified scale before delivering exact searchable role and tool keywords.',
+      headline: `${metricPhrase ? `Scaled systems by ${metricPhrase}` : 'Architecting high-concurrency systems for scale'} | ${targetRole} • Senior Specialist | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Hooks recruiters immediately with verified scale and packs 5-7 searchable technical keywords for boolean search algorithms.',
     },
     {
       formula: 'Curiosity & Problem Solver',
-      headline: `I help enterprise teams eliminate complex system and data bottlenecks | ${targetRole} driving ${topSkillList}`.slice(0, 220),
-      whyItWorks: 'Conversational human hook stating who you help and the business problem solved, followed by high-demand recruiter keywords.',
+      headline: `I help engineering teams eliminate production bottlenecks & accelerate delivery | ${targetRole} specializing in ${effectiveSkills.slice(0, 5).join(' • ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Conversational hook stating who you help and problem solved, followed by high-demand recruiter keywords and target title.',
     },
     {
       formula: 'Specialist Authority',
-      headline: `Designing resilient architectures and low-latency workflows for scale | ${targetRole} focused on ${topSkillList} and operational excellence`.slice(0, 220),
-      whyItWorks: 'Positions deep domain authority and target role keywords without generic buzzwords or pipe-spam.',
+      headline: `Designing resilient distributed architectures & data workflows at scale | ${targetRole} | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
+      whyItWorks: 'Positions deep domain authority with target role keywords and dense tool indexing for recruiter filters.',
     },
   ]
 
@@ -286,34 +289,34 @@ export function buildDeterministicOptimizations(
 
   // 4-Part Video Copywriting Framework (Credibility Hook -> Audience & Problem -> Approach & Skills -> Closing CTA)
   let hook = metricPhrase
-    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes.`
-    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact.`
+    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes while aligning engineering efforts directly with executive milestones.`
+    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows across enterprise applications. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact and dependable systems at scale.`
 
   if (isHealthRole) {
-    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes.`
+    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes and maintain pristine clinical documentation.`
   } else if (isFinanceRole) {
-    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence.`
+    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence, risk mitigation strategies, and high-velocity fiscal operations.`
   }
 
-  let audienceAndProblem = `I partner with engineering leaders and cross-functional teams looking to eliminate system bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing friction points so core platforms scale predictably under heavy operational demands.`
+  let audienceAndProblem = `I partner with engineering leaders, product directors, and cross-functional squads looking to eliminate architectural bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing operational friction points so core platforms scale predictably under heavy production demands without compromising code quality or release predictability.`
   if (isHealthRole) {
-    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions.`
+    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions. I focus on optimizing bedside workflow transitions and mitigating patient care delays across multi-disciplinary units.`
   } else if (isFinanceRole) {
-    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance.`
+    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance. I specialize in unblocking fragmented accounting workflows and establishing dependable financial controls.`
   }
 
-  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale seamlessly without technical debt or operational regressions.`
+  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale smoothly without technical debt or operational regressions. By grounding system designs in reliable monitoring and domain-driven patterns, I help teams build resilient infrastructure that stands up to sustained enterprise load.`
   if (isHealthRole) {
-    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings.`
+    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings, ensuring patient safety remains paramount while reducing inter-departmental handoff latency.`
   } else if (isFinanceRole) {
-    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment.`
+    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment, reducing cycle times while safeguarding regulatory integrity.`
   }
 
-  let closingCta = `If you are scaling high-reliability systems or looking for dedicated ${targetRole} expertise, let's connect.`
+  let closingCta = `If you are scaling high-reliability systems, navigating technical modernization, or looking for dedicated ${targetRole} expertise, let's connect and discuss how we can build together.`
   if (isHealthRole) {
-    closingCta = `If you are expanding your clinical team or advancing healthcare delivery standards, let's connect.`
+    closingCta = `If you are expanding your clinical team, driving patient safety initiatives, or advancing healthcare delivery standards, let's connect.`
   } else if (isFinanceRole) {
-    closingCta = `If you are modernizing financial analytics or expanding your fiscal leadership team, let's connect.`
+    closingCta = `If you are modernizing financial analytics, accelerating close cycles, or expanding your fiscal leadership team, let's connect.`
   }
 
   const fullText = `${hook}\n\n${audienceAndProblem}\n\n${approachAndSkills}\n\n${closingCta}`

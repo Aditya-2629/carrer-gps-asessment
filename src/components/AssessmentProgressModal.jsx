@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { CheckCircle2, Loader2, Activity, AlertCircle } from 'lucide-react'
+import { showToast } from '../store/useAppStore'
+import { getFriendlyErrorMessage } from '../lib/errorMessages'
 
 export default function AssessmentProgressModal({ userId, onComplete, onError }) {
   const [progress, setProgress] = useState(15)
@@ -23,6 +25,7 @@ export default function AssessmentProgressModal({ userId, onComplete, onError })
 
         if (data.error) {
           eventSource.close()
+          showToast(getFriendlyErrorMessage(data.error), 'error')
           onError(data.error)
         }
       } catch (e) {
@@ -40,7 +43,10 @@ export default function AssessmentProgressModal({ userId, onComplete, onError })
       })
         .then((res) => res.json())
         .then((report) => onComplete(report))
-        .catch((err) => onError(err?.message || 'Failed to generate report'))
+        .catch((err) => {
+          showToast(getFriendlyErrorMessage(err, 'Failed to generate report'), 'error')
+          onError(err?.message || 'Failed to generate report')
+        })
     }
 
     return () => eventSource.close()

@@ -5,8 +5,9 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { EnvelopeSimple, SpinnerGap, ArrowRight, WarningCircle } from '@phosphor-icons/react'
-import useAppStore, { GATE_STEPS } from '../../store/useAppStore'
+import useAppStore, { GATE_STEPS, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -34,9 +35,10 @@ export default function EmailStep() {
       }
       setGateStep(GATE_STEPS.OTP)
     },
-    onError: () => {
+    onError: (err) => {
       setShaking(true)
       setTimeout(() => setShaking(false), 500)
+      showToast(getFriendlyErrorMessage(err, 'Failed to send verification code. Please check your email and try again.'), 'error')
     },
   })
 

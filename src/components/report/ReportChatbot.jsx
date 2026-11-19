@@ -11,11 +11,12 @@ import {
   ArrowsOutSimple,
   ArrowsInSimple,
 } from '@phosphor-icons/react'
-import useAppStore from '../../store/useAppStore'
+import useAppStore, { showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import DiffSnippetCard from './DiffSnippetCard'
 import ProgramPricingCard from './ProgramPricingCard'
 import { useReportGuideStore } from '../../store/useReportGuideStore'
+import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 
 /**
  * Smoothly scrolls to a section by element id (supports `#final-cta`, `#next-action`, etc.)
@@ -784,6 +785,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
           accumulatedText = rawAnswer
         } catch (_jsonErr) {
           accumulatedText = 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!'
+          showToast(getFriendlyErrorMessage(_jsonErr, 'Chatbot assistant encountered a connection issue.'), 'warning')
         }
       } finally {
         // Finalize agent message

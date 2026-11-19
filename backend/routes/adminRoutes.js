@@ -46,6 +46,8 @@ import {
   updateScrapeSlider,
   injectDynamicKey,
   triggerLiveBucketScrape,
+  updateEngineConfig,
+  getAdminHealth,
 } from '../controllers/adminDynamicController.js'
 import {
   getFallbackAndErrorAnalytics,
@@ -73,7 +75,9 @@ router.patch('/leads/:id', updateLeadStage)
 router.post('/leads/:id/override-bullet', overrideBulletRewrite)
 
 // ── Zero-Restart Dynamic Engine & SmartKeyPool ──────────────────────────────
+router.get('/health', getAdminHealth)
 router.get('/engine/config', getEngineConfig)
+router.patch('/engine/config', updateEngineConfig)
 router.post('/engine/roles', createDynamicRole)
 router.post('/engine/scrape-slider', updateScrapeSlider)
 router.post('/engine/keys', injectDynamicKey)
