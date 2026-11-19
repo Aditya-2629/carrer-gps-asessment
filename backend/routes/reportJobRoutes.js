@@ -17,8 +17,12 @@ import mongoose from 'mongoose'
 import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
+import { userSessionGuard } from '../utils/userAuth.js'
 
 const router = Router()
+
+// Protect all report job endpoints behind authenticated user session (prevents IDOR)
+router.use(userSessionGuard)
 
 // Per-job event bus (in-memory; single-instance safe)
 const bus = (globalThis.__reportJobBus ||= new EventEmitter())
@@ -123,6 +127,11 @@ router.get('/:id', async (req, res) => {
     const job = await ReportJob.findById(req.params.id).select('status events aiReport error userId').lean()
     if (!job) return res.status(404).json({ success: false, message: 'Job not found.' })
 
+    // IDOR protection: only job owner or admin can inspect this job
+    if (!req.isAdmin && String(job.userId) !== String(req.userId)) {
+      return res.status(403).json({ success: false, message: 'Forbidden: You do not have permission to view this report job.' })
+    }
+
     // Fallback: If user already has aiReport saved in MongoDB, treat job as done immediately
     if (job.status !== 'done' && job.userId) {
       try {
@@ -149,6 +158,11 @@ router.get('/:id/stream', async (req, res) => {
 
   const job = await ReportJob.findById(id).select('status events aiReport userId').lean()
   if (!job) return res.status(404).json({ success: false, message: 'Job not found.' })
+
+  // IDOR protection: only job owner or admin can stream this job
+  if (!req.isAdmin && String(job.userId) !== String(req.userId)) {
+    return res.status(403).json({ success: false, message: 'Forbidden: You do not have permission to view this report job.' })
+  }
 
   // Fallback: If user already has aiReport saved, recover immediately
   if (job.status !== 'done' && job.userId) {

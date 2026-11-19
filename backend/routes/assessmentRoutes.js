@@ -2,6 +2,7 @@ import express from 'express'
 import multer from 'multer'
 import { saveAnswers, generateReport, generateReportStream, bookCall, chatResume, getReport, downloadAtsResumeDocx } from '../controllers/assessmentController.js'
 import { handleChatStream, handleChatMessage } from '../controllers/chatController.js'
+import { userSessionGuard } from '../utils/userAuth.js'
 
 const router = express.Router()
 
@@ -30,6 +31,12 @@ const upload = multer({
   },
 })
 
+// Public booking endpoint
+router.post('/book-call', bookCall)
+
+// Protect all remaining assessment, report generation, and AI chat endpoints
+router.use(userSessionGuard)
+
 // Configure routes
 router.post('/save-answers', upload.single('resume'), saveAnswers)
 router.post('/generate-report', generateReport)
@@ -45,7 +52,6 @@ router.post('/download-resume-docx', downloadAtsResumeDocx)
 router.post('/resume-talk', handleChatMessage)
 router.post('/chat', handleChatMessage)
 router.post('/chat-stream', handleChatStream)
-router.post('/book-call', bookCall)
 
 export default router
 

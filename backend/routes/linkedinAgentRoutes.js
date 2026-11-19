@@ -16,8 +16,11 @@ import { ResumeAgent } from '../agents/resume/resumeAgent.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { listModelsForPurpose } from '../ai/config/modelRegistry.js'
 import User from '../models/User.js'
+import { userSessionGuard } from '../utils/userAuth.js'
 
 const router = express.Router()
+
+const LINKEDIN_PROFILE_REGEX = /^https:\/\/([a-z]{2,3}\.)?linkedin\.com\/in\/[a-zA-Z0-9\-_%]+\/?$/i
 
 // Multer memory storage (5MB max)
 const storage = multer.memoryStorage()
@@ -45,13 +48,20 @@ const upload = multer({
  * and returns { success: true, profile } (or { success: false, profile: null } on non-fatal error).
  */
 router.post('/scrape', async (req, res) => {
-  const url = req.body?.url || req.body?.linkedinUrl || ''
-  if (!url || typeof url !== 'string' || !url.trim()) {
+  const url = (req.body?.url || req.body?.linkedinUrl || '').trim()
+  if (!url) {
     return res.status(200).json({
       success: false,
       profile: null,
       posts: null,
       error: 'Missing or empty LinkedIn profile URL.',
+    })
+  }
+
+  if (!LINKEDIN_PROFILE_REGEX.test(url)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid LinkedIn URL format. Must be https://linkedin.com/in/username',
     })
   }
 
@@ -138,10 +148,10 @@ router.post(['/headline-rewrites', '/optimize-headlines'], (req, res) => {
 })
 
 /**
- * GET /api/linkedin-agent/status & /api/linkedin-agent/test/health
+ * GET /api/linkedin-agent/status & /api/linkedin-agent/health
  * Returns LinkedIn Agent version, operational mode, Apify status, and models.
  */
-router.get(['/status', '/health', '/test/health'], (req, res) => {
+router.get(['/status', '/health'], (req, res) => {
   const models = listModelsForPurpose('resume_analysis')
   return res.status(200).json({
     status: 'UP',
@@ -162,10 +172,10 @@ router.get(['/status', '/health', '/test/health'], (req, res) => {
 })
 
 /**
- * GET /api/linkedin-agent/models & /api/linkedin-agent/test/models
+ * GET /api/linkedin-agent/models
  * Lists available models for LinkedIn profile analysis and generative synthesis.
  */
-router.get(['/models', '/test/models'], (req, res) => {
+router.get('/models', (req, res) => {
   const models = listModelsForPurpose('resume_analysis')
   return res.status(200).json({
     success: true,
@@ -180,24 +190,25 @@ router.get(['/models', '/test/models'], (req, res) => {
 })
 
 /**
- * POST /api/linkedin-agent/evaluate & POST /api/linkedin-agent/test/run
+ * POST /api/linkedin-agent/evaluate
  * Evaluates candidate LinkedIn profile with Resume Agent context orchestration.
- * Accepts:
- *  - multipart file ("resume") or "resumeText" in JSON body
- *  - "linkedinUrl" (optional string, scraped via Apify if available)
- *  - "linkedinData" (optional JSON object or stringified JSON)
- *  - "targetRole" (optional target role)
- *  - "runLlm" (boolean, default true)
- *  - "model" (optional model override)
+ * Gated behind user session authentication or admin key.
  */
-router.post(['/evaluate', '/test/run'], upload.single('resume'), async (req, res) => {
+router.post('/evaluate', userSessionGuard, upload.single('resume'), async (req, res) => {
   const startedAt = Date.now()
   try {
     const targetRole = req.body?.targetRole || req.body?.role || ''
     const targetJobDescription = req.body?.targetJobDescription || req.body?.targetJd || req.body?.jd || ''
-    const linkedinUrl = req.body?.linkedinUrl || ''
+    const linkedinUrl = (req.body?.linkedinUrl || '').trim()
     const resumeText = req.body?.resumeText || ''
     const runLlm = req.body?.runLlm !== false && req.body?.runLlm !== 'false'
+
+    if (linkedinUrl && !LINKEDIN_PROFILE_REGEX.test(linkedinUrl)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid LinkedIn URL format. Must be https://linkedin.com/in/username',
+      })
+    }
 
     // Parse raw linkedinData if passed
     let linkedinData = null

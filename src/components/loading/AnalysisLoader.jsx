@@ -191,7 +191,9 @@ export default function AnalysisLoader() {
         startPolling(jobId)
 
         // Subscribe via SSE
-        const source = new EventSource(`${API_BASE}/report-jobs/${jobId}/stream`)
+        const token = useAppStore.getState().sessionToken || localStorage.getItem('crafture_session_token') || ''
+        const sseUrl = `${API_BASE}/report-jobs/${jobId}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`
+        const source = new EventSource(sseUrl)
         sourceRef.current = source
 
         source.onmessage = (e) => {

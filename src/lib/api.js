@@ -16,6 +16,22 @@ const client = axios.create({
   },
 })
 
+// Attach session token to outgoing requests to protect against IDOR and authorize AI calls
+client.interceptors.request.use((config) => {
+  try {
+    const token =
+      typeof window !== 'undefined'
+        ? window.__useAppStore?.getState()?.sessionToken ||
+          localStorage?.getItem('crafture_session_token') ||
+          sessionStorage?.getItem('crafture_session_token')
+        : null
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  } catch (_e) {}
+  return config
+})
+
 export const api = {
   // Expose HTTP verbs for direct endpoint calls
   post: (url, data, config) => client.post(url, data, config),
@@ -37,6 +53,16 @@ export const api = {
     }
   },
 
+  // POST /api/otp/resend-otp
+  resendOtp: async ({ email }) => {
+    try {
+      const res = await client.post('/otp/resend-otp', { email })
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || 'Failed to resend verification code.')
+    }
+  },
+
   // POST /api/otp/verify-otp
   verifyOtp: async ({ email, otp }) => {
     try {
@@ -44,6 +70,20 @@ export const api = {
       return res.data
     } catch (err) {
       throw new Error(err.response?.data?.message || 'Invalid verification code.')
+    }
+  },
+
+  // POST /api/resume-agent/parse-deterministic (0 LLM calls, deterministic extraction)
+  parseResumeDeterministic: async (file) => {
+    try {
+      const form = new FormData()
+      form.append('resume', file)
+      const res = await client.post('/resume-agent/parse-deterministic', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.response?.data?.error || 'Failed to extract resume data.')
     }
   },
 

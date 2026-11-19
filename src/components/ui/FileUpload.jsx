@@ -23,9 +23,9 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       })
 
       try {
-        const result = await api.analyzeResumeFile(file)
+        const result = await api.parseResumeDeterministic(file)
 
-        if (result && (result.analysis || result.canonicalResume)) {
+        if (result && (result.canonicalResume || result.analysis)) {
           setResumeAnalysis({
             status: 'completed',
             filename: file.name,

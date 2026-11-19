@@ -462,14 +462,13 @@ export const saveAnswers = async (req, res) => {
         }
       }
 
-      // 2. Only invoke parseResumeToJSON as a fallback if canonicalResume is missing or empty
+      // 2. Deterministic fallback if resumeJson is missing or empty (0 LLM calls)
       if (!user.resumeJson || (!user.resumeJson.experiences?.length && !user.resumeJson.experience?.length && !user.resumeJson.skills?.length)) {
-        try {
-          console.log(`[AssessmentController] Parsing fresh resume fallback via parseResumeToJSON for: ${req.file.originalname}`)
-          const resumeJson = await parseResumeToJSON(req.file.buffer, req.file.mimetype, req.file.originalname)
-          user.resumeJson = resumeJson
-        } catch (parseErr) {
-          console.warn('[AssessmentController] Non-fatal parseResumeToJSON error:', parseErr.message)
+        const targetRole = answers.targetRole || answers.role || ''
+        user.resumeJson = {
+          candidate: { targetRole, name: user.name || '' },
+          experiences: [],
+          skills: [],
         }
       }
 
