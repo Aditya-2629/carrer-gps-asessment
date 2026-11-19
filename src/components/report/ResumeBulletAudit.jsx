@@ -264,15 +264,15 @@ export default function ResumeBulletAudit({
   return (
     <div id="resume-bullets" className="space-y-6">
       {/* ── Paper X-Ray Header & Telemetry ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-default)] pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600" />
-            <h3 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">
+            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] tracking-tight">
               Interactive Resume Paper X-Ray
             </h3>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             1-Page diagnostic scan: inspect 5-part anatomy, recruiter eye-tracking attention, and verified inline rewrites.
           </p>
         </div>
@@ -280,8 +280,8 @@ export default function ResumeBulletAudit({
         {/* Telemetry Pills & Filter Toggles */}
         <div className="flex flex-wrap items-center gap-2">
           {/* ATS & Recruiter Eye-Tracking Badge */}
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" />
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
             <span>ATS &amp; Recruiter Eye-Tracking:</span>
             <span className="font-bold">{scoredPassCount}/{totalBulletsCount} bullets scored</span>
           </span>
@@ -291,8 +291,8 @@ export default function ResumeBulletAudit({
             onClick={() => setFilterVerdict('ALL')}
             className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer ${
               filterVerdict === 'ALL'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
+                : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             All Lines ({bullets.length})
@@ -304,10 +304,10 @@ export default function ResumeBulletAudit({
             className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
               filterVerdict === 'HURTING'
                 ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-950/50'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400" />
             <span>Hurting Lines ({hurtingCount})</span>
           </button>
 
@@ -317,18 +317,18 @@ export default function ResumeBulletAudit({
             className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
               filterVerdict === 'HELPING'
                 ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-100 dark:hover:bg-emerald-950/50'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
             <span>Helping Lines ({helpingCount})</span>
           </button>
         </div>
       </div>
 
       {/* ── Realistic Laser-Clean Resume Paper Sheet ── */}
-      <div className="bg-white rounded-xl border border-slate-300 shadow-xs p-5 sm:p-7 relative font-sans divide-y divide-slate-100">
-        <div className="pb-3 mb-2 flex items-center justify-between text-[11px] font-mono tracking-normal text-slate-500 border-b border-slate-200">
+      <div className="bg-[var(--surface-card)] rounded-xl border border-[var(--border-default)] shadow-xs p-5 sm:p-7 relative font-sans divide-y divide-[var(--border-default)]">
+        <div className="pb-3 mb-2 flex items-center justify-between text-[11px] font-mono tracking-normal text-[var(--text-muted)] border-b border-[var(--border-default)]">
           <span>Experience bullets &amp; statement x-ray</span>
           <span>Click any line to inspect diff</span>
         </div>
@@ -343,8 +343,8 @@ export default function ResumeBulletAudit({
               onClick={() => handleToggleExpand(item, idx)}
               className={`py-3.5 px-3 -mx-3 rounded-lg transition-colors cursor-pointer group border-l-4 ${
                 isHelping
-                  ? 'border-l-emerald-500 hover:bg-emerald-50/20'
-                  : 'border-l-rose-500 bg-rose-50/25 hover:bg-rose-50/50'
+                  ? 'border-l-emerald-500 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20'
+                  : 'border-l-rose-500 bg-rose-50/25 dark:bg-rose-950/20 hover:bg-rose-50/50 dark:hover:bg-rose-950/30'
               }`}
             >
               {/* Row 1: Status Pill, Attention Scan, and 5-Part Formula */}
@@ -353,8 +353,8 @@ export default function ResumeBulletAudit({
                   <span
                     className={`text-[10px] font-mono px-2 py-0.5 rounded tracking-normal flex items-center gap-1.5 font-medium ${
                       isHelping
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : 'bg-rose-100 text-rose-800 border border-rose-200'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                        : 'bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
                     }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${isHelping ? 'bg-emerald-600' : 'bg-rose-600'}`} />
@@ -375,8 +375,8 @@ export default function ResumeBulletAudit({
                         key={key}
                         className={`text-xs font-semibold px-2 py-0.5 rounded border transition-colors ${
                           active
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 font-mono'
-                            : 'bg-slate-50 text-[var(--text-muted)] border-slate-200 font-mono'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50 font-mono'
+                            : 'bg-[var(--surface-sunken)] text-[var(--text-muted)] border-[var(--border-default)] font-mono'
                         }`}
                         title={`${label}: ${active ? 'Present' : 'Missing'}`}
                       >
@@ -392,9 +392,9 @@ export default function ResumeBulletAudit({
               </div>
 
               {/* Row 2: Resume Bullet Line */}
-              <div className="text-xs text-slate-800 leading-relaxed font-sans pl-2">
+              <div className="text-xs text-[var(--text-primary)] leading-relaxed font-sans pl-2">
                 <span className="font-bold text-[var(--text-muted)] mr-2">•</span>
-                <span className={!isHelping ? 'text-slate-800 font-medium' : 'text-slate-900'}>
+                <span className={!isHelping ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-primary)]'}>
                   {item.original}
                 </span>
               </div>
@@ -402,13 +402,13 @@ export default function ResumeBulletAudit({
               {/* Row 3: Expanded Inline Before -> After Diff */}
               {isExpanded && (
                 <div
-                  className="mt-3.5 pt-3 border-t border-slate-200/60 space-y-3 animate-fadeIn"
+                  className="mt-3.5 pt-3 border-t border-[var(--border-default)] space-y-3 animate-fadeIn"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Recruiter Evaluation */}
                   {item.critique && (
-                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200/80 text-xs text-amber-900 space-y-1">
-                      <span className="text-xs font-mono text-amber-700 flex items-center gap-1 font-semibold">
+                    <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+                      <span className="text-xs font-mono text-amber-700 dark:text-amber-400 flex items-center gap-1 font-semibold">
                         <WarningCircle size={13} weight="bold" /> Recruiter Evaluation:
                       </span>
                       <p className="leading-relaxed font-medium line-clamp-2">
@@ -419,9 +419,9 @@ export default function ResumeBulletAudit({
 
                   {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
                   {item.rewritten && item.original !== item.rewritten ? (
-                    <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-xl space-y-3">
+                    <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-indigo-700 flex items-center gap-1 font-semibold">
+                        <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
                           <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                         </span>
                         <CopyButton
@@ -446,8 +446,8 @@ export default function ResumeBulletAudit({
                       />
                     </div>
                   ) : !isHelping ? (
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
-                      <span className="font-mono text-xs text-slate-500">
+                    <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
+                      <span className="font-mono text-xs text-[var(--text-muted)]">
                         Formula recommendation: Lead with an active ownership verb and quantified scale.
                       </span>
                       <CopyButton

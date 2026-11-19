@@ -425,31 +425,31 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
   return (
     <section id="roadmap" className="space-y-6">
       {/* Section Header with Segmented View Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--border-default)] pb-4">
         <div>
-          <span className="text-xs font-mono font-medium text-indigo-600 block">
+          <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
             Action roadmap &amp; milestones
           </span>
           <h2
-            className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight"
+            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
             style={{ fontFamily: 'var(--font-head)' }}
           >
             Action Plan &amp; Milestone Pathway
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+          <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
             Calibrated to {targetRole} hiring expectations and conversion bottlenecks
           </p>
         </div>
 
         {/* Clean Segmented Switcher (Screen View) */}
-        <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 print:hidden self-start sm:self-auto">
+        <div className="inline-flex items-center gap-1 bg-[var(--surface-sunken)] p-1 rounded-xl border border-[var(--border-default)] shrink-0 print:hidden self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setActiveView('7day')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
               activeView === '7day'
-                ? 'bg-white text-indigo-700 shadow-xs border border-indigo-200/60'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[var(--surface-card)] text-indigo-700 dark:text-indigo-400 shadow-xs border border-indigo-200/60 dark:border-indigo-800/60'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             7-Day Quick Plan
@@ -459,8 +459,8 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
             onClick={() => setActiveView('pathway')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
               activeView === 'pathway'
-                ? 'bg-white text-emerald-700 shadow-xs border border-emerald-200/60'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-[var(--surface-card)] text-emerald-700 dark:text-emerald-400 shadow-xs border border-emerald-200/60 dark:border-emerald-800/60'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             30 / 60 / 90 Pathway
@@ -472,12 +472,12 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       <div className={`space-y-4 ${activeView === '7day' ? 'block' : 'hidden print:block'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600" />
-            <span className="text-xs font-semibold text-slate-800">
+            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
               7-Day Tactical Sprints (Immediate Bottleneck Remediation)
             </span>
           </div>
-          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700">
+          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300">
             Sprint Phase: Days 1–7
           </span>
         </div>
@@ -491,40 +491,40 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
             return (
               <div
                 key={dayNum}
-                className={`p-3.5 sm:p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between space-y-2.5 hover:border-slate-300 transition-colors ${
+                className={`p-3.5 sm:p-4 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs flex flex-col justify-between space-y-2.5 hover:border-slate-300 dark:hover:border-slate-700 transition-colors ${
                   isFullWidthDay ? 'md:col-span-2' : ''
                 }`}
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-800 shrink-0">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-800 dark:text-indigo-300 shrink-0">
                       DAY 0{dayNum}
                     </span>
-                    <span className="text-xs font-mono text-[var(--text-muted)] bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 truncate max-w-[180px]">
+                    <span className="text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] px-2 py-0.5 rounded border border-[var(--border-default)] truncate max-w-[180px]">
                       {dayTag}
                     </span>
                   </div>
 
-                  <h4 className="text-xs font-semibold text-slate-900 leading-snug">
+                  <h4 className="text-xs font-semibold text-[var(--text-primary)] leading-snug">
                     {item.title}
                   </h4>
 
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-normal line-clamp-2">
+                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed font-normal line-clamp-2">
                     {item.action}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border-default)] text-xs font-mono">
                   {item.deliverable && (
                     <div className="flex items-center gap-1.5 truncate max-w-[65%]">
                       <span className="text-[var(--text-muted)] font-sans">Artifact:</span>
-                      <span className="text-slate-700 font-medium truncate">{item.deliverable}</span>
+                      <span className="text-[var(--text-secondary)] font-medium truncate">{item.deliverable}</span>
                     </div>
                   )}
                   {item.metricTarget && (
                     <div className="flex items-center gap-1.5 ml-auto">
                       <span className="text-[var(--text-muted)] font-sans">Target:</span>
-                      <span className="text-emerald-600 font-semibold tabular-nums">{item.metricTarget}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold tabular-nums">{item.metricTarget}</span>
                     </div>
                   )}
                 </div>
@@ -538,12 +538,12 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       <div className={`space-y-4 ${activeView === 'pathway' ? 'block' : 'hidden print:block print:mt-6'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-600" />
-            <span className="text-xs font-semibold text-slate-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
               30 / 60 / 90 Day Compounding Milestones
             </span>
           </div>
-          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700">
+          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300">
             Pipeline Acceleration
           </span>
         </div>
@@ -557,7 +557,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   ? 'bg-amber-500/5 border-amber-500/30 shadow-xs'
                   : p.active
                   ? 'bg-emerald-500/5 border-emerald-500/30 shadow-xs'
-                  : 'bg-white border-slate-200 shadow-xs'
+                  : 'bg-[var(--surface-card)] border-[var(--border-default)] shadow-xs'
               }`}
             >
               <div className="space-y-3">
@@ -569,7 +569,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                         ? 'bg-amber-400 text-black'
                         : p.active
                         ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-100 text-slate-600 border border-slate-200'
+                        : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)]'
                     }`}
                   >
                     {p.period}
@@ -586,23 +586,23 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
                 {/* Stage Title & Goal */}
                 <div className="space-y-1">
-                  <h4 className="text-sm font-semibold text-slate-900 tracking-tight">
+                  <h4 className="text-sm font-semibold text-[var(--text-primary)] tracking-tight">
                     {p.stage}
                   </h4>
-                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                  <p className="text-[11px] text-[var(--text-secondary)] font-medium leading-relaxed">
                     {p.goal}
                   </p>
                 </div>
 
                 {/* Actions */}
-                <ul className="space-y-1.5 list-none pl-0 text-[11px] font-medium text-slate-800">
+                <ul className="space-y-1.5 list-none pl-0 text-[11px] font-medium text-[var(--text-primary)]">
                   {(p.actions || []).map((act, aIdx) => (
                     <li key={aIdx} className="flex items-start gap-2 leading-relaxed">
                       <Check
                         size={13}
                         weight="bold"
                         className={`shrink-0 mt-0.5 ${
-                          p.active || p.isGoal ? 'text-emerald-600' : 'text-[var(--text-muted)]'
+                          p.active || p.isGoal ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-muted)]'
                         }`}
                       />
                       <span>{act}</span>
@@ -612,17 +612,17 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               </div>
 
               {/* Deliverable & Success Signal Footers */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 text-xs font-mono">
+              <div className="space-y-2 pt-2 border-t border-[var(--border-default)] text-xs font-mono">
                 {p.deliverable && (
                   <div className="space-y-0.5">
                     <span className="text-[var(--text-muted)] font-sans block text-xs">Key deliverable:</span>
-                    <p className="text-slate-700 font-medium leading-tight">{p.deliverable}</p>
+                    <p className="text-[var(--text-secondary)] font-medium leading-tight">{p.deliverable}</p>
                   </div>
                 )}
                 {p.successSignal && (
                   <div className="space-y-0.5 pt-1">
-                    <span className="text-emerald-600 font-sans block text-xs font-medium">Success signal:</span>
-                    <p className="text-slate-700 font-medium leading-tight">{p.successSignal}</p>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-sans block text-xs font-medium">Success signal:</span>
+                    <p className="text-[var(--text-secondary)] font-medium leading-tight">{p.successSignal}</p>
                   </div>
                 )}
               </div>

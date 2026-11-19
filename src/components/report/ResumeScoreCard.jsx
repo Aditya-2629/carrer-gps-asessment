@@ -61,7 +61,7 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
         <NumberRoll
           value={score}
           duration={850}
-          className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-slate-900' : 'text-white'}`}
+          className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-[var(--text-primary)]' : 'text-white'}`}
         />
         <div className={`text-lg font-semibold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
         <div className={`text-xs font-mono tracking-normal mt-0.5 ${light ? 'text-[var(--text-muted)]' : 'text-gray-400'}`}>{gradeLabel}</div>
@@ -107,15 +107,15 @@ export default function ResumeScoreCard({
     return true
   })
 
-  const cardBg = light ? 'bg-white border-slate-200' : 'bg-[#0f172a] border-gray-800/90'
-  const headingText = light ? 'text-slate-900' : 'text-white'
+  const cardBg = light ? 'bg-[var(--surface-card)] border-[var(--border-default)]' : 'bg-[#0f172a] border-gray-800/90'
+  const headingText = light ? 'text-[var(--text-primary)]' : 'text-white'
   const subText = light ? 'text-[var(--text-muted)]' : 'text-gray-400'
   const labelColor = light ? 'text-[var(--text-muted)]' : 'text-gray-300'
 
   return (
     <div className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`}>
       {/* Header: score ring + grade chips */}
-      <div className="p-6 flex flex-col sm:flex-row items-center gap-6 border-b border-slate-200/70 print:break-inside-avoid">
+      <div className="p-6 flex flex-col sm:flex-row items-center gap-6 border-b border-[var(--border-default)]/70 print:break-inside-avoid">
         <ScoreRing score={score} grade={grade} gradeLabel={gradeLabel} light={light} />
 
         <div className="flex-1 min-w-0 space-y-3 w-full">
@@ -138,7 +138,7 @@ export default function ResumeScoreCard({
               return (
                 <div key={key} className={`${chipBg} ${chipBorder} border rounded-lg px-3 py-2 print:break-inside-avoid`} title={g.facts?.join('\n')}>
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-mono tracking-normal truncate ${light ? 'text-slate-700' : 'text-gray-200'}`}>{g.label}</span>
+                    <span className={`text-xs font-mono tracking-normal truncate ${light ? 'text-[var(--text-secondary)]' : 'text-gray-200'}`}>{g.label}</span>
                     <span className={`text-sm font-semibold tabular-nums ${gradeText}`}>{g.grade}</span>
                   </div>
                   <div className={`text-xs mt-0.5 tabular-nums ${subText}`}>{g.score}/100</div>
@@ -150,7 +150,7 @@ export default function ResumeScoreCard({
       </div>
 
       {/* 6 Resume Pillars Split Compare Bars */}
-      <div className="p-4 sm:p-5 border-b border-slate-200/70 bg-slate-50/50 print:break-inside-avoid">
+      <div className="p-4 sm:p-5 border-b border-[var(--border-default)]/70 bg-[var(--surface-sunken)] print:break-inside-avoid">
         <CompareBars
           data={compareData}
           title="6 Resume Pillars Split Benchmark"
@@ -179,8 +179,8 @@ export default function ResumeScoreCard({
               <div key={c.id} className="flex items-start gap-2.5 py-1.5 print:break-inside-avoid">
                 <span className="mt-0.5 shrink-0">{CHECK_STYLE[c.status]?.[light ? 'light' : 'dark'] || CHECK_STYLE.pass.dark}</span>
                 <div className="min-w-0">
-                  <div className={`text-xs font-semibold ${light ? 'text-slate-800' : 'text-gray-200'}`}>{c.label}</div>
-                  <div className={`text-[11px] leading-snug ${light ? 'text-slate-500' : 'text-gray-500'}`}>{c.detail}</div>
+                  <div className={`text-xs font-semibold ${light ? 'text-[var(--text-primary)]' : 'text-gray-200'}`}>{c.label}</div>
+                  <div className={`text-[11px] leading-snug ${light ? 'text-[var(--text-secondary)]' : 'text-gray-500'}`}>{c.detail}</div>
                 </div>
               </div>
             ))}

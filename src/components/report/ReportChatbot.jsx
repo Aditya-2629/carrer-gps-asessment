@@ -841,7 +841,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
           </span>
           <ChatCircleDots size={18} weight="bold" />
           <span>Ask Crafture Copilot</span>
-          <span className="text-[10px] font-mono bg-white/20 px-1.5 py-0.5 rounded-md tabular-nums">
+          <span className="text-[10px] font-mono bg-white/20 dark:bg-white/10 px-1.5 py-0.5 rounded-md tabular-nums">
             {overallScore}/100
           </span>
         </button>

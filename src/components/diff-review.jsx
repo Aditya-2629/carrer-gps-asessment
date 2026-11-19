@@ -145,7 +145,7 @@ function InlineDiff({
   const runs = React.useMemo(() => absorbSmall(toRuns(diff(words(before), words(after)))), [before, after]);
   const pending = decision === "pending";
   return (
-    <p className={`text-[13.5px] leading-relaxed transition-colors duration-300 ${decision === "rejected" ? "text-muted-foreground" : "text-foreground"}`}>
+    <p className={`text-[13.5px] leading-relaxed transition-colors duration-300 ${decision === "rejected" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`}>
       {runs.map((run, i) =>
         run.kind === "same" ? (
           <React.Fragment key={i}>{run.tokens.join("")}</React.Fragment>
@@ -154,7 +154,7 @@ function InlineDiff({
             {run.removed.length > 0 && (
               <del
                 aria-hidden={decision === "accepted" || undefined}
-                className={`line-through text-rose-600 bg-rose-50/80 dark:bg-rose-950/40 px-1 rounded ${pending ? "decoration-rose-500/80" : "bg-transparent text-inherit decoration-transparent no-underline"}`}
+                className={`line-through text-rose-600 dark:text-rose-200 bg-rose-50/80 dark:bg-rose-950/50 px-1 rounded ${pending ? "decoration-rose-500/80" : "bg-transparent text-inherit decoration-transparent no-underline"}`}
                 style={gone(decision === "accepted", reduced)}
               >
                 {run.removed.join("")}
@@ -163,7 +163,7 @@ function InlineDiff({
             {run.added.length > 0 && (
               <ins
                 aria-hidden={decision === "rejected" || undefined}
-                className={`no-underline text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 px-1 rounded font-medium ${pending ? "" : "bg-transparent text-inherit"}`}
+                className={`no-underline text-emerald-700 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-950/50 px-1 rounded font-medium ${pending ? "" : "bg-transparent text-inherit"}`}
                 style={{ ...gone(decision === "rejected", reduced), marginLeft: pending && run.removed.length > 0 ? 2 : 0 }}
               >
                 {run.added.join("")}
@@ -272,10 +272,10 @@ export function DiffReview({
   return (
     <div className={`w-full ${className}`} {...props}>
       <div className="mb-3 flex min-h-7 flex-wrap items-center justify-between gap-2">
-        <p className="flex items-baseline gap-[0.3em] text-[13px] font-medium text-foreground">
+        <p className="flex items-baseline gap-[0.3em] text-[13px] font-medium text-[var(--text-primary)]">
           {title}
           {/* "3 to review" → "2 of 3 accepted": the count rolls and the words morph. */}
-          <span aria-hidden="true" className="inline-flex items-baseline font-normal tabular-nums text-muted-foreground">
+          <span aria-hidden="true" className="inline-flex items-baseline font-normal tabular-nums text-[var(--text-muted)]">
             <NumberRoll value={pending > 0 ? pending : accepted} duration={600} />
             <Reveal show={pending === 0} reduced={reduced}>
               &nbsp;of&nbsp;
@@ -291,7 +291,7 @@ export function DiffReview({
         {!readOnly && (
           <Reveal show={pending > 1} reduced={reduced}>
             <span className="flex gap-1 p-0.5">
-              <button type="button" inert={pending < 2} onClick={() => decideAll("rejected")} className={`cursor-pointer ${SMALL} text-muted-foreground hover:bg-accent hover:text-foreground`}>
+              <button type="button" inert={pending < 2} onClick={() => decideAll("rejected")} className={`cursor-pointer ${SMALL} text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--text-primary)]`}>
                 Reject all
               </button>
               <button type="button" inert={pending < 2} onClick={() => decideAll("accepted")} className={`cursor-pointer ${SMALL} bg-primary text-primary-foreground hover:bg-primary/90`}>
@@ -308,9 +308,9 @@ export function DiffReview({
           const open = decision === "pending" && !readOnly;
           const name = change.label ?? "change";
           return (
-            <li key={change.id} className={`overflow-hidden rounded-xl bg-surface border transition-colors duration-300 ${decision === "pending" ? "border-border" : "border-border/60"}`}>
-              <div className="flex min-h-10 items-center justify-between gap-3 border-b border-border/60 py-1 pl-3 pr-1.5">
-                <span className="truncate text-[11.5px] text-muted-foreground">{change.label ?? "Change"}</span>
+            <li key={change.id} className={`overflow-hidden rounded-xl bg-[var(--surface-card)] border transition-colors duration-300 ${decision === "pending" ? "border-[var(--border-default)]" : "border-[var(--border-default)]/60"}`}>
+              <div className="flex min-h-10 items-center justify-between gap-3 border-b border-[var(--border-default)]/60 py-1 pl-3 pr-1.5">
+                <span className="truncate text-[11.5px] text-[var(--text-muted)]">{change.label ?? "Change"}</span>
                 {/* The button you press becomes the answer: "Accept" morphs to "Accepted" while the other folds away. */}
                 <span className="flex shrink-0 items-center">
                   <Reveal show={decision === "rejected" || open} reduced={reduced}>
@@ -321,7 +321,7 @@ export function DiffReview({
                         inert={!open}
                         aria-label={`Reject ${name}`}
                         onClick={() => decide(change.id, "rejected")}
-                        className={`cursor-pointer ${SMALL} ${open ? "text-muted-foreground hover:bg-accent hover:text-foreground" : "text-muted-foreground"}`}
+                        className={`cursor-pointer ${SMALL} ${open ? "text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--text-primary)]" : "text-[var(--text-muted)]"}`}
                       >
                         <X aria-hidden="true" className="size-3.5" />
                         <TextMorph>{decision === "rejected" ? "Rejected" : "Reject"}</TextMorph>
@@ -336,7 +336,7 @@ export function DiffReview({
                         inert={!open}
                         aria-label={`Accept ${name}`}
                         onClick={() => decide(change.id, "accepted")}
-                        className={`cursor-pointer ${SMALL} ${open ? "text-foreground hover:bg-accent" : "text-emerald-600 dark:text-emerald-400"}`}
+                        className={`cursor-pointer ${SMALL} ${open ? "text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]" : "text-emerald-600 dark:text-emerald-400"}`}
                       >
                         <span aria-hidden="true" className="relative flex size-3.5 items-center justify-center">
                           {/* The plain check fades as a green one draws itself over it. */}
@@ -364,7 +364,7 @@ export function DiffReview({
                           type="button"
                           inert={decision === "pending"}
                           onClick={() => decide(change.id, "pending")}
-                          className={`cursor-pointer rounded px-1 text-[12px] font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground ${FOCUS}`}
+                          className={`cursor-pointer rounded px-1 text-[12px] font-medium text-[var(--text-primary)] underline decoration-[var(--border-default)] underline-offset-2 hover:decoration-[var(--text-primary)] ${FOCUS}`}
                         >
                           Undo
                         </button>

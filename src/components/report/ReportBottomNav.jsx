@@ -163,7 +163,7 @@ export default function ReportBottomNav({
                 <span>{nextTab.label}</span>
               </div>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white group-hover:translate-x-1 transition-transform shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-white/15 dark:bg-white/10 flex items-center justify-center text-white group-hover:translate-x-1 transition-transform shrink-0">
               <ArrowRight size={16} weight="bold" />
             </div>
           </button>
@@ -182,7 +182,7 @@ export default function ReportBottomNav({
                 <span>Review From Overview</span>
               </div>
             </div>
-            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center text-white shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-white/15 dark:bg-white/10 flex items-center justify-center text-white shrink-0">
               <ArrowsClockwise size={16} weight="bold" />
             </div>
           </button>

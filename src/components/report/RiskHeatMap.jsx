@@ -49,10 +49,10 @@ export default function RiskHeatMap({ data }) {
 
             {/* Top-Right Quadrant (CRITICAL RISK ZONE) */}
             <div className="border border-red-500/40 rounded-xl p-3.5 bg-red-500/10 relative flex flex-col justify-between shadow-2xs">
-              <span className="text-xs font-mono text-red-600 font-semibold">Critical Risk Zone</span>
+              <span className="text-xs font-mono text-red-600 dark:text-red-400 font-semibold">Critical Risk Zone</span>
 
               <div className="self-center bg-red-600 text-white font-medium text-xs px-3.5 py-1.5 rounded-lg shadow-xs flex items-center gap-2 text-center">
-                <span className="w-2 h-2 rounded-full bg-white shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-white dark:bg-rose-100 shrink-0" />
                 <span className="text-[11px] leading-tight break-words">{criticalRisk}</span>
               </div>
             </div>

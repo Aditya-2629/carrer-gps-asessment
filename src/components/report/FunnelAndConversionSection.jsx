@@ -163,35 +163,35 @@ export default function FunnelAndConversionSection({
   return (
     <section id="funnel-sankey" className="space-y-6 break-before-page page-break-before-always">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-[var(--border-default)] pb-4">
         <div>
-          <span className="text-xs font-mono font-medium text-indigo-600 block">
+          <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
             Inside the hiring funnel
           </span>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight">
             Monthly Funnel Outcomes &amp; Conversion Velocity
           </h2>
         </div>
-        <p className="text-xs sm:text-sm text-slate-500 font-medium">
+        <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium">
           Benchmarked against 1,000+ technical candidate pipelines in your target role
         </p>
       </div>
 
       {/* ── 1. SVG Sankey Pipeline Flow & Conversion Progression ── */}
-      <div className="p-5 sm:p-6 rounded-xl bg-white border border-slate-200 shadow-xs space-y-6">
+      <div className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-slate-800 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600" />
+          <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
             Sankey Pipeline Flow &amp; Bottleneck Leak Gate
           </span>
 
-          <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-slate-600">
-            Detected Leak Point: <strong className="text-rose-600 font-semibold">Phase {phaseId}</strong>
+          <span className="text-xs font-mono px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-secondary)]">
+            Detected Leak Point: <strong className="text-rose-600 dark:text-rose-400 font-semibold">Phase {phaseId}</strong>
           </span>
         </div>
 
         {/* ── SVG Sankey Visualization ── */}
-        <div className="w-full overflow-x-auto bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+        <div className="w-full overflow-x-auto bg-[var(--surface-sunken)] p-4 rounded-xl border border-[var(--border-default)]">
           <svg viewBox="0 0 760 160" className="w-full min-w-[680px] h-[160px] select-none">
             <defs>
               {FUNNEL_STAGES.slice(0, 5).map((stg, i) => (
@@ -283,7 +283,8 @@ export default function FunnelAndConversionSection({
                     x={x + 9}
                     y={sankeyYMid - 38}
                     textAnchor="middle"
-                    fill="#0F172A"
+                    fill="currentColor"
+                    className="text-slate-900 dark:text-slate-100"
                     fontSize="12"
                     fontWeight="600"
                     fontFamily="Fira Code, monospace"
@@ -296,7 +297,8 @@ export default function FunnelAndConversionSection({
                     x={x + 9}
                     y={sankeyYMid + 46}
                     textAnchor="middle"
-                    fill="#475569"
+                    fill="currentColor"
+                    className="text-slate-600 dark:text-slate-400"
                     fontSize="10"
                     fontWeight="600"
                   >
@@ -306,8 +308,8 @@ export default function FunnelAndConversionSection({
                   {/* Leak Gate Badge */}
                   {isLeak && (
                     <g transform={`translate(${x - 22}, ${sankeyYMid + 56})`}>
-                      <rect width="62" height="16" rx="4" fill="#FFF1F2" stroke="#FECDD3" strokeWidth="1" />
-                      <text x="31" y="11" textAnchor="middle" fill="#E11D48" fontSize="8" fontWeight="600" fontFamily="Fira Code, monospace">
+                      <rect width="62" height="16" rx="4" fill="currentColor" stroke="currentColor" className="text-rose-50 dark:text-rose-950/80 stroke-rose-200 dark:stroke-rose-800" strokeWidth="1" />
+                      <text x="31" y="11" textAnchor="middle" fill="currentColor" className="text-rose-600 dark:text-rose-400" fontSize="8" fontWeight="600" fontFamily="Fira Code, monospace">
                         LEAK GATE
                       </text>
                     </g>
@@ -329,14 +331,14 @@ export default function FunnelAndConversionSection({
             storeReport?.primary_bottleneck ||
             'Candidate pipeline experiences significant conversion friction at this stage.'
           return (
-            <div className="p-4 rounded-xl bg-rose-50/70 border border-rose-200 flex items-start gap-3">
-              <WarningCircle size={22} weight="fill" className="text-rose-600 shrink-0 mt-0.5" />
+            <div className="p-4 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start gap-3">
+              <WarningCircle size={22} weight="fill" className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <span className="text-xs font-semibold text-rose-700 font-mono flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-rose-600 inline-block" />
+                <span className="text-xs font-semibold text-rose-700 dark:text-rose-300 font-mono flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-rose-600 dark:bg-rose-400 inline-block" />
                   Primary Funnel Friction Leak: {leakTitle}
                 </span>
-                <p className="text-xs sm:text-sm text-slate-800 font-medium leading-relaxed">
+                <p className="text-xs sm:text-sm text-[var(--text-primary)] font-medium leading-relaxed">
                   {leakDiagnosis}
                 </p>
               </div>
@@ -369,15 +371,15 @@ export default function FunnelAndConversionSection({
 
         {/* Two Horizontal Industry Benchmark Comparison Bars */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 sm:p-5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
+          <div className="p-4 sm:p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-800">Screen Callback Rate</span>
+              <span className="font-semibold text-[var(--text-primary)]">Screen Callback Rate</span>
               <div className="flex items-center gap-1.5 font-mono tabular-nums">
                 <span className={`font-semibold ${screenRateColor}`}>{screenRate}%</span>
-                <span className="text-slate-400">/ 5.0% target</span>
+                <span className="text-[var(--text-muted)]">/ 5.0% target</span>
               </div>
             </div>
-            <div className="relative w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   numScreenRate >= 5 ? 'bg-emerald-500' : numScreenRate >= 2 ? 'bg-amber-500' : 'bg-rose-500'
@@ -385,9 +387,9 @@ export default function FunnelAndConversionSection({
                 style={{ width: `${Math.min(100, Math.max(0, (numScreenRate / 5) * 100))}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
               <span>Top-quartile ATS threshold</span>
-              <span className={`font-medium tabular-nums ${numScreenRate >= 5 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span className={`font-medium tabular-nums ${numScreenRate >= 5 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {numScreenRate >= 5
                   ? `+${(numScreenRate - 5).toFixed(1)}% above bar`
                   : `${(numScreenRate - 5).toFixed(1)}% below bar`}
@@ -395,15 +397,15 @@ export default function FunnelAndConversionSection({
             </div>
           </div>
 
-          <div className="p-4 sm:p-5 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
+          <div className="p-4 sm:p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-3">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-800">Technical Pass Rate</span>
+              <span className="font-semibold text-[var(--text-primary)]">Technical Pass Rate</span>
               <div className="flex items-center gap-1.5 font-mono tabular-nums">
                 <span className={`font-semibold ${techRateColor}`}>{techToFinalRate}%</span>
-                <span className="text-slate-400">/ 40% target</span>
+                <span className="text-[var(--text-muted)]">/ 40% target</span>
               </div>
             </div>
-            <div className="relative w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   numTechRate >= 40 ? 'bg-emerald-500' : numTechRate >= 25 ? 'bg-amber-500' : 'bg-rose-500'
@@ -411,9 +413,9 @@ export default function FunnelAndConversionSection({
                 style={{ width: `${Math.min(100, Math.max(0, (numTechRate / 40) * 100))}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-muted)]">
               <span>Onsite qualification benchmark</span>
-              <span className={`font-medium tabular-nums ${numTechRate >= 40 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span className={`font-medium tabular-nums ${numTechRate >= 40 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {numTechRate >= 40
                   ? `+${(numTechRate - 40).toFixed(0)}% above bar`
                   : `${(numTechRate - 40).toFixed(0)}% below bar`}
@@ -423,40 +425,40 @@ export default function FunnelAndConversionSection({
         </div>
 
         {/* 3-Pillar Conversion Velocity Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200">
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono font-medium text-slate-500 block">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-[var(--border-default)]">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-mono font-medium text-[var(--text-muted)] block">
               Application → Screen conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-semibold font-mono tabular-nums ${screenRateColor}`}>
                 {screenRate}%
               </span>
-              <span className="text-[11px] text-slate-400">Target: &gt;5.0%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;5.0%</span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono font-medium text-slate-500 block">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-mono font-medium text-[var(--text-muted)] block">
               Technical → Final conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-semibold font-mono tabular-nums ${techRateColor}`}>
                 {techToFinalRate}%
               </span>
-              <span className="text-[11px] text-slate-400">Target: &gt;40%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;40%</span>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-            <span className="text-[10px] font-mono font-medium text-slate-500 block">
+          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)]">
+            <span className="text-[10px] font-mono font-medium text-[var(--text-muted)] block">
               Final round → Offer conversion
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className={`text-xl font-semibold font-mono tabular-nums ${offerRateColor}`}>
                 {finalToOfferRate}%
               </span>
-              <span className="text-[11px] text-slate-400">Target: &gt;30%</span>
+              <span className="text-[11px] text-[var(--text-muted)]">Target: &gt;30%</span>
             </div>
           </div>
         </div>

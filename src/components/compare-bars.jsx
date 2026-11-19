@@ -237,21 +237,21 @@ export function CompareBars({
   const every = box.width && n ? Math.max(1, Math.ceil(34 / (box.width / n))) : 1;
 
   return (
-    <div ref={rootRef} className={`w-full rounded-[22px] bg-background shadow-[0_0_0_1px_var(--border)] ${className}`} {...props}>
+    <div ref={rootRef} className={`w-full rounded-[22px] bg-[var(--surface-card)] shadow-[0_0_0_1px_var(--border-default)] ${className}`} {...props}>
       {/* Its natural width where the parent sizes to its content (a centred flex column), without forcing it on narrow screens. */}
       <div aria-hidden="true" data-natural-width className="grid h-0" style={{ gridTemplateColumns: "minmax(0, 600px)" }} />
       <div className="@container w-full">
       <div className="p-4 @md:p-5 [--plot:150px] @md:[--plot:180px]">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] text-muted-foreground @md:text-[13px]">{title}</p>
+          <p className="text-[12px] text-[var(--text-muted)] @md:text-[13px]">{title}</p>
           <button
             type="button"
             aria-pressed={on}
             onClick={toggle}
             className={`-my-1 inline-flex h-7 shrink-0 cursor-pointer items-center gap-2 rounded-full pl-2.5 pr-3 text-[12px] font-medium transition-[background-color,color,box-shadow,scale] duration-200 active:scale-[0.97] @md:text-[12.5px] ${FOCUS} ${
               on
-                ? "bg-foreground/[0.06] text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--foreground)_18%,var(--border))]"
-                : "text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)] hover:text-foreground"
+                ? "bg-foreground/[0.06] text-[var(--text-primary)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--text-primary)_18%,var(--border-default))]"
+                : "text-[var(--text-muted)] shadow-[inset_0_0_0_1px_var(--border-default)] hover:text-[var(--text-primary)]"
             }`}
             style={{ transitionTimingFunction: EASE }}
           >
@@ -276,16 +276,16 @@ export function CompareBars({
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
           {summaryMode === "average" ? (
             <div className="flex items-baseline gap-1.5">
-              <p className="text-[22px] font-bold leading-tight tracking-[-0.03em] text-foreground tabular-nums @md:text-[26px]">
+              <p className="text-[22px] font-bold leading-tight tracking-[-0.03em] text-[var(--text-primary)] tabular-nums @md:text-[26px]">
                 <NumberRoll value={visible ? avgCurrent : 0} duration={1000} />
               </p>
-              <span className="text-[14px] text-muted-foreground font-semibold">/ {maxScore}</span>
-              <span className="text-[11.5px] font-mono text-muted-foreground/80 ml-1">
+              <span className="text-[14px] text-[var(--text-muted)] font-semibold">/ {maxScore}</span>
+              <span className="text-[11.5px] font-mono text-[var(--text-muted)]/80 ml-1">
                 ({total} / {n * maxScore} pts)
               </span>
             </div>
           ) : (
-            <p className="text-[22px] font-medium leading-tight tracking-[-0.03em] text-foreground tabular-nums @md:text-[26px]">
+            <p className="text-[22px] font-medium leading-tight tracking-[-0.03em] text-[var(--text-primary)] tabular-nums @md:text-[26px]">
               <NumberRoll value={visible ? total : 0} format={format} locales={locale} duration={1000} />
             </p>
           )}
@@ -308,7 +308,7 @@ export function CompareBars({
             </span>
           </span>
         </div>
-        <p className="mt-0.5 text-[11.5px] text-muted-foreground @md:text-[12.5px]">
+        <p className="mt-0.5 text-[11.5px] text-[var(--text-muted)] @md:text-[12.5px]">
           <TextMorph>{on ? `${currentLabel} against ${previousLabel.toLowerCase()}` : currentLabel}</TextMorph>
         </p>
 
@@ -329,8 +329,8 @@ export function CompareBars({
           className={`relative mt-4 touch-pan-y select-none rounded-lg @md:mt-5 ${FOCUS}`}
           style={{ height: `calc(var(--plot) + ${HEADROOM}px)` }}
         >
-          <div aria-hidden="true" className="absolute inset-x-0 border-t border-dashed border-border" style={{ top: HEADROOM }} />
-          <div aria-hidden="true" className="absolute inset-x-0 border-t border-dashed border-border" style={{ top: HEADROOM + plotH / 2 }} />
+          <div aria-hidden="true" className="absolute inset-x-0 border-t border-dashed border-[var(--border-default)]" style={{ top: HEADROOM }} />
+          <div aria-hidden="true" className="absolute inset-x-0 border-t border-dashed border-[var(--border-default)]" style={{ top: HEADROOM + plotH / 2 }} />
           {data.map((d, i) => {
             const hc = (Math.max(0, d.current) / max) * plotH;
             const hp = (Math.max(0, d.previous) / max) * plotH;
@@ -388,7 +388,7 @@ export function CompareBars({
                   </div>
                 </div>
                 <span
-                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10.5px] leading-4 text-muted-foreground"
+                  className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10.5px] leading-4 text-[var(--text-muted)]"
                   style={{ opacity: (n - 1 - i) % every === 0 ? 1 : 0 }}
                 >
                   {d.label}
@@ -396,12 +396,12 @@ export function CompareBars({
               </div>
             );
           })}
-          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 border-t border-border" />
+          <div aria-hidden="true" className="absolute inset-x-0 bottom-0 border-t border-[var(--border-default)]" />
 
           {/* The readout: this period, and when comparing, the one before and the change. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute top-0 flex h-[24px] -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-background px-2.5 text-[11.5px] shadow-[0_0_0_1px_var(--border)]"
+            className="pointer-events-none absolute top-0 flex h-[24px] -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-[var(--surface-card)] px-2.5 text-[11.5px] shadow-[0_0_0_1px_var(--border-default)]"
             style={{
               left: active !== null ? `clamp(90px, ${(active + 0.5) * slotPct}%, calc(100% - 90px))` : "50%",
               opacity: shown ? 1 : 0,
@@ -409,10 +409,10 @@ export function CompareBars({
               transition: reduced ? "none" : `left 380ms ${THROW}, opacity 200ms ${EASE}, scale 260ms ${EASE}`,
             }}
           >
-            <span className="text-muted-foreground">
+            <span className="text-[var(--text-muted)]">
               {shown ? (shown.title ?? shown.label) : " "}
             </span>
-            <span className="font-medium tabular-nums text-foreground">
+            <span className="font-medium tabular-nums text-[var(--text-primary)]">
               {shown ? fmt(shown.current) : " "}
             </span>
             <span
@@ -420,8 +420,8 @@ export function CompareBars({
               style={{ gridTemplateColumns: on ? "1fr" : "0fr", opacity: on ? 1 : 0, transition: reduced ? "none" : `grid-template-columns 380ms ${EASE}, opacity 220ms ${EASE}` }}
             >
               <span className="flex min-w-0 items-center gap-1.5 [clip-path:inset(-4px_-2px)]">
-                <span className="pl-0.5 text-muted-foreground">vs</span>
-                <span className="tabular-nums text-muted-foreground">
+                <span className="pl-0.5 text-[var(--text-muted)]">vs</span>
+                <span className="tabular-nums text-[var(--text-muted)]">
                   {shown ? fmt(shown.previous) : " "}
                 </span>
                 <span className={`font-medium tabular-nums ${shownChange >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>

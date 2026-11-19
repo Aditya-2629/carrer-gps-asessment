@@ -1249,7 +1249,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 Recent Public LinkedIn Activity ({rawPosts.length} Posts Analyzed)
               </span>
             </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)]">
               Verified Public Feed
             </span>
           </div>
