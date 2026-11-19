@@ -83,7 +83,7 @@ function getRadarCoords(cx, cy, R, scores) {
  * Seamless Editorial Banner with zero color seam.
  * Layer 1: Full-bleed image (objectFit: 'cover')
  * Layer 2: Soft white fade SVG gradient mask
- * Layer 3: Foreground copy (maxWidth: '55%', padding: 18, gap: 6)
+ * Layer 3: Foreground copy (maxWidth: '55%', padding: 16, gap: 5)
  */
 function EditorialBanner({
   imageSrc,
@@ -144,7 +144,7 @@ function EditorialBanner({
         <Rect width="530" height="190" fill={`url(#${gradientId})`} />
       </Svg>
 
-      {/* Layer 3: Foreground Copy */}
+      {/* Layer 3: Foreground Copy with gap: 5 */}
       <View
         style={{
           position: 'relative',
@@ -735,14 +735,30 @@ export default function CareerReportPdf({ reportData = {} }) {
       keywords="Career GPS, ATS Audit, Resume Analysis, LinkedIn Studio"
     >
       {/* ─────────────────────────────────────────────────────────────
-          PAGE 1: EXECUTIVE COVER & 6-PHASE HIRING JOURNEY
+          SINGLE CONTINUOUS FLOWING PAGE (wrap={true})
+          Eliminates awkward 35-40% blank bottoms on Pages 1-3.
+          Content packs naturally, cards keep wrap={false}, and
+          section titles use minPresenceAhead={90} to prevent orphans.
           ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={styles.page} wrap>
+        {/* Fixed Running Header on every page */}
         <View fixed style={styles.header}>
           <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
           <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
         </View>
 
+        {/* Fixed Running Footer with dynamic Page X of Y on every page */}
+        <View fixed style={styles.footer}>
+          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
+          <Text
+            style={styles.footerRight}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
+
+        {/* ─────────────────────────────────────────────────────────────
+            1. EXECUTIVE COVER & 6-PHASE HIRING JOURNEY
+            ───────────────────────────────────────────────────────────── */}
         {/* Seamless Editorial Hero Banner with Edge-Mask Blending */}
         <EditorialBanner imageSrc={pdfHeroBanner} minHeight={185} gradientId="fadeLeftHero">
           {/* Top Brand Strip */}
@@ -753,8 +769,8 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
           </View>
 
-          {/* Candidate Name */}
-          <Text style={{ fontSize: 19, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 1 }}>
+          {/* Candidate Name with generous bottom margin */}
+          <Text style={{ fontSize: 20, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 6 }}>
             {candidateName}
           </Text>
 
@@ -839,7 +855,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {/* 6-Phase Hiring Journey Stepper */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>6-Phase Candidate Hiring Journey Stepper</Text>
           <Text style={styles.sectionTag}>ACTIVE PIPELINE TRACK</Text>
         </View>
@@ -938,25 +954,10 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Text>
         </View>
 
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
-      </Page>
-
-      {/* ─────────────────────────────────────────────────────────────
-          PAGE 2: CAREER HEALTH RADAR & MONTHLY FUNNEL
-          ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
-          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
-        </View>
-
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ─────────────────────────────────────────────────────────────
+            2. CAREER HEALTH RADAR & MONTHLY FUNNEL
+            ───────────────────────────────────────────────────────────── */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Career Health Telemetry & Funnel Economics</Text>
           <Text style={styles.sectionTag}>RADAR & CONVERSION</Text>
         </View>
@@ -1086,7 +1087,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {/* Monthly Funnel Outcomes & Conversion Velocity */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Monthly Funnel Outcomes & Proportional Flow</Text>
           <Text style={styles.sectionTag}>STAGE METRICS</Text>
         </View>
@@ -1133,29 +1134,53 @@ export default function CareerReportPdf({ reportData = {} }) {
             </View>
           </View>
 
-          {/* SVG Proportional Funnel Flow */}
-          <View style={{ marginTop: 6, marginBottom: 2, alignItems: 'center' }}>
-            <Svg width="480" height="34" viewBox="0 0 480 34">
-              <Polygon points="6,4 120,6 120,28 6,30" fill="#EEF2FF" stroke="#6366F1" strokeWidth={1} />
-              <Text x={63} y={19} fontSize={6.5} textAnchor="middle" fill="#6366F1" fontFamily="Helvetica-Bold">
-                100% Volume ({formatNum(totalAppsMonthly)})
-              </Text>
+          {/* Clean Flexbox Proportional Funnel Flow Bars (No text collision) */}
+          <View style={{ marginTop: 6, marginBottom: 4 }} wrap={false}>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {/* Stage 1: Applications */}
+              <View style={{ flex: 1, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#6366F1', textTransform: 'uppercase' }}>
+                  100% Volume
+                </Text>
+                <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: '#0F172A', marginTop: 1 }}>
+                  {formatNum(totalAppsMonthly)}
+                </Text>
+                <Text style={{ fontSize: 5.8, color: '#64748B' }}>Applications</Text>
+              </View>
 
-              <Polygon points="126,6 240,9 240,25 126,28" fill={Number(screenRate) < 5 ? '#FEE2E2' : '#EEF2FF'} stroke={Number(screenRate) < 5 ? '#DC2626' : '#6366F1'} strokeWidth={1} />
-              <Text x={183} y={19} fontSize={6.5} textAnchor="middle" fill={Number(screenRate) < 5 ? '#DC2626' : '#6366F1'} fontFamily="Helvetica-Bold">
-                {screenRate}% Callback ({formatNum(screens)})
-              </Text>
+              {/* Stage 2: Screens */}
+              <View style={{ flex: 1, backgroundColor: Number(screenRate) < 5 ? '#FFF1F2' : '#EEF2FF', borderWidth: 1, borderColor: Number(screenRate) < 5 ? '#FECDD3' : '#C7D2FE', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#6366F1', textTransform: 'uppercase' }}>
+                  {screenRate}% Callback
+                </Text>
+                <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#0F172A', marginTop: 1 }}>
+                  {formatNum(screens)}
+                </Text>
+                <Text style={{ fontSize: 5.8, color: '#64748B' }}>Recruiter Screens</Text>
+              </View>
 
-              <Polygon points="246,9 360,11 360,23 246,25" fill="#FEF3C7" stroke="#D97706" strokeWidth={1} />
-              <Text x={303} y={19} fontSize={6.5} textAnchor="middle" fill="#D97706" fontFamily="Helvetica-Bold">
-                {techPassRate}% Tech Pass ({formatNum(techs)})
-              </Text>
+              {/* Stage 3: Tech Rounds */}
+              <View style={{ flex: 1, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#D97706', textTransform: 'uppercase' }}>
+                  {techPassRate}% Pass
+                </Text>
+                <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: '#0F172A', marginTop: 1 }}>
+                  {formatNum(techs)}
+                </Text>
+                <Text style={{ fontSize: 5.8, color: '#64748B' }}>Tech Rounds</Text>
+              </View>
 
-              <Polygon points="366,11 480,13 480,21 366,23" fill="#DCFCE7" stroke="#16A34A" strokeWidth={1} />
-              <Text x={423} y={19} fontSize={6.5} textAnchor="middle" fill="#16A34A" fontFamily="Helvetica-Bold">
-                {offerRate}% Offer ({formatNum(offers)})
-              </Text>
-            </Svg>
+              {/* Stage 4: Offers */}
+              <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', textTransform: 'uppercase' }}>
+                  {offerRate}% Offer
+                </Text>
+                <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: '#0F172A', marginTop: 1 }}>
+                  {formatNum(offers)}
+                </Text>
+                <Text style={{ fontSize: 5.8, color: '#64748B' }}>Job Offers</Text>
+              </View>
+            </View>
           </View>
 
           {/* Horizontal Callback Benchmark Bar */}
@@ -1179,25 +1204,10 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
-      </Page>
-
-      {/* ─────────────────────────────────────────────────────────────
-          PAGE 3: PERSONALIZED ACTION ROADMAP
-          ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
-          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
-        </View>
-
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ─────────────────────────────────────────────────────────────
+            3. PERSONALIZED ACTION ROADMAP
+            ───────────────────────────────────────────────────────────── */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Top Strategic Priorities</Text>
           <Text style={styles.sectionTag}>IMMEDIATE LEVERAGE</Text>
         </View>
@@ -1224,7 +1234,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           ))}
         </View>
 
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>7-Day Rapid Triage Checklist</Text>
           <Text style={styles.sectionTag}>DAILY SPRINT</Text>
         </View>
@@ -1261,7 +1271,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           ))}
         </View>
 
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>30 / 60 / 90-Day Connected Milestone Track</Text>
           <Text style={styles.sectionTag}>LONG-TERM PATHWAY</Text>
         </View>
@@ -1305,27 +1315,10 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
-      </Page>
-
-      {/* ─────────────────────────────────────────────────────────────
-          PAGES 4–5: RESUME AUDIT, SIDE-BY-SIDE BULLETS, LINKEDIN & CTA
-          (Dynamic continuous page flow without forced 50% blank bottoms)
-          ───────────────────────────────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <View fixed style={styles.header}>
-          <Text style={styles.headerLeft}>Crafture Career GPS • Executive Diagnostic Report</Text>
-          <Text style={styles.headerRight}>{candidateName} | {reportDate}</Text>
-        </View>
-
-        {/* 1. Resume Section-by-Section 5-Row Audit Table */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ─────────────────────────────────────────────────────────────
+            4. RESUME AUDIT & SIDE-BY-SIDE SUMMARY REWRITE
+            ───────────────────────────────────────────────────────────── */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Resume Deep Diagnosis & ATS Scoring</Text>
           <Text style={styles.sectionTag}>5-POINT RUBRIC</Text>
         </View>
@@ -1368,8 +1361,8 @@ export default function CareerReportPdf({ reportData = {} }) {
           })}
         </View>
 
-        {/* 2. Side-by-Side Executive Summary Rewrite */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* Side-by-Side Executive Summary Rewrite */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Side-by-Side Executive Summary Rewrite</Text>
           <Text style={styles.sectionTag}>SIDE-BY-SIDE DIFF</Text>
         </View>
@@ -1404,8 +1397,8 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 3. ATS Technical Keyword Alignment Matrix */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ATS Technical Keyword Alignment Matrix */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>ATS Technical Keyword Alignment Matrix</Text>
           <Text style={styles.sectionTag}>MARKET ALIGNMENT</Text>
         </View>
@@ -1454,8 +1447,10 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 4. Side-by-Side Quantified Bullet Rewrites */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ─────────────────────────────────────────────────────────────
+            5. SIDE-BY-SIDE BULLET REWRITES
+            ───────────────────────────────────────────────────────────── */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>High-Impact Bullet Rewrites (Google XYZ Framework)</Text>
           <Text style={styles.sectionTag}>FULL SUITE</Text>
         </View>
@@ -1509,8 +1504,10 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         ))}
 
-        {/* 5. LinkedIn Studio & Recruiter Search SEO */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        {/* ─────────────────────────────────────────────────────────────
+            6. LINKEDIN STUDIO, 2x2 BENTO ABOUT & STRATEGY CALL CTA
+            ───────────────────────────────────────────────────────────── */}
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>LinkedIn Studio & Recruiter Search SEO</Text>
           <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
         </View>
@@ -1547,7 +1544,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {/* 3 AI Recruiter Headlines */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (15-20 Words)</Text>
           <Text style={styles.sectionTag}>SEARCH INDEXED</Text>
         </View>
@@ -1573,7 +1570,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         ))}
 
         {/* 2x2 Bento Grid for 4-Part About Narrative */}
-        <View style={styles.sectionTitleRow} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Story-Driven LinkedIn About Rewrite (2x2 Architecture)</Text>
           <Text style={styles.sectionTag}>EXECUTIVE NARRATIVE</Text>
         </View>
@@ -1674,7 +1671,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 6. Final Page 1-on-1 Strategy Call CTA Banner */}
+        {/* 7. Final Page 1-on-1 Strategy Call CTA Banner */}
         <EditorialBanner
           imageSrc={pdfCtaBanner}
           minHeight={160}
@@ -1692,7 +1689,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Text>
 
           <Text style={{ fontSize: 7.5, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
-            Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized 7-day sprint live.
+            Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
           </Text>
 
           <Link
@@ -1712,14 +1709,6 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
           </Link>
         </EditorialBanner>
-
-        <View fixed style={styles.footer}>
-          <Text style={styles.footerLeft}>Crafture Career GPS • Confidential Diagnostic Report</Text>
-          <Text
-            style={styles.footerRight}
-            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-          />
-        </View>
       </Page>
     </Document>
   )
