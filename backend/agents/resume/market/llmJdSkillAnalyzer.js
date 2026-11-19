@@ -175,7 +175,7 @@ SCHEMA:
 }
 
 JOB DESCRIPTIONS:
-${jdsTextList.map((jd, idx) => `--- JD #${idx + 1} ---\n${String(jd).slice(0, 1500)}`).join('\n\n')}`;
+${jdsTextList.map((jd, idx) => `--- JD #${idx + 1} ---\n${pruneJdText(jd)}`).join('\n\n')}`;
 };
 
 /**
@@ -191,7 +191,7 @@ export async function extractSkillsFromBatch1Shot({ role = 'Professional', jdsTe
   const response = await llmGateway.generate({
     purpose: 'market_jd_analysis',
     stage: 'BATCH_1SHOT_JD_EXTRACTION',
-    model: 'google/gemini-3.5-flash-lite',
+    model: 'google/gemini-2.5-flash-lite',
     preferredProvider: 'openrouter',
     messages: [
       { role: 'user', content: prompt },
@@ -424,7 +424,7 @@ export async function extractSkillsFromSingleJd({ jobTitle = '', jobDescription 
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash-lite',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [
         { role: 'system', content: SKILL_EXTRACTION_SYSTEM_PROMPT },
         { role: 'user', content: buildSkillExtractionUserMessage(jobTitle, jobDescription.slice(0, 3000)) },
@@ -496,7 +496,7 @@ export async function normalizeTaxonomyWithLLM(rawTerms = [], timeoutMs = 20000)
     const response = await llmGateway.generate({
       purpose: 'market_jd_analysis',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash-lite',
+      model: 'google/gemini-2.5-flash-lite',
       messages: [
         { role: 'system', content: TAXONOMY_NORMALIZER_SYSTEM_PROMPT },
         { role: 'user', content: buildTaxonomyNormalizerUserMessage(uniqueUncached) },
@@ -842,7 +842,7 @@ ${formattedJobs}`
       const response = await aiGateway.execute({
         provider: 'gemini',
         preferredProvider: 'openrouter',
-        model: 'google/gemini-3.5-flash-lite',
+        model: 'google/gemini-2.5-flash-lite',
         systemPrompt: 'You are an expert talent taxonomy engine. Extract skills, responsibilities, and seniority signals strictly adhering to the JSON schema. No fluff, no markdown fences.',
         prompt,
         temperature: 0.1,
