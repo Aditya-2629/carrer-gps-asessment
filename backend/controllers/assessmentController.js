@@ -10,7 +10,7 @@ import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
 import { ResumeAgent } from '../agents/resume/resumeAgent.js'
-import { analyzeLinkedInProfile } from '../agents/linkedin/linkedinAgent.js'
+import { analyzeLinkedInProfile, evaluateLinkedIn } from '../agents/linkedin/linkedinAgent.js'
 import { runCareerAgents } from '../agents/orchestrator.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { VALID_FORM_KEYS } from '../utils/assessmentFormatting.js'
@@ -444,6 +444,40 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
+    // 3. Re-run LinkedIn synthesis with fresh resumeContext after resume parsing completes.
+    // Do NOT reuse a pre-assessment linkedin_agent result that ran before the resume existed.
+    // Reuse already-scraped Apify linkedinData & linkedinActivityData (0 extra Apify calls).
+    if (user.resumeJson && (user.linkedinData || user.linkedinUrl)) {
+      try {
+        console.log('[AssessmentController] Running fresh LinkedIn synthesis with parsed resumeContext...')
+        const targetRole = answers.targetRole || answers.role || user.resumeJson?.candidate?.targetRole || user.resumeJson?.targetRole || 'Professional'
+        const coreSkills = Array.isArray(user.resumeJson?.skills)
+          ? user.resumeJson.skills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+          : (typeof user.resumeJson?.skills === 'object' ? Object.values(user.resumeJson.skills).flat().filter(Boolean) : [])
+
+        const freshLinkedInEval = await evaluateLinkedIn({
+          profile: user.linkedinData,
+          linkedinData: user.linkedinData,
+          activityData: user.linkedinActivityData,
+          resumeContext: {
+            canonicalResume: user.resumeJson,
+            extractedFacts: user.resumeJson?.candidateSnapshot || user.resumeJson?.facts || null,
+            targetRole,
+            coreSkills,
+          },
+          answers,
+          runLlm: true,
+        })
+
+        if (freshLinkedInEval) {
+          user.linkedin_agent = freshLinkedInEval
+          user.linkedinAgent = freshLinkedInEval
+        }
+      } catch (liErr) {
+        console.warn('[AssessmentController] Non-fatal evaluateLinkedIn synthesis error with fresh resumeContext:', liErr.message)
+      }
+    }
+
     await user.save()
 
     return res.status(200).json({
@@ -452,6 +486,8 @@ export const saveAnswers = async (req, res) => {
       linkedinData: user.linkedinData,
       linkedinActivityData: user.linkedinActivityData,
       linkedinActivitySignals: user.linkedinActivitySignals,
+      linkedinAgent: user.linkedin_agent || user.linkedinAgent || null,
+      linkedin_agent: user.linkedin_agent || user.linkedinAgent || null,
     })
   } catch (error) {
     console.error('Error in saveAnswers controller:', error)

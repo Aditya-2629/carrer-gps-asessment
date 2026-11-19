@@ -695,17 +695,17 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     .map(formatSkillName)
     .filter((s) => !pinnedLowerSet.has(s.toLowerCase().trim()))
 
-  // If deduplication leaves fewer than 3 skills, backfill with high-demand role skills not in pinned list:
-  const roleBackfill = isSoftwareRole
-    ? ['Docker', 'Kubernetes', 'CI/CD Pipelines', 'PostgreSQL', 'Microservices Architecture', 'AWS']
-    : isDataRole
-      ? ['Tableau', 'Snowflake', 'BigQuery', 'Excel', 'Data Modeling', 'dbt']
-      : ['Cross-functional Leadership', 'Agile Methodologies', 'Strategic Planning', 'KPI Dashboards', 'Stakeholder Management']
+  // If deduplication leaves fewer than 3 skills, backfill strictly from coreSkillList and missingSkills:
+  const roleBackfill = [
+    ...coreSkillList,
+    ...(missingSkills || []).map((m) => (typeof m === 'string' ? m : m.skill || m.name)).filter(Boolean),
+  ]
 
   for (const skill of roleBackfill) {
     if (deduplicatedRecommended.length >= 5) break
-    if (!pinnedLowerSet.has(skill.toLowerCase()) && !deduplicatedRecommended.some((s) => s.toLowerCase() === skill.toLowerCase())) {
-      deduplicatedRecommended.push(skill)
+    const formatted = formatSkillName(skill)
+    if (formatted && isValidSkill(formatted) && !pinnedLowerSet.has(formatted.toLowerCase()) && !deduplicatedRecommended.some((s) => s.toLowerCase() === formatted.toLowerCase())) {
+      deduplicatedRecommended.push(formatted)
     }
   }
 
@@ -1110,7 +1110,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const fullAboutText = (aboutIsString && initialWords >= 40)
     ? rawAbout
     : (fallbackFullText || [hookText, audienceText, approachText, ctaText].filter(Boolean).join('\n\n'))
-  const proofText = approachText
 
   const aboutWordCount = fullAboutText.trim()
     ? fullAboutText.trim().split(/\s+/).filter(Boolean).length

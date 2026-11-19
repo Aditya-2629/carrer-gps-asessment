@@ -571,8 +571,9 @@ export function buildDeterministicOptimizations(
     aboutRewrite: {
       currentCritique,
       hook,
-      proof,
-      callToAction,
+      audienceAndProblem,
+      approachAndSkills,
+      closingCta,
       fullText,
     },
     experienceUpgrades,
@@ -755,8 +756,8 @@ export async function runLinkedInSynthesis(
     if (rawAbout && typeof rawAbout === 'object') {
       const hook = rawAbout.hook || fallback.aboutRewrite.hook
       const audienceAndProblem = rawAbout.audienceAndProblem || fallback.aboutRewrite.audienceAndProblem
-      const approachAndSkills = rawAbout.approachAndSkills || rawAbout.proof || fallback.aboutRewrite.approachAndSkills
-      const closingCta = rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.closingCta
+      const approachAndSkills = rawAbout.approachAndSkills || fallback.aboutRewrite.approachAndSkills
+      const closingCta = rawAbout.closingCta || fallback.aboutRewrite.closingCta
       const combined = rawAbout.fullText || [hook, audienceAndProblem, approachAndSkills, closingCta].filter(Boolean).join('\n\n')
 
       aboutRewrite = {
@@ -765,8 +766,6 @@ export async function runLinkedInSynthesis(
         audienceAndProblem,
         approachAndSkills,
         closingCta,
-        proof: approachAndSkills,
-        callToAction: closingCta,
         fullText: combined || fallback.aboutRewrite.fullText,
       }
     } else if (typeof rawAbout === 'string' && rawAbout.length > 80) {

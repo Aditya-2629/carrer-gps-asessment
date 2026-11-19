@@ -924,6 +924,9 @@ export async function generateReportBundle(params = {}, options = {}) {
   if (liveLinkedinPosts || user?.linkedinActivityData) {
     report.linkedin_activity_data = liveLinkedinPosts || user?.linkedinActivityData
   }
+  if (user?.linkedin_agent || user?.linkedinAgent || params.linkedinAgent) {
+    report.linkedin_agent = user?.linkedin_agent || user?.linkedinAgent || params.linkedinAgent
+  }
 
   if (targetRole && (!report.target_role || !isConcreteRole(report.target_role))) {
     report.target_role = targetRole

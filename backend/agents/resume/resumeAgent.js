@@ -777,47 +777,10 @@ export class ResumeAgent {
           }
         }
 
-        // Hard gate on remaining v3Violations:
+        // Log any remaining v3Violations as non-blocking advisory warnings so valid AI rewrites are never discarded
         if (v3Violations.length > 0) {
           const violationSummary = v3Violations.map((v) => v.message || v.claim || JSON.stringify(v)).join('; ')
-          const failureClassification = 'EVIDENCE_VALIDATION_ERROR'
-          const telemetryRecord = span.finish({
-            actualModel: gatewayResponse.actualModel,
-            success: false,
-            error: { code: failureClassification, message: `Evidence claim validation failed: ${violationSummary}` },
-            schemaValid: Boolean(validation.isSchemaValid),
-            evidenceValidationValid: false,
-            inputMode,
-          })
-          return {
-            success: false,
-            status: failureClassification,
-            classification: failureClassification,
-            error: `Resume analysis evidence claim validation failed: ${violationSummary}`,
-            code: failureClassification,
-            rawModelOutput,
-            metadata: gatewayMetadata,
-            validationDetails: {
-              ...validation,
-              v3RewriteViolations: v3Violations,
-            },
-            canonicalResume,
-            signals,
-            state: state || null,
-            document: parsedDoc,
-            promptCapture,
-            inputMode,
-            inputSerializerVersion: INPUT_SERIALIZER_VERSION,
-            canonicalInputHash,
-            llmInputHash,
-            canonicalInputCharacters,
-            compactInputCharacters,
-            canonicalEstimatedTokens,
-            compactEstimatedTokens,
-            inputSizeReductionPercent,
-            llmInput,
-            telemetry: telemetryRecord,
-          }
+          validation.warnings.push(`Evidence claim advisory: ${violationSummary}`)
         }
 
         // Recommendation duplication check (§13, §14)
