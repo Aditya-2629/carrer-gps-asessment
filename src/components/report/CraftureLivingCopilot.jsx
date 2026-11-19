@@ -183,19 +183,21 @@ export default function CraftureLivingCopilot() {
 
       // Check for genuine win clicks ONLY
       const winBtn = target.closest(
-        'button, [role="button"], input[type="checkbox"], [data-trigger-win]'
+        'button, [role="button"], a, input[type="checkbox"], [data-trigger-win]'
       )
       if (!winBtn) return
 
       const btnText = `${winBtn.textContent || ''} ${winBtn.getAttribute('aria-label') || ''} ${winBtn.title || ''}`.toLowerCase()
 
-      // Strict win triggers: Weave Skill, Copy Rewrite/Bullet/Summary, Sprint Check, Preset Apply
       const isGenuineWin =
         winBtn.hasAttribute('data-trigger-win') ||
-        btnText.includes('weave') ||
         btnText.includes('copy rewrite') ||
-        btnText.includes('copy bullet') ||
         btnText.includes('copy summary') ||
+        btnText.includes('copy headline') ||
+        btnText.includes('copy bullet') ||
+        btnText.includes('weave') ||
+        btnText.includes('download full report') ||
+        btnText.includes('book free 1-on-1') ||
         btnText.includes('check in') ||
         btnText.includes('advance to next day') ||
         btnText.includes('apply preset') ||
@@ -269,27 +271,122 @@ export default function CraftureLivingCopilot() {
     }
   }, [mode, setActiveSection])
 
-  // 4. Subtle, Dignified Cursor Gaze Tracking (<= 8deg tilt)
-  const handleMouseMove = useCallback((e) => {
-    if (!mascotContainerRef.current || isCelebratingRef.current) return
-    const rect = mascotContainerRef.current.getBoundingClientRect()
-    const dx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth / 2)
-    const dy = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight / 2)
+  // 4. Subtle, Smooth Cursor Gaze Tracking via gsap.quickTo (Respects prefers-reduced-motion)
+  useEffect(() => {
+    if (!mascotContainerRef.current) return
 
-    gsap.to(mascotContainerRef.current, {
-      rotationY: Math.max(-8, Math.min(8, dx * 8)),
-      rotationX: Math.max(-6, Math.min(6, -dy * 6)),
-      transformPerspective: 800,
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+
+    const rotYTo = gsap.quickTo(mascotContainerRef.current, 'rotationY', {
       duration: 0.45,
-      ease: 'power2.out',
-      overwrite: 'auto',
+      ease: 'power3.out',
     })
+    const rotXTo = gsap.quickTo(mascotContainerRef.current, 'rotationX', {
+      duration: 0.45,
+      ease: 'power3.out',
+    })
+    const xTo = gsap.quickTo(mascotContainerRef.current, 'x', {
+      duration: 0.45,
+      ease: 'power3.out',
+    })
+    const yTo = gsap.quickTo(mascotContainerRef.current, 'y', {
+      duration: 0.45,
+      ease: 'power3.out',
+    })
+
+    gsap.set(mascotContainerRef.current, { transformPerspective: 800 })
+
+    const handleMouseMove = (e) => {
+      if (!mascotContainerRef.current || isCelebratingRef.current) return
+
+      const rect = mascotContainerRef.current.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+
+      const dx = (e.clientX - centerX) / (window.innerWidth / 2)
+      const dy = (e.clientY - centerY) / (window.innerHeight / 2)
+
+      const clampedX = Math.max(-1, Math.min(1, dx))
+      const clampedY = Math.max(-1, Math.min(1, dy))
+
+      rotYTo(clampedX * 8)
+      rotXTo(-clampedY * 6)
+      xTo(clampedX * 4)
+      yTo(clampedY * 4)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    return () => window.removeEventListener('mousemove', handleMouseMove)
   }, [])
 
+  // 5. Purposeful [data-mascot-cue] Hover Reactions (350ms Debounced, Zero Spam)
+  const hoverTimerRef = useRef(null)
+  const revertTimerRef = useRef(null)
+
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [handleMouseMove])
+    const handleMouseOver = (e) => {
+      const cueEl = e.target.closest('[data-mascot-cue]')
+      if (!cueEl) return
+
+      if (revertTimerRef.current) {
+        clearTimeout(revertTimerRef.current)
+        revertTimerRef.current = null
+      }
+
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+        hoverTimerRef.current = null
+      }
+
+      hoverTimerRef.current = setTimeout(() => {
+        if (cloudMinimized || isCelebratingRef.current) return
+
+        const chip = cueEl.dataset.mascotChip || 'Focus Finding'
+        const cue = cueEl.dataset.mascotCue || ''
+        const emotion = cueEl.dataset.mascotEmotion || 'thinking'
+
+        if (cue) {
+          setIsThinking(true)
+          setTimeout(() => {
+            setIsThinking(false)
+            setActiveThought({
+              chip,
+              text: cue,
+              emotion,
+            })
+          }, 150)
+        }
+      }, 350)
+    }
+
+    const handleMouseOut = (e) => {
+      const cueEl = e.target.closest('[data-mascot-cue]')
+      if (!cueEl) return
+
+      if (e.relatedTarget && cueEl.contains(e.relatedTarget)) return
+
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+        hoverTimerRef.current = null
+      }
+
+      revertTimerRef.current = setTimeout(() => {
+        if (isCelebratingRef.current) return
+        setActiveThought(null)
+      }, 450)
+    }
+
+    document.addEventListener('mouseover', handleMouseOver, true)
+    document.addEventListener('mouseout', handleMouseOut, true)
+
+    return () => {
+      document.removeEventListener('mouseover', handleMouseOver, true)
+      document.removeEventListener('mouseout', handleMouseOut, true)
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+      if (revertTimerRef.current) clearTimeout(revertTimerRef.current)
+    }
+  }, [cloudMinimized])
 
   // Idle gentle breathing float
   useEffect(() => {
@@ -318,14 +415,37 @@ export default function CraftureLivingCopilot() {
     openChat(prompt)
   }
 
-  const handleMascotClick = () => {
-    if (isChatOpen) return
-    // If cloud is collapsed, clicking mascot restores the cloud
-    if (cloudMinimized) {
-      setCloudMinimized(false)
+  // Tactile Clicks: Single-click (open cloud or toggle mode), Double-click (celebrate)
+  const clickTimeoutRef = useRef(null)
+
+  const handleMascotClick = (e) => {
+    e.stopPropagation()
+    if (isCelebratingRef.current) return
+
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+      triggerSiuuu('Milestone unlocked: celebratory surge!')
       return
     }
-    handleLaunchChat()
+
+    clickTimeoutRef.current = setTimeout(() => {
+      clickTimeoutRef.current = null
+      if (cloudMinimized) {
+        setCloudMinimized(false)
+      } else {
+        setMode(mode === 'problem' ? 'solution' : 'problem')
+      }
+    }, 240)
+  }
+
+  const handleMascotDoubleClick = (e) => {
+    e.stopPropagation()
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+    }
+    triggerSiuuu('Milestone unlocked: copilot energized!')
   }
 
   return (
@@ -459,8 +579,9 @@ export default function CraftureLivingCopilot() {
         <div
           ref={mascotContainerRef}
           onClick={handleMascotClick}
+          onDoubleClick={handleMascotDoubleClick}
           className="relative cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 group/mascot"
-          title={isChatOpen ? 'Atlas Copilot Active' : cloudMinimized ? 'Click to restore thought cloud' : 'Click to consult Crafture Guide'}
+          title={cloudMinimized ? 'Click to restore thought cloud' : 'Click to toggle Issue/Fix mode • Double-click to celebrate'}
         >
           {/* Floor Ambient Drop Shadow */}
           <div

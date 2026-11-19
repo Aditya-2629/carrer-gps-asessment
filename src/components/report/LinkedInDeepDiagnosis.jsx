@@ -1369,7 +1369,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
       {/* ── 1C. Gentle Crafture OutFox Recommendation (When Activity Is Hurting) ── */}
       {showOutFox && (
-        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs">
+        <div
+          className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs"
+          data-mascot-cue="Automate daily connection limits safely with Crafture OutFox to boost visibility without manual outreach exhaustion."
+          data-mascot-chip="Networking Velocity"
+          data-mascot-emotion="speaking"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-[var(--primary-light)] text-[var(--primary)]">
@@ -1793,7 +1798,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
           {/* 3 Interactive Headline Options (One-Click Copy) */}
           {Array.isArray(optimizations.headlines) && optimizations.headlines.length > 0 && (
-            <div className="space-y-3">
+            <div
+              className="space-y-3"
+              data-mascot-cue="Deploy a proof-first headline with 15-20 words to maximize recruiter search ranking and inbound discovery."
+              data-mascot-chip="Headline Optimization"
+              data-mascot-emotion="coach"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
                   <TextT size={14} className="text-[var(--primary)]" />

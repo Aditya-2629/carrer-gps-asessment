@@ -346,6 +346,11 @@ export default function ResumeBulletAudit({
                   ? 'border-l-emerald-500 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20'
                   : 'border-l-rose-500 bg-rose-50/25 dark:bg-rose-950/20 hover:bg-rose-50/50 dark:hover:bg-rose-950/30'
               }`}
+              {...(!isHelping ? {
+                'data-mascot-cue': `Hurting resume line: "${item.critique || 'Lacks quantified metrics or active outcome structure.'}"`,
+                'data-mascot-chip': 'Weak Bullet Audit',
+                'data-mascot-emotion': 'alert',
+              } : {})}
             >
               {/* Row 1: Status Pill, Attention Scan, and 5-Part Formula */}
               <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">

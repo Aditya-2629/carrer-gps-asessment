@@ -188,7 +188,12 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
         </div>
 
         {/* WHY YOU ARE STUCK (Primary & Secondary Root Cause) */}
-        <div className="lg:col-span-7 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
+        <div
+          className="lg:col-span-7 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden"
+          data-mascot-cue={`Critical root bottleneck detected: "${safeText(primaryBottleneck.title)}". Focus your immediate efforts here.`}
+          data-mascot-chip="Bottleneck Focus"
+          data-mascot-emotion="alert"
+        >
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">

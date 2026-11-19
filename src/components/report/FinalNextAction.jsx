@@ -61,7 +61,12 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 break-inside-avoid page-break-inside-avoid">
-      <div className="p-6 sm:p-8 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs">
+      <div
+        className="p-6 sm:p-8 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
+        data-mascot-cue="Ready to break your pipeline deadlock? Work live 1-on-1 with an executive coach to overhaul your positioning."
+        data-mascot-chip="Execution Bridge"
+        data-mascot-emotion="coach"
+      >
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Left Column (lg:col-span-7, left-aligned) */}
           <div className="lg:col-span-7 space-y-4 text-left">

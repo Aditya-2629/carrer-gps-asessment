@@ -11,24 +11,22 @@ import {
 import { ArrowUpRight } from '@phosphor-icons/react'
 import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
+import { getCareerHealthAxes } from '../../lib/reportMetrics'
 
 export default function ReportHero({ reportData, user }) {
   const { triggerGuide } = useReportGuideStore()
   const [activeMetric, setActiveMetric] = useState(null)
 
-  // Resolve candidate scores safely
-  const rawScores =
-    reportData?.heroScore ||
-    (typeof reportData?.career_health_score === 'object' && reportData?.career_health_score !== null
-      ? reportData.career_health_score
-      : null)
-
-  const overall =
-    typeof rawScores?.overall === 'number'
-      ? rawScores.overall
-      : typeof reportData?.career_health_score === 'number'
-      ? reportData.career_health_score
-      : Number(reportData?.score) || 74
+  const {
+    axes: radarData,
+    overallScore: overall,
+    impactScore,
+    atsScore,
+    marketScore,
+    positioningScore,
+    outreachScore,
+    interviewScore,
+  } = useMemo(() => getCareerHealthAxes(reportData), [reportData])
 
   const role =
     user?.targetRole ||
@@ -44,62 +42,6 @@ export default function ReportHero({ reportData, user }) {
     reportData?.resume_json?.candidate_name ||
     user?.name ||
     ''
-
-  const grades = reportData?.resume_agent?.dashboard?.grades || {}
-  const impactScore = grades.impact?.score ?? rawScores?.impactAndMetrics ?? 62
-  const atsScore = grades.ats_readability?.score ?? rawScores?.atsCompatibility ?? 88
-  const marketScore = rawScores?.marketAlignment ?? 76
-  const positioningScore = grades.positioning?.score ?? 68
-  const outreachScore = reportData?.scores?.outreach?.score ?? 38
-  const interviewScore = reportData?.scores?.interview?.score ?? 48
-
-  // 6-Axis Career Health Radar Dataset (Current vs Post-Fix Potential)
-  const radarData = useMemo(() => {
-    return [
-      {
-        subject: 'Impact Metrics',
-        current: impactScore,
-        target: Math.min(98, impactScore + 28),
-        fullMark: 100,
-        desc: 'Quantified CAR achievement density',
-      },
-      {
-        subject: 'ATS Safety',
-        current: atsScore,
-        target: Math.min(100, atsScore + 10),
-        fullMark: 100,
-        desc: 'Layout, headers & parsing safety',
-      },
-      {
-        subject: 'Market Match',
-        current: marketScore,
-        target: Math.min(96, marketScore + 18),
-        fullMark: 100,
-        desc: 'Core stack & keyword alignment',
-      },
-      {
-        subject: 'Positioning',
-        current: positioningScore,
-        target: Math.min(95, positioningScore + 22),
-        fullMark: 100,
-        desc: 'Seniority specialization proof',
-      },
-      {
-        subject: 'Outbound',
-        current: outreachScore,
-        target: Math.min(92, outreachScore + 38),
-        fullMark: 100,
-        desc: 'Recruiter networking velocity',
-      },
-      {
-        subject: 'Interview',
-        current: interviewScore,
-        target: Math.min(95, interviewScore + 32),
-        fullMark: 100,
-        desc: 'Screen-to-offer pass rate',
-      },
-    ]
-  }, [impactScore, atsScore, marketScore, positioningScore, outreachScore, interviewScore])
 
   // Dynamic Ring Stroke Color
   const ringColor =

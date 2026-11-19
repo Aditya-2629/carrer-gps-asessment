@@ -22,6 +22,7 @@ import {
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
 import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
+import { getCareerHealthAxes } from '../../lib/reportMetrics'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
 Font.registerHyphenationCallback((word) => [word])
@@ -464,15 +465,12 @@ export default function CareerReportPdf({ reportData = {} }) {
     year: 'numeric',
   })
 
-  // 1. Overall & Pillar Scores
-  const rawScores = reportData?.heroScore || reportData?.career_health_score || {}
-  const overallScore = Math.max(0, Math.min(100, Math.round(
-    typeof rawScores?.overall === 'number'
-      ? rawScores.overall
-      : typeof reportData?.score === 'number'
-      ? reportData.score
-      : 72
-  )))
+  // 1. Overall & Pillar Scores via Canonical Metric Resolver
+  const healthMetrics = getCareerHealthAxes(reportData)
+  const overallScore = healthMetrics.overallScore
+  const radarAxes = healthMetrics.axes
+  const radarScores = radarAxes.map((a) => a.current)
+  const targetScores = radarAxes.map((a) => a.target)
 
   const scoreLabel = overallScore >= 75 ? 'Strong' : overallScore >= 50 ? 'Developing' : 'Emerging'
 
@@ -686,15 +684,6 @@ export default function CareerReportPdf({ reportData = {} }) {
       bottleneck: 'Low posting, commenting, and connection activity is limiting your inbound visibility to hiring managers.',
       recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate OutFox -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
     }
-
-  // 6 Radar Scores
-  const sResume = Math.round((pResume / 25) * 100)
-  const sMarket = Math.round((verifiedKeywords.length / Math.max(1, verifiedKeywords.length + missingKeywords.length)) * 100) || 68
-  const sLinkedin = Math.round((pLinkedin / 25) * 100)
-  const sActivity = Math.round((pOutbound / 25) * 100)
-  const sInterview = Math.round((pInterview / 25) * 100)
-  const sFunnel = Math.min(100, Math.max(20, Math.round((Number(screenRate) / 5) * 70))) || 55
-  const radarScores = [sResume, sMarket, sLinkedin, sActivity, sInterview, sFunnel]
 
   // Stepper 6 Phases
   const stepperPhases = [
@@ -976,7 +965,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                 })}
 
                 <Polygon
-                  points={getRadarCoords(105, 75, 46 * 0.8, [100, 100, 100, 100, 100, 100])}
+                  points={getRadarCoords(105, 75, 46, targetScores)}
                   fill="none"
                   stroke="#10B981"
                   strokeWidth={1}
@@ -1004,28 +993,28 @@ export default function CareerReportPdf({ reportData = {} }) {
                   )
                 })}
 
-                <Text x={105} y={19} fontSize={6.5} textAnchor="middle" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  Resume {sResume}%
+                <Text x={105} y={19} fontSize={6.2} textAnchor="middle" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[0]?.subject} {radarAxes[0]?.current}%
                 </Text>
-                <Text x={155} y={51} fontSize={6.5} textAnchor="start" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  Market {sMarket}%
+                <Text x={155} y={51} fontSize={6.2} textAnchor="start" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[1]?.subject} {radarAxes[1]?.current}%
                 </Text>
-                <Text x={155} y={103} fontSize={6.5} textAnchor="start" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  LinkedIn {sLinkedin}%
+                <Text x={155} y={103} fontSize={6.2} textAnchor="start" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[2]?.subject} {radarAxes[2]?.current}%
                 </Text>
-                <Text x={105} y={135} fontSize={6.5} textAnchor="middle" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  Activity {sActivity}%
+                <Text x={105} y={135} fontSize={6.2} textAnchor="middle" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[3]?.subject} {radarAxes[3]?.current}%
                 </Text>
-                <Text x={55} y={103} fontSize={6.5} textAnchor="end" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  Interview {sInterview}%
+                <Text x={55} y={103} fontSize={6.2} textAnchor="end" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[4]?.subject} {radarAxes[4]?.current}%
                 </Text>
-                <Text x={55} y={51} fontSize={6.5} textAnchor="end" fill="#0F172A" fontFamily="Helvetica-Bold">
-                  Funnel {sFunnel}%
+                <Text x={55} y={51} fontSize={6.2} textAnchor="end" fill="#0F172A" fontFamily="Helvetica-Bold">
+                  {radarAxes[5]?.subject} {radarAxes[5]?.current}%
                 </Text>
               </Svg>
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
-                <Text style={{ fontSize: 6.2, color: '#6366F1' }}>■ Pipeline</Text>
-                <Text style={{ fontSize: 6.2, color: '#10B981' }}>-- Target (80%)</Text>
+                <Text style={{ fontSize: 6.2, color: '#6366F1' }}>■ Current</Text>
+                <Text style={{ fontSize: 6.2, color: '#10B981' }}>-- Post-Fix Target</Text>
               </View>
             </View>
           </View>
@@ -1037,26 +1026,19 @@ export default function CareerReportPdf({ reportData = {} }) {
                 Category Performance Benchmarks
               </Text>
 
-              {[
-                { label: 'Resume & ATS Readability', score: sResume, target: 85 },
-                { label: 'Market Keyword Alignment', score: sMarket, target: 80 },
-                { label: 'LinkedIn & Brand Authority', score: sLinkedin, target: 80 },
-                { label: 'Outbound & Referral Velocity', score: sActivity, target: 75 },
-                { label: 'Technical & Interview Loop', score: sInterview, target: 75 },
-                { label: 'Funnel Conversion Velocity', score: sFunnel, target: 70 },
-              ].map((row, idx) => {
-                const isPass = row.score >= row.target
-                const color = isPass ? '#16A34A' : row.score >= 60 ? '#D97706' : '#DC2626'
+              {radarAxes.map((row, idx) => {
+                const isPass = row.current >= row.target
+                const color = isPass ? '#16A34A' : row.current >= 60 ? '#D97706' : '#DC2626'
                 return (
                   <View key={idx} style={{ marginBottom: 2 }}>
                     <View style={styles.rowBetween}>
-                      <Text style={{ fontSize: 6.8, color: '#334155' }}>{row.label}</Text>
+                      <Text style={{ fontSize: 6.8, color: '#334155' }}>{row.label || row.subject}</Text>
                       <Text style={{ fontSize: 6.8, fontFamily: 'Courier-Bold', color }}>
-                        {row.score}% <Text style={{ fontSize: 5.8, color: '#94A3B8' }}>(Tgt {row.target}%)</Text>
+                        {row.current}% <Text style={{ fontSize: 5.8, color: '#94A3B8' }}>(Tgt {row.target}%)</Text>
                       </Text>
                     </View>
                     <View style={styles.barTrack}>
-                      <View style={{ width: `${Math.min(100, row.score)}%`, height: 5, backgroundColor: color, borderRadius: 2.5 }} />
+                      <View style={{ width: `${Math.min(100, row.current)}%`, height: 5, backgroundColor: color, borderRadius: 2.5 }} />
                     </View>
                   </View>
                 )
