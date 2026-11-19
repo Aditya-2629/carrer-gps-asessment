@@ -43,10 +43,28 @@ export const DEFAULT_PRICING = {
 }
 
 export class CostTracker {
-  constructor(pricingConfig = DEFAULT_PRICING) {
+  constructor(pricingConfig = DEFAULT_PRICING, maxRuns = 200) {
     this.pricing = { ...DEFAULT_PRICING, ...pricingConfig }
     this.runs = new Map() // reqId -> Array<Record>
     this.activeRunId = null
+    this.maxRuns = maxRuns
+  }
+
+  /**
+   * Internal helper to cap in-memory Map capacity and evict oldest runs (FIFO).
+   * @param {string} reqId
+   * @private
+   */
+  _ensureRunCapacity(reqId) {
+    if (!this.runs.has(reqId)) {
+      if (this.runs.size >= this.maxRuns) {
+        const oldestKey = this.runs.keys().next().value
+        if (oldestKey) {
+          this.runs.delete(oldestKey)
+        }
+      }
+      this.runs.set(reqId, [])
+    }
   }
 
   /**
@@ -153,9 +171,7 @@ export class CostTracker {
         timestamp: new Date().toISOString(),
       }
 
-      if (!this.runs.has(resolvedReqId)) {
-        this.runs.set(resolvedReqId, [])
-      }
+      this._ensureRunCapacity(resolvedReqId)
       this.runs.get(resolvedReqId).push(record)
 
       return {
@@ -214,9 +230,7 @@ export class CostTracker {
         timestamp: new Date().toISOString(),
       }
 
-      if (!this.runs.has(resolvedReqId)) {
-        this.runs.set(resolvedReqId, [])
-      }
+      this._ensureRunCapacity(resolvedReqId)
       this.runs.get(resolvedReqId).push(record)
 
       return {

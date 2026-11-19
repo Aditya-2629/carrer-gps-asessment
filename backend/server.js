@@ -209,9 +209,46 @@ const startServer = async () => {
 
     initMarketAutoScheduler()
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server is currently listening on port ${PORT}`)
     })
+
+    // Graceful Shutdown on SIGTERM (Render/Kubernetes) and SIGINT (Ctrl+C)
+    const shutdown = async (signal) => {
+      console.log(`\n[Server] Received ${signal}. Initiating graceful shutdown...`)
+
+      // 10-second timeout fallback to prevent hung connections from stalling exit
+      const forceExitTimer = setTimeout(() => {
+        console.error('[Server] Forceful shutdown initiated after 10s timeout.')
+        process.exit(1)
+      }, 10000)
+      forceExitTimer.unref()
+
+      try {
+        // 1. Stop accepting new HTTP requests and drain active sockets
+        await new Promise((resolve, reject) => {
+          server.close((err) => {
+            if (err) return reject(err)
+            resolve()
+          })
+        })
+        console.log('[Server] HTTP server closed.')
+
+        // 2. Disconnect from MongoDB
+        await mongoose.connection.close(false)
+        console.log('[Server] MongoDB connection closed.')
+
+        clearTimeout(forceExitTimer)
+        process.exit(0)
+      } catch (err) {
+        console.error('[Server] Error during graceful shutdown:', err)
+        clearTimeout(forceExitTimer)
+        process.exit(1)
+      }
+    }
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'))
+    process.on('SIGINT', () => shutdown('SIGINT'))
   } catch (error) {
     console.error('Failed to initialize connection or start server:', error)
     process.exit(1)
