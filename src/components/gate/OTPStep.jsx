@@ -167,7 +167,7 @@ export default function OTPStep() {
         <label className="sr-only">One-Time Password Verification Code</label>
 
         {/* OTP Boxes */}
-        <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
+        <div className="flex gap-1.5 sm:gap-2 justify-center mb-6" onPaste={handlePaste}>
           {otp.map((digit, i) => (
             <motion.input
               key={i}
