@@ -40,9 +40,9 @@ const severityChip = {
 }
 
 const HEADLINE_FORMULA_LABELS = {
-  0: 'Proof & Milestone First',
-  1: 'Curiosity & Problem Solver',
-  2: 'Specialist Authority',
+  0: 'Best Overall • Recommended',
+  1: 'Specialized Focus',
+  2: 'Broad Opportunities',
 }
 
 export function cleanTargetRoleTitle(prefix, baseRole) {
@@ -616,29 +616,24 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const missingSkills = (linkedinAgent?.missingSkills || []).filter(Boolean)
   const rawOptimizations = linkedinAgent?.optimizations || linkedinAgent?.aiOptimizations || null
 
+  const topSkillsJoined = cleanCandidateSkills.slice(0, 6).join(', ') || coreSkillList.slice(0, 6).join(', ') || 'React, Node.js, Python, AWS'
+  const specializedSkillsJoined = cleanCandidateSkills.slice(0, 4).join(', ') || 'Cloud Architecture, Microservices, APIs'
+
   const fallbackHeadlinesList = [
     {
-      headline: headline,
-      formula: 'Search-Optimized',
-      whyItWorks: 'Positions primary role title first followed by high-frequency recruiter search keywords.',
+      headline: `${targetRole} | Full Stack Development | ${topSkillsJoined} | Cloud & Distributed Systems`.slice(0, 220),
+      formula: 'Best Overall • Recommended',
+      whyItWorks: 'Positions primary target role first for Boolean search ranking, followed by core verified stack and cloud keywords.',
     },
     {
-      headline: isSoftwareRole
-        ? `${targetRole} @ Scale | Delivering High-Availability Distributed Systems & Modern Cloud Infrastructure`
-        : isDataRole
-        ? `${targetRole} @ Scale | Delivering 40%+ Reporting Turnaround Efficiency & Modern BI Systems`
-        : `${targetRole} @ Scale | Driving Operational Velocity & Strategic Execution`,
-      formula: 'Impact-Driven',
-      whyItWorks: 'Anchors on measurable operational velocity and architecture outcomes to differentiate from generic applicant pool.',
+      headline: `${targetRole} | Specialized in ${specializedSkillsJoined} | High-Concurrency Systems & Modern Architecture`.slice(0, 220),
+      formula: 'Specialized Focus',
+      whyItWorks: 'Highlights niche technical domain specialization and advanced capabilities for targeted hiring searches.',
     },
     {
-      headline: isSoftwareRole
-        ? `Specialist in Cloud Architecture, Microservices & High-Throughput APIs`
-        : isDataRole
-        ? `Specialist in Enterprise Analytics, Scalable Data Pipelines & Executive Dashboards`
-        : `Specialist in Strategic Operations, Cross-Functional Execution & Agile Delivery`,
-      formula: 'Specialist',
-      whyItWorks: 'Appeals to specialized hiring managers seeking deep domain expertise and reporting architecture.',
+      headline: `${targetRole} | Software Engineering & Cloud Solutions | ${topSkillsJoined} | Agile & CI/CD`.slice(0, 220),
+      formula: 'Broad Opportunities',
+      whyItWorks: 'Broadens recruiter keyword indexing across adjacent roles, full-stack frameworks, and delivery methodologies.',
     },
   ]
 
@@ -1661,6 +1656,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
                             {label}
+                          </span>
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">
+                            {headlineText.length}/220 chars
                           </span>
                         </div>
                         <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">

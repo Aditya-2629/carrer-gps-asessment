@@ -251,25 +251,85 @@ export function buildDeterministicOptimizations(
   const bullet2 = allBullets[1] || ''
   const bullet3 = allBullets[2] || ''
 
-  const top5Skills = effectiveSkills.slice(0, 5).join(' | ') || topSkillList
-  const top6Skills = effectiveSkills.slice(0, 6).join(' • ') || topSkillList
+  const yoeNum = typeof yoeText === 'number'
+    ? yoeText
+    : parseInt(String(yoeText).match(/\d+/)?.[0] || '3', 10)
+
+  // Seniority calibration guard: do not inject 'Lead' / 'Principal' unless explicitly verified in targetRole or past experience
+  const isSeniorTitle = yoeNum >= 6 || /senior|lead|principal|staff/i.test(targetRole)
+  const isMidLevel = yoeNum >= 3 && !isSeniorTitle
+
+  // Calibrate secondary role title
+  let secondaryRoleCandidates = ['Software Engineer', 'Full Stack Developer', 'Cloud & Systems Specialist']
+  if (/ai|machine learning|ml|deep learning|data scientist/i.test(targetRole)) {
+    secondaryRoleCandidates = [isSeniorTitle ? 'Senior AI Engineer' : 'AI Engineer', 'Machine Learning Specialist', 'Full Stack Developer']
+  } else if (/data|analytics|bi|database/i.test(targetRole)) {
+    secondaryRoleCandidates = [isSeniorTitle ? 'Senior Data Engineer' : 'Data Engineer', 'Analytics & BI Systems', 'Data Platform Specialist']
+  } else if (/devops|cloud|sre|infrastructure/i.test(targetRole)) {
+    secondaryRoleCandidates = [isSeniorTitle ? 'Senior Cloud Engineer' : 'Cloud Engineer', 'DevOps & Infrastructure', 'Site Reliability Engineer']
+  } else if (/frontend|ui|ux/i.test(targetRole)) {
+    secondaryRoleCandidates = [isSeniorTitle ? 'Senior Frontend Engineer' : 'Frontend Engineer', 'UI/UX Architecture', 'Web Applications Developer']
+  } else if (/backend|systems|api/i.test(targetRole)) {
+    secondaryRoleCandidates = [isSeniorTitle ? 'Senior Backend Engineer' : 'Backend Engineer', 'Distributed Systems Specialist', 'API Architecture']
+  } else if (isHealthRole) {
+    secondaryRoleCandidates = ['Clinical Care Specialist', 'Healthcare Operations', 'Patient Advocacy']
+  } else if (isFinanceRole) {
+    secondaryRoleCandidates = ['Financial Analysis & Modeling', 'Corporate Finance', 'Fiscal Strategy']
+  }
+
+  const normTarget = targetRole.toLowerCase()
+  const secondaryRole = secondaryRoleCandidates.find((c) => !normTarget.includes(c.toLowerCase())) || secondaryRoleCandidates[0]
+  const tertiaryRole = secondaryRoleCandidates.find((c) => c !== secondaryRole && !normTarget.includes(c.toLowerCase())) || secondaryRoleCandidates[1] || 'Cloud & Distributed Systems'
+
+  const buildRoleFirstHeadline = (parts, maxLen = 220) => {
+    const valid = parts.filter(Boolean)
+    let res = valid.join(' | ')
+    while (res.length > maxLen && valid.length > 2) {
+      valid.pop()
+      res = valid.join(' | ')
+    }
+    if (res.length > maxLen) {
+      res = res.slice(0, maxLen).replace(/\s*\|?\s*[^|]*$/, '').trim()
+    }
+    return res
+  }
+
   const primaryDomainSkill = effectiveSkills[0] || targetRole
+  const top4Skills = effectiveSkills.slice(0, 4).join(', ')
+  const next3Skills = effectiveSkills.slice(4, 7).join(', ')
+  const allTop6Skills = effectiveSkills.slice(0, 6).join(', ')
 
   const fallbackHeadlines = [
     {
-      formula: 'Proof & Milestone First',
-      headline: `${metricPhrase ? `Delivered ${metricPhrase}` : `Delivering measurable outcomes in ${primaryDomainSkill}`} | ${targetRole} • Senior Specialist | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
-      whyItWorks: 'Hooks recruiters immediately with verified scale and packs 5-7 searchable technical keywords for boolean search algorithms.',
+      formula: 'Best Overall • Recommended',
+      headline: buildRoleFirstHeadline([
+        targetRole,
+        secondaryRole,
+        top4Skills,
+        next3Skills,
+        'Scalable Systems & CI/CD',
+      ]),
+      whyItWorks: 'Positions primary target role first for maximum recruiter Boolean search ranking, followed by secondary role and verified technical keywords.',
     },
     {
-      formula: 'Curiosity & Problem Solver',
-      headline: `Helping teams resolve complex operational challenges & accelerate delivery | ${targetRole} specializing in ${effectiveSkills.slice(0, 5).join(' • ') || topSkillList}`.slice(0, 220),
-      whyItWorks: 'Conversational hook stating who you help and problem solved, followed by high-demand recruiter keywords and target title.',
+      formula: 'Specialized Focus',
+      headline: buildRoleFirstHeadline([
+        targetRole,
+        `Specializing in ${effectiveSkills.slice(0, 2).join(' & ') || 'Core Architecture'}`,
+        allTop6Skills,
+        'High-Performance Systems & Production Architecture',
+      ]),
+      whyItWorks: 'Highlights deep domain specialization and verified stack keywords for targeted hiring manager searches.',
     },
     {
-      formula: 'Specialist Authority',
-      headline: `Driving strategic impact and robust solutions in ${primaryDomainSkill} | ${targetRole} | ${effectiveSkills.slice(0, 5).join(' | ') || topSkillList}`.slice(0, 220),
-      whyItWorks: 'Positions deep domain authority with target role keywords and dense tool indexing for recruiter filters.',
+      formula: 'Broad Opportunities',
+      headline: buildRoleFirstHeadline([
+        targetRole,
+        tertiaryRole,
+        allTop6Skills,
+        'Agile Delivery & Scalable Solutions',
+      ]),
+      whyItWorks: 'Broadens recruiter keyword indexing across adjacent roles, full-stack frameworks, and delivery methodologies.',
     },
   ]
 
@@ -767,11 +827,20 @@ export async function runLinkedInSynthesis(
     let headlines = fallback.headlines
     const rawHeadlines = task1Result?.headlines || task2Result?.headlines
     if (Array.isArray(rawHeadlines) && rawHeadlines.length > 0) {
-      headlines = rawHeadlines.slice(0, 3).map((h, i) => ({
-        formula: h.formula || fallback.headlines[i]?.formula || `Option ${i + 1}`,
-        headline: (h.headline || h.text || fallback.headlines[i]?.headline || '').slice(0, 220),
-        whyItWorks: h.whyItWorks || fallback.headlines[i]?.whyItWorks || 'Recruiter search ranking optimization.',
-      }))
+      headlines = rawHeadlines.slice(0, 3).map((h, i) => {
+        let text = String(h.headline || h.text || fallback.headlines[i]?.headline || '').trim()
+        if (text.length > 220) {
+          text = text.slice(0, 220).replace(/\s*\|?\s*[^|]*$/, '').trim()
+          if (!text) {
+            text = String(h.headline || h.text || fallback.headlines[i]?.headline || '').slice(0, 220).trim()
+          }
+        }
+        return {
+          formula: h.formula || fallback.headlines[i]?.formula || `Option ${i + 1}`,
+          headline: text,
+          whyItWorks: h.whyItWorks || fallback.headlines[i]?.whyItWorks || 'Recruiter search ranking optimization.',
+        }
+      })
       // If LLM returned fewer than 3, backfill from fallback
       while (headlines.length < 3 && fallback.headlines[headlines.length]) {
         headlines.push(fallback.headlines[headlines.length])

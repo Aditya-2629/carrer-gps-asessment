@@ -706,9 +706,9 @@ export default function CareerReportPdf({ reportData = {} }) {
   const linkedinHeadlines = Array.isArray(linkedinAgent.optimizations?.headlines) && linkedinAgent.optimizations.headlines.length > 0
     ? linkedinAgent.optimizations.headlines.slice(0, 3)
     : [
-        { headline: `${targetRole} | Scaling High-Availability Cloud Backends & Distributed APIs | AWS & Node.js`, formula: 'Proof & Milestone First', whyItWorks: 'Anchors on concrete production scale and recruiter-indexed technical keywords.' },
-        { headline: `Helping Engineering Teams Eliminate Latency & Scale Microservices | ${targetRole} | Cloud & APIs`, formula: 'Problem Solver', whyItWorks: 'Communicates clear business value to hiring managers within the first 8 words.' },
-        { headline: `Specialist in Distributed Systems, High-Concurrency APIs & Fault-Tolerant Cloud Architecture`, formula: 'Specialist Authority', whyItWorks: 'Maximizes recruiter keyword discovery for senior engineering roles.' },
+        { headline: `${targetRole} | Full Stack Systems | React, Node.js, Python | Cloud & Distributed APIs | AWS`, formula: 'Best Overall • Recommended', whyItWorks: 'Role-first indexing optimized for recruiter Boolean searches and technical screening.' },
+        { headline: `${targetRole} | Specialized in Distributed Systems, High-Concurrency APIs & Fault-Tolerant Cloud`, formula: 'Specialized Focus', whyItWorks: 'Highlights deep architectural specialization and high-demand domain keywords.' },
+        { headline: `${targetRole} | Software Engineering & Cloud Solutions | Microservices, DevOps & CI/CD`, formula: 'Broad Opportunities', whyItWorks: 'Broadens recruiter reach across software engineering and cloud infrastructure queries.' },
       ]
 
   const aboutRewrite = linkedinAgent.optimizations?.aboutRewrite || {
@@ -1601,25 +1601,33 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>SEARCH INDEXED</Text>
         </View>
 
-        {linkedinHeadlines.map((h, idx) => (
-          <View key={idx} style={styles.card} wrap={false}>
-            <View style={[styles.rowBetween, { marginBottom: 1 }]}>
-              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
-                Option 0{idx + 1} • {safeStr(h.formula || h.style || 'High-Impact')}
+        {linkedinHeadlines.map((h, idx) => {
+          const headlineStr = safeStr(h.headline)
+          return (
+            <View key={idx} style={styles.card} wrap={false}>
+              <View style={[styles.rowBetween, { marginBottom: 1 }]}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                  Option 0{idx + 1} • {safeStr(h.formula || h.style || 'Best Overall • Recommended')}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#64748B', backgroundColor: '#F1F5F9', paddingVertical: 1, paddingHorizontal: 3.5, borderRadius: 2 }}>
+                    {headlineStr.length}/220 chars
+                  </Text>
+                  <Text style={styles.tagNeutral}>RECRUITER-SEO</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 7.6, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
+                {headlineStr}
               </Text>
-              <Text style={styles.tagNeutral}>RECRUITER-SEO OPTIMIZED</Text>
+              {h.whyItWorks && (
+                <Text style={{ fontSize: 6.8, color: '#64748B' }}>
+                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>Why it works: </Text>
+                  {safeStr(h.whyItWorks)}
+                </Text>
+              )}
             </View>
-            <Text style={{ fontSize: 7.6, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 1 }}>
-              {safeStr(h.headline)}
-            </Text>
-            {h.whyItWorks && (
-              <Text style={{ fontSize: 6.8, color: '#64748B' }}>
-                <Text style={{ fontFamily: 'Helvetica-Bold' }}>Why it works: </Text>
-                {safeStr(h.whyItWorks)}
-              </Text>
-            )}
-          </View>
-        ))}
+          )
+        })}
 
         {/* 2x2 Bento Grid for 4-Part About Narrative */}
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
