@@ -447,8 +447,10 @@ export async function runCareerAgents(bundle) {
           answers: effectiveAnswers,
           resumeJson: resumeContext?.canonicalResume || canonicalResume || {},
           verifiedSkills: resumeContext?.extractedFacts?.skills || [],
+          missingSkills: resumeContext?.missingSkills || [],
+          signals: resumeContext?.precomputedSignals || resumeContext?.signals || {},
           bottleneck: effectiveAssessmentPersona?.phase?.metricGoal ? { title: effectiveAssessmentPersona.phase.metricGoal } : {},
-          funnelStages: effectiveAnswers?.funnel90d || {},
+          funnelStages: effectiveAnswers?.funnel90d || effectiveAnswers?.funnelAnalysis || effectiveAnswers || {},
         })
       } catch (_planErr) {
         return null

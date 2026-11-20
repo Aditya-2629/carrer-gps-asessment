@@ -30,14 +30,39 @@ import { getDynamicFewShotExamples } from '../../../services/promptExampleServic
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
-export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = [], missingSkills = []) {
+export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences = [], skills = [], missingSkills = [], currentSummary = '') {
+  let targetRole = targetRoleOrOptions
+  if (targetRoleOrOptions && typeof targetRoleOrOptions === 'object' && !Array.isArray(targetRoleOrOptions)) {
+    targetRole = targetRoleOrOptions.targetRole || targetRoleOrOptions.role
+    experiences = targetRoleOrOptions.experiences || targetRoleOrOptions.experience || []
+    skills = targetRoleOrOptions.skills || targetRoleOrOptions.skillsList || []
+    missingSkills = targetRoleOrOptions.missingSkills || []
+    currentSummary = targetRoleOrOptions.currentSummary || ''
+  }
+
   const role = targetRole || (experiences[0]?.role) || 'Experienced Professional'
   const skillsList = Array.isArray(skills) 
     ? skills 
     : (skills && typeof skills === 'object')
       ? Object.values(skills).flat()
       : []
-  const topTools = skillsList.slice(0, 5).join(', ')
+
+  // Extract real tools from candidate's currentSummary if available
+  const existingTools = []
+  if (currentSummary && typeof currentSummary === 'string') {
+    const techRegex = /\b(?:React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|Python|Django|FastAPI|AWS|Azure|GCP|Docker|Kubernetes|SQL|PostgreSQL|MySQL|MongoDB|Redis|Kafka|GraphQL|REST|CI\/CD|Terraform|HTML5?|CSS3?|Tailwind|Jasmine|Karma|Jest|Cypress|WCAG|Microservices|RAG)\b/gi
+    let m
+    while ((m = techRegex.exec(currentSummary)) !== null) {
+      existingTools.push(m[0])
+    }
+  }
+
+  const combinedSkills = Array.from(new Set([
+    ...skillsList.map((s) => typeof s === 'string' ? s : s?.name || s?.skill || ''),
+    ...existingTools,
+  ])).filter(Boolean)
+
+  const topTools = combinedSkills.slice(0, 8).join(', ') || 'modern full-stack systems and scalable cloud infrastructure'
   const primaryCompany = experiences[0]?.company || experiences[0]?.employer || ''
 
   // Look for any verified metric or project from experiences
@@ -53,13 +78,15 @@ export function generateDomainCalibratedSummary(targetRole, experiences = [], sk
     if (topWin) break
   }
 
-  const winClause = topWin
+  const sentence1 = `${role} specializing in ${topTools}.`
+  const sentence2 = topWin
     ? `Proven track record of engineering impact: ${topWin.replace(/\.$/, '')}.`
-    : `Specialized in building robust, production-grade solutions and architecting scalable workflows${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    : `Demonstrated track record of delivering resilient, high-availability architecture and modernizing production software${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+  const sentence3 = missingSkills && missingSkills.length > 0
+    ? `Drives end-to-end technical execution with focus on scalable system performance, code quality, and integration of ${missingSkills.slice(0, 2).join(' and ')}.`
+    : `Drives end-to-end technical execution with strong focus on performance optimization, robust automated testing, and production scale.`
 
-  const toolsClause = topTools ? `Core technical competencies include ${topTools}.` : ''
-
-  return `${role} with deep execution expertise across high-concurrency systems and core domain architecture. ${winClause} ${toolsClause}`.trim()
+  return `${sentence1} ${sentence2} ${sentence3}`.trim()
 }
 
 /**
@@ -364,19 +391,20 @@ export function sanitizeModeCOutput(analysis, state = {}) {
     : []
 
   // 6. summaryOptimization normalization
-  if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
-    const targetRole = analysis.candidateSnapshot?.targetRole || 'Experienced Professional'
-    const rawSkills = analysis.candidateSnapshot?.skills || analysis.skills || []
-    const skillsList = Array.isArray(rawSkills)
-      ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
-      : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat().filter(Boolean) : [])
-    const experiences = analysis.candidateSnapshot?.experiences || analysis.experiences || []
+  const targetRole = analysis.candidateSnapshot?.targetRole || state.targetRole || 'Experienced Professional'
+  const rawSkills = state.canonicalResume?.skills || state.resumeFacts?.skills || state.dossier?.targetJdOverlap?.evidencedSkills || analysis.candidateSnapshot?.skills || analysis.skills || []
+  const skillsList = (Array.isArray(rawSkills) ? rawSkills : Object.values(rawSkills).flat())
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+    .filter(Boolean)
+  const experiences = state.canonicalResume?.experience || state.canonicalResume?.experiences || analysis.candidateSnapshot?.experiences || []
+  const missingSkills = state.dossier?.targetJdOverlap?.unverifiedSkills || []
 
+  if (!analysis.summaryOptimization || typeof analysis.summaryOptimization !== 'object') {
     analysis.summaryOptimization = {
       status: 'missing',
       currentSummary: 'No Professional Summary section found on resume',
       diagnosis: `Your resume currently lacks a tailored executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and operational scope.`,
-      rewrittenSummary: generateDomainCalibratedSummary(targetRole, experiences, skillsList),
+      rewrittenSummary: generateDomainCalibratedSummary(targetRole, experiences, skillsList, missingSkills),
     }
   } else {
     const sOpt = analysis.summaryOptimization
@@ -384,19 +412,24 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       sOpt.status = sOpt.currentSummary && !sOpt.currentSummary.includes('No Professional Summary') ? 'needs_rewrite' : 'missing'
     }
     if (!sOpt.currentSummary) {
-      sOpt.currentSummary = 'No Professional Summary section found on resume'
+      sOpt.currentSummary = state.canonicalResume?.summary || 'No Professional Summary section found on resume'
     }
     if (!sOpt.diagnosis) {
-      sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and specialization.`
+      sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and core specializations.`
     }
-    if (!sOpt.rewrittenSummary) {
-      const targetRole = analysis.candidateSnapshot?.targetRole || 'Experienced Professional'
-      const rawSkills = analysis.candidateSnapshot?.skills || analysis.skills || []
-      const skillsList = Array.isArray(rawSkills)
-        ? rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
-        : (typeof rawSkills === 'object' ? Object.values(rawSkills).flat().filter(Boolean) : [])
-      const experiences = analysis.candidateSnapshot?.experiences || analysis.experiences || []
-      sOpt.rewrittenSummary = generateDomainCalibratedSummary(targetRole, experiences, skillsList)
+
+    // Check if rewrittenSummary is missing, generic boilerplate, or completely lacks candidate skills
+    const isGenericBoilerplate = !sOpt.rewrittenSummary ||
+      /specializing in scalable architecture,\s*technical execution,\s*and robust workflow automation/i.test(sOpt.rewrittenSummary) ||
+      /proven expertise in engineering scalable architectures/i.test(sOpt.rewrittenSummary) ||
+      /results-driven professional/i.test(sOpt.rewrittenSummary)
+
+    const mentionsCandidateSkills = skillsList.some((sk) =>
+      new RegExp(`\\b${sk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(sOpt.rewrittenSummary || '')
+    )
+
+    if (isGenericBoilerplate || (!mentionsCandidateSkills && skillsList.length > 0)) {
+      sOpt.rewrittenSummary = generateDomainCalibratedSummary(targetRole, experiences, skillsList, missingSkills, sOpt.currentSummary)
     }
   }
 
@@ -676,6 +709,7 @@ Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades"
 6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
 ==================================================
 Always populate "summaryOptimization" in the output JSON.
+MANDATORY TECH STACK RETENTION: summaryOptimization.rewrittenSummary MUST retain the candidate's actual verified stack (e.g. React, TypeScript, Next.js, Java Spring Boot, AWS/Azure, WCAG 2.1 AA, RAG) in 3 crisp executive sentences. NEVER replace a stack-rich summary with generic fluff like "specializing in scalable architecture, technical execution, and robust workflow automation".
 STRICT BAN ON GENERIC BUZZWORDS & BOILERPLATE: Strictly forbid generic filler phrases such as "proven expertise in engineering scalable architectures", "results-driven professional", "demonstrated track record of success", or "seeking to leverage skills".
 GROUNDING MANDATE: Every sentence in "rewrittenSummary" must be anchored directly in the candidate's ACTUAL parsed tech stack (from dossier.skills), concrete domain systems (from experience bullets), and top missing market keywords (from dossier.targetJdOverlap / marketContext).
 ANTI-REPETITION MANDATE: Strictly FORBID copy-pasting the exact wording, sentences, or metrics of individual bulletRewrites into rewrittenSummary. The summary synthesizes the high-altitude career-level arc: total domain specialization, architectural scope, and 1-2 broad headline outcomes. Individual bullet rewrites carry granular implementation proof.
@@ -1006,7 +1040,12 @@ export async function executeModeC({
     let parsedForValidation = gatewayResponse.text
     try {
       const cleanObj = ResumeAgentValidator.cleanAndParse(gatewayResponse.text)
-      parsedForValidation = sanitizeModeCOutput(cleanObj)
+      parsedForValidation = sanitizeModeCOutput(cleanObj, {
+        canonicalResume,
+        targetRole: effectiveRole,
+        dossier,
+        resumeFacts,
+      })
     } catch (_ignore) {
       // CleanAndParse error will be handled by ResumeAgentValidator.validate
     }
@@ -1047,6 +1086,86 @@ export async function executeModeC({
           action: iss.recommendation,
           reason: iss.whyItMatters,
         }))
+      }
+    }
+
+    // Fast-LLM batch rewrite pass for any remaining unrewritten weak/unquantified bullets
+    if (parsedForValidation && typeof parsedForValidation === 'object') {
+      const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+      const existingRewrites = new Set([
+        ...(parsedForValidation.bulletUpgrades || []).map((u) => u.bulletId || u.originalText),
+        ...(parsedForValidation.issues || []).map((i) => i.evidence?.[0]?.bulletId || i.originalText),
+        ...(parsedForValidation.bulletRewrites || []).map((r) => r.bulletId || r.originalText),
+      ].filter(Boolean))
+
+      const unrewrittenBullets = []
+      for (const [bId, text] of bulletMap.entries()) {
+        if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
+        if (existingRewrites.has(bId) || existingRewrites.has(text.trim())) continue
+        const cleanT = text
+          .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
+          .replace(/\b(?:19|20)\d{2}\b/g, '')
+        const isQuant = /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+/i.test(cleanT)
+        if (!isQuant) {
+          unrewrittenBullets.push({ bulletId: bId, originalText: text })
+        }
+      }
+
+      if (unrewrittenBullets.length > 0) {
+        try {
+          const batchPrompt = `You are a Principal Technical Recruiter.
+For each candidate bullet below, generate a distinct, high-impact Google XYZ rewrite (Accomplished [X] measured by [Y] by doing [Z], 18-30 words) tailored to the bullet's ACTUAL tools and domain.
+TARGET ROLE: ${effectiveRole}
+CANDIDATE STACK: ${(canonicalResume.skills || []).slice(0, 10).join(', ')}
+
+RULES:
+1. Ground each rewrite in the bullet's actual domain (e.g. testing tools like Jasmine/Karma get test coverage/regression metrics, frontend tools like React/UI get Lighthouse/accessibility/render metrics, APIs get throughput/latency metrics).
+2. Strictly forbid repeating the same metric or suffix across multiple rewrites. Every rewrite must have a unique metric and outcome.
+3. Return ONLY a valid JSON object matching the schema.
+
+BULLETS TO REWRITE:
+${JSON.stringify(unrewrittenBullets)}
+
+OUTPUT SCHEMA:
+{
+  "rewrites": [
+    {
+      "bulletId": "string",
+      "rewrittenText": "string",
+      "reason": "1-sentence recruiter critique of original"
+    }
+  ]
+}`
+          const batchRes = await llmGateway.generate({
+            purpose: 'resume_analysis',
+            task: 'bullet_batch_rewrite',
+            preferredProvider: 'openrouter',
+            model: 'google/gemini-2.5-flash-lite',
+            messages: [{ role: 'user', content: batchPrompt }],
+            responseFormat: { type: 'json_object' },
+            temperature: 0.1,
+            maxTokens: 4000,
+            timeoutMs: 10000,
+          })
+          const batchObj = ResumeAgentValidator.cleanAndParse(batchRes.text)
+          if (Array.isArray(batchObj?.rewrites)) {
+            parsedForValidation.bulletUpgrades = parsedForValidation.bulletUpgrades || []
+            for (const item of batchObj.rewrites) {
+              if (item?.bulletId && item?.rewrittenText) {
+                const orig = bulletMap.get(item.bulletId) || ''
+                parsedForValidation.bulletUpgrades.push({
+                  bulletId: item.bulletId,
+                  originalText: orig,
+                  status: 'warn',
+                  reason: item.reason || 'Restructured into Google XYZ formula with quantified metrics',
+                  rewrittenText: item.rewrittenText,
+                })
+              }
+            }
+          }
+        } catch (batchErr) {
+          console.warn('[ModeC] Fast batch rewrite non-fatal fallback:', batchErr.message)
+        }
       }
     }
 

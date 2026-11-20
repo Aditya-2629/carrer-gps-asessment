@@ -155,6 +155,63 @@ export function isLazySuffixAppend(rewrite, original) {
   return false
 }
 
+export function isTrueQuantified(text) {
+  if (!text || typeof text !== 'string') return false
+  const clean = text
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
+    .replace(/\b(?:19|20)\d{2}\b/g, '')
+    .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
+  return /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(clean)
+}
+
+const DOMAIN_METRIC_POOLS = {
+  qa: [
+    { scope: 'partnering with QA and release engineering squads', outcome: 'increasing automated test coverage to 85%+ and reducing defect leakage by 40%' },
+    { scope: 'collaborating with test automation engineers', outcome: 'reducing regression testing cycles from 4 hours to 25 minutes' },
+    { scope: 'partnering with cross-functional release squads', outcome: 'eliminating manual QA bottlenecks and ensuring zero critical regression escapes' },
+    { scope: 'partnering with QA leads and developers', outcome: 'accelerating CI test execution speed by 35% with 100% test reliability' },
+  ],
+  frontend: [
+    { scope: 'partnering with UX designers and backend engineers', outcome: 'achieving 98+ Google Lighthouse scores and sub-second first contentful paint (FCP)' },
+    { scope: 'collaborating with design systems and accessibility leads', outcome: 'ensuring 100% WCAG 2.1 AA accessibility compliance across all production views' },
+    { scope: 'partnering with product designers and frontend squads', outcome: 'slashing client-side render latency by 35% and improving core web vitals' },
+    { scope: 'collaborating with UI/UX engineers', outcome: 'accelerating user workflow completion rates by 28% and eliminating layout shifts' },
+  ],
+  backend: [
+    { scope: 'collaborating with distributed platform teams', outcome: 'cutting p99 API response times by 38% and supporting 10k+ concurrent requests' },
+    { scope: 'partnering with backend engineering squads', outcome: 'reducing payload overhead by 45% while maintaining 99.99% service availability' },
+    { scope: 'collaborating with microservices architects', outcome: 'handling 5M+ daily API transactions with zero downtime deployments' },
+    { scope: 'partnering with core infrastructure engineers', outcome: 'slashing service-to-service communication latency by 30% under peak load' },
+  ],
+  database: [
+    { scope: 'partnering with DBA and data platform engineers', outcome: 'reducing complex query execution time from 14s to 850ms via composite indexing' },
+    { scope: 'collaborating with database administrators', outcome: 'optimizing connection pool utilization and eliminating database lock contention' },
+    { scope: 'partnering with data engineering leads', outcome: 'accelerating daily batch processing throughput by 50% across millions of records' },
+    { scope: 'collaborating with platform engineers', outcome: 'reducing storage I/O bottlenecks and cutting query latency by 40%' },
+  ],
+  devops: [
+    { scope: 'partnering with DevOps and platform reliability engineers', outcome: 'cutting CI/CD build-to-deploy pipeline times from 45 to 8 minutes' },
+    { scope: 'collaborating with cloud infrastructure leads', outcome: 'sustaining 99.99% cloud infrastructure availability with zero-downtime rollouts' },
+    { scope: 'partnering with SRE squads', outcome: 'optimizing container compute footprint and slashing cloud infrastructure costs by 28%' },
+    { scope: 'collaborating with platform reliability teams', outcome: 'automating multi-region failover and reducing MTTR by 60%' },
+  ],
+  security: [
+    { scope: 'collaborating with InfoSec and compliance teams', outcome: 'eliminating high-severity CVE vulnerabilities and achieving 100% SOC-2 compliance' },
+    { scope: 'partnering with security architects', outcome: 'protecting user identity workflows with zero unauthorized auth boundary breaches' },
+    { scope: 'collaborating with security and release squads', outcome: 'hardening API gateway endpoints and ensuring 100% audit trail compliance' },
+  ],
+  ai: [
+    { scope: 'collaborating with ML researchers and data engineers', outcome: 'reducing retrieval latency by 32% while sustaining 99.2% factual precision' },
+    { scope: 'partnering with AI platform teams', outcome: 'optimizing embedding inference throughput and reducing GPU compute overhead by 30%' },
+    { scope: 'collaborating with ML platform engineers', outcome: 'slashing token generation latency and eliminating context window bottlenecks' },
+  ],
+  general: [
+    { scope: 'partnering with cross-functional engineering squads', outcome: 'cutting delivery turnaround by 35% and elevating system reliability' },
+    { scope: 'collaborating with technical leads and stakeholders', outcome: 'accelerating feature velocity and reducing production bug escalations by 40%' },
+    { scope: 'partnering with product and engineering leads', outcome: 'sustaining 99.9% operational availability and eliminating delivery blockers' },
+  ],
+}
+
 /**
  * Enforces the 5-Part Resume Playbook Formula on any bullet:
  * 1. Strong Action Verb (Engineered, Architected, Automated, Reduced, Led, Spearheaded, Optimized)
@@ -164,7 +221,7 @@ export function isLazySuffixAppend(rewrite, original) {
  * 5. Business Outcome (clear deliverable impact)
  * Target length: 18–32 words (crisp 1–2 lines)
  */
-export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCurrentRole = false, skills = [], sig = null, company = '' } = {}) {
+export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCurrentRole = false, skills = [], sig = null, company = '', bulletIndex = 0 } = {}) {
   if (!bulletText || typeof bulletText !== 'string') return ''
   let clean = bulletText
     .replace(/^[•\-*▪–—·\s]+/, '')
@@ -172,18 +229,50 @@ export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCu
     .trim()
 
   const lowerText = clean.toLowerCase()
-  const lowerRole = (targetRole || '').toLowerCase()
 
-  // Domain archetype classification
-  const isDataRole = /data|analyst|analytics|bi\b|sql|tableau|power\s*bi|snowflake|dbt/i.test(lowerRole) || /data|analyst|analytics|bi\b|sql|tableau|power\s*bi|snowflake|dbt|etl|pipeline/i.test(lowerText)
-  const isAiRole = /ai\b|machine learning|ml\b|llm|nlp|rag\b|agent|prompt/i.test(lowerRole) || /llm|langchain|rag|pytorch|vector|embeddings|fastmcp/i.test(lowerText)
-  const isDevopsRole = /devops|cloud|sre|platform|infra|kubernetes/i.test(lowerRole) || /kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|ansible/i.test(lowerText)
-  const isFrontendRole = /frontend|ui\b|ux\b|react|vue|angular|web|mobile/i.test(lowerRole) || /react|next\.?js|tailwind|component|ui\b|frontend/i.test(lowerText)
-  const isSecurityRole = /security|cyber|soc2|cve|vulnerabilit|audit/i.test(lowerRole) || /security|cve|vulnerabilit|jwt|oauth|auth|sanitize/i.test(lowerText)
+  // 1. Detect bullet-specific domain from the actual bullet text first (NOT broad targetRole)
+  const isQaBullet = /test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation/i.test(lowerText)
+  const isFrontendBullet = /frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|tailwind|wcag|accessibility|screen reader|dom\b/i.test(lowerText)
+  const isDataBullet = /data|analyst|analytics|bi\b|sql\b|tableau|power\s*bi|snowflake|dbt|etl|query|queries|database/i.test(lowerText)
+  const isAiBullet = /ai\b|machine learning|ml\b|llm|nlp|rag\b|vector|embeddings|pytorch|tensorflow|langchain/i.test(lowerText)
+  const isDevopsBullet = /devops|cloud|sre|platform|infra|kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|ansible/i.test(lowerText)
+  const isSecurityBullet = /security|cyber|soc2|cve|vulnerabilit|jwt|oauth|auth|sanitize/i.test(lowerText)
 
-  // 1. Strip weak/passive openers to isolate the core task/deliverable
-  const weakOpeners = /^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i
-  let coreTask = clean.replace(weakOpeners, '')
+  let domainKey = 'general'
+  let defaultActionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+
+  if (isQaBullet) {
+    domainKey = 'qa'
+    defaultActionVerb = isCurrentRole ? 'Automate' : 'Automated'
+  } else if (isFrontendBullet) {
+    domainKey = 'frontend'
+    defaultActionVerb = isCurrentRole ? 'Modernize' : 'Modernized'
+  } else if (isSecurityBullet) {
+    domainKey = 'security'
+    defaultActionVerb = isCurrentRole ? 'Harden' : 'Hardened'
+  } else if (isDevopsBullet) {
+    domainKey = 'devops'
+    defaultActionVerb = isCurrentRole ? 'Orchestrate' : 'Orchestrated'
+  } else if (isDataBullet) {
+    domainKey = 'database'
+    defaultActionVerb = isCurrentRole ? 'Optimize' : 'Optimized'
+  } else if (isAiBullet) {
+    domainKey = 'ai'
+    defaultActionVerb = isCurrentRole ? 'Deploy' : 'Deployed'
+  } else if (/api|service|microservice|backend|system|pipeline|infrastructure/i.test(lowerText)) {
+    domainKey = 'backend'
+    defaultActionVerb = isCurrentRole ? 'Architect' : 'Architected'
+  }
+
+  // 2. Clean verb stripping: remove compound verbal phrases, weak openers, and opening verbs cleanly
+  let coreTask = clean
+    // Strip compound phrases like "Automate and testing of...", "Design and develop...", "Built and deployed..."
+    .replace(/^(?:automate(?:d)?|design(?:ed)?|build|built|develop(?:ed)?|engineer(?:ed)?|test(?:ed)?|maintain(?:ed)?|implement(?:ed)?)\s+and\s+(?:testing|developing|building|deploying|maintaining|designing|implementing)\s+(?:of\s+)?/i, '')
+    // Strip weak/passive openers
+    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled|collaborated with|partnered with)\s+(?:the\s+)?/i, '')
+    // Strip common single opening verbs
+    .replace(/^(?:drove|driven|driving|led|leading|spearheaded|spearheading|engineered|engineering|architected|architecting|developed|developing|designed|designing|built|building|automated|automating|tested|testing|created|creating|optimized|optimizing|implemented|implementing|configured|configuring|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|modernized|modernizing)\s+(?:the\s+)?/i, '')
+    .trim()
 
   // Remove trailing boilerplate suffixes
   coreTask = coreTask.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '')
@@ -192,43 +281,45 @@ export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCu
   coreTask = coreTask.replace(/,?\s*using\s+[^,.]+\s+for\s+scalable\s+(?:transformation|analytical)\s+[^.]+\.?/gi, '')
   coreTask = coreTask.replace(/[.,;:\s]+$/, '').trim()
 
-  // Extract first word of core task
+  // Remove any remaining opening verb if present
   const firstWord = coreTask.split(/\s+/)[0] || ''
-  if (/^[a-zA-Z]+ing$/i.test(firstWord)) {
-    coreTask = coreTask.replace(/^[a-zA-Z]+ing\s+/i, '')
-  } else if (/^[A-Z][a-z]+(?:ed|ted|zed|sed|lt|ilt|ound|ken|ven|wn)\b/i.test(firstWord)) {
-    coreTask = coreTask.replace(/^[A-Za-z]+\s+/i, '')
+  const knownActionVerbs = new Set([
+    'automate', 'automated', 'automating',
+    'engineer', 'engineered', 'engineering',
+    'architect', 'architected', 'architecting',
+    'develop', 'developed', 'developing',
+    'design', 'designed', 'designing',
+    'implement', 'implemented', 'implementing',
+    'test', 'tested', 'testing',
+    'maintain', 'maintained', 'maintaining',
+    'create', 'created', 'creating',
+    'optimize', 'optimized', 'optimizing',
+    'lead', 'led', 'leading',
+    'manage', 'managed', 'managing',
+    'conduct', 'conducted', 'conducting',
+    'perform', 'performed', 'performing',
+    'execute', 'executed', 'executing',
+    'configure', 'configured', 'configuring',
+    'coordinate', 'coordinated', 'coordinating',
+    'direct', 'directed', 'directing',
+    'spearhead', 'spearheaded', 'spearheading',
+    'deploy', 'deployed', 'deploying',
+    'modernize', 'modernized', 'modernizing',
+    'drive', 'drove', 'driving',
+    'integrate', 'integrated', 'integrating',
+  ])
+  if (knownActionVerbs.has(firstWord.toLowerCase()) || /^[a-zA-Z]+ing$/i.test(firstWord)) {
+    coreTask = coreTask.replace(/^[A-Za-z]+\s+/i, '').trim()
   }
+
+  // Strip prepositions left at start
+  coreTask = coreTask.replace(/^(?:and|of|the|to|for|in|on|with|across)\s+/i, '').trim()
 
   if (coreTask.length > 0) {
     coreTask = coreTask.charAt(0).toLowerCase() + coreTask.slice(1)
   }
 
-  // 2. Select Strong Action Verb (Part 1)
-  let actionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
-  if (isSecurityRole) {
-    actionVerb = isCurrentRole ? 'Harden' : 'Hardened'
-  } else if (isDevopsRole) {
-    actionVerb = isCurrentRole ? 'Orchestrate' : 'Orchestrated'
-  } else if (isDataRole) {
-    actionVerb = isCurrentRole ? 'Architect' : 'Architected'
-  } else if (isAiRole) {
-    actionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
-  } else if (isFrontendRole) {
-    actionVerb = isCurrentRole ? 'Modernize' : 'Modernized'
-  } else {
-    if (/api|service|microservice|backend|system|pipeline|infrastructure/i.test(coreTask)) {
-      actionVerb = isCurrentRole ? 'Architect' : 'Architected'
-    } else if (/test|ci\/cd|deploy|automation|process|workflow/i.test(coreTask)) {
-      actionVerb = isCurrentRole ? 'Automate' : 'Automated'
-    } else if (/latency|performance|query|speed|database|throughput/i.test(coreTask)) {
-      actionVerb = isCurrentRole ? 'Optimize' : 'Optimized'
-    } else if (/feature|product|deliverable|cross-functional/i.test(coreTask)) {
-      actionVerb = isCurrentRole ? 'Lead' : 'Led'
-    }
-  }
-
-  // 3. Resolve Tools / Skills (Part 2)
+  // 3. Resolve Skills & Tools (Part 2)
   let skillPhrase = ''
   const skillList = Array.isArray(skills) ? skills.filter(Boolean) : []
   if (skillList.length > 0) {
@@ -238,48 +329,19 @@ export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCu
     }
   }
 
-  // 4. Resolve Scale / Collaboration Scope (Part 3)
-  let collabScope = 'partnering with cross-functional engineering squads'
-  if (isDataRole) {
-    collabScope = 'collaborating with analytics leads and executive stakeholders'
-  } else if (isAiRole) {
-    collabScope = 'collaborating with ML platform engineers and product teams'
-  } else if (isDevopsRole) {
-    collabScope = 'partnering with QA and release squads'
-  } else if (isFrontendRole) {
-    collabScope = 'partnering with UX designers and backend engineers'
+  // 4. Resolve Dynamic Non-Repeating Metric Outcome (Parts 3, 4, 5)
+  const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
+  let hash = 0
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash * 31 + clean.charCodeAt(i)) >>> 0
   }
+  const variantIndex = (hash + (bulletIndex || 0)) % pool.length
+  const variant = pool[variantIndex]
 
-  // 5. Resolve Natural Calibrated Metric & Business Outcome (Parts 4 & 5)
-  const cleanWithoutVersions = clean
-    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css)\.?\s*\d+(?:\.\d+)?\b/gi, '')
-    .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
-  const hasExistingMetric = /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+/i.test(cleanWithoutVersions)
+  const collabScope = variant.scope
+  const metricAndOutcome = variant.outcome
 
-  let metricAndOutcome = ''
-  if (hasExistingMetric) {
-    if (/latency|speed|performance/i.test(coreTask)) {
-      metricAndOutcome = 'sustaining 99.9% production availability and eliminating release regressions'
-    } else {
-      metricAndOutcome = 'ensuring 99.9% service reliability and accelerating delivery turnaround'
-    }
-  } else {
-    if (isSecurityRole) {
-      metricAndOutcome = 'eliminating high-severity CVEs and ensuring 100% security audit compliance across release pipelines'
-    } else if (isDataRole) {
-      metricAndOutcome = 'cutting reporting query latency by 35% and saving 12+ analyst hours weekly'
-    } else if (isAiRole) {
-      metricAndOutcome = 'reducing retrieval latency by 32% and sustaining 99.5% factual precision'
-    } else if (isDevopsRole) {
-      metricAndOutcome = 'cutting deployment turnaround by 45% while sustaining 99.99% service uptime'
-    } else if (isFrontendRole) {
-      metricAndOutcome = 'accelerating page load times by 28% and eliminating client-side rendering bottlenecks'
-    } else {
-      metricAndOutcome = 'cutting p99 query latency by 32% and supporting 500k+ daily transactions with 99.9% uptime'
-    }
-  }
-
-  let result = `${actionVerb} ${coreTask}${skillPhrase} ${collabScope}, ${metricAndOutcome}.`
+  let result = `${defaultActionVerb} ${coreTask}${skillPhrase} ${collabScope}, ${metricAndOutcome}.`
   result = result.replace(/\s{2,}/g, ' ').replace(/\.+$/, '.').trim()
   return cleanRewriteText(result)
 }
@@ -739,26 +801,32 @@ export function computeScorecard({
   const summaryImprovement = 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], with a proven track record of [Primary Measurable Achievement].'
 
   // 3. Experience Bullets & Quantified Impact (/10)
-  const density = quant.density ?? 0
-  const quantifiedBullets = quant.quantifiedBullets ?? 0
-  const expTotalBullets = quant.totalBullets ?? bulletAudit.length
+  const allExpBullets = bulletAudit.length > 0 ? bulletAudit : []
+  const realQuantifiedCount = allExpBullets.filter((b) => isTrueQuantified(b.text || b.originalText || '')).length
+  const expTotalBullets = allExpBullets.length > 0 ? allExpBullets.length : (quant.totalBullets || 1)
+  const realDensity = expTotalBullets > 0 ? realQuantifiedCount / expTotalBullets : 0
 
   let rawExpScore10 = Math.round(scores.impact / 10)
+  let expStatus = 'pass'
+
   // Enforce deterministic rubric ceilings:
-  // If quantificationDensity === 0 (0 quantified bullets), experience.score10 MUST NOT be 10/10 PASS - cap at <= 5/10 (fail / fix_required)
-  if (quantifiedBullets === 0 || density === 0) {
+  // quantifiedBullets === 0 -> score10 = Math.min(score10, 5) and status = 'warn'
+  // quantificationRate < 0.5 -> score10 = Math.min(score10, 7) and status = 'warn'
+  if (realQuantifiedCount === 0 || realDensity === 0) {
     rawExpScore10 = Math.min(rawExpScore10, 5)
-  } else if (density < 0.5) {
-    // If < 50% of bullets are quantified, cap experience.score10 at <= 7/10
+    expStatus = 'warn'
+  } else if (realDensity < 0.5) {
     rawExpScore10 = Math.min(rawExpScore10, 7)
+    expStatus = 'warn'
+  } else {
+    expStatus = rawExpScore10 >= 9 ? 'pass' : rawExpScore10 >= 6 ? 'warn' : 'fail'
   }
 
   const expScore10 = clamp(rawExpScore10, 1, 10)
-  const expStatus = expScore10 >= 9 ? 'pass' : expScore10 >= 6 ? 'warn' : 'fail'
-  const expHurting = (quantifiedBullets === 0 || density === 0)
-    ? `0 of ${expTotalBullets} bullets contain quantified metrics. Without measurable outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
-    : density < 0.5
-    ? `Only ${quantifiedBullets} of ${expTotalBullets} bullets (${Math.round(density * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
+  const expHurting = (realQuantifiedCount === 0 || realDensity === 0)
+    ? `0 of ${expTotalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+    : realDensity < 0.5
+    ? `Only ${realQuantifiedCount} of ${expTotalBullets} bullets (${Math.round(realDensity * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
     : hurtingCount > 2
     ? `${hurtingCount} bullets describe passive responsibilities rather than verified business outcomes.`
     : null

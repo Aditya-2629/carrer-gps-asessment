@@ -66,6 +66,7 @@ export function buildDeterministicActionPlan({
   screens = 0,
   resumeJson = {},
   presentCompany = '',
+  options = {},
 } = {}) {
   const archetype = classifyRoleArchetype(targetRole, verifiedSkills)
 
@@ -77,7 +78,15 @@ export function buildDeterministicActionPlan({
   const skillsStr = verifiedSkillsList.slice(0, 4).join(', ') || archetype.mandatoryTools.slice(0, 3).join(', ') || 'core domain tools'
 
   // Candidate-Specific Missing Skills
-  const missingSkillsList = (Array.isArray(missingSkills) && missingSkills.length > 0 ? missingSkills : (Array.isArray(resumeJson?.missing_skills) ? resumeJson.missing_skills : []))
+  const missingCandidates = [
+    ...(Array.isArray(missingSkills) ? missingSkills : []),
+    ...(Array.isArray(options?.missingSkills) ? options.missingSkills : []),
+    ...(Array.isArray(resumeJson?.missing_skills) ? resumeJson.missing_skills : []),
+    ...(Array.isArray(resumeJson?.missingSkills) ? resumeJson.missingSkills : []),
+    ...(Array.isArray(resumeJson?.keywordAlignment?.missingMarketSkillsRanked) ? resumeJson.keywordAlignment.missingMarketSkillsRanked : []),
+    ...(Array.isArray(resumeJson?.missingKeywords) ? resumeJson.missingKeywords : []),
+  ]
+  const missingSkillsList = missingCandidates
     .map((s) => (typeof s === 'string' ? s : s?.skill || s?.name || s?.keyword || ''))
     .map((s) => s.trim())
     .filter(Boolean)
@@ -102,14 +111,27 @@ export function buildDeterministicActionPlan({
       if (text && text.trim()) allBullets.push(text.trim())
     }
   }
+  const projList = Array.isArray(resumeJson?.projects) ? resumeJson.projects : []
+  for (const p of projList) {
+    const bList = Array.isArray(p.bullets) ? p.bullets : (Array.isArray(p.bulletPoints) ? p.bulletPoints : (Array.isArray(p.highlights) ? p.highlights : []))
+    for (const b of bList) {
+      const text = typeof b === 'string' ? b : b?.text || b?.bullet || ''
+      if (text && text.trim()) allBullets.push(text.trim())
+    }
+  }
 
   // Calculate unquantified bullets count
   const auditList = Array.isArray(bulletAudit) ? bulletAudit : []
   let unquantifiedCount = 0
   let totalBullets = 0
+  const quantRollup = signals?.quantificationRollup || signals?.quantification || resumeJson?.quantification || {}
   if (auditList.length > 0) {
     totalBullets = auditList.length
     unquantifiedCount = auditList.filter((b) => !b.hasQuantifier && !b.isQuantified).length
+  } else if (Number(quantRollup?.totalBullets) > 0) {
+    totalBullets = Number(quantRollup.totalBullets)
+    const quantifiedBullets = Number(quantRollup.quantifiedBullets || 0)
+    unquantifiedCount = Math.max(0, totalBullets - quantifiedBullets)
   } else {
     totalBullets = Math.max(1, allBullets.length)
     const quantifiedBullets = allBullets.filter((b) => /\d+[%kKmMbB]?|\$\d+/g.test(b)).length
@@ -133,12 +155,43 @@ export function buildDeterministicActionPlan({
   const winSummary = topVerifiedWin.length > 70 ? topVerifiedWin.slice(0, 70).replace(/\s+\S*$/, '') + '...' : topVerifiedWin
 
   // Real Funnel Numbers
-  const effectiveApps30d = Number(apps30d || answers.applicationsLast30Days || funnelStages.applications30d || Math.round(Number(funnelStages.applications90d || 45) / 3) || 15)
-  const effectiveApps90d = Number(funnelStages.applications90d || answers.applications90d || effectiveApps30d * 3 || 45)
-  const effectiveScreens = Number(screens || funnelStages.recruiterScreens || funnelStages.screens || answers.recruiterScreens || 0)
+  const effectiveApps30d = Number(
+    apps30d ||
+    answers.applicationsLast30Days ||
+    answers.apps30d ||
+    answers.applications_count ||
+    answers.applicationsCount ||
+    funnelStages.applications30d ||
+    (funnelStages.applications90d ? Math.round(Number(funnelStages.applications90d) / 3) : 0) ||
+    (funnelStages.applicationsCount ? Math.round(Number(funnelStages.applicationsCount) / 3) : 0) ||
+    15
+  )
+  const effectiveApps90d = Number(
+    funnelStages.applications90d ||
+    funnelStages.applicationsCount ||
+    funnelStages.applications ||
+    answers.applications90d ||
+    answers.applicationsCount ||
+    answers.applications_count ||
+    answers.applications ||
+    effectiveApps30d * 3 ||
+    45
+  )
+  const effectiveScreens = Number(
+    screens ||
+    funnelStages.recruiterScreens ||
+    funnelStages.recruiterScreenCount ||
+    funnelStages.screens ||
+    answers.recruiterScreens ||
+    answers.recruiterScreenCount ||
+    answers.screens ||
+    0
+  )
   const effectiveTechs = Number(funnelStages.technicalRounds || answers.technicalRounds || 0)
   const effectiveOffers = Number(funnelStages.offers || answers.offers || 0)
-  const callbackRate = effectiveApps30d > 0 ? ((effectiveScreens / effectiveApps30d) * 100).toFixed(1) : '0.0'
+  const callbackRate = effectiveApps90d > 0
+    ? ((effectiveScreens / effectiveApps90d) * 100).toFixed(1)
+    : (effectiveApps30d > 0 ? ((effectiveScreens / effectiveApps30d) * 100).toFixed(1) : '0.0')
   const dropOffGate = funnelStages.biggest_leak_stage || funnelStages.leak_title || bottleneck.title || 'Screening Callback Gate'
 
   // Contact Anomaly Detection
@@ -164,7 +217,7 @@ export function buildDeterministicActionPlan({
   if (contactMerged) {
     recruiterVerdict = `P0 ATS Parser Anomaly: Contact information is merged directly into your summary/experience stream in the extracted resume text. Automated parsing engines at Workday, Greenhouse, and Taleo will fail to index your email and phone, leading to silent automated disqualification before human recruiters see your background. Re-anchor contact details in a strict single-column header.`
   } else if (effectiveApps90d >= 35 && effectiveScreens <= 2) {
-    recruiterVerdict = `Top-of-Funnel Conversion Leak: Your volume of ${effectiveApps90d} applications is converting into only ${effectiveScreens} screens (${callbackRate}% callback vs 8-12% benchmark). Technical recruiters scan resumes in 6 seconds looking for verified ${targetRole} keywords and operational outcomes. Without quantified metrics in top bullets, automated ATS filters and screening coordinators pass over your profile.`
+    recruiterVerdict = `Top-of-Funnel Conversion Leak: Your volume of ${effectiveApps90d.toLocaleString()} applications is converting into only ${effectiveScreens} screens (${callbackRate}% callback vs 8-12% benchmark). Technical recruiters scan resumes in 6 seconds looking for verified ${targetRole} keywords and operational outcomes. Without quantified metrics in top bullets, automated ATS filters and screening coordinators pass over your profile.`
   } else if (effectiveScreens >= 3 && effectiveTechs <= 1) {
     recruiterVerdict = `Screen-to-Technical Clearance Leak: You are successfully booking initial recruiter phone screens (${effectiveScreens} screens) but dropping out before technical or panel evaluations (${effectiveTechs} passed). Hiring teams are not hearing deep hands-on architectural ownership or clear trade-off defense for ${targetRole} during the 15-minute qualification screen.`
   } else if (effectiveTechs >= 2 && effectiveOffers === 0) {
@@ -187,6 +240,8 @@ export function buildDeterministicActionPlan({
     : 'Plain-text parseable ATS-compliant resume document.'
   const day3Metric = 'Zero ATS contact parsing truncation errors across automated scanners.'
 
+  const isHighVolumeLowCallback = effectiveApps90d >= 100 && Number(callbackRate) <= 1.0
+
   const sevenDayQuickPlan = [
     {
       day: 1,
@@ -197,10 +252,10 @@ export function buildDeterministicActionPlan({
     },
     {
       day: 2,
-      title: `Action-Verb & Metric Overhaul (${unquantifiedCount} Bullets)`,
-      action: `Restructure ${Math.min(unquantifiedCount || 4, 4)} achievement bullets at ${cleanCompany} into Google XYZ syntax (Accomplished [X] measured by [Y] by doing [Z]) with hard operational numbers.`,
+      title: `Action-Verb & Metric Overhaul (${unquantifiedCount}/${totalBullets} Bullets)`,
+      action: `Restructure ${unquantifiedCount} unquantified bullets (${totalBullets - unquantifiedCount}/${totalBullets} bullets quantified) at ${cleanCompany} into Google XYZ syntax (Accomplished [X] measured by [Y] by doing [Z]) with hard operational numbers.`,
       deliverable: `${Math.min(unquantifiedCount || 4, 4)} restructured bullets for ${cleanCompany} containing verified metrics ($ or %).`,
-      metricTarget: `100% of ${cleanCompany} bullets contain verified quantitative outcomes.`,
+      metricTarget: `${totalBullets - unquantifiedCount}/${totalBullets} bullets quantified -> target 100% quantified impact.`,
     },
     {
       day: 3,
@@ -218,9 +273,11 @@ export function buildDeterministicActionPlan({
     },
     {
       day: 5,
-      title: 'Direct Hiring Manager Outreach Sprint',
-      action: `Identify 10 hiring leaders (${hiringTitles.slice(0, 2).join(' or ')}) actively hiring for ${targetRole} and send this ready-to-send 3-line DM: "${coldOutreachScript}"`,
-      deliverable: '10 personalized hiring manager DMs sent using the custom cold outreach script.',
+      title: isHighVolumeLowCallback ? 'High-Intent Outreach Sprint (Cap at 15/wk)' : 'Direct Hiring Manager Outreach Sprint',
+      action: isHighVolumeLowCallback
+        ? `Cap untargeted mass applications and pivot to high-intent referrals (max 15/week). Identify 10 hiring leaders (${hiringTitles.slice(0, 2).join(' or ')}) actively hiring for ${targetRole} and send this ready-to-send 3-line DM: "${coldOutreachScript}"`
+        : `Identify 10 hiring leaders (${hiringTitles.slice(0, 2).join(' or ')}) actively hiring for ${targetRole} and send this ready-to-send 3-line DM: "${coldOutreachScript}"`,
+      deliverable: '10 personalized hiring manager DMs sent using the custom cold outreach script (capped at 15 referrals/week).',
       metricTarget: 'At least 2 warm recruiter/hiring manager conversation replies.',
     },
     {
@@ -233,9 +290,9 @@ export function buildDeterministicActionPlan({
     {
       day: 7,
       title: `Funnel Calibration at ${dropOffGate}`,
-      action: `Review response rates for submitted applications, audit profile views, and calibrate conversion targets at the ${dropOffGate}.`,
+      action: `Review response rates for submitted applications (${effectiveApps90d.toLocaleString()} apps at ${callbackRate}% callback), audit profile views, and calibrate outbound targeting at the ${dropOffGate}.`,
       deliverable: 'Weekly conversion report & 7-day outbound follow-up schedule.',
-      metricTarget: 'Screen callback rate target >= 8.0%.',
+      metricTarget: 'Screen callback rate target >= 5.0%.',
     },
   ]
 
@@ -243,14 +300,16 @@ export function buildDeterministicActionPlan({
     {
       period: '30 Days',
       stage: 'Asset Calibration & Outbound Sourcing Engine',
-      goal: `Transition from low-yield volume (${effectiveApps30d} monthly applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, lifting conversion to >= 8.0% to reliably secure 3-5 recruiter screens monthly.`,
+      goal: isHighVolumeLowCallback
+        ? `Transition from low-yield volume (${effectiveApps90d.toLocaleString()} applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, capping volume at 15 targeted referrals/week to lift conversion to >= 5.0% and reliably secure 3-5 recruiter screens monthly.`
+        : `Transition from low-yield volume (${effectiveApps30d} monthly applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, lifting conversion to >= 5.0% to reliably secure 3-5 recruiter screens monthly.`,
       actions: [
         `Deploy single-column Google XYZ resume embedding verified ${missingSkillsStr} to overcome ATS drop-offs at the ${dropOffGate}.`,
         `Deploy LinkedIn Boolean search query (${booleanSearchString}) to source 30 target companies actively hiring for ${targetRole}.`,
-        `Submit 10 high-intent applications weekly directly via company portals while multi-threading with the 3-line hiring manager outreach script.`,
+        `Submit 10-15 high-intent applications weekly directly via company portals while multi-threading with the 3-line hiring manager outreach script.`,
       ],
       deliverable: 'ATS-Calibrated Resume + 30 Target Account Outbound Tracker',
-      successSignal: 'Screen callback rate >= 8.0% with 3-5 recruiter screens booked monthly.',
+      successSignal: 'Screen callback rate >= 5.0% with 3-5 recruiter screens booked monthly.',
       active: true,
     },
     {
@@ -435,7 +494,7 @@ OUTPUT JSON SCHEMA:
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
       maxTokens: 3000,
-      timeoutMs: options.timeoutMs || 8000,
+      timeoutMs: options.timeoutMs || 14000,
     })
 
     const rawText = response?.text || response?.content || '{}'

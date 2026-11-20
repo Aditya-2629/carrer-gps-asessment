@@ -579,22 +579,47 @@ export default function CareerReportPdf({ reportData = {} }) {
   const resumeDashboard = resumeAgent.dashboard || {}
   const canonicalResume = reportData?.resume_json || resumeAgent.canonicalResume || {}
 
-  const resumeSectionAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || {
+  const baseSectionAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || {
     summary: { name: 'Professional Summary', score10: 7, status: 'warn', hurtingReason: 'Generic summary lacking target role keyword anchoring and hard proof metrics.', requiredImprovement: 'Open with exact target title and core technical specializations.' },
-    experience: { name: 'Work Experience & Bullets', score10: 6, status: 'warn', hurtingReason: 'Bullets focus on passive responsibilities rather than quantified outcomes.', requiredImprovement: 'Quantify impact using Accomplished [X] measured by [Y] by doing [Z].' },
+    experience: { name: 'Work Experience & Bullets', score10: 5, status: 'warn', hurtingReason: 'Bullets focus on passive responsibilities rather than quantified outcomes.', requiredImprovement: 'Quantify impact using Accomplished [X] measured by [Y] by doing [Z].' },
     skills: { name: 'Technical Skills Architecture', score10: 8, status: 'pass', hurtingReason: null, requiredImprovement: 'Group technical tools into categoric clusters.' },
     layout: { name: 'Document Layout & ATS Formatting', score10: 9, status: 'pass', hurtingReason: null, requiredImprovement: 'Maintain clean single-column structure with standard ATS section headings.' },
     atsDensity: { name: 'ATS Keyword Density & Indexing', score10: 7, status: 'warn', hurtingReason: 'Core target keywords appear in skills list only, not validated within experience bullets.', requiredImprovement: 'Weave missing domain keywords directly into role achievement bullet points.' },
   }
 
+  const resumeSectionAudit = JSON.parse(JSON.stringify(baseSectionAudit))
+  // Enforce hard deterministic rubric ceiling on experience:
+  const quantCount = resumeDashboard?.quantification?.quantifiedBullets ?? resumeAgent?.quantification?.quantifiedBullets ?? (reportData?.unquantified_count ? 0 : 0)
+  const totalExpCount = resumeDashboard?.quantification?.totalBullets ?? resumeAgent?.quantification?.totalBullets ?? 27
+  if (resumeSectionAudit?.experience) {
+    if (quantCount === 0 || totalExpCount === 0) {
+      resumeSectionAudit.experience.score10 = Math.min(resumeSectionAudit.experience.score10 || 5, 5)
+      resumeSectionAudit.experience.status = 'warn'
+      if (!resumeSectionAudit.experience.hurtingReason || !resumeSectionAudit.experience.hurtingReason.includes('0 of')) {
+        resumeSectionAudit.experience.hurtingReason = `0 of ${totalExpCount} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+      }
+    } else if (quantCount < totalExpCount * 0.5) {
+      resumeSectionAudit.experience.score10 = Math.min(resumeSectionAudit.experience.score10 || 7, 7)
+      resumeSectionAudit.experience.status = 'warn'
+    }
+  }
+
   // Professional Summary Rewrite
   const summaryOpt = resumeAgent?.summaryOptimization || reportData?.summary_optimization || {}
-  const rewrittenSummary = safeStr(
-    summaryOpt.rewrittenSummary ||
-    summaryOpt.executiveSummaryRewrite ||
-    reportData?.summary_rewrite,
-    `Experienced ${targetRole} specializing in scalable architecture, technical execution, and robust workflow automation. Track record of driving engineering delivery and operational impact across production environments.`
-  )
+  const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+    .filter(Boolean)
+  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'modern full-stack systems and scalable cloud infrastructure'
+
+  const rawRewrittenSummary = summaryOpt.rewrittenSummary || summaryOpt.executiveSummaryRewrite || reportData?.summary_rewrite || ''
+  const isGenericSummary = !rawRewrittenSummary ||
+    /specializing in scalable architecture,\s*technical execution,\s*and robust workflow automation/i.test(rawRewrittenSummary) ||
+    /proven expertise in engineering scalable architectures/i.test(rawRewrittenSummary)
+
+  const rewrittenSummary = isGenericSummary
+    ? `Experienced ${targetRole} specializing in ${topCandidateStack}. Proven track record of delivering resilient, high-availability architecture, optimizing production workflows, and eliminating system bottlenecks.`
+    : safeStr(rawRewrittenSummary)
+
   const originalSummary = safeStr(
     summaryOpt.currentSummary ||
     summaryOpt.originalSummary ||
