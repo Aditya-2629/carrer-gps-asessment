@@ -5,6 +5,7 @@ import useAppStore, { showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
+import { fastScanResumeFile } from '../../lib/fastResumeScanner'
 
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
@@ -12,7 +13,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   const { formData, resumeAnalysis, setResumeAnalysis } = useAppStore()
 
   const startBackgroundAnalysis = useCallback(
-    async (file, fastLinkedIn = '') => {
+    async (file, fastLinkedIn = '', fastPhone = '') => {
       if (!file) return
 
       setResumeAnalysis({
@@ -91,11 +92,17 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             result.analysis?.candidateSnapshot?.phone ||
             ''
           const cleanDigits = String(rawPhone).replace(/\D/g, '')
-          // Only set phone if it contains 10-15 valid digits and is not 'N/A'
-          if (rawPhone && rawPhone !== 'N/A' && cleanDigits.length >= 10) {
+          // Only set phone if it contains 10-15 valid digits and is not 'N/A' or a date range
+          if (
+            rawPhone &&
+            rawPhone !== 'N/A' &&
+            cleanDigits.length >= 10 &&
+            cleanDigits.length <= 15 &&
+            !/^(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}$/.test(rawPhone.trim())
+          ) {
             bulkUpdates.phone = rawPhone
-          } else {
-            bulkUpdates.phone = ''
+          } else if (fastPhone && !useAppStore.getState().formData?.phone) {
+            bulkUpdates.phone = fastPhone
           }
 
           const detectedLocation =
@@ -203,19 +210,13 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         phone: '',
       })
 
-      // 2. Client-side scan for clean LinkedIn URL
+      // 2. Client-side instant scan for LinkedIn URL & Phone
       let fastLinkedIn = ''
+      let fastPhone = ''
       try {
-        const buf = await file.arrayBuffer()
-        const text = new TextDecoder('latin1').decode(buf)
-
-        const pdfUriMatch = text.match(/\/URI\s*\(([^)]*linkedin\.com\/in\/[^)]*)\)/i)
-        const docxTargetMatch = text.match(/Target="([^"]*linkedin\.com\/in\/[^"]*)"/i)
-        const plainMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
-
-        const candidateRaw = pdfUriMatch?.[1] || docxTargetMatch?.[1] || plainMatch?.[0] || ''
-        fastLinkedIn = normalizeLinkedInUrl(candidateRaw)
-        if (fastLinkedIn) {
+        const fastInfo = await fastScanResumeFile(file)
+        if (fastInfo.linkedin) {
+          fastLinkedIn = fastInfo.linkedin
           useAppStore.getState().setFormData('linkedin', fastLinkedIn)
           if (typeof window !== 'undefined') {
             if (window.__linkedinScrapeInProgress !== fastLinkedIn && !window.__linkedinScrapePromise) {
@@ -236,11 +237,15 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             }
           }
         }
+        if (fastInfo.phone) {
+          fastPhone = fastInfo.phone
+          useAppStore.getState().setFormData('phone', fastPhone)
+        }
       } catch (scanErr) {
         console.warn('[FileUpload] Fast client scan error:', scanErr.message)
       }
 
-      startBackgroundAnalysis(file, fastLinkedIn)
+      startBackgroundAnalysis(file, fastLinkedIn, fastPhone)
     },
     [step, onChange, startBackgroundAnalysis]
   )

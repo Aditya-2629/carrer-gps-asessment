@@ -168,6 +168,64 @@ export function inferRoleFromKeywordFrequency(resumeText = '') {
 // Date range regex matching present and historical employment spans
 export const DATE_RANGE_REGEX = /((?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b)\s*(?:[–—\-–]|to)\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}|\d{1,2}\/\d{4}|\b(?:19|20)\d{2}\b|present|current|now|active)|\b(?:since\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{4}\s*-\s*present\b|\b(?:19|20)\d{2}\s*-\s*present\b)/i
 
+/**
+ * Strict international, US, and Indian phone number extractor.
+ * Supports:
+ * - Indian: +91 98765 43210, +91-9876543210, 09876543210, 9876543210
+ * - US / North American: +1 (555) 123-4567, (555) 123-4567, 555-123-4567, 555.123.4567
+ * - General International: +<1-3 digits> followed by grouped digits totaling 10 to 15 digits.
+ * - Explicit labels: tel:, phone:, mobile:, cell:, contact:
+ * Rejects:
+ * - Date ranges (e.g. 2020-2024, 01/2021-03/2024)
+ * - Zip codes (5 digits or 9 digits)
+ * - Identifiers with >15 digits or <10 digits
+ * - Numbers directly connected to month/date terms unless explicitly prefixed with '+' or 'tel:'
+ */
+export function extractCleanPhoneNumber(text) {
+  if (!text || typeof text !== 'string') return null
+
+  // 1. Explicit labels or tel: URI links
+  const explicitMatch = text.match(/(?:tel:|phone(?: number)?\s*:?|mobile\s*:?|cell\s*:?|contact\s*:?)\s*([+\d()\s.-]{10,25})/i)
+  if (explicitMatch) {
+    let raw = explicitMatch[1].replace(/[.,;:)\]\s]+$/, '').replace(/^[.,;:\s]+/, '').trim()
+    if (raw.endsWith(')') && !raw.includes('(')) raw = raw.slice(0, -1).trim()
+    const digits = raw.replace(/\D/g, '')
+    if (digits.length >= 10 && digits.length <= 15) {
+      return raw.replace(/[^\d+()\s.-]/g, '').trim()
+    }
+  }
+
+  // 2. General international & domestic phone patterns with strict non-digit boundaries
+  const phonePattern = /(?:^|[^\d+])((?:(?:\+|00)\d{1,3}[\s.-]*)?(?:\(?\d{2,5}\)?[\s.-]*)?\d{3,5}[\s.-]?\d{4,5})(?=[^\d]|$)/g
+  let m
+  while ((m = phonePattern.exec(text)) !== null) {
+    let clean = m[1].replace(/[.,;:)\]\s]+$/, '').replace(/^[.,;:\s]+/, '').trim()
+    if (clean.endsWith(')') && !clean.includes('(')) clean = clean.slice(0, -1).trim()
+    const digits = clean.replace(/\D/g, '')
+
+    // Strict length check: 10 to 15 digits
+    if (digits.length < 10 || digits.length > 15) continue
+
+    // Reject pure year/date ranges e.g. 2020-2024 or 2018-2022
+    if (/^(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}$/.test(clean)) continue
+    if (/\b(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}\b/.test(clean)) continue
+    if (/\d{1,2}\/\d{2,4}\s*[-–—]\s*\d{1,2}\/\d{2,4}/.test(clean)) continue
+
+    // Check surrounding context for date keywords
+    const idx = m.index + m[0].indexOf(m[1])
+    if (idx > -1 && !clean.startsWith('+')) {
+      const preceding = text.slice(Math.max(0, idx - 20), idx)
+      const succeeding = text.slice(idx + clean.length, idx + clean.length + 20)
+      if (/(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|since|until|from|to)\s*$/i.test(preceding)) continue
+      if (/^\s*[-–—]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|present|current|now)/i.test(succeeding)) continue
+    }
+
+    return clean
+  }
+
+  return null
+}
+
 export class ResumeNormalizer {
   /**
    * Asynchronous normalization pipeline
@@ -603,7 +661,6 @@ export class ResumeNormalizer {
     let name = ''
 
     const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/
-    const phoneRegex = /(?:\+?(\d{1,3})[-.\s]?)?(?:\(?(\d{3})\)?[-.\s]?)(\d{3})[-.\s]?(\d{4})\b/
     const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
     const githubRegex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i
 
@@ -613,9 +670,9 @@ export class ResumeNormalizer {
         const m = line.match(emailRegex)
         if (m) email = m[1]
       }
-      if (!phone && phoneRegex.test(line)) {
-        const m = line.match(phoneRegex)
-        if (m) phone = m[0].trim()
+      if (!phone) {
+        const p = extractCleanPhoneNumber(line)
+        if (p) phone = p
       }
       if (!linkedin) {
         const norm = normalizeLinkedInUrl(line)
@@ -640,7 +697,7 @@ export class ResumeNormalizer {
       }
     }
 
-    // 2. Global fallback scan on raw text for LinkedIn / Email if missed in header
+    // 2. Global fallback scan on raw text for LinkedIn / Email / Phone if missed in header
     if (!linkedin && rawText) {
       const norm = normalizeLinkedInUrl(rawText)
       if (norm) {
@@ -652,8 +709,8 @@ export class ResumeNormalizer {
       if (m) email = m[1]
     }
     if (!phone && rawText) {
-      const m = rawText.match(phoneRegex)
-      if (m) phone = m[0].trim()
+      const p = extractCleanPhoneNumber(rawText)
+      if (p) phone = p
     }
 
     // 3. Extract candidate name from top lines
@@ -662,7 +719,7 @@ export class ResumeNormalizer {
       const clean = line.replace(/^[•\-*▪–—#]+\s*/, '').trim()
       if (
         !clean.includes('@') &&
-        !phoneRegex.test(clean) &&
+        !extractCleanPhoneNumber(clean) &&
         !clean.toLowerCase().includes('http') &&
         !clean.toLowerCase().includes('linkedin') &&
         !clean.toLowerCase().includes('github') &&
@@ -682,7 +739,7 @@ export class ResumeNormalizer {
       if (line === name) continue
       if (
         !line.includes('@') &&
-        !phoneRegex.test(line) &&
+        !extractCleanPhoneNumber(line) &&
         !line.toLowerCase().includes('http') &&
         !line.toLowerCase().includes('linkedin') &&
         line.length > 3 &&
@@ -718,11 +775,11 @@ export class ResumeNormalizer {
     if (!clean) return false
 
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
-    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
+    const hasPhone = Boolean(extractCleanPhoneNumber(clean))
     const urlRegex = /(?:https?:\/\/|www\.|linkedin\.com|github\.com|gitlab\.com|portfolio|twitter\.com|x\.com)/i
 
     // 1. Always return true if line contains email, phone, or online portfolio/social URLs (unless long narrative > 220 chars)
-    if (emailRegex.test(clean) || phoneRegex.test(clean) || urlRegex.test(clean)) {
+    if (emailRegex.test(clean) || hasPhone || urlRegex.test(clean)) {
       if (clean.length < 220) {
         return true
       }
@@ -772,13 +829,13 @@ export class ResumeNormalizer {
     if (!clean) return false
 
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
-    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g
+    const detectedPhone = extractCleanPhoneNumber(clean)
     const urlRegex = /(?:https?:\/\/[^\s]+|www\.[^\s]+|(?:linkedin|github|gitlab)\.com\/[^\s]+)/gi
     const locationRegex = /^[A-Z][a-zA-Z\s]+,\s*([A-Z]{2}|[A-Za-z\s]+)(\s+\d{5}(-\d{4})?)?$/
 
     if (locationRegex.test(clean) && clean.length < 80) return true
 
-    const hasContact = emailRegex.test(clean) || phoneRegex.test(clean) || urlRegex.test(clean)
+    const hasContact = emailRegex.test(clean) || Boolean(detectedPhone) || urlRegex.test(clean)
     if (!hasContact) {
       if (/[|•·]/.test(clean) && clean.length < 140 && !/[.!?]$/.test(clean)) {
         return true
@@ -786,13 +843,15 @@ export class ResumeNormalizer {
       return false
     }
 
-    const stripped = clean
+    let stripped = clean
       .replace(emailRegex, '')
-      .replace(phoneRegex, '')
       .replace(urlRegex, '')
       .replace(/[|•·\-,:/()]/g, '')
       .replace(/\b(?:email|phone|mobile|cell|tel|portfolio|website|github|linkedin|location|address)\b/gi, '')
-      .trim()
+    if (detectedPhone) {
+      stripped = stripped.replace(detectedPhone, '')
+    }
+    stripped = stripped.trim()
 
     return stripped.length < 25 && !/[.!?]$/.test(stripped)
   }
