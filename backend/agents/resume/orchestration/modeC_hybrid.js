@@ -23,7 +23,7 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isTrueQuantified, toPastTense } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isTrueQuantified, toPastTense, applyLightVerbFix } from '../scoring/resumeScorecard.js'
 import { toPresentTense } from '../signals/patterns.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
@@ -90,7 +90,7 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
   else if (isFinance) defaultToolFallback = 'financial modeling, GAAP compliance, and ERP systems'
   else if (isSales) defaultToolFallback = 'enterprise prospecting, pipeline management, and CRM platforms'
   else if (isDataCandidate) defaultToolFallback = 'SQL, business intelligence platforms, BigQuery/Snowflake data warehousing, and automated ETL pipelines'
-  else defaultToolFallback = 'modern full-stack systems and scalable cloud infrastructure'
+  else defaultToolFallback = 'enterprise software architecture, system scalability, and cloud technologies'
 
   const topTools = combinedSkills.slice(0, 8).join(', ') || defaultToolFallback
   const primaryCompany = experiences[0]?.company || experiences[0]?.employer || ''
@@ -1273,7 +1273,7 @@ CRITICAL REWRITE RULES:
    - QA / Automation -> test coverage %, regression cycle time, bug escape rate
 3. STAKEHOLDER / TEAM COLLABORATION IS STRICTLY OPTIONAL:
    - Only include collaboration or stakeholder phrasing ("partnering with...", "collaborating with...") if the original bullet explicitly mentions cross-functional teams, clients, stakeholders, or leadership.
-   - NEVER force "collaborating with DBA squads" or "partnering with SRE squads" onto solo technical, SQL, ETL, analytics, backend, or coding bullets. Focus purely on direct technical execution, mechanism, and measurable business result.
+   - NEVER force collaborative clauses onto solo technical, SQL, ETL, analytics, backend, or coding bullets. Focus purely on direct technical execution, mechanism, and measurable business result.
 4. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
 5. Provide a crisp 1-sentence recruiter critique in "critique" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
 6. Provide a crisp 1-sentence explanation in "whyItWorks" explaining why this rewrite captures recruiter attention.
@@ -1294,6 +1294,9 @@ OUTPUT SCHEMA:
   ]
 }`
           let batchRes = null
+          let batchObj = null
+
+          // 1. Primary: OpenRouter with Gemini 2.5 Flash Lite
           try {
             batchRes = await llmGateway.generate({
               purpose: 'resume_analysis',
@@ -1306,27 +1309,70 @@ OUTPUT SCHEMA:
               maxTokens: 4000,
               timeoutMs: 12000,
             })
+            batchObj = ResumeAgentValidator.cleanAndParse(batchRes?.text)
+            if (!batchObj || !Array.isArray(batchObj?.rewrites) || batchObj.rewrites.length === 0) {
+              batchObj = null
+            }
           } catch (primaryErr) {
-            console.warn('[ModeC] Primary flash-lite batch rewriter failed, trying fallback:', primaryErr.message)
-            batchRes = await llmGateway.generate({
-              purpose: 'resume_analysis',
-              task: 'bullet_batch_rewrite',
-              preferredProvider: 'openrouter',
-              model: 'openai/gpt-oss-120b',
-              messages: [{ role: 'user', content: batchPrompt }],
-              responseFormat: { type: 'json_object' },
-              temperature: 0.1,
-              maxTokens: 4000,
-              timeoutMs: 15000,
-            })
+            console.warn('[ModeC] Primary flash-lite batch rewriter failed:', primaryErr.message)
           }
 
-          const batchObj = ResumeAgentValidator.cleanAndParse(batchRes?.text)
-          if (Array.isArray(batchObj?.rewrites)) {
-            parsedForValidation.bulletUpgrades = parsedForValidation.bulletUpgrades || []
-            parsedForValidation.bulletRewrites = parsedForValidation.bulletRewrites || []
+          // 2. Secondary Fallback: Groq with openai/gpt-oss-120b
+          if (!batchObj) {
+            try {
+              console.log('[ModeC] Invoking secondary batch rewriter via Groq (openai/gpt-oss-120b)...')
+              batchRes = await llmGateway.generate({
+                purpose: 'resume_analysis',
+                task: 'bullet_batch_rewrite',
+                preferredProvider: 'groq',
+                model: 'openai/gpt-oss-120b',
+                messages: [{ role: 'user', content: batchPrompt }],
+                responseFormat: { type: 'json_object' },
+                temperature: 0.1,
+                maxTokens: 4000,
+                timeoutMs: 15000,
+              })
+              batchObj = ResumeAgentValidator.cleanAndParse(batchRes?.text)
+              if (!batchObj || !Array.isArray(batchObj?.rewrites) || batchObj.rewrites.length === 0) {
+                batchObj = null
+              }
+            } catch (secErr) {
+              console.warn('[ModeC] Secondary Groq 120B batch rewriter failed:', secErr.message)
+            }
+          }
+
+          // 3. Tertiary Fallback: OpenRouter with Gemini 3.5 Flash Lite
+          if (!batchObj) {
+            try {
+              console.log('[ModeC] Invoking tertiary batch rewriter via OpenRouter (google/gemini-3.5-flash-lite)...')
+              batchRes = await llmGateway.generate({
+                purpose: 'resume_analysis',
+                task: 'bullet_batch_rewrite',
+                preferredProvider: 'openrouter',
+                model: 'google/gemini-3.5-flash-lite',
+                messages: [{ role: 'user', content: batchPrompt }],
+                responseFormat: { type: 'json_object' },
+                temperature: 0.1,
+                maxTokens: 4000,
+                timeoutMs: 12000,
+              })
+              batchObj = ResumeAgentValidator.cleanAndParse(batchRes?.text)
+              if (!batchObj || !Array.isArray(batchObj?.rewrites) || batchObj.rewrites.length === 0) {
+                batchObj = null
+              }
+            } catch (tertErr) {
+              console.warn('[ModeC] Tertiary Gemini 3.5 Flash Lite batch rewriter failed:', tertErr.message)
+            }
+          }
+
+          parsedForValidation.bulletUpgrades = parsedForValidation.bulletUpgrades || []
+          parsedForValidation.bulletRewrites = parsedForValidation.bulletRewrites || []
+          const rewrittenBulletIds = new Set()
+
+          if (batchObj && Array.isArray(batchObj.rewrites)) {
             for (const item of batchObj.rewrites) {
               if (item?.bulletId && item?.rewrittenText) {
+                rewrittenBulletIds.add(item.bulletId)
                 const orig = bulletMap.get(item.bulletId) || ''
                 let cleanedRw = cleanRewriteText(item.rewrittenText)
 
@@ -1390,6 +1436,53 @@ OUTPUT SCHEMA:
                 } else {
                   parsedForValidation.bulletRewrites.push(rwObj)
                 }
+              }
+            }
+          }
+
+          // Deterministic last-resort fallback: only for bullets that failed all LLM attempts
+          for (const b of unrewrittenBullets) {
+            if (!rewrittenBulletIds.has(b.bulletId)) {
+              const orig = b.originalText || bulletMap.get(b.bulletId) || ''
+              const ctx = bulletContextMap.get(b.bulletId) || bulletContextMap.get(orig.trim()) || { isCurrentRole: false }
+              const fallbackText = applyLightVerbFix(orig, null, ctx.isCurrentRole)
+              const critiqueText = 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan'
+              const whyItWorksText = 'Leads with decisive action verb and articulates core operational ownership.'
+
+              const upgObj = {
+                bulletId: b.bulletId,
+                originalText: orig,
+                status: 'warn',
+                reason: critiqueText,
+                critique: critiqueText,
+                whyItWorks: whyItWorksText,
+                rewrittenText: fallbackText,
+                metricSource: 'ai_calibrated',
+                metricOpportunities: normalizeMetricOpportunities(
+                  generateFallbackMetricOpportunities(orig, effectiveRole)
+                ),
+              }
+              const existUpgIdx = parsedForValidation.bulletUpgrades.findIndex((u) => u.bulletId === b.bulletId)
+              if (existUpgIdx >= 0) {
+                parsedForValidation.bulletUpgrades[existUpgIdx] = upgObj
+              } else {
+                parsedForValidation.bulletUpgrades.push(upgObj)
+              }
+
+              const rwObj = {
+                bulletId: b.bulletId,
+                originalText: orig,
+                status: 'warn',
+                reason: critiqueText,
+                critique: critiqueText,
+                whyItWorks: whyItWorksText,
+                rewrittenText: fallbackText,
+              }
+              const existRwIdx = parsedForValidation.bulletRewrites.findIndex((r) => r.bulletId === b.bulletId)
+              if (existRwIdx >= 0) {
+                parsedForValidation.bulletRewrites[existRwIdx] = rwObj
+              } else {
+                parsedForValidation.bulletRewrites.push(rwObj)
               }
             }
           }

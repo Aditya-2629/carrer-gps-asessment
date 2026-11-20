@@ -33,9 +33,9 @@ LAYER A: PUBLICATION-READY GROUNDED REWRITE (rewrittenText / correctedText)
 8. STAKEHOLDER / TEAM COLLABORATION IS OPTIONAL:
    - Stakeholder or team collaboration clauses ('partnering with...', 'collaborating with...', 'in close partnership with...') are strictly OPTIONAL.
    - Include them ONLY when the original bullet naturally involves cross-functional work, stakeholders, leadership, or clients.
-   - NEVER force 'collaborating with DBA squads' or 'partnering with SRE squads' or 'in close partnership with...' onto solo technical, backend, ETL, scripting, or coding bullets where no collaboration is mentioned in the original resume. Focus instead on direct action, technical mechanism, and business deliverable.
+   - NEVER force collaborating or partnering clauses onto solo technical, backend, ETL, scripting, or coding bullets where no collaboration is mentioned in the original resume. Focus instead on direct action, technical mechanism, and business deliverable.
 
-LAYER B: ROLE-SPECIFIC IMPACT DISCOVERY (metricOpportunities)
+LAYER B: ROLE-SPECIFIC METRIC OPPORTUNITIES (metricOpportunities)
 For every weak or unquantified bullet, generate 2–3 concise, bullet-specific measurement opportunities inside "metricOpportunities":
 [
   {
@@ -71,7 +71,7 @@ export function normalizeMetricOpportunities(arr) {
 }
 
 /**
- * Deterministically generates 2–3 role-calibrated impact discovery opportunities
+ * Deterministically generates 2–3 role-calibrated metric opportunities
  * when the LLM returns none or for fallback rewrites.
  */
 export function generateFallbackMetricOpportunities(bulletText = '', targetRole = '') {

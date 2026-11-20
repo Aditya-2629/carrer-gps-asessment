@@ -743,7 +743,7 @@ Every recommendation MUST be action-oriented:
 - Recommendation answers: WHAT should the candidate do?
 CRITICAL: Do NOT repeat the diagnosis as the recommendation!
 
-ROLE-SPECIFIC IMPACT DISCOVERY (metricOpportunities):
+ROLE-SPECIFIC METRIC OPPORTUNITIES (metricOpportunities):
 For every weak or unquantified bullet, generate 2–3 concise, bullet-specific measurement opportunities inside "metricOpportunities":
 [
   {

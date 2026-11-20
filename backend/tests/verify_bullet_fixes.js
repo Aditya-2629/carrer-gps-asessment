@@ -124,7 +124,7 @@ const dataSummary = generateDomainCalibratedSummary('Senior Data Analyst', [
   { role: 'Data Analyst', company: 'DataCo', bullets: ['Built Tableau dashboards for executive KPI tracking.'] }
 ], ['SQL', 'Tableau', 'Power BI', 'BigQuery', 'Snowflake', 'dbt'], [])
 console.log('Data Analyst summary:', dataSummary)
-assert(!dataSummary.includes('modern full-stack systems and scalable cloud infrastructure'), 'FAILED: Contains full-stack cloud infrastructure boilerplate!')
+assert(!dataSummary.toLowerCase().includes('full-stack systems'), 'FAILED: Contains full-stack cloud infrastructure boilerplate!')
 assert(dataSummary.includes('Data Analyst'), 'FAILED: Missing Data Analyst role!')
 console.log('PASS: Data Analyst summary calibrated correctly.')
 

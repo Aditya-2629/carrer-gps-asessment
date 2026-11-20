@@ -16,6 +16,7 @@ import { LLMCache, llmCache } from '../cache/llmCache.js'
 import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 import { costTracker } from '../../utils/costTracker.js'
+import { jsonrepair } from 'jsonrepair'
 
 // Production fallback chain in priority order:
 // 1. Primary: OpenRouter (100% SLA, multi-model task routing)
@@ -53,8 +54,9 @@ export const TASK_MODEL_ROUTING = {
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
     'google/gemini-2.5-flash-lite',
-    'deepseek/deepseek-v3.2',
+    'google/gemini-3.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
+    'deepseek/deepseek-v3.2',
   ],
   groq: [
     'openai/gpt-oss-120b', // ONLY active model for Groq
@@ -410,6 +412,46 @@ export class LLMGateway {
           }
         }
 
+        // Validate JSON if responseFormat is json_object or requested as JSON
+        if (isJsonFormat && typeof finalText === 'string') {
+          let isValidJson = false
+          try {
+            JSON.parse(finalText)
+            isValidJson = true
+          } catch {
+            try {
+              let stripped = finalText.trim()
+              const codeBlockMatch = stripped.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+              if (codeBlockMatch && codeBlockMatch[1]) {
+                stripped = codeBlockMatch[1].trim()
+              }
+              JSON.parse(jsonrepair(stripped))
+              isValidJson = true
+            } catch {
+              isValidJson = false
+            }
+          }
+
+          if (!isValidJson && i < modelsToTry.length - 1 && allowFallback) {
+            span.finish({
+              success: false,
+              error: { code: PROVIDER_ERROR_CODES.INVALID_JSON, message: 'Provider returned invalid or unparseable JSON' },
+            })
+            console.warn(
+              `[LLMGateway] Invalid JSON response on ${currentModelId} (${providerKey}). Escalating to fallback candidate: ${modelsToTry[i + 1]}`
+            )
+            lastError = new ProviderError({
+              code: PROVIDER_ERROR_CODES.INVALID_JSON,
+              message: `[${currentModelId}] output could not be parsed as valid JSON: ${(finalText || '').slice(0, 100)}...`,
+              provider: providerKey,
+              model: currentModelId,
+              statusCode: 500,
+              isRetryable: true,
+            })
+            continue
+          }
+        }
+
         const finalResponse = {
           ...result,
           text: finalText,
@@ -445,14 +487,18 @@ export class LLMGateway {
         // Production Fallback check: fallback for transient retryable conditions OR model 404 when remaining candidates exist
         const isRetryable =
           err.isRetryable ||
-          [402, 408, 413, 429, 500, 502, 503].includes(err.statusCode) ||
+          (typeof err.statusCode === 'number' && err.statusCode >= 500 && err.statusCode < 600) ||
+          [402, 408, 413, 429].includes(err.statusCode) ||
           (err.statusCode === 404 && i < modelsToTry.length - 1) ||
           (err.code === PROVIDER_ERROR_CODES.MODEL_NOT_FOUND && i < modelsToTry.length - 1) ||
           err.code === PROVIDER_ERROR_CODES.RATE_LIMIT ||
           err.code === PROVIDER_ERROR_CODES.TIMEOUT ||
           err.code === PROVIDER_ERROR_CODES.EMPTY_CONTENT ||
           err.code === PROVIDER_ERROR_CODES.SERVICE_UNAVAILABLE ||
-          err.code === 'SERVICE_UNAVAILABLE'
+          err.code === PROVIDER_ERROR_CODES.INVALID_JSON ||
+          err.code === 'INVALID_JSON_RESPONSE' ||
+          err.code === 'SERVICE_UNAVAILABLE' ||
+          /timeout|aborted|rate limit|quota|5\d\d|invalid json/i.test(err.message || '')
 
         if (!isRetryable || i === modelsToTry.length - 1) {
           throw err

@@ -609,7 +609,7 @@ export default function CareerReportPdf({ reportData = {} }) {
   const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
     .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
     .filter(Boolean)
-  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'modern full-stack systems and scalable cloud infrastructure'
+  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'enterprise architecture and cloud technologies'
 
   const rawRewrittenSummary = summaryOpt.rewrittenSummary || summaryOpt.executiveSummaryRewrite || reportData?.summary_rewrite || ''
   const isGenericSummary = !rawRewrittenSummary ||

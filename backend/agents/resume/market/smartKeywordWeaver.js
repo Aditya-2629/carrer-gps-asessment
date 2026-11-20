@@ -3,7 +3,7 @@ import { jsonrepair } from 'jsonrepair'
 import { llmGateway } from '../../../ai/gateway/llmGateway.js'
 import { toPresentTense } from '../signals/patterns.js'
 import { isConcreteTechSkill, isGenuineTechnicalSkill } from './dynamicSkillExtractor.js'
-import { isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
+import { isLazySuffixAppend, buildFivePartPlaybookRewrite, applyLightVerbFix } from '../scoring/resumeScorecard.js'
 
 // In-memory cache for rewritten bullets (hash -> rewritten result)
 export const BULLET_REWRITE_CACHE = new Map()
@@ -28,7 +28,7 @@ THE 5-PART RESUME PLAYBOOK FORMULA (MANDATORY FOR ALL REWRITES - 18 TO 32 WORDS)
 Every single "rewrittenText" MUST integrate all 5 parts seamlessly:
 1. Strong Action Verb: Lead with a decisive past-tense (or present-tense for active current role) active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized", "Optimized", "Led"). Banned: "Assisted", "Helped", "Worked on", "Responsible for", "Utilized", or "-ing" participles.
 2. Target Hard Skill / Tool: Weave target skills naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, Snowflake, dbt). Zero keyword stuffing.
-3. Collaboration / Ownership Signal: Embed team or leadership scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
+3. Collaboration / Ownership Signal (STRICTLY OPTIONAL): Embed team or leadership scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod") ONLY when the original bullet explicitly involves cross-functional teams, clients, stakeholders, or leadership. NEVER force collaboration clauses onto solo technical, backend, ETL, SQL, or coding bullets.
 4. Metric Grounding (Zero Placeholders & Zero Fabricated Numbers): Preserve original candidate metrics whenever present; when missing, focus on concrete technical mechanisms and qualitative system outcomes (e.g. eliminating release bottlenecks, preventing defect escapes, sustaining zero-downtime rollouts, hardening security boundaries) WITHOUT fabricating fake numbers or percentages. STRICTLY ZERO [ADD: ...] or bracketed placeholders.
 5. Concrete Achievement / Operational Outcome: Deliverable business or system impact (e.g. "ensuring 99.99% service availability with zero downtime", "eliminating reporting discrepancies across 1,500+ SKUs").
 
@@ -191,9 +191,13 @@ export async function batchWeaveBulletsWithLLM({
     })),
   }
 
+  let response = null
+  let parsed = null
+
+  // 1. Primary LLM Call (OpenRouter Gemini 3.5 Flash Lite)
   try {
     const startTime = Date.now()
-    const response = await llmGateway.generate({
+    response = await llmGateway.generate({
       purpose: 'bullet_batch_weave',
       preferredProvider: 'openrouter',
       model: 'google/gemini-3.5-flash-lite',
@@ -204,36 +208,106 @@ export async function batchWeaveBulletsWithLLM({
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
       maxTokens: 3500, // Increased token budget for 10-12 rewrites
-      timeoutMs: timeoutMs || 30000,
+      timeoutMs: timeoutMs || 15000,
     })
 
     const elapsed = Date.now() - startTime
     const usedModel = response?.actualModel || response?.model || 'google/gemini-3.5-flash-lite'
     const usedProv = response?.provider || 'openrouter'
-    console.log(`[SmartKeywordWeaver] Single-batch LLM re-weaver executed in ~${elapsed}ms via ${usedProv} (${usedModel}).`)
+    console.log(`[SmartKeywordWeaver] Primary LLM re-weaver executed in ~${elapsed}ms via ${usedProv} (${usedModel}).`)
 
     const raw = response?.text || '{}'
-    let parsed
     try {
       parsed = JSON.parse(raw)
     } catch {
       parsed = JSON.parse(jsonrepair(raw))
     }
+  } catch (primaryErr) {
+    console.warn('[SmartKeywordWeaver] Primary Gemini 3.5 Flash Lite re-weaver failed:', primaryErr.message)
+  }
 
+  // 2. Secondary Fallback: Groq GPT-OSS 120B if primary failed or produced no rewrites
+  if (!parsed || !Array.isArray(parsed?.rewrittenBullets) || parsed.rewrittenBullets.length === 0) {
+    try {
+      console.log('[SmartKeywordWeaver] Invoking secondary LLM fallback via Groq (openai/gpt-oss-120b)...')
+      const secStart = Date.now()
+      response = await llmGateway.generate({
+        purpose: 'bullet_batch_weave',
+        preferredProvider: 'groq',
+        model: 'openai/gpt-oss-120b',
+        messages: [
+          { role: 'system', content: BATCH_WEAVER_SYSTEM_PROMPT },
+          { role: 'user', content: `Re-engineer these experience bullets naturally:\n\n${JSON.stringify(batchPromptInput, null, 2)}` },
+        ],
+        responseFormat: { type: 'json_object' },
+        temperature: 0.2,
+        maxTokens: 3500,
+        timeoutMs: 15000,
+      })
+
+      const elapsed = Date.now() - secStart
+      console.log(`[SmartKeywordWeaver] Secondary Groq 120B re-weaver executed in ~${elapsed}ms.`)
+
+      const raw = response?.text || '{}'
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        parsed = JSON.parse(jsonrepair(raw))
+      }
+    } catch (secErr) {
+      console.warn('[SmartKeywordWeaver] Secondary Groq 120B re-weaver failed:', secErr.message)
+    }
+  }
+
+  // 3. Tertiary Fallback: OpenRouter Gemini 2.5 Flash Lite if secondary also failed
+  if (!parsed || !Array.isArray(parsed?.rewrittenBullets) || parsed.rewrittenBullets.length === 0) {
+    try {
+      console.log('[SmartKeywordWeaver] Invoking tertiary LLM fallback via OpenRouter (google/gemini-2.5-flash-lite)...')
+      const tertStart = Date.now()
+      response = await llmGateway.generate({
+        purpose: 'bullet_batch_weave',
+        preferredProvider: 'openrouter',
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          { role: 'system', content: BATCH_WEAVER_SYSTEM_PROMPT },
+          { role: 'user', content: `Re-engineer these experience bullets naturally:\n\n${JSON.stringify(batchPromptInput, null, 2)}` },
+        ],
+        responseFormat: { type: 'json_object' },
+        temperature: 0.2,
+        maxTokens: 3500,
+        timeoutMs: 12000,
+      })
+
+      const elapsed = Date.now() - tertStart
+      console.log(`[SmartKeywordWeaver] Tertiary Gemini 2.5 Flash Lite re-weaver executed in ~${elapsed}ms.`)
+
+      const raw = response?.text || '{}'
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        parsed = JSON.parse(jsonrepair(raw))
+      }
+    } catch (tertErr) {
+      console.warn('[SmartKeywordWeaver] Tertiary Gemini 2.5 Flash Lite re-weaver failed:', tertErr.message)
+    }
+  }
+
+  // 4. If all LLM attempts failed to produce rewrites, fall back to clean deterministic weaver
+  if (!parsed || !Array.isArray(parsed?.rewrittenBullets) || parsed.rewrittenBullets.length === 0) {
+    console.warn('[SmartKeywordWeaver] All LLM providers failed or returned empty rewrites. Falling back to deterministic weaver.')
+    return deterministicWeave(experiences, targetSkills, targetRole)
+  }
+
+  try {
     const rewrittenMap = new Map()
     if (Array.isArray(parsed?.rewrittenBullets)) {
       parsed.rewrittenBullets.forEach((item) => {
         if (item?.bulletId && item?.rewrittenText && item.rewrittenText.length >= 20) {
           const original = bulletsToRewrite.find((b) => b.bulletId === item.bulletId)?.originalText || ''
           if (original && isLazySuffixAppend(item.rewrittenText, original)) {
-            const skillsToUse = Array.isArray(item.wovenSkills) && item.wovenSkills.length > 0
-              ? item.wovenSkills
-              : (item.wovenSkill ? [item.wovenSkill] : cleanSkills)
-            item.rewrittenText = buildFivePartPlaybookRewrite(original, {
-              targetRole,
-              company: item.company,
-              skills: skillsToUse,
-            })
+            const expRef = experiences[item.expIdx] || {}
+            const isCurr = isRoleCurrent(expRef)
+            item.rewrittenText = applyLightVerbFix(original, null, isCurr)
           }
           rewrittenMap.set(item.bulletId, item)
 

@@ -15,7 +15,7 @@ import {
 import { jsonrepair } from 'jsonrepair'
 import { stripFillInSlots, findMalformedFillInSlots } from './validation/fillInSlots.js'
 import { QUALITATIVE_OUTCOME_REGEX } from './signals/patterns.js'
-import { buildFivePartPlaybookRewrite } from './scoring/resumeScorecard.js'
+import { buildFivePartPlaybookRewrite, applyLightVerbFix } from './scoring/resumeScorecard.js'
 
 export class ResumeAgentValidator {
   /**
@@ -83,12 +83,12 @@ export class ResumeAgentValidator {
   /**
    * Generates a concrete Google X-Y-Z framework rewrite for an issue evidence bullet.
    * "Accomplished [X] as measured by [Y] by doing [Z]"
-   * Enforces at most one [ADD: ...] slot with zero digits.
+   * Enforces zero bracketed placeholders and zero fabricated digits.
    * Uses only technologies, tools, and facts directly present in originalText.
    */
   static buildGoogleXYZRewrite(originalText) {
     if (!originalText || typeof originalText !== 'string') {
-      return 'Accomplished key deliverables with target [ADD: measurable metric] by executing core engineering responsibilities.'
+      return 'Accomplished key deliverables by executing core engineering responsibilities and optimizing system workflows.'
     }
 
     // 1. Clean bullet prefixes and framework markers
