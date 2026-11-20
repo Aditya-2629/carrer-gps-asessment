@@ -67,7 +67,7 @@ export const aiConfig = {
   },
   get defaultResumeModel() {
     if (process.env.RESUME_PRIMARY_MODEL) return process.env.RESUME_PRIMARY_MODEL
-    return 'google/gemini-2.5-flash-lite'
+    return 'google/gemini-3.5-flash'
   },
   get defaultTimeoutMs() {
     return parseInt(process.env.AI_DEFAULT_TIMEOUT_MS || '20000', 10)
@@ -113,7 +113,7 @@ export const aiConfig = {
       return (process.env.OPENROUTER_API_KEY || '').trim()
     },
     get defaultModel() {
-      return 'google/gemini-2.5-flash-lite'
+      return 'google/gemini-3.5-flash'
     },
     get appUrl() {
       return process.env.APP_URL || 'https://crafture.com'

@@ -607,10 +607,10 @@ export async function handleChatStream(req, res) {
 
     let streamedSuccess = false
 
-    // Primary: OpenRouter Gemini 2.5 Flash Lite
+    // Primary: OpenRouter Gemini 3.5 Flash Lite
     try {
       await streamFromOpenRouter({
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'google/gemini-3.5-flash-lite',
         messages,
         onToken,
         timeoutMs: 20000,
@@ -628,11 +628,11 @@ export async function handleChatStream(req, res) {
         })
         streamedSuccess = true
       } catch (groqErr) {
-        console.warn('[ChatController] Groq streaming fallback failed, trying OpenRouter DeepSeek V3.2:', groqErr.message)
-        // Tertiary: OpenRouter DeepSeek V3.2
+        console.warn('[ChatController] Groq streaming fallback failed, trying OpenRouter DeepSeek Chat:', groqErr.message)
+        // Tertiary: OpenRouter DeepSeek Chat
         try {
           await streamFromOpenRouter({
-            model: 'deepseek/deepseek-v3.2',
+            model: 'deepseek/deepseek-chat',
             messages,
             onToken,
             timeoutMs: 25000,
@@ -652,7 +652,7 @@ export async function handleChatStream(req, res) {
           task: 'report_chatbot',
           stage: 'REPORT_CHATBOT',
           preferredProvider: 'openrouter',
-          model: 'google/gemini-2.5-flash-lite',
+          model: 'google/gemini-3.5-flash-lite',
           messages,
           responseFormat: 'text',
           temperature: 0.3,
@@ -750,14 +750,14 @@ export async function handleChatMessage(req, res) {
 
     let replyText = ''
     try {
-      // Priority 1: OpenRouter Gemini 2.5 Flash Lite
+      // Priority 1: OpenRouter Gemini 3.5 Flash Lite
       const response = await llmGateway.generate({
         purpose: 'assessment_report',
         task: 'report_chatbot',
         stage: 'REPORT_CHATBOT',
         reqId: chatReqId,
         preferredProvider: 'openrouter',
-        model: 'google/gemini-2.5-flash-lite',
+        model: 'google/gemini-3.5-flash-lite',
         messages,
         responseFormat: 'text',
         temperature: 0.3,
@@ -784,8 +784,8 @@ export async function handleChatMessage(req, res) {
         })
         replyText = fallbackResponse.text
       } catch (groqErr) {
-        console.warn('[ChatController] Groq fallback failed, falling back to DeepSeek V3.2:', groqErr.message)
-        // Priority 3: OpenRouter DeepSeek V3.2
+        console.warn('[ChatController] Groq fallback failed, falling back to DeepSeek Chat:', groqErr.message)
+        // Priority 3: OpenRouter DeepSeek Chat
         try {
           const tertiaryResponse = await llmGateway.generate({
             purpose: 'assessment_report',
@@ -793,7 +793,7 @@ export async function handleChatMessage(req, res) {
             stage: 'REPORT_CHATBOT',
             reqId: chatReqId,
             preferredProvider: 'openrouter',
-            model: 'deepseek/deepseek-v3.2',
+            model: 'deepseek/deepseek-chat',
             messages,
             responseFormat: 'text',
             temperature: 0.3,

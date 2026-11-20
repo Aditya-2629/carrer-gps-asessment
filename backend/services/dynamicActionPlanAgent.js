@@ -486,7 +486,7 @@ OUTPUT JSON SCHEMA:
       purpose: 'dynamic_action_plan',
       task: 'action_plan_generation',
       preferredProvider: options.preferredProvider || 'openrouter',
-      model: options.model || 'google/gemini-2.5-flash-lite',
+      model: options.model || 'google/gemini-3.5-flash',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -494,7 +494,7 @@ OUTPUT JSON SCHEMA:
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
       maxTokens: 3000,
-      timeoutMs: options.timeoutMs || 14000,
+      timeoutMs: options.timeoutMs || 12000,
     })
 
     const rawText = response?.text || response?.content || '{}'

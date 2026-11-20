@@ -1296,13 +1296,13 @@ OUTPUT SCHEMA:
           let batchRes = null
           let batchObj = null
 
-          // 1. Primary: OpenRouter with Gemini 2.5 Flash Lite
+          // 1. Primary: OpenRouter with policy.model (google/gemini-3.5-flash)
           try {
             batchRes = await llmGateway.generate({
               purpose: 'resume_analysis',
               task: 'bullet_batch_rewrite',
               preferredProvider: 'openrouter',
-              model: 'google/gemini-2.5-flash-lite',
+              model: policy?.model || 'google/gemini-3.5-flash',
               messages: [{ role: 'user', content: batchPrompt }],
               responseFormat: { type: 'json_object' },
               temperature: 0.1,
@@ -1314,7 +1314,7 @@ OUTPUT SCHEMA:
               batchObj = null
             }
           } catch (primaryErr) {
-            console.warn('[ModeC] Primary flash-lite batch rewriter failed:', primaryErr.message)
+            console.warn('[ModeC] Primary batch rewriter failed:', primaryErr.message)
           }
 
           // 2. Secondary Fallback: Groq with openai/gpt-oss-120b

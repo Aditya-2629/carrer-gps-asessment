@@ -38,13 +38,13 @@ export const TRAP_MODELS = new Set([
 export const TASK_MODEL_ROUTING = {
   jd_extraction: 'google/gemini-2.5-flash-lite',
   fast_catch: 'google/gemini-2.5-flash-lite',
-  resume_synthesis: 'google/gemini-2.5-flash-lite',
-  bullet_rewrites: 'google/gemini-2.5-flash-lite',
-  linkedin_synthesis: 'google/gemini-2.5-flash-lite',
-  thought_leadership: 'google/gemini-2.5-flash-lite',
-  report_generation: 'google/gemini-2.5-flash-lite',
+  resume_synthesis: 'google/gemini-3.5-flash',
+  bullet_rewrites: 'google/gemini-3.5-flash',
+  linkedin_synthesis: 'google/gemini-3.5-flash',
+  thought_leadership: 'google/gemini-3.5-flash',
+  report_generation: 'google/gemini-3.5-flash',
   judge_gate: 'google/gemini-2.5-flash-lite',
-  unified_synthesis: 'google/gemini-2.5-flash-lite',
+  unified_synthesis: 'google/gemini-3.5-flash',
   jev_decision: 'typesafe/jev-1.14',
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
@@ -53,8 +53,9 @@ export const TASK_MODEL_ROUTING = {
 
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
-    'google/gemini-2.5-flash-lite',
+    'google/gemini-3.5-flash',
     'google/gemini-3.5-flash-lite',
+    'google/gemini-2.5-flash-lite',
     'meta-llama/llama-3.3-70b-instruct',
     'deepseek/deepseek-v3.2',
   ],
@@ -173,19 +174,17 @@ export class LLMGateway {
     if (allowFallback) {
       if (purpose === 'bullet_batch_weave') {
         modelsToTry = Array.from(new Set([
-          requestedModelId || 'google/gemini-2.5-flash-lite',
-          'google/gemini-2.5-flash-lite',
+          requestedModelId || 'google/gemini-3.5-flash',
+          'google/gemini-3.5-flash',
           'google/gemini-3.5-flash-lite',
-          'google/gemini-3-flash-preview',
+          'google/gemini-2.5-flash-lite',
           'openai/gpt-oss-120b',
         ].filter(Boolean)))
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model && !task) {
         modelsToTry = [
-          'google/gemini-2.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'google/gemini-3-flash-preview',
-          'google/gemini-2.5-flash',
           'openai/gpt-oss-120b',
+          'deepseek/deepseek-chat',
         ]
       } else {
         const chain = new Set()
@@ -448,6 +447,19 @@ export class LLMGateway {
               statusCode: 500,
               isRetryable: true,
             })
+            // Fast-failover: if OpenRouter returned invalid JSON, escalate Groq to next attempt
+            if (providerKey === 'openrouter') {
+              const altIdx = modelsToTry.findIndex((m, idx) => {
+                if (idx <= i) return false
+                const meta = getModel(m)
+                return meta && meta.provider === 'groq' && liteLlmRouter.isProviderAvailable('groq').isAvailable
+              })
+              if (altIdx > i + 1) {
+                const [groqModel] = modelsToTry.splice(altIdx, 1)
+                modelsToTry.splice(i + 1, 0, groqModel)
+                console.warn(`[LLMGateway] Fast-failover: Escalated Groq (${groqModel}) to next position after invalid JSON from OpenRouter.`)
+              }
+            }
             continue
           }
         }
@@ -502,6 +514,20 @@ export class LLMGateway {
 
         if (!isRetryable || i === modelsToTry.length - 1) {
           throw err
+        }
+
+        // Fast-failover: if OpenRouter encountered timeout, 429, 5xx, or network failure, escalate Groq to next attempt
+        if (providerKey === 'openrouter') {
+          const altIdx = modelsToTry.findIndex((m, idx) => {
+            if (idx <= i) return false
+            const meta = getModel(m)
+            return meta && meta.provider === 'groq' && liteLlmRouter.isProviderAvailable('groq').isAvailable
+          })
+          if (altIdx > i + 1) {
+            const [groqModel] = modelsToTry.splice(altIdx, 1)
+            modelsToTry.splice(i + 1, 0, groqModel)
+            console.warn(`[LLMGateway] Fast-failover: Escalated Groq (${groqModel}) to next position ahead of remaining OpenRouter models.`)
+          }
         }
 
         console.warn(
