@@ -197,13 +197,18 @@ export default function ResumeBulletAudit({
         item.original ||
         item.text ||
         ''
-      const finalCritique =
+      let rawCritique =
         linkedIssue?.diagnosis ||
         item.critique ||
         item.reason ||
         (isPass
           ? 'High impact technical achievement bullet with clear operational outcome.'
           : 'Lacks quantified metrics or active ownership.')
+
+      if (!isPass && /no defects found|clear,\s*specific/i.test(rawCritique)) {
+        rawCritique = 'Lacks quantified business outcome and measurable impact — reads as a routine task rather than a distinctive achievement.'
+      }
+      const finalCritique = rawCritique
 
       return {
         bulletId: bId,

@@ -68,20 +68,55 @@ export function toPastTense(verb) {
   const v = verb.toLowerCase().trim()
   const irregulars = {
     build: 'Built',
+    built: 'Built',
     run: 'Ran',
+    ran: 'Ran',
     lead: 'Led',
+    led: 'Led',
     drive: 'Drove',
+    drove: 'Drove',
     write: 'Wrote',
+    wrote: 'Wrote',
+    make: 'Made',
     make: 'Made',
     keep: 'Kept',
+    kept: 'Kept',
     take: 'Took',
+    took: 'Took',
     grow: 'Grew',
+    grew: 'Grew',
     set: 'Set',
     cut: 'Cut',
     meet: 'Met',
+    met: 'Met',
     hold: 'Held',
+    held: 'Held',
+    send: 'Sent',
+    sent: 'Sent',
+    spend: 'Spent',
+    spent: 'Spent',
+    speak: 'Spoke',
+    spoke: 'Spoke',
+    choose: 'Chose',
+    chose: 'Chose',
+    find: 'Found',
+    found: 'Found',
+    win: 'Won',
+    won: 'Won',
+    sell: 'Sold',
+    sold: 'Sold',
+    buy: 'Bought',
+    bought: 'Bought',
+    bring: 'Brought',
+    brought: 'Brought',
+    teach: 'Taught',
+    taught: 'Taught',
+    oversee: 'Oversaw',
+    oversaw: 'Oversaw',
     analyze: 'Analyzed',
+    analyzed: 'Analyzed',
     analyse: 'Analysed',
+    analysed: 'Analysed',
   }
   if (irregulars[v]) return irregulars[v]
   if (v.endsWith('ed')) return v.charAt(0).toUpperCase() + v.slice(1)
@@ -89,6 +124,55 @@ export function toPastTense(verb) {
   if (v.endsWith('e')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
   if (v.endsWith('y') && !/[aeiou]y$/i.test(v)) return v.charAt(0).toUpperCase() + v.slice(1, -1) + 'ied'
   return v.charAt(0).toUpperCase() + v.slice(1) + 'ed'
+}
+
+/**
+ * Promotes the opening verb to a strong active verb matching the role tense,
+ * without appending any fake outcome, metrics, or trailing boilerplate clauses.
+ */
+export function applyLightVerbFix(bulletText, sig = null, isCurrentRole = false) {
+  if (!bulletText || typeof bulletText !== 'string') return null
+  let clean = bulletText.replace(/^[•\-*▪–—·\s]+/, '').trim()
+  if (!clean) return null
+
+  // Strip weak phrases at the start
+  clean = clean
+    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i, '')
+    .trim()
+
+  const m = clean.match(/^([A-Za-z]+)\b(.*)$/s)
+  if (!m) return clean
+
+  const rawFirst = m[1]
+  const rest = m[2]
+  const lowerFirst = rawFirst.toLowerCase()
+
+  const nonVerbOpeners = new Set([
+    'monthly', 'quarterly', 'daily', 'weekly', 'annual', 'biannual', 'periodic', 'routine',
+    'adhoc', 'ad-hoc', 'various', 'multiple', 'internal', 'external', 'client', 'financial',
+    'excel', 'data', 'business', 'system', 'project', 'cross-functional', 'technical',
+    'regular', 'key', 'core', 'new', 'existing', 'critical'
+  ])
+
+  if (nonVerbOpeners.has(lowerFirst)) {
+    const defaultVerb = isCurrentRole ? 'Generate' : 'Generated'
+    return cleanRewriteText(`${defaultVerb} ${clean}`)
+  }
+
+  let newVerb = rawFirst
+  if (lowerFirst.endsWith('ing')) {
+    newVerb = normalizeGerundVerb(rawFirst, isCurrentRole)
+  } else if (isCurrentRole) {
+    newVerb = toPresentTense(rawFirst)
+  } else {
+    newVerb = toPastTense(rawFirst)
+  }
+
+  if (newVerb && newVerb.length > 0) {
+    newVerb = newVerb.charAt(0).toUpperCase() + newVerb.slice(1)
+  }
+
+  return cleanRewriteText(`${newVerb}${rest}`)
 }
 
 /**
@@ -376,6 +460,22 @@ export function buildFivePartPlaybookRewrite(bulletText, {
     ['delivered', 'Delivered'], ['deliver', 'Deliver'],
     ['applied', 'Applied'], ['apply', 'Applied'],
     ['led', 'Led'], ['lead', 'Lead'],
+    ['ran', 'Ran'], ['run', 'Run'],
+    ['drove', 'Drove'], ['drive', 'Drive'],
+    ['wrote', 'Wrote'], ['write', 'Write'],
+    ['made', 'Made'], ['make', 'Make'],
+    ['sent', 'Sent'], ['send', 'Send'],
+    ['held', 'Held'], ['hold', 'Hold'],
+    ['kept', 'Kept'], ['keep', 'Keep'],
+    ['sold', 'Sold'], ['sell', 'Sell'],
+    ['paid', 'Paid'], ['pay', 'Pay'],
+    ['met', 'Met'], ['meet', 'Meet'],
+    ['read', 'Read'],
+    ['grew', 'Grew'], ['grow', 'Grow'],
+    ['taught', 'Taught'], ['teach', 'Teach'],
+    ['brought', 'Brought'], ['bring', 'Bring'],
+    ['found', 'Found'], ['find', 'Find'],
+    ['set', 'Set'],
     ['translated', 'Translated'], ['translate', 'Translate'],
     ['validated', 'Validated'], ['validate', 'Validate'],
     ['analyzed', 'Analyzed'], ['analyze', 'Analyze'],
@@ -436,7 +536,9 @@ export function buildFivePartPlaybookRewrite(bulletText, {
   } else if (strongActionVerbs.has(lowerFirst) || /^[A-Za-z]+ed\b/.test(coreAction)) {
     leadingVerb = strongActionVerbs.get(lowerFirst) || (rawFirstWord.charAt(0).toUpperCase() + rawFirstWord.slice(1).toLowerCase())
     if (isCurrentRole) {
-      if (leadingVerb.endsWith('ed')) leadingVerb = leadingVerb.slice(0, -2)
+      leadingVerb = toPresentTense(leadingVerb)
+    } else {
+      leadingVerb = toPastTense(leadingVerb)
     }
     remainingAction = coreAction.slice(rawFirstWord.length).trim()
   } else {
@@ -455,9 +557,9 @@ export function buildFivePartPlaybookRewrite(bulletText, {
   }
 
   // Strip repeated verb or participle from remainingAction to avoid double verbs:
-  // e.g. "Automated automated testing", "Hardened secured", "Modernized applied"
+  // e.g. "Automated automated testing", "Hardened secured", "Modernized applied", "Engineered ran"
   remainingAction = remainingAction
-    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing|answered|answering|handled|handling|addressed|addressing|gathered|gathering|tracked|tracking|monitored|monitoring|analyzed|analyzing|served|serving|provided|providing)\s+/i, '')
+    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing|answered|answering|handled|handling|addressed|addressing|gathered|gathering|tracked|tracking|monitored|monitoring|analyzed|analyzing|served|serving|provided|providing|ran|running|run|led|leading|lead|made|making|sent|sending|held|holding|kept|keeping|sold|selling|met|meeting|grew|growing|taught|teaching|brought|bringing|found|finding)\s+/i, '')
     .trim()
 
   // Clean specific phrase remnants
@@ -1472,15 +1574,27 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
         const upgrade = upgradeByBullet.get(b.id)
         const llmMatch = llmRewriteMap.get(b.id) || llmRewriteMap.get(b.text.trim())
 
+        const bEval = evalByBullet.get(b.id)
+        const isEvalHurting = Boolean(bEval && (bEval.verdict === 'hurting' || (Array.isArray(bEval.missingElements) && bEval.missingElements.length > 0)))
+
         let status = 'pass'
         let reason = 'Clear, specific, no defects found'
         let quickPolishNote = null
         let rewrite = null
+        let whyItWorks = null
 
-        if (llmMatch) {
-          rewrite = llmMatch.rewritten || llmMatch.rewrittenText || llmMatch.rewrite || null
+        if (upgrade) {
+          rewrite = upgrade.rewrittenText || null
+          reason = upgrade.reason || upgrade.critique || null
+          whyItWorks = upgrade.whyItWorks || null
+          if (upgrade.status) status = upgrade.status
+        } else if (llmMatch) {
+          rewrite = llmMatch.rewrittenText || llmMatch.rewritten || llmMatch.rewrite || null
           if (llmMatch.critique || llmMatch.reason) {
             reason = llmMatch.critique || llmMatch.reason
+          }
+          if (llmMatch.whyItWorks) {
+            whyItWorks = llmMatch.whyItWorks
           }
         }
 
@@ -1491,43 +1605,41 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
         if (issue) {
           status = issue.severity === 'low' ? 'warn' : 'fix'
           reason = issue.title || issue.diagnosis || 'Flagged by analysis'
-          rewrite = issue.correctedText || null
+          if (issue.correctedText) rewrite = issue.correctedText
+          if (issue.whyItMatters) whyItWorks = issue.whyItMatters
         } else if (upgrade) {
           status = upgrade.status || 'warn'
-          reason = upgrade.reason || 'Bullet upgraded for stronger recruiter signal'
-          rewrite = upgrade.rewrittenText || null
+          reason = upgrade.reason || upgrade.critique || 'Bullet upgraded for stronger recruiter signal'
+          rewrite = upgrade.rewrittenText || rewrite
+        } else if (isEvalHurting) {
+          status = 'warn'
+          const evalCritique = bEval?.critique || (bEval?.missingElements?.length ? `Lacks ${bEval.missingElements.slice(0, 2).join(' and ')} required for senior recruiter scan` : null)
+          reason = evalCritique || 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
         } else if (hasWeakOpener) {
           status = 'warn'
           reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.tenseIssue === 'gerund_opening') {
           const targetVerb = normalizeGerundVerb(sig.openingWord, isCurrentRole)
           quickPolishNote = `Change '${sig.openingWord}' to '${targetVerb}' for direct action tense`
           if (isAccomplished) {
             status = 'pass'
             reason = 'Strong accomplishment with verified outcomes'
-            rewrite = null
           } else {
             status = 'warn'
             reason = `Starts with an '-ing' participle ('${sig.openingWord}') — recommend ${isCurrentRole ? 'present-tense verb' : 'past-tense verb'} for direct action tense`
-            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
           }
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.repetitiveVerbIssue) {
           status = 'warn'
           reason = `Repeats opening verb '${sig.openingWord}' (used ${sig.openingVerbCount}x) — vary your action verbs to keep each bullet distinct`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.buzzwordIssue) {
           status = 'warn'
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.isToolDumpCandidate) {
           status = 'warn'
           reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (lacksOutcome) {
           status = 'warn'
           const opener = sig?.openingWord || 'Bullet'
@@ -1535,21 +1647,17 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
           const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
           reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else {
           status = 'pass'
           reason = 'Clear, specific, no defects found'
-          rewrite = null
-        }
-
-        // Fallback to legacy llmMatch if no rewrite and no quickPolishNote
-        if (!rewrite && !quickPolishNote && llmRewriteMap.has(b.id)) {
-          rewrite = llmRewriteMap.get(b.id)?.rewrittenText || null
+          if (!llmMatch && !upgrade) {
+            rewrite = null
+          }
         }
 
         // Safety guarantee: EVERY bullet marked 'warn' or 'fix' MUST have a non-null rewrite!
         if ((status === 'warn' || status === 'fix') && !rewrite) {
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
+          rewrite = applyLightVerbFix(b.text, sig, isCurrentRole)
         }
 
         if (rewrite) {
@@ -1575,7 +1683,6 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
 
         let cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
 
-        const bEval = evalByBullet.get(b.id)
         let verdict
         let fivePartFlags
         let isResponsibilityOnly
@@ -1614,20 +1721,25 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
             status = 'warn'
           }
           if (!reason || reason === 'Clear, specific, no defects found' || reason.startsWith('Clear, specific')) {
-            const missing = []
-            if (!fivePartFlags.metric) missing.push('quantified business metrics')
-            if (!fivePartFlags.outcome) missing.push('measurable business outcome')
-            if (!fivePartFlags.actionVerb) missing.push('an active ownership verb')
-            if (!fivePartFlags.hardSkill) missing.push('concrete technical tooling')
-
-            if (missing.length > 0) {
-              reason = `Lacks ${missing.slice(0, 2).join(' and ')} required to demonstrate senior analytical/engineering ownership.`
+            const evalCritique = bEval?.critique
+            if (evalCritique && !evalCritique.toLowerCase().includes('no defects found')) {
+              reason = evalCritique
             } else {
-              reason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+              const missing = []
+              if (!fivePartFlags.metric) missing.push('quantified business metrics')
+              if (!fivePartFlags.outcome) missing.push('measurable business outcome')
+              if (!fivePartFlags.actionVerb) missing.push('an active ownership verb')
+              if (!fivePartFlags.hardSkill) missing.push('concrete technical tooling')
+
+              if (missing.length > 0) {
+                reason = `Lacks ${missing.slice(0, 2).join(' and ')} required to demonstrate senior analytical/engineering ownership.`
+              } else {
+                reason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+              }
             }
           }
           if (!cleanImproved) {
-            const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
+            const fallbackRw = applyLightVerbFix(b.text, sig, isCurrentRole)
             cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
           }
         }
@@ -1653,6 +1765,7 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
         }
 
         const finalWhyItWorks =
+          whyItWorks ||
           llmMatch?.whyItWorks ||
           llmMatch?.why ||
           upgrade?.whyItWorks ||

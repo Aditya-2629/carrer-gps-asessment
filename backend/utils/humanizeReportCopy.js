@@ -144,7 +144,11 @@ export function sanitizeReportObject(obj, canonicalResume = {}, depth = 0) {
   return obj
 }
 
-export function synthesizeWhyItWorks(original = '', rewritten = '') {
+export function synthesizeWhyItWorks(original = '', rewritten = '', existingWhyItWorks = '') {
+  if (existingWhyItWorks && typeof existingWhyItWorks === 'string' && existingWhyItWorks.trim().length >= 15) {
+    return existingWhyItWorks.trim()
+  }
+
   if (!rewritten || rewritten === original) {
     return 'Maintains verified technical stack while highlighting domain expertise.'
   }
@@ -167,7 +171,7 @@ export function synthesizeWhyItWorks(original = '', rewritten = '') {
     return `Anchors technical scope with measurable business outcome metrics (% or scale) to pass recruiter 6-second scans.`
   }
   if (verbChanged) {
-    return `Upgrades opening verb to high-agency action verb ('${rwFirstWord}') and sharpens architectural ownership.`
+    return `Leads with decisive action verb ('${rwFirstWord}') and articulates clear business deliverable.`
   }
   return `Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.`
 }

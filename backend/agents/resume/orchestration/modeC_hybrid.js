@@ -1207,11 +1207,23 @@ export async function executeModeC({
         })
       })
 
+      // Build lookup of hurting bullets from evaluations
+      const hurtingBulletIds = new Set()
+      if (Array.isArray(parsedForValidation.bulletEvaluations)) {
+        for (const ev of parsedForValidation.bulletEvaluations) {
+          if (ev?.bulletId && (ev.verdict === 'hurting' || (Array.isArray(ev.missingElements) && ev.missingElements.length > 0))) {
+            hurtingBulletIds.add(ev.bulletId)
+          }
+        }
+      }
+
       const unrewrittenBullets = []
       for (const [bId, text] of bulletMap.entries()) {
         if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
         if (existingRewrites.has(bId) || existingRewrites.has(text.trim())) continue
-        if (!isTrueQuantified(text)) {
+        const isHurting = hurtingBulletIds.has(bId)
+        const isUnquant = !isTrueQuantified(text)
+        if (isHurting || isUnquant) {
           const ctx = bulletContextMap.get(bId) || bulletContextMap.get(text.trim()) || { company: 'Company', tense: 'PAST' }
           unrewrittenBullets.push({
             bulletId: bId,
@@ -1255,8 +1267,9 @@ CRITICAL REWRITE RULES:
    - DevOps / SRE -> deployment frequency, CI lead time, cloud infrastructure cost, MTTR
    - QA / Automation -> test coverage %, regression cycle time, bug escape rate
 3. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
-4. Provide a crisp 1-sentence recruiter critique in "reason" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
-5. Return ONLY a valid JSON object matching the schema.
+4. Provide a crisp 1-sentence recruiter critique in "critique" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
+5. Provide a crisp 1-sentence explanation in "whyItWorks" explaining why this rewrite captures recruiter attention.
+6. Return ONLY a valid JSON object matching the schema.
 
 BULLETS TO REWRITE:
 ${JSON.stringify(unrewrittenBullets, null, 2)}
@@ -1267,24 +1280,43 @@ OUTPUT SCHEMA:
     {
       "bulletId": "string",
       "rewrittenText": "string",
-      "reason": "1-sentence recruiter critique of original"
+      "critique": "1-sentence recruiter critique of original",
+      "whyItWorks": "1-sentence explanation of why rewrite works"
     }
   ]
 }`
-          const batchRes = await llmGateway.generate({
-            purpose: 'resume_analysis',
-            task: 'bullet_batch_rewrite',
-            preferredProvider: 'openrouter',
-            model: 'google/gemini-2.5-flash-lite',
-            messages: [{ role: 'user', content: batchPrompt }],
-            responseFormat: { type: 'json_object' },
-            temperature: 0.1,
-            maxTokens: 4000,
-            timeoutMs: 10000,
-          })
-          const batchObj = ResumeAgentValidator.cleanAndParse(batchRes.text)
+          let batchRes = null
+          try {
+            batchRes = await llmGateway.generate({
+              purpose: 'resume_analysis',
+              task: 'bullet_batch_rewrite',
+              preferredProvider: 'openrouter',
+              model: 'google/gemini-2.5-flash-lite',
+              messages: [{ role: 'user', content: batchPrompt }],
+              responseFormat: { type: 'json_object' },
+              temperature: 0.1,
+              maxTokens: 4000,
+              timeoutMs: 12000,
+            })
+          } catch (primaryErr) {
+            console.warn('[ModeC] Primary flash-lite batch rewriter failed, trying fallback:', primaryErr.message)
+            batchRes = await llmGateway.generate({
+              purpose: 'resume_analysis',
+              task: 'bullet_batch_rewrite',
+              preferredProvider: 'openrouter',
+              model: 'openai/gpt-oss-120b',
+              messages: [{ role: 'user', content: batchPrompt }],
+              responseFormat: { type: 'json_object' },
+              temperature: 0.1,
+              maxTokens: 4000,
+              timeoutMs: 15000,
+            })
+          }
+
+          const batchObj = ResumeAgentValidator.cleanAndParse(batchRes?.text)
           if (Array.isArray(batchObj?.rewrites)) {
             parsedForValidation.bulletUpgrades = parsedForValidation.bulletUpgrades || []
+            parsedForValidation.bulletRewrites = parsedForValidation.bulletRewrites || []
             for (const item of batchObj.rewrites) {
               if (item?.bulletId && item?.rewrittenText) {
                 const orig = bulletMap.get(item.bulletId) || ''
@@ -1312,16 +1344,31 @@ OUTPUT SCHEMA:
                   }
                 }
 
+                const critiqueText = item.critique || item.reason || 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan'
+                const whyItWorksText = item.whyItWorks || 'Leads with decisive action verb and articulates clear business deliverable.'
+
                 parsedForValidation.bulletUpgrades.push({
                   bulletId: item.bulletId,
                   originalText: orig,
                   status: 'warn',
-                  reason: item.reason || 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan',
+                  reason: critiqueText,
+                  critique: critiqueText,
+                  whyItWorks: whyItWorksText,
                   rewrittenText: cleanedRw,
                   metricSource: 'ai_calibrated',
                   metricOpportunities: normalizeMetricOpportunities(
                     generateFallbackMetricOpportunities(orig, effectiveRole)
                   ),
+                })
+
+                parsedForValidation.bulletRewrites.push({
+                  bulletId: item.bulletId,
+                  originalText: orig,
+                  status: 'warn',
+                  reason: critiqueText,
+                  critique: critiqueText,
+                  whyItWorks: whyItWorksText,
+                  rewrittenText: cleanedRw,
                 })
               }
             }
