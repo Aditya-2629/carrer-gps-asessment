@@ -23,10 +23,13 @@ LAYER A: PUBLICATION-READY GROUNDED REWRITE (rewrittenText / correctedText)
      * Data / ETL / Reporting -> pipeline runtime, hours saved per week, data accuracy / reconciliation rate
      * GenAI / RAG / Agents -> retrieval accuracy, latency, support deflection %, eval pass rate
      * Non-Tech (Healthcare, Finance, Sales, Ops) -> patient throughput/charting accuracy, close cycle/variance reduction, quota/pipeline conversion, SLA turnaround.
-3. If the original bullet lacks numbers, focus the rewrite on the concrete engineering/operational mechanism and qualitative outcome (e.g., system reliability, modularity, automated testing, audit compliance, release velocity) WITHOUT fabricating fake numbers.
-4. STRICTLY FORBID bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
-5. STRICTLY FORBID lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
-6. Adapt phrasing dynamically to the candidate's domain (Software, Data, Healthcare, Finance, Ops, Sales, etc.) — never force one rigid template.
+3. STRICT TENSE DISCIPLINE (Present Company = Present Tense, Past Company/Project = Past Tense):
+   - For bullets belonging to an active current role (dates indicating "Present", "Current", or "Till Date"): Lead with an active PRESENT-TENSE verb (e.g. Lead, Architect, Synthesize, Optimize, Develop, Partner, Automate).
+   - For bullets belonging to completed past roles or projects: Strictly lead with an active PAST-TENSE verb (e.g. Led, Architected, Synthesized, Optimized, Developed, Partnered, Automated).
+4. If the original bullet lacks numbers, focus the rewrite on the concrete engineering/operational mechanism and qualitative outcome (e.g., system reliability, modularity, automated testing, audit compliance, release velocity) WITHOUT fabricating fake numbers.
+5. STRICTLY FORBID bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
+6. STRICTLY FORBID lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
+7. Adapt phrasing dynamically to the candidate's domain (Software, Data, Healthcare, Finance, Ops, Sales, etc.) — never force one rigid template.
 
 LAYER B: ROLE-SPECIFIC IMPACT DISCOVERY (metricOpportunities)
 For every weak or unquantified bullet, generate 2–3 concise, bullet-specific measurement opportunities inside "metricOpportunities":

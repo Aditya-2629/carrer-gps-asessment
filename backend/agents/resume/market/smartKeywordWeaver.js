@@ -530,8 +530,8 @@ export function deterministicWeave(experiences, targetKws, targetRole = '') {
     const kwLower = kw.toLowerCase()
     if (usedKeywords.has(kwLower)) continue
 
-    // For Non-Tech / Product roles: NEVER weave Git/GitHub PR gating, code review, or SWE unit testing tools
-    if (isProductOrNonTech && /git\b|github|pull\s*request|unit\s*test|pytest|jest|code\s*review/i.test(kwLower)) {
+    // For Non-Tech / Product / Data Analyst roles: NEVER weave SWE unit testing tools (jest, pytest, cypress, junit, git PR gating) onto non-SWE bullets
+    if ((isProductOrNonTech || isData) && /git\b|github|pull\s*request|unit\s*test|pytest|jest|cypress|playwright|junit|code\s*review/i.test(kwLower)) {
       usedKeywords.add(kwLower)
       continue
     }

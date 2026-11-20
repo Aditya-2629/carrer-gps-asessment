@@ -23,7 +23,8 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isTrueQuantified } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isTrueQuantified, toPastTense } from '../scoring/resumeScorecard.js'
+import { toPresentTense } from '../signals/patterns.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 import { IMPACT_POLICY_INSTRUCTIONS, normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
@@ -427,6 +428,9 @@ export function sanitizeModeCOutput(analysis, state = {}) {
   analysis.bulletUpgrades = Array.isArray(analysis.bulletUpgrades)
     ? analysis.bulletUpgrades.map((upg) => {
         let reason = upg.reason
+        if (!reason || reason === 'Clear, specific, no defects found' || reason.startsWith('Clear, specific')) {
+          reason = 'Lacks quantified business outcomes and mechanism specificity required for senior recruiter scan'
+        }
         if (reason && /participle\s*\(['"][^'"]+['"]\)/i.test(reason)) {
           const matchIng = (upg.originalText || '').trim().replace(/^[•\-*▪–—\s]+/, '').match(/^([a-zA-Z]+ing)\b/i)
           if (matchIng) {
@@ -1172,12 +1176,49 @@ export async function executeModeC({
         ...(parsedForValidation.bulletRewrites || []).map((r) => r.bulletId || r.originalText),
       ].filter(Boolean))
 
+      // Build context map for every bullet to track company, isCurrentRole, and tense
+      const bulletContextMap = new Map()
+      const rawExperiences = canonicalResume?.experience || canonicalResume?.experiences || []
+      rawExperiences.forEach((exp, eIdx) => {
+        const hasPresent = /present|current|now|till date/i.test(exp?.endDate || '') ||
+          /present|current|now|till date/i.test(exp?.dates || '') ||
+          /present|current|now|till date/i.test(exp?.duration || '') ||
+          exp?.isCurrent === true
+        const isCurrentRole = Boolean(exp?.isCurrent === true || hasPresent)
+        const comp = exp?.company || exp?.employer || `Role ${eIdx + 1}`
+        ;(exp.bullets || []).forEach((b) => {
+          const bId = (typeof b === 'object' && b?.id) ? b.id : null
+          const bText = (typeof b === 'string' ? b : b?.text || '').trim()
+          const info = { company: comp, isCurrentRole, tense: isCurrentRole ? 'PRESENT' : 'PAST' }
+          if (bId) bulletContextMap.set(bId, info)
+          if (bText) bulletContextMap.set(bText, info)
+        })
+      })
+
+      const rawProjects = canonicalResume?.projects || []
+      rawProjects.forEach((proj, pIdx) => {
+        const pName = proj?.name || proj?.title || `Project ${pIdx + 1}`
+        ;(proj.bullets || []).forEach((b) => {
+          const bId = (typeof b === 'object' && b?.id) ? b.id : null
+          const bText = (typeof b === 'string' ? b : b?.text || '').trim()
+          const info = { company: pName, isCurrentRole: false, tense: 'PAST' }
+          if (bId) bulletContextMap.set(bId, info)
+          if (bText) bulletContextMap.set(bText, info)
+        })
+      })
+
       const unrewrittenBullets = []
       for (const [bId, text] of bulletMap.entries()) {
         if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
         if (existingRewrites.has(bId) || existingRewrites.has(text.trim())) continue
         if (!isTrueQuantified(text)) {
-          unrewrittenBullets.push({ bulletId: bId, originalText: text })
+          const ctx = bulletContextMap.get(bId) || bulletContextMap.get(text.trim()) || { company: 'Company', tense: 'PAST' }
+          unrewrittenBullets.push({
+            bulletId: bId,
+            company: ctx.company,
+            tense: ctx.tense,
+            originalText: text,
+          })
         }
       }
 
@@ -1195,19 +1236,30 @@ export async function executeModeC({
           metricMatches.forEach((m) => alreadyUsedMetrics.add(m.toLowerCase()))
           const alreadyUsedList = Array.from(alreadyUsedMetrics).slice(0, 15).join(', ')
 
-          const batchPrompt = `You are a Principal Technical Recruiter.
-For each candidate bullet below, generate a distinct, high-impact Google XYZ rewrite (Accomplished [X] measured by [Y] by doing [Z], 18-30 words) tailored to the bullet's ACTUAL tools and domain.
+          const batchPrompt = `You are a Principal Technical Recruiter and Executive Resume Architect.
+For each candidate bullet below, generate a distinct, high-impact Google XYZ rewrite (Accomplished [X] measured by [Y] by doing [Z], 18-30 words) tailored to the bullet's ACTUAL tools, domain, and company.
 TARGET ROLE: ${effectiveRole}
 CANDIDATE STACK: ${(canonicalResume.skills || []).slice(0, 10).join(', ')}
 ${alreadyUsedList ? `ALREADY USED METRICS IN THIS RESUME (DO NOT REUSE ANY OF THESE NUMBERS OR METRIC TYPES): ${alreadyUsedList}` : ''}
 
-RULES:
-1. Ground each rewrite in the bullet's actual domain (e.g. testing tools like Jasmine/Karma get test coverage/regression metrics, frontend tools like React/UI get Lighthouse/accessibility/render metrics, APIs get throughput/latency metrics).
-2. Strictly forbid repeating the same metric or suffix across multiple rewrites. Every rewrite must have a unique metric and outcome.
-3. Return ONLY a valid JSON object matching the schema.
+STRICT TENSE DISCIPLINE:
+- Bullets with "tense": "PRESENT" MUST lead with active PRESENT-TENSE verbs (e.g. Lead, Architect, Synthesize, Optimize, Develop, Partner, Automate).
+- Bullets with "tense": "PAST" MUST lead with active PAST-TENSE verbs (e.g. Led, Architected, Synthesized, Optimized, Developed, Partnered, Automated).
+
+CRITICAL REWRITE RULES:
+1. Rewrite each sentence completely from scratch end-to-end like an executive recruiter. NEVER append trailing clauses or boilerplate suffixes (e.g. ", partnering with DBA squads...") onto unchanged original text.
+2. Ground each rewrite in the bullet's actual domain and candidate's tools:
+   - Data Analyst / BI bullets -> query latency, report turnaround hours, lead identification, dataset scale, dashboard adoption
+   - Software Engineering / Backend -> p95 API latency, microservice throughput, zero downtime, concurrent connections
+   - Frontend / UI -> Lighthouse score, page load time, Core Web Vitals, accessibility
+   - DevOps / SRE -> deployment frequency, CI lead time, cloud infrastructure cost, MTTR
+   - QA / Automation -> test coverage %, regression cycle time, bug escape rate
+3. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
+4. Provide a crisp 1-sentence recruiter critique in "reason" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
+5. Return ONLY a valid JSON object matching the schema.
 
 BULLETS TO REWRITE:
-${JSON.stringify(unrewrittenBullets)}
+${JSON.stringify(unrewrittenBullets, null, 2)}
 
 OUTPUT SCHEMA:
 {
@@ -1236,12 +1288,35 @@ OUTPUT SCHEMA:
             for (const item of batchObj.rewrites) {
               if (item?.bulletId && item?.rewrittenText) {
                 const orig = bulletMap.get(item.bulletId) || ''
-                const cleanedRw = cleanRewriteText(item.rewrittenText)
+                let cleanedRw = cleanRewriteText(item.rewrittenText)
+
+                // Enforce tense post-normalization
+                const ctx = bulletContextMap.get(item.bulletId) || bulletContextMap.get(orig.trim())
+                if (ctx) {
+                  const m = cleanedRw.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
+                  if (m) {
+                    const prefix = m[1]
+                    const firstWord = m[2]
+                    const rest = m[3]
+                    if (ctx.tense === 'PRESENT') {
+                      const presWord = toPresentTense(firstWord)
+                      if (presWord && presWord.toLowerCase() !== firstWord.toLowerCase()) {
+                        cleanedRw = `${prefix}${presWord}${rest}`
+                      }
+                    } else if (ctx.tense === 'PAST') {
+                      const pastWord = toPastTense(firstWord)
+                      if (pastWord && pastWord.toLowerCase() !== firstWord.toLowerCase()) {
+                        cleanedRw = `${prefix}${pastWord}${rest}`
+                      }
+                    }
+                  }
+                }
+
                 parsedForValidation.bulletUpgrades.push({
                   bulletId: item.bulletId,
                   originalText: orig,
                   status: 'warn',
-                  reason: item.reason || 'Restructured into Google XYZ formula with quantified metrics',
+                  reason: item.reason || 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan',
                   rewrittenText: cleanedRw,
                   metricSource: 'ai_calibrated',
                   metricOpportunities: normalizeMetricOpportunities(

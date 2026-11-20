@@ -84,6 +84,7 @@ export function toPastTense(verb) {
     analyse: 'Analysed',
   }
   if (irregulars[v]) return irregulars[v]
+  if (v.endsWith('ed')) return v.charAt(0).toUpperCase() + v.slice(1)
   if (v.endsWith('yze') || v.endsWith('ise')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
   if (v.endsWith('e')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
   if (v.endsWith('y') && !/[aeiou]y$/i.test(v)) return v.charAt(0).toUpperCase() + v.slice(1, -1) + 'ied'
@@ -210,7 +211,9 @@ export const DOMAIN_METRIC_POOLS = {
     { key: 'db_thru_3x', outcome: 'streamlining data access layers, accelerating data retrieval throughput by 3x during peak transaction windows' },
   ],
   data: [
-    { key: 'data_hrs_15', outcome: 'saving 15+ engineering hours per week and eliminating manual spreadsheet reconciliation errors' },
+    { key: 'data_brief_35', outcome: 'delivering executive briefings that accelerated decision-making turnaround by 35%' },
+    { key: 'data_leads_24', outcome: 'identifying high-value customer cohorts to accelerate targeted campaign conversion by 24%' },
+    { key: 'data_hrs_15', outcome: 'saving 15+ analytical hours per week and eliminating manual spreadsheet reconciliation errors' },
     { key: 'data_ing_50', outcome: 'partnering with analytics stakeholders, accelerating daily batch data ingestion throughput by 50%' },
     { key: 'data_acc_99', outcome: 'achieving 99.9% data reconciliation accuracy across cross-system operational data syncs' },
     { key: 'data_turn_2h', outcome: 'shortening reporting turnaround from 3 days to under 2 hours for downstream business consumers' },
@@ -375,9 +378,19 @@ export function buildFivePartPlaybookRewrite(bulletText, {
     ['led', 'Led'], ['lead', 'Lead'],
     ['translated', 'Translated'], ['translate', 'Translate'],
     ['validated', 'Validated'], ['validate', 'Validate'],
+    ['analyzed', 'Analyzed'], ['analyze', 'Analyze'],
+    ['answered', 'Synthesized'], ['answer', 'Synthesize'],
+    ['answering', 'Synthesized'],
+    ['handled', 'Resolved'], ['handle', 'Resolve'],
+    ['handling', 'Resolved'],
+    ['addressed', 'Remediated'], ['address', 'Remediate'],
+    ['gathered', 'Synthesized'], ['gather', 'Synthesize'],
+    ['tracked', 'Monitored'], ['track', 'Monitor'],
     ['wrote', 'Automated'],
     ['drove', 'Automated'],
   ])
+
+  const isDataRole = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(lowerRole) && !/software|developer|swe|sde/i.test(lowerRole)
 
   // Determine domainKey
   const lowerText = clean.toLowerCase()
@@ -389,15 +402,17 @@ export function buildFivePartPlaybookRewrite(bulletText, {
     domainKey = 'finance'
   } else if (isSalesRole) {
     domainKey = 'sales'
+  } else if (isDataRole) {
+    domainKey = 'data'
   } else if (/test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation|tdd\b|root\s*cause/i.test(lowerText)) {
     domainKey = 'qa'
   } else if (/security|spring security|jwt|csrf|auth|oauth|rbac|vulnerabilit|cve|encryption|sanitize|xss/i.test(lowerText)) {
     domainKey = 'security'
   } else if (/frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|zeplin|bootstrap|tailwind|wcag|accessibility|screen reader|wireframe|dom\b/i.test(lowerText)) {
     domainKey = 'frontend'
-  } else if (/database|mongodb|postgres|sql\b|nosql|indexing|aggregation|query|queries|schema|store|table/i.test(lowerText) && !/python.*script/i.test(lowerText)) {
+  } else if (/database|mongodb|postgres|nosql|indexing|aggregation|schema|store|table/i.test(lowerText) && !/python.*script/i.test(lowerText)) {
     domainKey = 'database'
-  } else if (/python|script|automate data|migration|etl|pipeline|reporting|dbt|snowflake|tableau|analytics/i.test(lowerText)) {
+  } else if (/python|script|automate data|migration|etl|pipeline|reporting|dbt|snowflake|tableau|analytics|sql\b|query|queries/i.test(lowerText)) {
     domainKey = 'data'
   } else if (/ai\b|machine learning|ml\b|llm|nlp|rag\b|spring ai|embeddings|vector|prompt/i.test(lowerText)) {
     domainKey = 'ai'
@@ -411,8 +426,14 @@ export function buildFivePartPlaybookRewrite(bulletText, {
   let leadingVerb = ''
   let remainingAction = coreAction
 
-  // If coreAction already starts with a strong action verb or past-tense verb (e.g. Translated, Validated, Prototyped)
-  if (strongActionVerbs.has(lowerFirst) || /^[A-Za-z]+ed\b/.test(coreAction)) {
+  // If coreAction starts with answered / handling / weak verbs, map them cleanly
+  if (lowerFirst === 'answered' || lowerFirst === 'answering' || lowerFirst === 'answer') {
+    leadingVerb = isCurrentRole ? 'Synthesize' : 'Synthesized'
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else if (lowerFirst === 'handled' || lowerFirst === 'handling' || lowerFirst === 'handle') {
+    leadingVerb = isCurrentRole ? 'Resolve' : 'Resolved'
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else if (strongActionVerbs.has(lowerFirst) || /^[A-Za-z]+ed\b/.test(coreAction)) {
     leadingVerb = strongActionVerbs.get(lowerFirst) || (rawFirstWord.charAt(0).toUpperCase() + rawFirstWord.slice(1).toLowerCase())
     if (isCurrentRole) {
       if (leadingVerb.endsWith('ed')) leadingVerb = leadingVerb.slice(0, -2)
@@ -436,7 +457,7 @@ export function buildFivePartPlaybookRewrite(bulletText, {
   // Strip repeated verb or participle from remainingAction to avoid double verbs:
   // e.g. "Automated automated testing", "Hardened secured", "Modernized applied"
   remainingAction = remainingAction
-    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing)\s+/i, '')
+    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing|answered|answering|handled|handling|addressed|addressing|gathered|gathering|tracked|tracking|monitored|monitoring|analyzed|analyzing|served|serving|provided|providing)\s+/i, '')
     .trim()
 
   // Clean specific phrase remnants
@@ -490,6 +511,13 @@ export function buildFivePartPlaybookRewrite(bulletText, {
   }
 
   // Case B: UNQUANTIFIED BULLET -> Calibrate unique context-matched metric
+  // If remainingAction ends with an unquantified trailing outcome clause (e.g. ", identifying high-value leads and driving targeted engagement strategies")
+  // strip that unquantified clause so we replace it with the calibrated outcome rather than appending a duplicate outcome
+  const trailingOutcomeMatch = remainingAction.match(/,\s*(?:identifying|driving|enabling|resulting in|improving|reducing|cutting|delivering|ensuring|increasing|supporting|streamlining|accelerating|saving)\b.*$/i)
+  if (trailingOutcomeMatch) {
+    remainingAction = remainingAction.slice(0, trailingOutcomeMatch.index).trim()
+  }
+
   const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
   let selectedVariant = null
   for (const v of pool) {
@@ -529,12 +557,12 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   let matchedOpener = false
 
-  // Special case: "Analyze complex business questions..." or weak/present-tense opening verbs
-  if (/^analyze\s+complex\s+business\s+questions\b/i.test(clean)) {
+  // Special case: "Analyze complex business questions..." or "Answered complex business questions..."
+  if (/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions\b/i.test(clean)) {
     if (isCurrentRole) {
-      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Translate complex business questions into SQL-backed executive briefings')
+      clean = clean.replace(/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Translate complex business questions into SQL-backed executive briefings')
     } else {
-      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Synthesized complex business questions with SQL and delivered executive briefings')
+      clean = clean.replace(/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Synthesized complex business questions with SQL and delivered executive briefings')
     }
     matchedOpener = true
   } else if (!isCurrentRole && /^analyze\b/i.test(clean)) {
@@ -1343,7 +1371,7 @@ function buildChecks({
  * Builds the per-bullet audit: every experience/project bullet gets a status,
  * a one-line reason, and the before→after rewrite when an issue cites it.
  */
-function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [], targetRole = '' }) {
+export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [], targetRole = '' }) {
   const roleTarget =
     targetRole ||
     analysis?.candidateSnapshot?.targetRole ||
@@ -1526,15 +1554,20 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
         if (rewrite) {
           rewrite = sanitizeSingleAddPlaceholder(rewrite)
-          if (isCurrentRole) {
-            const m = rewrite.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
-            if (m) {
-              const prefix = m[1]
-              const firstWord = m[2]
-              const rest = m[3]
+          const m = rewrite.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
+          if (m) {
+            const prefix = m[1]
+            const firstWord = m[2]
+            const rest = m[3]
+            if (isCurrentRole) {
               const presentWord = toPresentTense(firstWord)
               if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
                 rewrite = `${prefix}${presentWord}${rest}`
+              }
+            } else {
+              const pastWord = toPastTense(firstWord)
+              if (pastWord && pastWord.toLowerCase() !== firstWord.toLowerCase()) {
+                rewrite = `${prefix}${pastWord}${rest}`
               }
             }
           }
@@ -1576,9 +1609,47 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           verdict = (status === 'pass' && !hasWeakOpener && (hasMetric || hasOutcome)) ? 'helping' : 'hurting'
         }
 
-        if (verdict === 'hurting' && !cleanImproved) {
-          const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
-          cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
+        if (verdict === 'hurting') {
+          if (status === 'pass') {
+            status = 'warn'
+          }
+          if (!reason || reason === 'Clear, specific, no defects found' || reason.startsWith('Clear, specific')) {
+            const missing = []
+            if (!fivePartFlags.metric) missing.push('quantified business metrics')
+            if (!fivePartFlags.outcome) missing.push('measurable business outcome')
+            if (!fivePartFlags.actionVerb) missing.push('an active ownership verb')
+            if (!fivePartFlags.hardSkill) missing.push('concrete technical tooling')
+
+            if (missing.length > 0) {
+              reason = `Lacks ${missing.slice(0, 2).join(' and ')} required to demonstrate senior analytical/engineering ownership.`
+            } else {
+              reason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+            }
+          }
+          if (!cleanImproved) {
+            const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
+            cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
+          }
+        }
+
+        if (cleanImproved) {
+          const m = cleanImproved.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
+          if (m) {
+            const prefix = m[1]
+            const firstWord = m[2]
+            const rest = m[3]
+            if (isCurrentRole) {
+              const presentWord = toPresentTense(firstWord)
+              if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
+                cleanImproved = `${prefix}${presentWord}${rest}`
+              }
+            } else {
+              const pastWord = toPastTense(firstWord)
+              if (pastWord && pastWord.toLowerCase() !== firstWord.toLowerCase()) {
+                cleanImproved = `${prefix}${pastWord}${rest}`
+              }
+            }
+          }
         }
 
         const finalWhyItWorks =
