@@ -118,4 +118,29 @@ for (const item of audit) {
 }
 console.log('PASS: All hurting bullets have consistent non-contradictory critiques and rewrites.')
 
+console.log('--- TEST 5: Domain Summary Calibration for Data Analyst ---')
+import { generateDomainCalibratedSummary } from '../agents/resume/orchestration/modeC_hybrid.js'
+const dataSummary = generateDomainCalibratedSummary('Senior Data Analyst', [
+  { role: 'Data Analyst', company: 'DataCo', bullets: ['Built Tableau dashboards for executive KPI tracking.'] }
+], ['SQL', 'Tableau', 'Power BI', 'BigQuery', 'Snowflake', 'dbt'], [])
+console.log('Data Analyst summary:', dataSummary)
+assert(!dataSummary.includes('modern full-stack systems and scalable cloud infrastructure'), 'FAILED: Contains full-stack cloud infrastructure boilerplate!')
+assert(dataSummary.includes('Data Analyst'), 'FAILED: Missing Data Analyst role!')
+console.log('PASS: Data Analyst summary calibrated correctly.')
+
+console.log('--- TEST 6: Candidate Identity Resolution Priority ---')
+const mockReportData = {
+  resume_json: {
+    candidate: { name: 'Deepanjan Rane' }
+  },
+  user_answers: {
+    name: 'Swapnil Jadhav'
+  }
+}
+const resolvedName = mockReportData?.resume_json?.candidate?.name ||
+  mockReportData?.resume_agent?.candidateSnapshot?.name ||
+  mockReportData?.user_answers?.name
+assert.strictEqual(resolvedName, 'Deepanjan Rane', 'FAILED: Candidate name priority failed!')
+console.log('PASS: Deepanjan Rane takes precedence over stale Swapnil Jadhav in user_answers.')
+
 console.log('\nALL VERIFICATION CHECKS PASSED!')

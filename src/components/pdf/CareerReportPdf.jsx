@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
 export default function CareerReportPdf({ reportData = {} }) {
   // Candidate & Target Role Identification
   const candidateName = safeStr(
-    reportData?.resume_agent?.candidateSnapshot?.name ||
     reportData?.resume_json?.candidate?.name ||
+    reportData?.resume_agent?.candidateSnapshot?.name ||
     reportData?.resume_json?.candidate_name ||
     reportData?.user_answers?.name,
     'Candidate'
@@ -1561,17 +1561,6 @@ export default function CareerReportPdf({ reportData = {} }) {
                   <Text style={{ fontSize: 6.8, color: '#166534' }}>
                     <Text style={{ fontFamily: 'Helvetica-Bold', color: '#14532D' }}>Why it works: </Text>
                     {safeStr(b.whyItWorks || b.why || 'Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.')}
-                  </Text>
-                </View>
-              )}
-
-              {Array.isArray(b.metricOpportunities) && b.metricOpportunities.length > 0 && (
-                <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 0.5, borderTopColor: '#FEF3C7' }}>
-                  <Text style={{ fontSize: 6.2, color: '#92400E', fontFamily: 'Helvetica-Bold', marginBottom: 1 }}>
-                    Impact Discovery (Candidate Measurement Prompts):
-                  </Text>
-                  <Text style={{ fontSize: 6.0, color: '#B45309', lineHeight: 1.3 }}>
-                    {b.metricOpportunities.map((m) => `• ${m.label}${m.unitHint ? ` [${m.unitHint}]` : ''}: ${m.question}`).join('   ')}
                   </Text>
                 </View>
               )}

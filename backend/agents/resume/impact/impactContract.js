@@ -30,6 +30,10 @@ LAYER A: PUBLICATION-READY GROUNDED REWRITE (rewrittenText / correctedText)
 5. STRICTLY FORBID bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
 6. STRICTLY FORBID lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
 7. Adapt phrasing dynamically to the candidate's domain (Software, Data, Healthcare, Finance, Ops, Sales, etc.) — never force one rigid template.
+8. STAKEHOLDER / TEAM COLLABORATION IS OPTIONAL:
+   - Stakeholder or team collaboration clauses ('partnering with...', 'collaborating with...', 'in close partnership with...') are strictly OPTIONAL.
+   - Include them ONLY when the original bullet naturally involves cross-functional work, stakeholders, leadership, or clients.
+   - NEVER force 'collaborating with DBA squads' or 'partnering with SRE squads' or 'in close partnership with...' onto solo technical, backend, ETL, scripting, or coding bullets where no collaboration is mentioned in the original resume. Focus instead on direct action, technical mechanism, and business deliverable.
 
 LAYER B: ROLE-SPECIFIC IMPACT DISCOVERY (metricOpportunities)
 For every weak or unquantified bullet, generate 2–3 concise, bullet-specific measurement opportunities inside "metricOpportunities":

@@ -47,7 +47,7 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
   const isHealthcare = /nurse|nursing|clinical|patient|hospital|physician|doctor|medical|healthcare|hipaa|ehr|epic\b|triage/i.test(lowerRole)
   const isFinance = /finance|financial|fp&a|accounting|accountant|audit|gaap|cpa\b|banking|treasury|controller|budget|p&l/i.test(lowerRole)
   const isSales = /sales|account\s+exec|quota|pipeline|bdr\b|sdr\b|business\s+dev|client\s+exec|commercial/i.test(lowerRole)
-  const isData = /data\s+analyst|data\s+eng|data\s+sci|bi\s+developer|analytics|tableau|power\s*bi|snowflake|dbt|sql\b/i.test(lowerRole)
+  const isData = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi|snowflake|dbt|sql|bigquery|etl|data\s*warehouse|reporting/i.test(lowerRole)
 
   const skillsList = Array.isArray(skills) 
     ? skills 
@@ -55,26 +55,41 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
       ? Object.values(skills).flat()
       : []
 
-  // Extract real tools from candidate's currentSummary if available
+  // Extract real tools from candidate's currentSummary and experiences if available
   const existingTools = []
   if (currentSummary && typeof currentSummary === 'string') {
-    const techRegex = /\b(?:React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|Python|Django|FastAPI|AWS|Azure|GCP|Docker|Kubernetes|SQL|PostgreSQL|MySQL|MongoDB|Redis|Kafka|GraphQL|REST|CI\/CD|Terraform|HTML5?|CSS3?|Tailwind|Jasmine|Karma|Jest|Cypress|WCAG|Microservices|RAG|Epic|EHR|EMR|HIPAA|SAP|ERP|Excel|Tableau|Power\s*BI|Snowflake|dbt|Salesforce|CRM|GAAP)\b/gi
+    const techRegex = /\b(?:React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|Python|Django|FastAPI|AWS|Azure|GCP|Docker|Kubernetes|SQL|PostgreSQL|MySQL|MongoDB|Redis|Kafka|GraphQL|REST|CI\/CD|Terraform|HTML5?|CSS3?|Tailwind|Jasmine|Karma|Jest|Cypress|WCAG|Microservices|RAG|Epic|EHR|EMR|HIPAA|SAP|ERP|Excel|Tableau|Power\s*BI|Snowflake|BigQuery|dbt|Salesforce|CRM|GAAP)\b/gi
     let m
     while ((m = techRegex.exec(currentSummary)) !== null) {
       existingTools.push(m[0])
     }
   }
 
+  const experienceTools = []
+  for (const exp of experiences) {
+    for (const b of exp.bullets || []) {
+      const text = typeof b === 'string' ? b : b?.text || ''
+      const techRegex = /\b(?:Tableau|Power\s*BI|Snowflake|BigQuery|dbt|SQL|Python|Excel|R\b|Looker|Metabase|PostgreSQL|MySQL|Redshift|Airflow|Pandas|NumPy|ETL|SSIS|SSAS|Databricks|Spark|React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|AWS|Azure|GCP|Docker|Kubernetes|Kafka)\b/gi
+      let m
+      while ((m = techRegex.exec(text)) !== null) {
+        experienceTools.push(m[0])
+      }
+    }
+  }
+
   const combinedSkills = Array.from(new Set([
     ...skillsList.map((s) => typeof s === 'string' ? s : s?.name || s?.skill || ''),
     ...existingTools,
+    ...experienceTools,
   ])).filter(Boolean)
+
+  const isDataCandidate = isData || combinedSkills.some((s) => /sql|tableau|power\s*bi|snowflake|bigquery|dbt|analytics|bi\b|data/i.test(String(s)))
 
   let defaultToolFallback = 'modern technical systems and operational best practices'
   if (isHealthcare) defaultToolFallback = 'patient care management, clinical protocols, and EHR systems'
   else if (isFinance) defaultToolFallback = 'financial modeling, GAAP compliance, and ERP systems'
   else if (isSales) defaultToolFallback = 'enterprise prospecting, pipeline management, and CRM platforms'
-  else if (isData) defaultToolFallback = 'SQL, business intelligence platforms, and data modeling'
+  else if (isDataCandidate) defaultToolFallback = 'SQL, business intelligence platforms, BigQuery/Snowflake data warehousing, and automated ETL pipelines'
   else defaultToolFallback = 'modern full-stack systems and scalable cloud infrastructure'
 
   const topTools = combinedSkills.slice(0, 8).join(', ') || defaultToolFallback
@@ -118,7 +133,7 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
     sentence3 = missingSkills && missingSkills.length > 0
       ? `Drives enterprise pipeline expansion with focus on consultative discovery, customer relationship management, and deployment of ${missingSkills.slice(0, 2).join(' and ')}.`
       : `Drives sustained commercial growth with strong focus on consultative solution selling, client relationship cultivation, and high-impact deal execution.`
-  } else if (isData) {
+  } else if (isDataCandidate) {
     sentence2 = topWin
       ? `Proven track record of data analytics delivery: ${topWin.replace(/\.$/, '')}.`
       : `Demonstrated track record of transforming raw data into high-leverage business intelligence, automating ETL pipelines, and optimizing analytical reporting${primaryCompany ? ` at ${primaryCompany}` : ''}.`
@@ -312,21 +327,9 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
       if (iss?.correctedText) {
         iss.correctedText = cleanRewriteText(iss.correctedText)
-        if (origText && isLazySuffixAppend(iss.correctedText, origText)) {
-          iss.correctedText = buildFivePartPlaybookRewrite(origText, {
-            targetRole: effectiveRole,
-            skills: state.marketProfile?.topSkills || [],
-          })
-        }
       }
       if (iss?.rewrite) {
         iss.rewrite = cleanRewriteText(iss.rewrite)
-        if (origText && isLazySuffixAppend(iss.rewrite, origText)) {
-          iss.rewrite = iss.correctedText || buildFivePartPlaybookRewrite(origText, {
-            targetRole: effectiveRole,
-            skills: state.marketProfile?.topSkills || [],
-          })
-        }
       }
       iss.metricOpportunities = normalizeMetricOpportunities(
         iss.metricOpportunities || iss.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
@@ -345,12 +348,6 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       .map((rw) => {
         const origText = rw.original || rw.originalText || rw.text || ''
         let cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
-        if (origText && isLazySuffixAppend(cleanedText, origText)) {
-          cleanedText = buildFivePartPlaybookRewrite(origText, {
-            targetRole: effectiveRole,
-            skills: Array.isArray(rw.wovenKeywords) ? rw.wovenKeywords : (rw.wovenKeyword ? [rw.wovenKeyword] : []),
-          })
-        }
         const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(origText, cleanedText)
         const metricOpps = normalizeMetricOpportunities(
           rw.metricOpportunities || rw.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
@@ -438,11 +435,6 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           }
         }
         let rwText = cleanRewriteText(upg.rewrittenText)
-        if (upg.originalText && isLazySuffixAppend(rwText, upg.originalText)) {
-          rwText = buildFivePartPlaybookRewrite(upg.originalText, {
-            targetRole: effectiveRole,
-          })
-        }
         const metricOpps = normalizeMetricOpportunities(
           upg.metricOpportunities || upg.discoveryOpportunities || generateFallbackMetricOpportunities(upg.originalText, effectiveRole)
         )
@@ -485,17 +477,8 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       sOpt.diagnosis = `A compelling summary immediately hooks hiring managers within the first 6 seconds, framing your target role and core specializations.`
     }
 
-    // Check if rewrittenSummary is missing, generic boilerplate, or completely lacks candidate skills
-    const isGenericBoilerplate = !sOpt.rewrittenSummary ||
-      /specializing in scalable architecture,\s*technical execution,\s*and robust workflow automation/i.test(sOpt.rewrittenSummary) ||
-      /proven expertise in engineering scalable architectures/i.test(sOpt.rewrittenSummary) ||
-      /results-driven professional/i.test(sOpt.rewrittenSummary)
-
-    const mentionsCandidateSkills = skillsList.some((sk) =>
-      new RegExp(`\\b${sk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(sOpt.rewrittenSummary || '')
-    )
-
-    if (isGenericBoilerplate || (!mentionsCandidateSkills && skillsList.length > 0)) {
+    // Only use generateDomainCalibratedSummary if rewrittenSummary is completely missing or empty — never overwrite a valid LLM summary
+    if (!sOpt.rewrittenSummary || typeof sOpt.rewrittenSummary !== 'string' || sOpt.rewrittenSummary.trim().length === 0) {
       sOpt.rewrittenSummary = generateDomainCalibratedSummary(targetRole, experiences, skillsList, missingSkills, sOpt.currentSummary)
     }
   }
@@ -684,12 +667,12 @@ BAN COSMETIC SWAPS & LAZY SUFFIX APPENDS:
 - Strictly forbid rewrites that only replace action verbs without injecting measurable scale, system throughput, or architectural mechanisms.
 - Strictly forbid lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
 
-All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST strictly follow the 5-Part Winning Bullet Formula (18–32 words):
-[1. Strong Action Verb] + [2. Relevant Hard Skill/Scope] + [3. Scale / Collaboration] + [4. Grounded Impact / Operational Mechanism] + [5. Business Outcome]
+All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST follow the Recruiter Impact Formula (18–32 words):
+[Strong Action Verb] + [Relevant Hard Skill/Scope] + [Grounded Impact / Operational Mechanism] + [Business Outcome]
 
-- Part 1 (Strong Action Verb): Lead with a high-conviction engineering action verb (e.g. Architected, Engineered, Automated, Reduced, Led, Spearheaded, Optimized). Replace weak openers ("Worked on", "Helped with", "Responsible for", "Utilized", "Assisted in", "Tasked with") and "-ing" participles.
-- Part 2 (Relevant Hard Skill/Scope): Weave verified tools, systems, or frameworks naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS). Zero keyword stuffing.
-- Part 3 (Scale / Collaboration): Contextualize organizational ownership or cross-functional scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
+- Part 1 (Strong Action Verb): Lead with a high-conviction action verb (e.g. Architected, Engineered, Automated, Reduced, Led, Spearheaded, Optimized). Replace weak openers ("Worked on", "Helped with", "Responsible for", "Utilized", "Assisted in", "Tasked with") and "-ing" participles.
+- Part 2 (Relevant Hard Skill/Scope): Weave verified tools, systems, or frameworks naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS, BigQuery, Tableau). Zero keyword stuffing.
+- Part 3 (Scale / Collaboration — STRICTLY OPTIONAL): Include cross-functional collaboration ("partnering with...", "collaborating with...") ONLY if the original bullet explicitly involves cross-functional teams, clients, stakeholders, or leadership. NEVER force "collaborating with DBA/SRE squads" onto solo technical, SQL, ETL, or coding bullets where no collaboration is mentioned in the original resume!
 - Part 4 (Grounded Impact / Operational Mechanism): If the candidate's source bullet includes verified numbers, preserve or sharpen them. If the original bullet lacks numbers, focus on the concrete technical mechanism and system stability WITHOUT fabricating unverified numbers or percentages. Zero [ADD: ...] or bracketed placeholders.
 - Part 5 (Business Outcome): Explicitly state the delivered business or system impact (e.g. "eliminating release bottlenecks", "preventing production defect escapes", "sustaining zero-downtime rollouts").
 
@@ -1170,11 +1153,33 @@ export async function executeModeC({
     // Fast-LLM batch rewrite pass for any remaining unrewritten weak/unquantified bullets
     if (parsedForValidation && typeof parsedForValidation === 'object') {
       const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
-      const existingRewrites = new Set([
-        ...(parsedForValidation.bulletUpgrades || []).map((u) => u.bulletId || u.originalText),
-        ...(parsedForValidation.issues || []).map((i) => i.evidence?.[0]?.bulletId || i.originalText),
-        ...(parsedForValidation.bulletRewrites || []).map((r) => r.bulletId || r.originalText),
-      ].filter(Boolean))
+      // Valid existing rewrites: check if existing rewrite is non-empty and NOT a lazy suffix append
+      const validExistingRewrites = new Set()
+      for (const u of (parsedForValidation.bulletUpgrades || [])) {
+        const text = u.rewrittenText || ''
+        const orig = bulletMap.get(u.bulletId) || u.originalText || ''
+        if (text && !isLazySuffixAppend(text, orig)) {
+          if (u.bulletId) validExistingRewrites.add(u.bulletId)
+          if (orig) validExistingRewrites.add(orig.trim())
+        }
+      }
+      for (const i of (parsedForValidation.issues || [])) {
+        const text = i.correctedText || i.rewrite || ''
+        const orig = i.evidence?.[0]?.originalText || i.originalText || ''
+        const bId = i.evidence?.[0]?.bulletId
+        if (text && !isLazySuffixAppend(text, orig)) {
+          if (bId) validExistingRewrites.add(bId)
+          if (orig) validExistingRewrites.add(orig.trim())
+        }
+      }
+      for (const r of (parsedForValidation.bulletRewrites || [])) {
+        const text = r.rewrittenText || r.readyToUseRewrite || r.rewritten || r.rewrite || ''
+        const orig = bulletMap.get(r.bulletId) || r.originalText || ''
+        if (text && !isLazySuffixAppend(text, orig)) {
+          if (r.bulletId) validExistingRewrites.add(r.bulletId)
+          if (orig) validExistingRewrites.add(orig.trim())
+        }
+      }
 
       // Build context map for every bullet to track company, isCurrentRole, and tense
       const bulletContextMap = new Map()
@@ -1220,7 +1225,7 @@ export async function executeModeC({
       const unrewrittenBullets = []
       for (const [bId, text] of bulletMap.entries()) {
         if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
-        if (existingRewrites.has(bId) || existingRewrites.has(text.trim())) continue
+        if (validExistingRewrites.has(bId) || validExistingRewrites.has(text.trim())) continue
         const isHurting = hurtingBulletIds.has(bId)
         const isUnquant = !isTrueQuantified(text)
         if (isHurting || isUnquant) {
@@ -1266,10 +1271,13 @@ CRITICAL REWRITE RULES:
    - Frontend / UI -> Lighthouse score, page load time, Core Web Vitals, accessibility
    - DevOps / SRE -> deployment frequency, CI lead time, cloud infrastructure cost, MTTR
    - QA / Automation -> test coverage %, regression cycle time, bug escape rate
-3. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
-4. Provide a crisp 1-sentence recruiter critique in "critique" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
-5. Provide a crisp 1-sentence explanation in "whyItWorks" explaining why this rewrite captures recruiter attention.
-6. Return ONLY a valid JSON object matching the schema.
+3. STAKEHOLDER / TEAM COLLABORATION IS STRICTLY OPTIONAL:
+   - Only include collaboration or stakeholder phrasing ("partnering with...", "collaborating with...") if the original bullet explicitly mentions cross-functional teams, clients, stakeholders, or leadership.
+   - NEVER force "collaborating with DBA squads" or "partnering with SRE squads" onto solo technical, SQL, ETL, analytics, backend, or coding bullets. Focus purely on direct technical execution, mechanism, and measurable business result.
+4. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
+5. Provide a crisp 1-sentence recruiter critique in "critique" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
+6. Provide a crisp 1-sentence explanation in "whyItWorks" explaining why this rewrite captures recruiter attention.
+7. Return ONLY a valid JSON object matching the schema.
 
 BULLETS TO REWRITE:
 ${JSON.stringify(unrewrittenBullets, null, 2)}
@@ -1347,7 +1355,7 @@ OUTPUT SCHEMA:
                 const critiqueText = item.critique || item.reason || 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan'
                 const whyItWorksText = item.whyItWorks || 'Leads with decisive action verb and articulates clear business deliverable.'
 
-                parsedForValidation.bulletUpgrades.push({
+                const upgObj = {
                   bulletId: item.bulletId,
                   originalText: orig,
                   status: 'warn',
@@ -1359,9 +1367,15 @@ OUTPUT SCHEMA:
                   metricOpportunities: normalizeMetricOpportunities(
                     generateFallbackMetricOpportunities(orig, effectiveRole)
                   ),
-                })
+                }
+                const existUpgIdx = parsedForValidation.bulletUpgrades.findIndex((u) => u.bulletId === item.bulletId)
+                if (existUpgIdx >= 0) {
+                  parsedForValidation.bulletUpgrades[existUpgIdx] = upgObj
+                } else {
+                  parsedForValidation.bulletUpgrades.push(upgObj)
+                }
 
-                parsedForValidation.bulletRewrites.push({
+                const rwObj = {
                   bulletId: item.bulletId,
                   originalText: orig,
                   status: 'warn',
@@ -1369,7 +1383,13 @@ OUTPUT SCHEMA:
                   critique: critiqueText,
                   whyItWorks: whyItWorksText,
                   rewrittenText: cleanedRw,
-                })
+                }
+                const existRwIdx = parsedForValidation.bulletRewrites.findIndex((r) => r.bulletId === item.bulletId)
+                if (existRwIdx >= 0) {
+                  parsedForValidation.bulletRewrites[existRwIdx] = rwObj
+                } else {
+                  parsedForValidation.bulletRewrites.push(rwObj)
+                }
               }
             }
           }

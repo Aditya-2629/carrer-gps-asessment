@@ -269,28 +269,28 @@ export function isTrueQuantified(text) {
 
 export const DOMAIN_METRIC_POOLS = {
   qa: [
-    { key: 'qa_cov_32', outcome: 'partnering with QA squads to increase automated test suite coverage by 32% and prevent defect escapes' },
+    { key: 'qa_cov_32', outcome: 'increasing automated test suite coverage by 32% to prevent defect escapes' },
     { key: 'qa_speed_45', outcome: 'accelerating CI/CD test execution speed by 45% and eliminating regression testing bottlenecks' },
     { key: 'qa_bugs_40', outcome: 'resolving 40+ critical edge-case defects and maintaining zero production test regression escapes' },
     { key: 'qa_time_45m', outcome: 'shortening pre-release QA validation cycles from 6 hours to under 45 minutes across environments' },
     { key: 'qa_pass_98', outcome: 'achieving 98% end-to-end test pass rates and eliminating manual release verification toil' },
   ],
   frontend: [
-    { key: 'ui_vel_28', outcome: 'partnering with UX designers to accelerate UI delivery velocity by 28% across responsive layouts' },
-    { key: 'ui_bundle_35', outcome: 'collaborating with design systems leads, reducing client-side bundle size by 35% and eliminating layout shifts' },
-    { key: 'ui_lh_98', outcome: 'partnering with accessibility engineers, elevating Google Lighthouse accessibility scores to 98/100' },
-    { key: 'ui_flow_22', outcome: 'partnering with frontend engineering squads, accelerating core user workflow completion rates by 22%' },
+    { key: 'ui_vel_28', outcome: 'accelerating UI delivery velocity by 28% across responsive layouts' },
+    { key: 'ui_bundle_35', outcome: 'reducing client-side bundle size by 35% and eliminating layout shifts' },
+    { key: 'ui_lh_98', outcome: 'elevating Google Lighthouse accessibility scores to 98/100' },
+    { key: 'ui_flow_22', outcome: 'accelerating core user workflow completion rates by 22%' },
     { key: 'ui_fcp_sub', outcome: 'optimizing rendering pipelines to deliver consistent sub-second First Contentful Paint (FCP) across devices' },
   ],
   security: [
-    { key: 'sec_cve_15', outcome: 'partnering with InfoSec teams, eliminating 15+ potential attack vectors and achieving zero auth vulnerabilities' },
-    { key: 'sec_tok_100', outcome: 'collaborating with security architects, protecting enterprise user workflows with 100% token validation compliance' },
+    { key: 'sec_cve_15', outcome: 'eliminating 15+ potential attack vectors and achieving zero auth vulnerabilities' },
+    { key: 'sec_tok_100', outcome: 'protecting enterprise user workflows with 100% token validation compliance' },
     { key: 'sec_auth_25', outcome: 'hardening API gateways, cutting authorization latency by 25% while blocking unauthorized access attempts' },
-    { key: 'sec_audit_0', outcome: 'partnering with compliance leads, ensuring full adherence to enterprise security governance with zero audit findings' },
+    { key: 'sec_audit_0', outcome: 'ensuring full adherence to enterprise security governance with zero audit findings' },
   ],
   database: [
-    { key: 'db_query_42', outcome: 'partnering with DBA squads, reducing complex query execution times by 42% via compound indexing' },
-    { key: 'db_lock_35', outcome: 'collaborating with platform engineers, eliminating database lock contention and reducing I/O wait by 35%' },
+    { key: 'db_query_42', outcome: 'reducing complex query execution times by 42% via compound indexing' },
+    { key: 'db_lock_35', outcome: 'eliminating database lock contention and reducing I/O wait by 35%' },
     { key: 'db_lat_50ms', outcome: 'optimizing aggregation pipelines to sustain sub-50ms read latency across 500k+ collection records' },
     { key: 'db_thru_3x', outcome: 'streamlining data access layers, accelerating data retrieval throughput by 3x during peak transaction windows' },
   ],
@@ -298,51 +298,51 @@ export const DOMAIN_METRIC_POOLS = {
     { key: 'data_brief_35', outcome: 'delivering executive briefings that accelerated decision-making turnaround by 35%' },
     { key: 'data_leads_24', outcome: 'identifying high-value customer cohorts to accelerate targeted campaign conversion by 24%' },
     { key: 'data_hrs_15', outcome: 'saving 15+ analytical hours per week and eliminating manual spreadsheet reconciliation errors' },
-    { key: 'data_ing_50', outcome: 'partnering with analytics stakeholders, accelerating daily batch data ingestion throughput by 50%' },
+    { key: 'data_ing_50', outcome: 'accelerating daily batch data ingestion throughput by 50%' },
     { key: 'data_acc_99', outcome: 'achieving 99.9% data reconciliation accuracy across cross-system operational data syncs' },
     { key: 'data_turn_2h', outcome: 'shortening reporting turnaround from 3 days to under 2 hours for downstream business consumers' },
   ],
   ai: [
-    { key: 'ai_ret_sub', outcome: 'collaborating with ML researchers, achieving sub-second semantic retrieval across enterprise document corpora' },
-    { key: 'ai_inf_30', outcome: 'partnering with platform engineers, reducing model inference latency by 30% with automated context caching' },
+    { key: 'ai_ret_sub', outcome: 'achieving sub-second semantic retrieval across enterprise document corpora' },
+    { key: 'ai_inf_30', outcome: 'reducing model inference latency by 30% with automated context caching' },
     { key: 'ai_prec_92', outcome: 'evaluating LLM providers to achieve 92% retrieval precision while minimizing token compute overhead' },
     { key: 'ai_tok_40', outcome: 'accelerating token generation throughput by 40% and eliminating context window latency bottlenecks' },
   ],
   backend: [
-    { key: 'back_p95_38', outcome: 'collaborating with backend engineering squads, reducing endpoint p95 latency by 38% under high concurrency' },
-    { key: 'back_avail_99', outcome: 'partnering with platform architects, sustaining 99.99% service availability with zero-downtime rolling deploys' },
+    { key: 'back_p95_38', outcome: 'reducing endpoint p95 latency by 38% under high concurrency' },
+    { key: 'back_avail_99', outcome: 'sustaining 99.99% service availability with zero-downtime rolling deploys' },
     { key: 'back_bw_28', outcome: 'optimizing payload serializations, reducing network bandwidth consumption by 28% across microservices' },
     { key: 'back_qps_4x', outcome: 'decoupling legacy services to scale concurrent request handling capacity from 2,000 to 12,000 req/sec' },
   ],
   devops: [
-    { key: 'dev_lead_50', outcome: 'partnering with SRE squads, reducing CI/CD build-to-deploy lead time by 50% across environments' },
-    { key: 'dev_avail_99', outcome: 'collaborating with cloud leads, sustaining 99.99% infrastructure availability with automated rollouts' },
+    { key: 'dev_lead_50', outcome: 'reducing CI/CD build-to-deploy lead time by 50% across environments' },
+    { key: 'dev_avail_99', outcome: 'sustaining 99.99% infrastructure availability with automated rollouts' },
     { key: 'dev_cost_25', outcome: 'optimizing container compute footprints, achieving a 25% reduction in cloud infrastructure resource overhead' },
     { key: 'dev_mttr_40', outcome: 'automating multi-region failover, slashing mean time to recovery (MTTR) by 40% during outages' },
   ],
   healthcare: [
-    { key: 'hc_wait_25', outcome: 'partnering with interdisciplinary care teams, reducing patient intake wait times by 25%' },
+    { key: 'hc_wait_25', outcome: 'reducing patient intake wait times by 25%' },
     { key: 'hc_med_0', outcome: 'maintaining zero medication administration discrepancies across 500+ patient shifts' },
     { key: 'hc_flow_30m', outcome: 'streamlining clinical shift handovers, cutting documentation overhead by 30 minutes per shift' },
-    { key: 'hc_hipaa_100', outcome: 'partnering with department heads, ensuring full HIPAA compliance with zero protocol deficiencies' },
+    { key: 'hc_hipaa_100', outcome: 'ensuring full HIPAA compliance with zero protocol deficiencies' },
   ],
   finance: [
     { key: 'fin_close_4d', outcome: 'accelerating monthly financial close cycles from 10 days to 4 days with zero audit discrepancies' },
     { key: 'fin_var_18', outcome: 'optimizing operational expenditure variance forecasting, improving budget accuracy by 18%' },
     { key: 'fin_gaap_100', outcome: 'ensuring 100% GAAP compliance and audit readiness with zero material balance sheet deficiencies' },
-    { key: 'fin_opex_12', outcome: 'partnering with business unit leaders, identifying 12% operational cost savings across departmental budgets' },
+    { key: 'fin_opex_12', outcome: 'identifying 12% operational cost savings across departmental budgets' },
   ],
   sales: [
     { key: 'sales_quota_125', outcome: 'accelerating enterprise sales cycle velocity by 30% and exceeding annual quota by 125%' },
     { key: 'sales_conv_22', outcome: 'expanding outbound B2B pipeline conversion by 22% through consultative discovery frameworks' },
-    { key: 'sales_arr_2m', outcome: 'partnering with sales engineering leads, closing $2M+ in new annual recurring revenue (ARR)' },
+    { key: 'sales_arr_2m', outcome: 'closing $2M+ in new annual recurring revenue (ARR)' },
     { key: 'sales_cycle_35', outcome: 'shortening average deal closing cycles from 90 days to 58 days across enterprise accounts' },
   ],
   general: [
-    { key: 'gen_vel_25', outcome: 'partnering with cross-functional technical leads, accelerating sprint release velocity by 25%' },
+    { key: 'gen_vel_25', outcome: 'accelerating sprint release velocity by 25%' },
     { key: 'gen_toil_10h', outcome: 'streamlining operational workflows to eliminate 10+ hours of weekly manual toil' },
     { key: 'gen_mttr_32', outcome: 'maintaining high operational reliability and reducing mean time to incident resolution (MTTR) by 32%' },
-    { key: 'gen_uptime_99', outcome: 'partnering with product and engineering leads, sustaining 99.9% uptime across production services' },
+    { key: 'gen_uptime_99', outcome: 'sustaining 99.9% uptime across production services' },
   ],
 }
 
@@ -806,14 +806,9 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   const hasArchitecturalMechanism = /\bby\s+(?:architecting|engineering|transitioning|developing|implementing|establishing|building|automating|optimizing|orchestrating|designing|deploying|adopting|utilizing)\b/i.test(clean)
 
-  // If the rewrite is a lazy suffix append or lacks a real metric/mechanism, build a complete 5-Part Playbook Rewrite
+  // If the rewrite is a lazy suffix append or lacks a real metric/mechanism, use applyLightVerbFix instead of patching canned playbook text
   if (isLazySuffixAppend(clean, originalClean) || (!hasRealMetric && !hasArchitecturalMechanism)) {
-    return buildFivePartPlaybookRewrite(originalClean, {
-      targetRole,
-      isCurrentRole,
-      sig,
-      usedMetricsSet,
-    })
+    return applyLightVerbFix(originalClean, sig, isCurrentRole)
   }
 
   // 5. Clean punctuation and whitespace

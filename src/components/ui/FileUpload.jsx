@@ -46,6 +46,12 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             result.canonicalResume?.candidate?.name ||
             result.analysis?.candidateSnapshot?.name ||
             ''
+          const detectedEmail =
+            result.canonicalResume?.candidate?.email ||
+            result.canonicalResume?.candidate?.contact?.email ||
+            result.canonicalResume?.email ||
+            result.analysis?.candidateSnapshot?.email ||
+            ''
           // Automatically infer target role from the candidate's last (most recent) experience role
           const mostRecentRole =
             result.canonicalResume?.experiences?.[0]?.role ||
@@ -77,8 +83,13 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
               }
             }
           }
-          if (detectedName && !formData.name && !formData.fullName) {
+          // Always overwrite identity fields from newly parsed resume (never keep stale test candidate)
+          if (detectedName) {
             bulkUpdates.name = detectedName
+            bulkUpdates.fullName = detectedName
+          }
+          if (detectedEmail) {
+            bulkUpdates.email = detectedEmail
           }
           // Always infer target role from last work experience
           if (mostRecentRole && (!isCustomLocked || !formData.targetRole)) {
@@ -101,7 +112,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             !/^(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}$/.test(rawPhone.trim())
           ) {
             bulkUpdates.phone = rawPhone
-          } else if (fastPhone && !useAppStore.getState().formData?.phone) {
+          } else if (fastPhone) {
             bulkUpdates.phone = fastPhone
           }
 
@@ -110,7 +121,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             result.canonicalResume?.location ||
             result.analysis?.candidateSnapshot?.location ||
             ''
-          if (detectedLocation && !formData.location) {
+          if (detectedLocation) {
             bulkUpdates.location = detectedLocation
           }
 
@@ -204,6 +215,10 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         filename: file.name,
       })
       useAppStore.getState().setBulkFormData({
+        name: '',
+        fullName: '',
+        email: '',
+        location: '',
         linkedin: '',
         linkedinData: null,
         targetRole: '',
