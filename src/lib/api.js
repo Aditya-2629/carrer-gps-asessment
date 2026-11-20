@@ -114,6 +114,16 @@ export const api = {
     }
   },
 
+  // POST /api/resume-agent/confirm-metric (Layer C Interactive Metric Confirmation)
+  confirmBulletMetric: async (payload) => {
+    try {
+      const res = await client.post('/resume-agent/confirm-metric', payload)
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.response?.data?.error || 'Failed to confirm bullet metric.')
+    }
+  },
+
   // Background scrape LinkedIn profile on Step 11
   scrapeLinkedInProfile: async (url) => {
     return client

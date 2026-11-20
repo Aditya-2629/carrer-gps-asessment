@@ -688,6 +688,8 @@ export default function CareerReportPdf({ reportData = {} }) {
         whyItWorks: b.whyItWorks || b.why || b.reason || b.critique || 'Restructures bullet into verified Google XYZ format: Action + Technical Mechanism + Measurable Impact.',
         critique: b.critique || b.issue || b.reason || null,
         metricOpportunities: Array.isArray(b.metricOpportunities) ? b.metricOpportunities : [],
+        evidenceStatus: b.evidenceStatus || null,
+        confirmedMetric: b.confirmedMetric || null,
       })
     }
   }
@@ -1513,7 +1515,19 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
                   Bullet Rewrite #{idx + 1}
                 </Text>
-                <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
+                <View style={{ flexDirection: 'row', gap: 3 }}>
+                  {b.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
+                    <Text style={[styles.tagPass, { backgroundColor: '#DCFCE7', color: '#15803D' }]}>
+                      CONFIRMED METRIC
+                    </Text>
+                  )}
+                  {b.evidenceStatus === 'CALCULATED' && (
+                    <Text style={[styles.tagPass, { backgroundColor: '#EEF2FF', color: '#4338CA' }]}>
+                      CALCULATED IMPACT
+                    </Text>
+                  )}
+                  <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
+                </View>
               </View>
 
               <View style={styles.grid2}>

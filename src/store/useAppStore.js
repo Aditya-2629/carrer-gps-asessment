@@ -254,6 +254,78 @@ const useAppStore = create((set) => ({
     set({ reportData })
   },
 
+  // Layer C: Update confirmed bullet rewrite across issues, bulletUpgrades, and bulletAudit
+  updateConfirmedBulletRewrite: (
+    bulletId,
+    updatedRewrite,
+    evidenceStatus = 'CANDIDATE_CONFIRMED',
+    confirmedMetric = '',
+    whyItWorks = ''
+  ) =>
+    set((state) => {
+      if (!state.reportData) return {}
+
+      const reportData = JSON.parse(JSON.stringify(state.reportData))
+      const cleanRewrite = typeof updatedRewrite === 'string' ? updatedRewrite.trim() : updatedRewrite
+
+      const updateItem = (item) => {
+        if (!item || typeof item !== 'object') return false
+        if (item.bulletId === bulletId || item.id === bulletId) {
+          item.rewritten = cleanRewrite
+          item.rewrittenText = cleanRewrite
+          item.rewrite = cleanRewrite
+          item.improved = cleanRewrite
+          item.evidenceStatus = evidenceStatus
+          if (confirmedMetric) item.confirmedMetric = confirmedMetric
+          if (whyItWorks) item.whyItWorks = whyItWorks
+          return true
+        }
+        return false
+      }
+
+      if (reportData.resume_agent) {
+        const ra = reportData.resume_agent
+        if (Array.isArray(ra.bulletUpgrades)) ra.bulletUpgrades.forEach(updateItem)
+        if (Array.isArray(ra.bulletRewrites)) ra.bulletRewrites.forEach(updateItem)
+        if (Array.isArray(ra.bulletAudit)) ra.bulletAudit.forEach(updateItem)
+        if (Array.isArray(ra.bulletSuggestions)) ra.bulletSuggestions.forEach(updateItem)
+        if (ra.dashboard && Array.isArray(ra.dashboard.bulletAudit)) ra.dashboard.bulletAudit.forEach(updateItem)
+
+        if (Array.isArray(ra.issues)) {
+          ra.issues.forEach((iss) => {
+            const matchesEv =
+              Array.isArray(iss.evidence) &&
+              iss.evidence.some((ev) => ev.bulletId === bulletId || ev.itemId === bulletId)
+            if (matchesEv || iss.bulletId === bulletId) {
+              iss.correctedText = cleanRewrite
+              iss.evidenceStatus = evidenceStatus
+              if (confirmedMetric) iss.confirmedMetric = confirmedMetric
+              if (whyItWorks) iss.whyItWorks = whyItWorks
+            }
+          })
+        }
+      }
+
+      if (reportData.resumeDashboard && Array.isArray(reportData.resumeDashboard.bulletAudit)) {
+        reportData.resumeDashboard.bulletAudit.forEach(updateItem)
+      }
+
+      if (Array.isArray(reportData.bulletRewrites)) reportData.bulletRewrites.forEach(updateItem)
+      if (Array.isArray(reportData.bullet_rewrites)) reportData.bullet_rewrites.forEach(updateItem)
+
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(reportData))
+          sessionStorage.setItem('craftureFullReport', JSON.stringify(reportData))
+          localStorage.setItem(STORAGE_KEYS.REPORT_DATA, JSON.stringify(reportData))
+        }
+      } catch (e) {
+        console.warn('[Store] Failed to persist updated bullet rewrite:', e)
+      }
+
+      return { reportData }
+    }),
+
   // Theme ('light' | 'dark')
   theme: 'light',
   toggleTheme: () => set((state) => {

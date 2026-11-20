@@ -872,15 +872,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
-      {resolvedBullets.length > 0 ? (
-        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-          <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
-        </div>
-      ) : (
-        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 text-center text-xs text-[var(--text-muted)]">
-          <p>No parsed experience bullets found in the supplied resume.</p>
-        </div>
-      )}
+      <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
+        <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
+      </div>
 
       {/* What to Cut (Fluff & 1-Page Discipline) */}
       {cutList.length > 0 && (
