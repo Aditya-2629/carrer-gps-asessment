@@ -15,6 +15,11 @@
  */
 
 import { stripFillInSlots, findMalformedFillInSlots } from './fillInSlots.js'
+import {
+  buildBulletSourceTokens,
+  tagEvidenceStatus,
+  replaceUnverifiedNumericTokens,
+} from './claimValidator.js'
 
 // Patterns that indicate a potential new unsupported fact in correctedText
 const NEW_METRIC_PATTERNS = [
@@ -162,48 +167,70 @@ export function buildResumeTechTokens(canonicalResume) {
 
 /**
  * Validates a single correctedText against its source originalText and resume-wide technologies.
+ * Enforces bullet-level numeric evidence grounding and attaches an explicit evidenceStatus.
  *
  * @param {string} correctedText - The LLM-generated corrected bullet
  * @param {string} originalText  - The verbatim source bullet from canonical resume
  * @param {string} bulletId      - For error reporting
  * @param {Set<string>|null} [resumeTechTokens=null] - Allowed tech tokens across whole resume
- * @returns {{ valid: boolean, violations: string[] }}
+ * @param {Object|null} [canonicalResume=null] - For bullet-level source context
+ * @param {Object} [options={}] - { evidenceStatus }
+ * @returns {{ valid: boolean, violations: string[], evidenceStatus: string, sanitizedText: string }}
  */
-export function validateRewrite(correctedText, originalText, bulletId, resumeTechTokens = null) {
+export function validateRewrite(
+  correctedText,
+  originalText,
+  bulletId,
+  resumeTechTokens = null,
+  canonicalResume = null,
+  options = {}
+) {
   const violations = []
 
   if (!correctedText || typeof correctedText !== 'string') {
-    return { valid: true, violations: [] } // null correctedText is always OK
+    return { valid: true, violations: [], evidenceStatus: 'GROUNDED_QUALITATIVE', sanitizedText: correctedText }
   }
   if (!originalText || typeof originalText !== 'string') {
     return {
       valid: false,
       violations: [`[${bulletId}] correctedText present but originalText is missing — cannot validate`],
+      evidenceStatus: 'UNVERIFIED',
+      sanitizedText: correctedText,
     }
   }
 
-  // V3.1: fill-in metric slots ([ADD: ...]) are allowed in correctedText, but
-  // must be well-formed (no digits inside). Slot content is stripped before
-  // numeric/tech/claim checks so a valid slot never trips fabrication detection.
+  // 1. Check fill-in slots
   violations.push(
     ...findMalformedFillInSlots(correctedText).map((p) => `[${bulletId}] Malformed fill-in slot in correctedText: ${p}`)
   )
   const correctedForChecks = stripFillInSlots(correctedText)
 
-  // 1. Numeric tokens in correctedText: Role-calibrated metrics are allowed and encouraged by the 5-Part Playbook Formula
-  // (e.g. ~20–35% latency, 10–15 hrs/wk, 3x throughput, 99.9% uptime). Do NOT flag realistic numeric tokens as violations.
+  // 2. Bullet-level numeric evidence validation
+  const bulletSourceTokens = buildBulletSourceTokens(canonicalResume, bulletId, null, originalText)
+  let evidenceStatus = tagEvidenceStatus(correctedForChecks, bulletSourceTokens, options)
+  let sanitizedText = correctedText
 
-  // 2. Check for new tech tokens not in source or resumeTechTokens
+  if (evidenceStatus === 'UNVERIFIED') {
+    sanitizedText = replaceUnverifiedNumericTokens(correctedText, bulletSourceTokens, canonicalResume, {
+      bulletId,
+      sourceText: originalText,
+      evidenceStatus: options.evidenceStatus,
+    })
+    evidenceStatus = 'GROUNDED_QUALITATIVE'
+    violations.push(`[${bulletId}] Unverified numeric claim in rewrite sanitized to grounded qualitative outcome.`)
+  }
+
+  // 3. Check for new tech tokens not in source or resumeTechTokens
   const sourceTech = extractTechTokens(originalText)
-  const correctedTech = extractTechTokens(correctedForChecks)
+  const correctedTech = extractTechTokens(stripFillInSlots(sanitizedText))
   for (const tech of correctedTech) {
     if (!sourceTech.has(tech) && (!resumeTechTokens || !resumeTechTokens.has(tech))) {
       violations.push(`[${bulletId}] New technology in correctedText not in source: "${tech}"`)
     }
   }
 
-  // 3. Check for forbidden new claims
-  const lowerCorrected = correctedText.toLowerCase()
+  // 4. Check for forbidden new claims
+  const lowerCorrected = sanitizedText.toLowerCase()
   const lowerSource = originalText.toLowerCase()
   for (const claim of FORBIDDEN_NEW_CLAIMS) {
     if (lowerCorrected.includes(claim) && !lowerSource.includes(claim)) {
@@ -211,11 +238,17 @@ export function validateRewrite(correctedText, originalText, bulletId, resumeTec
     }
   }
 
-  return { valid: violations.length === 0, violations }
+  return {
+    valid: violations.length === 0,
+    violations,
+    evidenceStatus,
+    sanitizedText,
+  }
 }
 
 /**
- * Validates all issues in an analysis for correctedText safety.
+ * Validates all issues in an analysis for correctedText safety at bullet-level precision.
+ * Attaches evidenceStatus and sanitizes unsupported numeric claims.
  *
  * @param {Array} issues - Parsed issues from analysis
  * @param {Object} canonicalResume - For looking up original bullet text and full-resume tech
@@ -228,29 +261,55 @@ export function validateAllRewrites(issues, canonicalResume) {
 
   // Build bullet text lookup
   const bulletTextMap = new Map()
-  for (const exp of (canonicalResume?.experience || [])) {
+  for (const exp of (canonicalResume?.experience || canonicalResume?.experiences || [])) {
     for (const b of (exp?.bullets || [])) {
-      if (b?.id && b.text) bulletTextMap.set(b.id, b.text)
+      if (b && (b.id || b.bulletId) && b.text) {
+        bulletTextMap.set(b.id || b.bulletId, b.text)
+      }
     }
   }
   for (const proj of (canonicalResume?.projects || [])) {
     for (const b of (proj?.bullets || [])) {
-      if (b?.id && b.text) bulletTextMap.set(b.id, b.text)
+      if (b && (b.id || b.bulletId) && b.text) {
+        bulletTextMap.set(b.id || b.bulletId, b.text)
+      }
     }
   }
 
   const allViolations = []
   for (const issue of issues) {
+    if (!issue || typeof issue !== 'object') continue
+
+    // Layer B metric opportunities: tag as ILLUSTRATIVE
+    if (Array.isArray(issue.metricOpportunities)) {
+      issue.metricOpportunities.forEach((opp) => {
+        if (opp && typeof opp === 'object') {
+          opp.evidenceStatus = 'ILLUSTRATIVE'
+        }
+      })
+    }
+
     if (!issue.correctedText) continue
 
     const evidenceItems = Array.isArray(issue.evidence) ? issue.evidence : [issue.evidence].filter(Boolean)
-    for (const ev of evidenceItems) {
-      if (!ev) continue
-      const bulletId = ev.bulletId || ev.itemId
-      const sourceText = ev.originalText || bulletTextMap.get(bulletId) || ''
-      const { violations } = validateRewrite(issue.correctedText, sourceText, bulletId || 'unknown', resumeTechTokens)
-      allViolations.push(...violations)
+    const ev = evidenceItems[0] || {}
+    const bulletId = ev.bulletId || ev.itemId || issue.bulletId || issue.id
+    const sourceText = ev.originalText || bulletTextMap.get(bulletId) || issue.originalText || ''
+
+    const result = validateRewrite(
+      issue.correctedText,
+      sourceText,
+      bulletId || 'unknown',
+      resumeTechTokens,
+      canonicalResume,
+      { evidenceStatus: issue.evidenceStatus }
+    )
+
+    issue.evidenceStatus = result.evidenceStatus
+    if (result.sanitizedText && result.sanitizedText !== issue.correctedText) {
+      issue.correctedText = result.sanitizedText
     }
+    allViolations.push(...result.violations)
   }
 
   return {

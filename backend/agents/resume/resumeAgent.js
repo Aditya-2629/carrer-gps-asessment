@@ -46,7 +46,7 @@ import { analyzeEvidence, filterGroundedObservations } from './analyzers/evidenc
 import { buildSynthesisMessages, SYNTHESIS_PROMPT_VERSION } from './synthesis/resumeSynthesis.js'
 import { validateAllRewrites } from './validation/rewriteValidator.js'
 import { detectUnsupportedAssumptions } from './validation/assumptionValidator.js'
-import { validateClaims, buildSourceFactTokens } from './validation/claimValidator.js'
+import { validateClaims, buildSourceFactTokens, replaceUnverifiedNumericTokens } from './validation/claimValidator.js'
 import { validateRecommendations } from './validation/recommendationValidator.js'
 import { classifyAllEvidence, resolveEvidenceConsistency } from './classification/index.js'
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
@@ -68,16 +68,7 @@ import { runOrchestratedSynthesis } from './orchestration/orchestrationRunner.js
 // is traceable to exact prompt text via hash.
 registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PROMPT)
 
-/**
- * Strips unverified numeric tokens (numbers, percentages, currencies) not present
- * in sourceTokens and replaces them with [ADD: measurable metric], keeping 100% of the
- * LLM's rewritten sentence structure intact.
- */
-export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, canonicalResume) {
-  if (!correctedText || typeof correctedText !== 'string') return correctedText
-  // 5-Part Playbook Formula: Preserve role-calibrated metrics in correctedText; never inject [ADD: ...]
-  return correctedText
-}
+export { replaceUnverifiedNumericTokens }
 
 export class ResumeAgent {
   /**
@@ -738,6 +729,13 @@ export class ResumeAgent {
             }
             if (iss.correctedText) {
               iss.correctionType = 'rewrite'
+              const ev = (Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence) || {}
+              const bulletId = ev.bulletId || ev.itemId
+              iss.correctedText = replaceUnverifiedNumericTokens(iss.correctedText, sourceTokens, canonicalResume, {
+                bulletId,
+                sourceText: ev.originalText,
+                evidenceStatus: iss.evidenceStatus,
+              })
             }
           }
 
