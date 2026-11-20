@@ -30,16 +30,36 @@ import { getDynamicFewShotExamples } from '../../../services/promptExampleServic
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
-export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = []) {
-  const role = targetRole || (experiences[0]?.role) || 'Experienced Professional';
-  const topSkills = Array.isArray(skills) 
-    ? skills.slice(0, 4).join(', ') 
+export function generateDomainCalibratedSummary(targetRole, experiences = [], skills = [], missingSkills = []) {
+  const role = targetRole || (experiences[0]?.role) || 'Experienced Professional'
+  const skillsList = Array.isArray(skills) 
+    ? skills 
     : (skills && typeof skills === 'object')
-      ? Object.values(skills).flat().slice(0, 4).join(', ')
-      : '';
+      ? Object.values(skills).flat()
+      : []
+  const topTools = skillsList.slice(0, 5).join(', ')
+  const primaryCompany = experiences[0]?.company || experiences[0]?.employer || ''
 
-  const skillsClause = topSkills ? ` with expertise across ${topSkills}` : '';
-  return `${role}${skillsClause}, recognized for driving operational efficiency, cross-functional collaboration, and measurable business outcomes. Proven track record of delivering end-to-end initiatives on schedule while upholding industry standards and process rigor.`;
+  // Look for any verified metric or project from experiences
+  let topWin = ''
+  for (const exp of experiences) {
+    for (const b of exp.bullets || []) {
+      const text = typeof b === 'string' ? b : b?.text || ''
+      if (/\d+%?|\$\d+/i.test(text) && text.length > 25) {
+        topWin = text.replace(/^[•\-*▪–—·\s]+/, '').trim()
+        break
+      }
+    }
+    if (topWin) break
+  }
+
+  const winClause = topWin
+    ? `Proven track record of engineering impact: ${topWin.replace(/\.$/, '')}.`
+    : `Specialized in building robust, production-grade solutions and architecting scalable workflows${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+
+  const toolsClause = topTools ? `Core technical competencies include ${topTools}.` : ''
+
+  return `${role} with deep execution expertise across high-concurrency systems and core domain architecture. ${winClause} ${toolsClause}`.trim()
 }
 
 /**
@@ -646,7 +666,7 @@ Compare candidate resume phrasing against TARGET JOB DESCRIPTION and marketEvide
 ==================================================
 5. PER-BULLET AUDIT UPGRADES ("bulletUpgrades")
 ==================================================
-In addition to the 5 to 7 primary issues, identify and rewrite up to 8 additional weak, unquantified, or "-ing" bullets across the candidate's experience and projects for the Per-Bullet Audit UI.
+In addition to the 5 to 7 primary issues, systematically audit and rewrite EVERY weak, unquantified, passive, or responsibility-only bullet point across the candidate's experience and flagship projects (do NOT cap at 8 — every unquantified or weak bullet in the resume must receive a Google XYZ rewrite in "bulletUpgrades").
 Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
 - Set "status": "warn" (or "fix").
 - Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
@@ -656,6 +676,8 @@ Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades"
 6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
 ==================================================
 Always populate "summaryOptimization" in the output JSON.
+STRICT BAN ON GENERIC BUZZWORDS & BOILERPLATE: Strictly forbid generic filler phrases such as "proven expertise in engineering scalable architectures", "results-driven professional", "demonstrated track record of success", or "seeking to leverage skills".
+GROUNDING MANDATE: Every sentence in "rewrittenSummary" must be anchored directly in the candidate's ACTUAL parsed tech stack (from dossier.skills), concrete domain systems (from experience bullets), and top missing market keywords (from dossier.targetJdOverlap / marketContext).
 ANTI-REPETITION MANDATE: Strictly FORBID copy-pasting the exact wording, sentences, or metrics of individual bulletRewrites into rewrittenSummary. The summary synthesizes the high-altitude career-level arc: total domain specialization, architectural scope, and 1-2 broad headline outcomes. Individual bullet rewrites carry granular implementation proof.
 - If the resume has NO summary section (or is empty/missing):
   * Set "status": "missing"

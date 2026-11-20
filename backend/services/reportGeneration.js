@@ -866,6 +866,9 @@ export async function generateReportBundle(params = {}, options = {}) {
       answers,
       resumeJson,
       verifiedSkills: triage?.verifiedSkills || [],
+      missingSkills: params.missingSkills || triage?.clustering?.missingSkills || triage?.missingSkills || [],
+      bulletAudit: params.bulletAudit || params.resumeAgent?.dashboard?.bulletAudit || [],
+      signals: params.signals || params.resumeAgent?.signals || {},
       bottleneck: triage?.deterministicScores || {},
       funnelStages,
       options,
@@ -885,6 +888,17 @@ export async function generateReportBundle(params = {}, options = {}) {
   }
   if (dynamicActionPlan) {
     report.action_plan = dynamicActionPlan
+    report.dynamic_action_plan = dynamicActionPlan
+    if (dynamicActionPlan.recruiterVerdict) {
+      report.recruiterVerdict = dynamicActionPlan.recruiterVerdict
+      report.sixSecondRecruiterVerdict = dynamicActionPlan.recruiterVerdict
+    }
+    if (dynamicActionPlan.booleanSearchString) {
+      report.booleanSearchString = dynamicActionPlan.booleanSearchString
+    }
+    if (dynamicActionPlan.coldOutreachScript) {
+      report.coldOutreachScript = dynamicActionPlan.coldOutreachScript
+    }
   }
 
   report.user_answers = answers

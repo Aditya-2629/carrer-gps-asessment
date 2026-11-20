@@ -546,20 +546,28 @@ export default function CareerReportPdf({ reportData = {} }) {
 
   // Dynamic Action Plan (7-Day & 30/60/90)
   const actionPlan = reportData?.dynamic_action_plan || reportData?.action_plan || {}
-  const sevenDayTasks = Array.isArray(actionPlan.sevenDayQuickPlan) && actionPlan.sevenDayQuickPlan.length > 0
+  const sevenDayTasks = (Array.isArray(actionPlan.sevenDayQuickPlan) && actionPlan.sevenDayQuickPlan.length > 0)
     ? actionPlan.sevenDayQuickPlan.slice(0, 7)
+    : (Array.isArray(reportData?.sevenDayQuickPlan) && reportData.sevenDayQuickPlan.length > 0)
+    ? reportData.sevenDayQuickPlan.slice(0, 7)
     : [
-        { day: 1, title: 'Keyword & Competency Alignment', action: 'Audit resume against top 10 target job descriptions to identify missing technical keywords.', deliverable: '10-JD Keyword Matrix', metricTarget: 'Add 5+ verified keywords' },
-        { day: 2, title: 'Google XYZ Bullet Overhaul', action: 'Restructure top 4 achievement bullets to format: Accomplished [X] measured by [Y] by doing [Z].', deliverable: '4 Restructured bullets', metricTarget: '100% bullets with metrics' },
+        { day: 1, title: 'Keyword & Competency Alignment', action: 'Audit resume against top target job descriptions to identify missing domain keywords.', deliverable: 'JD Keyword Matrix', metricTarget: 'Add 5+ verified keywords' },
+        { day: 2, title: 'Google XYZ Bullet Overhaul', action: 'Restructure achievement bullets to format: Accomplished [X] measured by [Y] by doing [Z].', deliverable: 'Restructured achievement bullets', metricTarget: '100% bullets with metrics' },
         { day: 3, title: 'Single-Column ATS Calibration', action: 'Reformat document to single-column layout without tables or multi-column grids for parsing safety.', deliverable: 'ATS-Compliant Document', metricTarget: '100% clean plain-text parse' },
         { day: 4, title: 'LinkedIn Headline & About Rewrite', action: 'Deploy 15-20 word hook-first headline and 4-pillar narrative about section.', deliverable: 'Updated LinkedIn profile', metricTarget: '3x profile view velocity' },
-        { day: 5, title: 'Recruiter Outreach Sourcing List', action: 'Build list of 25 engineering managers and recruiters at target high-growth companies.', deliverable: '25-Lead Outbound Tracker', metricTarget: 'Send 10 personalized notes' },
-        { day: 6, title: 'Technical Defense Blueprint', action: 'Document architecture, data models, and latency trade-offs for your flagship project.', deliverable: '1-Page Project Blueprint', metricTarget: 'Ready for 3-minute pitch' },
+        { day: 5, title: 'Recruiter Outreach Sourcing List', action: 'Build list of 25 decision-makers and recruiters at target high-growth companies.', deliverable: '25-Lead Outbound Tracker', metricTarget: 'Send 10 personalized notes' },
+        { day: 6, title: 'Technical Defense Blueprint', action: 'Document architecture, deliverables, and operational trade-offs for your flagship project.', deliverable: '1-Page Project Blueprint', metricTarget: 'Ready for 3-minute pitch' },
         { day: 7, title: 'Weekly Funnel Audit & Calibration', action: 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: 'Callback rate >= 5.0%' },
       ]
 
-  const milestonePathway = Array.isArray(actionPlan.pathway30_60_90) && actionPlan.pathway30_60_90.length > 0
+  const milestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
+    ? actionPlan.milestonePathway.slice(0, 3)
+    : (Array.isArray(reportData?.milestonePathway) && reportData.milestonePathway.length > 0)
+    ? reportData.milestonePathway.slice(0, 3)
+    : (Array.isArray(actionPlan.pathway30_60_90) && actionPlan.pathway30_60_90.length > 0)
     ? actionPlan.pathway30_60_90.slice(0, 3)
+    : (Array.isArray(reportData?.strategicRoadmap) && reportData.strategicRoadmap.length > 0)
+    ? reportData.strategicRoadmap.slice(0, 3)
     : [
         { period: '30 Days', stage: 'Asset Calibration & Outbound Engine', goal: `Overcome ATS drop-offs and generate consistent recruiter screen calls for ${targetRole}.`, deliverable: 'ATS Resume + 30 Target Account Tracker', successSignal: 'Callback rate >= 5.0%' },
         { period: '60 Days', stage: 'Screening Mastery & Technical Loops', goal: 'Convert recruiter screens into technical rounds and advance through panel assessments.', deliverable: '3+ Concurrent Technical Interview Loops', successSignal: 'Screen-to-tech conversion >= 40%' },
@@ -572,11 +580,11 @@ export default function CareerReportPdf({ reportData = {} }) {
   const canonicalResume = reportData?.resume_json || resumeAgent.canonicalResume || {}
 
   const resumeSectionAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || {
-    summary: { name: 'Professional Summary', score10: 7, status: 'warn', hurtingReason: 'Generic summary lacking target role keyword anchoring and hard proof metrics.', requiredImprovement: 'Open with exact target title and 3 core technical specializations.' },
+    summary: { name: 'Professional Summary', score10: 7, status: 'warn', hurtingReason: 'Generic summary lacking target role keyword anchoring and hard proof metrics.', requiredImprovement: 'Open with exact target title and core technical specializations.' },
     experience: { name: 'Work Experience & Bullets', score10: 6, status: 'warn', hurtingReason: 'Bullets focus on passive responsibilities rather than quantified outcomes.', requiredImprovement: 'Quantify impact using Accomplished [X] measured by [Y] by doing [Z].' },
-    skills: { name: 'Technical Skills Architecture', score10: 8, status: 'pass', hurtingReason: null, requiredImprovement: 'Group technical tools into categoric clusters (Languages, Cloud, Data).' },
+    skills: { name: 'Technical Skills Architecture', score10: 8, status: 'pass', hurtingReason: null, requiredImprovement: 'Group technical tools into categoric clusters.' },
     layout: { name: 'Document Layout & ATS Formatting', score10: 9, status: 'pass', hurtingReason: null, requiredImprovement: 'Maintain clean single-column structure with standard ATS section headings.' },
-    atsDensity: { name: 'ATS Keyword Density & Indexing', score10: 7, status: 'warn', hurtingReason: 'Core target keywords appear in skills list only, not validated within experience bullets.', requiredImprovement: 'Weave at least 4 missing domain keywords directly into role achievement bullet points.' },
+    atsDensity: { name: 'ATS Keyword Density & Indexing', score10: 7, status: 'warn', hurtingReason: 'Core target keywords appear in skills list only, not validated within experience bullets.', requiredImprovement: 'Weave missing domain keywords directly into role achievement bullet points.' },
   }
 
   // Professional Summary Rewrite
@@ -585,57 +593,80 @@ export default function CareerReportPdf({ reportData = {} }) {
     summaryOpt.rewrittenSummary ||
     summaryOpt.executiveSummaryRewrite ||
     reportData?.summary_rewrite,
-    `Results-driven ${targetRole} with proven expertise in engineering scalable architectures, automating high-throughput pipelines, and delivering resilient enterprise solutions. Track record of cutting operational latency and accelerating delivery cycles in high-concurrency environments.`
+    `Experienced ${targetRole} specializing in scalable architecture, technical execution, and robust workflow automation. Track record of driving engineering delivery and operational impact across production environments.`
   )
   const originalSummary = safeStr(
     summaryOpt.currentSummary ||
     summaryOpt.originalSummary ||
     (typeof canonicalResume?.summary === 'string' ? canonicalResume.summary : canonicalResume?.summary?.text),
-    `Experienced ${targetRole} seeking new growth opportunities in software engineering, technical execution, and system delivery.`
+    `Experienced ${targetRole} with background in technical execution, system delivery, and project leadership.`
   )
 
-  // ATS Keyword Alignment
+  // ATS Keyword Alignment — Robust Dynamic Multi-Alias Mapping (Zero Hardcoded Mock Arrays)
   const kwData = resumeDashboard?.keywordAlignment || resumeAgent?.keywordAlignment || reportData?.keyword_alignment || {}
-  const rawVerified = Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0
-    ? kwData.verifiedExperience
-    : (Array.isArray(reportData?.verified_skills) ? reportData.verified_skills : [])
-  const verifiedKeywords = rawVerified.slice(0, 18).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
 
-  const rawSkillsOnly = Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0
-    ? kwData.skillsOnly
-    : (Array.isArray(reportData?.skills_only) ? reportData.skills_only : [])
-  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
+  const rawVerified = (
+    (Array.isArray(kwData.matchedInExperience) && kwData.matchedInExperience.length > 0 && kwData.matchedInExperience) ||
+    (Array.isArray(kwData.verifiedExperience) && kwData.verifiedExperience.length > 0 && kwData.verifiedExperience) ||
+    (Array.isArray(kwData.matchedKeywords) && kwData.matchedKeywords.length > 0 && kwData.matchedKeywords) ||
+    (Array.isArray(kwData.matchedSkills) && kwData.matchedSkills.length > 0 && kwData.matchedSkills) ||
+    (Array.isArray(reportData?.verified_skills) && reportData.verified_skills.length > 0 && reportData.verified_skills) ||
+    (Array.isArray(resumeAgent?.verifiedSkills) && resumeAgent.verifiedSkills.length > 0 && resumeAgent.verifiedSkills) ||
+    []
+  )
+  const verifiedKeywords = rawVerified.slice(0, 24).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
 
-  const rawMissing = Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0
-    ? kwData.criticalMissing
-    : (Array.isArray(reportData?.missing_skills) ? reportData.missing_skills : [])
-  const missingKeywords = rawMissing.slice(0, 15).map((k) => (typeof k === 'string' ? k : k.keyword || k.name))
+  const rawSkillsOnly = (
+    (Array.isArray(kwData.skillsOnlyUnverified) && kwData.skillsOnlyUnverified.length > 0 && kwData.skillsOnlyUnverified) ||
+    (Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0 && kwData.skillsOnly) ||
+    (Array.isArray(reportData?.skills_only) && reportData.skills_only.length > 0 && reportData.skills_only) ||
+    []
+  )
+  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
 
-  // Bullet Rewrites: Un-capped list
-  const rawBullets = Array.isArray(resumeAgent.bulletRewrites || resumeAgent.bulletSuggestions || resumeDashboard.bulletAudit)
-    ? (resumeAgent.bulletRewrites || resumeAgent.bulletSuggestions || resumeDashboard.bulletAudit)
-        .filter((b) => b && (b.rewritten || b.suggestedRewrite || b.correctedText || b.improved))
-    : []
+  const rawMissing = (
+    (Array.isArray(kwData.missingFromResume) && kwData.missingFromResume.length > 0 && kwData.missingFromResume) ||
+    (Array.isArray(kwData.missingMarketSkillsRanked) && kwData.missingMarketSkillsRanked.length > 0 && kwData.missingMarketSkillsRanked) ||
+    (Array.isArray(kwData.criticalMissing) && kwData.criticalMissing.length > 0 && kwData.criticalMissing) ||
+    (Array.isArray(kwData.missingKeywords) && kwData.missingKeywords.length > 0 && kwData.missingKeywords) ||
+    (Array.isArray(reportData?.missing_skills) && reportData.missing_skills.length > 0 && reportData.missing_skills) ||
+    (Array.isArray(resumeAgent?.missingTargetKeywords) && resumeAgent.missingTargetKeywords.length > 0 && resumeAgent.missingTargetKeywords) ||
+    []
+  )
+  const missingKeywords = rawMissing.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
 
-  const bulletRewrites = rawBullets.length > 0
-    ? rawBullets
-    : [
-        {
-          original: 'Responsible for maintaining backend APIs and fixing bugs across our platform.',
-          rewritten: 'Architected and deployed 12 RESTful microservices in Node.js & PostgreSQL, reducing p99 API latency by 34% across 250k daily active users.',
-          why: 'Replaces passive maintenance duties with verified ownership, architecture scale, and latency impact.',
-        },
-        {
-          original: 'Worked with the data team to build dashboards in SQL and Tableau for reporting.',
-          rewritten: 'Engineered automated ETL pipelines and 6 star-schema Tableau dashboards, accelerating executive reporting turnaround from 3 days to under 2 hours.',
-          why: 'Replaces generic collaboration with quantified pipeline speed and operational turnaround efficiency.',
-        },
-        {
-          original: 'Helped with testing and continuous integration setup across our repositories.',
-          rewritten: 'Automated end-to-end CI/CD test pipelines using Docker and GitHub Actions, cutting release deployment cycles by 45% and eliminating regression downtime.',
-          why: 'Frames tentative support role as definitive automation ownership with concrete time savings.',
-        },
-      ]
+  // Bullet Rewrites: Un-capped dynamic aggregation across all sources (Zero Hardcoded Dummy Arrays)
+  const candidateBulletSources = [
+    ...(Array.isArray(resumeAgent.bulletUpgrades) ? resumeAgent.bulletUpgrades : []),
+    ...(Array.isArray(resumeAgent.bulletRewrites) ? resumeAgent.bulletRewrites : []),
+    ...(Array.isArray(resumeAgent.bulletSuggestions) ? resumeAgent.bulletSuggestions : []),
+    ...(Array.isArray(resumeDashboard.bulletAudit) ? resumeDashboard.bulletAudit : []),
+    ...(Array.isArray(reportData?.bulletRewrites) ? reportData.bulletRewrites : []),
+    ...(Array.isArray(reportData?.bullet_rewrites) ? reportData.bullet_rewrites : []),
+  ]
+
+  const bulletMap = new Map()
+  for (const b of candidateBulletSources) {
+    if (!b || typeof b !== 'object') continue
+    const rewritten = b.rewritten || b.rewrittenText || b.suggestedRewrite || b.correctedText || b.improved
+    if (!rewritten || typeof rewritten !== 'string' || !rewritten.trim()) continue
+
+    const original = b.original || b.bullet || b.originalText || b.text || ''
+    const bulletId = b.bulletId || b.id || (original ? original.slice(0, 45).toLowerCase().replace(/\s+/g, ' ') : null)
+    if (!bulletId) continue
+
+    if (!bulletMap.has(bulletId)) {
+      bulletMap.set(bulletId, {
+        bulletId,
+        original,
+        rewritten: rewritten.trim(),
+        whyItWorks: b.whyItWorks || b.why || b.reason || b.critique || 'Restructures bullet into verified Google XYZ format: Action + Technical Mechanism + Measurable Impact.',
+        critique: b.critique || b.issue || b.reason || null,
+      })
+    }
+  }
+
+  const bulletRewrites = Array.from(bulletMap.values())
 
   // 5. LinkedIn Studio Data
   const linkedinAgent = reportData?.linkedin_agent || {}
@@ -904,7 +935,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 5, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
             <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
-              Pipeline conversion stalls at {currentPhaseName} ({screenRate}% actual callback vs 5.0% industry target). {safeStr(bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
+              Pipeline conversion stalls at {currentPhaseName} ({screenRate}% actual callback vs 5.0% industry target). {safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
             </Text>
           </View>
         </View>
@@ -1443,51 +1474,62 @@ export default function CareerReportPdf({ reportData = {} }) {
           </Text>
         </View>
 
-        {bulletRewrites.map((b, idx) => (
-          <View key={idx} style={styles.bulletBentoCard} wrap={false}>
-            <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-              <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
-                Bullet Rewrite #{idx + 1}
-              </Text>
-              <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
-            </View>
-
-            <View style={styles.grid2}>
-              <View style={styles.col2}>
-                <View style={styles.diffOriginalCard}>
-                  <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626', marginBottom: 2 }}>
-                    BEFORE (ORIGINAL WEAK / UNQUANTIFIED):
-                  </Text>
-                  <Text style={styles.monoText}>{safeStr(b.original || b.bullet || b.originalText)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.col2}>
-                <View style={styles.diffRewrittenCard}>
-                  <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
-                    AFTER (MEASURABLE IMPACT & OUTCOME):
-                  </Text>
-                  <Text style={styles.monoBold}>{safeStr(b.rewritten || b.suggestedRewrite || b.correctedText || b.improved)}</Text>
-                </View>
-              </View>
-            </View>
-
-            {(b.whyItWorks || b.why || b.critique) && (
-              <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
-                {b.critique && (
-                  <Text style={{ fontSize: 6.5, color: '#DC2626', marginBottom: 1 }}>
-                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#991B1B' }}>Issue: </Text>
-                    {safeStr(b.critique)}
-                  </Text>
-                )}
-                <Text style={{ fontSize: 6.8, color: '#166534' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold', color: '#14532D' }}>Why it works: </Text>
-                  {safeStr(b.whyItWorks || b.why || 'Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.')}
+        {bulletRewrites.length > 0 ? (
+          bulletRewrites.map((b, idx) => (
+            <View key={idx} style={styles.bulletBentoCard} wrap={false}>
+              <View style={[styles.rowBetween, { marginBottom: 2 }]}>
+                <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                  Bullet Rewrite #{idx + 1}
                 </Text>
+                <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
               </View>
-            )}
+
+              <View style={styles.grid2}>
+                <View style={styles.col2}>
+                  <View style={styles.diffOriginalCard}>
+                    <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626', marginBottom: 2 }}>
+                      BEFORE (ORIGINAL WEAK / UNQUANTIFIED):
+                    </Text>
+                    <Text style={styles.monoText}>{safeStr(b.original || b.bullet || b.originalText)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.col2}>
+                  <View style={styles.diffRewrittenCard}>
+                    <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
+                      AFTER (MEASURABLE IMPACT & OUTCOME):
+                    </Text>
+                    <Text style={styles.monoBold}>{safeStr(b.rewritten || b.suggestedRewrite || b.correctedText || b.improved)}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {(b.whyItWorks || b.why || b.critique) && (
+                <View style={{ marginTop: 2, paddingTop: 2, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}>
+                  {b.critique && (
+                    <Text style={{ fontSize: 6.5, color: '#DC2626', marginBottom: 1 }}>
+                      <Text style={{ fontFamily: 'Helvetica-Bold', color: '#991B1B' }}>Issue: </Text>
+                      {safeStr(b.critique)}
+                    </Text>
+                  )}
+                  <Text style={{ fontSize: 6.8, color: '#166534' }}>
+                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#14532D' }}>Why it works: </Text>
+                    {safeStr(b.whyItWorks || b.why || 'Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.')}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ))
+        ) : (
+          <View style={[styles.card, { padding: 12, alignItems: 'center' }]} wrap={false}>
+            <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
+              PASS: All Experience Bullets Meet Recruiter Standards
+            </Text>
+            <Text style={{ fontSize: 7.2, color: '#475569', textAlign: 'center' }}>
+              All experience bullets meet quantification and action-verb benchmarks.
+            </Text>
           </View>
-        ))}
+        )}
 
         {/* ─────────────────────────────────────────────────────────────
             6. LINKEDIN STUDIO, 2x2 BENTO ABOUT & STRATEGY CALL CTA

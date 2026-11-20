@@ -74,6 +74,8 @@ EXECUTIVE SUMMARY FORMULA & ANTI-REPETITION (CRITICAL):
 Synthesize executiveSummaryRewrite at the overarching career-arc, domain leadership, and high-level commercial outcomes level.
 It must provide a holistic, recruiter-facing narrative that complements the resume rather than word-for-word copy-pasting individual bullet rewrites.
 Focus on years of experience, core technical pillars, system scale, and strategic domain impact. Individual experience bullets should handle granular metrics and architectural mechanisms.
+STRICT BAN ON GENERIC BUZZWORDS & BOILERPLATE: Strictly forbid generic filler phrases (e.g. "proven expertise in engineering scalable architectures", "results-driven professional", "demonstrated track record of success", or "seeking to leverage skills").
+GROUNDING MANDATE: Every sentence must be grounded in the candidate's actual parsed tech stack, domain systems, and top missing market keywords provided in the prompt.
 
 ==================================================
 ENGINEERING MECHANISM BULLET FORMULA:

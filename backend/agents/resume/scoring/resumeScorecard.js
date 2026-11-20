@@ -742,9 +742,22 @@ export function computeScorecard({
   const density = quant.density ?? 0
   const quantifiedBullets = quant.quantifiedBullets ?? 0
   const expTotalBullets = quant.totalBullets ?? bulletAudit.length
-  const expScore10 = clamp(Math.round(scores.impact / 10), 1, 10)
+
+  let rawExpScore10 = Math.round(scores.impact / 10)
+  // Enforce deterministic rubric ceilings:
+  // If quantificationDensity === 0 (0 quantified bullets), experience.score10 MUST NOT be 10/10 PASS - cap at <= 5/10 (fail / fix_required)
+  if (quantifiedBullets === 0 || density === 0) {
+    rawExpScore10 = Math.min(rawExpScore10, 5)
+  } else if (density < 0.5) {
+    // If < 50% of bullets are quantified, cap experience.score10 at <= 7/10
+    rawExpScore10 = Math.min(rawExpScore10, 7)
+  }
+
+  const expScore10 = clamp(rawExpScore10, 1, 10)
   const expStatus = expScore10 >= 9 ? 'pass' : expScore10 >= 6 ? 'warn' : 'fail'
-  const expHurting = density < 0.4
+  const expHurting = (quantifiedBullets === 0 || density === 0)
+    ? `0 of ${expTotalBullets} bullets contain quantified metrics. Without measurable outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+    : density < 0.5
     ? `Only ${quantifiedBullets} of ${expTotalBullets} bullets (${Math.round(density * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
     : hurtingCount > 2
     ? `${hurtingCount} bullets describe passive responsibilities rather than verified business outcomes.`
