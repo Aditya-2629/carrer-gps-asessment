@@ -349,41 +349,89 @@ export function buildDeterministicOptimizations(
     ? 'Your current About section is under 210 characters, wasting prime above-the-fold real estate before recruiters click "...see more".'
     : 'Your current About section reads as a generic summary without leading with your strongest verified production metrics or target specialization.'
 
-  // 4-Part Video Copywriting Framework (Credibility Hook -> Audience & Problem -> Approach & Skills -> Closing CTA)
-  let hook = metricPhrase
-    ? `Over the past ${yoeClause}, I have focused on driving measurable performance gains across enterprise environments, including ${metricPhrase}. As a ${targetRole}, I translate intricate technical challenges into resilient, high-velocity business outcomes while aligning engineering efforts directly with executive milestones.`
-    : `Over the past ${yoeClause}, I have specialized in engineering high-reliability systems and modernizing complex workflows across enterprise applications. As a ${targetRole}, I bridge technical execution with business strategy to deliver sustainable organizational impact and dependable systems at scale.`
-
-  if (isHealthRole) {
-    hook = `Over the past ${yoeClause}, I have dedicated my clinical practice to acute patient care, rigorous safety compliance, and interdisciplinary care coordination. As a ${targetRole}, I bridge compassionate clinical advocacy with evidence-based protocols to maximize recovery outcomes and maintain pristine clinical documentation.`
-  } else if (isFinanceRole) {
-    hook = `Over the past ${yoeClause}, I have specialized in capital strategy, corporate variance forecasting, and GAAP/IFRS reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence, risk mitigation strategies, and high-velocity fiscal operations.`
+  // Extract verified education & certifications strictly from canonical resume
+  const rawEducation = Array.isArray(canonical.education)
+    ? canonical.education
+    : (Array.isArray(canonical.educations) ? canonical.educations : [])
+  const firstEdu = rawEducation[0]
+  let verifiedEduPhrase = ''
+  if (firstEdu) {
+    if (typeof firstEdu === 'string') {
+      verifiedEduPhrase = firstEdu
+    } else {
+      const deg = firstEdu.degree || firstEdu.major || firstEdu.fieldOfStudy || ''
+      const inst = firstEdu.institution || firstEdu.school || firstEdu.university || ''
+      if (deg && inst) {
+        verifiedEduPhrase = `a ${deg} from ${inst}`
+      } else if (deg) {
+        verifiedEduPhrase = `academic training in ${deg}`
+      } else if (inst) {
+        verifiedEduPhrase = `education at ${inst}`
+      }
+    }
   }
 
-  let audienceAndProblem = `I partner with engineering leaders, product directors, and cross-functional squads looking to eliminate architectural bottlenecks, modernize legacy workflows, and sustain high delivery standards. My work centers on removing operational friction points so core platforms scale predictably under heavy production demands without compromising code quality or release predictability.`
-  if (isHealthRole) {
-    audienceAndProblem = `I collaborate with healthcare administrators and clinical teams seeking to elevate care quality, streamline charting handoffs, and uphold patient privacy standards under high-acuity conditions. I focus on optimizing bedside workflow transitions and mitigating patient care delays across multi-disciplinary units.`
-  } else if (isFinanceRole) {
-    audienceAndProblem = `I advise corporate leadership and financial operations looking to accelerate month-end close velocity, automate audit reconciliations, and ensure pristine fiscal compliance. I specialize in unblocking fragmented accounting workflows and establishing dependable financial controls.`
+  const rawCertifications = Array.isArray(canonical.certifications)
+    ? canonical.certifications
+    : (Array.isArray(canonical.licensesAndCertifications) ? canonical.licensesAndCertifications : [])
+  const firstCert = rawCertifications[0]
+  let verifiedCertPhrase = ''
+  if (firstCert) {
+    const cName = typeof firstCert === 'string' ? firstCert : (firstCert.name || firstCert.title || '')
+    if (cName) {
+      verifiedCertPhrase = `certified in ${cName}`
+    }
   }
 
-  let approachAndSkills = `My methodology emphasizes clean architectural principles, automated test coverage, and continuous delivery velocity. I work primarily with ${topStack}, building robust modular workflows that scale smoothly without technical debt or operational regressions. By grounding system designs in reliable monitoring and domain-driven patterns, I help teams build resilient infrastructure that stands up to sustained enterprise load.`
+  // 3-Paragraph Storytelling Framework (~1,000 characters total / ~900–1,150 chars)
+  // Paragraph 1 — Professional Journey & Credibility Hook (280–380 chars)
+  let professionalJourney = metricPhrase
+    ? `Over the past ${yoeClause}, I have focused my engineering career on architecting resilient distributed systems, modernizing backend services, and translating complex technical challenges into high-velocity production solutions. As a ${targetRole}, I bridge deep technical execution with business strategy, consistently driving measurable impact including ${metricPhrase}.`
+    : `Over the past ${yoeClause}, I have developed and scaled high-reliability systems and modernized core workflows across enterprise environments. As a ${targetRole}, I align clean software design with organizational priorities to ensure systems remain performant, dependable, and maintainable under sustained production demands.`
+
   if (isHealthRole) {
-    approachAndSkills = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care settings, ensuring patient safety remains paramount while reducing inter-departmental handoff latency.`
+    professionalJourney = `Over the past ${yoeClause}, I have dedicated my career to acute patient care, rigorous clinical safety, and interdisciplinary coordination. As a ${targetRole}, I combine compassionate patient advocacy with evidence-based protocols to maximize recovery outcomes and maintain pristine clinical standards.`
   } else if (isFinanceRole) {
-    approachAndSkills = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment, reducing cycle times while safeguarding regulatory integrity.`
+    professionalJourney = `Over the past ${yoeClause}, I have specialized in corporate variance modeling, capital allocation, and statutory reporting precision. As a ${targetRole}, I translate complex transactional portfolios into executive decision intelligence, risk mitigation strategies, and high-velocity fiscal operations.`
   }
 
-  let closingCta = `If you are scaling high-reliability systems, navigating technical modernization, or looking for dedicated ${targetRole} expertise, let's connect and discuss how we can build together.`
+  // Paragraph 2 — Specialization & Concrete Proof (340–440 chars)
+  let specializationAndProof = `My technical specialization centers on ${primaryDomainSkill} and engineering modular, cloud-native services using ${topStack}. By coupling domain-driven design with automated test coverage and continuous delivery, I eliminate architectural bottlenecks and ensure platforms scale predictably without regressions or performance debt.`
+
   if (isHealthRole) {
-    closingCta = `If you are expanding your clinical team, driving patient safety initiatives, or advancing healthcare delivery standards, let's connect.`
+    specializationAndProof = `My clinical methodology centers on proactive patient triage, meticulous enterprise charting, and rapid crisis management. I utilize ${topStack} to maintain rigorous protocol adherence across dynamic care units, ensuring patient safety remains paramount while reducing inter-departmental handoff latency.`
   } else if (isFinanceRole) {
-    closingCta = `If you are modernizing financial analytics, accelerating close cycles, or expanding your fiscal leadership team, let's connect.`
+    specializationAndProof = `My approach pairs rigorous dimensional financial modeling with automated reconciliation pipelines. I leverage ${topStack} to eliminate reporting variance and empower strategic capital deployment, reducing cycle times while safeguarding regulatory integrity.`
   }
 
-  const fullText = `${hook}\n\n${audienceAndProblem}\n\n${approachAndSkills}\n\n${closingCta}`
-  const proof = approachAndSkills
-  const callToAction = closingCta
+  // Paragraph 3 — Education, Direction & Natural Networking (250–350 chars)
+  let eduOrCertPrefix = ''
+  if (verifiedEduPhrase && verifiedCertPhrase) {
+    eduOrCertPrefix = `With ${verifiedEduPhrase} and ${verifiedCertPhrase}, I `
+  } else if (verifiedEduPhrase) {
+    eduOrCertPrefix = `With ${verifiedEduPhrase}, I `
+  } else if (verifiedCertPhrase) {
+    eduOrCertPrefix = `As a practitioner ${verifiedCertPhrase}, I `
+  } else {
+    eduOrCertPrefix = 'I '
+  }
+
+  let directionAndNetworking = `${eduOrCertPrefix}remain focused on exploring emerging system architectures, building high-leverage tools, and collaborating with cross-functional leaders on ambitious engineering initiatives. If you are solving complex challenges in ${primaryDomainSkill} or looking for dedicated ${targetRole} expertise, let's connect and discuss how we can build together.`
+
+  if (isHealthRole) {
+    directionAndNetworking = `${eduOrCertPrefix}remain dedicated to elevating clinical standards, mentoring emerging healthcare staff, and advancing evidence-based practices. If you are expanding your clinical team or driving patient safety initiatives, let's connect.`
+  } else if (isFinanceRole) {
+    directionAndNetworking = `${eduOrCertPrefix}remain focused on strategic corporate expansion, capital optimization, and financial analytics transformation. If you are modernizing financial analytics or expanding your fiscal leadership team, let's connect.`
+  }
+
+  const fullText = `${professionalJourney}\n\n${specializationAndProof}\n\n${directionAndNetworking}`
+  const keywordsUsed = effectiveSkills.slice(0, 8)
+  const hook = professionalJourney
+  const audienceAndProblem = ''
+  const approachAndSkills = specializationAndProof
+  const closingCta = directionAndNetworking
+  const proof = specializationAndProof
+  const callToAction = directionAndNetworking
 
   const bannerStrategy = {
     bannerTagline: `${targetRole} | ${isHealthRole ? 'Clinical Excellence & Patient Care' : (isFinanceRole ? 'Financial Strategy & Analytical Modeling' : 'Operational Excellence & Scalable Impact')}`,
@@ -635,11 +683,17 @@ export function buildDeterministicOptimizations(
     headlines: fallbackHeadlines,
     aboutRewrite: {
       currentCritique,
+      professionalJourney,
+      specializationAndProof,
+      directionAndNetworking,
+      fullText,
+      keywordsUsed,
+      // Backward-compatible keys:
       hook,
       audienceAndProblem,
       approachAndSkills,
       closingCta,
-      fullText,
+      callToAction,
     },
     experienceUpgrades,
     sectionsToAddFromResume,
@@ -847,23 +901,32 @@ export async function runLinkedInSynthesis(
       }
     }
 
-    // About rewrite (Task 1) - 4-Part Video Copywriting Framework
+    // About rewrite (Task 1) - 3-Paragraph Storytelling Framework (~1,000 chars)
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
-      const hook = rawAbout.hook || fallback.aboutRewrite.hook
-      const audienceAndProblem = rawAbout.audienceAndProblem || fallback.aboutRewrite.audienceAndProblem
-      const approachAndSkills = rawAbout.approachAndSkills || fallback.aboutRewrite.approachAndSkills
-      const closingCta = rawAbout.closingCta || fallback.aboutRewrite.closingCta
-      const combined = rawAbout.fullText || [hook, audienceAndProblem, approachAndSkills, closingCta].filter(Boolean).join('\n\n')
+      const professionalJourney = rawAbout.professionalJourney || rawAbout.hook || fallback.aboutRewrite.professionalJourney
+      const specializationAndProof = rawAbout.specializationAndProof || rawAbout.approachAndSkills || rawAbout.audienceAndProblem || fallback.aboutRewrite.specializationAndProof
+      const directionAndNetworking = rawAbout.directionAndNetworking || rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.directionAndNetworking
+      const keywordsUsed = Array.isArray(rawAbout.keywordsUsed) && rawAbout.keywordsUsed.length > 0
+        ? rawAbout.keywordsUsed
+        : fallback.aboutRewrite.keywordsUsed || []
+
+      const combined = rawAbout.fullText || [professionalJourney, specializationAndProof, directionAndNetworking].filter(Boolean).join('\n\n')
 
       aboutRewrite = {
         currentCritique: rawAbout.currentCritique || fallback.aboutRewrite.currentCritique || '',
-        hook,
-        audienceAndProblem,
-        approachAndSkills,
-        closingCta,
+        professionalJourney,
+        specializationAndProof,
+        directionAndNetworking,
+        keywordsUsed,
         fullText: combined || fallback.aboutRewrite.fullText,
+        // Backward-compatible aliases for legacy consumers:
+        hook: professionalJourney,
+        audienceAndProblem: rawAbout.audienceAndProblem || '',
+        approachAndSkills: specializationAndProof,
+        closingCta: directionAndNetworking,
+        callToAction: directionAndNetworking,
       }
     } else if (typeof rawAbout === 'string' && rawAbout.length > 80) {
       aboutRewrite = {

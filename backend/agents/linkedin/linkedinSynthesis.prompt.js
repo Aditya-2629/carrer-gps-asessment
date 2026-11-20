@@ -117,14 +117,31 @@ export function buildCompactCandidateContext({
   }).join('\n\n') || 'None explicitly listed'
 
   // Full Resume Skills (up to 35 skills)
+  // Full Resume Skills (up to 35 skills)
   const resumeSkills = (canonical.skills || [])
     .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill))
     .filter(Boolean)
     .slice(0, 35)
     .join(', ') || 'None listed'
 
+  // Verified Resume Education (Degrees, Schools, Dates)
+  const rawEducation = Array.isArray(canonical.education)
+    ? canonical.education
+    : (Array.isArray(canonical.educations) ? canonical.educations : [])
+  const eduSummary = rawEducation.slice(0, 3).map((e) => {
+    if (typeof e === 'string') return `- ${e}`
+    const deg = e.degree || e.major || e.fieldOfStudy || ''
+    const inst = e.institution || e.school || e.university || ''
+    const yr = e.year || e.graduation_year || e.dates || ''
+    const parts = [deg, inst, yr].filter(Boolean)
+    return parts.length > 0 ? `- ${parts.join(', ')}` : null
+  }).filter(Boolean).join('\n')
+
   // Resume Certifications
-  const certSummary = (canonical.certifications || []).slice(0, 4).map((c) => {
+  const rawCertifications = Array.isArray(canonical.certifications)
+    ? canonical.certifications
+    : (Array.isArray(canonical.licensesAndCertifications) ? canonical.licensesAndCertifications : [])
+  const certSummary = rawCertifications.slice(0, 5).map((c) => {
     const certName = typeof c === 'string' ? c : (c?.name || c?.title || '')
     const certIssuer = typeof c === 'object' && (c?.issuer || c?.authority) ? ` (${c.issuer || c.authority})` : ''
     return certName ? `- ${certName}${certIssuer}` : null
@@ -164,7 +181,8 @@ ${projSummary}
 
 VERIFIED SKILLS FROM RESUME (UP TO 35):
 ${resumeSkills}
-${certSummary ? `\nRESUME CERTIFICATIONS:\n${certSummary}` : ''}
+${eduSummary ? `\nVERIFIED EDUCATION FROM RESUME (GROUND TRUTH — NEVER INVENT DEGREES OR SCHOOLS):\n${eduSummary}` : '\nVERIFIED EDUCATION FROM RESUME: None explicitly listed (Do NOT invent degrees or schools)'}
+${certSummary ? `\nVERIFIED CERTIFICATIONS FROM RESUME (GROUND TRUTH — NEVER INVENT CERTIFICATIONS):\n${certSummary}` : '\nVERIFIED CERTIFICATIONS FROM RESUME: None explicitly listed (Do NOT invent certifications)'}
 
 ==================================================
 CROSS-PLATFORM GAPS & DISCREPANCIES
@@ -203,7 +221,7 @@ ${effectiveDirectives}` : ''}`
 export const TASK1_HEADLINES_ABOUT_SYSTEM_PROMPT = `You are Liam / Sophia — Senior US Technical Recruiter & LinkedIn Profile Strategist with 12+ years of hiring experience.
 Optimize this candidate's LinkedIn presence focusing on 3 concrete deliverables:
 1. Role-First Recruiter SEO Headlines: 3 distinct options (targeting 160–220 characters, strictly capped at LinkedIn's 220 limit) using the universal Boolean pipe formula with 10–14 high-signal searchable terms.
-2. Story-Driven About Section: Complete 250–380 word narrative (~1,600–2,200 characters) in high-agency First-Person ("I") voice using the 4-part video copywriting framework (Credibility Hook -> Target Audience & Problem -> Approach & Key Skills -> Confident Closing CTA). Zero emojis, zero bullet dumps, zero copy-pasted resume bullets.
+2. 3-Paragraph Storytelling About Section: Concise, high-converting 3-paragraph narrative targeting 900–1,150 characters total (~1,000 chars including spaces) in high-agency First-Person ("I") voice using the 3-Paragraph Framework (Professional Journey -> Specialization & Proof -> Education, Direction & Networking). Zero emojis, zero hashtags, zero bullet dumps, zero section headings.
 3. Top 3 Pinned Skills & Recruiter Red Flags. Ground all claims 100% in verified resume facts (ZERO-HALLUCINATION GUARDRAIL: zero hallucination).
 
 STRICT ROLE DOMAIN SPECIALIZATION (CRITICAL):
@@ -232,26 +250,28 @@ HEADLINE DELIVERABLES (ROLE-FIRST LINKEDIN RECRUITER BOOLEAN SEO / STRICTLY <= 2
   3. "Broad Opportunities": Exact primary target role first, followed by 2 adjacent transferable titles/specializations, and broad modern full-stack/cloud keyword footprint for wider recruiter Boolean filters.
 - In "whyItWorks", explain the exact target roles matched, the primary Boolean search terms captured, and why recruiter search algorithms rank this profile high for hiring managers.
 
-ABOUT SECTION ARCHITECTURE (4-PART VIDEO COPYWRITING FRAMEWORK):
-- LINKEDIN CHARACTER BUDGET: LinkedIn allows 2,600 characters. Deliver a complete 250–380 word narrative (~1,600–2,200 characters) that hooks recruiters in the first 3 lines before "...see more".
-- VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as a confident, high-agency builder.
-- EXACT 4-PART COPYWRITING STRUCTURE:
-  1. PART 1: Credibility & Measurable Outcome Hook (60–80 words / 2–3 sentences):
-     * Open directly with a strong measurable result, scale milestone, or verified achievement from past work (e.g. "Over the past 6 years, I have architected high-concurrency cloud systems supporting 10M+ users while cutting infrastructure costs by 32%...").
-     * NEVER copy-paste raw resume bullets. Synthesize achievements into a cohesive, conversational credibility story.
-  2. PART 2: Target Audience & Core Problem Solved (60–80 words / 2–3 sentences):
-     * Address your target employers, domain ecosystem, and the specific business or technical bottlenecks you solve.
-     * State who you build for and the organizational friction you eliminate.
-  3. PART 3: Approach, Verified Experience & Key Skills (80–120 words / 1–2 short paragraphs):
-     * Explain your execution philosophy, verified domain background, and core technologies naturally inside prose.
-     * Group capabilities by domain outcomes rather than listing >6–8 tools in a single comma chain.
-     * SHORT SKIMMABLE PARAGRAPHS with clean line breaks.
-     * ZERO BULLET DUMPS: Strictly FORBID bullet lists (NO ▸, NO -, NO *). Recruiter research confirms bulleted About sections feel like lazy second resumes.
-     * ZERO KEYWORD CLOUDS: Do NOT append raw "Core Competencies" or skill tag clouds at the bottom.
-     * ZERO EMOJIS: Strictly forbid emoji spam. Corporate engineering leaders and hiring executives view emoji spam as amateur.
-  4. PART 4: Simple, Natural Closing CTA Line (30–50 words / 1–2 sentences):
-     * One confident, peer-to-peer invitation inviting hiring managers, founders, and engineering leaders to connect.
-- "fullText": Complete copy-paste ready executive About narrative combining all 4 parts with clean paragraph breaks (250–380 words, ~1,600–2,200 chars, ZERO emojis, ZERO bullet points).
+ABOUT SECTION ARCHITECTURE (3-PARAGRAPH STORYTELLING FRAMEWORK / ~1,000 CHARACTERS):
+- LINKEDIN CHARACTER BUDGET & TARGET: Target exactly 3 paragraphs totaling 900–1,150 characters (~1,000 characters including spaces). Research confirms recruiters skip 2,000+ character walls of text; a concise ~1,000 character narrative maximizes read-through velocity.
+- VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as an authentic, confident, approachable builder.
+- EXACT 3-PARAGRAPH STORYTELLING STRUCTURE:
+  1. PARAGRAPH 1 — Professional Journey & Credibility Hook (280–380 characters):
+     * Formula: Career motivation/journey + verified YOE + core engineering expertise + strongest verified measurable milestone.
+     * Open directly with substance. Strictly FORBID generic cliché openers like "I am a passionate professional...", "Results-driven engineer with...", or "Throughout my career...".
+     * Ground strictly in verified resume metrics (e.g. latency cut, systems scaled, efficiency gains).
+  2. PARAGRAPH 2 — Specialization & Concrete Proof (340–440 characters):
+     * Formula: Current technical specialization + problems solved + verified tools/technologies + 1–2 real projects or architectures with concrete outcomes from the resume.
+     * Weave 5–8 high-value recruiter search keywords naturally into conversational prose.
+     * ZERO BULLET POINTS: Write as flowing, engaging narrative prose.
+  3. PARAGRAPH 3 — Education, Direction & Natural Networking (250–350 characters):
+     * Formula: Relevant verified education (degree/university) or verified certifications if present in the resume context (OMIT if not present in resume — NEVER invent degrees, universities, or credentials) + key professional interests/career direction + confident, peer-to-peer networking invitation.
+     * Close with a warm, natural invitation for engineering leaders, founders, and recruiters to connect.
+- STRICT NEGATIVE CONSTRAINTS:
+  * Exactly 3 paragraphs separated by "\n\n".
+  * ZERO emojis (no rockets, no checkmarks, no fire, no pointing fingers).
+  * ZERO hashtags (no #opentowork, no #ai, no #software).
+  * ZERO bullet points (no ▸, no -, no *, no bullet lists).
+  * ZERO section labels/headers inside fullText (do NOT write "Paragraph 1:", "Hook:", or "About Me:" inside the narrative).
+  * ZERO HALLUCINATED CREDENTIALS: If education or certifications are not in the resume, omit them naturally and focus on professional direction and networking.
 
 TOP 3 PINNED SKILLS & RED FLAGS:
 - Top 3 highest-leverage verified skills visible in recruiter search cards.
@@ -277,11 +297,11 @@ REQUIRED JSON SCHEMA (RETURN ONLY VALID JSON):
     }
   ],
   "aboutRewrite": {
-    "hook": "Strong measurable result / credibility hook from past work in first-person voice (60-80 words)",
-    "audienceAndProblem": "Target employers and core business/technical problem solved (60-80 words)",
-    "approachAndSkills": "Approach, verified experience, and core skills grouped by domain outcomes (80-120 words, NO bullet points, NO emojis)",
-    "closingCta": "Simple, natural closing line inviting hiring managers and leaders to connect (30-50 words)",
-    "fullText": "Complete copy-paste ready About section combining all 4 parts with clean paragraph breaks (250-380 words, ~1600-2200 chars, ZERO emojis, ZERO bullet points)"
+    "professionalJourney": "Paragraph 1 narrative covering career journey, verified YOE, core expertise, and key metric milestone (280-380 chars, first-person)",
+    "specializationAndProof": "Paragraph 2 narrative covering specialization, problems solved, verified tools/stack, and concrete project outcomes (340-440 chars)",
+    "directionAndNetworking": "Paragraph 3 narrative weaving verified education/certifications if present, professional interests, and a natural peer-to-peer networking invite (250-350 chars)",
+    "fullText": "Complete copy-paste ready 3-paragraph About section joining paragraphs 1-3 with clean double line breaks (900-1150 chars total, ZERO emojis, ZERO bullets, ZERO hashtags)",
+    "keywordsUsed": ["Keyword 1", "Keyword 2", "Keyword 3", "Keyword 4", "Keyword 5"]
   },
   "top3PinnedSkills": ["Skill 1", "Skill 2", "Skill 3"],
   "profileRedFlags": [
@@ -312,6 +332,8 @@ export function buildTask1HeadlinesAndBannerPrompt(params = {}) {
       experience: params.topExperiences,
       projects: params.topProjects,
       skills: params.topSkills,
+      education: params.education || params.topEducation,
+      certifications: params.certifications || params.topCertifications,
     },
     targetRole: params.targetRole,
   }

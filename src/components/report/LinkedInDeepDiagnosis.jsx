@@ -488,28 +488,26 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       ? `${targetRole} | ${skillsStr} | Enterprise Analytics & Data Strategy`
       : `${targetRole} | ${skillsStr} | Driving Operational Excellence`
 
-  // 4-Part Video Copywriting Framework for LinkedIn About (900–1,500 chars / 160–250 words)
-  const richFallbackHook = isSoftwareRole
-    ? `Over the past ${yoe}+ years, I have architected high-concurrency microservices, cloud backends, and distributed data pipelines sustaining 99.99% uptime. As a ${targetRole}, I translate complex engineering challenges into low-latency, scalable production solutions.`
+  // 3-Paragraph Storytelling Framework for LinkedIn About (~1,000 chars / ~900–1,150 chars)
+  const richFallbackJourney = isSoftwareRole
+    ? `Over the past ${yoe}+ years, I have focused my engineering career on architecting resilient cloud backends, modernizing distributed microservices, and solving intricate scalability bottlenecks. As a ${targetRole}, I translate complex architectural challenges into high-velocity production solutions while driving measurable delivery impact.`
     : isDataRole
-    ? `Over the past ${yoe}+ years, I have transformed enterprise datasets into automated reporting pipelines, modern cloud data architectures, and executive decision intelligence. As a ${targetRole}, I specialize in building star schemas and optimizing analytical queries across Snowflake and BigQuery to eliminate reporting bottlenecks.`
-    : `Over the past ${yoe}+ years, I have orchestrated high-stakes cross-functional programs, modernizing operational workflows and driving measurable efficiency. As a ${targetRole}, I bridge technical execution with business strategy to accelerate organizational velocity.`
+    ? `Over the past ${yoe}+ years, I have dedicated my career to transforming fragmented datasets into trusted analytical architectures, automated pipelines, and actionable executive intelligence. As a ${targetRole}, I specialize in optimizing query performance and building scalable data models that eliminate reporting bottlenecks.`
+    : `Over the past ${yoe}+ years, I have orchestrated cross-functional initiatives, modernizing legacy operational workflows and driving measurable efficiency. As a ${targetRole}, I bridge technical execution with business strategy to accelerate organizational delivery.`
 
-  const richFallbackAudience = isSoftwareRole
-    ? `I partner with engineering teams and product leaders that need to modernize legacy architectures, enforce strict API contract safety, and sustain low-latency system performance under heavy user loads.`
+  const richFallbackSpecialization = isSoftwareRole
+    ? `My technical specialization centers on ${skillsStr || 'React, TypeScript, Node.js, and AWS'}, engineering modular systems designed for low-latency performance and high reliability. By coupling domain-driven design with automated test coverage and containerized CI/CD delivery, I eliminate system bottlenecks and ensure platform stability under production demand.`
     : isDataRole
-    ? `I partner with enterprise leadership, product managers, and analytics teams seeking to eliminate data silos, automate ETL ingestion, and deliver trusted self-service dashboards for executive decision-making.`
-    : `I partner with organizational leadership and operational units looking to streamline cross-departmental execution, eliminate process waste, and establish clear KPI accountability.`
+    ? `My methodology pairs dimensional data modeling with automated query optimization and rigorous validation using ${skillsStr || 'SQL, Power BI, Python, and Snowflake'}. I focus on building dependable ingestion workflows and self-service analytics that empower leadership to make high-confidence decisions with zero reporting delay.`
+    : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I leverage ${skillsStr || 'strategic roadmapping and cross-team alignment'} to build high-agency cultures and repeatable delivery cadence across critical milestones.`
 
-  const richFallbackApproach = isSoftwareRole
-    ? `My methodology combines clean system design with automated test coverage and containerized CI/CD delivery. I work primarily with ${skillsStr || 'React, TypeScript, Node.js, and AWS'}, focusing on high-reliability cloud services that scale predictably without regressions.`
+  const richFallbackNetworking = isSoftwareRole
+    ? `Grounding my work in modern cloud infrastructure and clean design principles, I remain focused on exploring emerging architectures and high-impact distributed systems. If you are scaling high-reliability platforms or looking for proven ${targetRole} expertise, let's connect and discuss how we can build together.`
     : isDataRole
-    ? `My methodology pairs dimensional data modeling with automated query optimization and rigorous validation. I work primarily with ${skillsStr || 'SQL, Power BI, Python, and Tableau'}, enabling stakeholders to uncover growth levers with zero reporting delay.`
-    : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I leverage ${skillsStr || 'agile methodologies and executive alignment'} to foster high-agency teams and repeatable project delivery.`
+    ? `I remain focused on advancing modern data stack practices and delivering clean data products that drive measurable business outcomes. If your organization is modernizing its analytics infrastructure or looking for dedicated ${targetRole} expertise, let's connect.`
+    : `I remain dedicated to elevating organizational operational standards and driving scalable business impact. If you are expanding your leadership team or tackling operational transformation, let's connect.`
 
-  const richFallbackProof = richFallbackApproach
-  const richFallbackCta = `If you are scaling high-impact initiatives or looking for proven ${targetRole} expertise, let's connect!`
-  const richFallbackAbout = `${richFallbackHook}\n\n${richFallbackAudience}\n\n${richFallbackApproach}\n\n${richFallbackCta}`
+  const richFallbackAbout = `${richFallbackJourney}\n\n${richFallbackSpecialization}\n\n${richFallbackNetworking}`
   const fallbackAbout = richFallbackAbout
 
   const headline = linkedinAgent?.optimizations?.headlines?.[0]?.headline || fallbackHeadline
@@ -648,11 +646,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   const optimizations = rawOptimizations || {
     headlines: fallbackHeadlinesList,
     aboutRewrite: {
-      hook: richFallbackHook,
-      audienceAndProblem: richFallbackAudience,
-      approachAndSkills: richFallbackApproach,
-      callToAction: richFallbackCta,
+      professionalJourney: richFallbackJourney,
+      specializationAndProof: richFallbackSpecialization,
+      directionAndNetworking: richFallbackNetworking,
       fullText: richFallbackAbout,
+      keywordsUsed: coreSkillList,
+      hook: richFallbackJourney,
+      approachAndSkills: richFallbackSpecialization,
+      closingCta: richFallbackNetworking,
+      callToAction: richFallbackNetworking,
     },
     top3PinnedSkills: pinnedSkills,
     recommendedSkillsToAdd: fallbackRecommendedSkills,
@@ -1075,25 +1077,30 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   ]
 
 
-  // Calculate About section statistics safely & apply Auto-Enrichment Guard
+  // Calculate About section statistics safely & apply Auto-Enrichment Guard (3-Paragraph Framework)
   const rawAbout = optimizations?.aboutRewrite || null
   const aboutIsString = typeof rawAbout === 'string'
-  let hookText = safeText(rawAbout?.hook)
-  let audienceText = safeText(rawAbout?.audienceAndProblem)
-  let approachText = safeText(rawAbout?.approachAndSkills)
-  let ctaText = safeText(rawAbout?.closingCta || rawAbout?.callToAction)
+
+  const journeyText = safeText(rawAbout?.professionalJourney || rawAbout?.hook)
+  const specializationText = safeText(rawAbout?.specializationAndProof || rawAbout?.approachAndSkills)
+  const legacyAudienceText = safeText(rawAbout?.audienceAndProblem)
+  const networkingText = safeText(rawAbout?.directionAndNetworking || rawAbout?.closingCta || rawAbout?.callToAction)
+  const keywordsUsed = Array.isArray(rawAbout?.keywordsUsed) ? rawAbout.keywordsUsed.filter(Boolean) : []
   let fallbackFullText = safeText(rawAbout?.fullText)
 
-  const initialCombined = aboutIsString ? rawAbout : (fallbackFullText || [hookText, audienceText, approachText, ctaText].filter(Boolean).join('\n\n'))
+  const initialCombined = aboutIsString
+    ? rawAbout
+    : (fallbackFullText || [journeyText, legacyAudienceText, specializationText, networkingText].filter(Boolean).join('\n\n'))
   const initialWords = initialCombined.trim() ? initialCombined.trim().split(/\s+/).filter(Boolean).length : 0
 
   if (!aboutIsString) {
-    if (!hookText) hookText = richFallbackHook
-    if (!audienceText) audienceText = richFallbackAudience
-    if (!approachText) approachText = richFallbackApproach
-    if (!ctaText) ctaText = richFallbackCta
     if (!fallbackFullText) {
-      fallbackFullText = `${hookText}\n\n${audienceText}\n\n${approachText}\n\n${ctaText}`
+      fallbackFullText = [
+        journeyText || richFallbackJourney,
+        legacyAudienceText,
+        specializationText || richFallbackSpecialization,
+        networkingText || richFallbackNetworking,
+      ].filter(Boolean).join('\n\n')
     }
   } else if (aboutIsString && initialWords < 40) {
     fallbackFullText = richFallbackAbout
@@ -1101,7 +1108,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
   const fullAboutText = (aboutIsString && initialWords >= 40)
     ? rawAbout
-    : (fallbackFullText || [hookText, audienceText, approachText, ctaText].filter(Boolean).join('\n\n'))
+    : (fallbackFullText || [
+        journeyText || richFallbackJourney,
+        legacyAudienceText,
+        specializationText || richFallbackSpecialization,
+        networkingText || richFallbackNetworking,
+      ].filter(Boolean).join('\n\n'))
 
   const aboutWordCount = fullAboutText.trim()
     ? fullAboutText.trim().split(/\s+/).filter(Boolean).length
@@ -1702,7 +1714,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
           {rawAbout && (
             <div
               id="linkedin-about"
-              data-mascot-cue="Story-driven 4-part About section: hook decision-makers within 8 seconds."
+              data-mascot-cue="Story-driven 3-paragraph About section: hook decision-makers in ~1,000 characters."
               data-mascot-chip="Story Narrative"
               data-mascot-emotion="speaking"
               className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs"
@@ -1714,11 +1726,11 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                       Story-Driven About Section Rewrite
                     </h4>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium tabular-nums">
-                      {aboutWordCount} words · {aboutCharCount} chars (limit: 2,600)
+                      {aboutWordCount} words · {aboutCharCount} chars (target: ~1,000)
                     </span>
                   </div>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Structured using the 4-part video copywriting framework: Credibility Hook → Target Audience &amp; Problem → Approach &amp; Skills → Natural Closing CTA
+                    Structured using the 3-paragraph storytelling framework: Professional Journey → Specialization &amp; Proof → Education, Direction &amp; CTA
                   </p>
                 </div>
 
@@ -1748,47 +1760,62 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{rawAbout}</p>
                 ) : (
                   <>
-                    {hookText && (
+                    {(journeyText || richFallbackJourney) && (
                       <div className="space-y-1">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--primary)]">
-                          Part 1: Credibility &amp; Measurable Outcome Hook
+                          1. Professional Journey &amp; Credibility Hook
                         </span>
                         <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap leading-relaxed">
-                          {hookText}
+                          {journeyText || richFallbackJourney}
                         </p>
                       </div>
                     )}
-                    {audienceText && (
+                    {legacyAudienceText && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
-                          Part 2: Target Audience &amp; Core Problem Solved
+                          Target Audience &amp; Core Problem Solved
                         </span>
                         <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
-                          {audienceText}
+                          {legacyAudienceText}
                         </p>
                       </div>
                     )}
-                    {approachText && (
+                    {(specializationText || richFallbackSpecialization) && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
                         <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
-                          Part 3: Approach, Experience &amp; Key Skills
+                          2. Specialization &amp; Concrete Proof
                         </span>
                         <p className="text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
-                          {approachText}
+                          {specializationText || richFallbackSpecialization}
                         </p>
                       </div>
                     )}
-                    {ctaText && (
+                    {(networkingText || richFallbackNetworking) && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--text-muted)]">
-                          Part 4: Simple, Natural Closing CTA
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-sky-600 dark:text-sky-400">
+                          3. Education, Direction &amp; Networking CTA
                         </span>
                         <p className="text-[var(--text-primary)] italic whitespace-pre-wrap leading-relaxed">
-                          {ctaText}
+                          {networkingText || richFallbackNetworking}
                         </p>
                       </div>
                     )}
-                    {!hookText && !approachText && !ctaText && fallbackFullText && (
+                    {keywordsUsed.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[var(--border-default)]">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mr-1">
+                          Keywords Weaved:
+                        </span>
+                        {keywordsUsed.map((kw, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-card)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium"
+                          >
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {!journeyText && !specializationText && !networkingText && fallbackFullText && (
                       <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                         {fallbackFullText}
                       </p>

@@ -712,13 +712,19 @@ export default function CareerReportPdf({ reportData = {} }) {
       ]
 
   const aboutRewrite = linkedinAgent.optimizations?.aboutRewrite || {
-    hook: `Over the past years as a ${targetRole}, I have focused on solving high-concurrency challenges, modernizing legacy systems, and delivering low-latency software.`,
-    audienceAndProblem: 'I partner with cross-functional engineering teams and product leaders looking to sustain reliable releases and eliminate architectural bottlenecks.',
-    approachAndSkills: 'My approach pairs clean system design with automated test suites and continuous delivery, focusing on maintainable solutions that scale.',
-    closingCta: `If you are scaling high-impact engineering initiatives or looking for a ${targetRole}, let's connect!`,
+    professionalJourney: `Over the past years as a ${targetRole}, I have focused on solving high-concurrency challenges, modernizing legacy systems, and delivering low-latency software.`,
+    specializationAndProof: 'My core specialization pairs clean system design with automated test suites and continuous delivery, focusing on maintainable solutions that scale predictable engineering impact.',
+    directionAndNetworking: `Holding verified engineering experience, I am focused on scaling high-impact initiatives. If you are looking for a ${targetRole}, let's connect!`,
+    keywordsUsed: ['Distributed Systems', 'Cloud Architecture', 'APIs', 'CI/CD'],
   }
 
-  const ctaText = safeStr(aboutRewrite?.closingCta || aboutRewrite?.callToAction)
+  const journeyText = safeStr(aboutRewrite?.professionalJourney || aboutRewrite?.hook)
+  const specializationText = safeStr(aboutRewrite?.specializationAndProof || aboutRewrite?.approachAndSkills)
+  const legacyAudienceText = safeStr(aboutRewrite?.audienceAndProblem)
+  const networkingText = safeStr(aboutRewrite?.directionAndNetworking || aboutRewrite?.closingCta || aboutRewrite?.callToAction)
+  const aboutKeywords = Array.isArray(aboutRewrite?.keywordsUsed)
+    ? aboutRewrite.keywordsUsed.map(safeStr).filter(Boolean)
+    : []
 
   // Top Pinned Skills & Skills Bank
   const pinnedSkills = Array.isArray(linkedinAgent.optimizations?.top3PinnedSkills) && linkedinAgent.optimizations.top3PinnedSkills.length > 0
@@ -1629,51 +1635,50 @@ export default function CareerReportPdf({ reportData = {} }) {
           )
         })}
 
-        {/* 2x2 Bento Grid for 4-Part About Narrative */}
+        {/* 3-Paragraph Storytelling About Narrative */}
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
-          <Text style={styles.sectionTitle}>Story-Driven LinkedIn About Rewrite (2x2 Architecture)</Text>
-          <Text style={styles.sectionTag}>EXECUTIVE NARRATIVE</Text>
+          <Text style={styles.sectionTitle}>Story-Driven LinkedIn About Rewrite (3-Paragraph Architecture)</Text>
+          <Text style={styles.sectionTag}>~1,000 CHARACTERS</Text>
         </View>
 
         <View style={styles.card} wrap={false}>
-          <View style={[styles.grid2, { marginBottom: 4 }]}>
-            <View style={styles.col2}>
-              <View style={styles.aboutPillar}>
-                <Text style={styles.aboutPillarLabel}>1. HOOK & PROOF</Text>
-                <Text style={styles.aboutPillarText}>{safeStr(aboutRewrite.hook)}</Text>
-              </View>
-            </View>
-            <View style={styles.col2}>
-              <View style={styles.aboutPillar}>
-                <Text style={styles.aboutPillarLabel}>2. AUDIENCE & CORE PROBLEM</Text>
-                <Text style={styles.aboutPillarText}>{safeStr(aboutRewrite.audienceAndProblem)}</Text>
-              </View>
-            </View>
+          {/* Paragraph 1 */}
+          <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+            <Text style={styles.aboutPillarLabel}>1. PROFESSIONAL JOURNEY & CREDIBILITY HOOK</Text>
+            <Text style={styles.aboutPillarText}>{journeyText}</Text>
           </View>
 
-          <View style={[styles.grid2, { marginBottom: 0 }]}>
-            <View style={styles.col2}>
-              <View style={styles.aboutPillar}>
-                <Text style={styles.aboutPillarLabel}>3. METHODOLOGY & SKILLS</Text>
-                <Text style={styles.aboutPillarText}>{safeStr(aboutRewrite.approachAndSkills)}</Text>
-              </View>
+          {/* Legacy Audience block if present in older saved report */}
+          {Boolean(legacyAudienceText) && (
+            <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+              <Text style={styles.aboutPillarLabel}>TARGET AUDIENCE & PROBLEM</Text>
+              <Text style={styles.aboutPillarText}>{legacyAudienceText}</Text>
             </View>
-            <View style={styles.col2}>
-              {Boolean(ctaText) ? (
-                <View style={styles.aboutPillar}>
-                  <Text style={styles.aboutPillarLabel}>4. CLOSING CALL TO ACTION</Text>
-                  <Text style={styles.aboutPillarText}>{ctaText}</Text>
-                </View>
-              ) : (
-                <View style={[styles.aboutPillar, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0' }]}>
-                  <Text style={styles.aboutPillarLabel}>4. ENGAGEMENT FOCUS</Text>
-                  <Text style={styles.aboutPillarText}>
-                    Open to technical leadership and high-impact engineering initiatives in {targetRole}.
-                  </Text>
-                </View>
-              )}
-            </View>
+          )}
+
+          {/* Paragraph 2 */}
+          <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+            <Text style={styles.aboutPillarLabel}>2. SPECIALIZATION & CONCRETE PROOF</Text>
+            <Text style={styles.aboutPillarText}>{specializationText}</Text>
           </View>
+
+          {/* Paragraph 3 */}
+          <View style={[styles.aboutPillar, { marginBottom: aboutKeywords.length > 0 ? 3 : 0 }]}>
+            <Text style={styles.aboutPillarLabel}>3. EDUCATION, DIRECTION & NETWORKING CTA</Text>
+            <Text style={styles.aboutPillarText}>{networkingText}</Text>
+          </View>
+
+          {/* Keywords Weaved Footer if present */}
+          {aboutKeywords.length > 0 && (
+            <View style={[styles.rowBetween, { marginTop: 2, paddingTop: 3, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }]}>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                INDEXED KEYWORDS WEAVED:
+              </Text>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica', color: '#64748B' }}>
+                {aboutKeywords.slice(0, 8).join(' • ')}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Top Pinned & Missing Skills Bank */}
