@@ -234,14 +234,24 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         requiredImprovement: 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], proven in [Primary Outcome].',
       },
       experience: {
-        score10: Math.max(1, Math.min(10, Math.round(impactScore / 10))),
-        status: impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
+        score10: (totalBullets > 0 && quantBullets === 0)
+          ? Math.min(5, Math.round(impactScore / 10))
+          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? Math.min(7, Math.round(impactScore / 10))
+          : Math.max(1, Math.min(10, Math.round(impactScore / 10))),
+        status: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? 'warn'
+          : impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
         label: 'Experience Bullets & Quantified Impact',
-        whatsHurting: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
+        whatsHurting: (totalBullets > 0 && quantBullets === 0)
+          ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
           : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
-        hurtingReason: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? `Only ${quantBullets} of ${totalBullets} bullets contain measurable metrics, falling below the 50% recruiter benchmark.`
+        hurtingReason: (totalBullets > 0 && quantBullets === 0)
+          ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+          ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
           : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
         requiredImprovement: 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).',
       },

@@ -55,7 +55,7 @@ const SAMPLE_TEST_DATA = {
 }
 
 export default function AssessmentShell() {
-  const { currentStep, direction, setCurrentStep, setPhase, setBulkFormData, theme, toggleTheme } = useAppStore()
+  const { currentStep, direction, setCurrentStep, setPhase, setBulkFormData, formData, theme, toggleTheme } = useAppStore()
   const step = STEPS[currentStep]
   const totalSteps = STEPS.length
   const progress = Math.round(((currentStep + 1) / totalSteps) * 100)
@@ -79,7 +79,7 @@ export default function AssessmentShell() {
   const goNext = () => {
     // Scrape LinkedIn profile via Apify (0 LLM calls) when user advances from LinkedIn question
     if (step.name === 'linkedin') {
-      const linkedinUrl = formData?.linkedin
+      const linkedinUrl = useAppStore.getState().formData?.linkedin || formData?.linkedin
       if (linkedinUrl && typeof window !== 'undefined') {
         if (window.__linkedinScrapeInProgress !== linkedinUrl && !window.__linkedinScrapePromise) {
           window.__linkedinScrapeInProgress = linkedinUrl

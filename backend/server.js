@@ -100,6 +100,7 @@ const aiLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET',
   message: {
     success: false,
     message: 'Too many requests to AI evaluation services. Please try again in 15 minutes.',
