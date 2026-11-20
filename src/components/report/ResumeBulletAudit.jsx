@@ -556,6 +556,11 @@ export default function ResumeBulletAudit({
                               <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
                             </span>
                           )}
+                          {item.metricSource === 'ai_calibrated' && item.evidenceStatus !== 'CANDIDATE_CONFIRMED' && item.evidenceStatus !== 'CALCULATED' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title="Verify this calibrated benchmark before your interview">
+                              Suggested benchmark — verify before interview
+                            </span>
+                          )}
                         </div>
                         <CopyButton
                           text={item.rewritten}

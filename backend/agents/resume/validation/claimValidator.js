@@ -205,7 +205,7 @@ export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, cano
   }
 
   // Regex patterns for numeric claims
-  const NUMERIC_CLAIM_REGEX = /\b(?:\$\s*\d+(?:[.,]\d+)?(?:\s*(?:k|m|b|million|billion))?|\d+(?:\.\d+)?%|\d+(?:\.\d+)?x|\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|b|million|billion)\+?|\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|hrs?))\b/gi
+  const NUMERIC_CLAIM_REGEX = /(?:\b\$\s*\d+(?:[.,]\d+)?(?:\s*(?:k|m|b|million|billion))?\b|\b\d+(?:\.\d+)?%(?!\w)|\b\d+(?:\.\d+)?x\b|\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|b|million|billion)\+?\b|\b\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|hrs?)\b)/gi
 
   NUMERIC_CLAIM_REGEX.lastIndex = 0
   const unverifiedClaims = []
@@ -236,11 +236,18 @@ export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, cano
   let sanitized = correctedText
 
   // 1. Latency / speed percentage phrases:
-  sanitized = sanitized.replace(/,\s*(?:cutting|reducing|slashing|dropping)\s+([^,.]+?)\s+by\s+\d+(?:\.\d+)?%/gi, ', optimizing $1')
-  sanitized = sanitized.replace(/\b(?:cutting|reducing|slashing|dropping)\s+([^,.]+?)\s+by\s+\d+(?:\.\d+)?%/gi, 'optimizing $1')
+  sanitized = sanitized.replace(/,\s*(?:cutting|reducing|slashing|dropping|accelerating|increasing|elevating|improving)\s+([^,.]+?)\s+by\s+\d+(?:\.\d+)?%/gi, ', optimizing $1')
+  sanitized = sanitized.replace(/\b(?:cutting|reducing|slashing|dropping|accelerating|increasing|elevating|improving)\s+([^,.]+?)\s+by\s+\d+(?:\.\d+)?%/gi, 'optimizing $1')
 
-  // 2. "from X to Y" duration / turnaround drops
+  // 1b. "to X/100" scores
+  sanitized = sanitized.replace(/\b(?:from\s+\d+\s+)?to\s+\d+\s*\/\s*100\b/gi, 'measurably')
+
+  // 1c. "from X to Y" duration / turnaround drops
+  sanitized = sanitized.replace(/\bfrom\s+\d+\s*(?:days?|hours?|weeks?|mins?)\s+to\s+\d+\s*(?:days?|hours?|weeks?|mins?)\b/gi, 'measurably')
   sanitized = sanitized.replace(/\bfrom\s+[^,.]+\s+to\s+[^,.]+(?=[,.]|$)/gi, 'measurably')
+
+  // 2. "across 500+ shifts" or similar unverified counts
+  sanitized = sanitized.replace(/\bacross\s+\d+\+?\s+patient\s+shifts\b/gi, 'across clinical patient shifts')
 
   // 3. Uptime percentages
   sanitized = sanitized.replace(/\b(?:with\s+|sustaining\s+)?99(?:\.\d+)?%\s*(?:uptime|service\s+availability|availability)\b/gi, 'with high system availability')
@@ -264,7 +271,7 @@ export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, cano
   sanitized = sanitized.replace(/\$\s*\d+(?:[.,]\d+)?(?:\s*(?:k|m|b|million|billion))?\b/gi, 'budgeted resources')
 
   // 9. Remove any remaining raw percentages not in allowed tokens
-  sanitized = sanitized.replace(/\b\d+(?:\.\d+)?%\b/g, (pct) => {
+  sanitized = sanitized.replace(/\b\d+(?:\.\d+)?%(?!\w)/g, (pct) => {
     return allowed.has(pct.toLowerCase().replace(/\s+/g, '')) ? pct : ''
   })
 

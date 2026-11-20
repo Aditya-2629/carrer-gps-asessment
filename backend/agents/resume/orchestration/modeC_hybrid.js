@@ -23,7 +23,7 @@ import { resolveTaskPolicy } from './taskPolicy.js'
 import { extractSkillsFromJd } from '../market/jdNormalizer.js'
 import { analyzeTimeline } from '../signals/timelineAnalyzer.js'
 import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
-import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
+import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isTrueQuantified } from '../scoring/resumeScorecard.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 import { IMPACT_POLICY_INSTRUCTIONS, normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
@@ -42,6 +42,12 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
   }
 
   const role = targetRole || (experiences[0]?.role) || 'Experienced Professional'
+  const lowerRole = role.toLowerCase()
+  const isHealthcare = /nurse|nursing|clinical|patient|hospital|physician|doctor|medical|healthcare|hipaa|ehr|epic\b|triage/i.test(lowerRole)
+  const isFinance = /finance|financial|fp&a|accounting|accountant|audit|gaap|cpa\b|banking|treasury|controller|budget|p&l/i.test(lowerRole)
+  const isSales = /sales|account\s+exec|quota|pipeline|bdr\b|sdr\b|business\s+dev|client\s+exec|commercial/i.test(lowerRole)
+  const isData = /data\s+analyst|data\s+eng|data\s+sci|bi\s+developer|analytics|tableau|power\s*bi|snowflake|dbt|sql\b/i.test(lowerRole)
+
   const skillsList = Array.isArray(skills) 
     ? skills 
     : (skills && typeof skills === 'object')
@@ -51,7 +57,7 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
   // Extract real tools from candidate's currentSummary if available
   const existingTools = []
   if (currentSummary && typeof currentSummary === 'string') {
-    const techRegex = /\b(?:React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|Python|Django|FastAPI|AWS|Azure|GCP|Docker|Kubernetes|SQL|PostgreSQL|MySQL|MongoDB|Redis|Kafka|GraphQL|REST|CI\/CD|Terraform|HTML5?|CSS3?|Tailwind|Jasmine|Karma|Jest|Cypress|WCAG|Microservices|RAG)\b/gi
+    const techRegex = /\b(?:React|Angular|Vue|TypeScript|JavaScript|Node\.?js|Next\.?js|Java|Spring Boot|Python|Django|FastAPI|AWS|Azure|GCP|Docker|Kubernetes|SQL|PostgreSQL|MySQL|MongoDB|Redis|Kafka|GraphQL|REST|CI\/CD|Terraform|HTML5?|CSS3?|Tailwind|Jasmine|Karma|Jest|Cypress|WCAG|Microservices|RAG|Epic|EHR|EMR|HIPAA|SAP|ERP|Excel|Tableau|Power\s*BI|Snowflake|dbt|Salesforce|CRM|GAAP)\b/gi
     let m
     while ((m = techRegex.exec(currentSummary)) !== null) {
       existingTools.push(m[0])
@@ -63,7 +69,14 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
     ...existingTools,
   ])).filter(Boolean)
 
-  const topTools = combinedSkills.slice(0, 8).join(', ') || 'modern full-stack systems and scalable cloud infrastructure'
+  let defaultToolFallback = 'modern technical systems and operational best practices'
+  if (isHealthcare) defaultToolFallback = 'patient care management, clinical protocols, and EHR systems'
+  else if (isFinance) defaultToolFallback = 'financial modeling, GAAP compliance, and ERP systems'
+  else if (isSales) defaultToolFallback = 'enterprise prospecting, pipeline management, and CRM platforms'
+  else if (isData) defaultToolFallback = 'SQL, business intelligence platforms, and data modeling'
+  else defaultToolFallback = 'modern full-stack systems and scalable cloud infrastructure'
+
+  const topTools = combinedSkills.slice(0, 8).join(', ') || defaultToolFallback
   const primaryCompany = experiences[0]?.company || experiences[0]?.employer || ''
 
   // Look for any verified metric or project from experiences
@@ -80,12 +93,45 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
   }
 
   const sentence1 = `${role} specializing in ${topTools}.`
-  const sentence2 = topWin
-    ? `Proven track record of engineering impact: ${topWin.replace(/\.$/, '')}.`
-    : `Demonstrated track record of delivering resilient, high-availability architecture and modernizing production software${primaryCompany ? ` at ${primaryCompany}` : ''}.`
-  const sentence3 = missingSkills && missingSkills.length > 0
-    ? `Drives end-to-end technical execution with focus on scalable system performance, code quality, and integration of ${missingSkills.slice(0, 2).join(' and ')}.`
-    : `Drives end-to-end technical execution with strong focus on performance optimization, robust automated testing, and production scale.`
+  let sentence2 = ''
+  let sentence3 = ''
+
+  if (isHealthcare) {
+    sentence2 = topWin
+      ? `Proven track record of clinical care excellence: ${topWin.replace(/\.$/, '')}.`
+      : `Demonstrated track record of delivering compassionate, high-acuity patient care, maintaining stringent clinical compliance, and optimizing patient outcomes${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    sentence3 = missingSkills && missingSkills.length > 0
+      ? `Coordinates interdisciplinary patient care with a strong focus on clinical documentation, patient safety, and utilization of ${missingSkills.slice(0, 2).join(' and ')}.`
+      : `Coordinates interdisciplinary care delivery with a strong commitment to patient safety, HIPAA regulatory adherence, and evidence-based clinical workflows.`
+  } else if (isFinance) {
+    sentence2 = topWin
+      ? `Proven track record of financial modeling impact: ${topWin.replace(/\.$/, '')}.`
+      : `Demonstrated track record of delivering rigorous financial modeling, optimizing variance analysis, and strengthening corporate reporting accuracy${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    sentence3 = missingSkills && missingSkills.length > 0
+      ? `Drives financial operational excellence with focus on GAAP compliance, budget forecasting, and integration of ${missingSkills.slice(0, 2).join(' and ')}.`
+      : `Drives financial operational excellence with strong focus on budgeting accuracy, GAAP compliance, and strategic capital allocation.`
+  } else if (isSales) {
+    sentence2 = topWin
+      ? `Proven track record of commercial quota attainment: ${topWin.replace(/\.$/, '')}.`
+      : `Demonstrated track record of exceeding revenue quotas, accelerating enterprise pipeline velocity, and negotiating high-value customer contracts${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    sentence3 = missingSkills && missingSkills.length > 0
+      ? `Drives enterprise pipeline expansion with focus on consultative discovery, customer relationship management, and deployment of ${missingSkills.slice(0, 2).join(' and ')}.`
+      : `Drives sustained commercial growth with strong focus on consultative solution selling, client relationship cultivation, and high-impact deal execution.`
+  } else if (isData) {
+    sentence2 = topWin
+      ? `Proven track record of data analytics delivery: ${topWin.replace(/\.$/, '')}.`
+      : `Demonstrated track record of transforming raw data into high-leverage business intelligence, automating ETL pipelines, and optimizing analytical reporting${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    sentence3 = missingSkills && missingSkills.length > 0
+      ? `Drives data-informed decision-making with focus on data modeling integrity, query performance optimization, and integration of ${missingSkills.slice(0, 2).join(' and ')}.`
+      : `Drives data-informed decision-making with strong focus on data modeling integrity, query performance optimization, and cross-functional reporting.`
+  } else {
+    sentence2 = topWin
+      ? `Proven track record of engineering impact: ${topWin.replace(/\.$/, '')}.`
+      : `Demonstrated track record of delivering resilient, high-availability architecture and modernizing production software${primaryCompany ? ` at ${primaryCompany}` : ''}.`
+    sentence3 = missingSkills && missingSkills.length > 0
+      ? `Drives end-to-end technical execution with focus on scalable system performance, code quality, and integration of ${missingSkills.slice(0, 2).join(' and ')}.`
+      : `Drives end-to-end technical execution with strong focus on performance optimization, robust automated testing, and production scale.`
+  }
 
   return `${sentence1} ${sentence2} ${sentence3}`.trim()
 }
@@ -284,6 +330,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       iss.metricOpportunities = normalizeMetricOpportunities(
         iss.metricOpportunities || iss.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
       )
+      iss.metricSource = isTrueQuantified(origText) ? 'resume_verified' : (isTrueQuantified(iss.correctedText) ? 'ai_calibrated' : null)
     })
   } else {
     analysis.issues = []
@@ -307,6 +354,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
         const metricOpps = normalizeMetricOpportunities(
           rw.metricOpportunities || rw.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
         )
+        const metricSource = isTrueQuantified(origText) ? 'resume_verified' : (isTrueQuantified(cleanedText) ? 'ai_calibrated' : null)
         return {
           ...rw,
           original: origText,
@@ -317,6 +365,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           critique: rw.critique || rw.reason || rw.diagnosis || '',
           whyItWorks,
           why: whyItWorks,
+          metricSource,
           metricOpportunities: metricOpps,
           fiveParts: rw.fiveParts || rw.fivePartFlags || null,
           impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
@@ -393,10 +442,12 @@ export function sanitizeModeCOutput(analysis, state = {}) {
         const metricOpps = normalizeMetricOpportunities(
           upg.metricOpportunities || upg.discoveryOpportunities || generateFallbackMetricOpportunities(upg.originalText, effectiveRole)
         )
+        const metricSource = isTrueQuantified(upg.originalText) ? 'resume_verified' : (isTrueQuantified(rwText) ? 'ai_calibrated' : null)
         return {
           ...upg,
           reason,
           rewrittenText: rwText,
+          metricSource,
           metricOpportunities: metricOpps,
         }
       })
@@ -608,10 +659,12 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Rewrite them into punchy, executive-grade engineering bullets following the Google XYZ standard:
      "Accomplished [X], evidenced by [Y], by executing [Z]."
    - CRITICAL 5-PART RESUME PLAYBOOK MANDATE (18–32 WORDS, ZERO PLACEHOLDERS):
+     * SELECTIVE INJECTION RULE: PRESERVE verified metrics verbatim! If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure. ONLY calibrate realistic metrics for bullets that lack measurable numbers or scale.
+     * PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD: Every quantified rewrite in the same resume MUST use a DISTINCT metric type and DISTINCT number (never reuse "32%", "35%", "500k+", "12+ hrs", or the same outcome phrase on two different bullets). Integrate the metric naturally inside the sentence (never append as generic trailing boilerplate). Match the metric strictly to what that specific bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
      * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
      * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
-     * When the original bullet lacks numbers, DO NOT invent fake numbers or percentages. Ground the rewrite in concrete engineering/operational mechanisms and qualitative system outcomes (e.g., system stability, defect prevention, release turnaround, automated test coverage).
+     * When the original bullet lacks numbers, calibrate a realistic, role-appropriate metric and outcome matching the exact technical mechanism.
      * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
@@ -1123,21 +1176,30 @@ export async function executeModeC({
       for (const [bId, text] of bulletMap.entries()) {
         if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
         if (existingRewrites.has(bId) || existingRewrites.has(text.trim())) continue
-        const cleanT = text
-          .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
-          .replace(/\b(?:19|20)\d{2}\b/g, '')
-        const isQuant = /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+/i.test(cleanT)
-        if (!isQuant) {
+        if (!isTrueQuantified(text)) {
           unrewrittenBullets.push({ bulletId: bId, originalText: text })
         }
       }
 
       if (unrewrittenBullets.length > 0) {
         try {
+          const alreadyUsedMetrics = new Set()
+          const allExistingTexts = [
+            ...(parsedForValidation.bulletUpgrades || []).map((u) => u.rewrittenText),
+            ...(parsedForValidation.issues || []).map((i) => i.correctedText),
+            ...(parsedForValidation.bulletRewrites || []).map((r) => r.rewrittenText || r.readyToUseRewrite),
+            ...Array.from(bulletMap.values()),
+          ].filter(Boolean).join(' ')
+
+          const metricMatches = allExistingTexts.match(/\d+(?:\.\d+)?%|\b\d+x\b|\$\s*\d+[kmb]?|\b\d+\s*(?:ms|seconds?|mins?|hours?|k|m)\b/gi) || []
+          metricMatches.forEach((m) => alreadyUsedMetrics.add(m.toLowerCase()))
+          const alreadyUsedList = Array.from(alreadyUsedMetrics).slice(0, 15).join(', ')
+
           const batchPrompt = `You are a Principal Technical Recruiter.
 For each candidate bullet below, generate a distinct, high-impact Google XYZ rewrite (Accomplished [X] measured by [Y] by doing [Z], 18-30 words) tailored to the bullet's ACTUAL tools and domain.
 TARGET ROLE: ${effectiveRole}
 CANDIDATE STACK: ${(canonicalResume.skills || []).slice(0, 10).join(', ')}
+${alreadyUsedList ? `ALREADY USED METRICS IN THIS RESUME (DO NOT REUSE ANY OF THESE NUMBERS OR METRIC TYPES): ${alreadyUsedList}` : ''}
 
 RULES:
 1. Ground each rewrite in the bullet's actual domain (e.g. testing tools like Jasmine/Karma get test coverage/regression metrics, frontend tools like React/UI get Lighthouse/accessibility/render metrics, APIs get throughput/latency metrics).
@@ -1174,12 +1236,17 @@ OUTPUT SCHEMA:
             for (const item of batchObj.rewrites) {
               if (item?.bulletId && item?.rewrittenText) {
                 const orig = bulletMap.get(item.bulletId) || ''
+                const cleanedRw = cleanRewriteText(item.rewrittenText)
                 parsedForValidation.bulletUpgrades.push({
                   bulletId: item.bulletId,
                   originalText: orig,
                   status: 'warn',
                   reason: item.reason || 'Restructured into Google XYZ formula with quantified metrics',
-                  rewrittenText: item.rewrittenText,
+                  rewrittenText: cleanedRw,
+                  metricSource: 'ai_calibrated',
+                  metricOpportunities: normalizeMetricOpportunities(
+                    generateFallbackMetricOpportunities(orig, effectiveRole)
+                  ),
                 })
               }
             }

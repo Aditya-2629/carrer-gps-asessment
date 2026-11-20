@@ -9,6 +9,12 @@ const promptExampleSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    domain: {
+      type: String,
+      enum: ['software', 'data', 'healthcare', 'finance', 'sales', 'general'],
+      default: 'general',
+      index: true,
+    },
     sectionType: {
       type: String,
       required: true,
@@ -51,6 +57,7 @@ promptExampleSchema.pre('save', function (next) {
 })
 
 promptExampleSchema.index({ roleKey: 1, sectionType: 1, score: -1, upVotes: -1 })
+promptExampleSchema.index({ domain: 1, sectionType: 1, score: -1, upVotes: -1 })
 
 const PromptExample =
   mongoose.models.PromptExample ||

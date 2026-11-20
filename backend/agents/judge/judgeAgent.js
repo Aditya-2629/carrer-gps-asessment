@@ -222,14 +222,25 @@ export function judgeBulletRewrite({
   originalText = '',
   targetRole = '',
   evidenceStatus = 'GROUNDED_QUALITATIVE',
+  domain = '',
 } = {}) {
   const rw = String(rewrite || '').trim()
   const orig = String(originalText || '').trim()
   const flags = []
 
+  const cleanRole = (targetRole || '').toLowerCase()
+  const cleanDomain = domain || (
+    /nurse|clinical|patient|hospital|medical|healthcare/i.test(cleanRole) ? 'healthcare' :
+    /finance|financial|fp&a|accounting|audit|budget/i.test(cleanRole) ? 'finance' :
+    /sales|account\s+exec|pipeline|revenue|quota/i.test(cleanRole) ? 'sales' :
+    /data\s+analyst|data\s+sci|analytics|bi\b/i.test(cleanRole) ? 'data' :
+    /software|developer|engineer|devops|cloud|platform/i.test(cleanRole) ? 'software' :
+    'general'
+  )
+
   // 1. Achievement Clarity (0–20)
   let clarity = 15
-  if (/^(?:architected|engineered|automated|orchestrated|spearheaded|optimized|reduced|built|delivered|hardened|standardized)\b/i.test(rw)) {
+  if (/^(?:architected|engineered|automated|orchestrated|spearheaded|optimized|reduced|built|delivered|hardened|standardized|coordinated|administered|reconciled|accelerated|synthesized|negotiated)\b/i.test(rw)) {
     clarity += 4
   } else if (/^(?:worked on|responsible for|helped|assisted|handled)\b/i.test(rw)) {
     clarity -= 5
@@ -239,14 +250,32 @@ export function judgeBulletRewrite({
 
   // 2. Technical / Business Impact (0–20)
   let impact = 15
-  if (/availability|throughput|latency|reliability|defect|concurrency|security|zero-downtime|turnaround/i.test(rw)) {
+  const impactPatterns = {
+    healthcare: /patient\s+care|patient\s+safety|clinical|triage|wait\s+time|readmission|compliance|care\s+delivery|error\s+rate|turnaround|satisfaction|acuity|hipaa/i,
+    finance: /cash\s+flow|margin|variance|ebitda|audit|gaap|budget|forecast|revenue|cost\s+reduction|p&l|balance\s+sheet|turnaround/i,
+    sales: /quota|pipeline|win\s+rate|conversion|arr|mrr|acv|revenue|bookings|deal\s+size|retention|turnaround/i,
+    data: /query\s+runtime|pipeline|freshness|adoption|reporting\s+turnaround|accuracy|latency|throughput/i,
+    software: /availability|throughput|latency|reliability|defect|concurrency|security|zero-downtime|turnaround/i,
+    general: /efficiency|turnaround|reliability|outcome|accuracy|quality|deliverable|throughput/i,
+  }
+  const impactRegex = impactPatterns[cleanDomain] || impactPatterns.general
+  if (impactRegex.test(rw)) {
     impact += 4
   }
   impact = Math.max(5, Math.min(20, impact))
 
   // 3. Specificity of Action & Mechanism (0–15)
   let specificity = 12
-  if (/\b(docker|kubernetes|postgres|sql|redis|kafka|snowflake|dbt|aws|gcp|azure|api|graphql|indexes|pipeline)\b/i.test(rw)) {
+  const mechanismPatterns = {
+    healthcare: /\b(epic|ehr|emr|hipaa|triage|vitals|medication|protocol|acuity|telemetry|rounding|infusion|icu|ccu|care\s+plan)\b/i,
+    finance: /\b(erp|sap|excel|financial\s+model|gaap|variance\s+analysis|p&l|hyperion|netsuite|reconciliation|dcf|general\s+ledger)\b/i,
+    sales: /\b(salesforce|hubspot|crm|outreach|pipeline|discovery|prospecting|cold\s+call|cadence|lead\s+scoring|demo)\b/i,
+    data: /\b(sql|tableau|power\s*bi|dbt|snowflake|etl|bigquery|python|pandas|r\b|looker|data\s+warehouse)\b/i,
+    software: /\b(docker|kubernetes|postgres|sql|redis|kafka|snowflake|dbt|aws|gcp|azure|api|graphql|indexes|pipeline)\b/i,
+    general: /\b(standardized|framework|protocol|methodology|pipeline|workflow|system|platform)\b/i,
+  }
+  const mechanismRegex = mechanismPatterns[cleanDomain] || mechanismPatterns.general
+  if (mechanismRegex.test(rw)) {
     specificity += 3
   }
   specificity = Math.max(4, Math.min(15, specificity))

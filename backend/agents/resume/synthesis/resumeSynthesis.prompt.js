@@ -95,10 +95,11 @@ Address the candidate directly by first name with constructive peer empathy:
 
 RULES:
 1. Lead with active practitioner verbs (Architected, Engineered, Standardized).
-2. Preserve original metrics verbatim (never invent unverified revenue or percentage figures).
-3. Weave missing skills into the operational mechanism (how the work was achieved), never as trailing robotic comma clauses.
-4. Ensure bullets are between 18 and 30 words.
-5. Never output bracketed placeholders like [ADD: ...].
+2. SELECTIVE INJECTION RULE: Preserve original metrics verbatim (never invent unverified numbers on bullets that already have verified metrics like 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds). ONLY calibrate realistic metrics for unquantified bullets.
+3. PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD: Every quantified rewrite in the same resume MUST use a distinct metric type and distinct number (never repeat 32%, 35%, 500k+, 12+ hrs, or the same suffix twice). Match the metric strictly to what that bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
+4. Weave missing skills into the operational mechanism (how the work was achieved), never as trailing robotic comma clauses.
+5. Ensure bullets are between 18 and 30 words.
+6. Never output bracketed placeholders like [ADD: ...].
 
 OUTPUT JSON FORMAT ONLY:
 {

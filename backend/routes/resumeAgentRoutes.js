@@ -11,6 +11,8 @@ import { listModelsForPurpose, getModel } from '../ai/config/modelRegistry.js'
 import { costTracker } from '../utils/costTracker.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 import User from '../models/User.js'
+import PromptExample from '../models/PromptExample.js'
+import { resolveDomainFromRole, normalizeRoleKey } from '../services/promptExampleService.js'
 import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { replaceUnverifiedNumericTokens } from '../agents/resume/validation/claimValidator.js'
 
@@ -501,6 +503,42 @@ Write the single 18-32 word publication-ready bullet now.`
       } catch (dbErr) {
         console.warn('[ResumeAgentRoutes] Failed to persist confirmed metric to User DB:', dbErr.message)
       }
+    }
+
+    // 6. Dynamic Few-Shot Upsert into PromptExample (domain-isolated self-learning)
+    try {
+      const cleanRole = normalizeRoleKey(targetRole || 'general')
+      const domain = resolveDomainFromRole(targetRole || '')
+      const cleanBefore = (originalText || '')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[email]')
+        .replace(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[phone]')
+        .replace(/https?:\/\/[^\s]+/g, '[link]')
+        .trim()
+      const cleanAfter = (rewrittenText || '')
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[email]')
+        .replace(/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '[phone]')
+        .replace(/https?:\/\/[^\s]+/g, '[link]')
+        .trim()
+
+      if (cleanAfter && cleanAfter.length >= 20) {
+        await PromptExample.findOneAndUpdate(
+          { roleKey: cleanRole, sectionType: 'bullet_rewrite', anonymizedAfter: cleanAfter },
+          {
+            $setOnInsert: {
+              roleKey: cleanRole,
+              domain,
+              sectionType: 'bullet_rewrite',
+              anonymizedBefore: cleanBefore,
+              anonymizedAfter: cleanAfter,
+            },
+            $inc: { upVotes: 2 },
+            $set: { lastVotedAt: new Date() },
+          },
+          { upsert: true, new: true }
+        )
+      }
+    } catch (learnErr) {
+      console.warn('[ResumeAgentRoutes] Non-fatal PromptExample upsert error:', learnErr.message)
     }
 
     return res.status(200).json({

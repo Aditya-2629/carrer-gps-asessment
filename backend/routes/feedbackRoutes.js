@@ -9,6 +9,7 @@ import { Router } from 'express'
 import mongoose from 'mongoose'
 import FindingFeedback from '../models/FindingFeedback.js'
 import PromptExample from '../models/PromptExample.js'
+import { resolveDomainFromRole, normalizeRoleKey } from '../services/promptExampleService.js'
 
 function stripPii(text = '') {
   if (!text || typeof text !== 'string') return ''
@@ -50,7 +51,8 @@ router.post('/', async (req, res) => {
 
     // Dynamic Few-Shot Upsert
     if (rating === 'up' && afterText) {
-      const cleanRole = (roleKey || 'software-engineer').toLowerCase().trim()
+      const cleanRole = normalizeRoleKey(roleKey || req.body?.targetRole || 'general')
+      const domain = resolveDomainFromRole(roleKey || req.body?.targetRole || '')
       const cleanSection = ['bullet_rewrite', 'linkedin_headline', 'linkedin_about'].includes(sectionType)
         ? sectionType
         : (agent === 'linkedin' ? 'linkedin_headline' : 'bullet_rewrite')
@@ -63,6 +65,7 @@ router.post('/', async (req, res) => {
         {
           $setOnInsert: {
             roleKey: cleanRole,
+            domain,
             sectionType: cleanSection,
             anonymizedBefore: cleanBefore,
             anonymizedAfter: cleanAfter,

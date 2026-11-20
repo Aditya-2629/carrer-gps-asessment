@@ -9,8 +9,20 @@ UNIFIED IMPACT CONTRACT (LAYER A + LAYER B):
 Every experience bullet upgrade and issue rewrite MUST follow this two-layer architecture:
 
 LAYER A: PUBLICATION-READY GROUNDED REWRITE (rewrittenText / correctedText)
-1. Produce the strongest, result-driven bullet possible using ONLY facts, tools, scope, and metrics explicitly present in the candidate's resume/project.
-2. STRICTLY FORBID fabricating unverified numbers, percentages, dollar amounts, or scale claims (e.g. NEVER inject fake "32% latency", "500k+ daily transactions", or "99.99% uptime" unless present in the source bullet/project).
+1. SELECTIVE INJECTION RULE ("Add Only Where Needed"):
+   - PRESERVE EXISTING METRICS: If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a second synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure.
+   - ONLY calibrate and suggest realistic metrics for bullets that currently lack measurable numbers or scale.
+2. PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD:
+   - Every quantified rewrite in the same resume MUST use a DISTINCT metric type and DISTINCT number (never reuse "32%", "35%", "500k+", "12+ hrs", or the same outcome phrase on two different bullets).
+   - Integrate the metric naturally inside the sentence (never tack it on as a generic "partnering with cross-functional squads, cutting p99..." at the end of every bullet).
+   - Match the metric strictly to what that specific bullet actually does:
+     * QA / Testing -> test coverage %, automated regression count, bug escape reduction, CI test runtime
+     * UI / Frontend / Figma -> Lighthouse/accessibility score, page load / LCP improvement, bundle size, UI delivery speed
+     * Security / Auth -> CVE/vulnerability reduction, auth latency, audit pass rate, zero-incident compliance
+     * Backend / APIs / DB -> p95/p99 response time, query execution time, throughput, uptime
+     * Data / ETL / Reporting -> pipeline runtime, hours saved per week, data accuracy / reconciliation rate
+     * GenAI / RAG / Agents -> retrieval accuracy, latency, support deflection %, eval pass rate
+     * Non-Tech (Healthcare, Finance, Sales, Ops) -> patient throughput/charting accuracy, close cycle/variance reduction, quota/pipeline conversion, SLA turnaround.
 3. If the original bullet lacks numbers, focus the rewrite on the concrete engineering/operational mechanism and qualitative outcome (e.g., system reliability, modularity, automated testing, audit compliance, release velocity) WITHOUT fabricating fake numbers.
 4. STRICTLY FORBID bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
 5. STRICTLY FORBID lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!

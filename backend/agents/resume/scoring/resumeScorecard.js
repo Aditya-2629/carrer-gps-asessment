@@ -159,57 +159,103 @@ export function isLazySuffixAppend(rewrite, original) {
 export function isTrueQuantified(text) {
   if (!text || typeof text !== 'string') return false
   const clean = text
-    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
-    .replace(/\b(?:19|20)\d{2}\b/g, '')
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
     .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
-  return /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(clean)
+    .replace(/\b(?:19|20)\d{2}\b/g, '')
+
+  // 1. Percentage
+  if (/\d+(?:\.\d+)?%/.test(clean)) return true
+  // 2. Multiplier (e.g. 3x, 10x, 2.5x)
+  if (/\b\d+(?:\.\d+)?x\b/i.test(clean)) return true
+  // 3. Currency (e.g. $2M, $500k, $10,000)
+  if (/\$\s*\d+(?:,\d{3})*(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion)?/i.test(clean)) return true
+  // 4. Latency or time measurements (e.g. 2.5 seconds, 250ms, 12 hours, 15 mins)
+  if (/\b\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|hrs?|days?)\b/i.test(clean)) return true
+  // 5. Volume/scale metrics (e.g. 500k+, 250k, 10M, 100,000+ employees, 30+ queries, 1,200 users)
+  if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\b/i.test(clean)) return true
+  if (/\b\d+(?:,\d{3})*\+?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|microservices|services|endpoints|tables|cves|vulnerabilities|tickets|bugs|test cases|builds|deployments)\b/i.test(clean)) return true
+  // 6. Production scale descriptors with numbers (e.g. 24-bed ICU, 50+ enterprise clients)
+  if (/\b\d{2,}\+?\s+(?:production|enterprise|distributed|active|concurrent|client|bed)\b/i.test(clean)) return true
+  // 7. WCAG compliance standards with specific version or levels
+  if (/\bwcag\s*(?:2\.[012]|2\s*aa)\b/i.test(clean)) return true
+
+  return false
 }
 
-const DOMAIN_METRIC_POOLS = {
+export const DOMAIN_METRIC_POOLS = {
   qa: [
-    { scope: 'partnering with QA and release engineering squads', outcome: 'increasing automated test coverage and preventing defect escapes across release cycles' },
-    { scope: 'collaborating with test automation engineers', outcome: 'streamlining regression testing workflows and eliminating manual QA bottlenecks' },
-    { scope: 'partnering with cross-functional release squads', outcome: 'accelerating release readiness and ensuring zero critical regression escapes' },
-    { scope: 'partnering with QA leads and developers', outcome: 'improving CI test execution reliability and pipeline build stability' },
+    { key: 'qa_cov_32', outcome: 'partnering with QA squads to increase automated test suite coverage by 32% and prevent defect escapes' },
+    { key: 'qa_speed_45', outcome: 'accelerating CI/CD test execution speed by 45% and eliminating regression testing bottlenecks' },
+    { key: 'qa_bugs_40', outcome: 'resolving 40+ critical edge-case defects and maintaining zero production test regression escapes' },
+    { key: 'qa_time_45m', outcome: 'shortening pre-release QA validation cycles from 6 hours to under 45 minutes across environments' },
+    { key: 'qa_pass_98', outcome: 'achieving 98% end-to-end test pass rates and eliminating manual release verification toil' },
   ],
   frontend: [
-    { scope: 'partnering with UX designers and backend engineers', outcome: 'optimizing core web vitals and delivering sub-second first contentful paint (FCP)' },
-    { scope: 'collaborating with design systems and accessibility leads', outcome: 'ensuring full WCAG AA accessibility compliance across production views' },
-    { scope: 'partnering with product designers and frontend squads', outcome: 'reducing client-side render overhead and eliminating layout shifts' },
-    { scope: 'collaborating with UI/UX engineers', outcome: 'improving user workflow completion rates and frontend interface responsiveness' },
-  ],
-  backend: [
-    { scope: 'collaborating with distributed platform teams', outcome: 'optimizing endpoint latency and sustaining high throughput under peak traffic' },
-    { scope: 'partnering with backend engineering squads', outcome: 'reducing payload overhead while maintaining uninterrupted service availability' },
-    { scope: 'collaborating with microservices architects', outcome: 'supporting enterprise transaction volume with zero-downtime deployments' },
-    { scope: 'partnering with core infrastructure engineers', outcome: 'reducing service-to-service communication latency and eliminating concurrency bottlenecks' },
-  ],
-  database: [
-    { scope: 'partnering with DBA and data platform engineers', outcome: 'reducing complex query execution time via optimized composite indexing' },
-    { scope: 'collaborating with database administrators', outcome: 'optimizing connection pool utilization and eliminating database lock contention' },
-    { scope: 'partnering with data engineering leads', outcome: 'accelerating daily batch ingestion throughput across enterprise data pipelines' },
-    { scope: 'collaborating with platform engineers', outcome: 'reducing storage I/O bottlenecks and eliminating query execution delays' },
-  ],
-  devops: [
-    { scope: 'partnering with DevOps and platform reliability engineers', outcome: 'accelerating CI/CD build-to-deploy pipeline turnaround and deployment reliability' },
-    { scope: 'collaborating with cloud infrastructure leads', outcome: 'maintaining continuous cloud infrastructure availability with automated zero-downtime rollouts' },
-    { scope: 'partnering with SRE squads', outcome: 'optimizing container compute footprints and reducing cloud infrastructure resource overhead' },
-    { scope: 'collaborating with platform reliability teams', outcome: 'automating multi-region failover and accelerating mean time to recovery (MTTR)' },
+    { key: 'ui_vel_28', outcome: 'partnering with UX designers to accelerate UI delivery velocity by 28% across responsive layouts' },
+    { key: 'ui_bundle_35', outcome: 'collaborating with design systems leads, reducing client-side bundle size by 35% and eliminating layout shifts' },
+    { key: 'ui_lh_98', outcome: 'partnering with accessibility engineers, elevating Google Lighthouse accessibility scores to 98/100' },
+    { key: 'ui_flow_22', outcome: 'partnering with frontend engineering squads, accelerating core user workflow completion rates by 22%' },
+    { key: 'ui_fcp_sub', outcome: 'optimizing rendering pipelines to deliver consistent sub-second First Contentful Paint (FCP) across devices' },
   ],
   security: [
-    { scope: 'collaborating with InfoSec and compliance teams', outcome: 'eliminating high-severity CVE vulnerabilities and maintaining full SOC-2 compliance' },
-    { scope: 'partnering with security architects', outcome: 'protecting user identity workflows with zero unauthorized auth boundary breaches' },
-    { scope: 'collaborating with security and release squads', outcome: 'hardening API gateway endpoints and ensuring comprehensive audit trail coverage' },
+    { key: 'sec_cve_15', outcome: 'partnering with InfoSec teams, eliminating 15+ potential attack vectors and achieving zero auth vulnerabilities' },
+    { key: 'sec_tok_100', outcome: 'collaborating with security architects, protecting enterprise user workflows with 100% token validation compliance' },
+    { key: 'sec_auth_25', outcome: 'hardening API gateways, cutting authorization latency by 25% while blocking unauthorized access attempts' },
+    { key: 'sec_audit_0', outcome: 'partnering with compliance leads, ensuring full adherence to enterprise security governance with zero audit findings' },
+  ],
+  database: [
+    { key: 'db_query_42', outcome: 'partnering with DBA squads, reducing complex query execution times by 42% via compound indexing' },
+    { key: 'db_lock_35', outcome: 'collaborating with platform engineers, eliminating database lock contention and reducing I/O wait by 35%' },
+    { key: 'db_lat_50ms', outcome: 'optimizing aggregation pipelines to sustain sub-50ms read latency across 500k+ collection records' },
+    { key: 'db_thru_3x', outcome: 'streamlining data access layers, accelerating data retrieval throughput by 3x during peak transaction windows' },
+  ],
+  data: [
+    { key: 'data_hrs_15', outcome: 'saving 15+ engineering hours per week and eliminating manual spreadsheet reconciliation errors' },
+    { key: 'data_ing_50', outcome: 'partnering with analytics stakeholders, accelerating daily batch data ingestion throughput by 50%' },
+    { key: 'data_acc_99', outcome: 'achieving 99.9% data reconciliation accuracy across cross-system operational data syncs' },
+    { key: 'data_turn_2h', outcome: 'shortening reporting turnaround from 3 days to under 2 hours for downstream business consumers' },
   ],
   ai: [
-    { scope: 'collaborating with ML researchers and data engineers', outcome: 'optimizing retrieval latency while maintaining high factual precision' },
-    { scope: 'partnering with AI platform teams', outcome: 'optimizing embedding inference throughput and reducing GPU compute overhead' },
-    { scope: 'collaborating with ML platform engineers', outcome: 'accelerating token generation throughput and eliminating context window bottlenecks' },
+    { key: 'ai_ret_sub', outcome: 'collaborating with ML researchers, achieving sub-second semantic retrieval across enterprise document corpora' },
+    { key: 'ai_inf_30', outcome: 'partnering with platform engineers, reducing model inference latency by 30% with automated context caching' },
+    { key: 'ai_prec_92', outcome: 'evaluating LLM providers to achieve 92% retrieval precision while minimizing token compute overhead' },
+    { key: 'ai_tok_40', outcome: 'accelerating token generation throughput by 40% and eliminating context window latency bottlenecks' },
+  ],
+  backend: [
+    { key: 'back_p95_38', outcome: 'collaborating with backend engineering squads, reducing endpoint p95 latency by 38% under high concurrency' },
+    { key: 'back_avail_99', outcome: 'partnering with platform architects, sustaining 99.99% service availability with zero-downtime rolling deploys' },
+    { key: 'back_bw_28', outcome: 'optimizing payload serializations, reducing network bandwidth consumption by 28% across microservices' },
+    { key: 'back_qps_4x', outcome: 'decoupling legacy services to scale concurrent request handling capacity from 2,000 to 12,000 req/sec' },
+  ],
+  devops: [
+    { key: 'dev_lead_50', outcome: 'partnering with SRE squads, reducing CI/CD build-to-deploy lead time by 50% across environments' },
+    { key: 'dev_avail_99', outcome: 'collaborating with cloud leads, sustaining 99.99% infrastructure availability with automated rollouts' },
+    { key: 'dev_cost_25', outcome: 'optimizing container compute footprints, achieving a 25% reduction in cloud infrastructure resource overhead' },
+    { key: 'dev_mttr_40', outcome: 'automating multi-region failover, slashing mean time to recovery (MTTR) by 40% during outages' },
+  ],
+  healthcare: [
+    { key: 'hc_wait_25', outcome: 'partnering with interdisciplinary care teams, reducing patient intake wait times by 25%' },
+    { key: 'hc_med_0', outcome: 'maintaining zero medication administration discrepancies across 500+ patient shifts' },
+    { key: 'hc_flow_30m', outcome: 'streamlining clinical shift handovers, cutting documentation overhead by 30 minutes per shift' },
+    { key: 'hc_hipaa_100', outcome: 'partnering with department heads, ensuring full HIPAA compliance with zero protocol deficiencies' },
+  ],
+  finance: [
+    { key: 'fin_close_4d', outcome: 'accelerating monthly financial close cycles from 10 days to 4 days with zero audit discrepancies' },
+    { key: 'fin_var_18', outcome: 'optimizing operational expenditure variance forecasting, improving budget accuracy by 18%' },
+    { key: 'fin_gaap_100', outcome: 'ensuring 100% GAAP compliance and audit readiness with zero material balance sheet deficiencies' },
+    { key: 'fin_opex_12', outcome: 'partnering with business unit leaders, identifying 12% operational cost savings across departmental budgets' },
+  ],
+  sales: [
+    { key: 'sales_quota_125', outcome: 'accelerating enterprise sales cycle velocity by 30% and exceeding annual quota by 125%' },
+    { key: 'sales_conv_22', outcome: 'expanding outbound B2B pipeline conversion by 22% through consultative discovery frameworks' },
+    { key: 'sales_arr_2m', outcome: 'partnering with sales engineering leads, closing $2M+ in new annual recurring revenue (ARR)' },
+    { key: 'sales_cycle_35', outcome: 'shortening average deal closing cycles from 90 days to 58 days across enterprise accounts' },
   ],
   general: [
-    { scope: 'partnering with cross-functional engineering squads', outcome: 'accelerating delivery turnaround and elevating overall system reliability' },
-    { scope: 'collaborating with technical leads and stakeholders', outcome: 'accelerating feature delivery cycles and preventing production bug escalations' },
-    { scope: 'partnering with product and engineering leads', outcome: 'maintaining high operational availability and eliminating delivery bottlenecks' },
+    { key: 'gen_vel_25', outcome: 'partnering with cross-functional technical leads, accelerating sprint release velocity by 25%' },
+    { key: 'gen_toil_10h', outcome: 'streamlining operational workflows to eliminate 10+ hours of weekly manual toil' },
+    { key: 'gen_mttr_32', outcome: 'maintaining high operational reliability and reducing mean time to incident resolution (MTTR) by 32%' },
+    { key: 'gen_uptime_99', outcome: 'partnering with product and engineering leads, sustaining 99.9% uptime across production services' },
   ],
 }
 
@@ -222,129 +268,243 @@ const DOMAIN_METRIC_POOLS = {
  * 5. Business Outcome (clear deliverable impact)
  * Target length: 18–32 words (crisp 1–2 lines)
  */
-export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCurrentRole = false, skills = [], sig = null, company = '', bulletIndex = 0 } = {}) {
+export function buildFivePartPlaybookRewrite(bulletText, {
+  targetRole = '',
+  isCurrentRole = false,
+  skills = [],
+  sig = null,
+  company = '',
+  bulletIndex = 0,
+  usedMetricsSet = new Set(),
+} = {}) {
   if (!bulletText || typeof bulletText !== 'string') return ''
   let clean = bulletText
     .replace(/^[•\-*▪–—·\s]+/, '')
-    .replace(/^(?:action|task|situation|result|challenge|accomplished):\s*/i, '')
     .trim()
 
-  const lowerText = clean.toLowerCase()
+  const lowerRole = (targetRole || '').toLowerCase()
+  const isSoftwareRole = /developer|engineer|software|full\s*stack|backend|frontend|devops|architect|data|programmer|coder/i.test(lowerRole)
+  const isHealthcareRole = /nurse|nursing|clinical|physician|doctor|triage|bedside/i.test(lowerRole) && !isSoftwareRole
+  const isFinanceRole = /finance|financial|fp&a|accounting|accountant|auditor|treasury/i.test(lowerRole) && !isSoftwareRole
+  const isSalesRole = /sales|account\s+exec|quota|pipeline|bdr|sdr|business\s+dev/i.test(lowerRole) && !isSoftwareRole
 
-  // 1. Detect bullet-specific domain from the actual bullet text first (NOT broad targetRole)
-  const isQaBullet = /test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation/i.test(lowerText)
-  const isFrontendBullet = /frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|tailwind|wcag|accessibility|screen reader|dom\b/i.test(lowerText)
-  const isDataBullet = /data|analyst|analytics|bi\b|sql\b|tableau|power\s*bi|snowflake|dbt|etl|query|queries|database/i.test(lowerText)
-  const isAiBullet = /ai\b|machine learning|ml\b|llm|nlp|rag\b|vector|embeddings|pytorch|tensorflow|langchain/i.test(lowerText)
-  const isDevopsBullet = /devops|cloud|sre|platform|infra|kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|ansible/i.test(lowerText)
-  const isSecurityBullet = /security|cyber|soc2|cve|vulnerabilit|jwt|oauth|auth|sanitize/i.test(lowerText)
+  // 1. Check if bullet is CAR structure (Challenge / Action / Result)
+  const actionMatch = clean.match(/Action:\s*([^]+?)(?=\s*Result:|$)/i)
+  const resultMatch = clean.match(/Result:\s*([^]+?)$/i)
+  const challengeMatch = clean.match(/Challenge:\s*([^]+?)(?=\s*Action:|$)/i)
 
-  let domainKey = 'general'
-  let defaultActionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  const hasCarStructure = Boolean(actionMatch)
+  let actionClause = actionMatch ? actionMatch[1].trim() : clean
+  let resultClause = resultMatch ? resultMatch[1].trim() : ''
+  let challengeClause = challengeMatch ? challengeMatch[1].trim() : ''
 
-  if (isQaBullet) {
-    domainKey = 'qa'
-    defaultActionVerb = isCurrentRole ? 'Automate' : 'Automated'
-  } else if (isFrontendBullet) {
-    domainKey = 'frontend'
-    defaultActionVerb = isCurrentRole ? 'Modernize' : 'Modernized'
-  } else if (isSecurityBullet) {
-    domainKey = 'security'
-    defaultActionVerb = isCurrentRole ? 'Harden' : 'Hardened'
-  } else if (isDevopsBullet) {
-    domainKey = 'devops'
-    defaultActionVerb = isCurrentRole ? 'Orchestrate' : 'Orchestrated'
-  } else if (isDataBullet) {
-    domainKey = 'database'
-    defaultActionVerb = isCurrentRole ? 'Optimize' : 'Optimized'
-  } else if (isAiBullet) {
-    domainKey = 'ai'
-    defaultActionVerb = isCurrentRole ? 'Deploy' : 'Deployed'
-  } else if (/api|service|microservice|backend|system|pipeline|infrastructure/i.test(lowerText)) {
-    domainKey = 'backend'
-    defaultActionVerb = isCurrentRole ? 'Architect' : 'Architected'
-  }
+  // Clean trailing punctuation
+  actionClause = actionClause.replace(/[.,;:\s]+$/, '').trim()
+  resultClause = resultClause.replace(/[.,;:\s]+$/, '').trim()
 
-  // 2. Clean verb stripping: remove compound verbal phrases, weak openers, and opening verbs cleanly
-  let coreTask = clean
-    // Strip compound phrases like "Automate and testing of...", "Design and develop...", "Built and deployed..."
-    .replace(/^(?:automate(?:d)?|design(?:ed)?|build|built|develop(?:ed)?|engineer(?:ed)?|test(?:ed)?|maintain(?:ed)?|implement(?:ed)?)\s+and\s+(?:testing|developing|building|deploying|maintaining|designing|implementing)\s+(?:of\s+)?/i, '')
-    // Strip weak/passive openers
-    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled|collaborated with|partnered with)\s+(?:the\s+)?/i, '')
-    // Strip common single opening verbs
-    .replace(/^(?:drove|driven|driving|led|leading|spearheaded|spearheading|engineered|engineering|architected|architecting|developed|developing|designed|designing|built|building|automated|automating|tested|testing|created|creating|optimized|optimizing|implemented|implementing|configured|configuring|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|modernized|modernizing)\s+(?:the\s+)?/i, '')
-    .trim()
+  // 2. Check if bullet is already quantified
+  const alreadyQuantified = isTrueQuantified(clean) || isTrueQuantified(resultClause) || isTrueQuantified(actionClause)
 
-  // Remove trailing boilerplate suffixes
-  coreTask = coreTask.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*by implementing automated DevSecOps vulnerability scanning.*?compliance across release pipelines\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*using\s+[^,.]+\s+for\s+scalable\s+(?:transformation|analytical)\s+[^.]+\.?/gi, '')
-  coreTask = coreTask.replace(/[.,;:\s]+$/, '').trim()
+  // 3. Verb extraction and normalization from action clause
+  let coreAction = actionClause.trim()
 
-  // Remove any remaining opening verb if present
-  const firstWord = coreTask.split(/\s+/)[0] || ''
-  const knownActionVerbs = new Set([
-    'automate', 'automated', 'automating',
-    'engineer', 'engineered', 'engineering',
-    'architect', 'architected', 'architecting',
-    'develop', 'developed', 'developing',
-    'design', 'designed', 'designing',
-    'implement', 'implemented', 'implementing',
-    'test', 'tested', 'testing',
-    'maintain', 'maintained', 'maintaining',
-    'create', 'created', 'creating',
-    'optimize', 'optimized', 'optimizing',
-    'lead', 'led', 'leading',
-    'manage', 'managed', 'managing',
-    'conduct', 'conducted', 'conducting',
-    'perform', 'performed', 'performing',
-    'execute', 'executed', 'executing',
-    'configure', 'configured', 'configuring',
-    'coordinate', 'coordinated', 'coordinating',
-    'direct', 'directed', 'directing',
-    'spearhead', 'spearheaded', 'spearheading',
-    'deploy', 'deployed', 'deploying',
-    'modernize', 'modernized', 'modernizing',
-    'drive', 'drove', 'driving',
-    'integrate', 'integrated', 'integrating',
-  ])
-  if (knownActionVerbs.has(firstWord.toLowerCase()) || /^[a-zA-Z]+ing$/i.test(firstWord)) {
-    coreTask = coreTask.replace(/^[A-Za-z]+\s+/i, '').trim()
-  }
-
-  // Strip prepositions left at start
-  coreTask = coreTask.replace(/^(?:and|of|the|to|for|in|on|with|across)\s+/i, '').trim()
-
-  if (coreTask.length > 0) {
-    coreTask = coreTask.charAt(0).toLowerCase() + coreTask.slice(1)
-  }
-
-  // 3. Resolve Skills & Tools (Part 2)
-  let skillPhrase = ''
-  const skillList = Array.isArray(skills) ? skills.filter(Boolean) : []
-  if (skillList.length > 0) {
-    const topSkills = skillList.slice(0, 2).join(' and ')
-    if (!new RegExp(`\\b${topSkills.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(coreTask)) {
-      skillPhrase = ` using ${topSkills}`
+  // Handle: "Collaborated with <group> using <tools> to <verb> <rest>" -> "<VerbPast> <rest> using <tools> in collaboration with <group>"
+  const collabUsingMatch = coreAction.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+using\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+([^]+)$/i)
+  if (collabUsingMatch) {
+    const [, partners, tool, verb, rest] = collabUsingMatch
+    const pastVerb = toPastTense(verb)
+    coreAction = `${pastVerb} ${rest.trim()} using ${tool.trim()} in collaboration with ${partners.trim()}`
+  } else {
+    // Handle: "Collaborated with <group> to <verb> <rest>" -> "<VerbPast> <rest> in collaboration with <group>"
+    const collabToMatch = coreAction.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+([^]+)$/i)
+    if (collabToMatch) {
+      const [, partners, verb, rest] = collabToMatch
+      const pastVerb = toPastTense(verb)
+      coreAction = `${pastVerb} ${rest.trim()} in close partnership with ${partners.trim()}`
     }
   }
 
-  // 4. Resolve Dynamic Non-Repeating Metric Outcome (Parts 3, 4, 5)
-  const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
-  let hash = 0
-  for (let i = 0; i < clean.length; i++) {
-    hash = (hash * 31 + clean.charCodeAt(i)) >>> 0
+  // Handle: "Wrote Python/bash scripts to automate <task>" -> "Automated <task> using Python scripts"
+  const wroteScriptMatch = coreAction.match(/^(?:wrote|developed|created)\s+([a-zA-Z0-9\/\s]+scripts?)\s+to\s+automate\s+([^]+)$/i)
+  if (wroteScriptMatch) {
+    const [, scriptTool, task] = wroteScriptMatch
+    coreAction = `Automated ${task.trim()} utilizing ${scriptTool.trim()}`
   }
-  const variantIndex = (hash + (bulletIndex || 0)) % pool.length
-  const variant = pool[variantIndex]
 
-  const collabScope = variant.scope
-  const metricAndOutcome = variant.outcome
+  // Handle: "Built and maintained MERN stack..." or "Designed and developed..."
+  coreAction = coreAction
+    .replace(/^(?:built and maintained|designed and developed|built and deployed|developed and enhanced|engineered and deployed|automated and tested)\s+/i, (m) => {
+      const first = m.split(/\s+/)[0]
+      return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() + ' '
+    })
+    .replace(/^(?:drove\s+automated\s+testing|drove\s+testing)\s*,?\s*/i, 'Automated ')
+    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i, '')
+    .trim()
 
-  let result = `${defaultActionVerb} ${coreTask}${skillPhrase} ${collabScope}, ${metricAndOutcome}.`
-  result = result.replace(/\s{2,}/g, ' ').replace(/\.+$/, '.').trim()
-  return cleanRewriteText(result)
+  // Detect existing leading verb if strong
+  const firstWordMatch = coreAction.match(/^([A-Za-z]+)\b/)
+  const rawFirstWord = firstWordMatch ? firstWordMatch[1] : ''
+  const lowerFirst = rawFirstWord.toLowerCase()
+
+  const strongActionVerbs = new Map([
+    ['architected', 'Architected'], ['architect', 'Architect'],
+    ['engineered', 'Engineered'], ['engineer', 'Engineer'],
+    ['automated', 'Automated'], ['automate', 'Automate'],
+    ['built', 'Built'], ['build', 'Build'],
+    ['developed', 'Developed'], ['develop', 'Develop'],
+    ['designed', 'Designed'], ['design', 'Design'],
+    ['implemented', 'Implemented'], ['implement', 'Implement'],
+    ['optimized', 'Optimized'], ['optimize', 'Optimize'],
+    ['modernized', 'Modernized'], ['modernize', 'Modernize'],
+    ['spearheaded', 'Spearheaded'], ['spearhead', 'Spearhead'],
+    ['orchestrated', 'Orchestrated'], ['orchestrate', 'Orchestrate'],
+    ['hardened', 'Hardened'], ['harden', 'Harden'],
+    ['secured', 'Secured'], ['secure', 'Secure'],
+    ['prototyped', 'Prototyped'], ['prototype', 'Prototype'],
+    ['remediated', 'Remediated'], ['remediate', 'Remediate'],
+    ['redesigned', 'Redesigned'], ['redesign', 'Redesign'],
+    ['migrated', 'Migrated'], ['migrate', 'Migrate'],
+    ['integrated', 'Integrated'], ['integrate', 'Integrate'],
+    ['deployed', 'Deployed'], ['deploy', 'Deploy'],
+    ['synthesized', 'Synthesized'], ['synthesize', 'Synthesize'],
+    ['standardized', 'Standardized'], ['standardize', 'Standardize'],
+    ['coordinated', 'Coordinated'], ['coordinate', 'Coordinate'],
+    ['accelerated', 'Accelerated'], ['accelerate', 'Accelerate'],
+    ['delivered', 'Delivered'], ['deliver', 'Deliver'],
+    ['applied', 'Applied'], ['apply', 'Applied'],
+    ['led', 'Led'], ['lead', 'Lead'],
+    ['translated', 'Translated'], ['translate', 'Translate'],
+    ['validated', 'Validated'], ['validate', 'Validate'],
+    ['wrote', 'Automated'],
+    ['drove', 'Automated'],
+  ])
+
+  // Determine domainKey
+  const lowerText = clean.toLowerCase()
+  let domainKey = 'general'
+
+  if (isHealthcareRole) {
+    domainKey = 'healthcare'
+  } else if (isFinanceRole) {
+    domainKey = 'finance'
+  } else if (isSalesRole) {
+    domainKey = 'sales'
+  } else if (/test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation|tdd\b|root\s*cause/i.test(lowerText)) {
+    domainKey = 'qa'
+  } else if (/security|spring security|jwt|csrf|auth|oauth|rbac|vulnerabilit|cve|encryption|sanitize|xss/i.test(lowerText)) {
+    domainKey = 'security'
+  } else if (/frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|zeplin|bootstrap|tailwind|wcag|accessibility|screen reader|wireframe|dom\b/i.test(lowerText)) {
+    domainKey = 'frontend'
+  } else if (/database|mongodb|postgres|sql\b|nosql|indexing|aggregation|query|queries|schema|store|table/i.test(lowerText) && !/python.*script/i.test(lowerText)) {
+    domainKey = 'database'
+  } else if (/python|script|automate data|migration|etl|pipeline|reporting|dbt|snowflake|tableau|analytics/i.test(lowerText)) {
+    domainKey = 'data'
+  } else if (/ai\b|machine learning|ml\b|llm|nlp|rag\b|spring ai|embeddings|vector|prompt/i.test(lowerText)) {
+    domainKey = 'ai'
+  } else if (/kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|devops|sre/i.test(lowerText)) {
+    domainKey = 'devops'
+  } else if (/api|service|microservice|backend|spring boot|express|node|rest|cms|monolith/i.test(lowerText)) {
+    domainKey = 'backend'
+  }
+
+  // Determine leading verb
+  let leadingVerb = ''
+  let remainingAction = coreAction
+
+  // If coreAction already starts with a strong action verb or past-tense verb (e.g. Translated, Validated, Prototyped)
+  if (strongActionVerbs.has(lowerFirst) || /^[A-Za-z]+ed\b/.test(coreAction)) {
+    leadingVerb = strongActionVerbs.get(lowerFirst) || (rawFirstWord.charAt(0).toUpperCase() + rawFirstWord.slice(1).toLowerCase())
+    if (isCurrentRole) {
+      if (leadingVerb.endsWith('ed')) leadingVerb = leadingVerb.slice(0, -2)
+    }
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else {
+    // Pick default by domain
+    if (domainKey === 'qa') leadingVerb = isCurrentRole ? 'Automate' : 'Automated'
+    else if (domainKey === 'security') leadingVerb = isCurrentRole ? 'Harden' : 'Hardened'
+    else if (domainKey === 'frontend') leadingVerb = isCurrentRole ? 'Modernize' : 'Modernized'
+    else if (domainKey === 'database') leadingVerb = isCurrentRole ? 'Optimize' : 'Optimized'
+    else if (domainKey === 'data') leadingVerb = isCurrentRole ? 'Automate' : 'Automated'
+    else if (domainKey === 'ai') leadingVerb = isCurrentRole ? 'Deploy' : 'Deployed'
+    else if (domainKey === 'backend') leadingVerb = isCurrentRole ? 'Architect' : 'Architected'
+    else if (domainKey === 'healthcare') leadingVerb = isCurrentRole ? 'Coordinate' : 'Coordinated'
+    else if (domainKey === 'finance') leadingVerb = isCurrentRole ? 'Standardize' : 'Standardized'
+    else if (domainKey === 'sales') leadingVerb = isCurrentRole ? 'Accelerate' : 'Accelerated'
+    else leadingVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  }
+
+  // Strip repeated verb or participle from remainingAction to avoid double verbs:
+  // e.g. "Automated automated testing", "Hardened secured", "Modernized applied"
+  remainingAction = remainingAction
+    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing)\s+/i, '')
+    .trim()
+
+  // Clean specific phrase remnants
+  remainingAction = remainingAction
+    .replace(/^integration testing,\s*and\s+/i, 'unit and integration testing with ')
+    .replace(/^(?:and|of|the|to|for|in|on|with|across)\s+/i, '')
+    .trim()
+
+  // If first character is lowercase, adjust, preserving acronyms and proper tech nouns
+  if (remainingAction.length > 0) {
+    if (!/^[A-Z]{2,}\b/.test(remainingAction) && !/^(?:Spring|React|Angular|Vue|Python|Java|Node|MongoDB|SQL|AWS|Docker|Kubernetes|Bootstrap|PostgreSQL|TypeScript|JavaScript|Jest|Karma|Jasmine|Zeplin|D3|MERN|EHR|Epic|HIPAA|GAAP|SAP|REST|QA|UI|UX|API|CMS)\b/i.test(remainingAction)) {
+      remainingAction = remainingAction.charAt(0).toLowerCase() + remainingAction.slice(1)
+    }
+  }
+
+  // Case A: PRESERVE EXISTING METRIC if already quantified
+  if (alreadyQuantified) {
+    if (hasCarStructure && resultClause) {
+      // Check if challenge had scale e.g. 100,000+ bank employees
+      let challengeContext = ''
+      const challengeScale = challengeClause.match(/\b\d+(?:,\d{3})*\+?\s*(?:bank employees|employees|users|clients|customers|transactions)\b/i)
+      if (challengeScale && !new RegExp(challengeScale[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(remainingAction)) {
+        challengeContext = ` serving ${challengeScale[0]}`
+      }
+
+      // Convert resultClause to gerund if needed
+      let formattedResult = resultClause
+        .replace(/^Achieved\s+/i, 'achieving ')
+        .replace(/^Delivered\s+/i, 'delivering ')
+        .replace(/^Reduced\s+/i, 'reducing ')
+        .replace(/^Cut\s+/i, 'cutting ')
+        .replace(/^Improved\s+/i, 'improving ')
+        .replace(/^Enabled\s+/i, 'enabling ')
+        .replace(/^Strengthened\s+/i, 'strengthening ')
+        .replace(/^Produced\s+/i, 'producing ')
+        .replace(/^Supported\s+/i, 'supporting ')
+        .replace(/^Streamlined\s+/i, 'streamlining ')
+        .replace(/^Speeding\s+up\s+/i, 'accelerating ')
+
+      if (/^[A-Z]/.test(formattedResult)) {
+        formattedResult = formattedResult.charAt(0).toLowerCase() + formattedResult.slice(1)
+      }
+
+      let res = `${leadingVerb} ${remainingAction}${challengeContext}, ${formattedResult}.`
+      return cleanRewriteText(res)
+    } else {
+      // Standard quantified bullet without CAR
+      let res = `${leadingVerb} ${remainingAction}.`
+      return cleanRewriteText(res)
+    }
+  }
+
+  // Case B: UNQUANTIFIED BULLET -> Calibrate unique context-matched metric
+  const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
+  let selectedVariant = null
+  for (const v of pool) {
+    if (!usedMetricsSet.has(v.key)) {
+      selectedVariant = v
+      break
+    }
+  }
+  if (!selectedVariant) {
+    selectedVariant = pool[bulletIndex % pool.length]
+  }
+  usedMetricsSet.add(selectedVariant.key)
+
+  let res = `${leadingVerb} ${remainingAction}, ${selectedVariant.outcome}.`
+  return cleanRewriteText(res)
 }
 
 /**
@@ -352,7 +512,7 @@ export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCu
  * Normalizes opening gerund participles (-ing) into direct action verbs and
  * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
  */
-export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, targetRole = '') {
+export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, targetRole = '', usedMetricsSet = new Set()) {
   if (!bulletText) return null
   let clean = bulletText
     .replace(/^[•\-*▪–—\s]+/, '')
@@ -522,6 +682,7 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
       targetRole,
       isCurrentRole,
       sig,
+      usedMetricsSet,
     })
   }
 
@@ -1240,6 +1401,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
   }
 
   const audit = []
+  const usedMetricsSet = new Set()
   const isDateLike = (s) => !s || /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4})/i.test(s.trim())
   const rawExperiences =
     canonicalResume?.experiences ||
@@ -1309,7 +1471,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         } else if (hasWeakOpener) {
           status = 'warn'
           reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.tenseIssue === 'gerund_opening') {
           const targetVerb = normalizeGerundVerb(sig.openingWord, isCurrentRole)
           quickPolishNote = `Change '${sig.openingWord}' to '${targetVerb}' for direct action tense`
@@ -1320,24 +1482,24 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           } else {
             status = 'warn'
             reason = `Starts with an '-ing' participle ('${sig.openingWord}') — recommend ${isCurrentRole ? 'present-tense verb' : 'past-tense verb'} for direct action tense`
-            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
           }
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.repetitiveVerbIssue) {
           status = 'warn'
           reason = `Repeats opening verb '${sig.openingWord}' (used ${sig.openingVerbCount}x) — vary your action verbs to keep each bullet distinct`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.buzzwordIssue) {
           status = 'warn'
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (sig?.isToolDumpCandidate) {
           status = 'warn'
           reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else if (lacksOutcome) {
           status = 'warn'
           const opener = sig?.openingWord || 'Bullet'
@@ -1345,7 +1507,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
           const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
           reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         } else {
           status = 'pass'
           reason = 'Clear, specific, no defects found'
@@ -1359,7 +1521,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
 
         // Safety guarantee: EVERY bullet marked 'warn' or 'fix' MUST have a non-null rewrite!
         if ((status === 'warn' || status === 'fix') && !rewrite) {
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
         }
 
         if (rewrite) {
@@ -1415,7 +1577,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         }
 
         if (verdict === 'hurting' && !cleanImproved) {
-          const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
+          const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget, usedMetricsSet)
           cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
         }
 
@@ -1430,6 +1592,10 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         const metricOpportunities = Array.isArray(rawMetricOpps) && rawMetricOpps.length > 0
           ? normalizeMetricOpportunities(rawMetricOpps)
           : generateFallbackMetricOpportunities(b.text, roleTarget)
+
+        const isOrigQuant = isTrueQuantified(b.text)
+        const isRwQuant = cleanImproved ? isTrueQuantified(cleanImproved) : false
+        const metricSource = isOrigQuant ? 'resume_verified' : (isRwQuant ? 'ai_calibrated' : null)
 
         audit.push({
           bulletId: b.id,
@@ -1447,6 +1613,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           rewrite: cleanImproved,
           rewritten: cleanImproved,
           improved: cleanImproved,
+          metricSource,
           metricOpportunities,
           issueId: issue?.id || null,
           category: issue?.category || null,
