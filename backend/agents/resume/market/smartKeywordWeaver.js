@@ -21,7 +21,7 @@ export function getRewriteHash(bulletId, originalText, skills = []) {
 export const BATCH_WEAVER_SYSTEM_PROMPT = `You are a Principal Technical Interviewer, FAANG Bar Raiser, and Executive Resume Architect.
 Your task is twofold for each candidate experience bullet:
 1. NATURALLY RE-ENGINEER THE BULLET to weave the target skills using the 5-Part Winning Bullet Formula:
-   [1. Strong Action Verb] + [2. Target Hard Skill/Tool] + [3. Collaboration/Leadership Signal] + [4. Preserved/Calibrated Metric] + [5. Concrete Achievement/Outcome]
+   [1. Strong Action Verb] + [2. Target Hard Skill/Tool] + [3. Collaboration/Leadership Signal] + [4. Preserved Metric / Grounded Mechanism] + [5. Concrete Achievement/Outcome]
 2. GENERATE AN ELITE TECHNICAL INTERVIEW DEFENSE SCRIPT so the candidate can defend every woven tool convincingly in technical rounds.
 
 THE 5-PART RESUME PLAYBOOK FORMULA (MANDATORY FOR ALL REWRITES - 18 TO 32 WORDS):
@@ -29,13 +29,13 @@ Every single "rewrittenText" MUST integrate all 5 parts seamlessly:
 1. Strong Action Verb: Lead with a decisive past-tense (or present-tense for active current role) active verb (e.g. "Architected", "Engineered", "Orchestrated", "Automated", "Standardized", "Optimized", "Led"). Banned: "Assisted", "Helped", "Worked on", "Responsible for", "Utilized", or "-ing" participles.
 2. Target Hard Skill / Tool: Weave target skills naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, Snowflake, dbt). Zero keyword stuffing.
 3. Collaboration / Ownership Signal: Embed team or leadership scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
-4. Metric Grounding (Zero Placeholders): Preserve original candidate metrics whenever present; when missing, supply a realistic role-calibrated metric (e.g. "~20–35% latency reduction", "cutting release turnaround by 45%", "saving 12+ engineering hours weekly", "3x throughput", "99.9% uptime"). STRICTLY ZERO [ADD: ...] or bracketed placeholders.
+4. Metric Grounding (Zero Placeholders & Zero Fabricated Numbers): Preserve original candidate metrics whenever present; when missing, focus on concrete technical mechanisms and qualitative system outcomes (e.g. eliminating release bottlenecks, preventing defect escapes, sustaining zero-downtime rollouts, hardening security boundaries) WITHOUT fabricating fake numbers or percentages. STRICTLY ZERO [ADD: ...] or bracketed placeholders.
 5. Concrete Achievement / Operational Outcome: Deliverable business or system impact (e.g. "ensuring 99.99% service availability with zero downtime", "eliminating reporting discrepancies across 1,500+ SKUs").
 
 STRICT BAN ON LAZY SUFFIX APPENDS:
 - NEVER take the candidate's existing bullet and merely append ', using [Tool]...' or ' by ...' to an unchanged original prefix.
 - Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
-- Completely re-engineer the bullet from scratch so the new Strong Action Verb leads, followed by the hard skill/mechanism, collaboration/scope, calibrated metric, and concrete outcome (18 to 32 words).
+- Completely re-engineer the bullet from scratch so the new Strong Action Verb leads, followed by the hard skill/mechanism, collaboration/scope, grounded mechanism, and concrete outcome (18 to 32 words).
 
 LITERAL ATS KEYWORD MIRRORING RULE:
 - When a target skill or JD phrase has a close synonym in the original bullet (e.g., candidate wrote "large-scale web apps", "relational DB", or "data ingestion", while the target skill is "distributed systems", "PostgreSQL", or "Kafka pipelines"), REPLACE the loose synonym with the EXACT target JD phrase rather than appending it awkwardly to the end.
@@ -805,6 +805,65 @@ export async function weaveKeywordsAndBuildLedger({
   const experiences = JSON.parse(JSON.stringify(canonicalResume?.experiences || canonicalResume?.experience || []))
   const role = targetRole || canonicalResume?.target_role || canonicalResume?.candidate?.targetRole || ''
 
+  // Collect all evidenced skill text across the candidate resume
+  const candidateSkillWords = new Set()
+  const candidateFullPhrases = new Set()
+  const addTokens = (str) => {
+    if (!str || typeof str !== 'string') return
+    const lower = str.toLowerCase().trim()
+    candidateFullPhrases.add(lower)
+    lower.split(/[^a-z0-9+#.]+/).forEach((t) => {
+      if (t.length > 1) candidateSkillWords.add(t)
+    })
+  }
+
+  // Skills section
+  const resumeSkills = canonicalResume?.skills || []
+  const skillsArray = Array.isArray(resumeSkills) ? resumeSkills : Object.values(resumeSkills).flat()
+  for (const s of skillsArray) {
+    const name = typeof s === 'string' ? s : s?.name || s?.skill || ''
+    if (name) {
+      candidateFullPhrases.add(name.toLowerCase().trim())
+      addTokens(name)
+    }
+  }
+
+  // Skills-only keywords (explicitly present in the candidate skills section)
+  for (const s of (Array.isArray(skillsOnlyKeywords) ? skillsOnlyKeywords : [])) {
+    const name = typeof s === 'string' ? s : s?.name || s?.keyword || s?.skill || ''
+    if (name) {
+      candidateFullPhrases.add(name.toLowerCase().trim())
+      addTokens(name)
+    }
+  }
+
+  // Projects text and technologies
+  for (const proj of (canonicalResume?.projects || [])) {
+    addTokens(proj.title)
+    addTokens(proj.name)
+    addTokens(proj.description)
+    for (const b of (proj.bullets || [])) {
+      addTokens(typeof b === 'string' ? b : b?.text)
+    }
+    for (const t of (proj.technologies || proj.tools || [])) {
+      const name = typeof t === 'string' ? t : t?.name || ''
+      if (name) {
+        candidateFullPhrases.add(name.toLowerCase().trim())
+        addTokens(name)
+      }
+    }
+  }
+
+  // Past experience text
+  for (const exp of (canonicalResume?.experiences || canonicalResume?.experience || [])) {
+    addTokens(exp.role)
+    addTokens(exp.title)
+    addTokens(exp.company)
+    for (const b of (exp.bullets || [])) {
+      addTokens(typeof b === 'string' ? b : b?.text)
+    }
+  }
+
   const rawPool = [
     ...(Array.isArray(missingKeywords) ? missingKeywords : []),
     ...(Array.isArray(skillsOnlyKeywords) ? skillsOnlyKeywords : []),
@@ -812,12 +871,29 @@ export async function weaveKeywordsAndBuildLedger({
 
   const seen = new Set()
   const targetKws = []
+  const skillsToConfirm = []
+
   for (const item of rawPool) {
     const raw = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
     const clean = raw.trim()
-    if (isConcreteTechSkill(clean) && !seen.has(clean.toLowerCase())) {
-      seen.add(clean.toLowerCase())
+    if (!clean || !isConcreteTechSkill(clean)) continue
+    const lowerClean = clean.toLowerCase()
+    if (seen.has(lowerClean)) continue
+    seen.add(lowerClean)
+
+    // Verify whether this skill is evidenced anywhere in the candidate resume
+    const isEvidenced =
+      candidateFullPhrases.has(lowerClean) ||
+      candidateSkillWords.has(lowerClean) ||
+      Array.from(candidateFullPhrases).some((phrase) => phrase.includes(lowerClean) || lowerClean.includes(phrase))
+
+    if (isEvidenced) {
       targetKws.push(clean)
+    } else {
+      skillsToConfirm.push({
+        skill: clean,
+        note: 'Add only if you have hands-on experience with this tool',
+      })
     }
   }
 
@@ -829,6 +905,7 @@ export async function weaveKeywordsAndBuildLedger({
       })),
       interviewLedger: [],
       totalKeywordsWoven: 0,
+      skillsToConfirm,
     }
   }
 
@@ -841,13 +918,20 @@ export async function weaveKeywordsAndBuildLedger({
       timeoutMs: 30000,
     })
     if (result && Array.isArray(result.tailoredExperiences) && result.tailoredExperiences.length > 0) {
-      return result
+      return {
+        ...result,
+        skillsToConfirm,
+      }
     }
   } catch (err) {
     console.warn('[SmartKeywordWeaver] batchWeaveBulletsWithLLM failed in weaveKeywordsAndBuildLedger, falling back:', err.message)
   }
 
-  return deterministicWeave(experiences, targetKws, role)
+  const deterministicResult = deterministicWeave(experiences, targetKws, role)
+  return {
+    ...deterministicResult,
+    skillsToConfirm,
+  }
 }
 
 export function weaveKeywordsDeterministic({ canonicalResume = {}, missingKeywords = [], targetRole = '' } = {}) {

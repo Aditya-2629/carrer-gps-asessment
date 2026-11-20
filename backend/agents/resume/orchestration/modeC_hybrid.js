@@ -26,6 +26,7 @@ import { ContextCompiler } from '../../../ai/context/contextCompiler.js'
 import { sanitizeSingleAddPlaceholder, cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite } from '../scoring/resumeScorecard.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
+import { IMPACT_POLICY_INSTRUCTIONS, normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
 
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
@@ -280,6 +281,9 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           })
         }
       }
+      iss.metricOpportunities = normalizeMetricOpportunities(
+        iss.metricOpportunities || iss.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
+      )
     })
   } else {
     analysis.issues = []
@@ -300,6 +304,9 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           })
         }
         const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(origText, cleanedText)
+        const metricOpps = normalizeMetricOpportunities(
+          rw.metricOpportunities || rw.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
+        )
         return {
           ...rw,
           original: origText,
@@ -310,6 +317,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           critique: rw.critique || rw.reason || rw.diagnosis || '',
           whyItWorks,
           why: whyItWorks,
+          metricOpportunities: metricOpps,
           fiveParts: rw.fiveParts || rw.fivePartFlags || null,
           impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
           status: rw.status || 'warn',
@@ -382,10 +390,14 @@ export function sanitizeModeCOutput(analysis, state = {}) {
             targetRole: effectiveRole,
           })
         }
+        const metricOpps = normalizeMetricOpportunities(
+          upg.metricOpportunities || upg.discoveryOpportunities || generateFallbackMetricOpportunities(upg.originalText, effectiveRole)
+        )
         return {
           ...upg,
           reason,
           rewrittenText: rwText,
+          metricOpportunities: metricOpps,
         }
       })
     : []
@@ -599,7 +611,7 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
      * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
      * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
-     * When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (~20–35% latency/efficiency gain, 10–15 hrs/week saved, 3x throughput, 99.9% uptime, or dataset/user scale) matching the candidate's seniority without inventing fake employer names.
+     * When the original bullet lacks numbers, DO NOT invent fake numbers or percentages. Ground the rewrite in concrete engineering/operational mechanisms and qualitative system outcomes (e.g., system stability, defect prevention, release turnaround, automated test coverage).
      * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
@@ -616,12 +628,12 @@ BAN COSMETIC SWAPS & LAZY SUFFIX APPENDS:
 - Strictly forbid lazy suffix appends where the first 35 characters match the original bullet. Every rewrite must be re-engineered from the ground up!
 
 All rewrites across "issues[].correctedText", "bulletUpgrades[].rewrittenText", and "summaryOptimization.rewrittenSummary" MUST strictly follow the 5-Part Winning Bullet Formula (18–32 words):
-[1. Strong Action Verb] + [2. Relevant Hard Skill/Scope] + [3. Scale / Collaboration] + [4. Natural Calibrated Metric] + [5. Business Outcome]
+[1. Strong Action Verb] + [2. Relevant Hard Skill/Scope] + [3. Scale / Collaboration] + [4. Grounded Impact / Operational Mechanism] + [5. Business Outcome]
 
 - Part 1 (Strong Action Verb): Lead with a high-conviction engineering action verb (e.g. Architected, Engineered, Automated, Reduced, Led, Spearheaded, Optimized). Replace weak openers ("Worked on", "Helped with", "Responsible for", "Utilized", "Assisted in", "Tasked with") and "-ing" participles.
 - Part 2 (Relevant Hard Skill/Scope): Weave verified tools, systems, or frameworks naturally into the technical mechanism (e.g. Docker, Kubernetes, PostgreSQL, Kafka, React 19, Snowflake, dbt, AWS). Zero keyword stuffing.
 - Part 3 (Scale / Collaboration): Contextualize organizational ownership or cross-functional scope (e.g. "partnering with cross-functional product and QA squads", "leading a 4-engineer pod", "collaborating with executive stakeholders and data scientists").
-- Part 4 (Natural Calibrated Metric): When the original bullet lacks numbers, naturally embed realistic, role-calibrated metrics (e.g. "~20–35% latency reduction", "10–15 engineering hours saved weekly", "3x throughput", "99.9% uptime", "across 250k+ records") matching candidate seniority without inventing fake employer names. Zero [ADD: ...] or bracketed placeholders.
+- Part 4 (Grounded Impact / Operational Mechanism): If the candidate's source bullet includes verified numbers, preserve or sharpen them. If the original bullet lacks numbers, focus on the concrete technical mechanism and system stability WITHOUT fabricating unverified numbers or percentages. Zero [ADD: ...] or bracketed placeholders.
 - Part 5 (Business Outcome): Explicitly state the delivered business or system impact (e.g. "eliminating release bottlenecks", "preventing production defect escapes", "sustaining zero-downtime rollouts").
 
 CRITICAL SEPARATION IN issues[].diagnosis:
@@ -633,21 +645,16 @@ Structure diagnosis like:
 
 DOMAIN ARCHETYPE ENFORCEMENT:
 1. Data & Business Analyst: Star-schema dimensional modeling, dbt test assertions, eliminating cross-system reporting discrepancies, and executive dashboard adoption.
-   Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by 40% by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
-2. Software / Backend Engineer: p99 latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
-   Example: "Engineered high-concurrency microservices processing 10M+ daily transactions with 99.99% uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
+   Example: "Eliminated cross-system reporting discrepancies and accelerated weekly executive decision cycles by architecting automated star-schema data models on Snowflake and dbt, delivering self-service Power BI dashboards used across 1,500+ SKUs."
+2. Software / Backend Engineer: endpoint latency reduction, distributed event streaming, concurrency, API contract safety, and zero-downtime deployment.
+   Example: "Engineered high-concurrency microservices processing enterprise transaction volume with continuous uptime by transitioning synchronous monolith endpoints into event-driven Kafka pipelines backed by Redis caching."
 3. Generative AI & ML Engineer: RAG retrieval precision, token latency, hallucination reduction, context window caching, and tool-calling agent reliability.
-   Example: "Reduced LLM hallucination rates by 38% and achieved sub-second query retrieval across 600+ documents by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
+   Example: "Reduced LLM hallucination rates and achieved sub-second query retrieval across extensive document corpora by architecting a production RAG pipeline using FastMCP agents, LangChain, and vector embeddings with automated prompt-injection guardrails."
 4. DevOps & Cloud Platform Engineer: CI/CD deployment velocity, infrastructure-as-code automation, multi-stage Docker builds, Kubernetes cluster orchestration, and zero-downtime rollouts.
-   Example: "Reduced deployment lead time from 4 days to 45 minutes while sustaining 99.99% service availability by orchestrating multi-stage Docker container builds, automated Terraform infrastructure, and blue-green Kubernetes deployments."
+   Example: "Accelerated deployment lead time while sustaining high service availability by orchestrating multi-stage Docker container builds, automated Terraform infrastructure, and blue-green Kubernetes deployments."
 - SECURITY & COMPLIANCE NON-ABSURDITY: For security/vulnerability/sanitization bullets, anchor ONLY on eliminating high-severity CVEs, zero-day threat prevention, and achieving 100% security audit compliance (SOC2/HIPAA/PCI-DSS). NEVER claim security sanitization or input validation increased processing speed, system throughput, or execution latency.
 
-- CRITICAL HUMANIZATION MANDATE (ZERO PLACEHOLDERS):
-  * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
-  * If the original bullet lacks exact numeric metrics, DO NOT fabricate fake numbers. Instead, ground the outcome in natural business and operational impact (e.g. system reliability, CI/CD release cycles, architectural modernization, cross-functional velocity).
-  * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
-- 1-CLICK REALISTIC METRICS: In issues[], provide "metricOptions" with 3 realistic pre-calculated options: optionA (Efficiency: 15–20% latency reduction / 10+ hrs saved), optionB (Standard: 30–45% acceleration / 250k+ records), optionC (High-Scale: 3x throughput / 99.99% uptime).
-- Ground rewrites strictly in verified candidate facts and role-calibrated operational metrics without inventing fake employer names.
+${IMPACT_POLICY_INSTRUCTIONS}
 
 ==================================================
 4. LLM SEMANTIC AUDIT MANDATE (bulletEvaluations, cutList, nearMissKeywords)
@@ -805,6 +812,13 @@ Return ONLY a valid JSON object matching this structure:
       "metricDiscoveryQuestions": [
         "What was the measurable latency improvement or percentage throughput gain?"
       ],
+      "metricOpportunities": [
+        {
+          "label": "API p95 Latency",
+          "question": "Roughly how much faster did endpoint responses become after optimization?",
+          "unitHint": "ms or %"
+        }
+      ],
       "correctionType": "rewrite",
       "confidence": 0.95,
       "evidence": [
@@ -830,7 +844,14 @@ Return ONLY a valid JSON object matching this structure:
       "bulletId": "exp_001_b05",
       "status": "warn",
       "reason": "Specific 1-sentence recruiter critique of why this bullet is weak or unquantified",
-      "rewrittenText": "Complete humanized 5-part rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders."
+      "rewrittenText": "Complete humanized 5-part rewrite using resume facts and natural operational outcomes. STRICTLY NO [ADD: ...] or bracketed placeholders.",
+      "metricOpportunities": [
+        {
+          "label": "Test Coverage Gain",
+          "question": "By what percentage did automated test coverage increase across the codebase?",
+          "unitHint": "%"
+        }
+      ]
     }
   ],
   "bulletEvaluations": [

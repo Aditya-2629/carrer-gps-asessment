@@ -6,6 +6,7 @@ import {
   CaretUp,
   CheckCircle,
   WarningCircle,
+  Sparkle,
 } from '@phosphor-icons/react'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { DiffReview } from '../diff-review'
@@ -195,6 +196,13 @@ export default function ResumeBulletAudit({
         fivePartFlags,
         isResponsibilityOnly,
         impactScore: item.impactScore,
+        whyItWorks: item.whyItWorks || item.why || linkedIssue?.whyItMatters || '',
+        metricOpportunities:
+          Array.isArray(item.metricOpportunities) && item.metricOpportunities.length > 0
+            ? item.metricOpportunities
+            : Array.isArray(linkedIssue?.metricOpportunities)
+            ? linkedIssue.metricOpportunities
+            : [],
         recruiterAttention: isPass
           ? 'HOOKED (3.0s scan)'
           : isWarn
@@ -475,6 +483,38 @@ export default function ResumeBulletAudit({
                       />
                     </div>
                   ) : null}
+
+                  {/* Layer B: Role-Specific Impact Discovery (Metric Opportunities) */}
+                  {Array.isArray(item.metricOpportunities) && item.metricOpportunities.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2.5">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        <Sparkle size={13} weight="fill" className="text-amber-500" />
+                        <span>Impact Discovery (Layer B — Add verified scale if known):</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        {item.metricOpportunities.map((opp, oppIdx) => (
+                          <div
+                            key={oppIdx}
+                            className="p-2.5 rounded-lg bg-[var(--surface-card)] border border-amber-500/20 text-xs flex flex-col justify-between gap-1.5 shadow-2xs"
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <span className="font-semibold text-[var(--text-primary)] leading-tight text-[11.5px]">
+                                {opp.label}
+                              </span>
+                              {opp.unitHint && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 shrink-0">
+                                  {opp.unitHint}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                              {opp.question}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

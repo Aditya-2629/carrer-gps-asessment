@@ -17,6 +17,7 @@
  */
 
 import { classifyRoleArchetype } from '../../core/roleArchetypeClassifier.js'
+import { IMPACT_POLICY_INSTRUCTIONS } from '../impact/impactContract.js'
 
 export const SYNTHESIS_PROMPT_VERSION = 'resume-synthesis-v4'
 export const SYNTHESIS_PROMPT_VERSION_V4 = 'resume-synthesis-v4'
@@ -122,11 +123,13 @@ OUTPUT JSON FORMAT ONLY:
       "recruiterCritique": "Why this specific line failed human recruiter review",
       "wovenKeywords": ["GraphQL", "AWS"],
       "readyToUseRewrite": "Humanized, quantified rewrite with woven keywords and architectural mechanism",
-      "metricOptions": {
-        "optionA": "15–20% latency reduction / 10+ hours saved weekly",
-        "optionB": "30–45% processing acceleration / 250k+ records handled",
-        "optionC": "3x throughput increase / 99.99% service availability"
-      }
+      "metricOpportunities": [
+        {
+          "label": "Short clickable chip (e.g., Latency reduction)",
+          "question": "Targeted discovery question (e.g., Roughly how much faster did endpoint responses become?)",
+          "unitHint": "% | ms | $"
+        }
+      ]
     }
   ],
   "executiveSummaryRewrite": "High-altitude 3-4 line executive summary synthesizing career arc, core technical pillars, and strategic domain impact without copy-pasting individual bullet wording"
@@ -262,7 +265,7 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES
    1. Architectural Context: What system broke, lacked scale, or needed modernizing?
    2. Specific Mechanism: What exact library, protocol, indexing strategy, or configuration did you engineer? (e.g. "tuned Redis connection pooling", NOT "optimized database")
    3. Operational Outcome: Latency reduction, scale handled, release velocity, or verified reliability gain.
-   - ZERO-PLACEHOLDER RULE: Never output bracketed placeholders like "[ADD: ...]" or "[INSERT METRIC]". Instead of leaving placeholder brackets, generate complete, professional sentences and provide calibrated suggestions in metricOptions and discovery questions in metricDiscoveryQuestions. Do NOT fabricate fake percentages.
+   - ZERO-PLACEHOLDER RULE & TWO-LAYER IMPACT CONTRACT: Never output bracketed placeholders like "[ADD: ...]" or "[INSERT METRIC]". In Layer A (rewrittenText / correctedText), generate complete, professional sentences focused on concrete technical mechanisms and qualitative system outcomes without fabricating fake numbers or percentages. In Layer B, provide 2–3 targeted discovery opportunities inside metricOpportunities.
 
 4. 6-SECOND RECRUITER READ:
    - Latest role gets 3-5 rich bullets; older roles get 1-2 bullets.
@@ -739,12 +742,16 @@ Every recommendation MUST be action-oriented:
 - Recommendation answers: WHAT should the candidate do?
 CRITICAL: Do NOT repeat the diagnosis as the recommendation!
 
-1-CLICK REALISTIC METRIC GENERATOR (ELIMINATE DISCOVERY TRAP):
-For every unquantified bullet, do NOT just ask open-ended questions like "What was the metric?".
-The AI must generate 3 Pre-Calculated Realistic Metric Options tailored to that exact domain inside "metricOptions":
-- Option A (Conservative): e.g. "15–20% latency reduction / 10+ hours saved weekly"
-- Option B (Moderate / Standard): e.g. "30–45% processing acceleration / 250k+ records handled"
-- Option C (High-Scale): e.g. "3x throughput increase / 99.99% service availability"
+ROLE-SPECIFIC IMPACT DISCOVERY (metricOpportunities):
+For every weak or unquantified bullet, generate 2–3 concise, bullet-specific measurement opportunities inside "metricOpportunities":
+[
+  {
+    "label": "Short clickable chip (e.g., Reduced API p95 latency)",
+    "question": "Targeted discovery question (e.g., Roughly how much faster did endpoint responses become after optimization?)",
+    "unitHint": "% | ms | hours/week | $"
+  }
+]
+- These are CANDIDATE DISCOVERY PROMPTS to help the candidate discover and supply their real achievements, NEVER presented as completed achievements inside rewrittenText.
 
 METRIC DISCOVERY QUESTIONS (from resume-quantifier):
 Complement the metric options with targeted discovery questions drawn from the 6 metric dimensions (Scale & Volume, Time & Speed, Percentages, Money & Resources, Quality & Reliability, Cadence).
@@ -825,11 +832,13 @@ Use this exact structure:
       "recommendation": "...",
       "correctedText": null,
       "metricDiscoveryQuestions": [],
-      "metricOptions": {
-        "optionA": "Conservative metric (e.g. 15–20% latency reduction / 10+ hours saved weekly)",
-        "optionB": "Moderate / Standard metric (e.g. 30–45% processing acceleration / 250k+ records handled)",
-        "optionC": "High-Scale metric (e.g. 3x throughput increase / 99.99% service availability)"
-      },
+      "metricOpportunities": [
+        {
+          "label": "Short clickable chip (e.g. Latency reduction)",
+          "question": "Targeted discovery question",
+          "unitHint": "% | ms | $"
+        }
+      ],
       "evidence": [
         {
           "section": "experience",

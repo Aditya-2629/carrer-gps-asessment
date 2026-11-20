@@ -23,6 +23,7 @@
 import { normalizeGerundVerb, toPresentTense } from '../signals/patterns.js'
 import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
+import { normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
 
 export const SCORECARD_VERSION = 'resume-scorecard-v1'
 
@@ -166,49 +167,49 @@ export function isTrueQuantified(text) {
 
 const DOMAIN_METRIC_POOLS = {
   qa: [
-    { scope: 'partnering with QA and release engineering squads', outcome: 'increasing automated test coverage to 85%+ and reducing defect leakage by 40%' },
-    { scope: 'collaborating with test automation engineers', outcome: 'reducing regression testing cycles from 4 hours to 25 minutes' },
-    { scope: 'partnering with cross-functional release squads', outcome: 'eliminating manual QA bottlenecks and ensuring zero critical regression escapes' },
-    { scope: 'partnering with QA leads and developers', outcome: 'accelerating CI test execution speed by 35% with 100% test reliability' },
+    { scope: 'partnering with QA and release engineering squads', outcome: 'increasing automated test coverage and preventing defect escapes across release cycles' },
+    { scope: 'collaborating with test automation engineers', outcome: 'streamlining regression testing workflows and eliminating manual QA bottlenecks' },
+    { scope: 'partnering with cross-functional release squads', outcome: 'accelerating release readiness and ensuring zero critical regression escapes' },
+    { scope: 'partnering with QA leads and developers', outcome: 'improving CI test execution reliability and pipeline build stability' },
   ],
   frontend: [
-    { scope: 'partnering with UX designers and backend engineers', outcome: 'achieving 98+ Google Lighthouse scores and sub-second first contentful paint (FCP)' },
-    { scope: 'collaborating with design systems and accessibility leads', outcome: 'ensuring 100% WCAG 2.1 AA accessibility compliance across all production views' },
-    { scope: 'partnering with product designers and frontend squads', outcome: 'slashing client-side render latency by 35% and improving core web vitals' },
-    { scope: 'collaborating with UI/UX engineers', outcome: 'accelerating user workflow completion rates by 28% and eliminating layout shifts' },
+    { scope: 'partnering with UX designers and backend engineers', outcome: 'optimizing core web vitals and delivering sub-second first contentful paint (FCP)' },
+    { scope: 'collaborating with design systems and accessibility leads', outcome: 'ensuring full WCAG AA accessibility compliance across production views' },
+    { scope: 'partnering with product designers and frontend squads', outcome: 'reducing client-side render overhead and eliminating layout shifts' },
+    { scope: 'collaborating with UI/UX engineers', outcome: 'improving user workflow completion rates and frontend interface responsiveness' },
   ],
   backend: [
-    { scope: 'collaborating with distributed platform teams', outcome: 'cutting p99 API response times by 38% and supporting 10k+ concurrent requests' },
-    { scope: 'partnering with backend engineering squads', outcome: 'reducing payload overhead by 45% while maintaining 99.99% service availability' },
-    { scope: 'collaborating with microservices architects', outcome: 'handling 5M+ daily API transactions with zero downtime deployments' },
-    { scope: 'partnering with core infrastructure engineers', outcome: 'slashing service-to-service communication latency by 30% under peak load' },
+    { scope: 'collaborating with distributed platform teams', outcome: 'optimizing endpoint latency and sustaining high throughput under peak traffic' },
+    { scope: 'partnering with backend engineering squads', outcome: 'reducing payload overhead while maintaining uninterrupted service availability' },
+    { scope: 'collaborating with microservices architects', outcome: 'supporting enterprise transaction volume with zero-downtime deployments' },
+    { scope: 'partnering with core infrastructure engineers', outcome: 'reducing service-to-service communication latency and eliminating concurrency bottlenecks' },
   ],
   database: [
-    { scope: 'partnering with DBA and data platform engineers', outcome: 'reducing complex query execution time from 14s to 850ms via composite indexing' },
+    { scope: 'partnering with DBA and data platform engineers', outcome: 'reducing complex query execution time via optimized composite indexing' },
     { scope: 'collaborating with database administrators', outcome: 'optimizing connection pool utilization and eliminating database lock contention' },
-    { scope: 'partnering with data engineering leads', outcome: 'accelerating daily batch processing throughput by 50% across millions of records' },
-    { scope: 'collaborating with platform engineers', outcome: 'reducing storage I/O bottlenecks and cutting query latency by 40%' },
+    { scope: 'partnering with data engineering leads', outcome: 'accelerating daily batch ingestion throughput across enterprise data pipelines' },
+    { scope: 'collaborating with platform engineers', outcome: 'reducing storage I/O bottlenecks and eliminating query execution delays' },
   ],
   devops: [
-    { scope: 'partnering with DevOps and platform reliability engineers', outcome: 'cutting CI/CD build-to-deploy pipeline times from 45 to 8 minutes' },
-    { scope: 'collaborating with cloud infrastructure leads', outcome: 'sustaining 99.99% cloud infrastructure availability with zero-downtime rollouts' },
-    { scope: 'partnering with SRE squads', outcome: 'optimizing container compute footprint and slashing cloud infrastructure costs by 28%' },
-    { scope: 'collaborating with platform reliability teams', outcome: 'automating multi-region failover and reducing MTTR by 60%' },
+    { scope: 'partnering with DevOps and platform reliability engineers', outcome: 'accelerating CI/CD build-to-deploy pipeline turnaround and deployment reliability' },
+    { scope: 'collaborating with cloud infrastructure leads', outcome: 'maintaining continuous cloud infrastructure availability with automated zero-downtime rollouts' },
+    { scope: 'partnering with SRE squads', outcome: 'optimizing container compute footprints and reducing cloud infrastructure resource overhead' },
+    { scope: 'collaborating with platform reliability teams', outcome: 'automating multi-region failover and accelerating mean time to recovery (MTTR)' },
   ],
   security: [
-    { scope: 'collaborating with InfoSec and compliance teams', outcome: 'eliminating high-severity CVE vulnerabilities and achieving 100% SOC-2 compliance' },
+    { scope: 'collaborating with InfoSec and compliance teams', outcome: 'eliminating high-severity CVE vulnerabilities and maintaining full SOC-2 compliance' },
     { scope: 'partnering with security architects', outcome: 'protecting user identity workflows with zero unauthorized auth boundary breaches' },
-    { scope: 'collaborating with security and release squads', outcome: 'hardening API gateway endpoints and ensuring 100% audit trail compliance' },
+    { scope: 'collaborating with security and release squads', outcome: 'hardening API gateway endpoints and ensuring comprehensive audit trail coverage' },
   ],
   ai: [
-    { scope: 'collaborating with ML researchers and data engineers', outcome: 'reducing retrieval latency by 32% while sustaining 99.2% factual precision' },
-    { scope: 'partnering with AI platform teams', outcome: 'optimizing embedding inference throughput and reducing GPU compute overhead by 30%' },
-    { scope: 'collaborating with ML platform engineers', outcome: 'slashing token generation latency and eliminating context window bottlenecks' },
+    { scope: 'collaborating with ML researchers and data engineers', outcome: 'optimizing retrieval latency while maintaining high factual precision' },
+    { scope: 'partnering with AI platform teams', outcome: 'optimizing embedding inference throughput and reducing GPU compute overhead' },
+    { scope: 'collaborating with ML platform engineers', outcome: 'accelerating token generation throughput and eliminating context window bottlenecks' },
   ],
   general: [
-    { scope: 'partnering with cross-functional engineering squads', outcome: 'cutting delivery turnaround by 35% and elevating system reliability' },
-    { scope: 'collaborating with technical leads and stakeholders', outcome: 'accelerating feature velocity and reducing production bug escalations by 40%' },
-    { scope: 'partnering with product and engineering leads', outcome: 'sustaining 99.9% operational availability and eliminating delivery blockers' },
+    { scope: 'partnering with cross-functional engineering squads', outcome: 'accelerating delivery turnaround and elevating overall system reliability' },
+    { scope: 'collaborating with technical leads and stakeholders', outcome: 'accelerating feature delivery cycles and preventing production bug escalations' },
+    { scope: 'partnering with product and engineering leads', outcome: 'maintaining high operational availability and eliminating delivery bottlenecks' },
   ],
 }
 
@@ -1425,6 +1426,11 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           upgrade?.why ||
           synthesizeWhyItWorks(b.text, cleanImproved)
 
+        const rawMetricOpps = llmMatch?.metricOpportunities || upgrade?.metricOpportunities || issue?.metricOpportunities || []
+        const metricOpportunities = Array.isArray(rawMetricOpps) && rawMetricOpps.length > 0
+          ? normalizeMetricOpportunities(rawMetricOpps)
+          : generateFallbackMetricOpportunities(b.text, roleTarget)
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -1441,6 +1447,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           rewrite: cleanImproved,
           rewritten: cleanImproved,
           improved: cleanImproved,
+          metricOpportunities,
           issueId: issue?.id || null,
           category: issue?.category || null,
           verdict,
@@ -1460,6 +1467,10 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       const cleanRw = cleanRewriteText(rw.rewritten || rw.rewrite || rw.rewrittenText || orig)
       const isPass = rw.status === 'pass' || rw.severity === 'PASS'
       const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(orig, cleanRw)
+      const rawMetricOpps = rw.metricOpportunities || rw.discoveryOpportunities || []
+      const metricOpportunities = Array.isArray(rawMetricOpps) && rawMetricOpps.length > 0
+        ? normalizeMetricOpportunities(rawMetricOpps)
+        : generateFallbackMetricOpportunities(orig, roleTarget)
       audit.push({
         bulletId: rw.bulletId || rw.id || `llm_b_${idx}`,
         section: 'experience',
@@ -1474,6 +1485,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         rewrite: cleanRw,
         rewritten: cleanRw,
         improved: cleanRw,
+        metricOpportunities,
         verdict: isPass ? 'helping' : 'hurting',
         fivePartFlags: rw.fiveParts || rw.fivePartFlags || {
           actionVerb: true,
