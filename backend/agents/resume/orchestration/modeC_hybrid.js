@@ -647,7 +647,11 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
      "Accomplished [X], evidenced by [Y], by executing [Z]."
    - CRITICAL 5-PART RESUME PLAYBOOK MANDATE (18–32 WORDS, ZERO PLACEHOLDERS):
      * SELECTIVE INJECTION RULE: PRESERVE verified metrics verbatim! If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure. ONLY calibrate realistic metrics for bullets that lack measurable numbers or scale.
-     * PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD: Every quantified rewrite in the same resume MUST use a DISTINCT metric type and DISTINCT number (never reuse "32%", "35%", "500k+", "12+ hrs", or the same outcome phrase on two different bullets). Integrate the metric naturally inside the sentence (never append as generic trailing boilerplate). Match the metric strictly to what that specific bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
+     * PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD:
+        - NO REPEATED OPENING VERBS: Never start more than 2 bullets across the entire resume with the same action verb (e.g., maximum 2 bullets starting with "Architected", 2 with "Engineered", 2 with "Automated", etc.). Vary opening verbs naturally across strong, domain-appropriate action verbs (e.g., Architected, Engineered, Developed, Built, Spearheaded, Automated, Optimized, Streamlined, Designed, Orchestrated, Scaled, Deployed, Standardized, Modernized; or in Present tense: Lead, Architect, Build, Automate, Optimize, Streamline, Design, Orchestrate, Scale, Deploy, Standardize, Modernize).
+        - VARIED SENTENCE STRUCTURE: Do NOT use a rigid formula or identical grammatical pattern on consecutive bullets. Vary openings and clause orders naturally across the resume (e.g., some bullets lead with decisive action verb + technical mechanism, while others lead with delivered business outcome or system deliverable + technical architecture; 16–28 words).
+        - UNIQUE METRICS & OUTCOMES: Every AI-calibrated metric (%, ms, hours, records, $, etc.) and business outcome phrase MUST be completely unique across all bullets in the resume. Never reuse "32%", "35%", "500k+", "12+ hrs", or the same outcome phrase across two different bullets.
+        - Integrate the metric naturally inside the sentence (never append as generic trailing boilerplate). Match the metric strictly to what that specific bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
      * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
      * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
@@ -973,6 +977,467 @@ Synthesize the final report now using this dossier as factual foundation. Return
   ]
 }
 
+
+export function normalizeVerbLemma(word) {
+  if (!word || typeof word !== 'string') return ''
+  const clean = word.toLowerCase().replace(/[^a-z]/g, '')
+  if (!clean) return ''
+
+  const irregulars = {
+    built: 'build', build: 'build',
+    led: 'lead', lead: 'lead',
+    ran: 'run', run: 'run',
+    drove: 'drive', drive: 'drive',
+    wrote: 'write', write: 'write',
+    made: 'make', make: 'make',
+    kept: 'keep', keep: 'keep',
+    took: 'take', take: 'take',
+    grew: 'grow', grow: 'grow',
+    set: 'set',
+    cut: 'cut',
+    met: 'meet', meet: 'meet',
+    held: 'hold', hold: 'hold',
+    sent: 'send', send: 'send',
+    spent: 'spend', spend: 'spend',
+    spoke: 'speak', speak: 'speak',
+    chose: 'choose', choose: 'choose',
+    won: 'win', win: 'win',
+    taught: 'teach', teach: 'teach',
+    brought: 'bring', bring: 'bring',
+    bought: 'buy', buy: 'buy',
+  }
+  if (irregulars[clean]) return irregulars[clean]
+
+  const present = toPresentTense(clean)
+  if (present && typeof present === 'string') {
+    const pClean = present.toLowerCase().replace(/[^a-z]/g, '')
+    if (irregulars[pClean]) return irregulars[pClean]
+    if (pClean && pClean !== clean) return pClean
+  }
+
+  if (clean.endsWith('ing') && clean.length > 5) {
+    let stem = clean.slice(0, -3)
+    if (stem[stem.length - 1] === stem[stem.length - 2]) stem = stem.slice(0, -1)
+    else if (!stem.endsWith('e')) stem = stem + 'e'
+    return stem
+  }
+  if (clean.endsWith('ed') && clean.length > 4) {
+    let stem = clean.slice(0, -2)
+    if (stem[stem.length - 1] === stem[stem.length - 2]) stem = stem.slice(0, -1)
+    return stem
+  }
+  if (clean.endsWith('es') && clean.length > 4) {
+    return clean.slice(0, -2)
+  }
+  if (clean.endsWith('s') && clean.length > 3 && !clean.endsWith('ss')) {
+    return clean.slice(0, -1)
+  }
+
+  return clean
+}
+
+export function getOpeningVerb(text) {
+  if (!text || typeof text !== 'string') return null
+  const cleaned = text.replace(/^[\s*•\-–—\d.)\]>]+/, '').trim()
+  if (!cleaned) return null
+
+  const tokens = cleaned.split(/\s+/)
+  for (let i = 0; i < Math.min(tokens.length, 4); i++) {
+    const rawWord = tokens[i].replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '')
+    if (!rawWord) continue
+    const lower = rawWord.toLowerCase()
+    if (lower.endsWith('ly') && lower.length > 4) continue
+    if (['in', 'on', 'at', 'by', 'for', 'with', 'as', 'to', 'the', 'a', 'an', 'and'].includes(lower)) continue
+
+    return {
+      raw: rawWord,
+      lemma: normalizeVerbLemma(rawWord),
+      index: i,
+    }
+  }
+
+  const fallback = tokens[0]?.replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '') || ''
+  return {
+    raw: fallback,
+    lemma: normalizeVerbLemma(fallback),
+    index: 0,
+  }
+}
+
+export function extractMetricTokens(text) {
+  if (!text || typeof text !== 'string') return []
+  const tokens = []
+
+  let stripped = text.replace(/\b(?:19[7-9]\d|20[0-3]\d)\b/g, ' ')
+  stripped = stripped.replace(/\b(?:python|react|angular|vue|node|java|oauth|http|soc|iso|wcag|tier|level|phase|step|part)\s*v?[\d.]+\b/gi, ' ')
+  stripped = stripped.replace(/\b[A-Z]{1,3}\d\b/g, ' ')
+
+  const percentMatches = stripped.match(/\b\d+(?:\.\d+)?%/g) || []
+  percentMatches.forEach((m) => tokens.push(m.toLowerCase().trim()))
+
+  const multiplierMatches = stripped.match(/\b\d+(?:\.\d+)?[xX]\b/g) || []
+  multiplierMatches.forEach((m) => tokens.push(m.toLowerCase().trim()))
+
+  const currencyMatches = stripped.match(/\$\s*[\d,]+(?:\.\d+)?(?:[kKmMbB]|k|M|B)?\b/g) || []
+  currencyMatches.forEach((m) => tokens.push(m.replace(/\s+/g, '').toLowerCase().trim()))
+
+  const timeMatches = stripped.match(/\b\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|secs?|mins?|minutes?|hours?|hrs?|days?|weeks?|months?)\b/gi) || []
+  timeMatches.forEach((m) => tokens.push(m.toLowerCase().replace(/\s+/g, ' ').trim()))
+
+  const scaleMatches = stripped.match(/\b\d[\d,]*(?:\.\d+)?\+?\s*(?:k\b|M\b|B\b|users\b|queries\b|records\b|requests\b|qps\b|tps\b|endpoints?\b|tickets?\b|pipelines?\b|nodes?\b|containers?\b|vulnerabilities\b|cves?\b|skus?\b)/gi) || []
+  scaleMatches.forEach((m) => tokens.push(m.toLowerCase().replace(/\s+/g, ' ').trim()))
+
+  const plusMatches = stripped.match(/\b\d[\d,]*\+(?!\w)/g) || []
+  plusMatches.forEach((m) => tokens.push(m.toLowerCase().trim()))
+
+  return Array.from(new Set(tokens))
+}
+
+export function extract5Grams(text) {
+  if (!text || typeof text !== 'string') return []
+  const words = text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 0)
+
+  if (words.length < 5) return []
+  const ngrams = []
+  for (let i = 0; i <= words.length - 5; i++) {
+    ngrams.push(words.slice(i, i + 5).join(' '))
+  }
+  return ngrams
+}
+
+export function detectBulletRepetitions(bullets = []) {
+  const verbUsage = new Map()
+  const metricUsage = new Map()
+  const ngramUsage = new Map()
+  const bulletLookup = new Map()
+
+  for (const b of bullets) {
+    bulletLookup.set(b.bulletId, b)
+    const rwText = (b.rewrittenText || '').trim()
+    const origText = (b.originalText || '').trim()
+    if (!rwText) continue
+
+    const opening = getOpeningVerb(rwText)
+    if (opening && opening.lemma) {
+      if (!verbUsage.has(opening.lemma)) verbUsage.set(opening.lemma, [])
+      verbUsage.get(opening.lemma).push({
+        bulletId: b.bulletId,
+        rawVerb: opening.raw,
+        lemma: opening.lemma,
+      })
+    }
+
+    const origMetrics = new Set(extractMetricTokens(origText))
+    const rwMetrics = extractMetricTokens(rwText)
+    for (const m of rwMetrics) {
+      const originalHadIt = origMetrics.has(m)
+      if (!metricUsage.has(m)) metricUsage.set(m, [])
+      metricUsage.get(m).push({
+        bulletId: b.bulletId,
+        originalHadIt,
+      })
+    }
+
+    const ngrams = extract5Grams(rwText)
+    const seenInBullet = new Set()
+    for (const ng of ngrams) {
+      if (seenInBullet.has(ng)) continue
+      seenInBullet.add(ng)
+      if (!ngramUsage.has(ng)) ngramUsage.set(ng, [])
+      ngramUsage.get(ng).push(b.bulletId)
+    }
+  }
+
+  const collidingVerbs = new Map()
+  for (const [lemma, occurrences] of verbUsage.entries()) {
+    if (occurrences.length > 2) {
+      collidingVerbs.set(lemma, {
+        total: occurrences.length,
+        allowed: occurrences.slice(0, 2).map((o) => o.bulletId),
+        violators: occurrences.slice(2).map((o) => o.bulletId),
+      })
+    }
+  }
+
+  const collidingMetrics = new Map()
+  for (const [metric, occurrences] of metricUsage.entries()) {
+    if (occurrences.length > 1) {
+      const aiOccurrences = occurrences.filter((o) => !o.originalHadIt)
+      if (aiOccurrences.length > 0) {
+        const kept = occurrences[0].bulletId
+        const violators = occurrences.slice(1).filter((o) => !o.originalHadIt).map((o) => o.bulletId)
+        if (violators.length > 0) {
+          collidingMetrics.set(metric, { kept, violators })
+        }
+      }
+    }
+  }
+
+  const collidingPhrases = new Map()
+  for (const [phrase, bIds] of ngramUsage.entries()) {
+    if (bIds.length > 1) {
+      collidingPhrases.set(phrase, {
+        kept: bIds[0],
+        violators: bIds.slice(1),
+      })
+    }
+  }
+
+  const repairTargetsMap = new Map()
+
+  for (const [lemma, info] of collidingVerbs.entries()) {
+    for (const bId of info.violators) {
+      if (!repairTargetsMap.has(bId)) {
+        const b = bulletLookup.get(bId)
+        repairTargetsMap.set(bId, {
+          bulletId: bId,
+          originalText: b?.originalText || '',
+          currentRewrittenText: b?.rewrittenText || '',
+          company: b?.company || '',
+          tense: b?.tense || (b?.isCurrentRole ? 'PRESENT' : 'PAST'),
+          forbiddenVerbs: new Set(),
+          forbiddenMetrics: new Set(),
+          forbiddenPhrases: new Set(),
+          reasons: [],
+        })
+      }
+      const target = repairTargetsMap.get(bId)
+      target.forbiddenVerbs.add(lemma)
+      target.reasons.push(`Opening verb '${lemma}' used > 2 times across resume`)
+    }
+  }
+
+  for (const [metric, info] of collidingMetrics.entries()) {
+    for (const bId of info.violators) {
+      if (!repairTargetsMap.has(bId)) {
+        const b = bulletLookup.get(bId)
+        repairTargetsMap.set(bId, {
+          bulletId: bId,
+          originalText: b?.originalText || '',
+          currentRewrittenText: b?.rewrittenText || '',
+          company: b?.company || '',
+          tense: b?.tense || (b?.isCurrentRole ? 'PRESENT' : 'PAST'),
+          forbiddenVerbs: new Set(),
+          forbiddenMetrics: new Set(),
+          forbiddenPhrases: new Set(),
+          reasons: [],
+        })
+      }
+      const target = repairTargetsMap.get(bId)
+      target.forbiddenMetrics.add(metric)
+      target.reasons.push(`Metric '${metric}' duplicated across bullets`)
+    }
+  }
+
+  for (const [phrase, info] of collidingPhrases.entries()) {
+    for (const bId of info.violators) {
+      if (!repairTargetsMap.has(bId)) {
+        const b = bulletLookup.get(bId)
+        repairTargetsMap.set(bId, {
+          bulletId: bId,
+          originalText: b?.originalText || '',
+          currentRewrittenText: b?.rewrittenText || '',
+          company: b?.company || '',
+          tense: b?.tense || (b?.isCurrentRole ? 'PRESENT' : 'PAST'),
+          forbiddenVerbs: new Set(),
+          forbiddenMetrics: new Set(),
+          forbiddenPhrases: new Set(),
+          reasons: [],
+        })
+      }
+      const target = repairTargetsMap.get(bId)
+      target.forbiddenPhrases.add(phrase)
+      target.reasons.push(`Boilerplate phrase '${phrase}' repeated across bullets`)
+    }
+  }
+
+  const allUsedVerbs = Array.from(verbUsage.keys())
+  const allUsedMetrics = Array.from(metricUsage.keys())
+
+  const repairTargets = Array.from(repairTargetsMap.values()).map((t) => ({
+    ...t,
+    forbiddenVerbs: Array.from(new Set([
+      ...t.forbiddenVerbs,
+      ...allUsedVerbs.filter((v) => (verbUsage.get(v)?.length || 0) >= 2),
+    ])),
+    forbiddenMetrics: Array.from(new Set([...t.forbiddenMetrics, ...allUsedMetrics])),
+    forbiddenPhrases: Array.from(t.forbiddenPhrases),
+  }))
+
+  return {
+    hasRepetitions: repairTargets.length > 0,
+    repairTargets,
+    verbUsage,
+    metricUsage,
+    collidingVerbs,
+    collidingMetrics,
+    collidingPhrases,
+  }
+}
+
+export function syncRepairedBullet(parsedForValidation, bulletId, newRewrittenText, critique = null, whyItWorks = null) {
+  if (!parsedForValidation || !bulletId || !newRewrittenText) return
+  const cleaned = cleanRewriteText(newRewrittenText)
+
+  if (Array.isArray(parsedForValidation.bulletUpgrades)) {
+    const upg = parsedForValidation.bulletUpgrades.find((u) => u.bulletId === bulletId)
+    if (upg) {
+      upg.rewrittenText = cleaned
+      if (critique) {
+        upg.critique = critique
+        upg.reason = critique
+      }
+      if (whyItWorks) upg.whyItWorks = whyItWorks
+    }
+  }
+
+  if (Array.isArray(parsedForValidation.bulletRewrites)) {
+    const rw = parsedForValidation.bulletRewrites.find((r) => r.bulletId === bulletId)
+    if (rw) {
+      rw.rewrittenText = cleaned
+      rw.readyToUseRewrite = cleaned
+      rw.rewritten = cleaned
+      if (critique) rw.critique = critique
+      if (whyItWorks) {
+        rw.whyItWorks = whyItWorks
+        rw.why = whyItWorks
+      }
+    }
+  }
+
+  if (Array.isArray(parsedForValidation.issues)) {
+    for (const iss of parsedForValidation.issues) {
+      const matchBullet = (Array.isArray(iss.evidence) && iss.evidence.some((e) => e.bulletId === bulletId)) || iss.bulletId === bulletId
+      if (matchBullet) {
+        iss.correctedText = cleaned
+        iss.rewrite = cleaned
+      }
+    }
+  }
+}
+
+export function applyDeterministicRepetitionSafetyNet(parsedForValidation, canonicalResume, bulletContextMap = new Map()) {
+  if (!parsedForValidation || typeof parsedForValidation !== 'object') return
+
+  const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
+
+  const PAST_VERBS_POOL = [
+    'Architected', 'Engineered', 'Built', 'Automated', 'Spearheaded',
+    'Optimized', 'Streamlined', 'Designed', 'Orchestrated', 'Scaled',
+    'Deployed', 'Standardized', 'Modernized', 'Constructed', 'Directed',
+    'Overhauled', 'Accelerated', 'Synthesized', 'Formulated', 'Instituted',
+    'Centralized', 'Programmed', 'Integrated', 'Refactored', 'Expanded',
+  ]
+
+  const PRESENT_VERBS_POOL = [
+    'Architect', 'Engineer', 'Build', 'Automate', 'Spearhead',
+    'Optimize', 'Streamline', 'Design', 'Orchestrate', 'Scale',
+    'Deploy', 'Standardize', 'Modernize', 'Construct', 'Direct',
+    'Overhaul', 'Accelerate', 'Synthesize', 'Formulate', 'Institute',
+    'Centralize', 'Program', 'Integrate', 'Refactor', 'Expand',
+  ]
+
+  const lemmaCounts = new Map()
+  const allBullets = []
+
+  for (const [bId, text] of bulletMap.entries()) {
+    if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
+    let currentRw = ''
+    const upg = (parsedForValidation.bulletUpgrades || []).find((u) => u.bulletId === bId)
+    if (upg?.rewrittenText) currentRw = upg.rewrittenText
+    if (!currentRw) {
+      const rw = (parsedForValidation.bulletRewrites || []).find((r) => r.bulletId === bId)
+      if (rw?.rewrittenText || rw?.readyToUseRewrite) currentRw = rw.rewrittenText || rw.readyToUseRewrite
+    }
+    if (!currentRw) {
+      const iss = (parsedForValidation.issues || []).find((i) => i.evidence?.[0]?.bulletId === bId)
+      if (iss?.correctedText) currentRw = iss.correctedText
+    }
+
+    if (!currentRw) continue
+
+    const ctx = bulletContextMap.get(bId) || bulletContextMap.get(text.trim()) || { isCurrentRole: false, tense: 'PAST' }
+    const opening = getOpeningVerb(currentRw)
+    allBullets.push({
+      bulletId: bId,
+      originalText: text,
+      rewrittenText: currentRw,
+      isCurrentRole: ctx.isCurrentRole,
+      tense: ctx.tense || (ctx.isCurrentRole ? 'PRESENT' : 'PAST'),
+      opening,
+    })
+  }
+
+  // 1. Fix opening verbs used > 2 times
+  const usedLemmas = new Set()
+  for (const b of allBullets) {
+    if (b.opening?.lemma) {
+      const count = (lemmaCounts.get(b.opening.lemma) || 0) + 1
+      lemmaCounts.set(b.opening.lemma, count)
+      if (count <= 2) {
+        usedLemmas.add(b.opening.lemma)
+      } else {
+        const pool = b.isCurrentRole ? PRESENT_VERBS_POOL : PAST_VERBS_POOL
+        const replacement = pool.find((v) => !usedLemmas.has(normalizeVerbLemma(v))) || (b.isCurrentRole ? 'Direct' : 'Directed')
+        const repLemma = normalizeVerbLemma(replacement)
+        usedLemmas.add(repLemma)
+        lemmaCounts.set(repLemma, (lemmaCounts.get(repLemma) || 0) + 1)
+
+        const tokens = b.rewrittenText.replace(/^[\s*•\-–—\d.)\]>]+/, '').split(/\s+/)
+        tokens[b.opening.index || 0] = replacement
+        b.rewrittenText = cleanRewriteText(tokens.join(' '))
+        syncRepairedBullet(parsedForValidation, b.bulletId, b.rewrittenText)
+      }
+    }
+  }
+
+  // 2. Fix metric collisions
+  const seenMetrics = new Map()
+  const fallbackPercents = ['24%', '31%', '18%', '42%', '27%', '36%', '19%', '29%', '33%', '22%']
+  let percentIdx = 0
+
+  for (const b of allBullets) {
+    const origMetrics = new Set(extractMetricTokens(b.originalText))
+    const rwMetrics = extractMetricTokens(b.rewrittenText)
+    for (const m of rwMetrics) {
+      if (origMetrics.has(m)) continue
+      if (!seenMetrics.has(m)) {
+        seenMetrics.set(m, b.bulletId)
+      } else if (seenMetrics.get(m) !== b.bulletId) {
+        if (m.endsWith('%')) {
+          const fresh = fallbackPercents[percentIdx++ % fallbackPercents.length]
+          const numOnly = m.replace('%', '').trim()
+          b.rewrittenText = b.rewrittenText.replace(new RegExp(`\\b${numOnly}%(?!\\w)`, 'i'), fresh)
+          seenMetrics.set(fresh.toLowerCase(), b.bulletId)
+          syncRepairedBullet(parsedForValidation, b.bulletId, b.rewrittenText)
+        }
+      }
+    }
+  }
+
+  // 3. Fix 5-gram boilerplate collisions
+  const seenNgrams = new Map()
+  for (const b of allBullets) {
+    const ngrams = extract5Grams(b.rewrittenText)
+    for (const ng of ngrams) {
+      if (!seenNgrams.has(ng)) {
+        seenNgrams.set(ng, b.bulletId)
+      } else if (seenNgrams.get(ng) !== b.bulletId) {
+        if (/partnering with|collaborating with|in close partnership with|working closely with/i.test(ng)) {
+          b.rewrittenText = b.rewrittenText.replace(/(?:\s*,?\s*)?(?:partnering with|collaborating with|in close partnership with|working closely with)\s+(?:cross[\s-]functional\s+)?(?:squads|teams?|stakeholders?|engineers?)\s*(?:to\s+ensure|to\s+deliver|,)?\s*/gi, ', delivering ')
+          b.rewrittenText = cleanRewriteText(b.rewrittenText)
+          syncRepairedBullet(parsedForValidation, b.bulletId, b.rewrittenText)
+          break
+        }
+      }
+    }
+  }
+}
+
 /**
  * Executes Mode C: Hybrid Deterministic + Reasoning
  *
@@ -1274,7 +1739,10 @@ CRITICAL REWRITE RULES:
 3. STAKEHOLDER / TEAM COLLABORATION IS STRICTLY OPTIONAL:
    - Only include collaboration or stakeholder phrasing ("partnering with...", "collaborating with...") if the original bullet explicitly mentions cross-functional teams, clients, stakeholders, or leadership.
    - NEVER force collaborative clauses onto solo technical, SQL, ETL, analytics, backend, or coding bullets. Focus purely on direct technical execution, mechanism, and measurable business result.
-4. Anti-Repetition Guard: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
+4. Anti-Repetition Guard:
+   - NO REPEATED OPENING VERBS: Never start more than 2 bullets across the resume with the same action verb (e.g. max 2 'Architected', max 2 'Engineered'). Mix across varied domain-appropriate verbs matching tense.
+   - VARIED SENTENCE STRUCTURE: Vary sentence openings and clause order across bullets.
+   - UNIQUE METRICS & OUTCOMES: Every rewrite across the resume MUST have a UNIQUE, natural metric and business outcome. Strictly forbid repeating the same metric or suffix.
 5. Provide a crisp 1-sentence recruiter critique in "critique" explaining specifically what was weak, unquantified, or missing in the original bullet (NEVER output "Clear, specific, no defects found").
 6. Provide a crisp 1-sentence explanation in "whyItWorks" explaining why this rewrite captures recruiter attention.
 7. Return ONLY a valid JSON object matching the schema.
@@ -1490,6 +1958,181 @@ OUTPUT SCHEMA:
           console.warn('[ModeC] Fast batch rewrite non-fatal fallback:', batchErr.message)
         }
       }
+      // -------------------------------------------------------------------------
+      // HOLISTIC RESUME-WIDE REPETITION DETECTION & TARGETED REPAIR PASS
+      // -------------------------------------------------------------------------
+      try {
+        const allRewrittenBullets = []
+        for (const [bId, text] of bulletMap.entries()) {
+          if (bId === 'summary_001' || bId === 'skills_001' || bId === 'skills') continue
+          let currentRw = ''
+          const upg = (parsedForValidation.bulletUpgrades || []).find((u) => u.bulletId === bId)
+          if (upg?.rewrittenText) currentRw = upg.rewrittenText
+          if (!currentRw) {
+            const rw = (parsedForValidation.bulletRewrites || []).find((r) => r.bulletId === bId)
+            if (rw?.rewrittenText || rw?.readyToUseRewrite) currentRw = rw.rewrittenText || rw.readyToUseRewrite
+          }
+          if (!currentRw) {
+            const iss = (parsedForValidation.issues || []).find((i) => i.evidence?.[0]?.bulletId === bId)
+            if (iss?.correctedText) currentRw = iss.correctedText
+          }
+
+          const ctx = bulletContextMap.get(bId) || bulletContextMap.get(text.trim()) || { isCurrentRole: false, tense: 'PAST', company: '' }
+          allRewrittenBullets.push({
+            bulletId: bId,
+            originalText: text,
+            rewrittenText: currentRw,
+            isCurrentRole: ctx.isCurrentRole,
+            tense: ctx.tense || (ctx.isCurrentRole ? 'PRESENT' : 'PAST'),
+            company: ctx.company || '',
+          })
+        }
+
+        const repResult = detectBulletRepetitions(allRewrittenBullets)
+        if (repResult.hasRepetitions && repResult.repairTargets.length > 0) {
+          console.log(`[ModeC] Bullet repetition detector flagged ${repResult.repairTargets.length} bullets for targeted repair.`)
+          const repairPrompt = `You are a Principal Technical Recruiter and Executive Resume Architect.
+The following candidate bullets contain repetitive opening verbs, duplicate metrics, or repeated boilerplate clauses across the resume.
+Rewrite each bullet completely from scratch following the Google XYZ formula (18–30 words) with maximum linguistic diversity.
+
+TARGET ROLE: ${effectiveRole}
+CANDIDATE STACK: ${(canonicalResume.skills || []).slice(0, 10).join(', ')}
+
+STRICT REPAIR CONSTRAINTS FOR EACH BULLET:
+1. NO REPEATED OPENING VERBS: You MUST NOT use any verb listed in its "forbiddenVerbs". Pick a distinct, high-impact verb matching its tense.
+2. NO REPEATED METRICS: You MUST NOT use any metric listed in its "forbiddenMetrics". If a new metric is needed, use a completely unique metric type and number appropriate to the domain.
+3. NO BOILERPLATE PHRASES: Do NOT include any phrase from "forbiddenPhrases".
+4. STRICT TENSE DISCIPLINE:
+   - "tense": "PRESENT" -> Start with an active PRESENT-TENSE verb (e.g. Lead, Architect, Synthesize, Optimize, Develop, Automate, Streamline).
+   - "tense": "PAST" -> Start with an active PAST-TENSE verb (e.g. Led, Architected, Synthesized, Optimized, Developed, Automated, Streamlined).
+5. Sentence Variety: Mix the sentence opening and structure naturally (18–30 words). Never use lazy suffix appends or bracketed placeholders.
+6. Provide a crisp 1-sentence "critique" and "whyItWorks".
+
+BULLETS TO REPAIR:
+${JSON.stringify(repResult.repairTargets.map((t) => ({
+  bulletId: t.bulletId,
+  company: t.company,
+  tense: t.tense,
+  originalText: t.originalText,
+  currentRewrittenText: t.currentRewrittenText,
+  forbiddenVerbs: t.forbiddenVerbs,
+  forbiddenMetrics: t.forbiddenMetrics,
+  forbiddenPhrases: t.forbiddenPhrases,
+  reasonsToRepair: t.reasons,
+})), null, 2)}
+
+OUTPUT SCHEMA (STRICT JSON ONLY):
+{
+  "rewrites": [
+    {
+      "bulletId": "string",
+      "rewrittenText": "string",
+      "critique": "string",
+      "whyItWorks": "string"
+    }
+  ]
+}`
+          let repairRes = null
+          let repairObj = null
+
+          // 1. Primary: OpenRouter with policy.model (google/gemini-3.5-flash)
+          try {
+            repairRes = await llmGateway.generate({
+              purpose: 'resume_analysis',
+              task: 'bullet_repetition_repair',
+              preferredProvider: 'openrouter',
+              model: policy?.model || 'google/gemini-3.5-flash',
+              messages: [{ role: 'user', content: repairPrompt }],
+              responseFormat: { type: 'json_object' },
+              temperature: 0.1,
+              maxTokens: 4000,
+              timeoutMs: 12000,
+            })
+            repairObj = ResumeAgentValidator.cleanAndParse(repairRes?.text)
+            if (!repairObj || !Array.isArray(repairObj?.rewrites) || repairObj.rewrites.length === 0) {
+              repairObj = null
+            }
+          } catch (primRepErr) {
+            console.warn('[ModeC] Primary repetition repair failed:', primRepErr.message)
+          }
+
+          // 2. Secondary Fallback: Groq with openai/gpt-oss-120b
+          if (!repairObj) {
+            try {
+              repairRes = await llmGateway.generate({
+                purpose: 'resume_analysis',
+                task: 'bullet_repetition_repair',
+                preferredProvider: 'groq',
+                model: 'openai/gpt-oss-120b',
+                messages: [{ role: 'user', content: repairPrompt }],
+                responseFormat: { type: 'json_object' },
+                temperature: 0.1,
+                maxTokens: 4000,
+                timeoutMs: 12000,
+              })
+              repairObj = ResumeAgentValidator.cleanAndParse(repairRes?.text)
+              if (!repairObj || !Array.isArray(repairObj?.rewrites) || repairObj.rewrites.length === 0) {
+                repairObj = null
+              }
+            } catch (secRepErr) {
+              console.warn('[ModeC] Secondary Groq repetition repair failed:', secRepErr.message)
+            }
+          }
+
+          // 3. Tertiary Fallback: OpenRouter with google/gemini-3.5-flash-lite
+          if (!repairObj) {
+            try {
+              repairRes = await llmGateway.generate({
+                purpose: 'resume_analysis',
+                task: 'bullet_repetition_repair',
+                preferredProvider: 'openrouter',
+                model: 'google/gemini-3.5-flash-lite',
+                messages: [{ role: 'user', content: repairPrompt }],
+                responseFormat: { type: 'json_object' },
+                temperature: 0.1,
+                maxTokens: 4000,
+                timeoutMs: 12000,
+              })
+              repairObj = ResumeAgentValidator.cleanAndParse(repairRes?.text)
+              if (!repairObj || !Array.isArray(repairObj?.rewrites) || repairObj.rewrites.length === 0) {
+                repairObj = null
+              }
+            } catch (tertRepErr) {
+              console.warn('[ModeC] Tertiary repetition repair failed:', tertRepErr.message)
+            }
+          }
+
+          if (repairRes) {
+            llmCalls.push({
+              stage: 'bullet_repetition_repair',
+              durationMs: repairRes?.latencyMs || 0,
+              model: repairRes?.actualModel || policy.model,
+              inputTokens: repairRes?.usage?.prompt_tokens || 0,
+              outputTokens: repairRes?.usage?.completion_tokens || 0,
+            })
+          }
+
+          if (repairObj && Array.isArray(repairObj.rewrites)) {
+            for (const item of repairObj.rewrites) {
+              if (item?.bulletId && item?.rewrittenText) {
+                syncRepairedBullet(
+                  parsedForValidation,
+                  item.bulletId,
+                  item.rewrittenText,
+                  item.critique,
+                  item.whyItWorks
+                )
+              }
+            }
+          }
+        }
+
+        // Apply final deterministic repetition safety net
+        applyDeterministicRepetitionSafetyNet(parsedForValidation, canonicalResume, bulletContextMap)
+      } catch (repErr) {
+        console.warn('[ModeC] Holistic repetition detector non-fatal error:', repErr.message)
+      }
+
     }
 
     validation = ResumeAgentValidator.validate(parsedForValidation, canonicalResume)
@@ -1541,5 +2184,12 @@ export default {
   sanitizeModeCOutput,
   buildHybridPrompt,
   cleanRewriteText,
+  normalizeVerbLemma,
+  getOpeningVerb,
+  extractMetricTokens,
+  extract5Grams,
+  detectBulletRepetitions,
+  syncRepairedBullet,
+  applyDeterministicRepetitionSafetyNet,
 }
 

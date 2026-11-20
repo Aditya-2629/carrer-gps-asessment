@@ -42,6 +42,9 @@ LITERAL ATS KEYWORD MIRRORING RULE:
 - Never keyword-stuff or append raw skill lists in parentheses at the end of the sentence. Weave the literal keyword directly into the technical implementation mechanism.
 
 CRITICAL RULES:
+- NO REPEATED OPENING VERBS: Never start more than 2 bullets in the entire resume with the same action verb (e.g. max 2 'Architected', max 2 'Engineered'). Mix across varied domain-appropriate verbs (e.g. Architected, Engineered, Developed, Built, Spearheaded, Automated, Optimized, Streamlined, Designed, Orchestrated, Scaled, Standardized; or in Present tense: Lead, Architect, Build, Automate, Optimize, Streamline, Design, Scale).
+- UNIQUE METRICS & OUTCOMES: Every calibrated metric (%, ms, hours, records, $, etc.) and business outcome phrase MUST be unique across all bullets in the resume. Strictly forbid repeating identical percentages, scale numbers, or boilerplate outcome clauses.
+- VARIED SENTENCE STRUCTURE: Vary sentence openings and clause order across consecutive bullets (some lead with technical action + metric, others lead with delivered business outcome + architectural mechanism; 18–32 words).
 - NATURAL COMPLEMENTARY PAIRING: When cohesive, weave up to 2 complementary tools into a single bullet (e.g. "Docker & Kubernetes", "React & TypeScript", "Kafka & Redis", "FastAPI & Python", "PostgreSQL & SQL") so technical depth is maximized without sounding stuffed.
 - DISTRIBUTE ACROSS EXPERIENCES: Do not overload a single job. Balance woven tools across current and previous roles/projects.
 - PRESERVE AND ANCHOR TO CANDIDATE DATA: Reference their real company, real metrics (e.g. percentages, turnaround times, record counts), and real domain scope.
