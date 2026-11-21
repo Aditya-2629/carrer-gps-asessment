@@ -1487,35 +1487,55 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
     })
   }
 
-  // 1. Build lookup map upgradeByBullet keyed by bulletId
+  // 1. Build lookup map upgradeByBullet keyed by bulletId and trimmed text
   const upgradeByBullet = new Map()
   if (Array.isArray(analysis?.bulletUpgrades)) {
     analysis.bulletUpgrades.forEach((upg) => {
       if (upg?.bulletId) upgradeByBullet.set(upg.bulletId, upg)
-      else if (upg?.id) upgradeByBullet.set(upg.id, upg)
+      if (upg?.id) upgradeByBullet.set(upg.id, upg)
+      if (upg?.originalText) upgradeByBullet.set(upg.originalText.trim(), upg)
+      if (upg?.text) upgradeByBullet.set(upg.text.trim(), upg)
     })
   }
 
-  // 1b. Build lookup map evalByBullet keyed by bulletId
+  // 1b. Build lookup map evalByBullet keyed by bulletId and trimmed text
   const evalByBullet = new Map()
   if (Array.isArray(analysis?.bulletEvaluations)) {
     analysis.bulletEvaluations.forEach((ev) => {
       if (ev?.bulletId) evalByBullet.set(ev.bulletId, ev)
+      if (ev?.id) evalByBullet.set(ev.id, ev)
+      if (ev?.originalText) evalByBullet.set(ev.originalText.trim(), ev)
+      if (ev?.text) evalByBullet.set(ev.text.trim(), ev)
     })
   }
 
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
 
-  // Map bulletId → worst issue affecting it
+  // Map bulletId and text → worst issue affecting it
   const sevRank = { high: 3, medium: 2, low: 1 }
   const issueByBullet = new Map()
   for (const issue of issues) {
     const evList = Array.isArray(issue.evidence) ? issue.evidence : [issue.evidence].filter(Boolean)
     for (const ev of evList) {
-      if (!ev?.bulletId) continue
-      const existing = issueByBullet.get(ev.bulletId)
+      if (ev?.bulletId) {
+        const existing = issueByBullet.get(ev.bulletId)
+        if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
+          issueByBullet.set(ev.bulletId, issue)
+        }
+      }
+      const evText = (ev?.originalText || ev?.text || '').trim()
+      if (evText) {
+        const existing = issueByBullet.get(evText)
+        if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
+          issueByBullet.set(evText, issue)
+        }
+      }
+    }
+    if (issue.originalText) {
+      const ot = issue.originalText.trim()
+      const existing = issueByBullet.get(ot)
       if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
-        issueByBullet.set(ev.bulletId, issue)
+        issueByBullet.set(ot, issue)
       }
     }
   }
@@ -1523,6 +1543,8 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
   const signalByBullet = new Map()
   for (const sig of bulletSignalsList || []) {
     if (sig?.bulletId) signalByBullet.set(sig.bulletId, sig)
+    if (sig?.text) signalByBullet.set(sig.text.trim(), sig)
+    if (sig?.originalText) signalByBullet.set(sig.originalText.trim(), sig)
   }
 
   const audit = []
@@ -1564,12 +1586,12 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
         if (!bText) continue
         const bId = (typeof rawB === 'object' && rawB?.id) ? rawB.id : `${section.key}_${itemIndex}_b${bIdx}`
         const b = { id: bId, text: bText }
-        const sig = signalByBullet.get(b.id)
-        const issue = issueByBullet.get(b.id)
-        const upgrade = upgradeByBullet.get(b.id)
+        const sig = signalByBullet.get(b.id) || signalByBullet.get(b.text.trim())
+        const issue = issueByBullet.get(b.id) || issueByBullet.get(b.text.trim())
+        const upgrade = upgradeByBullet.get(b.id) || upgradeByBullet.get(b.text.trim())
         const llmMatch = llmRewriteMap.get(b.id) || llmRewriteMap.get(b.text.trim())
 
-        const bEval = evalByBullet.get(b.id)
+        const bEval = evalByBullet.get(b.id) || evalByBullet.get(b.text.trim())
         const isEvalHurting = Boolean(bEval && (bEval.verdict === 'hurting' || (Array.isArray(bEval.missingElements) && bEval.missingElements.length > 0)))
 
         let status = 'pass'
@@ -1711,14 +1733,17 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           verdict = (status === 'pass' && !hasWeakOpener && (hasMetric || hasOutcome)) ? 'helping' : 'hurting'
         }
 
-        if (verdict === 'hurting') {
+        if (verdict === 'hurting' || isEvalHurting || status !== 'pass') {
+          verdict = 'hurting'
           if (status === 'pass') {
             status = 'warn'
           }
-          if (!reason || reason === 'Clear, specific, no defects found' || reason.startsWith('Clear, specific')) {
-            const evalCritique = bEval?.critique
-            if (evalCritique && !evalCritique.toLowerCase().includes('no defects found')) {
+          if (!reason || reason === 'Clear, specific, no defects found' || /clear,\s*specific,\s*no defects found/i.test(reason)) {
+            const evalCritique = bEval?.critique || upgrade?.critique || llmMatch?.critique
+            if (evalCritique && !/no defects found/i.test(evalCritique)) {
               reason = evalCritique
+            } else if (bEval?.missingElements?.length) {
+              reason = `Lacks ${bEval.missingElements.slice(0, 2).join(' and ')} required for senior recruiter scan.`
             } else {
               const missing = []
               if (!fivePartFlags.metric) missing.push('quantified business metrics')
@@ -1776,6 +1801,15 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
         const isRwQuant = cleanImproved ? isTrueQuantified(cleanImproved) : false
         const metricSource = isOrigQuant ? 'resume_verified' : (isRwQuant ? 'ai_calibrated' : null)
 
+        // Final assertion: If verdict === 'hurting' or status !== 'pass', reason and critique MUST NEVER be 'Clear, specific, no defects found'
+        let finalReason = reason
+        if (verdict === 'hurting' || status !== 'pass') {
+          if (status === 'pass') status = 'warn'
+          if (!finalReason || /clear,\s*specific,\s*no defects found/i.test(finalReason)) {
+            finalReason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+          }
+        }
+
         audit.push({
           bulletId: b.id,
           section: section.key,
@@ -1783,8 +1817,8 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           text: b.text,
           original: b.text,
           status,
-          reason: balanceParentheses(reason),
-          critique: balanceParentheses(reason),
+          reason: balanceParentheses(finalReason),
+          critique: balanceParentheses(finalReason),
           whyItWorks: finalWhyItWorks,
           why: finalWhyItWorks,
           guidance: lacksOutcome ? 'Consider adding a quantified percentage or business impact metric if verifiable.' : null,

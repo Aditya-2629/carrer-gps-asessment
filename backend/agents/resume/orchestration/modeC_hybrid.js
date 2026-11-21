@@ -1618,12 +1618,12 @@ export async function executeModeC({
     // Fast-LLM batch rewrite pass for any remaining unrewritten weak/unquantified bullets
     if (parsedForValidation && typeof parsedForValidation === 'object') {
       const { bulletMap } = ResumeAgentValidator.buildCanonicalLookup(canonicalResume)
-      // Valid existing rewrites: check if existing rewrite is non-empty and NOT a lazy suffix append
+      // Valid existing rewrites: check if existing rewrite is non-empty
       const validExistingRewrites = new Set()
       for (const u of (parsedForValidation.bulletUpgrades || [])) {
         const text = u.rewrittenText || ''
         const orig = bulletMap.get(u.bulletId) || u.originalText || ''
-        if (text && !isLazySuffixAppend(text, orig)) {
+        if (text && text.trim().length > 0) {
           if (u.bulletId) validExistingRewrites.add(u.bulletId)
           if (orig) validExistingRewrites.add(orig.trim())
         }
@@ -1632,7 +1632,7 @@ export async function executeModeC({
         const text = i.correctedText || i.rewrite || ''
         const orig = i.evidence?.[0]?.originalText || i.originalText || ''
         const bId = i.evidence?.[0]?.bulletId
-        if (text && !isLazySuffixAppend(text, orig)) {
+        if (text && text.trim().length > 0) {
           if (bId) validExistingRewrites.add(bId)
           if (orig) validExistingRewrites.add(orig.trim())
         }
@@ -1640,7 +1640,7 @@ export async function executeModeC({
       for (const r of (parsedForValidation.bulletRewrites || [])) {
         const text = r.rewrittenText || r.readyToUseRewrite || r.rewritten || r.rewrite || ''
         const orig = bulletMap.get(r.bulletId) || r.originalText || ''
-        if (text && !isLazySuffixAppend(text, orig)) {
+        if (text && text.trim().length > 0) {
           if (r.bulletId) validExistingRewrites.add(r.bulletId)
           if (orig) validExistingRewrites.add(orig.trim())
         }
