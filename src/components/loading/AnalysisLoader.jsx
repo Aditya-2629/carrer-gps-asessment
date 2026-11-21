@@ -69,9 +69,17 @@ export default function AnalysisLoader() {
   const [jobStarted, setJobStarted] = useState(false)
   const [agentStates, setAgentStates] = useState({ resume: 'idle', linkedin: 'idle', overall: 'idle' })
   const [liveMessages, setLiveMessages] = useState([])
+  const [elapsedSecs, setElapsedSecs] = useState(0)
   const redirectedRef = useRef(false)
   const sourceRef = useRef(null)
   const reduceMotion = useReducedMotion()
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedSecs((s) => s + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const handleReport = (report) => {
     if (!report || redirectedRef.current) return
@@ -231,30 +239,30 @@ export default function AnalysisLoader() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  // ── Error panel (unchanged behavior) ───────────────────────────────────────
+  // ── Error panel ───────────────────────────────────────────────────────────
   if (errorMessage) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-black/90">
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[var(--surface-base)] text-[var(--text-primary)]">
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
+          initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="glass max-w-md w-full p-6 rounded-2xl border border-red-500/30 text-center space-y-4 shadow-2xl"
+          className="bg-[var(--surface-card)] max-w-md w-full p-6 rounded-2xl border border-rose-500/30 text-center space-y-4 shadow-xl"
         >
-          <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-500">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500">
             <WarningCircle size={32} weight="fill" />
           </div>
-          <h3 className="text-xl font-bold text-white" style={{ fontFamily: 'var(--font-head)' }}>
+          <h3 className="text-xl font-bold text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
             Processing Error
           </h3>
-          <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/10 text-xs text-red-400 font-mono text-left leading-relaxed">
+          <div className="bg-rose-500/5 p-4 rounded-xl border border-rose-500/20 text-xs text-rose-800 dark:text-rose-300 font-mono text-left leading-relaxed break-words">
             {errorMessage}
           </div>
-          <p className="text-xs text-white/60 leading-relaxed">
+          <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
             Please make sure your LinkedIn URL is public and valid, or re-upload a clear PDF/Word resume document.
           </p>
           <button
             onClick={() => setPhase(PHASES.ASSESSMENT)}
-            className="w-full btn-primary text-xs py-3.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full btn-primary min-h-[44px] text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
           >
             <ArrowLeft size={16} weight="bold" />
             <span>Go Back to Assessment & Fix Input</span>
@@ -265,6 +273,14 @@ export default function AnalysisLoader() {
   }
 
   const latest = liveMessages[liveMessages.length - 1]?.text || 'Spinning up your agent team…'
+
+  const agentScore = (
+    (agentStates.resume === 'done' ? 35 : agentStates.resume === 'working' ? 20 : 0) +
+    (agentStates.linkedin === 'done' ? 35 : agentStates.linkedin === 'working' ? 20 : 0) +
+    (agentStates.overall === 'done' ? 25 : agentStates.overall === 'working' ? 15 : 0)
+  )
+  const timeBonus = Math.min(25, Math.floor(elapsedSecs * 0.8))
+  const displayProgress = Math.min(95, Math.max(8, agentScore + timeBonus))
 
   return (
     <div
@@ -304,6 +320,24 @@ export default function AnalysisLoader() {
       <p className="text-xs text-[var(--text-tertiary)] mb-8 text-center">
         Three specialists. One report. Live progress, no black box.
       </p>
+
+      {/* ── Progress Bar & Timer ── */}
+      <div className="w-full max-w-xl mb-6">
+        <div className="flex items-center justify-between text-xs font-mono mb-2 text-[var(--text-muted)]">
+          <span className="font-semibold text-[var(--text-primary)]">
+            Analysis Progress <span className="tabular-nums text-[var(--primary)]">{displayProgress}%</span>
+          </span>
+          <span className="tabular-nums">Elapsed: {elapsedSecs}s</span>
+        </div>
+        <div className="w-full h-2 bg-[var(--surface-sunken)] rounded-full overflow-hidden border border-[var(--border-default)]">
+          <motion.div
+            className="h-full bg-[var(--primary)] rounded-full"
+            initial={{ width: '8%' }}
+            animate={{ width: `${displayProgress}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+      </div>
 
       {/* ── Agent pipeline ── */}
       <div className="w-full max-w-xl space-y-3 mb-8">
@@ -360,7 +394,7 @@ export default function AnalysisLoader() {
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
-                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                      className={`text-xs font-bold uppercase tracking-wider ${
                         isDone ? 'text-emerald-500' : isWorking ? 'text-[var(--primary)]' : isError ? 'text-red-500' : 'text-[var(--text-muted)]'
                       }`}
                     >
@@ -368,7 +402,7 @@ export default function AnalysisLoader() {
                     </motion.span>
                   </AnimatePresence>
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)] truncate">{node.hint}</p>
+                <p className="text-xs text-[var(--text-muted)] line-clamp-2 sm:truncate">{node.hint}</p>
               </div>
             </motion.div>
           )

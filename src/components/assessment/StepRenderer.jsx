@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, DiceThree, Sparkle } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, DiceThree, CheckCircle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import PhoneInput from '../ui/PhoneInput'
@@ -24,6 +24,7 @@ import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
+  const isDevTools = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')))
   const { formData, setFormData } = useAppStore()
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
@@ -229,47 +230,37 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
   return (
     <div className="quiz-card p-6 sm:p-8 relative">
       {/* Chapter & Journey Tracker */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          {step.chapter && (
-            <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--primary)]">
-              <span className="text-lg select-none">{step.icon || '🧭'}</span>
-              <span>{step.chapter}</span>
-            </div>
-          )}
-          {step.sceneTitle && (
-            <span className="px-2.5 py-0.5 rounded-full bg-[var(--surface-sunken)] text-[11px] text-[var(--text-secondary)] font-medium border border-[var(--border-default)]">
-              {step.sceneTitle}
-            </span>
-          )}
-          {step.kicker && (
-            <span className="px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[10px] text-[var(--primary)] font-mono border border-[var(--primary)]/20">
-              {step.kicker}
-            </span>
-          )}
-        </div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        {step.chapter && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-strong)] border border-[var(--border-default)] text-xs font-semibold tracking-wide uppercase text-[var(--primary)]">
+            <span className="text-sm select-none">{step.icon || '🧭'}</span>
+            <span className="truncate">{step.chapter}</span>
+          </span>
+        )}
 
         <div className="flex items-center gap-2 ml-auto">
-          {/* Step badge */}
-          <div
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)]"
+          {/* Step counter */}
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-medium text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] tabular-nums"
             aria-label={step.isSetup ? `Setup ${step.id} of 2` : `Question ${step.questionNumber || step.id - 2} of 12`}
           >
-            {step.isSetup ? `Setup ${step.id} of 2` : `Question ${step.questionNumber || step.id - 2} of 12`}
-          </div>
+            {step.isSetup ? `${step.id} / 2` : `${step.questionNumber || step.id - 2} / 12`}
+          </span>
 
-          {/* Quick Random Choice */}
-          <button
-            type="button"
-            onClick={handleRandomPick}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer ${
-              randomRolling ? 'scale-95 bg-[var(--surface-strong)] text-[var(--primary)]' : ''
-            }`}
-            title="Randomly pick an option for this question"
-          >
-            <DiceThree size={14} className={randomRolling ? 'animate-spin' : ''} />
-            <span className="hidden sm:inline">Random Pick</span>
-          </button>
+          {/* Quick Random Choice (Dev Only) */}
+          {isDevTools && (
+            <button
+              type="button"
+              onClick={handleRandomPick}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer ${
+                randomRolling ? 'scale-95 bg-[var(--surface-strong)] text-[var(--primary)]' : ''
+              }`}
+              title="Randomly pick an option for this question"
+            >
+              <DiceThree size={14} className={randomRolling ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Random Pick</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -304,9 +295,9 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -4, scale: 0.96 }}
               transition={{ duration: 0.2 }}
-              className="mt-3 px-3 py-1.5 rounded-full bg-[var(--primary-light)] border border-[var(--primary)]/30 text-xs font-semibold text-[var(--primary)] inline-flex items-center gap-2 shadow-sm"
+              className="mt-3 px-3 py-1.5 rounded-full bg-[var(--primary-light)] border border-[var(--primary)]/30 text-xs font-semibold text-[var(--primary)] inline-flex items-center gap-2 shadow-xs"
             >
-              <Sparkle size={14} weight="fill" className="text-[var(--primary)] shrink-0 animate-pulse" />
+              <CheckCircle size={14} weight="fill" className="text-[var(--primary)] shrink-0" />
               <span>{activeReaction || step.reaction[currentValue]}</span>
             </motion.div>
           )}
@@ -418,7 +409,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
           <button
             type="button"
             onClick={onBack}
-            className="btn-ghost"
+            className="btn-ghost min-h-[44px]"
             id={`back-btn-${step.id}`}
             aria-label="Go to previous question"
           >
@@ -430,7 +421,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         <button
           type="button"
           onClick={handleNext}
-          className="btn-primary flex-1"
+          className="btn-primary flex-1 min-h-[44px]"
           id={isLast ? `submit-btn-${step.id}` : `next-btn-${step.id}`}
         >
           {isLast ? (

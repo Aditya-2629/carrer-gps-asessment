@@ -56,6 +56,7 @@ const SAMPLE_TEST_DATA = {
 
 export default function AssessmentShell() {
   const { currentStep, direction, setCurrentStep, setPhase, setBulkFormData, formData, theme, toggleTheme } = useAppStore()
+  const isDevTools = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')))
   const step = STEPS[currentStep]
   const totalSteps = STEPS.length
   const progress = Math.round(((currentStep + 1) / totalSteps) * 100)
@@ -136,32 +137,36 @@ export default function AssessmentShell() {
 
           {/* Quick Actions & Testing Tools */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleRandomFill}
-              className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Fill all 12 questions with realistic randomized options and jump to end"
-            >
-              <DiceThree size={15} weight="bold" />
-              <span className="hidden sm:inline">Random Fill</span>
-            </button>
+            {isDevTools && (
+              <>
+                <button
+                  onClick={handleRandomFill}
+                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Dev: Fill all 12 questions with realistic randomized options and jump to end"
+                >
+                  <DiceThree size={15} weight="bold" />
+                  <span className="hidden sm:inline">Random Fill</span>
+                </button>
 
-            <button
-              onClick={handleQuickAutofill}
-              className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Autofill sample test data & jump to end"
-            >
-              <Lightning size={14} weight="fill" />
-              <span className="hidden md:inline">Sample Fill</span>
-            </button>
+                <button
+                  onClick={handleQuickAutofill}
+                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Dev: Autofill sample test data & jump to end"
+                >
+                  <Lightning size={14} weight="fill" />
+                  <span className="hidden md:inline">Sample Fill</span>
+                </button>
 
-            <button
-              onClick={handleDirectReportView}
-              className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-              title="Directly view report dashboard"
-            >
-              <FileText size={14} weight="bold" />
-              <span className="hidden md:inline">Report</span>
-            </button>
+                <button
+                  onClick={handleDirectReportView}
+                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Dev: Directly view report dashboard"
+                >
+                  <FileText size={14} weight="bold" />
+                  <span className="hidden md:inline">Report</span>
+                </button>
+              </>
+            )}
 
             {/* Theme Switcher Button */}
             <button
