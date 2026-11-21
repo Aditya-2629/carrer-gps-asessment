@@ -24,6 +24,7 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
 import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
 import { SCORECARD_VERSION } from './resume/scoring/resumeScorecard.js'
+import { analyzeTimeline } from './resume/signals/timelineAnalyzer.js'
 
 export let _scraperOverrides = null
 export function setScraperOverrides(overrides) {
@@ -211,6 +212,24 @@ export async function runCareerAgents(bundle) {
     }
   }
 
+  // Ensure verified timeline and experience duration are computed and attached to canonicalResume
+  if (resumeContext?.canonicalResume) {
+    const canRes = resumeContext.canonicalResume
+    if (!canRes.totalExperienceYears || !canRes.years_of_experience) {
+      const timeline = canRes.timeline || analyzeTimeline(canRes)
+      const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+      const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+      const floorYears = Math.floor(totalExperienceYears)
+      canRes.timeline = timeline
+      canRes.totalExperienceYears = totalExperienceYears
+      canRes.years_of_experience = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+      if (canRes.candidate) {
+        canRes.candidate.totalExperienceYears = totalExperienceYears
+        canRes.candidate.years_of_experience = canRes.years_of_experience
+      }
+    }
+  }
+
   const rawTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
   const effectiveTargetRole = (
     typeof rawTargetRole === 'string'
@@ -389,6 +408,8 @@ export async function runCareerAgents(bundle) {
             canonicalResume: verifiedCanonicalResume,
             extractedFacts: verifiedFacts,
             targetRole: effectiveTargetRole,
+            totalExperienceYears: verifiedCanonicalResume?.totalExperienceYears,
+            years_of_experience: verifiedCanonicalResume?.years_of_experience,
             provider: resumeProvider,
             assessmentPersona: effectiveAssessmentPersona,
             agentDirectives: effectiveAssessmentPersona?.agentDirectives,

@@ -69,10 +69,12 @@ router.post('/', async (req, res) => {
         },
       ],
     })
+    const jobId = job._id.toString()
+    costTracker.setActiveRunId(jobId)
     // Fire-and-forget worker — the client is streaming, not waiting on this
-    processJob(job._id.toString(), userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
+    processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
 
-    return res.status(202).json({ success: true, jobId: job._id.toString() })
+    return res.status(202).json({ success: true, jobId })
   } catch (err) {
     console.error('[ReportJob] create failed:', err)
     return res.status(500).json({ success: false, message: 'Failed to create report job.' })

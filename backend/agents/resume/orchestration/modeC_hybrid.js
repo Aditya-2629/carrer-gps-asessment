@@ -34,12 +34,14 @@ export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
 
 export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences = [], skills = [], missingSkills = [], currentSummary = '') {
   let targetRole = targetRoleOrOptions
+  let yearsOfExperience = null
   if (targetRoleOrOptions && typeof targetRoleOrOptions === 'object' && !Array.isArray(targetRoleOrOptions)) {
     targetRole = targetRoleOrOptions.targetRole || targetRoleOrOptions.role
     experiences = targetRoleOrOptions.experiences || targetRoleOrOptions.experience || []
     skills = targetRoleOrOptions.skills || targetRoleOrOptions.skillsList || []
     missingSkills = targetRoleOrOptions.missingSkills || []
     currentSummary = targetRoleOrOptions.currentSummary || ''
+    yearsOfExperience = targetRoleOrOptions.yearsOfExperience || targetRoleOrOptions.years_of_experience || null
   }
 
   const role = targetRole || (experiences[0]?.role) || 'Experienced Professional'
@@ -108,7 +110,8 @@ export function generateDomainCalibratedSummary(targetRoleOrOptions, experiences
     if (topWin) break
   }
 
-  const sentence1 = `${role} specializing in ${topTools}.`
+  const yoeFragment = yearsOfExperience ? ` with ${yearsOfExperience} of experience` : ''
+  const sentence1 = `${role}${yoeFragment} specializing in ${topTools}.`
   let sentence2 = ''
   let sentence3 = ''
 
@@ -231,10 +234,14 @@ export function buildDeterministicDossier({
 
   // 4. Deterministic Timeline Facts
   const timeline = signals?.timeline || analyzeTimeline(canonicalResume)
+  const totalExpYrs = canonicalResume?.totalExperienceYears || timeline?.careerDuration?.totalYears || 0
+  const floorYrs = Math.floor(totalExpYrs)
+  const totalExpText = canonicalResume?.years_of_experience || (floorYrs >= 1 ? `${floorYrs}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`)
   dossier.timeline = {
-    totalExperienceYears: timeline?.careerDuration?.totalYears || 0,
+    totalExperienceYears: totalExpYrs,
+    yearsOfExperience: totalExpText,
     totalExperienceMonths: timeline?.careerDuration?.totalMonths || 0,
-    formattedDuration: timeline?.careerDuration?.formatted || '0 months',
+    formattedDuration: totalExpText || timeline?.careerDuration?.formatted || '0 months',
     isCurrentlyEmployed: timeline?.currentRole?.isCurrentlyEmployed || false,
     currentRole: timeline?.currentRole || null,
     careerGaps: timeline?.careerGaps || [],
@@ -270,6 +277,16 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       name: 'Candidate',
       targetRole: 'Software Professional',
       topStrengths: (analysis.strengths || []).slice(0, 3).map((s) => s.title),
+    }
+  }
+
+  const verifiedYoE = state.canonicalResume?.years_of_experience || state.dossier?.timeline?.yearsOfExperience || (state.canonicalResume?.totalExperienceYears ? `${Math.floor(state.canonicalResume.totalExperienceYears)}+ years` : null)
+  if (verifiedYoE) {
+    if (!analysis.candidateSnapshot.yearsOfExperience) {
+      analysis.candidateSnapshot.yearsOfExperience = verifiedYoE
+    }
+    if (analysis.candidateSnapshot.experienceLevel && /5\+\s*years/i.test(analysis.candidateSnapshot.experienceLevel) && verifiedYoE !== '5+ years') {
+      analysis.candidateSnapshot.experienceLevel = analysis.candidateSnapshot.experienceLevel.replace(/5\+\s*years/gi, verifiedYoE)
     }
   }
 
@@ -463,7 +480,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       status: 'missing',
       currentSummary: 'No Professional Summary section found on resume',
       diagnosis: `Your resume currently lacks a tailored executive summary for ${targetRole}, forcing recruiters to scan fragmented bullets to deduce your seniority and operational scope.`,
-      rewrittenSummary: generateDomainCalibratedSummary(targetRole, experiences, skillsList, missingSkills),
+      rewrittenSummary: generateDomainCalibratedSummary({ targetRole, experiences, skillsList, missingSkills, yearsOfExperience: verifiedYoE }),
     }
   } else {
     const sOpt = analysis.summaryOptimization
@@ -479,7 +496,10 @@ export function sanitizeModeCOutput(analysis, state = {}) {
 
     // Only use generateDomainCalibratedSummary if rewrittenSummary is completely missing or empty — never overwrite a valid LLM summary
     if (!sOpt.rewrittenSummary || typeof sOpt.rewrittenSummary !== 'string' || sOpt.rewrittenSummary.trim().length === 0) {
-      sOpt.rewrittenSummary = generateDomainCalibratedSummary(targetRole, experiences, skillsList, missingSkills, sOpt.currentSummary)
+      sOpt.rewrittenSummary = generateDomainCalibratedSummary({ targetRole, experiences, skillsList, missingSkills, currentSummary: sOpt.currentSummary, yearsOfExperience: verifiedYoE })
+    }
+    if (sOpt.rewrittenSummary && verifiedYoE && verifiedYoE !== '5+ years') {
+      sOpt.rewrittenSummary = sOpt.rewrittenSummary.replace(/\b5\+\s*years\b/gi, verifiedYoE)
     }
   }
 
@@ -813,7 +833,7 @@ Return ONLY a valid JSON object matching this structure:
   "candidateSnapshot": {
     "name": "Candidate Name",
     "targetRole": "Target Role",
-    "experienceLevel": "e.g. Senior (5+ years)",
+    "experienceLevel": "${dossier?.timeline?.yearsOfExperience ? `e.g. Senior (${dossier.timeline.yearsOfExperience})` : 'e.g. Senior (8+ years)'}",
     "currentSeniority": "Senior",
     "primaryProfile": "e.g. Full-Stack / Distributed Backend Specialist"
   },
@@ -950,7 +970,7 @@ DETERMINISTIC PRE-AUDIT DOSSIER (Ground Truth):
 - Unquantified Bullets: ${dossier.quantification.unquantifiedBulletIds.join(', ') || 'None'}
 - Tool Dump Candidates: ${dossier.toolDumps.map((t) => `${t.bulletId} (${t.techCount} tools)`).join(', ') || 'None'}
 - Contact Merge Anomaly: ${dossier.contactMergeAnomaly ? 'DETECTED in extracted text (ats_readability signal)' : 'CLEAN'}
-- Career Timeline: ${dossier.timeline?.formattedDuration || '0 months'} across ${dossier.timeline?.itemCount || 0} roles (${dossier.timeline?.totalExperienceYears || 0} years)
+- Career Timeline: ${dossier.timeline?.yearsOfExperience || dossier.timeline?.formattedDuration || '0 months'} across ${dossier.timeline?.itemCount || 0} roles (${dossier.timeline?.totalExperienceYears || 0} years)
 - Current Role: ${dossier.timeline?.currentRole?.isCurrentlyEmployed ? `${dossier.timeline.currentRole.role} at ${dossier.timeline.currentRole.company} (${dossier.timeline.currentRole.dates})` : 'Not actively employed'}
 - Career Gaps (>6 months): ${dossier.timeline?.careerGaps?.length > 0 ? dossier.timeline.careerGaps.map((g) => `${g.gapMonths} months between ${g.previousCompany} and ${g.nextCompany}`).join('; ') : 'None'}
 - Career Progression / Promotions: ${dossier.timeline?.promotions?.length > 0 ? dossier.timeline.promotions.map((p) => `${p.company}: ${p.progressionSummary}`).join('; ') : 'None'}

@@ -26,7 +26,7 @@ import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
 
-export const SCORECARD_VERSION = 'resume-scorecard-v2'
+export const SCORECARD_VERSION = 'resume-scorecard-v3'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
