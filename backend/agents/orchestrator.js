@@ -23,6 +23,7 @@ import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
 import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
+import { SCORECARD_VERSION } from './resume/scoring/resumeScorecard.js'
 
 export let _scraperOverrides = null
 export function setScraperOverrides(overrides) {
@@ -55,7 +56,7 @@ export function computeAnalysisCacheFingerprint({
   const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
   const bucket = bucketKey || (targetRole && experienceBucket ? `${targetRole}::${experienceBucket}` : 'default')
   return sha256(
-    `resume:${resumeHash}:jd:${jdHash}:${targetRole}:${bucket}:v:${marketBucketVersion}`
+    `resume:${resumeHash}:jd:${jdHash}:${targetRole}:${bucket}:v:${marketBucketVersion}:sc:${SCORECARD_VERSION}`
   )
 }
 
@@ -200,7 +201,7 @@ export async function runCareerAgents(bundle) {
       const isRealCanonicalResume = canonicalResume && (Array.isArray(canonicalResume.experience) || Array.isArray(canonicalResume.experiences))
       resumeContext = await ResumeAgent.prepareCanonicalContext({
         buffer: resumeBuffer,
-        text: resumeText,
+        resumeText,
         canonicalResumeOverride: isRealCanonicalResume ? canonicalResume : null,
         filename: resumeName || 'resume',
         targetRole: resumeTargetRole,
@@ -251,7 +252,7 @@ export async function runCareerAgents(bundle) {
         const resumeHash = crypto.createHash('sha256').update(resumePayload).digest('hex')
         const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
         const inputHash = sha256(
-          `resume_v7:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}`
+          `resume_v7:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}:sc:${SCORECARD_VERSION}`
         )
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null

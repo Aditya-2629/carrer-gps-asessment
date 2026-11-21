@@ -925,6 +925,8 @@ export async function generateReportBundle(params = {}, options = {}) {
           },
           bulletRewrites: report.bulletRewrites || [],
         },
+        rawResumeText: resumeJson?.rawText || params.resumeText || user?.resumeText || '',
+        userAnswers: user?.user_answers || user?.answers || params.user_answers || {},
       })
       if (scorecard) {
         report.resume_agent.dashboard = scorecard

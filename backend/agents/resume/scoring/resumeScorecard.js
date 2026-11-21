@@ -26,7 +26,7 @@ import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
 
-export const SCORECARD_VERSION = 'resume-scorecard-v1'
+export const SCORECARD_VERSION = 'resume-scorecard-v2'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
@@ -932,6 +932,11 @@ export function computeScorecard({
   targetJobDescription = '',
   targetRole = '',
   marketProfile = null,
+  rawResumeText: passedRawResumeText = '',
+  state = null,
+  parsedDoc = null,
+  userAnswers = null,
+  answers = null,
 }) {
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
   const strengths = Array.isArray(analysis?.strengths) ? analysis.strengths.filter(Boolean) : []
@@ -1081,10 +1086,15 @@ export function computeScorecard({
 
   // ── 5. Section-by-Section /10 Audit (Video-Style Playbook Framework) ─────
   const contact = canonicalResume?.candidate?.contact || {}
-  const rawResumeText = canonicalResume?.rawText ||
+  const effectiveAnswers = userAnswers || answers || state?.answers || {}
+  const rawResumeText = passedRawResumeText ||
+                        canonicalResume?.rawText ||
                         canonicalResume?.text ||
                         canonicalResume?.metadata?.rawTextPreview ||
                         precomputedSignals?.rawText ||
+                        state?.resumeText ||
+                        parsedDoc?.rawText ||
+                        parsedDoc?.text ||
                         ''
 
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
@@ -1095,19 +1105,26 @@ export function computeScorecard({
                    Boolean(canonicalResume?.candidate?.email && canonicalResume.candidate.email !== 'N/A') ||
                    Boolean(canonicalResume?.candidate?.contact?.email && canonicalResume.candidate.contact.email !== 'N/A') ||
                    Boolean(precomputedSignals?.contactMerge?.emailDetected) ||
-                   Boolean(rawResumeText && emailRegex.test(rawResumeText))
+                   Boolean(rawResumeText && emailRegex.test(rawResumeText)) ||
+                   Boolean(effectiveAnswers?.email && emailRegex.test(effectiveAnswers.email)) ||
+                   Boolean(state?.candidateEmail && emailRegex.test(state.candidateEmail))
 
   const hasPhone = Boolean(contact.phone && contact.phone !== 'N/A') ||
                    Boolean(canonicalResume?.candidate?.phone && canonicalResume.candidate.phone !== 'N/A') ||
                    Boolean(canonicalResume?.candidate?.contact?.phone && canonicalResume.candidate.contact.phone !== 'N/A') ||
                    Boolean(precomputedSignals?.contactMerge?.phoneDetected) ||
-                   Boolean(rawResumeText && (extractCleanPhoneNumber(rawResumeText) || phoneRegex.test(rawResumeText)))
+                   Boolean(rawResumeText && (extractCleanPhoneNumber(rawResumeText) || phoneRegex.test(rawResumeText))) ||
+                   Boolean(effectiveAnswers?.phone && (extractCleanPhoneNumber(effectiveAnswers.phone) || phoneRegex.test(effectiveAnswers.phone))) ||
+                   Boolean(state?.candidatePhone && (extractCleanPhoneNumber(state.candidatePhone) || phoneRegex.test(state.candidatePhone)))
 
   const hasLinkedin = Boolean(contact.linkedin) ||
                       Boolean(canonicalResume?.candidate?.linkedin) ||
                       Boolean(canonicalResume?.candidate?.contact?.linkedin) ||
                       Boolean(precomputedSignals?.contactMerge?.urlDetected) ||
-                      Boolean(rawResumeText && linkedinRegex.test(rawResumeText))
+                      Boolean(rawResumeText && linkedinRegex.test(rawResumeText)) ||
+                      Boolean(effectiveAnswers?.linkedin && linkedinRegex.test(effectiveAnswers.linkedin)) ||
+                      Boolean(effectiveAnswers?.linkedinUrl && linkedinRegex.test(effectiveAnswers.linkedinUrl)) ||
+                      Boolean(state?.linkedinUrl && linkedinRegex.test(state.linkedinUrl))
 
   const hasNonUsPersonal = Boolean(flags.photoPresent || flags.maritalStatusPresent || flags.dobPresent || flags.fullAddressPresent)
 

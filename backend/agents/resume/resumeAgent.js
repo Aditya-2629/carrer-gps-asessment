@@ -8,7 +8,7 @@
 
 import { DocumentParser } from '../../services/documentParser/index.js'
 import { DeterministicChunker, ContextBudgetExceededError } from './chunking/deterministicChunker.js'
-import { ResumeNormalizer } from './resumeAgent.normalizer.js'
+import { ResumeNormalizer, extractCleanPhoneNumber } from './resumeAgent.normalizer.js'
 import { ResumeAgentPrompt, PROMPT_VERSION as V2_PROMPT_VERSION } from './resumeAgent.prompt.js'
 import { ResumeAgentValidator } from './resumeAgent.validator.js'
 import { llmGateway } from '../../ai/gateway/llmGateway.js'
@@ -70,6 +70,48 @@ registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PR
 
 export { replaceUnverifiedNumericTokens }
 
+function reVerifyCanonicalContact(canonicalResume, rawTextToSearch = '') {
+  if (!canonicalResume) return
+  if (!canonicalResume.candidate) canonicalResume.candidate = {}
+  if (!canonicalResume.candidate.contact) canonicalResume.candidate.contact = {}
+  const cand = canonicalResume.candidate
+  const cont = canonicalResume.candidate.contact
+
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+  const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10,12}\b/
+  const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
+
+  if (rawTextToSearch) {
+    if (!cont.email || cont.email === 'N/A' || !cand.email || cand.email === 'N/A') {
+      const emailMatch = rawTextToSearch.match(emailRegex)
+      if (emailMatch) {
+        cont.email = cont.email && cont.email !== 'N/A' ? cont.email : emailMatch[0].trim()
+        cand.email = cand.email && cand.email !== 'N/A' ? cand.email : emailMatch[0].trim()
+      }
+    }
+    if (!cont.phone || cont.phone === 'N/A' || !cand.phone || cand.phone === 'N/A') {
+      const cleanPhone = extractCleanPhoneNumber(rawTextToSearch)
+      if (cleanPhone) {
+        cont.phone = cont.phone && cont.phone !== 'N/A' ? cont.phone : cleanPhone
+        cand.phone = cand.phone && cand.phone !== 'N/A' ? cand.phone : cleanPhone
+      } else {
+        const phoneMatch = rawTextToSearch.match(phoneRegex)
+        if (phoneMatch) {
+          cont.phone = cont.phone && cont.phone !== 'N/A' ? cont.phone : phoneMatch[0].trim()
+          cand.phone = cand.phone && cand.phone !== 'N/A' ? cand.phone : phoneMatch[0].trim()
+        }
+      }
+    }
+    if (!cont.linkedin || !cand.linkedin) {
+      const linkedinMatch = rawTextToSearch.match(linkedinRegex)
+      if (linkedinMatch) {
+        cont.linkedin = cont.linkedin || linkedinMatch[0].trim()
+        cand.linkedin = cand.linkedin || linkedinMatch[0].trim()
+      }
+    }
+  }
+}
+
 export class ResumeAgent {
   /**
    * Deterministically parses, normalizes, and extracts canonical facts from a resume document.
@@ -121,6 +163,7 @@ export class ResumeAgent {
       } else if (!canonicalResume.experience && canonicalResume.experiences) {
         canonicalResume.experience = canonicalResume.experiences
       }
+      reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
     }
 
     const effectiveRole = targetRole || canonicalResume?.candidate?.targetRole || 'Technical Professional'
@@ -218,11 +261,21 @@ export class ResumeAgent {
         canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
       }
       if (canonicalResume) {
+        if (!canonicalResume.rawText && parsedDoc?.rawText) {
+          canonicalResume.rawText = parsedDoc.rawText
+        } else if (!canonicalResume.rawText && resumeText) {
+          canonicalResume.rawText = resumeText
+        }
+        if (!canonicalResume.metadata) canonicalResume.metadata = {}
+        if (!canonicalResume.metadata.rawTextPreview && (canonicalResume.rawText || parsedDoc?.rawText || resumeText)) {
+          canonicalResume.metadata.rawTextPreview = (canonicalResume.rawText || parsedDoc?.rawText || resumeText || '').slice(0, 1000)
+        }
         if (!canonicalResume.experiences && canonicalResume.experience) {
           canonicalResume.experiences = canonicalResume.experience
         } else if (!canonicalResume.experience && canonicalResume.experiences) {
           canonicalResume.experience = canonicalResume.experiences
         }
+        reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
       }
       if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
         canonicalResume.candidate.contact.linkedin = linkedinUrl
@@ -848,6 +901,10 @@ export class ResumeAgent {
           targetJobDescription: state?.targetJobDescription || canonicalResume?.targetJobDescription || '',
           targetRole: effectiveRole || canonicalResume?.candidate?.targetRole || '',
           marketProfile: state?.marketProfile || null,
+          state,
+          parsedDoc,
+          userAnswers: answers || state?.answers || {},
+          rawResumeText: canonicalResume?.rawText || parsedDoc?.rawText || resumeText || state?.resumeText || '',
         })
       } catch (scoreErr) {
         console.warn('[ResumeAgent] Scorecard computation failed:', scoreErr.message)
