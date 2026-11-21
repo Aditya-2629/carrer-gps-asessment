@@ -107,6 +107,15 @@ export class ResumeAgent {
     }
 
     if (canonicalResume) {
+      if (!canonicalResume.rawText && parsedDoc?.rawText) {
+        canonicalResume.rawText = parsedDoc.rawText
+      } else if (!canonicalResume.rawText && resumeText) {
+        canonicalResume.rawText = resumeText
+      }
+      if (!canonicalResume.metadata) canonicalResume.metadata = {}
+      if (!canonicalResume.metadata.rawTextPreview && (canonicalResume.rawText || parsedDoc?.rawText || resumeText)) {
+        canonicalResume.metadata.rawTextPreview = (canonicalResume.rawText || parsedDoc?.rawText || resumeText || '').slice(0, 1000)
+      }
       if (!canonicalResume.experiences && canonicalResume.experience) {
         canonicalResume.experiences = canonicalResume.experience
       } else if (!canonicalResume.experience && canonicalResume.experiences) {

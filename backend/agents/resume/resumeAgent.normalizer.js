@@ -606,7 +606,10 @@ export class ResumeNormalizer {
     candidate.allRoles = allRoles
 
     const canonical = {
-      rawText: rawText || '',
+      rawText: rawText || parsedDoc?.rawText || '',
+      metadata: {
+        rawTextPreview: (rawText || parsedDoc?.rawText || '').slice(0, 1000),
+      },
       document: {
         type: parsedDoc.type || 'text',
         pageCount: parsedDoc.pageCount || 1,

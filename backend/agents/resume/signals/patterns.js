@@ -16,11 +16,11 @@ export const QUANTIFIER_PATTERNS = [
   /(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?\s*(?:k|m|b|million|billion|lakhs?|crores?|cr|l)?\b|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/gi,
   // Time savings, durations & turnarounds (e.g., "40+ manual hours", "8 hours to 4 hours", "90 minutes", "6+ hours", "ms", "seconds")
   /\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:hours?|hrs?|minutes?|mins?|seconds?|sec|ms|milliseconds?|days?|weeks?|months?)\b/gi,
-  /\b\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?)\s*(?:to|–|-)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/gi,
+  /\b(?:from\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)?\s*(?:to|–|-|down to)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/gi,
   // Scale, volume, counts & team size (e.g., "50,000+ transactions", "15-person team", "100K+ users", "15+ reports", "30+ queries")
   /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi,
   /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:[kKmMbB]|million|billion)\+?(?:\s*(?:users?|customers?|clients?|transactions?|records?|requests?|events?|queries?))?\b/gi,
-  /\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts))\b/gi,
+  /\b(?:\d+\s*-?\s*person(?:\s+(?:team|squad|pod|group|department|org|organization|engineers|staff|members))?|team\s+of\s+\d+|led\s+\d+\s*(?:engineers|developers|people|analysts|members|designers))\b/gi,
   // Standalone numbers or numbers with common metric units (e.g., "850ms", "120ms", "50ms", "170", "50", "20+", "12k")
   /\b\d{2,}(?:,\d{3})*(?:\.\d+)?(?:\+)?(?:ms|s|sec|min|k|K|m|M|B)?\b/g,
 ]

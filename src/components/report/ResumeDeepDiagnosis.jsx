@@ -205,74 +205,90 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
   const rawSectionAudit = resumeAgent?.sectionAudit || dashboard?.sectionAudit || reportData?.resume_agent?.sectionAudit || null
   const effectiveSectionAudit = useMemo(() => {
-    if (rawSectionAudit && typeof rawSectionAudit === 'object' && rawSectionAudit.headerAndContact) {
-      return rawSectionAudit
-    }
-    const grades = dashboard?.grades || {}
-    const quantBullets = resolvedBullets.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
-    const totalBullets = resolvedBullets.length
-    const kwScore = dashboard?.keywordAlignment?.score || 72
-    const impactScore = grades?.impact?.score || 65
-    const atsScore = grades?.ats_readability?.score || 85
-    const posScore = grades?.positioning?.score || 68
+    let baseAudit = null
+    if (rawSectionAudit && typeof rawSectionAudit === 'object' && (rawSectionAudit.headerAndContact || rawSectionAudit.header)) {
+      baseAudit = rawSectionAudit
+    } else {
+      const grades = dashboard?.grades || {}
+      const quantBullets = resolvedBullets.filter((b) => b.hasQuantifier || b.status === 'pass' || (typeof b.impactScore === 'number' && b.impactScore >= 75)).length
+      const totalBullets = resolvedBullets.length
+      const kwScore = dashboard?.keywordAlignment?.score || 72
+      const impactScore = grades?.impact?.score || 65
+      const atsScore = grades?.ats_readability?.score || 85
+      const posScore = grades?.positioning?.score || 68
 
-    return {
-      headerAndContact: {
-        score10: 9,
-        status: 'pass',
-        label: 'Header & Contact Parsing',
-        whatsHurting: null,
-        hurtingReason: null,
-        requiredImprovement: 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn.',
-      },
-      summary: {
-        score10: Math.max(2, Math.min(10, Math.round(posScore / 10))),
-        status: posScore >= 80 ? 'pass' : posScore >= 50 ? 'warn' : 'fail',
-        label: 'Professional Summary',
-        whatsHurting: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
-        hurtingReason: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
-        requiredImprovement: 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], proven in [Primary Outcome].',
-      },
-      experience: {
-        score10: (totalBullets > 0 && quantBullets === 0)
-          ? Math.min(5, Math.round(impactScore / 10))
-          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? Math.min(7, Math.round(impactScore / 10))
-          : Math.max(1, Math.min(10, Math.round(impactScore / 10))),
-        status: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? 'warn'
-          : impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
-        label: 'Experience Bullets & Quantified Impact',
-        whatsHurting: (totalBullets > 0 && quantBullets === 0)
-          ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
-          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
-          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
-        hurtingReason: (totalBullets > 0 && quantBullets === 0)
-          ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
-          : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
-          ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
-          : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
-        requiredImprovement: 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).',
-      },
-      skills: {
-        score10: Math.max(1, Math.min(10, Math.round(kwScore / 10))),
-        status: kwScore >= 80 ? 'pass' : kwScore >= 50 ? 'warn' : 'fail',
-        label: 'Skills & Market Keyword Alignment',
-        whatsHurting: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
-        hurtingReason: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
-        requiredImprovement: 'Add missing core market tools directly to your Skills section and mirror them within work experience bullet points.',
-      },
-      formatting: {
-        score10: Math.max(1, Math.min(10, Math.round(atsScore / 10))),
-        status: atsScore >= 80 ? 'pass' : atsScore >= 50 ? 'warn' : 'fail',
-        label: 'Formatting, Length & ATS Safety',
-        whatsHurting: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
-        hurtingReason: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
-        requiredImprovement: 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.',
-      },
+      baseAudit = {
+        headerAndContact: {
+          score10: 9,
+          status: 'pass',
+          label: 'Header & Contact Parsing',
+          whatsHurting: null,
+          hurtingReason: null,
+          requiredImprovement: 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn.',
+        },
+        summary: {
+          score10: Math.max(2, Math.min(10, Math.round(posScore / 10))),
+          status: posScore >= 80 ? 'pass' : posScore >= 50 ? 'warn' : 'fail',
+          label: 'Professional Summary',
+          whatsHurting: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+          hurtingReason: posScore < 80 ? 'Summary relies on generic phrasing without specifying your target role and measurable specialty.' : null,
+          requiredImprovement: 'Write a 3-sentence executive pitch: [Target Role] with [X]+ years experience in [Core Stack], proven in [Primary Outcome].',
+        },
+        experience: {
+          score10: (totalBullets > 0 && quantBullets === 0)
+            ? Math.min(5, Math.round(impactScore / 10))
+            : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+            ? Math.min(7, Math.round(impactScore / 10))
+            : Math.max(1, Math.min(10, Math.round(impactScore / 10))),
+          status: (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+            ? 'warn'
+            : impactScore >= 80 ? 'pass' : impactScore >= 50 ? 'warn' : 'fail',
+          label: 'Experience Bullets & Quantified Impact',
+          whatsHurting: (totalBullets > 0 && quantBullets === 0)
+            ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+            : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+            ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
+            : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
+          hurtingReason: (totalBullets > 0 && quantBullets === 0)
+            ? `0 of ${totalBullets} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+            : (totalBullets > 0 && quantBullets < totalBullets * 0.5)
+            ? `Only ${quantBullets} of ${totalBullets} bullets (${Math.round((quantBullets / totalBullets) * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
+            : (impactScore < 80 ? 'Bullets focus heavily on routine duties rather than quantified business outcomes.' : null),
+          requiredImprovement: 'Rewrite bullets using the formula: Action Verb + Technical Mechanism + Quantified Business Impact (% or $ gain).',
+        },
+        skills: {
+          score10: Math.max(1, Math.min(10, Math.round(kwScore / 10))),
+          status: kwScore >= 80 ? 'pass' : kwScore >= 50 ? 'warn' : 'fail',
+          label: 'Skills & Market Keyword Alignment',
+          whatsHurting: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+          hurtingReason: kwScore < 80 ? 'Missing priority market keywords expected for your target role, throttling ATS ranking.' : null,
+          requiredImprovement: 'Add missing core market tools directly to your Skills section and mirror them within work experience bullet points.',
+        },
+        formatting: {
+          score10: Math.max(1, Math.min(10, Math.round(atsScore / 10))),
+          status: atsScore >= 80 ? 'pass' : atsScore >= 50 ? 'warn' : 'fail',
+          label: 'Formatting, Length & ATS Safety',
+          whatsHurting: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+          hurtingReason: atsScore < 80 ? 'Formatting structure flags potential ATS parsing friction.' : null,
+          requiredImprovement: 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.',
+        },
+      }
     }
-  }, [rawSectionAudit, dashboard])
+
+    // Strictly deduplicate by section label as a safeguard so 2 identical cards can never render
+    const cleanAudit = {}
+    const seenLabels = new Set()
+    for (const [k, v] of Object.entries(baseAudit || {})) {
+      if (!v || typeof v !== 'object') continue
+      // If both 'header' and 'headerAndContact' exist, keep 'headerAndContact'
+      if (k === 'header' && baseAudit.headerAndContact) continue
+      const label = v.label || v.name || k
+      if (seenLabels.has(label)) continue
+      seenLabels.add(label)
+      cleanAudit[k] = v
+    }
+    return cleanAudit
+  }, [rawSectionAudit, dashboard, resolvedBullets])
 
   const [copiedSummary, setCopiedSummary] = useState(false)
 

@@ -297,12 +297,12 @@ export function isTrueQuantified(text) {
   if (/(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion|\s*lakhs?|\s*crores?)?|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/i.test(clean)) return true
   // 4. Latency, time savings or duration measurements (e.g. 40+ manual hours, 8 hours to 4 hours, 90 minutes, 6+ hours, 250ms, 2.5 seconds)
   if (/\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:ms|milliseconds?|seconds?|sec|mins?|minutes?|hours?|hrs?|days?|weeks?|months?)\b/i.test(clean)) return true
-  if (/\b\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?)\s*(?:to|–|-)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/i.test(clean)) return true
+  if (/\b(?:from\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)?\s*(?:to|–|-|down to)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/i.test(clean)) return true
   // 5. Scale / volume / team size / count metrics (e.g. 50,000+ transactions, 15-person team, 100K+ users, 15+ reports, 30+ queries)
   if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\+?/i.test(clean)) return true
   if (/\b\d+(?:,\d{3})*\+?(?:-(?:person|member|engineer|developer|query|model|tool|node|cluster|pipeline|report|server|table))?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|reports|dashboards|features|releases|deployments|transactions|microservices|services|endpoints|tables|models|cves|vulnerabilities|tickets|bugs|defects|test cases|builds|pipelines|nodes|clusters|servers|containers|pods|members|engineers|developers|analysts|people|beds|team|accounts|leads|subscribers)\b/i.test(clean)) return true
   // 6. Explicit team size patterns
-  if (/\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts|members))\b/i.test(clean)) return true
+  if (/\b(?:\d+\s*-?\s*person(?:\s+(?:team|squad|pod|group|department|org|organization|engineers|staff|members))?|team\s+of\s+\d+|led\s+\d+\s*(?:engineers|developers|people|analysts|members|designers))\b/i.test(clean)) return true
   // 7. Production scale descriptors with numbers (e.g. 24-bed ICU, 50+ enterprise clients)
   if (/\b\d{2,}\+?\s+(?:production|enterprise|distributed|active|concurrent|client|bed)\b/i.test(clean)) return true
   // 8. WCAG compliance standards with specific version or levels
@@ -1081,7 +1081,11 @@ export function computeScorecard({
 
   // ── 5. Section-by-Section /10 Audit (Video-Style Playbook Framework) ─────
   const contact = canonicalResume?.candidate?.contact || {}
-  const rawResumeText = canonicalResume?.rawText || canonicalResume?.text || ''
+  const rawResumeText = canonicalResume?.rawText ||
+                        canonicalResume?.text ||
+                        canonicalResume?.metadata?.rawTextPreview ||
+                        precomputedSignals?.rawText ||
+                        ''
 
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
   const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10,12}\b/
@@ -1089,16 +1093,19 @@ export function computeScorecard({
 
   const hasEmail = Boolean(contact.email && contact.email !== 'N/A') ||
                    Boolean(canonicalResume?.candidate?.email && canonicalResume.candidate.email !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.contact?.email && canonicalResume.candidate.contact.email !== 'N/A') ||
                    Boolean(precomputedSignals?.contactMerge?.emailDetected) ||
                    Boolean(rawResumeText && emailRegex.test(rawResumeText))
 
   const hasPhone = Boolean(contact.phone && contact.phone !== 'N/A') ||
                    Boolean(canonicalResume?.candidate?.phone && canonicalResume.candidate.phone !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.contact?.phone && canonicalResume.candidate.contact.phone !== 'N/A') ||
                    Boolean(precomputedSignals?.contactMerge?.phoneDetected) ||
                    Boolean(rawResumeText && (extractCleanPhoneNumber(rawResumeText) || phoneRegex.test(rawResumeText)))
 
   const hasLinkedin = Boolean(contact.linkedin) ||
                       Boolean(canonicalResume?.candidate?.linkedin) ||
+                      Boolean(canonicalResume?.candidate?.contact?.linkedin) ||
                       Boolean(precomputedSignals?.contactMerge?.urlDetected) ||
                       Boolean(rawResumeText && linkedinRegex.test(rawResumeText))
 
@@ -1153,7 +1160,7 @@ export function computeScorecard({
 
   // 3. Experience Bullets & Quantified Impact (/10)
   const allExpBullets = bulletAudit.length > 0 ? bulletAudit : []
-  const realQuantifiedCount = allExpBullets.filter((b) => isTrueQuantified(b.text || b.originalText || '')).length
+  const realQuantifiedCount = allExpBullets.filter((b) => b.hasQuantifier === true || isTrueQuantified(b.text || b.originalText || '')).length
   const expTotalBullets = allExpBullets.length > 0 ? allExpBullets.length : (quant.totalBullets || 1)
   const realDensity = expTotalBullets > 0 ? realQuantifiedCount / expTotalBullets : 0
   const effectiveQuant = {
@@ -1230,7 +1237,6 @@ export function computeScorecard({
   }
 
   const sectionAudit = {
-    header: headerAuditObj,
     headerAndContact: headerAuditObj,
     summary: {
       score10: summaryScore10,
@@ -1849,7 +1855,7 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           ? normalizeMetricOpportunities(rawMetricOpps)
           : generateFallbackMetricOpportunities(b.text, roleTarget)
 
-        const isOrigQuant = isTrueQuantified(b.text)
+        const isOrigQuant = isTrueQuantified(b.text) || Boolean(sig?.hasQuantifier)
         const isRwQuant = cleanImproved ? isTrueQuantified(cleanImproved) : false
         const metricSource = isOrigQuant ? 'resume_verified' : (isRwQuant ? 'ai_calibrated' : null)
 
@@ -1878,6 +1884,8 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           rewrite: cleanImproved,
           rewritten: cleanImproved,
           improved: cleanImproved,
+          hasQuantifier: isOrigQuant,
+          isQuantified: isOrigQuant,
           metricSource,
           metricOpportunities,
           issueId: issue?.id || null,

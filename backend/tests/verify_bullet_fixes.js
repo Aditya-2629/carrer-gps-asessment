@@ -210,9 +210,11 @@ console.log('Header audit score:', headerSection.score10, 'status:', headerSecti
 assert.strictEqual(headerSection.score10, 10, 'FAILED: Header did not score 10/10!')
 assert.strictEqual(headerSection.status, 'pass', 'FAILED: Header status is not pass!')
 assert.strictEqual(headerSection.hurtingReason, null, 'FAILED: Header has false positive hurtingReason!')
-console.log('PASS: Header scores 10/10 with zero false missing-email/phone errors.')
+assert.strictEqual(Object.keys(scorecardResult.sectionAudit).length, 5, 'FAILED: sectionAudit must have strictly 5 sections!')
+assert.strictEqual(scorecardResult.sectionAudit.header, undefined, 'FAILED: duplicate header key must be removed!')
+console.log('PASS: Header scores 10/10 with zero false missing-email/phone errors and strictly 5 audit sections.')
 
-console.log('--- TEST 8: 10-Metric Business/Engineering Quantification Test ---')
+console.log('--- TEST 8: 11-Metric Business/Engineering Quantification Test ---')
 const metricTestCases = [
   'Automated ETL workflows, saving 40+ manual hours per month.',
   'Reduced financial reporting cycles from 8 hours to 4 hours.',
@@ -223,7 +225,8 @@ const metricTestCases = [
   'Led a 15-person team of software engineers across 3 locations.',
   'Scaled cloud infrastructure to support 100K+ users with 99.9% uptime.',
   'Accelerated data access layers to increase throughput by 3x.',
-  'Compiled 15+ reports weekly for executive stakeholders.'
+  'Compiled 15+ reports weekly for executive stakeholders.',
+  'Streamlined customer data reconciliation down to 15-person departmental pods in under 45 minutes.'
 ]
 
 for (let i = 0; i < metricTestCases.length; i++) {
@@ -231,6 +234,6 @@ for (let i = 0; i < metricTestCases.length; i++) {
   const isQuant = isTrueQuantified(bullet)
   assert(isQuant, `FAILED: Metric test case ${i + 1} not recognized: "${bullet}"`)
 }
-console.log('PASS: All 10 real business/engineering metric formats successfully detected as quantified.')
+console.log('PASS: All 11 real business/engineering metric formats successfully detected as quantified.')
 
 console.log('\nALL VERIFICATION CHECKS PASSED!')
