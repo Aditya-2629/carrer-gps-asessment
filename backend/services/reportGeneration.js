@@ -830,7 +830,7 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'preparing', message: 'Executing Stage 0 Deterministic Triage…' })
+      params.onProgress({ stage: 'preparing', agent: 'all', message: 'Executing Stage 0 Deterministic Triage…' })
     } catch (_pErr) {}
   }
 
@@ -845,7 +845,10 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'agents_running', message: 'Synthesizing Single-Pass Executive Report…' })
+      params.onProgress({ stage: 'agents_running', agent: 'all', message: 'Deploying Resume, LinkedIn & Atlas agents in parallel…' })
+      params.onProgress({ stage: 'resume_parsing', agent: 'resume', message: 'Auditing resume bullets & quantifying impact…' })
+      params.onProgress({ stage: 'linkedin_auditing', agent: 'linkedin', message: 'Auditing LinkedIn headline, SEO & skills alignment…' })
+      params.onProgress({ stage: 'atlas_synthesizing', agent: 'overall', message: 'Synthesizing 7-day recruiter playbook & market reality check…' })
     } catch (_pErr) {}
   }
 
@@ -970,7 +973,7 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'report_ready', message: 'Report ready.', report })
+      params.onProgress({ stage: 'report_ready', agent: 'overall', message: 'Report ready.', report })
     } catch (_progErr) {}
   }
 

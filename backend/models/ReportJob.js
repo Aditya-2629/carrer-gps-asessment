@@ -16,6 +16,7 @@ const reportJobSchema = new mongoose.Schema(
         at: String,
         stage: String,
         message: String,
+        agent: { type: String, default: null },
       },
     ],
     aiReport: { type: mongoose.Schema.Types.Mixed, default: null },

@@ -33,43 +33,110 @@ const AGENT_NODES = [
   { id: 'overall', label: 'Atlas', hint: 'Executive career narrative', icon: Compass, tone: '#6366f1' },
 ]
 
-function mapEventToState(stage) {
-  if (!stage) return null
-  const s = stage.toLowerCase()
+const CAREER_INSIGHTS = [
+  {
+    icon: '📊',
+    stat: 'Quantified Impact',
+    text: 'Top 10% engineering resumes quantify outcomes on ≥ 65% of bullet points, doubling recruiter callback rates.',
+  },
+  {
+    icon: '⏱️',
+    stat: '7.4s Recruiter Scan',
+    text: 'Recruiters spend an average of 7.4 seconds on their initial scan. Clear title positioning and metrics are critical.',
+  },
+  {
+    icon: '🔍',
+    stat: 'LinkedIn SEO',
+    text: 'Profiles with 5+ matching target role keywords in headlines and skills receive up to 3.8x more direct recruiter inMails.',
+  },
+  {
+    icon: '🎯',
+    stat: 'Executive Storytelling',
+    text: 'Summaries structured with Target Role + 3 Core Technical Pillars increase screening pass-through rates by 40%.',
+  },
+  {
+    icon: '📈',
+    stat: 'Interview Funnel',
+    text: 'Converting recruiter screens to final offers requires bridging technical architecture trade-offs with business ROI.',
+  },
+]
 
-  // Resume agent events
-  if (s.includes('resume')) {
-    if (s.includes('done') || s.includes('complete')) return { agent: 'resume', state: 'done' }
-    if (s.includes('error') || s.includes('fail')) return { agent: 'resume', state: 'error' }
-    return { agent: 'resume', state: 'working' }
+function mapEventToState(stage, agent, message) {
+  if (!stage) return null
+  const s = String(stage).toLowerCase()
+  const a = String(agent || '').toLowerCase()
+
+  // Terminal report event: all agents complete
+  if (s === 'report_ready') {
+    return [
+      { agent: 'resume', state: 'done' },
+      { agent: 'linkedin', state: 'done' },
+      { agent: 'overall', state: 'done' },
+    ]
   }
 
-  // LinkedIn agent events (Apify scrape, cross-audit, LLM synthesis)
-  if (s.includes('linkedin') || s.includes('apify') || s.includes('cross_audit') || s.includes('llm_synthesis')) {
-    if (s.includes('done') || s.includes('complete')) return { agent: 'linkedin', state: 'done' }
-    if (s.includes('error') || s.includes('fail')) return { agent: 'linkedin', state: 'error' }
+  // Job failed event
+  if (s === 'job_failed' || (s.includes('error') && (a === 'all' || !a))) {
+    return [
+      { agent: 'resume', state: 'error' },
+      { agent: 'linkedin', state: 'error' },
+      { agent: 'overall', state: 'error' },
+    ]
+  }
+
+  // Multi-agent trigger events: start all 3 agents immediately in WORKING state
+  if (s === 'agents_running' || s === 'preparing' || s === 'job_started' || a === 'all') {
+    return [
+      { agent: 'resume', state: 'working' },
+      { agent: 'linkedin', state: 'working' },
+      { agent: 'overall', state: 'working' },
+    ]
+  }
+
+  // CRITICAL: apify_done is ONLY the background profile scrape completing.
+  // It MUST NOT mark LinkedIn as 'done'; LinkedIn synthesis is still working.
+  if (s === 'apify_done' || s === 'apify_started') {
     return { agent: 'linkedin', state: 'working' }
   }
 
-  // Atlas / overall pipeline events
-  if (s.includes('atlas') || s.includes('overall') || s.includes('composing') || s.includes('quality_gate') || s.includes('agents_running') || s === 'report_ready') {
-    if (s === 'report_ready' || s === 'composing') return { agent: 'overall', state: 'done' }
-    return { agent: 'overall', state: 'working' }
+  // Resolve target agent from agent parameter or stage name
+  let targetAgent = null
+  if (a === 'resume' || s.includes('resume')) targetAgent = 'resume'
+  else if (a === 'linkedin' || s.includes('linkedin') || s.includes('apify') || s.includes('cross_audit')) targetAgent = 'linkedin'
+  else if (a === 'overall' || a === 'atlas' || s.includes('overall') || s.includes('atlas') || s.includes('action_plan') || s.includes('composing')) targetAgent = 'overall'
+
+  if (!targetAgent) {
+    const m = stage.match(/^agent_([a-z]+)_agent_(\w+)$/)
+    if (m) {
+      targetAgent = m[1] === 'atlas' ? 'overall' : m[1]
+      return { agent: targetAgent, state: m[2] === 'done' ? 'done' : m[2] === 'error' ? 'error' : 'working' }
+    }
+    return null
   }
 
-  const m = stage.match(/^agent_([a-z]+)_agent_(\w+)$/)
-  if (m) return { agent: m[1], state: m[2] === 'done' ? 'done' : m[2] === 'error' ? 'error' : 'working' }
-
-  return null
+  // Determine state for target agent
+  if (s === 'agent_done' || s.endsWith('_done') || s.endsWith('_complete') || s === 'cache_hit') {
+    return { agent: targetAgent, state: 'done' }
+  }
+  if (s === 'agent_error' || s.includes('failed') || s.includes('error')) {
+    return { agent: targetAgent, state: 'error' }
+  }
+  return { agent: targetAgent, state: 'working' }
 }
 
 export default function AnalysisLoader() {
   const { userId, formData, setReportData, setPhase } = useAppStore()
   const [errorMessage, setErrorMessage] = useState(null)
   const [jobStarted, setJobStarted] = useState(false)
-  const [agentStates, setAgentStates] = useState({ resume: 'idle', linkedin: 'idle', overall: 'idle' })
+  const [agentStates, setAgentStates] = useState({ resume: 'working', linkedin: 'working', overall: 'working' })
+  const [agentLogs, setAgentLogs] = useState({
+    resume: 'Parsing structure & auditing bullet points…',
+    linkedin: 'Auditing profile visibility & public records…',
+    overall: 'Synthesizing 7-day recruiter playbook…',
+  })
   const [liveMessages, setLiveMessages] = useState([])
   const [elapsedSecs, setElapsedSecs] = useState(0)
+  const [insightIndex, setInsightIndex] = useState(0)
   const redirectedRef = useRef(false)
   const sourceRef = useRef(null)
   const reduceMotion = useReducedMotion()
@@ -80,6 +147,15 @@ export default function AnalysisLoader() {
     }, 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setInsightIndex((i) => (i + 1) % CAREER_INSIGHTS.length)
+    }, 6500)
+    return () => clearInterval(timer)
+  }, [])
+
+  const currentInsight = CAREER_INSIGHTS[insightIndex]
 
   const handleReport = (report) => {
     if (!report || redirectedRef.current) return
@@ -97,17 +173,60 @@ export default function AnalysisLoader() {
 
   const applyEvent = (event) => {
     if (!event?.stage) return
-    if (event.message) {
-      setLiveMessages((m) => [...m.slice(-8), { text: event.message, stage: event.stage }])
+    const stage = event.stage
+    const agent = event.agent
+    const message = event.message || ''
+
+    if (message) {
+      setLiveMessages((m) => {
+        const entry = {
+          text: message,
+          stage,
+          agent: agent || 'all',
+          at: event.at || new Date().toISOString(),
+        }
+        return [...m.slice(-11), entry]
+      })
     }
-    const mapped = mapEventToState(event.stage)
-    if (mapped) {
-      setAgentStates((s) => ({ ...s, [mapped.agent]: mapped.state }))
+
+    // Update per-agent live status logs
+    if (agent && agent !== 'all' && message) {
+      const normalizedAgent = (agent === 'atlas' ? 'overall' : agent).toLowerCase()
+      if (['resume', 'linkedin', 'overall'].includes(normalizedAgent)) {
+        setAgentLogs((prev) => ({ ...prev, [normalizedAgent]: message }))
+      }
+    } else if ((agent === 'all' || stage === 'agents_running' || stage === 'preparing') && message) {
+      setAgentLogs((prev) => ({
+        resume: prev.resume || message,
+        linkedin: prev.linkedin || message,
+        overall: prev.overall || message,
+      }))
     }
-    if (event.stage === 'report_ready' && event.report) {
+
+    const updates = mapEventToState(stage, agent, message)
+    if (updates) {
+      if (Array.isArray(updates)) {
+        setAgentStates((s) => {
+          const next = { ...s }
+          for (const u of updates) {
+            if (next[u.agent] !== 'done' || u.state === 'done') {
+              next[u.agent] = u.state
+            }
+          }
+          return next
+        })
+      } else if (updates.agent) {
+        setAgentStates((s) => {
+          if (s[updates.agent] === 'done' && updates.state === 'working') return s
+          return { ...s, [updates.agent]: updates.state }
+        })
+      }
+    }
+
+    if (stage === 'report_ready' && event.report) {
       handleReport(event.report)
     }
-    if (event.stage === 'job_failed') {
+    if (stage === 'job_failed') {
       setErrorMessage(event.message || 'Report generation failed. Please try again.')
     }
   }
@@ -402,33 +521,91 @@ export default function AnalysisLoader() {
                     </motion.span>
                   </AnimatePresence>
                 </div>
-                <p className="text-xs text-[var(--text-muted)] line-clamp-2 sm:truncate">{node.hint}</p>
+                <p className="text-xs text-[var(--text-muted)] line-clamp-2 sm:truncate">{agentLogs[node.id] || node.hint}</p>
               </div>
             </motion.div>
           )
         })}
       </div>
 
-      {/* ── Live status ticker (real SSE messages) ── */}
-      <div className="w-full max-w-xl mb-6 relative" aria-live="polite">
-        <div className="rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] px-4 py-2.5 flex items-center gap-2.5 shadow-2xs">
-          <span className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--primary)]" />
+      {/* ── Live Activity Feed ── */}
+      <div className="w-full max-w-xl mb-6">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--primary)]" />
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] font-mono">
+              Live Pipeline Activity
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-[var(--text-muted)] tabular-nums">
+            {liveMessages.length} events logged
           </span>
-          <div className="h-5 flex-1 relative overflow-hidden">
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={latest}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.2 }}
-                className="text-xs font-semibold absolute inset-0 flex items-center text-[var(--text-primary)] truncate"
-              >
-                {latest}
-              </motion.p>
-            </AnimatePresence>
+        </div>
+        <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl p-3 divide-y divide-[var(--border-default)]/40 shadow-2xs">
+          {liveMessages.length === 0 ? (
+            <div className="py-2 text-xs text-[var(--text-muted)] text-center font-mono">
+              Connecting to live agent stream…
+            </div>
+          ) : (
+            liveMessages.slice(-4).map((msg, idx) => {
+              const agentKey = String(msg.agent || '').toLowerCase()
+              const label =
+                agentKey === 'resume'
+                  ? 'Resume'
+                  : agentKey === 'linkedin'
+                  ? 'LinkedIn'
+                  : agentKey === 'overall' || agentKey === 'atlas'
+                  ? 'Atlas'
+                  : 'System'
+              const badgeCls =
+                agentKey === 'resume'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : agentKey === 'linkedin'
+                  ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20'
+                  : agentKey === 'overall' || agentKey === 'atlas'
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                  : 'bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]'
+
+              let timeStr = 'now'
+              if (msg.at) {
+                const d = new Date(msg.at)
+                if (!isNaN(d.getTime())) {
+                  timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                }
+              }
+
+              return (
+                <div key={idx} className="py-2 first:pt-0 last:pb-0 flex items-start gap-2.5 text-xs">
+                  <span className="font-mono text-[10px] text-[var(--text-muted)] shrink-0 pt-0.5 tabular-nums">
+                    {timeStr}
+                  </span>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider ${badgeCls}`}>
+                    {label}
+                  </span>
+                  <span className="text-[var(--text-primary)] font-medium truncate flex-1">
+                    {msg.text}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ── Rotating Career Insights ── */}
+      <div className="w-full max-w-xl mb-6">
+        <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center gap-3">
+          <span className="text-xl select-none shrink-0">{currentInsight.icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--primary)] mb-0.5">
+              Career Intelligence • {currentInsight.stat}
+            </div>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {currentInsight.text}
+            </p>
           </div>
         </div>
       </div>
