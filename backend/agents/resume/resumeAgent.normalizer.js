@@ -295,11 +295,22 @@ export class ResumeNormalizer {
       }
       if (parsedDoc.candidate.contact) {
         candidate.contact = {
-          ...candidate.contact,
-          ...parsedDoc.candidate.contact,
+          email: (parsedDoc.candidate.contact.email && parsedDoc.candidate.contact.email !== 'N/A') ? parsedDoc.candidate.contact.email : candidate.contact.email,
+          phone: (parsedDoc.candidate.contact.phone && parsedDoc.candidate.contact.phone !== 'N/A') ? parsedDoc.candidate.contact.phone : candidate.contact.phone,
+          location: (parsedDoc.candidate.contact.location && parsedDoc.candidate.contact.location !== 'N/A') ? parsedDoc.candidate.contact.location : candidate.contact.location,
+          linkedin: parsedDoc.candidate.contact.linkedin ? parsedDoc.candidate.contact.linkedin : candidate.contact.linkedin,
+          github: parsedDoc.candidate.contact.github ? parsedDoc.candidate.contact.github : candidate.contact.github,
         }
       }
+      if (!candidate.phone && parsedDoc.candidate.phone && parsedDoc.candidate.phone !== 'N/A') {
+        candidate.phone = parsedDoc.candidate.phone
+      }
+      if (!candidate.email && parsedDoc.candidate.email && parsedDoc.candidate.email !== 'N/A') {
+        candidate.email = parsedDoc.candidate.email
+      }
     }
+    candidate.phone = candidate.phone || (candidate.contact.phone && candidate.contact.phone !== 'N/A' ? candidate.contact.phone : null)
+    candidate.email = candidate.email || (candidate.contact.email && candidate.contact.email !== 'N/A' ? candidate.contact.email : null)
     const sections = this.segmentSections(lines)
 
     // Check if structured experiences, projects, skills, education, certifications already exist from AI Chunker or Parser
@@ -595,6 +606,7 @@ export class ResumeNormalizer {
     candidate.allRoles = allRoles
 
     const canonical = {
+      rawText: rawText || '',
       document: {
         type: parsedDoc.type || 'text',
         pageCount: parsedDoc.pageCount || 1,
@@ -651,7 +663,7 @@ export class ResumeNormalizer {
    * Extracts candidate name, contact, LinkedIn, and target role from header lines and full text
    */
   static extractCandidateInfo(lines, targetRoleOverride, rawText = '') {
-    const headerLines = lines.slice(0, 15)
+    const headerLines = lines.slice(0, 20)
     let email = null
     let phone = null
     let location = null
@@ -660,7 +672,7 @@ export class ResumeNormalizer {
     let headline = ''
     let name = ''
 
-    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
     const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
     const githubRegex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i
 
@@ -756,6 +768,7 @@ export class ResumeNormalizer {
       headline: headline || '',
       targetRole: targetRoleOverride || headline || '',
       phone: phone || null,
+      email: email || null,
       contact: {
         email: email || 'N/A',
         phone: phone || null,

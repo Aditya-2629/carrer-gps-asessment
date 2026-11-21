@@ -6,21 +6,23 @@
  */
 
 // ── Quantifier Patterns ────────────────────────────────────────────────────────
-// Matches %, numbers followed by x/X, "hours", "users", "$", or bare numbers >= 2 digits
+// Matches %, multipliers, currencies, time metrics, counts with units, and scale descriptors
 export const QUANTIFIER_PATTERNS = [
   // Percentage matches (e.g., "35%", "94%")
   /\b\d+(?:\.\d+)?%/g,
   // Multipliers (e.g., "3x", "10X", "3.5x")
   /\b\d+(?:\.\d+)?[xX]\b/g,
-  // Currency values (e.g., "$100k", "$50", "$")
-  /\$\s*[\d,]+(?:\.\d+)?(?:[kKmMbB]|k|M|B)?/g,
-  /\$/g,
-  // Specific impact terms: hours, hrs, users (e.g., "50+ hours", "5,000+ users", standalone "hours", "users")
-  /\b\d+[\d,]*\+?\s*(?:hours|hrs|users)\b/gi,
-  /\b(?:hours|hrs|users)\b/gi,
+  // Currency values (e.g., "$100k", "$50", "$", ₹, INR, €, £)
+  /(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?\s*(?:k|m|b|million|billion|lakhs?|crores?|cr|l)?\b|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/gi,
+  // Time savings, durations & turnarounds (e.g., "40+ manual hours", "8 hours to 4 hours", "90 minutes", "6+ hours", "ms", "seconds")
+  /\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:hours?|hrs?|minutes?|mins?|seconds?|sec|ms|milliseconds?|days?|weeks?|months?)\b/gi,
+  /\b\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?)\s*(?:to|–|-)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/gi,
+  // Scale, volume, counts & team size (e.g., "50,000+ transactions", "15-person team", "100K+ users", "15+ reports", "30+ queries")
+  /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi,
+  /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:[kKmMbB]|million|billion)\+?(?:\s*(?:users?|customers?|clients?|transactions?|records?|requests?|events?|queries?))?\b/gi,
+  /\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts))\b/gi,
   // Standalone numbers or numbers with common metric units (e.g., "850ms", "120ms", "50ms", "170", "50", "20+", "12k")
   /\b\d{2,}(?:,\d{3})*(?:\.\d+)?(?:\+)?(?:ms|s|sec|min|k|K|m|M|B)?\b/g,
-  /\b\d+(?:\.\d+)?(?:ms|sec)\b/gi,
 ]
 
 // ── Outcome Verbs ──────────────────────────────────────────────────────────────

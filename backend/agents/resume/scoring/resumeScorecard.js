@@ -21,6 +21,7 @@
  */
 
 import { normalizeGerundVerb, toPresentTense } from '../signals/patterns.js'
+import { extractCleanPhoneNumber } from '../resumeAgent.normalizer.js'
 import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
@@ -291,17 +292,20 @@ export function isTrueQuantified(text) {
   // 1. Percentage
   if (/\d+(?:\.\d+)?%/.test(clean)) return true
   // 2. Multiplier (e.g. 3x, 10x, 2.5x)
-  if (/\b\d+(?:\.\d+)?x\b/i.test(clean)) return true
-  // 3. Currency (e.g. $2M, $500k, $10,000)
-  if (/\$\s*\d+(?:,\d{3})*(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion)?/i.test(clean)) return true
-  // 4. Latency or time measurements (e.g. 2.5 seconds, 250ms, 12 hours, 15 mins)
-  if (/\b\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|hrs?|days?)\b/i.test(clean)) return true
-  // 5. Volume/scale metrics (e.g. 500k+, 250k, 10M, 100,000+ employees, 30+ queries, 1,200 users)
-  if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\b/i.test(clean)) return true
-  if (/\b\d+(?:,\d{3})*\+?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|microservices|services|endpoints|tables|cves|vulnerabilities|tickets|bugs|test cases|builds|deployments)\b/i.test(clean)) return true
-  // 6. Production scale descriptors with numbers (e.g. 24-bed ICU, 50+ enterprise clients)
+  if (/\b\d+(?:\.\d+)?[xX]\b/.test(clean)) return true
+  // 3. Currency (e.g. $2M, $500k, $10,000, Rs, INR, €, £)
+  if (/(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion|\s*lakhs?|\s*crores?)?|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/i.test(clean)) return true
+  // 4. Latency, time savings or duration measurements (e.g. 40+ manual hours, 8 hours to 4 hours, 90 minutes, 6+ hours, 250ms, 2.5 seconds)
+  if (/\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:ms|milliseconds?|seconds?|sec|mins?|minutes?|hours?|hrs?|days?|weeks?|months?)\b/i.test(clean)) return true
+  if (/\b\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?)\s*(?:to|–|-)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/i.test(clean)) return true
+  // 5. Scale / volume / team size / count metrics (e.g. 50,000+ transactions, 15-person team, 100K+ users, 15+ reports, 30+ queries)
+  if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\+?/i.test(clean)) return true
+  if (/\b\d+(?:,\d{3})*\+?(?:-(?:person|member|engineer|developer|query|model|tool|node|cluster|pipeline|report|server|table))?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|reports|dashboards|features|releases|deployments|transactions|microservices|services|endpoints|tables|models|cves|vulnerabilities|tickets|bugs|defects|test cases|builds|pipelines|nodes|clusters|servers|containers|pods|members|engineers|developers|analysts|people|beds|team|accounts|leads|subscribers)\b/i.test(clean)) return true
+  // 6. Explicit team size patterns
+  if (/\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts|members))\b/i.test(clean)) return true
+  // 7. Production scale descriptors with numbers (e.g. 24-bed ICU, 50+ enterprise clients)
   if (/\b\d{2,}\+?\s+(?:production|enterprise|distributed|active|concurrent|client|bed)\b/i.test(clean)) return true
-  // 7. WCAG compliance standards with specific version or levels
+  // 8. WCAG compliance standards with specific version or levels
   if (/\bwcag\s*(?:2\.[012]|2\s*aa)\b/i.test(clean)) return true
 
   return false
@@ -1077,9 +1081,27 @@ export function computeScorecard({
 
   // ── 5. Section-by-Section /10 Audit (Video-Style Playbook Framework) ─────
   const contact = canonicalResume?.candidate?.contact || {}
-  const hasEmail = Boolean(contact.email || canonicalResume?.candidate?.email || precomputedSignals?.contactMerge?.emailDetected)
-  const hasPhone = Boolean(contact.phone || canonicalResume?.candidate?.phone || precomputedSignals?.contactMerge?.phoneDetected)
-  const hasLinkedin = Boolean(contact.linkedin || canonicalResume?.candidate?.linkedin || precomputedSignals?.contactMerge?.urlDetected)
+  const rawResumeText = canonicalResume?.rawText || canonicalResume?.text || ''
+
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+  const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10,12}\b/
+  const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
+
+  const hasEmail = Boolean(contact.email && contact.email !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.email && canonicalResume.candidate.email !== 'N/A') ||
+                   Boolean(precomputedSignals?.contactMerge?.emailDetected) ||
+                   Boolean(rawResumeText && emailRegex.test(rawResumeText))
+
+  const hasPhone = Boolean(contact.phone && contact.phone !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.phone && canonicalResume.candidate.phone !== 'N/A') ||
+                   Boolean(precomputedSignals?.contactMerge?.phoneDetected) ||
+                   Boolean(rawResumeText && (extractCleanPhoneNumber(rawResumeText) || phoneRegex.test(rawResumeText)))
+
+  const hasLinkedin = Boolean(contact.linkedin) ||
+                      Boolean(canonicalResume?.candidate?.linkedin) ||
+                      Boolean(precomputedSignals?.contactMerge?.urlDetected) ||
+                      Boolean(rawResumeText && linkedinRegex.test(rawResumeText))
+
   const hasNonUsPersonal = Boolean(flags.photoPresent || flags.maritalStatusPresent || flags.dobPresent || flags.fullAddressPresent)
 
   // 1. Header & Contact Parsing (/10)
@@ -1090,7 +1112,9 @@ export function computeScorecard({
   if (hasNonUsPersonal) headerScore -= 3
   const headerScore10 = clamp(headerScore, 1, 10)
   const headerStatus = headerScore10 >= 9 ? 'pass' : headerScore10 >= 6 ? 'warn' : 'fail'
-  const headerHurting = contactMerge.isContactMerged
+  const headerHurting = headerScore10 >= 9
+    ? null
+    : contactMerge.isContactMerged
     ? 'Extracted contact details merged into summary text, creating ATS parsing hazards for phone and LinkedIn links.'
     : (!hasEmail || !hasPhone)
     ? 'Missing direct email or phone number in contact header, preventing recruiter outreach.'
@@ -1132,6 +1156,11 @@ export function computeScorecard({
   const realQuantifiedCount = allExpBullets.filter((b) => isTrueQuantified(b.text || b.originalText || '')).length
   const expTotalBullets = allExpBullets.length > 0 ? allExpBullets.length : (quant.totalBullets || 1)
   const realDensity = expTotalBullets > 0 ? realQuantifiedCount / expTotalBullets : 0
+  const effectiveQuant = {
+    totalBullets: expTotalBullets,
+    quantifiedBullets: realQuantifiedCount,
+    density: realDensity,
+  }
 
   let rawExpScore10 = Math.round(scores.impact / 10)
   let expStatus = 'pass'
@@ -1190,19 +1219,24 @@ export function computeScorecard({
     ? 'Trim older roles or secondary bullets to fit cleanly on exactly 1 page.'
     : 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.'
 
+  const headerAuditObj = {
+    score10: headerScore10,
+    status: headerStatus,
+    label: 'Header & Contact Parsing',
+    name: 'Header & Contact Parsing',
+    whatsHurting: headerHurting,
+    hurtingReason: headerHurting,
+    requiredImprovement: headerImprovement,
+  }
+
   const sectionAudit = {
-    headerAndContact: {
-      score10: headerScore10,
-      status: headerStatus,
-      label: 'Header & Contact Parsing',
-      whatsHurting: headerHurting,
-      hurtingReason: headerHurting,
-      requiredImprovement: headerImprovement,
-    },
+    header: headerAuditObj,
+    headerAndContact: headerAuditObj,
     summary: {
       score10: summaryScore10,
       status: summaryStatus,
       label: 'Professional Summary',
+      name: 'Professional Summary',
       whatsHurting: summaryHurting,
       hurtingReason: summaryHurting,
       requiredImprovement: summaryImprovement,
@@ -1211,6 +1245,7 @@ export function computeScorecard({
       score10: expScore10,
       status: expStatus,
       label: 'Experience Bullets & Quantified Impact',
+      name: 'Work Experience & Bullets',
       whatsHurting: expHurting,
       hurtingReason: expHurting,
       requiredImprovement: expImprovement,
@@ -1219,6 +1254,7 @@ export function computeScorecard({
       score10: skillsScore10,
       status: skillsStatus,
       label: 'Skills & Market Keyword Alignment',
+      name: 'Technical Skills Architecture',
       whatsHurting: skillsHurting,
       hurtingReason: skillsHurting,
       requiredImprovement: skillsImprovement,
@@ -1227,6 +1263,7 @@ export function computeScorecard({
       score10: formattingScore10,
       status: formattingStatus,
       label: 'Formatting, Length & ATS Safety',
+      name: 'Document Layout & ATS Formatting',
       whatsHurting: formattingHurting,
       hurtingReason: formattingHurting,
       requiredImprovement: formattingImprovement,
@@ -1243,6 +1280,8 @@ export function computeScorecard({
     grades,
     dimensions: grades, // alias for backwards compatibility
     sectionAudit,
+    quantification: effectiveQuant,
+    bulletStats: effectiveQuant,
     checks,
     checklist: checks, // alias for backwards compatibility
     bulletAudit,

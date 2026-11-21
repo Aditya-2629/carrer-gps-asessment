@@ -153,4 +153,84 @@ const resolvedName = mockReportData?.resume_json?.candidate?.name ||
 assert.strictEqual(resolvedName, 'Deepanjan Rane', 'FAILED: Candidate name priority failed!')
 console.log('PASS: Deepanjan Rane takes precedence over stale Swapnil Jadhav in user_answers.')
 
+console.log('--- TEST 7: Header & Contact Parsing 10/10 Verification ---')
+import { ResumeNormalizer } from '../agents/resume/resumeAgent.normalizer.js'
+import { computeScorecard, isTrueQuantified } from '../agents/resume/scoring/resumeScorecard.js'
+
+const deepanjanRawText = `Deepanjan Rane
+Chicago, IL | +1 872-262-6228 | deepanjanrane6@gmail.com | linkedin.com/in/deepanjanrane
+Senior Full Stack & AI Engineer
+SUMMARY
+Passionate software engineer with 6+ years of experience building scalable systems.
+EXPERIENCE
+Software Engineer | Acme Corp | 2021 - Present
+- Automated ETL workflows, saving 40+ manual hours per month.
+- Reduced financial reporting cycles from 8 hours to 4 hours.
+`
+const candidateInfo = ResumeNormalizer.extractCandidateInfo(deepanjanRawText.split('\n'), 'Senior Full Stack & AI Engineer', deepanjanRawText)
+assert.strictEqual(candidateInfo.name, 'Deepanjan Rane', 'FAILED: Name extraction')
+assert.strictEqual(candidateInfo.phone, '+1 872-262-6228', 'FAILED: Phone extraction')
+assert.strictEqual(candidateInfo.contact.email, 'deepanjanrane6@gmail.com', 'FAILED: Email extraction')
+assert.strictEqual(candidateInfo.contact.linkedin, 'https://www.linkedin.com/in/deepanjanrane', 'FAILED: LinkedIn extraction')
+
+const mockDeepanjanResume = {
+  rawText: deepanjanRawText,
+  candidate: candidateInfo,
+  summary: 'Passionate software engineer with 6+ years of experience building scalable systems.',
+  experiences: [
+    {
+      company: 'Acme Corp',
+      role: 'Software Engineer',
+      isCurrent: true,
+      bullets: [
+        { id: 'exp_001_b01', text: 'Automated ETL workflows, saving 40+ manual hours per month.' },
+        { id: 'exp_001_b02', text: 'Reduced financial reporting cycles from 8 hours to 4 hours.' }
+      ]
+    }
+  ]
+}
+
+const scorecardResult = computeScorecard({
+  analysis: { issues: [], strengths: [], bulletEvaluations: [] },
+  canonicalResume: mockDeepanjanResume,
+  precomputedSignals: {
+    contactMerge: { isContactMerged: false },
+    quantification: { totalBullets: 2, quantifiedBullets: 2, density: 1.0 },
+    bulletSignals: {
+      exp_001_b01: { hasQuantifier: true },
+      exp_001_b02: { hasQuantifier: true }
+    }
+  },
+  usMarketSignals: { flags: {}, observations: [] },
+  targetRole: 'Senior Full Stack & AI Engineer'
+})
+
+const headerSection = scorecardResult.sectionAudit.headerAndContact
+console.log('Header audit score:', headerSection.score10, 'status:', headerSection.status, 'hurtingReason:', headerSection.hurtingReason)
+assert.strictEqual(headerSection.score10, 10, 'FAILED: Header did not score 10/10!')
+assert.strictEqual(headerSection.status, 'pass', 'FAILED: Header status is not pass!')
+assert.strictEqual(headerSection.hurtingReason, null, 'FAILED: Header has false positive hurtingReason!')
+console.log('PASS: Header scores 10/10 with zero false missing-email/phone errors.')
+
+console.log('--- TEST 8: 10-Metric Business/Engineering Quantification Test ---')
+const metricTestCases = [
+  'Automated ETL workflows, saving 40+ manual hours per month.',
+  'Reduced financial reporting cycles from 8 hours to 4 hours.',
+  'Optimized API queries to deliver sub-50ms p95 latency.',
+  'Cut customer onboarding turnaround to 90 minutes.',
+  'Shortened nightly batch processing by 6+ hours.',
+  'Engineered transaction engine handling 50,000+ transactions daily.',
+  'Led a 15-person team of software engineers across 3 locations.',
+  'Scaled cloud infrastructure to support 100K+ users with 99.9% uptime.',
+  'Accelerated data access layers to increase throughput by 3x.',
+  'Compiled 15+ reports weekly for executive stakeholders.'
+]
+
+for (let i = 0; i < metricTestCases.length; i++) {
+  const bullet = metricTestCases[i]
+  const isQuant = isTrueQuantified(bullet)
+  assert(isQuant, `FAILED: Metric test case ${i + 1} not recognized: "${bullet}"`)
+}
+console.log('PASS: All 10 real business/engineering metric formats successfully detected as quantified.')
+
 console.log('\nALL VERIFICATION CHECKS PASSED!')
