@@ -247,7 +247,10 @@ export function buildDeterministicOptimizations(
   const yoeText =
     canonical.years_of_experience ||
     (canonical.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    effectiveResumeContext?.years_of_experience ||
+    (effectiveResumeContext?.totalExperienceYears ? `${Math.floor(effectiveResumeContext.totalExperienceYears)}+ years` : null) ||
     profile.years_of_experience ||
+    (Array.isArray(profile.experiences) && profile.experiences.length > 0 ? `${Math.max(1, profile.experiences.length * 2)}+ years` : null) ||
     '5+ years'
   const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
 
@@ -791,6 +794,16 @@ export async function runLinkedInSynthesis(
     profile?.headline ||
     'Professional'
 
+  const yoeText =
+    canonical.years_of_experience ||
+    (canonical.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    resumeContext?.years_of_experience ||
+    (resumeContext?.totalExperienceYears ? `${Math.floor(resumeContext.totalExperienceYears)}+ years` : null) ||
+    profile.years_of_experience ||
+    (Array.isArray(profile.experiences) && profile.experiences.length > 0 ? `${Math.max(1, profile.experiences.length * 2)}+ years` : null) ||
+    '5+ years'
+  const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
+
   // Route via task-based OpenRouter model routing with provider isolation
   const resumeProvider = resumeContext?.provider || resumeContext?.lastProvider
   const excludeProvider = options?.excludeProvider || (resumeProvider ? resumeProvider : null)
@@ -937,14 +950,28 @@ export async function runLinkedInSynthesis(
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
-      const professionalJourney = rawAbout.professionalJourney || rawAbout.hook || fallback.aboutRewrite.professionalJourney
-      const specializationAndProof = rawAbout.specializationAndProof || rawAbout.approachAndSkills || rawAbout.audienceAndProblem || fallback.aboutRewrite.specializationAndProof
-      const directionAndNetworking = rawAbout.directionAndNetworking || rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.directionAndNetworking
+      let professionalJourney = rawAbout.professionalJourney || rawAbout.hook || fallback.aboutRewrite.professionalJourney
+      let specializationAndProof = rawAbout.specializationAndProof || rawAbout.approachAndSkills || rawAbout.audienceAndProblem || fallback.aboutRewrite.specializationAndProof
+      let directionAndNetworking = rawAbout.directionAndNetworking || rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.directionAndNetworking
       const keywordsUsed = Array.isArray(rawAbout.keywordsUsed) && rawAbout.keywordsUsed.length > 0
         ? rawAbout.keywordsUsed
         : fallback.aboutRewrite.keywordsUsed || []
 
-      const combined = rawAbout.fullText || [professionalJourney, specializationAndProof, directionAndNetworking].filter(Boolean).join('\n\n')
+      // Guard: Ensure LLM about rewrite respects verified total experience (never understates as 3+ or 5+ years when 8+ years is verified)
+      if (yoeClause && !yoeClause.startsWith('5+') && !yoeClause.startsWith('3+')) {
+        const understatedRegex = /\b(?:over\s+)?(?:5\+|5|3\+|3)\s*(?:years|yrs)\b/gi
+        if (understatedRegex.test(professionalJourney)) {
+          professionalJourney = professionalJourney.replace(understatedRegex, yoeClause)
+        }
+      }
+
+      let combined = rawAbout.fullText || [professionalJourney, specializationAndProof, directionAndNetworking].filter(Boolean).join('\n\n')
+      if (yoeClause && !yoeClause.startsWith('5+') && !yoeClause.startsWith('3+')) {
+        const understatedRegex = /\b(?:over\s+)?(?:5\+|5|3\+|3)\s*(?:years|yrs)\b/gi
+        if (understatedRegex.test(combined)) {
+          combined = combined.replace(understatedRegex, yoeClause)
+        }
+      }
 
       aboutRewrite = {
         currentCritique: rawAbout.currentCritique || fallback.aboutRewrite.currentCritique || '',

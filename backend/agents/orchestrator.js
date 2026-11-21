@@ -213,22 +213,41 @@ export async function runCareerAgents(bundle) {
   }
 
   // Ensure verified timeline and experience duration are computed and attached to canonicalResume
-  if (resumeContext?.canonicalResume) {
-    const canRes = resumeContext.canonicalResume
-    if (!canRes.totalExperienceYears || !canRes.years_of_experience) {
-      const timeline = canRes.timeline || analyzeTimeline(canRes)
-      const rawTotalYears = timeline?.careerDuration?.totalYears || 0
-      const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
-      const floorYears = Math.floor(totalExperienceYears)
-      canRes.timeline = timeline
-      canRes.totalExperienceYears = totalExperienceYears
-      canRes.years_of_experience = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
-      if (canRes.candidate) {
-        canRes.candidate.totalExperienceYears = totalExperienceYears
-        canRes.candidate.years_of_experience = canRes.years_of_experience
-      }
+  const canRes = resumeContext?.canonicalResume || canonicalResume || null
+  const timelineData =
+    resumeContext?.signals?.timeline ||
+    canRes?.timeline ||
+    (canRes ? analyzeTimeline(canRes) : null)
+
+  const rawTimelineYears =
+    timelineData?.summary?.totalExperienceYears ??
+    timelineData?.careerDuration?.totalYears ??
+    canRes?.totalExperienceYears ??
+    0
+
+  const timelineYears = Math.round(rawTimelineYears * 10) / 10
+  const floorYears = Math.floor(timelineYears)
+  const canonicalYoe = floorYears >= 1 ? `${floorYears}+ years` : (timelineData?.careerDuration?.totalMonths ? `${timelineData.careerDuration.totalMonths} months` : '0 months')
+
+  if (canRes) {
+    canRes.timeline = timelineData
+    canRes.totalExperienceYears = timelineYears
+    canRes.years_of_experience = canonicalYoe
+    if (canRes.candidate) {
+      canRes.candidate.totalExperienceYears = timelineYears
+      canRes.candidate.years_of_experience = canonicalYoe
     }
   }
+
+  const userAnswers = effectiveAnswers
+  const linkedinProfile = linkedinData || bundle.linkedinProfile || null
+
+  console.log('[YOE_DEBUG]', {
+    timelineYears,
+    canonicalYoe: resumeContext?.canonicalResume?.years_of_experience,
+    userAnswerYoe: userAnswers?.experience,
+    linkedinExpCount: linkedinProfile?.experiences?.length,
+  })
 
   const rawTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
   const effectiveTargetRole = (

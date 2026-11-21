@@ -450,10 +450,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
   // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
-  const rawYoe = candidateSnap.experienceLevel ||
+  const rawYoe = candidateSnap.yearsOfExperience ||
+                 candidateSnap.experienceLevel ||
                  candidateSnap.experienceYears ||
                  candidateSnap.yearsExperience ||
                  reportData?.resume_json?.years_of_experience ||
+                 reportData?.resume_json?.totalExperienceYears ||
                  reportData?.user_answers?.experience ||
                  ''
 

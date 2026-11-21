@@ -282,32 +282,33 @@ export class ResumeNormalizer {
    * @returns {Object} Canonical Resume Representation
    */
   static normalize(parsedDoc, targetRoleOverride = '') {
-    const rawText = this.stitchBulletWraps(parsedDoc.rawText || '')
+    const doc = typeof parsedDoc === 'string' ? { rawText: parsedDoc } : (parsedDoc || {})
+    const rawText = this.stitchBulletWraps(doc.rawText || '')
     const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean)
 
     const candidate = this.extractCandidateInfo(lines, targetRoleOverride, rawText)
-    if (parsedDoc.candidate && typeof parsedDoc.candidate === 'object') {
-      if (parsedDoc.candidate.name && parsedDoc.candidate.name !== 'Candidate') {
-        candidate.name = parsedDoc.candidate.name
+    if (doc.candidate && typeof doc.candidate === 'object') {
+      if (doc.candidate.name && doc.candidate.name !== 'Candidate') {
+        candidate.name = doc.candidate.name
       }
-      if (parsedDoc.candidate.targetRole) {
-        candidate.targetRole = parsedDoc.candidate.targetRole
-        candidate.headline = parsedDoc.candidate.targetRole
+      if (doc.candidate.targetRole) {
+        candidate.targetRole = doc.candidate.targetRole
+        candidate.headline = doc.candidate.targetRole
       }
-      if (parsedDoc.candidate.contact) {
+      if (doc.candidate.contact) {
         candidate.contact = {
-          email: (parsedDoc.candidate.contact.email && parsedDoc.candidate.contact.email !== 'N/A') ? parsedDoc.candidate.contact.email : candidate.contact.email,
-          phone: (parsedDoc.candidate.contact.phone && parsedDoc.candidate.contact.phone !== 'N/A') ? parsedDoc.candidate.contact.phone : candidate.contact.phone,
-          location: (parsedDoc.candidate.contact.location && parsedDoc.candidate.contact.location !== 'N/A') ? parsedDoc.candidate.contact.location : candidate.contact.location,
-          linkedin: parsedDoc.candidate.contact.linkedin ? parsedDoc.candidate.contact.linkedin : candidate.contact.linkedin,
-          github: parsedDoc.candidate.contact.github ? parsedDoc.candidate.contact.github : candidate.contact.github,
+          email: (doc.candidate.contact.email && doc.candidate.contact.email !== 'N/A') ? doc.candidate.contact.email : candidate.contact.email,
+          phone: (doc.candidate.contact.phone && doc.candidate.contact.phone !== 'N/A') ? doc.candidate.contact.phone : candidate.contact.phone,
+          location: (doc.candidate.contact.location && doc.candidate.contact.location !== 'N/A') ? doc.candidate.contact.location : candidate.contact.location,
+          linkedin: doc.candidate.contact.linkedin ? doc.candidate.contact.linkedin : candidate.contact.linkedin,
+          github: doc.candidate.contact.github ? doc.candidate.contact.github : candidate.contact.github,
         }
       }
-      if (!candidate.phone && parsedDoc.candidate.phone && parsedDoc.candidate.phone !== 'N/A') {
-        candidate.phone = parsedDoc.candidate.phone
+      if (!candidate.phone && doc.candidate.phone && doc.candidate.phone !== 'N/A') {
+        candidate.phone = doc.candidate.phone
       }
-      if (!candidate.email && parsedDoc.candidate.email && parsedDoc.candidate.email !== 'N/A') {
-        candidate.email = parsedDoc.candidate.email
+      if (!candidate.email && doc.candidate.email && doc.candidate.email !== 'N/A') {
+        candidate.email = doc.candidate.email
       }
     }
     candidate.phone = candidate.phone || (candidate.contact.phone && candidate.contact.phone !== 'N/A' ? candidate.contact.phone : null)
@@ -315,9 +316,9 @@ export class ResumeNormalizer {
     const sections = this.segmentSections(lines)
 
     // Check if structured experiences, projects, skills, education, certifications already exist from AI Chunker or Parser
-    const structuredExp = parsedDoc.experiences || parsedDoc.experience || parsedDoc.structuredResume?.experiences || parsedDoc.resumeJson?.experiences
-    const structuredProjects = parsedDoc.projects || parsedDoc.structuredResume?.projects || parsedDoc.resumeJson?.projects
-    const structuredSkills = parsedDoc.skills || parsedDoc.structuredResume?.skills || parsedDoc.resumeJson?.skills
+    const structuredExp = doc.experiences || doc.experience || doc.structuredResume?.experiences || doc.resumeJson?.experiences
+    const structuredProjects = doc.projects || doc.structuredResume?.projects || doc.resumeJson?.projects
+    const structuredSkills = doc.skills || doc.structuredResume?.skills || doc.resumeJson?.skills
     const structuredEdu = parsedDoc.education || parsedDoc.structuredResume?.education || parsedDoc.resumeJson?.education
     const structuredCerts = parsedDoc.certifications || parsedDoc.structuredResume?.certifications || parsedDoc.resumeJson?.certifications
 

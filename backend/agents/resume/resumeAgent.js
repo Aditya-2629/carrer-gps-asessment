@@ -941,13 +941,30 @@ export class ResumeAgent {
 
       const activeMarketContext = state?.marketContext || null
 
+      const deterministicYears =
+        canonicalResume.totalExperienceYears ||
+        canonicalResume.timeline?.careerDuration?.totalYears ||
+        state?.signals?.timeline?.summary?.totalExperienceYears ||
+        state?.signals?.timeline?.careerDuration?.totalYears ||
+        0
+
+      const deterministicYoe =
+        canonicalResume.years_of_experience ||
+        (deterministicYears > 0 ? `${Math.floor(deterministicYears)}+ years` : null)
+
+      const experienceLevel =
+        deterministicYoe ||
+        parsedAnalysis.candidateSnapshot?.experienceLevel ||
+        ((canonicalResume.experiences || canonicalResume.experience)?.length ? `${Math.max(1, (canonicalResume.experiences || canonicalResume.experience).length * 2)}+ years` : '')
+
       const finalAnalysis = {
         ...parsedAnalysis,
         candidateSnapshot: {
           ...(parsedAnalysis.candidateSnapshot || {}),
           name: parsedAnalysis.candidateSnapshot?.name || canonicalResume.candidate?.name || '',
           targetRole: parsedAnalysis.candidateSnapshot?.targetRole || canonicalResume.candidate?.targetRole || effectiveRole || '',
-          experienceLevel: parsedAnalysis.candidateSnapshot?.experienceLevel || ((canonicalResume.experiences || canonicalResume.experience)?.length ? `${Math.max(1, (canonicalResume.experiences || canonicalResume.experience).length * 2)}+ years` : ''),
+          experienceLevel,
+          yearsOfExperience: deterministicYoe || experienceLevel,
           presentRole: canonicalResume.candidate?.presentRole || '',
           presentCompany: canonicalResume.candidate?.presentCompany || '',
           pastRoles: canonicalResume.candidate?.pastRoles || [],

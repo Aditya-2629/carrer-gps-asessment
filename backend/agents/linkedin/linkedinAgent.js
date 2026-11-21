@@ -26,7 +26,7 @@ import {
   buildDeterministicOptimizations,
 } from './linkedinSynthesis.js'
 
-export const LINKEDIN_AGENT_VERSION = '4.0.0'
+export const LINKEDIN_AGENT_VERSION = '4.1.0-v2'
 
 /**
  * Builds the empty/no-data payload when profile is null or unparseable.

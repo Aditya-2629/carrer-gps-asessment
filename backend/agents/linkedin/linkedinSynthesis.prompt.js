@@ -359,7 +359,19 @@ export function buildTask1HeadlinesAndBannerPrompt(params = {}) {
     answers: params.answers || resumeContext?.answers || null,
   })
 
+  const canonical = resumeContext?.canonicalResume || {}
+  const yoeVal =
+    canonical?.years_of_experience ||
+    (canonical?.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    resumeContext?.years_of_experience ||
+    resumeContext?.yearsOfExperience ||
+    (resumeContext?.totalExperienceYears ? `${Math.floor(resumeContext.totalExperienceYears)}+ years` : null) ||
+    (params.answers?.experience ? `${params.answers.experience}` : null) ||
+    '8+ years'
+
   const userContent = `${contextText}
+
+VERIFIED TOTAL EXPERIENCE: ${yoeVal} (strictly use this exact experience duration in the About section and seniority calibration; never understate as 3+ or 5+ years when 8+ years is verified).
 
 Analyze this candidate's profile against their resume for Task 1 (Headlines, About Story, Top 3 Pinned Skills, Profile Red Flags). Return ONLY the valid JSON object matching the Task 1 schema.`
 
