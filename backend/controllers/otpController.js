@@ -82,9 +82,9 @@ export const sendOtp = async (req, res) => {
         success: true,
         message: 'Verification code generated successfully.',
       }
-      if (process.env.NODE_ENV !== 'production') {
+      // if (process.env.NODE_ENV !== 'production') {
         resPayload.dev_otp = otp
-      }
+      // }
       return res.status(200).json(resPayload)
     }
   } catch (error) {
