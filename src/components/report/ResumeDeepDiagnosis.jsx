@@ -16,7 +16,7 @@ import {
   Scissors,
   ArrowsLeftRight,
   Target,
-  Sparkle,
+  ChartBar,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -625,7 +625,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
           <div className="space-y-0.5">
             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkle size={15} weight="fill" className="text-[var(--primary)]" />
+              <ChartBar size={15} weight="bold" className="text-[var(--primary)]" />
               Section-by-Section Resume Audit (/10)
             </span>
             <p className="text-xs text-[var(--text-secondary)]">

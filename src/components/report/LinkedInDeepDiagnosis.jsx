@@ -24,7 +24,8 @@ import {
   CaretUp,
   Article,
   ChatCircleText,
-  Sparkle,
+  SlidersHorizontal,
+  ImageSquare,
   Camera,
   EnvelopeSimple,
   Lightning,
@@ -1233,7 +1234,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
           <div className="space-y-0.5">
             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkle size={15} weight="fill" className="text-[var(--primary)]" />
+              <SlidersHorizontal size={15} weight="bold" className="text-[var(--primary)]" />
               Section-by-Section LinkedIn Audit (/10)
             </span>
             <p className="text-xs text-[var(--text-secondary)]">
@@ -1422,7 +1423,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <Sparkle size={14} className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
+                  <ImageSquare size={14} weight="bold" className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
                 </span>
                 <span className="text-[10px] font-mono uppercase bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20">
                   Canva / AI Banner

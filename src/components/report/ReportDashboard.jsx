@@ -1179,7 +1179,7 @@ function ReportDashboardContent() {
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-24 sm:pb-12 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-28 sm:pb-32 space-y-10 print:px-0 print:py-0 print:pb-0 print:space-y-3">
         {/* Top-Level Diagnostic Error Gate */}
         {(reportData.partialFailure || (Array.isArray(reportData.failedAgents) && reportData.failedAgents.length > 0)) && (
           <div className="rounded-2xl border-2 border-red-500 bg-red-500/10 p-5 mb-6 text-red-900 dark:text-red-200">
@@ -1275,7 +1275,7 @@ function ReportDashboardContent() {
         </div>
 
         {/* ─── Footer ─── */}
-        <footer className="border-t border-[var(--border-default)] mt-8 pt-4 pb-4 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
+        <footer className="border-t border-[var(--border-default)] mt-8 pt-4 pb-12 sm:pb-16 text-center text-xs text-[var(--text-muted)] space-y-1 break-inside-avoid page-break-inside-avoid print:mt-2 print:pt-2 print:pb-0">
           <p className="font-medium">
             Crafture Career GPS • Confidential Candidate Career Intelligence
           </p>
