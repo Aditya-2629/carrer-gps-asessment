@@ -134,6 +134,7 @@ export class CostTracker {
    */
   trackLLM({
     reqId = null,
+    runId = null,
     stage = 'LLM_GENERATION',
     provider = 'unknown',
     model = 'unknown',
@@ -142,7 +143,8 @@ export class CostTracker {
     directCost = null,
   } = {}) {
     try {
-      const resolvedReqId = reqId || this.activeRunId || 'default_run'
+      const explicitRunId = runId || (reqId && !String(reqId).startsWith('span_') ? reqId : null)
+      const resolvedReqId = explicitRunId || this.activeRunId || reqId || 'default_run'
       const pTokens = Math.max(0, parseInt(promptTokens, 10) || 0)
       const cTokens = Math.max(0, parseInt(completionTokens, 10) || 0)
       const totalTokens = pTokens + cTokens
@@ -211,13 +213,15 @@ export class CostTracker {
    */
   trackApify({
     reqId = null,
+    runId = null,
     stage = 'FAST_CATCH_JD_SCRAPE',
     itemsScraped = 0,
     durationMs = 0,
     costUsd = null,
   } = {}) {
     try {
-      const resolvedReqId = reqId || this.activeRunId || 'default_run'
+      const explicitRunId = runId || (reqId && !String(reqId).startsWith('span_') ? reqId : null)
+      const resolvedReqId = explicitRunId || this.activeRunId || reqId || 'default_run'
       const finalCostUsd = typeof costUsd === 'number' && costUsd >= 0
         ? costUsd
         : (this.pricing.apify_scrape_job || 0.008)

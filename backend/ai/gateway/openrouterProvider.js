@@ -51,16 +51,16 @@ export class OpenRouterProvider {
     }
 
     if (reasoning) {
-      payload.reasoning = reasoning
+      payload.reasoning = reasoning?.effort === 'none' ? { effort: 'minimal' } : reasoning
     } else if (
       responseFormat === 'json_object' ||
       responseFormat?.type === 'json_object' ||
       supportsJsonObject
     ) {
       payload.response_format = { type: 'json_object' }
-      // Disable hidden reasoning tokens for structured JSON calls to prevent massive credit burn
-      payload.reasoning = { effort: 'none' }
-      payload.include_reasoning = false
+      if (!targetModel.includes('-lite')) {
+        payload.reasoning = { effort: 'minimal' }
+      }
     }
 
     const effectiveTimeoutMs = timeoutMs || this.config.timeoutMs || 60000

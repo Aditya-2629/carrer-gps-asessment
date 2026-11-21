@@ -396,7 +396,8 @@ export class LLMGateway {
         // Cost & Token Tracking
         try {
           costTracker.trackLlmCall({
-            reqId: reqId || runId || span.requestId,
+            reqId: runId || reqId || costTracker.getActiveRunId() || span.requestId,
+            runId: runId || costTracker.getActiveRunId() || null,
             stage: stage || task || purpose || 'LLM_GENERATION',
             provider: providerKey,
             model: result.actualModel || currentModelId,

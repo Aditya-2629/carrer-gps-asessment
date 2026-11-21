@@ -96,6 +96,8 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
 
     const { aiReport } = await generateReportBundle({
       userId,
+      runId: jobId,
+      jobId,
       semanticProfile,
       precomputedResumeAgent: options.precomputedResumeAgent || null,
       precomputedResumeJson: options.precomputedResumeJson || null,
