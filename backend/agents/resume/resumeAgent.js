@@ -20,6 +20,7 @@ import {
 } from './resumeAgent.inputSerializer.js'
 import { generateResumeSignals } from './signals/signalEngine.js'
 import { computePrecomputedSignals } from './signals/precomputedSignals.js'
+import { analyzeTimeline } from './signals/timelineAnalyzer.js'
 import { PROMPT_VERSION } from './resumeAgent.prompt.js'
 
 // ── V3 Pipeline Modules ───────────────────────────────────────────────────────
@@ -164,6 +165,20 @@ export class ResumeAgent {
         canonicalResume.experience = canonicalResume.experiences
       }
       reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
+      if (!canonicalResume.totalExperienceYears || !canonicalResume.years_of_experience) {
+        const timeline = canonicalResume.timeline || analyzeTimeline(canonicalResume)
+        const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+        const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+        const floorYears = Math.floor(totalExperienceYears)
+        const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+        canonicalResume.timeline = timeline
+        canonicalResume.totalExperienceYears = totalExperienceYears
+        canonicalResume.years_of_experience = yearsOfExp
+        if (canonicalResume.candidate) {
+          canonicalResume.candidate.totalExperienceYears = totalExperienceYears
+          canonicalResume.candidate.years_of_experience = yearsOfExp
+        }
+      }
     }
 
     const effectiveRole = targetRole || canonicalResume?.candidate?.targetRole || 'Technical Professional'
@@ -276,6 +291,20 @@ export class ResumeAgent {
           canonicalResume.experience = canonicalResume.experiences
         }
         reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
+        if (!canonicalResume.totalExperienceYears || !canonicalResume.years_of_experience) {
+          const timeline = canonicalResume.timeline || analyzeTimeline(canonicalResume)
+          const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+          const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+          const floorYears = Math.floor(totalExperienceYears)
+          const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+          canonicalResume.timeline = timeline
+          canonicalResume.totalExperienceYears = totalExperienceYears
+          canonicalResume.years_of_experience = yearsOfExp
+          if (canonicalResume.candidate) {
+            canonicalResume.candidate.totalExperienceYears = totalExperienceYears
+            canonicalResume.candidate.years_of_experience = yearsOfExp
+          }
+        }
       }
       if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
         canonicalResume.candidate.contact.linkedin = linkedinUrl

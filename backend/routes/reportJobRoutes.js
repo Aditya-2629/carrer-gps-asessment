@@ -18,6 +18,7 @@ import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { userSessionGuard } from '../utils/userAuth.js'
+import { costTracker } from '../utils/costTracker.js'
 
 const router = Router()
 
@@ -84,6 +85,7 @@ const running = (globalThis.__reportJobRunning ||= new Set())
 async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
+  costTracker.setActiveRunId(jobId)
   try {
     const job = await ReportJob.findById(jobId)
     if (!job) return
@@ -125,6 +127,7 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       /* job doc gone — nothing to do */
     }
   } finally {
+    costTracker.printRunSummary(jobId)
     running.delete(jobId)
     // Free SSE listeners for this job shortly after completion
     setTimeout(() => {

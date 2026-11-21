@@ -51,7 +51,11 @@ export function serializeResumeForLLM(canonicalResume, options = {}) {
   let expLevel = ''
   const summaryText = (canonicalResume.summary?.text || '').trim()
   const yearsMatch = summaryText.match(/(\d+[\+]?\s*(?:years|yrs))/i)
-  if (yearsMatch) {
+  if (canonicalResume.years_of_experience) {
+    expLevel = canonicalResume.years_of_experience
+  } else if (canonicalResume.totalExperienceYears) {
+    expLevel = `${Math.floor(canonicalResume.totalExperienceYears)}+ years`
+  } else if (yearsMatch) {
     expLevel = yearsMatch[1]
   } else if (Array.isArray(canonicalResume.experience) && canonicalResume.experience.length > 0) {
     const jobCount = canonicalResume.experience.length

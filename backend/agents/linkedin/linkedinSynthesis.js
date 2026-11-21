@@ -244,7 +244,11 @@ export function buildDeterministicOptimizations(
   }
 
   const metricPhrase = bestMetricPhrase || (bestMetricNum ? `driving ${bestMetricNum} performance gains` : '')
-  const yoeText = canonical.years_of_experience || canonical.totalExperienceYears || '3+ years'
+  const yoeText =
+    canonical.years_of_experience ||
+    (canonical.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    profile.years_of_experience ||
+    '5+ years'
   const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
 
   const bullet1 = allBullets[0] || ''

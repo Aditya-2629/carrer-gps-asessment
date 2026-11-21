@@ -5,6 +5,7 @@
  */
 
 import { detectCertifications } from './signals/certificationDetector.js'
+import { analyzeTimeline } from './signals/timelineAnalyzer.js'
 import { normalizeLinkedInUrl } from '../../utils/linkedinUrlUtils.js'
 import { parseResumeWithAI } from './parser/aiResumeParserAgent.js'
 
@@ -657,6 +658,21 @@ export class ResumeNormalizer {
           }))
         }
       }
+    }
+
+    // Deterministically compute timeline facts and duration across experience
+    const timeline = analyzeTimeline(canonical)
+    const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+    const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+    const floorYears = Math.floor(totalExperienceYears)
+    const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+
+    canonical.timeline = timeline
+    canonical.totalExperienceYears = totalExperienceYears
+    canonical.years_of_experience = yearsOfExp
+    if (canonical.candidate) {
+      canonical.candidate.totalExperienceYears = totalExperienceYears
+      canonical.candidate.years_of_experience = yearsOfExp
     }
 
     return canonical
@@ -1529,14 +1545,25 @@ export class ResumeNormalizer {
           bulletCounter++
         }
       } else if (currentProj && currentProj.bullets.length === 0) {
-        // First description line under project
-        const bulletId = `${currentProj.id}_b${String(bulletCounter).padStart(2, '0')}`
-        currentProj.bullets.push({
-          id: bulletId,
-          text: line,
-          source: { page: 1 },
-        })
-        bulletCounter++
+        // Detect if line is a continuation of the project title/tech stack rather than a real bullet
+        const isLikelyTitleContinuation =
+          !isBullet &&
+          !/^(?:developed|engineered|architected|built|designed|implemented|led|managed|created|spearheaded|optimized|automated|collaborated|authored|analyzed|delivered|reduced|improved|answered|trained|combined|mentored|saved|ran|migrated|added|rebuilt)\b/i.test(line) &&
+          line.length < 60 &&
+          !line.endsWith('.')
+
+        if (isLikelyTitleContinuation) {
+          currentProj.title = `${currentProj.title} ${line}`.trim()
+        } else {
+          // First description line under project
+          const bulletId = `${currentProj.id}_b${String(bulletCounter).padStart(2, '0')}`
+          currentProj.bullets.push({
+            id: bulletId,
+            text: line,
+            source: { page: 1 },
+          })
+          bulletCounter++
+        }
       } else if (currentProj && currentProj.bullets.length > 0) {
         const lastBullet = currentProj.bullets[currentProj.bullets.length - 1]
         const startsLower = /^[a-z]/.test(line)

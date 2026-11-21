@@ -100,7 +100,7 @@ export function extractMetricsFromText(text, source) {
   }
 
   // 7. Counts with units or plus signs (e.g. "50,000+ transactions", "15-person team", "100K+ users", "15+ reports", "5,000+", "200+", "170-query")
-  const countWithUnitRegex = /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi
+  const countWithUnitRegex = /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:[a-z]+-)?(?:financial|operational|clinical|concurrent|active|daily|monthly|annual|historical|enterprise|production|unique|cross-functional|internal)?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi
   while ((match = countWithUnitRegex.exec(clean)) !== null) {
     const matchedStr = match[0].trim()
     if (/\d/.test(matchedStr) && !takenPositions.has(match.index)) {

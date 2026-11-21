@@ -156,8 +156,17 @@ export function buildCompactCandidateContext({
     missingSkills.length > 0 ? missingSkills : (resumeContext?.missingSkills || discrepancies?.missingSkills || [])
   ).slice(0, 20).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean).join(', ') || 'None identified'
 
+  const candidateYears =
+    canonical?.years_of_experience ||
+    (canonical?.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    resumeContext?.yearsOfExperience ||
+    resumeContext?.totalExperienceYears ||
+    (effectiveAnswers?.experience ? `${effectiveAnswers.experience}` : null) ||
+    'Not specified'
+
   return `CANDIDATE NAME: ${candidateName}
 TARGET ROLE: ${targetRole}
+TOTAL VERIFIED EXPERIENCE (YOE): ${candidateYears}
 
 ==================================================
 ACTUAL SCRAPED LINKEDIN PROFILE
@@ -255,7 +264,7 @@ ABOUT SECTION ARCHITECTURE (3-PARAGRAPH STORYTELLING FRAMEWORK / ~1,000 CHARACTE
 - VOICE REQUIREMENT: Strict FIRST-PERSON ("I", "my") practitioner voice. Speak as an authentic, confident, approachable builder.
 - EXACT 3-PARAGRAPH STORYTELLING STRUCTURE:
   1. PARAGRAPH 1 — Professional Journey & Credibility Hook (280–380 characters):
-     * Formula: Career motivation/journey + verified YOE + core engineering expertise + strongest verified measurable milestone.
+     * Formula: Career motivation/journey + verified YOE (use exact verified YOE provided in TOTAL VERIFIED EXPERIENCE, e.g. "8+ years", never estimate) + core engineering expertise + strongest verified measurable milestone.
      * Open directly with substance. Strictly FORBID generic cliché openers like "I am a passionate professional...", "Results-driven engineer with...", or "Throughout my career...".
      * Ground strictly in verified resume metrics (e.g. latency cut, systems scaled, efficiency gains).
   2. PARAGRAPH 2 — Specialization & Concrete Proof (340–440 characters):
