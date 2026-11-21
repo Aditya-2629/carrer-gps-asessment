@@ -72,4 +72,18 @@ assert.strictEqual(canonical.years_of_experience, '8+ years')
 assert(canonical.totalExperienceYears >= 8.0)
 console.log('PASS: Normalizer computes 8+ years correctly.')
 
+console.log('--- TEST 5: mapCanonicalResumeToResumeJson YOE Preservation ---')
+import { mapCanonicalResumeToResumeJson } from '../controllers/assessmentController.js'
+// Test with canonical having no pre-attached years_of_experience (triggers analyzeTimeline fallback)
+const rawCanonical = {
+  candidate: { name: 'Deepanjan Rane', targetRole: 'Senior Full Stack & AI Engineer' },
+  experience: canonical.experience,
+}
+const mappedResumeJson = mapCanonicalResumeToResumeJson(rawCanonical)
+console.log('Mapped resumeJson totalExperienceYears:', mappedResumeJson.totalExperienceYears)
+console.log('Mapped resumeJson years_of_experience:', mappedResumeJson.years_of_experience)
+assert.strictEqual(mappedResumeJson.years_of_experience, '8+ years', 'mapped resumeJson must have 8+ years')
+assert(mappedResumeJson.totalExperienceYears >= 8.0, 'mapped resumeJson totalExperienceYears must be >= 8.0')
+console.log('PASS: mapCanonicalResumeToResumeJson successfully preserves and computes 8+ years.')
+
 console.log('\nALL VERIFICATION TESTS COMPLETED SUCCESSFULLY!')

@@ -449,25 +449,29 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   }
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
-  // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
-  const rawYoe = candidateSnap.yearsOfExperience ||
+  // Prioritize verified resume_json totalExperienceYears / years_of_experience first so parsed 8+ year timeline is never overridden by quiz buckets (e.g. "3–5" / "5+")
+  const rawYoe = reportData?.resume_json?.totalExperienceYears ||
+                 reportData?.resume_json?.years_of_experience ||
+                 candidateSnap.yearsOfExperience ||
                  candidateSnap.experienceLevel ||
                  candidateSnap.experienceYears ||
                  candidateSnap.yearsExperience ||
-                 reportData?.resume_json?.years_of_experience ||
-                 reportData?.resume_json?.totalExperienceYears ||
                  reportData?.user_answers?.experience ||
                  ''
 
   let yoeNum = '3'
-  const yoeStr = String(rawYoe).trim()
-  const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
-  if (rangeMatch) {
-    yoeNum = rangeMatch[2] // Take upper number of the range (e.g. "1–3" -> 3)
+  if (typeof rawYoe === 'number' && rawYoe > 0) {
+    yoeNum = String(Math.floor(rawYoe))
   } else {
-    const singleMatch = yoeStr.match(/(\d+)/)
-    if (singleMatch) {
-      yoeNum = singleMatch[1]
+    const yoeStr = String(rawYoe).trim()
+    const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
+    if (rangeMatch) {
+      yoeNum = rangeMatch[2] // Take upper number of the range (e.g. "1–3" -> 3)
+    } else {
+      const singleMatch = yoeStr.match(/(\d+)/)
+      if (singleMatch) {
+        yoeNum = singleMatch[1]
+      }
     }
   }
   const yoe = String(yoeNum).replace(/\++$/, '') || '3'

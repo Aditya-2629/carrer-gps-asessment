@@ -21,6 +21,7 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import { costTracker } from '../utils/costTracker.js'
 import { DOCXParser } from '../services/documentParser/docxParser.js'
 import { PDFParser } from '../services/documentParser/pdfParser.js'
+import { analyzeTimeline } from '../agents/resume/signals/timelineAnalyzer.js'
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -251,6 +252,27 @@ export function mapCanonicalResumeToResumeJson(canonicalResume) {
   if (!canonicalResume || typeof canonicalResume !== 'object') return null
   const cand = canonicalResume.candidate || {}
   const rawExp = canonicalResume.experiences || canonicalResume.experience || []
+
+  const timelineData =
+    canonicalResume.timeline ||
+    (Array.isArray(rawExp) && rawExp.length > 0 ? analyzeTimeline(canonicalResume) : null)
+
+  const rawTotalExpYears =
+    canonicalResume.totalExperienceYears ??
+    timelineData?.summary?.totalExperienceYears ??
+    timelineData?.totalExperienceYears ??
+    timelineData?.careerDuration?.totalYears ??
+    0
+
+  const totalExperienceYears = Math.round(rawTotalExpYears * 10) / 10
+  const floorYears = Math.floor(totalExperienceYears)
+  const years_of_experience =
+    canonicalResume.years_of_experience ||
+    (floorYears >= 1 ? `${floorYears}+ years` : (totalExperienceYears > 0 ? `${totalExperienceYears} years` : ''))
+
+  canonicalResume.totalExperienceYears = totalExperienceYears
+  canonicalResume.years_of_experience = years_of_experience
+
   const experiences = Array.isArray(rawExp) ? rawExp.map((e) => ({
     role: e.role || e.title || '',
     company: e.company || e.organization || '',
@@ -296,7 +318,8 @@ export function mapCanonicalResumeToResumeJson(canonicalResume) {
   return {
     candidate_name: cand.name || canonicalResume.candidate_name || '',
     target_role: cand.targetRole || canonicalResume.target_role || '',
-    years_of_experience: canonicalResume.years_of_experience || canonicalResume.totalExperienceYears || '3+ years',
+    totalExperienceYears: totalExperienceYears || 0,
+    years_of_experience: years_of_experience || '3+ years',
     contact: {
       email: cand.email || '',
       phone: cand.phone || '',
@@ -326,6 +349,9 @@ export const saveAnswers = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return res.status(400).json({ message: 'Invalid User ID format.' })
   }
+
+  const pipelineRunId = String(userId)
+  costTracker.setActiveRunId(pipelineRunId)
 
   // Parse answers JSON string if sent via multipart/form-data
   if (typeof answers === 'string') {
@@ -550,6 +576,13 @@ export const saveAnswers = async (req, res) => {
           ? user.resumeJson.skills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
           : (typeof user.resumeJson?.skills === 'object' ? Object.values(user.resumeJson.skills).flat().filter(Boolean) : [])
 
+        console.log('[YOE_DEBUG]', {
+          resumeJsonYoe: user.resumeJson?.years_of_experience,
+          totalExperienceYears: user.resumeJson?.totalExperienceYears,
+          userAnswerYoe: answers?.experience,
+          linkedinExpCount: user.linkedinData?.experiences?.length,
+        })
+
         const freshLinkedInEval = await evaluateLinkedIn({
           profile: user.linkedinData,
           linkedinData: user.linkedinData,
@@ -559,6 +592,8 @@ export const saveAnswers = async (req, res) => {
             extractedFacts: user.resumeJson?.candidateSnapshot || user.resumeJson?.facts || null,
             targetRole,
             coreSkills,
+            years_of_experience: user.resumeJson?.years_of_experience,
+            totalExperienceYears: user.resumeJson?.totalExperienceYears,
           },
           answers,
           runLlm: true,
@@ -603,6 +638,9 @@ export const generateReport = async (req, res) => {
     return res.status(400).json({ message: 'Invalid User ID format.' })
   }
 
+  const pipelineRunId = String(userId)
+  costTracker.setActiveRunId(pipelineRunId)
+
   if (typeof semanticProfile === 'string') {
     try {
       semanticProfile = JSON.parse(semanticProfile)
@@ -612,14 +650,14 @@ export const generateReport = async (req, res) => {
   }
 
   try {
-    const reportRunId = `report_${userId}_${Date.now()}`
+    const reportRunId = String(userId)
     costTracker.setActiveRunId(reportRunId)
 
     const reportStartTime = Date.now()
     console.log(`[AssessmentController] Starting Single-Pass High-Speed Report Generation for user ${userId}...`)
 
     // Phase 4: Single-Pass High-Speed Report Generation (<8s target)
-    const { user, aiReport } = await generateReportBundle({ userId, semanticProfile })
+    const { user, aiReport } = await generateReportBundle({ userId, semanticProfile, runId: reportRunId })
     const totalElapsed = Date.now() - reportStartTime
     console.log(`[AssessmentController] Report successfully finalized and saved to MongoDB in ${totalElapsed}ms.`)
     costTracker.printRunSummary(reportRunId)
