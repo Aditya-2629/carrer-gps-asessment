@@ -149,14 +149,27 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       } catch (err) {
         if (err.name === 'CanceledError' || err.name === 'AbortError') return
         console.warn('[FileUpload] Background resume analysis warning:', err.message)
-        const friendlyMsg = getFriendlyErrorMessage(err, 'Background analysis failed.')
+        const friendlyMsg = err.response?.data?.message || err.message || getFriendlyErrorMessage(err, 'Background analysis failed.')
+        setFileError(friendlyMsg)
         setResumeAnalysis({
           status: 'error',
           filename: file.name,
           error: friendlyMsg,
+          code: err.code || err.response?.data?.code || 'NOT_A_RESUME',
           data: null,
         })
-        showToast(friendlyMsg, 'warning')
+        // Clear any auto-populated data from this invalid file
+        useAppStore.getState().setBulkFormData({
+          name: '',
+          fullName: '',
+          email: '',
+          location: '',
+          linkedin: '',
+          linkedinData: null,
+          targetRole: '',
+          phone: '',
+        })
+        showToast(friendlyMsg, 'error')
       }
     },
     [formData, setResumeAnalysis]
@@ -287,11 +300,13 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   const lowerFileName = fileName.toLowerCase()
   const isDocx = lowerFileName.endsWith('.docx') || lowerFileName.endsWith('.doc')
 
+  const isError = Boolean(fileError || error || resumeAnalysis?.status === 'error')
+
   return (
     <div className="space-y-3">
       <label
         htmlFor={`file-input-${step?.id || 'resume'}`}
-        className={`file-drop block ${dragOver ? 'drag-over' : ''} ${hasFile ? 'uploaded' : ''}`}
+        className={`file-drop block ${dragOver ? 'drag-over' : ''} ${hasFile && !isError ? 'uploaded' : ''} ${isError ? 'border-red-500/50 bg-red-500/5' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setDragOver(true)
@@ -318,17 +333,29 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             >
               <div
                 className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform hover:scale-105"
-                style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}
+                style={{
+                  background: isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                  color: isError ? '#ef4444' : '#10b981',
+                }}
               >
-                {isDocx ? <FileDoc size={28} weight="fill" /> : <FilePdf size={28} weight="fill" />}
+                {isError ? (
+                  <WarningCircle size={28} weight="fill" />
+                ) : isDocx ? (
+                  <FileDoc size={28} weight="fill" />
+                ) : (
+                  <FilePdf size={28} weight="fill" />
+                )}
               </div>
               <div className="text-center">
-                <p className="font-medium text-sm flex items-center justify-center gap-1.5" style={{ color: '#10b981' }}>
-                  <CheckCircle size={16} weight="fill" />
+                <p
+                  className="font-medium text-sm flex items-center justify-center gap-1.5"
+                  style={{ color: isError ? '#ef4444' : '#10b981' }}
+                >
+                  {isError ? <WarningCircle size={16} weight="fill" /> : <CheckCircle size={16} weight="fill" />}
                   <span className="font-semibold">{fileName}</span>
                 </p>
                 <p className="text-xs mt-1 text-[var(--text-muted)]">
-                  {(fileSize / 1024 / 1024).toFixed(2)} MB · Click or drop to replace
+                  {isError ? 'Invalid document · Click or drop to replace' : `${(fileSize / 1024 / 1024).toFixed(2)} MB · Click or drop to replace`}
                 </p>
               </div>
             </motion.div>
@@ -364,14 +391,14 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       </label>
 
       {/* Real-time background analysis indicator */}
-      {hasFile && resumeAnalysis?.status === 'analyzing' && (
+      {hasFile && resumeAnalysis?.status === 'analyzing' && !isError && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 animate-pulse">
           <Sparkle size={14} weight="fill" className="animate-spin shrink-0" />
           <span>Extracting tech stack, experience roles & contact information...</span>
         </div>
       )}
 
-      {hasFile && resumeAnalysis?.status === 'completed' && (
+      {hasFile && resumeAnalysis?.status === 'completed' && !isError && (
         <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
           <div className="flex items-center gap-2">
             <CheckCircle size={14} weight="fill" className="shrink-0" />
@@ -381,11 +408,25 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         </div>
       )}
 
-      {(fileError || error) && (
-        <p className="field-error flex items-center gap-1.5">
-          <WarningCircle size={14} weight="fill" />
-          <span>{fileError || error}</span>
-        </p>
+      {/* Prominent WCAG AA Inline Error Alert Banner */}
+      {isError && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          role="alert"
+          aria-live="assertive"
+          className="flex items-start gap-2.5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs leading-relaxed"
+        >
+          <WarningCircle size={18} weight="fill" className="shrink-0 text-red-500 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold text-red-700 dark:text-red-300">
+              {resumeAnalysis?.code === 'SCANNED_OR_EMPTY_FILE' ? 'Scanned or Empty Document' : 'Invalid Resume Document'}
+            </p>
+            <p className="mt-0.5 text-red-600 dark:text-red-400">
+              {fileError || resumeAnalysis?.error || error}
+            </p>
+          </div>
+        </motion.div>
       )}
     </div>
   )

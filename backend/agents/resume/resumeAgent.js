@@ -58,6 +58,7 @@ import { getMarketDataForBucket } from './market/marketJdRetriever.js'
 import { evaluateMarketEvidence, isMarketLanguageSafe } from './market/marketEvidence.js'
 import { setMarketContext } from './state/resumeState.js'
 import { computeScorecard } from './scoring/resumeScorecard.js'
+import { validateResumeContent, ResumeValidationError } from './validation/resumeContentValidator.js'
 import { RESUME_AGENT } from '../core/agentContract.js'
 import { runAgentLifecycle } from '../core/BaseAgent.js'
 import { generateStructured } from '../core/structuredOutput.js'
@@ -69,7 +70,7 @@ import { runOrchestratedSynthesis } from './orchestration/orchestrationRunner.js
 // is traceable to exact prompt text via hash.
 registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PROMPT)
 
-export { replaceUnverifiedNumericTokens }
+export { replaceUnverifiedNumericTokens, ResumeValidationError }
 
 function reVerifyCanonicalContact(canonicalResume, rawTextToSearch = '') {
   if (!canonicalResume) return
@@ -138,6 +139,12 @@ export class ResumeAgent {
         filename,
         text: resumeText,
       })
+    }
+
+    const rawTextToValidate = parsedDoc?.rawText || resumeText || ''
+    const contentValidation = validateResumeContent(rawTextToValidate, filename || parsedDoc?.filename || '')
+    if (!contentValidation.valid) {
+      throw new ResumeValidationError(contentValidation.code, contentValidation.message)
     }
 
     if (!canonicalResume) {
@@ -260,8 +267,10 @@ export class ResumeAgent {
         })
       }
 
-      if (!parsedDoc.rawText || !parsedDoc.rawText.trim()) {
-        throw new Error('Could not extract readable text from document. Scanned or empty document.')
+      const rawTextToValidate = parsedDoc?.rawText || resumeText || ''
+      const contentValidation = validateResumeContent(rawTextToValidate, filename || parsedDoc?.filename || '')
+      if (!contentValidation.valid) {
+        throw new ResumeValidationError(contentValidation.code, contentValidation.message)
       }
 
       // ── Step 1.5: Deterministic Chunking & Deduplication ───────────────────
@@ -1092,15 +1101,16 @@ export class ResumeAgent {
 
       const telemetryRecord = span.finish({ success: false, error: { ...err, message: sanitizedMsg } })
       const isBudgetExceeded = err instanceof ContextBudgetExceededError || err.code === 'CONTEXT_BUDGET_EXCEEDED'
-      const statusClassification = isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'
+      const isValidationError = err instanceof ResumeValidationError || err.code === 'NOT_A_RESUME' || err.code === 'SCANNED_OR_EMPTY_FILE'
+      const statusClassification = isValidationError ? err.code : (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR')
 
       return {
         success: false,
         status: statusClassification,
         classification: statusClassification,
         error: sanitizedMsg,
-        code: err.code || (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'),
-        statusCode: err.statusCode || (isBudgetExceeded ? 413 : 500),
+        code: err.code || (isValidationError ? err.code : (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR')),
+        statusCode: err.statusCode || (isValidationError ? 422 : (isBudgetExceeded ? 413 : 500)),
         provider: err.provider || 'gateway',
         details: err.details || (isBudgetExceeded ? { estimatedTokens: err.estimatedTokens, safeTokenBudget: err.safeTokenBudget } : null),
         rawModelOutput,

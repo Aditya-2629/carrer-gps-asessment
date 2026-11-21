@@ -1,10 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { NavigationArrow, Lightning, FileText, DiceThree, Sun, Moon } from '@phosphor-icons/react'
+import { Sun, Moon } from '@phosphor-icons/react'
 import useAppStore, { PHASES } from '../../store/useAppStore'
 import { STEPS, CHAPTERS } from '../../lib/assessmentSteps'
 import StepRenderer from './StepRenderer'
+import CraftureLivingCopilot from '../report/CraftureLivingCopilot'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
-import { generateAllRandomAssessmentData } from '../../lib/randomQuizFiller'
 import { api } from '../../lib/api'
 
 const slideVariants = {
@@ -24,58 +24,12 @@ const slideVariants = {
   }),
 }
 
-const SAMPLE_TEST_DATA = {
-  opportunityType: 'Full-Time W2 Role 🏢',
-  targetRole: 'Senior Full Stack Software Engineer',
-  experience: '5–8 yrs (Senior)',
-  apps30d: '60',
-  appsWeek: 14,
-  targetedMatchPct: ['80%–100% (Highly Targeted 🎯)'],
-  searchMethods: [
-    'Company Career Pages (Direct ATS)',
-    'Direct Recruiter / Hiring Manager Outreach',
-    'Employee Referrals & Warm Introductions',
-  ],
-  searchStyle: 'The Customizer 🛠️ — Tailoring resume keywords for almost every job description',
-  outreach: '15',
-  referralsMonth: '4–10',
-  funnel90d: { screens: 4, assessments: 2, finals: 1, offers: 0 },
-  interviews: 4,
-  humanScreen: 4,
-  DropOffStage: 'Phase 3: Technical → Final Round (Pass screens, stuck in technicals)',
-  biggestChallenge: 'Passing live coding / system design / case assessments',
-  alreadyTried: [
-    'Rewrote my resume',
-    'Updated LinkedIn profile',
-    'Messaged recruiters on LinkedIn',
-    'Practiced mock interviews / LeetCode',
-  ],
-  frustration: 'I freeze or underperform in technical/final interviews',
-  linkedin: 'https://www.linkedin.com/in/satyanadella',
-}
-
 export default function AssessmentShell() {
-  const { currentStep, direction, setCurrentStep, setPhase, setBulkFormData, formData, theme, toggleTheme } = useAppStore()
-  const isDevTools = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')))
+  const { currentStep, direction, setCurrentStep, setPhase, formData, theme, toggleTheme } = useAppStore()
   const step = STEPS[currentStep]
   const totalSteps = STEPS.length
   const progress = Math.round(((currentStep + 1) / totalSteps) * 100)
   const activeChapter = CHAPTERS.find((c) => step.id >= c.range[0] && step.id <= c.range[1]) || CHAPTERS[0]
-
-  const handleQuickAutofill = () => {
-    setBulkFormData(SAMPLE_TEST_DATA)
-    setCurrentStep(totalSteps - 1, 1)
-  }
-
-  const handleRandomFill = () => {
-    const randomData = generateAllRandomAssessmentData()
-    setBulkFormData(randomData)
-    setCurrentStep(totalSteps - 1, 1)
-  }
-
-  const handleDirectReportView = () => {
-    setPhase(PHASES.REPORT)
-  }
 
   const goNext = () => {
     // Scrape LinkedIn profile via Apify (0 LLM calls) when user advances from LinkedIn question
@@ -135,39 +89,8 @@ export default function AssessmentShell() {
             </span>
           </div>
 
-          {/* Quick Actions & Testing Tools */}
+          {/* Actions & Theme */}
           <div className="flex items-center gap-2">
-            {isDevTools && (
-              <>
-                <button
-                  onClick={handleRandomFill}
-                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--primary)] hover:border-[var(--primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Dev: Fill all 12 questions with realistic randomized options and jump to end"
-                >
-                  <DiceThree size={15} weight="bold" />
-                  <span className="hidden sm:inline">Random Fill</span>
-                </button>
-
-                <button
-                  onClick={handleQuickAutofill}
-                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Dev: Autofill sample test data & jump to end"
-                >
-                  <Lightning size={14} weight="fill" />
-                  <span className="hidden md:inline">Sample Fill</span>
-                </button>
-
-                <button
-                  onClick={handleDirectReportView}
-                  className="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--surface-strong)] border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Dev: Directly view report dashboard"
-                >
-                  <FileText size={14} weight="bold" />
-                  <span className="hidden md:inline">Report</span>
-                </button>
-              </>
-            )}
-
             {/* Theme Switcher Button */}
             <button
               onClick={toggleTheme}
@@ -286,6 +209,9 @@ export default function AssessmentShell() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* 3D Living Copilot Companion (Assessment Guidance Mode) */}
+      <CraftureLivingCopilot context="assessment" currentStep={currentStep} step={step} />
     </div>
   )
 }

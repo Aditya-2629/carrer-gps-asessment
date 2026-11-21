@@ -111,7 +111,15 @@ router.post('/parse-deterministic', upload.single('resume'), async (req, res) =>
       targetRole: canonicalCtx.targetRole,
     })
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message })
+    if (err.statusCode === 422 || err.code === 'NOT_A_RESUME' || err.code === 'SCANNED_OR_EMPTY_FILE') {
+      return res.status(422).json({
+        success: false,
+        code: err.code || 'NOT_A_RESUME',
+        message: err.message,
+        error: err.message,
+      })
+    }
+    return res.status(500).json({ success: false, error: err.message, message: err.message })
   }
 })
 

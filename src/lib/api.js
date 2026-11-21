@@ -83,7 +83,12 @@ export const api = {
       })
       return res.data
     } catch (err) {
-      throw new Error(err.response?.data?.message || err.response?.data?.error || 'Failed to extract resume data.')
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to extract resume data.'
+      const apiErr = new Error(msg)
+      apiErr.code = err.response?.data?.code || 'UPLOAD_FAILED'
+      apiErr.status = err.response?.status || 500
+      apiErr.response = err.response
+      throw apiErr
     }
   },
 

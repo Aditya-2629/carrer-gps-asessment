@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, DiceThree, CheckCircle } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import PhoneInput from '../ui/PhoneInput'
@@ -18,17 +18,14 @@ import PresetOrNumberInput from '../ui/PresetOrNumberInput'
 import FrustrationCustomInput from '../ui/FrustrationCustomInput'
 import VisaLocationInput from '../ui/VisaLocationInput'
 import OutreachReferralInput from '../ui/OutreachReferralInput'
-import { getRandomAnswerForStep } from '../../lib/randomQuizFiller'
 import { STEPS } from '../../lib/assessmentSteps'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
-  const isDevTools = Boolean(import.meta.env.DEV || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug')))
   const { formData, setFormData } = useAppStore()
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
-  const [randomRolling, setRandomRolling] = useState(false)
   const [activeReaction, setActiveReaction] = useState(null)
 
   const currentValue = formData[step.name]
@@ -94,17 +91,28 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     [step, setFormData]
   )
 
-  const handleRandomPick = useCallback(() => {
-    setRandomRolling(true)
-    const randomVal = getRandomAnswerForStep(step)
-    handleValue(randomVal)
-    setTimeout(() => {
-      setRandomRolling(false)
-    }, 250)
-  }, [step, handleValue])
-
   const validate = useCallback(() => {
     const val = formData[step.name]
+
+    if (step.name === 'resume' || step.type === 'file') {
+      const storeState = useAppStore.getState()
+      const analysis = storeState.resumeAnalysis
+      const resumeFile = storeState.resumeFile
+      if (analysis?.status === 'analyzing') {
+        triggerError('Please wait for resume extraction to finish before proceeding.')
+        return false
+      }
+      if (analysis?.status === 'error') {
+        triggerError(analysis?.error || 'Please upload a valid resume in PDF or .docx format.')
+        return false
+      }
+      if (!val && !resumeFile && (!analysis?.data || !analysis?.data?.canonicalResume)) {
+        triggerError('Please upload your resume to continue.')
+        return false
+      }
+      return true
+    }
+
     if (step.required === false && (val === undefined || val === null || String(val).trim() === '')) {
       return true
     }
@@ -227,41 +235,37 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     onNext()
   }, [validate, onNext, step.name, formData.linkedin])
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const tag = document.activeElement?.tagName?.toLowerCase()
+        if (tag === 'textarea') return
+        if (tag === 'button' && document.activeElement?.type !== 'submit') return
+        e.preventDefault()
+        handleNext()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleNext])
+
   return (
     <div className="quiz-card p-6 sm:p-8 relative">
-      {/* Chapter & Journey Tracker */}
+      {/* Clean Card Header: Chapter badge + Step X of 14 */}
       <div className="flex items-center justify-between gap-3 mb-4">
-        {step.chapter && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-strong)] border border-[var(--border-default)] text-xs font-semibold tracking-wide uppercase text-[var(--primary)]">
+        {step.chapter ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-strong)] border border-[var(--border-default)] text-xs font-semibold tracking-wide text-[var(--primary)]">
             <span className="text-sm select-none">{step.icon || '🧭'}</span>
             <span className="truncate">{step.chapter}</span>
           </span>
-        )}
+        ) : <div />}
 
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Step counter */}
-          <span
-            className="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-medium text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] tabular-nums"
-            aria-label={step.isSetup ? `Setup ${step.id} of 2` : `Question ${step.questionNumber || step.id - 2} of 12`}
-          >
-            {step.isSetup ? `${step.id} / 2` : `${step.questionNumber || step.id - 2} / 12`}
-          </span>
-
-          {/* Quick Random Choice (Dev Only) */}
-          {isDevTools && (
-            <button
-              type="button"
-              onClick={handleRandomPick}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:border-[var(--primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer ${
-                randomRolling ? 'scale-95 bg-[var(--surface-strong)] text-[var(--primary)]' : ''
-              }`}
-              title="Randomly pick an option for this question"
-            >
-              <DiceThree size={14} className={randomRolling ? 'animate-spin' : ''} />
-              <span className="hidden sm:inline">Random Pick</span>
-            </button>
-          )}
-        </div>
+        <span
+          className="inline-flex items-center px-2.5 py-1 rounded-md font-mono text-xs font-semibold text-[var(--text-secondary)] bg-[var(--surface-sunken)] border border-[var(--border-default)] tabular-nums"
+          aria-label={`Step ${step.id} of 14`}
+        >
+          Step {step.id} of 14
+        </span>
       </div>
 
       {/* Question Header */}
@@ -409,7 +413,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
           <button
             type="button"
             onClick={onBack}
-            className="btn-ghost min-h-[44px]"
+            className="btn-ghost min-h-[44px] active:scale-[0.98] transition-transform select-none"
             id={`back-btn-${step.id}`}
             aria-label="Go to previous question"
           >
@@ -421,7 +425,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         <button
           type="button"
           onClick={handleNext}
-          className="btn-primary flex-1 min-h-[44px]"
+          className="btn-primary flex-1 min-h-[44px] active:scale-[0.98] transition-transform select-none"
           id={isLast ? `submit-btn-${step.id}` : `next-btn-${step.id}`}
         >
           {isLast ? (
