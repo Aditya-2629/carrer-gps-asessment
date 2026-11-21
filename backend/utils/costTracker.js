@@ -39,7 +39,7 @@ export const DEFAULT_PRICING = {
   apify_scrape_job: 0.008,
 
   // USD to INR conversion rate
-  usd_to_inr: 86.5,
+  usd_to_inr: 94,
 }
 
 export class CostTracker {
@@ -148,14 +148,16 @@ export class CostTracker {
       const totalTokens = pTokens + cTokens
 
       let costUsd = 0
-      if (typeof directCost === 'number' && directCost > 0) {
+      let source = 'estimated'
+      if (typeof directCost === 'number' && directCost >= 0) {
         costUsd = directCost
+        source = provider === 'openrouter' ? 'openrouter_actual' : 'actual'
       } else {
         const rates = this.getModelPricing(model)
         costUsd = (pTokens * rates.input + cTokens * rates.output) / 1_000_000
       }
 
-      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 86.5
+      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 94
       const costInr = costUsd * usdToInr
 
       const record = {
@@ -168,6 +170,7 @@ export class CostTracker {
         totalTokens,
         costUsd,
         costInr,
+        source,
         timestamp: new Date().toISOString(),
       }
 
@@ -186,6 +189,13 @@ export class CostTracker {
       console.warn(`[CostTracker] Error tracking LLM tokens (non-fatal): ${err.message}`)
       return { costUsd: 0, costInr: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 }
     }
+  }
+
+  /**
+   * Alias for trackLLM for consistency.
+   */
+  trackLlmCall(params) {
+    return this.trackLLM(params)
   }
 
   /**
@@ -212,7 +222,7 @@ export class CostTracker {
         ? costUsd
         : (this.pricing.apify_scrape_job || 0.008)
 
-      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 86.5
+      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 94
       const costInr = finalCostUsd * usdToInr
 
       const record = {
@@ -309,7 +319,7 @@ export class CostTracker {
         return summary
       }
 
-      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 86.5
+      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 94
 
       const tableRows = records.map((r, i) => ({
         '#': i + 1,
@@ -321,6 +331,7 @@ export class CostTracker {
         'Total Tok': r.totalTokens ? r.totalTokens.toLocaleString() : '-',
         'Cost ($)': `$${r.costUsd < 0.00001 && r.costUsd > 0 ? r.costUsd.toExponential(2) : r.costUsd.toFixed(5)}`,
         'Cost (₹)': `₹${r.costInr.toFixed(3)}`,
+        Source: r.source || 'estimated',
       }))
 
       console.log(`\n================================================================================`)
@@ -346,6 +357,13 @@ export class CostTracker {
       console.warn(`[CostTracker] Error printing run summary (non-fatal): ${err.message}`)
       return this.getRunSummary(reqId)
     }
+  }
+
+  /**
+   * Alias for printRunSummary for backward compatibility.
+   */
+  printConsoleSummary(reqId = null) {
+    return this.printRunSummary(reqId)
   }
 
   /**

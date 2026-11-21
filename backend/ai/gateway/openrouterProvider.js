@@ -47,6 +47,7 @@ export class OpenRouterProvider {
       messages,
       temperature,
       max_tokens: maxTokens,
+      usage: { include: true },
     }
 
     if (reasoning) {

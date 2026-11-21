@@ -395,14 +395,14 @@ export class LLMGateway {
 
         // Cost & Token Tracking
         try {
-          costTracker.trackLLM({
+          costTracker.trackLlmCall({
             reqId: reqId || runId || span.requestId,
             stage: stage || task || purpose || 'LLM_GENERATION',
             provider: providerKey,
             model: result.actualModel || currentModelId,
             promptTokens: result.tokens?.prompt || 0,
             completionTokens: result.tokens?.completion || 0,
-            directCost: result.tokens?.cost || result.usage?.cost || null,
+            directCost: result.tokens?.cost ?? result.usage?.cost ?? null,
           })
         } catch (_costErr) {
           // Graceful handling: never break generation
