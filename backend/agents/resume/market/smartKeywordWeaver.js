@@ -197,13 +197,13 @@ export async function batchWeaveBulletsWithLLM({
   let response = null
   let parsed = null
 
-  // 1. Primary LLM Call (OpenRouter Gemini 3.5 Flash)
+  // 1. Primary LLM Call (OpenRouter Gemini 3.5 Flash Lite)
   try {
     const startTime = Date.now()
     response = await llmGateway.generate({
       purpose: 'bullet_batch_weave',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-3.5-flash',
+      model: 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: BATCH_WEAVER_SYSTEM_PROMPT },
         { role: 'user', content: `Re-engineer these experience bullets naturally:\n\n${JSON.stringify(batchPromptInput, null, 2)}` },
@@ -215,7 +215,7 @@ export async function batchWeaveBulletsWithLLM({
     })
 
     const elapsed = Date.now() - startTime
-    const usedModel = response?.actualModel || response?.model || 'google/gemini-3.5-flash'
+    const usedModel = response?.actualModel || response?.model || 'google/gemini-3.5-flash-lite'
     const usedProv = response?.provider || 'openrouter'
     console.log(`[SmartKeywordWeaver] Primary LLM re-weaver executed in ~${elapsed}ms via ${usedProv} (${usedModel}).`)
 

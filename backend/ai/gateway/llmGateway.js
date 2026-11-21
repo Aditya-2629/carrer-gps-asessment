@@ -39,12 +39,17 @@ export const TASK_MODEL_ROUTING = {
   jd_extraction: 'google/gemini-2.5-flash-lite',
   fast_catch: 'google/gemini-2.5-flash-lite',
   resume_synthesis: 'google/gemini-3.5-flash',
-  bullet_rewrites: 'google/gemini-3.5-flash',
-  linkedin_synthesis: 'google/gemini-3.5-flash',
-  thought_leadership: 'google/gemini-3.5-flash',
-  report_generation: 'google/gemini-3.5-flash',
+  bullet_rewrites: 'openai/gpt-oss-120b',
+  bullet_batch_rewrite: 'openai/gpt-oss-120b',
+  bullet_repetition_repair: 'openai/gpt-oss-120b',
+  bullet_batch_weave: 'google/gemini-3.5-flash-lite',
+  linkedin_synthesis: 'google/gemini-3.5-flash-lite',
+  thought_leadership: 'google/gemini-3.5-flash-lite',
+  report_generation: 'google/gemini-3.5-flash-lite',
   judge_gate: 'google/gemini-2.5-flash-lite',
-  unified_synthesis: 'google/gemini-3.5-flash',
+  unified_synthesis: 'google/gemini-3.5-flash-lite',
+  action_plan_generation: 'openai/gpt-oss-120b',
+  dynamic_action_plan: 'openai/gpt-oss-120b',
   jev_decision: 'typesafe/jev-1.14',
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
@@ -53,9 +58,9 @@ export const TASK_MODEL_ROUTING = {
 
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
-    'google/gemini-3.5-flash',
     'google/gemini-3.5-flash-lite',
     'google/gemini-2.5-flash-lite',
+    'google/gemini-3.5-flash',
     'meta-llama/llama-3.3-70b-instruct',
     'deepseek/deepseek-v3.2',
   ],
@@ -174,11 +179,11 @@ export class LLMGateway {
     if (allowFallback) {
       if (purpose === 'bullet_batch_weave') {
         modelsToTry = Array.from(new Set([
-          requestedModelId || 'google/gemini-3.5-flash',
-          'google/gemini-3.5-flash',
+          requestedModelId || 'google/gemini-3.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'google/gemini-2.5-flash-lite',
           'openai/gpt-oss-120b',
+          'google/gemini-2.5-flash-lite',
+          'google/gemini-3.5-flash',
         ].filter(Boolean)))
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model && !task) {
         modelsToTry = [

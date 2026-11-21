@@ -1770,28 +1770,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
   ]
 }`
 
-            // 1. Primary: OpenRouter with policy.model (google/gemini-3.5-flash)
-            try {
-              const res = await llmGateway.generate({
-                purpose: 'resume_analysis',
-                task: 'bullet_batch_rewrite',
-                preferredProvider: 'openrouter',
-                model: policy?.model || 'google/gemini-3.5-flash',
-                messages: [{ role: 'user', content: batchPrompt }],
-                responseFormat: { type: 'json_object' },
-                temperature: 0.1,
-                maxTokens: 3500,
-                timeoutMs: 15000,
-              })
-              const parsed = ResumeAgentValidator.cleanAndParse(res?.text)
-              if (parsed && Array.isArray(parsed?.rewrites) && parsed.rewrites.length > 0) {
-                return { success: true, rewrites: parsed.rewrites, call: { stage: `bullet_batch_rewrite_${chunkIdx}`, durationMs: res?.latencyMs || 0, model: res?.actualModel || policy.model, inputTokens: res?.usage?.prompt_tokens || 0, outputTokens: res?.usage?.completion_tokens || 0 } }
-              }
-            } catch (err) {
-              console.warn(`[ModeC] Primary batch rewrite chunk ${chunkIdx} failed:`, err.message)
-            }
-
-            // 2. Secondary: Groq with openai/gpt-oss-120b
+            // 1. Primary: Groq with openai/gpt-oss-120b (3.6s fast, zero OpenRouter credit burn, high quality)
             try {
               const res = await llmGateway.generate({
                 purpose: 'resume_analysis',
@@ -1809,7 +1788,28 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
                 return { success: true, rewrites: parsed.rewrites, call: { stage: `bullet_batch_rewrite_groq_${chunkIdx}`, durationMs: res?.latencyMs || 0, model: 'openai/gpt-oss-120b', inputTokens: res?.usage?.prompt_tokens || 0, outputTokens: res?.usage?.completion_tokens || 0 } }
               }
             } catch (err) {
-              console.warn(`[ModeC] Secondary Groq batch rewrite chunk ${chunkIdx} failed:`, err.message)
+              console.warn(`[ModeC] Primary Groq batch rewrite chunk ${chunkIdx} failed:`, err.message)
+            }
+
+            // 2. Secondary: OpenRouter with google/gemini-3.5-flash-lite
+            try {
+              const res = await llmGateway.generate({
+                purpose: 'resume_analysis',
+                task: 'bullet_batch_rewrite',
+                preferredProvider: 'openrouter',
+                model: 'google/gemini-3.5-flash-lite',
+                messages: [{ role: 'user', content: batchPrompt }],
+                responseFormat: { type: 'json_object' },
+                temperature: 0.1,
+                maxTokens: 3500,
+                timeoutMs: 12000,
+              })
+              const parsed = ResumeAgentValidator.cleanAndParse(res?.text)
+              if (parsed && Array.isArray(parsed?.rewrites) && parsed.rewrites.length > 0) {
+                return { success: true, rewrites: parsed.rewrites, call: { stage: `bullet_batch_rewrite_lite_${chunkIdx}`, durationMs: res?.latencyMs || 0, model: 'google/gemini-3.5-flash-lite', inputTokens: res?.usage?.prompt_tokens || 0, outputTokens: res?.usage?.completion_tokens || 0 } }
+              }
+            } catch (err) {
+              console.warn(`[ModeC] Secondary Gemini Flash Lite batch rewrite chunk ${chunkIdx} failed:`, err.message)
             }
 
             // 3. Tertiary: OpenRouter with google/gemini-2.5-flash-lite
@@ -1827,10 +1827,10 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
               })
               const parsed = ResumeAgentValidator.cleanAndParse(res?.text)
               if (parsed && Array.isArray(parsed?.rewrites) && parsed.rewrites.length > 0) {
-                return { success: true, rewrites: parsed.rewrites, call: { stage: `bullet_batch_rewrite_lite_${chunkIdx}`, durationMs: res?.latencyMs || 0, model: 'google/gemini-2.5-flash-lite', inputTokens: res?.usage?.prompt_tokens || 0, outputTokens: res?.usage?.completion_tokens || 0 } }
+                return { success: true, rewrites: parsed.rewrites, call: { stage: `bullet_batch_rewrite_25lite_${chunkIdx}`, durationMs: res?.latencyMs || 0, model: 'google/gemini-2.5-flash-lite', inputTokens: res?.usage?.prompt_tokens || 0, outputTokens: res?.usage?.completion_tokens || 0 } }
               }
             } catch (err) {
-              console.warn(`[ModeC] Tertiary Gemini Flash Lite batch rewrite chunk ${chunkIdx} failed:`, err.message)
+              console.warn(`[ModeC] Tertiary Gemini 2.5 Flash Lite batch rewrite chunk ${chunkIdx} failed:`, err.message)
             }
 
             return { success: false, rewrites: [] }
@@ -2037,13 +2037,13 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
           let repairRes = null
           let repairObj = null
 
-          // 1. Primary: OpenRouter with policy.model (google/gemini-3.5-flash)
+          // 1. Primary: Groq with openai/gpt-oss-120b (fast, high quality, zero OpenRouter credit burn)
           try {
             repairRes = await llmGateway.generate({
               purpose: 'resume_analysis',
               task: 'bullet_repetition_repair',
-              preferredProvider: 'openrouter',
-              model: policy?.model || 'google/gemini-3.5-flash',
+              preferredProvider: 'groq',
+              model: 'openai/gpt-oss-120b',
               messages: [{ role: 'user', content: repairPrompt }],
               responseFormat: { type: 'json_object' },
               temperature: 0.1,
@@ -2055,33 +2055,10 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
               repairObj = null
             }
           } catch (primRepErr) {
-            console.warn('[ModeC] Primary repetition repair failed:', primRepErr.message)
+            console.warn('[ModeC] Primary Groq repetition repair failed:', primRepErr.message)
           }
 
-          // 2. Secondary Fallback: Groq with openai/gpt-oss-120b
-          if (!repairObj) {
-            try {
-              repairRes = await llmGateway.generate({
-                purpose: 'resume_analysis',
-                task: 'bullet_repetition_repair',
-                preferredProvider: 'groq',
-                model: 'openai/gpt-oss-120b',
-                messages: [{ role: 'user', content: repairPrompt }],
-                responseFormat: { type: 'json_object' },
-                temperature: 0.1,
-                maxTokens: 4000,
-                timeoutMs: 12000,
-              })
-              repairObj = ResumeAgentValidator.cleanAndParse(repairRes?.text)
-              if (!repairObj || !Array.isArray(repairObj?.rewrites) || repairObj.rewrites.length === 0) {
-                repairObj = null
-              }
-            } catch (secRepErr) {
-              console.warn('[ModeC] Secondary Groq repetition repair failed:', secRepErr.message)
-            }
-          }
-
-          // 3. Tertiary Fallback: OpenRouter with google/gemini-3.5-flash-lite
+          // 2. Secondary Fallback: OpenRouter with google/gemini-3.5-flash-lite
           if (!repairObj) {
             try {
               repairRes = await llmGateway.generate({
@@ -2099,8 +2076,8 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
               if (!repairObj || !Array.isArray(repairObj?.rewrites) || repairObj.rewrites.length === 0) {
                 repairObj = null
               }
-            } catch (tertRepErr) {
-              console.warn('[ModeC] Tertiary repetition repair failed:', tertRepErr.message)
+            } catch (secRepErr) {
+              console.warn('[ModeC] Secondary OpenRouter repetition repair failed:', secRepErr.message)
             }
           }
 

@@ -447,7 +447,7 @@ export function renderAtlasPrompt(userData = {}, resumeData = null, options = {}
 export async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   const combinedInstructions = `${extraInstructions}\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks.`
   const startTime = Date.now()
-  let modelUsed = 'google/gemini-2.5-flash-lite'
+  let modelUsed = 'google/gemini-3.5-flash-lite'
   let fallbackTriggered = false
   let responseText = null
 
@@ -456,7 +456,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       purpose: 'assessment_report',
       task: 'report_generation',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-2.5-flash-lite',
+      model: 'google/gemini-3.5-flash-lite',
       systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
@@ -464,7 +464,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       timeoutMs: 15000,
     })
     responseText = res.text
-    modelUsed = res.actualModel || 'google/gemini-2.5-flash-lite'
+    modelUsed = res.actualModel || 'google/gemini-3.5-flash-lite'
   } catch (primaryErr) {
     fallbackTriggered = true
   }
@@ -670,7 +670,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
       purpose: 'unified_synthesis',
       task: 'unified_synthesis',
       preferredProvider: options.preferredProvider || 'openrouter',
-      model: options.model || 'google/gemini-2.5-flash-lite',
+      model: options.model || 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

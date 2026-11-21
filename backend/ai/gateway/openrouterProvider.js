@@ -25,6 +25,7 @@ export class OpenRouterProvider {
     maxTokens = 4096,
     responseFormat = 'json_object',
     supportsJsonObject = false,
+    reasoning = null,
     signal = null,
     timeoutMs = 60000,
     requestId = null,
@@ -48,12 +49,17 @@ export class OpenRouterProvider {
       max_tokens: maxTokens,
     }
 
-    if (
+    if (reasoning) {
+      payload.reasoning = reasoning
+    } else if (
       responseFormat === 'json_object' ||
       responseFormat?.type === 'json_object' ||
       supportsJsonObject
     ) {
       payload.response_format = { type: 'json_object' }
+      // Disable hidden reasoning tokens for structured JSON calls to prevent massive credit burn
+      payload.reasoning = { effort: 'none' }
+      payload.include_reasoning = false
     }
 
     const effectiveTimeoutMs = timeoutMs || this.config.timeoutMs || 60000

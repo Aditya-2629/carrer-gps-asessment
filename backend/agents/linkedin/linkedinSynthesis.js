@@ -791,7 +791,7 @@ export async function runLinkedInSynthesis(
   const resumeProvider = resumeContext?.provider || resumeContext?.lastProvider
   const excludeProvider = options?.excludeProvider || (resumeProvider ? resumeProvider : null)
   const preferredProvider = options?.preferredProvider || (resumeProvider === 'gemini' ? 'groq' : (resumeProvider === 'groq' ? 'gemini' : 'openrouter'))
-  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : null)
+  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : 'google/gemini-3.5-flash-lite')
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
@@ -835,18 +835,18 @@ export async function runLinkedInSynthesis(
     }
 
     async function executeTask(taskName, messages, maxTokens) {
+      // 1. Primary: OpenRouter with google/gemini-3.5-flash-lite
       try {
         const response = await llmGateway.generate({
           purpose: 'linkedin_analysis',
           task: 'linkedin_synthesis',
-          preferredProvider,
-          excludeProvider,
-          model: effectiveModel,
+          preferredProvider: 'openrouter',
+          model: 'google/gemini-3.5-flash-lite',
           messages,
           temperature: 0.25,
           maxTokens,
           responseFormat: { type: 'json_object' },
-          timeoutMs: 45000,
+          timeoutMs: 30000,
         })
 
         let parsed = tryParseJson(response?.text)
@@ -856,11 +856,39 @@ export async function runLinkedInSynthesis(
             parsed = JSON.parse(repaired)
           } catch {}
         }
-        return parsed
+        if (parsed) return parsed
       } catch (err) {
-        console.warn(`[LinkedInSynthesis] ${taskName} execution failed:`, err.message)
-        return null
+        console.warn(`[LinkedInSynthesis] Primary ${taskName} execution failed:`, err.message)
       }
+
+      // 2. Secondary Fallback: Groq with openai/gpt-oss-120b
+      try {
+        console.log(`[LinkedInSynthesis] Invoking secondary Groq fallback for ${taskName}...`)
+        const response = await llmGateway.generate({
+          purpose: 'linkedin_analysis',
+          task: 'linkedin_synthesis',
+          preferredProvider: 'groq',
+          model: 'openai/gpt-oss-120b',
+          messages,
+          temperature: 0.25,
+          maxTokens,
+          responseFormat: { type: 'json_object' },
+          timeoutMs: 25000,
+        })
+
+        let parsed = tryParseJson(response?.text)
+        if (!parsed && response?.text) {
+          try {
+            const repaired = jsonrepair(response.text)
+            parsed = JSON.parse(repaired)
+          } catch {}
+        }
+        if (parsed) return parsed
+      } catch (secErr) {
+        console.warn(`[LinkedInSynthesis] Secondary Groq ${taskName} execution failed:`, secErr.message)
+      }
+
+      return null
     }
 
     // Run Task 1 and Task 2 in parallel for lower latency
