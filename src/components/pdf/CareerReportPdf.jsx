@@ -677,6 +677,20 @@ export default function CareerReportPdf({ reportData = {} }) {
     if (!rewritten || typeof rewritten !== 'string' || !rewritten.trim()) continue
 
     const original = b.original || b.bullet || b.originalText || b.text || ''
+    if (original && rewritten) {
+      const cleanOrig = original.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').toLowerCase()
+      const cleanRw = rewritten.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').toLowerCase()
+      if (cleanOrig === cleanRw) continue
+      const origWords = cleanOrig.split(/\s+/)
+      const rwWords = cleanRw.split(/\s+/)
+      if (origWords.length === rwWords.length && origWords.length > 3) {
+        let sameCount = 0
+        for (let i = 1; i < origWords.length; i++) {
+          if (origWords[i] === rwWords[i]) sameCount++
+        }
+        if (sameCount / (origWords.length - 1) >= 0.85) continue
+      }
+    }
     const bulletId = b.bulletId || b.id || (original ? original.slice(0, 45).toLowerCase().replace(/\s+/g, ' ') : null)
     if (!bulletId) continue
 

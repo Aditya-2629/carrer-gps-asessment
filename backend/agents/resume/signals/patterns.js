@@ -276,9 +276,20 @@ export function toPresentTense(word = '') {
 
   // Specific common past tense technical verbs mapping:
   const pastToPresent = {
+    analyzed: 'Analyze',
+    answered: 'Answer',
+    applied: 'Apply',
     architected: 'Architect',
+    authored: 'Author',
     automated: 'Automate',
+    built: 'Build',
+    cleaned: 'Clean',
+    collaborated: 'Collaborate',
+    compiled: 'Compile',
+    conducted: 'Conduct',
     configured: 'Configure',
+    constructed: 'Construct',
+    containerized: 'Containerize',
     coordinated: 'Coordinate',
     created: 'Create',
     delivered: 'Deliver',
@@ -286,61 +297,87 @@ export function toPresentTense(word = '') {
     designed: 'Design',
     developed: 'Develop',
     directed: 'Direct',
+    documented: 'Document',
+    drafted: 'Draft',
     engineered: 'Engineer',
     enforced: 'Enforce',
     ensured: 'Ensure',
     established: 'Establish',
+    evaluated: 'Evaluate',
     executed: 'Execute',
+    extracted: 'Extract',
+    facilitated: 'Facilitate',
+    formulated: 'Formulate',
+    gathered: 'Gather',
+    generated: 'Generate',
     guided: 'Guide',
     implemented: 'Implement',
+    instituted: 'Institute',
     integrated: 'Integrate',
+    investigated: 'Investigate',
+    launched: 'Launch',
+    led: 'Lead',
     maintained: 'Maintain',
     managed: 'Manage',
     mentored: 'Mentor',
     migrated: 'Migrate',
+    modeled: 'Model',
+    modelled: 'Model',
     modernized: 'Modernize',
     monitored: 'Monitor',
+    navigated: 'Navigate',
+    operated: 'Operate',
     optimized: 'Optimize',
     orchestrated: 'Orchestrate',
     overhauled: 'Overhaul',
+    parsed: 'Parse',
+    partnered: 'Partner',
     performed: 'Perform',
+    piloted: 'Pilot',
+    prepared: 'Prepare',
+    presented: 'Present',
+    produced: 'Produce',
+    programmed: 'Program',
+    prototyped: 'Prototype',
+    provided: 'Provide',
+    queried: 'Query',
+    reduced: 'Reduce',
     refactored: 'Refactor',
     remediated: 'Remediate',
     resolved: 'Resolve',
+    reviewed: 'Review',
     scaled: 'Scale',
     secured: 'Secure',
     spearheaded: 'Spearhead',
     standardized: 'Standardize',
     streamlined: 'Streamline',
+    supervised: 'Supervise',
     supported: 'Support',
+    synthesized: 'Synthesize',
     tested: 'Test',
-    troubleshot: 'Troubleshoot',
-    analyzed: 'Analyze',
-    authored: 'Author',
-    collaborated: 'Collaborate',
-    conducted: 'Conduct',
-    constructed: 'Construct',
-    facilitated: 'Facilitate',
-    partnered: 'Partner',
-    prototyped: 'Prototype',
+    trained: 'Train',
     transformed: 'Transform',
+    translated: 'Translate',
+    troubleshot: 'Troubleshoot',
+    unified: 'Unify',
     upgraded: 'Upgrade',
-    containerized: 'Containerize',
+    validated: 'Validate',
+    verified: 'Verify',
   }
 
   if (pastToPresent[lower]) {
     return pastToPresent[lower]
   }
 
-  // Fallback for regular -ed forms
+  // Fallback for regular -ed forms (DO NOT append 'e' blindly!)
   if (lower.endsWith('ed')) {
+    if (lower.endsWith('ied')) {
+      const stem = lower.slice(0, -3) + 'y'
+      return stem.charAt(0).toUpperCase() + stem.slice(1)
+    }
     let stem = lower.slice(0, -2)
     if (stem.length > 2 && stem[stem.length - 1] === stem[stem.length - 2]) {
       stem = stem.slice(0, -1)
-    } else if (lower.endsWith('ied')) {
-      stem = lower.slice(0, -3) + 'y'
-    } else if (!stem.endsWith('e') && !['act', 'adapt', 'adopt', 'affect', 'affirm', 'align', 'audit', 'author', 'boost', 'build', 'chart', 'check', 'clean', 'clear', 'coach', 'craft', 'cross', 'draft', 'drill', 'earn', 'form', 'gain', 'grow', 'guide', 'help', 'hold', 'hunt', 'join', 'launch', 'lead', 'learn', 'lift', 'link', 'load', 'lock', 'mark', 'meet', 'mend', 'mind', 'mold', 'mount', 'open', 'pack', 'pass', 'pick', 'plan', 'post', 'pull', 'push', 'rank', 'read', 'reap', 'root', 'run', 'scan', 'seek', 'sell', 'send', 'set', 'ship', 'show', 'shut', 'sign', 'sink', 'skip', 'sort', 'span', 'spin', 'spur', 'stem', 'step', 'stop', 'swap', 'team', 'tend', 'test', 'track', 'trim', 'turn', 'vet', 'view', 'warn', 'wash', 'win', 'work'].includes(stem)) {
-      stem = stem + 'e'
     }
     return stem.charAt(0).toUpperCase() + stem.slice(1)
   }

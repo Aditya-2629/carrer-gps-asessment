@@ -1,4 +1,4 @@
-import { buildFivePartPlaybookRewrite, applyLightVerbFix, toPastTense, buildBulletAudit } from '../agents/resume/scoring/resumeScorecard.js'
+import { buildFivePartPlaybookRewrite, applyLightVerbFix, toPastTense, buildBulletAudit, isWordForWordIdentical } from '../agents/resume/scoring/resumeScorecard.js'
 import { toPresentTense } from '../agents/resume/signals/patterns.js'
 import assert from 'assert'
 
@@ -12,7 +12,17 @@ assert.strictEqual(toPastTense('led'), 'Led')
 assert.strictEqual(toPresentTense('Ran'), 'Run')
 assert.strictEqual(toPresentTense('Built'), 'Build')
 assert.strictEqual(toPresentTense('Led'), 'Lead')
-console.log('PASS: Tense normalization passed.')
+assert.strictEqual(toPresentTense('Answered'), 'Answer')
+assert.strictEqual(toPresentTense('answered'), 'Answer')
+assert.strictEqual(toPresentTense('Trained'), 'Train')
+assert.strictEqual(toPresentTense('trained'), 'Train')
+assert.strictEqual(toPresentTense('Monitored'), 'Monitor')
+assert.strictEqual(toPresentTense('Compiled'), 'Compile')
+assert.notStrictEqual(toPresentTense('Answered'), 'Answere')
+assert.notStrictEqual(toPresentTense('Trained'), 'Traine')
+assert.strictEqual(isWordForWordIdentical('Answere complex business questions with SQL queries', 'Answered complex business questions with SQL queries'), true)
+assert.strictEqual(isWordForWordIdentical('Translate complex business inquiries into SQL queries, delivering interactive executive dashboards that cut reporting latency by 35%.', 'Answered complex business questions with SQL queries'), false)
+console.log('PASS: Tense normalization and 1-word verb swap detection passed.')
 
 console.log('--- TEST 2: Irregular Verb Handling in buildFivePartPlaybookRewrite ---')
 const testBullets = [

@@ -241,6 +241,46 @@ export function isLazySuffixAppend(rewrite, original) {
   return false
 }
 
+/**
+ * Checks whether a candidate rewrite is empty, identical, or >85% word-for-word identical to the original bullet
+ * (e.g. only the first word was changed, or the rest of the sentence is unchanged boilerplate).
+ */
+export function isWordForWordIdentical(rewrittenText, originalText, threshold = 0.85) {
+  if (!rewrittenText || !originalText || typeof rewrittenText !== 'string' || typeof originalText !== 'string') return true
+  const cleanRw = rewrittenText.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').trim()
+  const cleanOrig = originalText.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').trim()
+  if (!cleanRw || !cleanOrig) return true
+  if (cleanRw.toLowerCase() === cleanOrig.toLowerCase()) return true
+
+  const rwWords = cleanRw.toLowerCase().split(/\s+/)
+  const origWords = cleanOrig.toLowerCase().split(/\s+/)
+  if (rwWords.length === 0 || origWords.length === 0) return true
+
+  // Single-word opening verb swap check (e.g. "Answered complex..." -> "Answer complex...")
+  if (rwWords.length === origWords.length && rwWords.length > 3) {
+    let sameWords = 0
+    for (let i = 1; i < rwWords.length; i++) {
+      if (rwWords[i] === origWords[i]) sameWords++
+    }
+    if (sameWords / (rwWords.length - 1) >= threshold) {
+      return true
+    }
+  }
+
+  // Jaccard / token overlap check
+  const origSet = new Set(origWords)
+  let matchingCount = 0
+  for (const w of rwWords) {
+    if (origSet.has(w)) matchingCount++
+  }
+  const overlap = matchingCount / Math.max(rwWords.length, origWords.length)
+  if (overlap >= threshold && Math.abs(rwWords.length - origWords.length) <= 3) {
+    return true
+  }
+
+  return false
+}
+
 export function isTrueQuantified(text) {
   if (!text || typeof text !== 'string') return false
   const clean = text
@@ -1672,33 +1712,17 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
           }
         }
 
-        // Safety guarantee: EVERY bullet marked 'warn' or 'fix' MUST have a non-null rewrite!
-        if ((status === 'warn' || status === 'fix') && !rewrite) {
-          rewrite = applyLightVerbFix(b.text, sig, isCurrentRole)
-        }
-
-        if (rewrite) {
-          rewrite = sanitizeSingleAddPlaceholder(rewrite)
-          const m = rewrite.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
-          if (m) {
-            const prefix = m[1]
-            const firstWord = m[2]
-            const rest = m[3]
-            if (isCurrentRole) {
-              const presentWord = toPresentTense(firstWord)
-              if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
-                rewrite = `${prefix}${presentWord}${rest}`
-              }
-            } else {
-              const pastWord = toPastTense(firstWord)
-              if (pastWord && pastWord.toLowerCase() !== firstWord.toLowerCase()) {
-                rewrite = `${prefix}${pastWord}${rest}`
-              }
-            }
+        let cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
+        // Reject 1-word verb swaps or identical rewrites
+        if (cleanImproved && isWordForWordIdentical(cleanImproved, b.text, 0.85)) {
+          if (upgrade?.rewrittenText && !isWordForWordIdentical(upgrade.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(upgrade.rewrittenText)
+          } else if (llmMatch?.rewrittenText && !isWordForWordIdentical(llmMatch.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(llmMatch.rewrittenText)
+          } else {
+            cleanImproved = null
           }
         }
-
-        let cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
 
         let verdict
         let fivePartFlags
@@ -1758,30 +1782,19 @@ export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList,
               }
             }
           }
+          if (!cleanImproved && upgrade?.rewrittenText && !isWordForWordIdentical(upgrade.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(upgrade.rewrittenText)
+          }
           if (!cleanImproved) {
-            const fallbackRw = applyLightVerbFix(b.text, sig, isCurrentRole)
-            cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
+            const fallbackRw = buildFivePartPlaybookRewrite(b.text, { targetRole: roleTarget, isCurrentRole, usedMetricsSet, bulletIndex: bIdx })
+            if (fallbackRw && !isWordForWordIdentical(fallbackRw, b.text, 0.85)) {
+              cleanImproved = cleanRewriteText(fallbackRw)
+            }
           }
         }
 
-        if (cleanImproved) {
-          const m = cleanImproved.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
-          if (m) {
-            const prefix = m[1]
-            const firstWord = m[2]
-            const rest = m[3]
-            if (isCurrentRole) {
-              const presentWord = toPresentTense(firstWord)
-              if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
-                cleanImproved = `${prefix}${presentWord}${rest}`
-              }
-            } else {
-              const pastWord = toPastTense(firstWord)
-              if (pastWord && pastWord.toLowerCase() !== firstWord.toLowerCase()) {
-                cleanImproved = `${prefix}${pastWord}${rest}`
-              }
-            }
-          }
+        if (cleanImproved && isWordForWordIdentical(cleanImproved, b.text, 0.85)) {
+          cleanImproved = null
         }
 
         const finalWhyItWorks =
