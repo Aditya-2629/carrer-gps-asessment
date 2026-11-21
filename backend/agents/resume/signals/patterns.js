@@ -6,21 +6,23 @@
  */
 
 // ── Quantifier Patterns ────────────────────────────────────────────────────────
-// Matches %, numbers followed by x/X, "hours", "users", "$", or bare numbers >= 2 digits
+// Matches %, multipliers, currencies, time metrics, counts with units, and scale descriptors
 export const QUANTIFIER_PATTERNS = [
   // Percentage matches (e.g., "35%", "94%")
   /\b\d+(?:\.\d+)?%/g,
   // Multipliers (e.g., "3x", "10X", "3.5x")
   /\b\d+(?:\.\d+)?[xX]\b/g,
-  // Currency values (e.g., "$100k", "$50", "$")
-  /\$\s*[\d,]+(?:\.\d+)?(?:[kKmMbB]|k|M|B)?/g,
-  /\$/g,
-  // Specific impact terms: hours, hrs, users (e.g., "50+ hours", "5,000+ users", standalone "hours", "users")
-  /\b\d+[\d,]*\+?\s*(?:hours|hrs|users)\b/gi,
-  /\b(?:hours|hrs|users)\b/gi,
+  // Currency values (e.g., "$100k", "$50", "$", ₹, INR, €, £)
+  /(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?\s*(?:k|m|b|million|billion|lakhs?|crores?|cr|l)?\b|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/gi,
+  // Time savings, durations & turnarounds (e.g., "40+ manual hours", "8 hours to 4 hours", "90 minutes", "6+ hours", "ms", "seconds")
+  /\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:hours?|hrs?|minutes?|mins?|seconds?|sec|ms|milliseconds?|days?|weeks?|months?)\b/gi,
+  /\b(?:from\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)?\s*(?:to|–|-|down to)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/gi,
+  // Scale, volume, counts & team size (e.g., "50,000+ transactions", "15-person team", "100K+ users", "15+ reports", "30+ queries")
+  /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:[a-z]+-)?(?:financial|operational|clinical|concurrent|active|daily|monthly|annual|historical|enterprise|production|unique|cross-functional|internal)?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi,
+  /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:[kKmMbB]|million|billion)\+?(?:\s*(?:users?|customers?|clients?|transactions?|records?|requests?|events?|queries?))?\b/gi,
+  /\b(?:\d+\s*-?\s*person(?:\s+(?:team|squad|pod|group|department|org|organization|engineers|staff|members))?|team\s+of\s+\d+|led\s+\d+\s*(?:engineers|developers|people|analysts|members|designers))\b/gi,
   // Standalone numbers or numbers with common metric units (e.g., "850ms", "120ms", "50ms", "170", "50", "20+", "12k")
   /\b\d{2,}(?:,\d{3})*(?:\.\d+)?(?:\+)?(?:ms|s|sec|min|k|K|m|M|B)?\b/g,
-  /\b\d+(?:\.\d+)?(?:ms|sec)\b/gi,
 ]
 
 // ── Outcome Verbs ──────────────────────────────────────────────────────────────
@@ -276,9 +278,20 @@ export function toPresentTense(word = '') {
 
   // Specific common past tense technical verbs mapping:
   const pastToPresent = {
+    analyzed: 'Analyze',
+    answered: 'Answer',
+    applied: 'Apply',
     architected: 'Architect',
+    authored: 'Author',
     automated: 'Automate',
+    built: 'Build',
+    cleaned: 'Clean',
+    collaborated: 'Collaborate',
+    compiled: 'Compile',
+    conducted: 'Conduct',
     configured: 'Configure',
+    constructed: 'Construct',
+    containerized: 'Containerize',
     coordinated: 'Coordinate',
     created: 'Create',
     delivered: 'Deliver',
@@ -286,61 +299,87 @@ export function toPresentTense(word = '') {
     designed: 'Design',
     developed: 'Develop',
     directed: 'Direct',
+    documented: 'Document',
+    drafted: 'Draft',
     engineered: 'Engineer',
     enforced: 'Enforce',
     ensured: 'Ensure',
     established: 'Establish',
+    evaluated: 'Evaluate',
     executed: 'Execute',
+    extracted: 'Extract',
+    facilitated: 'Facilitate',
+    formulated: 'Formulate',
+    gathered: 'Gather',
+    generated: 'Generate',
     guided: 'Guide',
     implemented: 'Implement',
+    instituted: 'Institute',
     integrated: 'Integrate',
+    investigated: 'Investigate',
+    launched: 'Launch',
+    led: 'Lead',
     maintained: 'Maintain',
     managed: 'Manage',
     mentored: 'Mentor',
     migrated: 'Migrate',
+    modeled: 'Model',
+    modelled: 'Model',
     modernized: 'Modernize',
     monitored: 'Monitor',
+    navigated: 'Navigate',
+    operated: 'Operate',
     optimized: 'Optimize',
     orchestrated: 'Orchestrate',
     overhauled: 'Overhaul',
+    parsed: 'Parse',
+    partnered: 'Partner',
     performed: 'Perform',
+    piloted: 'Pilot',
+    prepared: 'Prepare',
+    presented: 'Present',
+    produced: 'Produce',
+    programmed: 'Program',
+    prototyped: 'Prototype',
+    provided: 'Provide',
+    queried: 'Query',
+    reduced: 'Reduce',
     refactored: 'Refactor',
     remediated: 'Remediate',
     resolved: 'Resolve',
+    reviewed: 'Review',
     scaled: 'Scale',
     secured: 'Secure',
     spearheaded: 'Spearhead',
     standardized: 'Standardize',
     streamlined: 'Streamline',
+    supervised: 'Supervise',
     supported: 'Support',
+    synthesized: 'Synthesize',
     tested: 'Test',
-    troubleshot: 'Troubleshoot',
-    analyzed: 'Analyze',
-    authored: 'Author',
-    collaborated: 'Collaborate',
-    conducted: 'Conduct',
-    constructed: 'Construct',
-    facilitated: 'Facilitate',
-    partnered: 'Partner',
-    prototyped: 'Prototype',
+    trained: 'Train',
     transformed: 'Transform',
+    translated: 'Translate',
+    troubleshot: 'Troubleshoot',
+    unified: 'Unify',
     upgraded: 'Upgrade',
-    containerized: 'Containerize',
+    validated: 'Validate',
+    verified: 'Verify',
   }
 
   if (pastToPresent[lower]) {
     return pastToPresent[lower]
   }
 
-  // Fallback for regular -ed forms
+  // Fallback for regular -ed forms (DO NOT append 'e' blindly!)
   if (lower.endsWith('ed')) {
+    if (lower.endsWith('ied')) {
+      const stem = lower.slice(0, -3) + 'y'
+      return stem.charAt(0).toUpperCase() + stem.slice(1)
+    }
     let stem = lower.slice(0, -2)
     if (stem.length > 2 && stem[stem.length - 1] === stem[stem.length - 2]) {
       stem = stem.slice(0, -1)
-    } else if (lower.endsWith('ied')) {
-      stem = lower.slice(0, -3) + 'y'
-    } else if (!stem.endsWith('e') && !['act', 'adapt', 'adopt', 'affect', 'affirm', 'align', 'audit', 'author', 'boost', 'build', 'chart', 'check', 'clean', 'clear', 'coach', 'craft', 'cross', 'draft', 'drill', 'earn', 'form', 'gain', 'grow', 'guide', 'help', 'hold', 'hunt', 'join', 'launch', 'lead', 'learn', 'lift', 'link', 'load', 'lock', 'mark', 'meet', 'mend', 'mind', 'mold', 'mount', 'open', 'pack', 'pass', 'pick', 'plan', 'post', 'pull', 'push', 'rank', 'read', 'reap', 'root', 'run', 'scan', 'seek', 'sell', 'send', 'set', 'ship', 'show', 'shut', 'sign', 'sink', 'skip', 'sort', 'span', 'spin', 'spur', 'stem', 'step', 'stop', 'swap', 'team', 'tend', 'test', 'track', 'trim', 'turn', 'vet', 'view', 'warn', 'wash', 'win', 'work'].includes(stem)) {
-      stem = stem + 'e'
     }
     return stem.charAt(0).toUpperCase() + stem.slice(1)
   }

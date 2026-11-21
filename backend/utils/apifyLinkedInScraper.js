@@ -1,5 +1,6 @@
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from './smartKeyPool.js'
+import { costTracker } from './costTracker.js'
 
 export const activeScrapes = new Map() // url -> Promise<profile>
 
@@ -290,6 +291,15 @@ export const scrapeLinkedInProfile = (linkedinUrl, options = {}) => {
 
             if (!items || items.length === 0) {
               throw new Error('Empty dataset returned from Apify actor run.')
+            }
+
+            try {
+              costTracker.trackApify({
+                stage: 'LINKEDIN_PROFILE_SCRAPE',
+                itemsScraped: items.length || 1,
+              })
+            } catch (_costErr) {
+              /* non-fatal */
             }
 
             const firstItem = items[0]

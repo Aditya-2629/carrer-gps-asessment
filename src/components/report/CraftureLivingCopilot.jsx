@@ -11,6 +11,80 @@ import {
 } from '../../store/useReportGuideStore'
 import { crafturePerson } from '../../mascots/crafturePerson'
 import { ArrowRight, X, MessageSquare } from 'lucide-react'
+import useAppStore from '../../store/useAppStore'
+
+const ASSESSMENT_STEP_TIPS = {
+  resume: {
+    chip: 'Resume Calibration',
+    text: "Drop the resume you're taking into battle — we scan keywords, tech stack & experience in milliseconds.",
+    emotion: 'speaking',
+  },
+  linkedin: {
+    chip: 'Digital Coordinates',
+    text: 'Your public LinkedIn profile lets us cross-reference your ATS keywords against live recruiter search queries.',
+    emotion: 'listening',
+  },
+  visa: {
+    chip: 'Work Perimeter',
+    text: 'Recruiters filter by location and authorization — answering honestly calibrates your real outbound market size.',
+    emotion: 'thinking',
+  },
+  targetRole: {
+    chip: 'Target Coordinates',
+    text: 'Be specific with your target title — it calibrates tier-1 salary bands and experience benchmarks.',
+    emotion: 'speaking',
+  },
+  apps30d: {
+    chip: 'Outbound Velocity',
+    text: 'Application volume sets your funnel baseline — 30 to 60 applications per month is the typical healthy sweet spot.',
+    emotion: 'thinking',
+  },
+  targetedMatchPct: {
+    chip: 'Targeting Precision',
+    text: 'Applying only to roles with an 80%+ qualification match yields 4x higher recruiter screen conversions.',
+    emotion: 'thinking',
+  },
+  searchMethods: {
+    chip: 'Sourcing Mix',
+    text: 'Multi-channel hunters who combine referrals and direct recruiter outreach land offers 2.8x faster.',
+    emotion: 'celebrating',
+  },
+  consultancy: {
+    chip: 'Search Architecture',
+    text: 'Staffing agencies and third-party consultancies operate differently than direct in-house recruitment.',
+    emotion: 'listening',
+  },
+  outreach: {
+    chip: 'Warm Channels',
+    text: 'Reaching out to hiring managers and team engineers skips automated ATS resume screening entirely.',
+    emotion: 'speaking',
+  },
+  funnel90d: {
+    chip: 'Funnel Leak Audit',
+    text: 'Knowing your 90-day screens and interview stages pinpoints the exact leak in your hiring pipeline.',
+    emotion: 'surprised',
+  },
+  DropOffStage: {
+    chip: 'Root Bottleneck',
+    text: 'Pinpointing where drop-offs happen separates resume problems from interview delivery problems.',
+    emotion: 'thinking',
+  },
+  biggestChallenge: {
+    chip: 'Primary Obstacle',
+    text: 'Every candidate has one primary roadblock. Isolating it lets our action plan focus on high-ROI fixes.',
+    emotion: 'speaking',
+  },
+  alreadyTried: {
+    chip: 'Past Iterations',
+    text: 'Knowing what did not move the needle prevents us from suggesting strategies you have already exhausted.',
+    emotion: 'listening',
+  },
+  frustration: {
+    chip: 'Core Frustration',
+    text: 'Job searching in 2026 is exhausting. We use this to customize your personalized 7-day recovery roadmap.',
+    emotion: 'celebrating',
+  },
+}
 
 // Main report sections observed for curated executive beats
 const OBSERVED_SECTION_IDS = [
@@ -114,7 +188,12 @@ export function sanitizeWobnimoState(state) {
   return VALID_WOBNIMO_STATES.has(s) ? s : 'idle'
 }
 
-export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
+export default function CraftureLivingCopilot({
+  activeTab = 'overview',
+  context = 'report',
+  currentStep = 0,
+  step = null,
+}) {
   const {
     emotion,
     mode,
@@ -128,6 +207,10 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     triggerGuide,
     setEmotion,
   } = useReportGuideStore()
+
+  const resumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+  const isAssessment = context === 'assessment'
+  const prevResumeStatusRef = useRef(null)
 
   const mascotContainerRef = useRef(null)
   const isCelebratingRef = useRef(false)
@@ -269,8 +352,72 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
     }
   }, [emotion, triggerSiuuu])
 
-  // 2. Explicit Click Reactions: Genuine Win Clicks or data-guide-msg handlers
+  // Assessment Mode: Step-aware guidance, tips, and live validation reactions
   useEffect(() => {
+    if (!isAssessment) return
+
+    const stepName = step?.name || (currentStep === 0 ? 'resume' : currentStep === 1 ? 'linkedin' : '')
+    const resumeStatus = resumeAnalysis?.status
+
+    if (stepName === 'resume' || currentStep === 0) {
+      if (resumeStatus === 'completed') {
+        setActiveThought({
+          chip: 'Resume Calibrated 🎯',
+          text: 'Tech stack, contact details, and role history successfully extracted! You can proceed.',
+          emotion: 'victory',
+        })
+        if (prevResumeStatusRef.current !== 'completed') {
+          triggerSiuuu('Resume calibrated: tech stack & experience extracted!')
+        }
+      } else if (resumeStatus === 'error') {
+        setActiveThought({
+          chip: 'Verification Failed ⚠️',
+          text: resumeAnalysis?.error || 'Document does not look like a resume. Please upload a PDF or .docx file.',
+          emotion: 'surprised',
+        })
+        if (mascotContainerRef.current && prevResumeStatusRef.current !== 'error') {
+          gsap.timeline()
+            .to(mascotContainerRef.current, { x: -7, rotation: -4, duration: 0.09, ease: 'power2.inOut' })
+            .to(mascotContainerRef.current, { x: 7, rotation: 4, duration: 0.1, ease: 'power2.inOut' })
+            .to(mascotContainerRef.current, { x: -5, rotation: -2, duration: 0.09, ease: 'power2.inOut' })
+            .to(mascotContainerRef.current, { x: 0, rotation: 0, duration: 0.1, ease: 'power2.out' })
+        }
+      } else if (resumeStatus === 'analyzing') {
+        setActiveThought({
+          chip: 'Analyzing Resume...',
+          text: 'Scanning text, tech stack, and contact links in real time...',
+          emotion: 'thinking',
+        })
+      } else {
+        const def = ASSESSMENT_STEP_TIPS.resume
+        setActiveThought({
+          chip: def.chip,
+          text: def.text,
+          emotion: def.emotion,
+        })
+      }
+      prevResumeStatusRef.current = resumeStatus
+      return
+    }
+
+    prevResumeStatusRef.current = resumeStatus
+    const tip = ASSESSMENT_STEP_TIPS[stepName] || {
+      chip: 'Step Guidance',
+      text: step?.sublabel || 'Answer honestly to calibrate your personalized Career GPS benchmarks.',
+      emotion: 'speaking',
+    }
+
+    setActiveThought({
+      chip: tip.chip,
+      text: tip.text,
+      emotion: tip.emotion,
+    })
+  }, [isAssessment, step?.name, step?.sublabel, currentStep, resumeAnalysis?.status, resumeAnalysis?.error, triggerSiuuu])
+
+  // 2. Explicit Click Reactions: Genuine Win Clicks or data-guide-msg handlers (Report Mode only)
+  useEffect(() => {
+    if (isAssessment) return
+
     const handleDocumentClick = (e) => {
       const target = e.target
       if (!target) return
@@ -436,6 +583,8 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
   // 3. Curated Scroll-Based Section Beats (IntersectionObserver with 500ms Debounce)
   useEffect(() => {
+    if (isAssessment) return
+
     const observerCallback = (entries) => {
       const visibleEntries = entries.filter((e) => e.isIntersecting)
       if (visibleEntries.length === 0) return
@@ -658,6 +807,10 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
     clickTimeoutRef.current = setTimeout(() => {
       clickTimeoutRef.current = null
+      if (isAssessment) {
+        setCloudMinimized((prev) => !prev)
+        return
+      }
       if (cloudMinimized) {
         setCloudMinimized(false)
       } else {
@@ -677,7 +830,7 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
 
   return (
     <div
-      className="fixed bottom-16 right-3 sm:bottom-20 sm:right-6 z-40 pointer-events-none select-none print:hidden flex flex-col items-end max-w-[calc(100vw-1.5rem)]"
+      className={`fixed ${isAssessment ? 'bottom-16 right-3 sm:bottom-6 sm:right-6' : 'bottom-16 right-3 sm:bottom-20 sm:right-6'} z-40 pointer-events-none select-none print:hidden flex flex-col items-end max-w-[calc(100vw-1.5rem)]`}
       aria-label="Crafture Living Copilot Companion"
     >
       {/* ─── Animated Thinking Cloud (Only visible when chat is closed & cloud not minimized) ─── */}
@@ -728,31 +881,33 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  {/* Problem / Solution Micro-Toggle */}
-                  <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => setMode('problem')}
-                      className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                        mode === 'problem'
-                          ? 'bg-rose-600 text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Issue
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMode('solution')}
-                      className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                        mode === 'solution'
-                          ? 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Fix
-                    </button>
-                  </div>
+                  {/* Problem / Solution Micro-Toggle (Report Mode Only) */}
+                  {!isAssessment && (
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setMode('problem')}
+                        className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                          mode === 'problem'
+                            ? 'bg-rose-600 text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        Issue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMode('solution')}
+                        className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
+                          mode === 'solution'
+                            ? 'bg-emerald-600 text-white shadow-2xs'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        Fix
+                      </button>
+                    </div>
+                  )}
 
                   {/* Clean Collapse (✕): Collapses only the cloud, keeping 3D mascot visible */}
                   <button
@@ -784,31 +939,38 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
               </div>
 
               {/* Action Trigger */}
-              <button
-                type="button"
-                onClick={handleLaunchChat}
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer shadow-2xs group/btn"
-              >
-                <span className="flex items-center gap-1.5">
-                  <MessageSquare size={13} className="text-indigo-500" />
-                  <span>Consult Atlas about this finding</span>
-                </span>
-                <ArrowRight size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
-              </button>
+              {isAssessment ? (
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                  <span>Step {currentStep + 1} of 14</span>
+                  <span>Click mascot to toggle</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLaunchChat}
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer shadow-2xs group/btn"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <MessageSquare size={13} className="text-indigo-500" />
+                    <span>Consult Atlas about this finding</span>
+                  </span>
+                  <ArrowRight size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
+                </button>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ─── Transparent Floating 3D Mascot Character ─── */}
-      <div className="relative pointer-events-auto flex flex-col items-center scale-[0.78] sm:scale-100 origin-bottom-right">
+      <div className={`relative pointer-events-auto flex flex-col items-center ${isAssessment ? 'scale-[0.72] sm:scale-100' : 'scale-[0.78] sm:scale-100'} origin-bottom-right`}>
         {/* Mascot Click Area with Hover Lift */}
         <div
           ref={mascotContainerRef}
           onClick={handleMascotClick}
           onDoubleClick={handleMascotDoubleClick}
           className="relative cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 group/mascot"
-          title={cloudMinimized ? 'Click to restore thought cloud' : 'Click to toggle Issue/Fix mode • Double-click to celebrate'}
+          title={cloudMinimized ? 'Click to restore thought cloud' : isAssessment ? 'Click to toggle thought cloud' : 'Click to toggle Issue/Fix mode • Double-click to celebrate'}
         >
           {/* Floor Ambient Drop Shadow */}
           <div
@@ -835,8 +997,8 @@ export default function CraftureLivingCopilot({ activeTab = 'overview' }) {
               {isAsleep
                 ? 'Paused — scroll or hover to wake'
                 : cloudMinimized
-                ? 'Expand Guide'
-                : 'Consult Atlas'}
+                ? (isAssessment ? 'Show Tip' : 'Expand Guide')
+                : (isAssessment ? 'Hide Tip' : 'Consult Atlas')}
             </motion.div>
           )}
         </div>

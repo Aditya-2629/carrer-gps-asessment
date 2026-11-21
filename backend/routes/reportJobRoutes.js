@@ -18,6 +18,7 @@ import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { userSessionGuard } from '../utils/userAuth.js'
+import { costTracker } from '../utils/costTracker.js'
 
 const router = Router()
 
@@ -28,8 +29,8 @@ router.use(userSessionGuard)
 const bus = (globalThis.__reportJobBus ||= new EventEmitter())
 bus.setMaxListeners(50)
 
-function pushEvent(job, stage, message) {
-  const event = { at: new Date().toISOString(), stage, message }
+function pushEvent(job, stage, message, agent = null) {
+  const event = { at: new Date().toISOString(), stage, message, agent }
   job.events.push(event)
   bus.emit(job.id, event)
   return event
@@ -56,11 +57,24 @@ router.post('/', async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' })
     if (!user.isVerified) return res.status(403).json({ success: false, message: 'Email not verified.' })
 
-    const job = await ReportJob.create({ userId, status: 'queued' })
+    const job = await ReportJob.create({
+      userId,
+      status: 'queued',
+      events: [
+        {
+          at: new Date().toISOString(),
+          stage: 'agents_running',
+          agent: 'all',
+          message: 'Deploying Resume, LinkedIn & Atlas agents in parallel…',
+        },
+      ],
+    })
+    const jobId = job._id.toString()
+    costTracker.setActiveRunId(jobId)
     // Fire-and-forget worker — the client is streaming, not waiting on this
-    processJob(job._id.toString(), userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
+    processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
 
-    return res.status(202).json({ success: true, jobId: job._id.toString() })
+    return res.status(202).json({ success: true, jobId })
   } catch (err) {
     console.error('[ReportJob] create failed:', err)
     return res.status(500).json({ success: false, message: 'Failed to create report job.' })
@@ -73,20 +87,24 @@ const running = (globalThis.__reportJobRunning ||= new Set())
 async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
+  costTracker.setActiveRunId(jobId)
   try {
     const job = await ReportJob.findById(jobId)
     if (!job) return
     job.status = 'running'
-    pushEvent(job, 'job_started', 'Job started — spinning up your agent team…')
+    pushEvent(job, 'job_started', 'Job started — spinning up your agent team…', 'all')
+    pushEvent(job, 'agents_running', 'Deploying Resume, LinkedIn & Atlas agents in parallel…', 'all')
     await job.save()
 
     const { aiReport } = await generateReportBundle({
       userId,
+      runId: jobId,
+      jobId,
       semanticProfile,
       precomputedResumeAgent: options.precomputedResumeAgent || null,
       precomputedResumeJson: options.precomputedResumeJson || null,
       precomputedLinkedinData: options.linkedinData || null,
-      onProgress: ({ stage, message }) => pushEvent(job, stage, message),
+      onProgress: ({ stage, message, agent }) => pushEvent(job, stage, message, agent || null),
     })
 
     // Single terminal event WITH the payload — clients close on report_ready,
@@ -94,8 +112,8 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     const cleanReport = JSON.parse(JSON.stringify(aiReport))
     job.aiReport = cleanReport
     job.status = 'done'
-    const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: cleanReport }
-    job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message })
+    const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', agent: 'overall', report: cleanReport }
+    job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
     bus.emit(jobId, finalEvent)
   } catch (err) {
@@ -105,14 +123,15 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       if (job) {
         job.status = 'failed'
         job.error = err.message
-        pushEvent(job, 'job_failed', err.message)
+        pushEvent(job, 'job_failed', err.message, 'all')
         await job.save()
-        bus.emit(jobId, { at: new Date().toISOString(), stage: 'job_failed', message: err.message })
+        bus.emit(jobId, { at: new Date().toISOString(), stage: 'job_failed', message: err.message, agent: 'all' })
       }
     } catch (_e) {
       /* job doc gone — nothing to do */
     }
   } finally {
+    costTracker.printRunSummary(jobId)
     running.delete(jobId)
     // Free SSE listeners for this job shortly after completion
     setTimeout(() => {

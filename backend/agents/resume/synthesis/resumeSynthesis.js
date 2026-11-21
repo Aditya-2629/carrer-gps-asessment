@@ -331,7 +331,11 @@ CRITICAL INSTRUCTION: Tailor the Professional Summary Rewrite and Bullet Rewrite
   const currentTitle = currentExp.role || currentExp.title || resolvedTargetRole || 'Professional'
   const currentCompany = currentExp.company || currentExp.employer || 'Recent Organization'
   const candidateName = state.canonicalResume?.candidate?.name || state.canonicalResume?.candidate_name || state.candidateSnapshot?.name || 'Candidate'
-  const yearsOfExperience = state.canonicalResume?.years_of_experience || state.candidateSnapshot?.yearsOfExperience || '5+ years'
+  const yearsOfExperience =
+    state.canonicalResume?.years_of_experience ||
+    (state.canonicalResume?.totalExperienceYears ? `${Math.floor(state.canonicalResume.totalExperienceYears)}+ years` : null) ||
+    state.candidateSnapshot?.yearsOfExperience ||
+    '5+ years'
 
   let missingKeywords = state.keywordAlignment?.missingFromResume || state.keywordAlignment?.missingKeywords || []
   let skillsOnlyKeywords = state.keywordAlignment?.skillsOnlyUnverified || []

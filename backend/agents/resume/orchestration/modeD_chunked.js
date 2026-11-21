@@ -935,6 +935,10 @@ export async function executeModeD({
       targetJobDescription: state?.targetJobDescription || canonicalResume?.targetJobDescription || '',
       targetRole: canonicalResume?.candidate?.targetRole || state?.targetRole || '',
       marketProfile: state?.marketProfile || null,
+      state,
+      parsedDoc: state?.parsedDoc || null,
+      userAnswers: answers || state?.answers || {},
+      rawResumeText: canonicalResume?.rawText || state?.resumeText || '',
     })
   } catch (err) {
     console.warn('[ModeD Chunked] Scorecard computation warning:', err.message)

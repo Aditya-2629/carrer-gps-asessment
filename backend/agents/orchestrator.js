@@ -23,6 +23,8 @@ import { resolveMarketBucket } from './resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { getModel } from '../ai/config/modelRegistry.js'
 import { evaluateAssessmentPersona } from './assessment/assessmentAgent.js'
+import { SCORECARD_VERSION } from './resume/scoring/resumeScorecard.js'
+import { analyzeTimeline } from './resume/signals/timelineAnalyzer.js'
 
 export let _scraperOverrides = null
 export function setScraperOverrides(overrides) {
@@ -55,7 +57,7 @@ export function computeAnalysisCacheFingerprint({
   const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
   const bucket = bucketKey || (targetRole && experienceBucket ? `${targetRole}::${experienceBucket}` : 'default')
   return sha256(
-    `resume:${resumeHash}:jd:${jdHash}:${targetRole}:${bucket}:v:${marketBucketVersion}`
+    `resume:${resumeHash}:jd:${jdHash}:${targetRole}:${bucket}:v:${marketBucketVersion}:sc:${SCORECARD_VERSION}`
   )
 }
 
@@ -200,7 +202,7 @@ export async function runCareerAgents(bundle) {
       const isRealCanonicalResume = canonicalResume && (Array.isArray(canonicalResume.experience) || Array.isArray(canonicalResume.experiences))
       resumeContext = await ResumeAgent.prepareCanonicalContext({
         buffer: resumeBuffer,
-        text: resumeText,
+        resumeText,
         canonicalResumeOverride: isRealCanonicalResume ? canonicalResume : null,
         filename: resumeName || 'resume',
         targetRole: resumeTargetRole,
@@ -209,6 +211,43 @@ export async function runCareerAgents(bundle) {
       console.warn('[Orchestrator] Stage 1 deterministic parsing failed (will attempt standard evaluate):', parseErr.message)
     }
   }
+
+  // Ensure verified timeline and experience duration are computed and attached to canonicalResume
+  const canRes = resumeContext?.canonicalResume || canonicalResume || null
+  const timelineData =
+    resumeContext?.signals?.timeline ||
+    canRes?.timeline ||
+    (canRes ? analyzeTimeline(canRes) : null)
+
+  const rawTimelineYears =
+    timelineData?.summary?.totalExperienceYears ??
+    timelineData?.careerDuration?.totalYears ??
+    canRes?.totalExperienceYears ??
+    0
+
+  const timelineYears = Math.round(rawTimelineYears * 10) / 10
+  const floorYears = Math.floor(timelineYears)
+  const canonicalYoe = floorYears >= 1 ? `${floorYears}+ years` : (timelineData?.careerDuration?.totalMonths ? `${timelineData.careerDuration.totalMonths} months` : '0 months')
+
+  if (canRes) {
+    canRes.timeline = timelineData
+    canRes.totalExperienceYears = timelineYears
+    canRes.years_of_experience = canonicalYoe
+    if (canRes.candidate) {
+      canRes.candidate.totalExperienceYears = timelineYears
+      canRes.candidate.years_of_experience = canonicalYoe
+    }
+  }
+
+  const userAnswers = effectiveAnswers
+  const linkedinProfile = linkedinData || bundle.linkedinProfile || null
+
+  console.log('[YOE_DEBUG]', {
+    timelineYears,
+    canonicalYoe: resumeContext?.canonicalResume?.years_of_experience,
+    userAnswerYoe: userAnswers?.experience,
+    linkedinExpCount: linkedinProfile?.experiences?.length,
+  })
 
   const rawTargetRole = resumeContext?.targetRole || resumeTargetRole || ''
   const effectiveTargetRole = (
@@ -251,7 +290,7 @@ export async function runCareerAgents(bundle) {
         const resumeHash = crypto.createHash('sha256').update(resumePayload).digest('hex')
         const jdHash = crypto.createHash('sha256').update(targetJobDescription || '').digest('hex')
         const inputHash = sha256(
-          `resume_v7:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}`
+          `resume_v7:${resumeHash}:jd:${jdHash}:${effectiveTargetRole}:${bucketKey}:v:${marketBucketVersion}:sc:${SCORECARD_VERSION}`
         )
 
         const cached = cacheMode !== 'bypass' ? await findCachedRun('resume', inputHash) : null
@@ -388,6 +427,8 @@ export async function runCareerAgents(bundle) {
             canonicalResume: verifiedCanonicalResume,
             extractedFacts: verifiedFacts,
             targetRole: effectiveTargetRole,
+            totalExperienceYears: verifiedCanonicalResume?.totalExperienceYears,
+            years_of_experience: verifiedCanonicalResume?.years_of_experience,
             provider: resumeProvider,
             assessmentPersona: effectiveAssessmentPersona,
             agentDirectives: effectiveAssessmentPersona?.agentDirectives,

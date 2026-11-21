@@ -21,10 +21,12 @@
  */
 
 import { normalizeGerundVerb, toPresentTense } from '../signals/patterns.js'
+import { extractCleanPhoneNumber } from '../resumeAgent.normalizer.js'
 import { computeKeywordAlignment } from '../market/keywordAlignment.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
+import { normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
 
-export const SCORECARD_VERSION = 'resume-scorecard-v1'
+export const SCORECARD_VERSION = 'resume-scorecard-v3'
 
 const SEVERITY_PENALTY = { high: 14, medium: 8, low: 4 }
 
@@ -67,26 +69,111 @@ export function toPastTense(verb) {
   const v = verb.toLowerCase().trim()
   const irregulars = {
     build: 'Built',
+    built: 'Built',
     run: 'Ran',
+    ran: 'Ran',
     lead: 'Led',
+    led: 'Led',
     drive: 'Drove',
+    drove: 'Drove',
     write: 'Wrote',
+    wrote: 'Wrote',
+    make: 'Made',
     make: 'Made',
     keep: 'Kept',
+    kept: 'Kept',
     take: 'Took',
+    took: 'Took',
     grow: 'Grew',
+    grew: 'Grew',
     set: 'Set',
     cut: 'Cut',
     meet: 'Met',
+    met: 'Met',
     hold: 'Held',
+    held: 'Held',
+    send: 'Sent',
+    sent: 'Sent',
+    spend: 'Spent',
+    spent: 'Spent',
+    speak: 'Spoke',
+    spoke: 'Spoke',
+    choose: 'Chose',
+    chose: 'Chose',
+    find: 'Found',
+    found: 'Found',
+    win: 'Won',
+    won: 'Won',
+    sell: 'Sold',
+    sold: 'Sold',
+    buy: 'Bought',
+    bought: 'Bought',
+    bring: 'Brought',
+    brought: 'Brought',
+    teach: 'Taught',
+    taught: 'Taught',
+    oversee: 'Oversaw',
+    oversaw: 'Oversaw',
     analyze: 'Analyzed',
+    analyzed: 'Analyzed',
     analyse: 'Analysed',
+    analysed: 'Analysed',
   }
   if (irregulars[v]) return irregulars[v]
+  if (v.endsWith('ed')) return v.charAt(0).toUpperCase() + v.slice(1)
   if (v.endsWith('yze') || v.endsWith('ise')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
   if (v.endsWith('e')) return v.charAt(0).toUpperCase() + v.slice(1) + 'd'
   if (v.endsWith('y') && !/[aeiou]y$/i.test(v)) return v.charAt(0).toUpperCase() + v.slice(1, -1) + 'ied'
   return v.charAt(0).toUpperCase() + v.slice(1) + 'ed'
+}
+
+/**
+ * Promotes the opening verb to a strong active verb matching the role tense,
+ * without appending any fake outcome, metrics, or trailing boilerplate clauses.
+ */
+export function applyLightVerbFix(bulletText, sig = null, isCurrentRole = false) {
+  if (!bulletText || typeof bulletText !== 'string') return null
+  let clean = bulletText.replace(/^[•\-*▪–—·\s]+/, '').trim()
+  if (!clean) return null
+
+  // Strip weak phrases at the start
+  clean = clean
+    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i, '')
+    .trim()
+
+  const m = clean.match(/^([A-Za-z]+)\b(.*)$/s)
+  if (!m) return clean
+
+  const rawFirst = m[1]
+  const rest = m[2]
+  const lowerFirst = rawFirst.toLowerCase()
+
+  const nonVerbOpeners = new Set([
+    'monthly', 'quarterly', 'daily', 'weekly', 'annual', 'biannual', 'periodic', 'routine',
+    'adhoc', 'ad-hoc', 'various', 'multiple', 'internal', 'external', 'client', 'financial',
+    'excel', 'data', 'business', 'system', 'project', 'cross-functional', 'technical',
+    'regular', 'key', 'core', 'new', 'existing', 'critical'
+  ])
+
+  if (nonVerbOpeners.has(lowerFirst)) {
+    const defaultVerb = isCurrentRole ? 'Generate' : 'Generated'
+    return cleanRewriteText(`${defaultVerb} ${clean}`)
+  }
+
+  let newVerb = rawFirst
+  if (lowerFirst.endsWith('ing')) {
+    newVerb = normalizeGerundVerb(rawFirst, isCurrentRole)
+  } else if (isCurrentRole) {
+    newVerb = toPresentTense(rawFirst)
+  } else {
+    newVerb = toPastTense(rawFirst)
+  }
+
+  if (newVerb && newVerb.length > 0) {
+    newVerb = newVerb.charAt(0).toUpperCase() + newVerb.slice(1)
+  }
+
+  return cleanRewriteText(`${newVerb}${rest}`)
 }
 
 /**
@@ -155,60 +242,151 @@ export function isLazySuffixAppend(rewrite, original) {
   return false
 }
 
+/**
+ * Checks whether a candidate rewrite is empty, identical, or >85% word-for-word identical to the original bullet
+ * (e.g. only the first word was changed, or the rest of the sentence is unchanged boilerplate).
+ */
+export function isWordForWordIdentical(rewrittenText, originalText, threshold = 0.85) {
+  if (!rewrittenText || !originalText || typeof rewrittenText !== 'string' || typeof originalText !== 'string') return true
+  const cleanRw = rewrittenText.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').trim()
+  const cleanOrig = originalText.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').trim()
+  if (!cleanRw || !cleanOrig) return true
+  if (cleanRw.toLowerCase() === cleanOrig.toLowerCase()) return true
+
+  const rwWords = cleanRw.toLowerCase().split(/\s+/)
+  const origWords = cleanOrig.toLowerCase().split(/\s+/)
+  if (rwWords.length === 0 || origWords.length === 0) return true
+
+  // Single-word opening verb swap check (e.g. "Answered complex..." -> "Answer complex...")
+  if (rwWords.length === origWords.length && rwWords.length > 3) {
+    let sameWords = 0
+    for (let i = 1; i < rwWords.length; i++) {
+      if (rwWords[i] === origWords[i]) sameWords++
+    }
+    if (sameWords / (rwWords.length - 1) >= threshold) {
+      return true
+    }
+  }
+
+  // Jaccard / token overlap check
+  const origSet = new Set(origWords)
+  let matchingCount = 0
+  for (const w of rwWords) {
+    if (origSet.has(w)) matchingCount++
+  }
+  const overlap = matchingCount / Math.max(rwWords.length, origWords.length)
+  if (overlap >= threshold && Math.abs(rwWords.length - origWords.length) <= 3) {
+    return true
+  }
+
+  return false
+}
+
 export function isTrueQuantified(text) {
   if (!text || typeof text !== 'string') return false
   const clean = text
-    .replace(/\b(?:react|angular|vue|python|d3|node|es|wcag|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
-    .replace(/\b(?:19|20)\d{2}\b/g, '')
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
     .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
-  return /\d+(?:\.\d+)?%|\b\d+\s*(?:ms|milliseconds?|seconds?|mins?|minutes?|hours?|k|m|million|billion|users|rps|qps|requests|tps|events)\b|\$\s*\d+|\b\d{2,}\s+(?:production|enterprise|distributed|active|concurrent|client)/i.test(clean)
+    .replace(/\b(?:19|20)\d{2}\b/g, '')
+
+  // 1. Percentage
+  if (/\d+(?:\.\d+)?%/.test(clean)) return true
+  // 2. Multiplier (e.g. 3x, 10x, 2.5x)
+  if (/\b\d+(?:\.\d+)?[xX]\b/.test(clean)) return true
+  // 3. Currency (e.g. $2M, $500k, $10,000, Rs, INR, €, £)
+  if (/(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion|\s*lakhs?|\s*crores?)?|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/i.test(clean)) return true
+  // 4. Latency, time savings or duration measurements (e.g. 40+ manual hours, 8 hours to 4 hours, 90 minutes, 6+ hours, 250ms, 2.5 seconds)
+  if (/\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:ms|milliseconds?|seconds?|sec|mins?|minutes?|hours?|hrs?|days?|weeks?|months?)\b/i.test(clean)) return true
+  if (/\b(?:from\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)?\s*(?:to|–|-|down to)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/i.test(clean)) return true
+  // 5. Scale / volume / team size / count metrics (e.g. 50,000+ transactions, 15-person team, 100K+ users, 15+ reports, 30+ queries)
+  if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\+?/i.test(clean)) return true
+  if (/\b\d+(?:,\d{3})*\+?(?:-(?:person|member|engineer|developer|query|model|tool|node|cluster|pipeline|report|server|table))?\s*(?:[a-z]+-)?(?:financial|operational|clinical|concurrent|active|daily|monthly|annual|historical|enterprise|production|unique|cross-functional|internal)?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|reports|dashboards|features|releases|deployments|transactions|microservices|services|endpoints|tables|models|cves|vulnerabilities|tickets|bugs|defects|test cases|builds|pipelines|nodes|clusters|servers|containers|pods|members|engineers|developers|analysts|people|beds|team|accounts|leads|subscribers)\b/i.test(clean)) return true
+  // 6. Explicit team size patterns
+  if (/\b(?:\d+\s*-?\s*person(?:\s+(?:team|squad|pod|group|department|org|organization|engineers|staff|members))?|team\s+of\s+\d+|led\s+\d+\s*(?:engineers|developers|people|analysts|members|designers))\b/i.test(clean)) return true
+  // 7. Production scale descriptors with numbers (e.g. 24-bed ICU, 50+ enterprise clients)
+  if (/\b\d{2,}\+?\s+(?:production|enterprise|distributed|active|concurrent|client|bed)\b/i.test(clean)) return true
+  // 8. WCAG compliance standards with specific version or levels
+  if (/\bwcag\s*(?:2\.[012]|2\s*aa)\b/i.test(clean)) return true
+
+  return false
 }
 
-const DOMAIN_METRIC_POOLS = {
+export const DOMAIN_METRIC_POOLS = {
   qa: [
-    { scope: 'partnering with QA and release engineering squads', outcome: 'increasing automated test coverage to 85%+ and reducing defect leakage by 40%' },
-    { scope: 'collaborating with test automation engineers', outcome: 'reducing regression testing cycles from 4 hours to 25 minutes' },
-    { scope: 'partnering with cross-functional release squads', outcome: 'eliminating manual QA bottlenecks and ensuring zero critical regression escapes' },
-    { scope: 'partnering with QA leads and developers', outcome: 'accelerating CI test execution speed by 35% with 100% test reliability' },
+    { key: 'qa_cov_32', outcome: 'increasing automated test suite coverage by 32% to prevent defect escapes' },
+    { key: 'qa_speed_45', outcome: 'accelerating CI/CD test execution speed by 45% and eliminating regression testing bottlenecks' },
+    { key: 'qa_bugs_40', outcome: 'resolving 40+ critical edge-case defects and maintaining zero production test regression escapes' },
+    { key: 'qa_time_45m', outcome: 'shortening pre-release QA validation cycles from 6 hours to under 45 minutes across environments' },
+    { key: 'qa_pass_98', outcome: 'achieving 98% end-to-end test pass rates and eliminating manual release verification toil' },
   ],
   frontend: [
-    { scope: 'partnering with UX designers and backend engineers', outcome: 'achieving 98+ Google Lighthouse scores and sub-second first contentful paint (FCP)' },
-    { scope: 'collaborating with design systems and accessibility leads', outcome: 'ensuring 100% WCAG 2.1 AA accessibility compliance across all production views' },
-    { scope: 'partnering with product designers and frontend squads', outcome: 'slashing client-side render latency by 35% and improving core web vitals' },
-    { scope: 'collaborating with UI/UX engineers', outcome: 'accelerating user workflow completion rates by 28% and eliminating layout shifts' },
-  ],
-  backend: [
-    { scope: 'collaborating with distributed platform teams', outcome: 'cutting p99 API response times by 38% and supporting 10k+ concurrent requests' },
-    { scope: 'partnering with backend engineering squads', outcome: 'reducing payload overhead by 45% while maintaining 99.99% service availability' },
-    { scope: 'collaborating with microservices architects', outcome: 'handling 5M+ daily API transactions with zero downtime deployments' },
-    { scope: 'partnering with core infrastructure engineers', outcome: 'slashing service-to-service communication latency by 30% under peak load' },
-  ],
-  database: [
-    { scope: 'partnering with DBA and data platform engineers', outcome: 'reducing complex query execution time from 14s to 850ms via composite indexing' },
-    { scope: 'collaborating with database administrators', outcome: 'optimizing connection pool utilization and eliminating database lock contention' },
-    { scope: 'partnering with data engineering leads', outcome: 'accelerating daily batch processing throughput by 50% across millions of records' },
-    { scope: 'collaborating with platform engineers', outcome: 'reducing storage I/O bottlenecks and cutting query latency by 40%' },
-  ],
-  devops: [
-    { scope: 'partnering with DevOps and platform reliability engineers', outcome: 'cutting CI/CD build-to-deploy pipeline times from 45 to 8 minutes' },
-    { scope: 'collaborating with cloud infrastructure leads', outcome: 'sustaining 99.99% cloud infrastructure availability with zero-downtime rollouts' },
-    { scope: 'partnering with SRE squads', outcome: 'optimizing container compute footprint and slashing cloud infrastructure costs by 28%' },
-    { scope: 'collaborating with platform reliability teams', outcome: 'automating multi-region failover and reducing MTTR by 60%' },
+    { key: 'ui_vel_28', outcome: 'accelerating UI delivery velocity by 28% across responsive layouts' },
+    { key: 'ui_bundle_35', outcome: 'reducing client-side bundle size by 35% and eliminating layout shifts' },
+    { key: 'ui_lh_98', outcome: 'elevating Google Lighthouse accessibility scores to 98/100' },
+    { key: 'ui_flow_22', outcome: 'accelerating core user workflow completion rates by 22%' },
+    { key: 'ui_fcp_sub', outcome: 'optimizing rendering pipelines to deliver consistent sub-second First Contentful Paint (FCP) across devices' },
   ],
   security: [
-    { scope: 'collaborating with InfoSec and compliance teams', outcome: 'eliminating high-severity CVE vulnerabilities and achieving 100% SOC-2 compliance' },
-    { scope: 'partnering with security architects', outcome: 'protecting user identity workflows with zero unauthorized auth boundary breaches' },
-    { scope: 'collaborating with security and release squads', outcome: 'hardening API gateway endpoints and ensuring 100% audit trail compliance' },
+    { key: 'sec_cve_15', outcome: 'eliminating 15+ potential attack vectors and achieving zero auth vulnerabilities' },
+    { key: 'sec_tok_100', outcome: 'protecting enterprise user workflows with 100% token validation compliance' },
+    { key: 'sec_auth_25', outcome: 'hardening API gateways, cutting authorization latency by 25% while blocking unauthorized access attempts' },
+    { key: 'sec_audit_0', outcome: 'ensuring full adherence to enterprise security governance with zero audit findings' },
+  ],
+  database: [
+    { key: 'db_query_42', outcome: 'reducing complex query execution times by 42% via compound indexing' },
+    { key: 'db_lock_35', outcome: 'eliminating database lock contention and reducing I/O wait by 35%' },
+    { key: 'db_lat_50ms', outcome: 'optimizing aggregation pipelines to sustain sub-50ms read latency across 500k+ collection records' },
+    { key: 'db_thru_3x', outcome: 'streamlining data access layers, accelerating data retrieval throughput by 3x during peak transaction windows' },
+  ],
+  data: [
+    { key: 'data_brief_35', outcome: 'delivering executive briefings that accelerated decision-making turnaround by 35%' },
+    { key: 'data_leads_24', outcome: 'identifying high-value customer cohorts to accelerate targeted campaign conversion by 24%' },
+    { key: 'data_hrs_15', outcome: 'saving 15+ analytical hours per week and eliminating manual spreadsheet reconciliation errors' },
+    { key: 'data_ing_50', outcome: 'accelerating daily batch data ingestion throughput by 50%' },
+    { key: 'data_acc_99', outcome: 'achieving 99.9% data reconciliation accuracy across cross-system operational data syncs' },
+    { key: 'data_turn_2h', outcome: 'shortening reporting turnaround from 3 days to under 2 hours for downstream business consumers' },
   ],
   ai: [
-    { scope: 'collaborating with ML researchers and data engineers', outcome: 'reducing retrieval latency by 32% while sustaining 99.2% factual precision' },
-    { scope: 'partnering with AI platform teams', outcome: 'optimizing embedding inference throughput and reducing GPU compute overhead by 30%' },
-    { scope: 'collaborating with ML platform engineers', outcome: 'slashing token generation latency and eliminating context window bottlenecks' },
+    { key: 'ai_ret_sub', outcome: 'achieving sub-second semantic retrieval across enterprise document corpora' },
+    { key: 'ai_inf_30', outcome: 'reducing model inference latency by 30% with automated context caching' },
+    { key: 'ai_prec_92', outcome: 'evaluating LLM providers to achieve 92% retrieval precision while minimizing token compute overhead' },
+    { key: 'ai_tok_40', outcome: 'accelerating token generation throughput by 40% and eliminating context window latency bottlenecks' },
+  ],
+  backend: [
+    { key: 'back_p95_38', outcome: 'reducing endpoint p95 latency by 38% under high concurrency' },
+    { key: 'back_avail_99', outcome: 'sustaining 99.99% service availability with zero-downtime rolling deploys' },
+    { key: 'back_bw_28', outcome: 'optimizing payload serializations, reducing network bandwidth consumption by 28% across microservices' },
+    { key: 'back_qps_4x', outcome: 'decoupling legacy services to scale concurrent request handling capacity from 2,000 to 12,000 req/sec' },
+  ],
+  devops: [
+    { key: 'dev_lead_50', outcome: 'reducing CI/CD build-to-deploy lead time by 50% across environments' },
+    { key: 'dev_avail_99', outcome: 'sustaining 99.99% infrastructure availability with automated rollouts' },
+    { key: 'dev_cost_25', outcome: 'optimizing container compute footprints, achieving a 25% reduction in cloud infrastructure resource overhead' },
+    { key: 'dev_mttr_40', outcome: 'automating multi-region failover, slashing mean time to recovery (MTTR) by 40% during outages' },
+  ],
+  healthcare: [
+    { key: 'hc_wait_25', outcome: 'reducing patient intake wait times by 25%' },
+    { key: 'hc_med_0', outcome: 'maintaining zero medication administration discrepancies across 500+ patient shifts' },
+    { key: 'hc_flow_30m', outcome: 'streamlining clinical shift handovers, cutting documentation overhead by 30 minutes per shift' },
+    { key: 'hc_hipaa_100', outcome: 'ensuring full HIPAA compliance with zero protocol deficiencies' },
+  ],
+  finance: [
+    { key: 'fin_close_4d', outcome: 'accelerating monthly financial close cycles from 10 days to 4 days with zero audit discrepancies' },
+    { key: 'fin_var_18', outcome: 'optimizing operational expenditure variance forecasting, improving budget accuracy by 18%' },
+    { key: 'fin_gaap_100', outcome: 'ensuring 100% GAAP compliance and audit readiness with zero material balance sheet deficiencies' },
+    { key: 'fin_opex_12', outcome: 'identifying 12% operational cost savings across departmental budgets' },
+  ],
+  sales: [
+    { key: 'sales_quota_125', outcome: 'accelerating enterprise sales cycle velocity by 30% and exceeding annual quota by 125%' },
+    { key: 'sales_conv_22', outcome: 'expanding outbound B2B pipeline conversion by 22% through consultative discovery frameworks' },
+    { key: 'sales_arr_2m', outcome: 'closing $2M+ in new annual recurring revenue (ARR)' },
+    { key: 'sales_cycle_35', outcome: 'shortening average deal closing cycles from 90 days to 58 days across enterprise accounts' },
   ],
   general: [
-    { scope: 'partnering with cross-functional engineering squads', outcome: 'cutting delivery turnaround by 35% and elevating system reliability' },
-    { scope: 'collaborating with technical leads and stakeholders', outcome: 'accelerating feature velocity and reducing production bug escalations by 40%' },
-    { scope: 'partnering with product and engineering leads', outcome: 'sustaining 99.9% operational availability and eliminating delivery blockers' },
+    { key: 'gen_vel_25', outcome: 'accelerating sprint release velocity by 25%' },
+    { key: 'gen_toil_10h', outcome: 'streamlining operational workflows to eliminate 10+ hours of weekly manual toil' },
+    { key: 'gen_mttr_32', outcome: 'maintaining high operational reliability and reducing mean time to incident resolution (MTTR) by 32%' },
+    { key: 'gen_uptime_99', outcome: 'sustaining 99.9% uptime across production services' },
   ],
 }
 
@@ -221,129 +399,286 @@ const DOMAIN_METRIC_POOLS = {
  * 5. Business Outcome (clear deliverable impact)
  * Target length: 18–32 words (crisp 1–2 lines)
  */
-export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCurrentRole = false, skills = [], sig = null, company = '', bulletIndex = 0 } = {}) {
+export function buildFivePartPlaybookRewrite(bulletText, {
+  targetRole = '',
+  isCurrentRole = false,
+  skills = [],
+  sig = null,
+  company = '',
+  bulletIndex = 0,
+  usedMetricsSet = new Set(),
+} = {}) {
   if (!bulletText || typeof bulletText !== 'string') return ''
   let clean = bulletText
     .replace(/^[•\-*▪–—·\s]+/, '')
-    .replace(/^(?:action|task|situation|result|challenge|accomplished):\s*/i, '')
     .trim()
 
-  const lowerText = clean.toLowerCase()
+  const lowerRole = (targetRole || '').toLowerCase()
+  const isSoftwareRole = /developer|engineer|software|full\s*stack|backend|frontend|devops|architect|data|programmer|coder/i.test(lowerRole)
+  const isHealthcareRole = /nurse|nursing|clinical|physician|doctor|triage|bedside/i.test(lowerRole) && !isSoftwareRole
+  const isFinanceRole = /finance|financial|fp&a|accounting|accountant|auditor|treasury/i.test(lowerRole) && !isSoftwareRole
+  const isSalesRole = /sales|account\s+exec|quota|pipeline|bdr|sdr|business\s+dev/i.test(lowerRole) && !isSoftwareRole
 
-  // 1. Detect bullet-specific domain from the actual bullet text first (NOT broad targetRole)
-  const isQaBullet = /test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation/i.test(lowerText)
-  const isFrontendBullet = /frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|tailwind|wcag|accessibility|screen reader|dom\b/i.test(lowerText)
-  const isDataBullet = /data|analyst|analytics|bi\b|sql\b|tableau|power\s*bi|snowflake|dbt|etl|query|queries|database/i.test(lowerText)
-  const isAiBullet = /ai\b|machine learning|ml\b|llm|nlp|rag\b|vector|embeddings|pytorch|tensorflow|langchain/i.test(lowerText)
-  const isDevopsBullet = /devops|cloud|sre|platform|infra|kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|ansible/i.test(lowerText)
-  const isSecurityBullet = /security|cyber|soc2|cve|vulnerabilit|jwt|oauth|auth|sanitize/i.test(lowerText)
+  // 1. Check if bullet is CAR structure (Challenge / Action / Result)
+  const actionMatch = clean.match(/Action:\s*([^]+?)(?=\s*Result:|$)/i)
+  const resultMatch = clean.match(/Result:\s*([^]+?)$/i)
+  const challengeMatch = clean.match(/Challenge:\s*([^]+?)(?=\s*Action:|$)/i)
 
-  let domainKey = 'general'
-  let defaultActionVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  const hasCarStructure = Boolean(actionMatch)
+  let actionClause = actionMatch ? actionMatch[1].trim() : clean
+  let resultClause = resultMatch ? resultMatch[1].trim() : ''
+  let challengeClause = challengeMatch ? challengeMatch[1].trim() : ''
 
-  if (isQaBullet) {
-    domainKey = 'qa'
-    defaultActionVerb = isCurrentRole ? 'Automate' : 'Automated'
-  } else if (isFrontendBullet) {
-    domainKey = 'frontend'
-    defaultActionVerb = isCurrentRole ? 'Modernize' : 'Modernized'
-  } else if (isSecurityBullet) {
-    domainKey = 'security'
-    defaultActionVerb = isCurrentRole ? 'Harden' : 'Hardened'
-  } else if (isDevopsBullet) {
-    domainKey = 'devops'
-    defaultActionVerb = isCurrentRole ? 'Orchestrate' : 'Orchestrated'
-  } else if (isDataBullet) {
-    domainKey = 'database'
-    defaultActionVerb = isCurrentRole ? 'Optimize' : 'Optimized'
-  } else if (isAiBullet) {
-    domainKey = 'ai'
-    defaultActionVerb = isCurrentRole ? 'Deploy' : 'Deployed'
-  } else if (/api|service|microservice|backend|system|pipeline|infrastructure/i.test(lowerText)) {
-    domainKey = 'backend'
-    defaultActionVerb = isCurrentRole ? 'Architect' : 'Architected'
-  }
+  // Clean trailing punctuation
+  actionClause = actionClause.replace(/[.,;:\s]+$/, '').trim()
+  resultClause = resultClause.replace(/[.,;:\s]+$/, '').trim()
 
-  // 2. Clean verb stripping: remove compound verbal phrases, weak openers, and opening verbs cleanly
-  let coreTask = clean
-    // Strip compound phrases like "Automate and testing of...", "Design and develop...", "Built and deployed..."
-    .replace(/^(?:automate(?:d)?|design(?:ed)?|build|built|develop(?:ed)?|engineer(?:ed)?|test(?:ed)?|maintain(?:ed)?|implement(?:ed)?)\s+and\s+(?:testing|developing|building|deploying|maintaining|designing|implementing)\s+(?:of\s+)?/i, '')
-    // Strip weak/passive openers
-    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled|collaborated with|partnered with)\s+(?:the\s+)?/i, '')
-    // Strip common single opening verbs
-    .replace(/^(?:drove|driven|driving|led|leading|spearheaded|spearheading|engineered|engineering|architected|architecting|developed|developing|designed|designing|built|building|automated|automating|tested|testing|created|creating|optimized|optimizing|implemented|implementing|configured|configuring|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|modernized|modernizing)\s+(?:the\s+)?/i, '')
-    .trim()
+  // 2. Check if bullet is already quantified
+  const alreadyQuantified = isTrueQuantified(clean) || isTrueQuantified(resultClause) || isTrueQuantified(actionClause)
 
-  // Remove trailing boilerplate suffixes
-  coreTask = coreTask.replace(/,?\s*by establishing decoupled microservice boundaries and resilient caching(?:,\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime)?\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*enhancing operational throughput,\s*reducing execution latency,\s*and ensuring continuous production uptime\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*by implementing automated DevSecOps vulnerability scanning.*?compliance across release pipelines\.?/gi, '')
-  coreTask = coreTask.replace(/,?\s*using\s+[^,.]+\s+for\s+scalable\s+(?:transformation|analytical)\s+[^.]+\.?/gi, '')
-  coreTask = coreTask.replace(/[.,;:\s]+$/, '').trim()
+  // 3. Verb extraction and normalization from action clause
+  let coreAction = actionClause.trim()
 
-  // Remove any remaining opening verb if present
-  const firstWord = coreTask.split(/\s+/)[0] || ''
-  const knownActionVerbs = new Set([
-    'automate', 'automated', 'automating',
-    'engineer', 'engineered', 'engineering',
-    'architect', 'architected', 'architecting',
-    'develop', 'developed', 'developing',
-    'design', 'designed', 'designing',
-    'implement', 'implemented', 'implementing',
-    'test', 'tested', 'testing',
-    'maintain', 'maintained', 'maintaining',
-    'create', 'created', 'creating',
-    'optimize', 'optimized', 'optimizing',
-    'lead', 'led', 'leading',
-    'manage', 'managed', 'managing',
-    'conduct', 'conducted', 'conducting',
-    'perform', 'performed', 'performing',
-    'execute', 'executed', 'executing',
-    'configure', 'configured', 'configuring',
-    'coordinate', 'coordinated', 'coordinating',
-    'direct', 'directed', 'directing',
-    'spearhead', 'spearheaded', 'spearheading',
-    'deploy', 'deployed', 'deploying',
-    'modernize', 'modernized', 'modernizing',
-    'drive', 'drove', 'driving',
-    'integrate', 'integrated', 'integrating',
-  ])
-  if (knownActionVerbs.has(firstWord.toLowerCase()) || /^[a-zA-Z]+ing$/i.test(firstWord)) {
-    coreTask = coreTask.replace(/^[A-Za-z]+\s+/i, '').trim()
-  }
-
-  // Strip prepositions left at start
-  coreTask = coreTask.replace(/^(?:and|of|the|to|for|in|on|with|across)\s+/i, '').trim()
-
-  if (coreTask.length > 0) {
-    coreTask = coreTask.charAt(0).toLowerCase() + coreTask.slice(1)
-  }
-
-  // 3. Resolve Skills & Tools (Part 2)
-  let skillPhrase = ''
-  const skillList = Array.isArray(skills) ? skills.filter(Boolean) : []
-  if (skillList.length > 0) {
-    const topSkills = skillList.slice(0, 2).join(' and ')
-    if (!new RegExp(`\\b${topSkills.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(coreTask)) {
-      skillPhrase = ` using ${topSkills}`
+  // Handle: "Collaborated with <group> using <tools> to <verb> <rest>" -> "<VerbPast> <rest> using <tools> in collaboration with <group>"
+  const collabUsingMatch = coreAction.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+using\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+([^]+)$/i)
+  if (collabUsingMatch) {
+    const [, partners, tool, verb, rest] = collabUsingMatch
+    const pastVerb = toPastTense(verb)
+    coreAction = `${pastVerb} ${rest.trim()} using ${tool.trim()} in collaboration with ${partners.trim()}`
+  } else {
+    // Handle: "Collaborated with <group> to <verb> <rest>" -> "<VerbPast> <rest> in collaboration with <group>"
+    const collabToMatch = coreAction.match(/^(?:collaborated with|collaborating with|partnered with|partnering with)\s+([^,]+?)\s+to\s+([a-zA-Z]+)\s+([^]+)$/i)
+    if (collabToMatch) {
+      const [, partners, verb, rest] = collabToMatch
+      const pastVerb = toPastTense(verb)
+      coreAction = `${pastVerb} ${rest.trim()} in close partnership with ${partners.trim()}`
     }
   }
 
-  // 4. Resolve Dynamic Non-Repeating Metric Outcome (Parts 3, 4, 5)
-  const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
-  let hash = 0
-  for (let i = 0; i < clean.length; i++) {
-    hash = (hash * 31 + clean.charCodeAt(i)) >>> 0
+  // Handle: "Wrote Python/bash scripts to automate <task>" -> "Automated <task> using Python scripts"
+  const wroteScriptMatch = coreAction.match(/^(?:wrote|developed|created)\s+([a-zA-Z0-9\/\s]+scripts?)\s+to\s+automate\s+([^]+)$/i)
+  if (wroteScriptMatch) {
+    const [, scriptTool, task] = wroteScriptMatch
+    coreAction = `Automated ${task.trim()} utilizing ${scriptTool.trim()}`
   }
-  const variantIndex = (hash + (bulletIndex || 0)) % pool.length
-  const variant = pool[variantIndex]
 
-  const collabScope = variant.scope
-  const metricAndOutcome = variant.outcome
+  // Handle: "Built and maintained MERN stack..." or "Designed and developed..."
+  coreAction = coreAction
+    .replace(/^(?:built and maintained|designed and developed|built and deployed|developed and enhanced|engineered and deployed|automated and tested)\s+/i, (m) => {
+      const first = m.split(/\s+/)[0]
+      return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase() + ' '
+    })
+    .replace(/^(?:drove\s+automated\s+testing|drove\s+testing)\s*,?\s*/i, 'Automated ')
+    .replace(/^(?:responsible for|was responsible for|tasked with|worked on|working on|helped with|helped to|assisted in|assisted with|participated in|supported|contributed to|utilized|using|managed to|handled)\s+(?:the\s+)?/i, '')
+    .trim()
 
-  let result = `${defaultActionVerb} ${coreTask}${skillPhrase} ${collabScope}, ${metricAndOutcome}.`
-  result = result.replace(/\s{2,}/g, ' ').replace(/\.+$/, '.').trim()
-  return cleanRewriteText(result)
+  // Detect existing leading verb if strong
+  const firstWordMatch = coreAction.match(/^([A-Za-z]+)\b/)
+  const rawFirstWord = firstWordMatch ? firstWordMatch[1] : ''
+  const lowerFirst = rawFirstWord.toLowerCase()
+
+  const strongActionVerbs = new Map([
+    ['architected', 'Architected'], ['architect', 'Architect'],
+    ['engineered', 'Engineered'], ['engineer', 'Engineer'],
+    ['automated', 'Automated'], ['automate', 'Automate'],
+    ['built', 'Built'], ['build', 'Build'],
+    ['developed', 'Developed'], ['develop', 'Develop'],
+    ['designed', 'Designed'], ['design', 'Design'],
+    ['implemented', 'Implemented'], ['implement', 'Implement'],
+    ['optimized', 'Optimized'], ['optimize', 'Optimize'],
+    ['modernized', 'Modernized'], ['modernize', 'Modernize'],
+    ['spearheaded', 'Spearheaded'], ['spearhead', 'Spearhead'],
+    ['orchestrated', 'Orchestrated'], ['orchestrate', 'Orchestrate'],
+    ['hardened', 'Hardened'], ['harden', 'Harden'],
+    ['secured', 'Secured'], ['secure', 'Secure'],
+    ['prototyped', 'Prototyped'], ['prototype', 'Prototype'],
+    ['remediated', 'Remediated'], ['remediate', 'Remediate'],
+    ['redesigned', 'Redesigned'], ['redesign', 'Redesign'],
+    ['migrated', 'Migrated'], ['migrate', 'Migrate'],
+    ['integrated', 'Integrated'], ['integrate', 'Integrate'],
+    ['deployed', 'Deployed'], ['deploy', 'Deploy'],
+    ['synthesized', 'Synthesized'], ['synthesize', 'Synthesize'],
+    ['standardized', 'Standardized'], ['standardize', 'Standardize'],
+    ['coordinated', 'Coordinated'], ['coordinate', 'Coordinate'],
+    ['accelerated', 'Accelerated'], ['accelerate', 'Accelerate'],
+    ['delivered', 'Delivered'], ['deliver', 'Deliver'],
+    ['applied', 'Applied'], ['apply', 'Applied'],
+    ['led', 'Led'], ['lead', 'Lead'],
+    ['ran', 'Ran'], ['run', 'Run'],
+    ['drove', 'Drove'], ['drive', 'Drive'],
+    ['wrote', 'Wrote'], ['write', 'Write'],
+    ['made', 'Made'], ['make', 'Make'],
+    ['sent', 'Sent'], ['send', 'Send'],
+    ['held', 'Held'], ['hold', 'Hold'],
+    ['kept', 'Kept'], ['keep', 'Keep'],
+    ['sold', 'Sold'], ['sell', 'Sell'],
+    ['paid', 'Paid'], ['pay', 'Pay'],
+    ['met', 'Met'], ['meet', 'Meet'],
+    ['read', 'Read'],
+    ['grew', 'Grew'], ['grow', 'Grow'],
+    ['taught', 'Taught'], ['teach', 'Teach'],
+    ['brought', 'Brought'], ['bring', 'Bring'],
+    ['found', 'Found'], ['find', 'Find'],
+    ['set', 'Set'],
+    ['translated', 'Translated'], ['translate', 'Translate'],
+    ['validated', 'Validated'], ['validate', 'Validate'],
+    ['analyzed', 'Analyzed'], ['analyze', 'Analyze'],
+    ['answered', 'Synthesized'], ['answer', 'Synthesize'],
+    ['answering', 'Synthesized'],
+    ['handled', 'Resolved'], ['handle', 'Resolve'],
+    ['handling', 'Resolved'],
+    ['addressed', 'Remediated'], ['address', 'Remediate'],
+    ['gathered', 'Synthesized'], ['gather', 'Synthesize'],
+    ['tracked', 'Monitored'], ['track', 'Monitor'],
+    ['wrote', 'Automated'],
+    ['drove', 'Automated'],
+  ])
+
+  const isDataRole = /data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(lowerRole) && !/software|developer|swe|sde/i.test(lowerRole)
+
+  // Determine domainKey
+  const lowerText = clean.toLowerCase()
+  let domainKey = 'general'
+
+  if (isHealthcareRole) {
+    domainKey = 'healthcare'
+  } else if (isFinanceRole) {
+    domainKey = 'finance'
+  } else if (isSalesRole) {
+    domainKey = 'sales'
+  } else if (isDataRole) {
+    domainKey = 'data'
+  } else if (/test|jasmine|karma|jest|cypress|selenium|playwright|junit|pytest|cucumber|qa\b|automation|tdd\b|root\s*cause/i.test(lowerText)) {
+    domainKey = 'qa'
+  } else if (/security|spring security|jwt|csrf|auth|oauth|rbac|vulnerabilit|cve|encryption|sanitize|xss/i.test(lowerText)) {
+    domainKey = 'security'
+  } else if (/frontend|front-end|ui\b|ux\b|react|vue|angular|component|css|html|figma|zeplin|bootstrap|tailwind|wcag|accessibility|screen reader|wireframe|dom\b/i.test(lowerText)) {
+    domainKey = 'frontend'
+  } else if (/database|mongodb|postgres|nosql|indexing|aggregation|schema|store|table/i.test(lowerText) && !/python.*script/i.test(lowerText)) {
+    domainKey = 'database'
+  } else if (/python|script|automate data|migration|etl|pipeline|reporting|dbt|snowflake|tableau|analytics|sql\b|query|queries/i.test(lowerText)) {
+    domainKey = 'data'
+  } else if (/ai\b|machine learning|ml\b|llm|nlp|rag\b|spring ai|embeddings|vector|prompt/i.test(lowerText)) {
+    domainKey = 'ai'
+  } else if (/kubernetes|docker|terraform|ci\/cd|aws|gcp|azure|devops|sre/i.test(lowerText)) {
+    domainKey = 'devops'
+  } else if (/api|service|microservice|backend|spring boot|express|node|rest|cms|monolith/i.test(lowerText)) {
+    domainKey = 'backend'
+  }
+
+  // Determine leading verb
+  let leadingVerb = ''
+  let remainingAction = coreAction
+
+  // If coreAction starts with answered / handling / weak verbs, map them cleanly
+  if (lowerFirst === 'answered' || lowerFirst === 'answering' || lowerFirst === 'answer') {
+    leadingVerb = isCurrentRole ? 'Synthesize' : 'Synthesized'
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else if (lowerFirst === 'handled' || lowerFirst === 'handling' || lowerFirst === 'handle') {
+    leadingVerb = isCurrentRole ? 'Resolve' : 'Resolved'
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else if (strongActionVerbs.has(lowerFirst) || /^[A-Za-z]+ed\b/.test(coreAction)) {
+    leadingVerb = strongActionVerbs.get(lowerFirst) || (rawFirstWord.charAt(0).toUpperCase() + rawFirstWord.slice(1).toLowerCase())
+    if (isCurrentRole) {
+      leadingVerb = toPresentTense(leadingVerb)
+    } else {
+      leadingVerb = toPastTense(leadingVerb)
+    }
+    remainingAction = coreAction.slice(rawFirstWord.length).trim()
+  } else {
+    // Pick default by domain
+    if (domainKey === 'qa') leadingVerb = isCurrentRole ? 'Automate' : 'Automated'
+    else if (domainKey === 'security') leadingVerb = isCurrentRole ? 'Harden' : 'Hardened'
+    else if (domainKey === 'frontend') leadingVerb = isCurrentRole ? 'Modernize' : 'Modernized'
+    else if (domainKey === 'database') leadingVerb = isCurrentRole ? 'Optimize' : 'Optimized'
+    else if (domainKey === 'data') leadingVerb = isCurrentRole ? 'Automate' : 'Automated'
+    else if (domainKey === 'ai') leadingVerb = isCurrentRole ? 'Deploy' : 'Deployed'
+    else if (domainKey === 'backend') leadingVerb = isCurrentRole ? 'Architect' : 'Architected'
+    else if (domainKey === 'healthcare') leadingVerb = isCurrentRole ? 'Coordinate' : 'Coordinated'
+    else if (domainKey === 'finance') leadingVerb = isCurrentRole ? 'Standardize' : 'Standardized'
+    else if (domainKey === 'sales') leadingVerb = isCurrentRole ? 'Accelerate' : 'Accelerated'
+    else leadingVerb = isCurrentRole ? 'Engineer' : 'Engineered'
+  }
+
+  // Strip repeated verb or participle from remainingAction to avoid double verbs:
+  // e.g. "Automated automated testing", "Hardened secured", "Modernized applied", "Engineered ran"
+  remainingAction = remainingAction
+    .replace(/^(?:automated|automating|drove|driven|driving|secured|securing|applied|applying|redesigned|redesigning|prototyped|prototyping|built|building|developed|developing|engineered|engineering|architected|architecting|tested|testing|implemented|implementing|maintained|maintaining|conducted|conducting|performed|performing|executed|executing|wrote|writing|answered|answering|handled|handling|addressed|addressing|gathered|gathering|tracked|tracking|monitored|monitoring|analyzed|analyzing|served|serving|provided|providing|ran|running|run|led|leading|lead|made|making|sent|sending|held|holding|kept|keeping|sold|selling|met|meeting|grew|growing|taught|teaching|brought|bringing|found|finding)\s+/i, '')
+    .trim()
+
+  // Clean specific phrase remnants
+  remainingAction = remainingAction
+    .replace(/^integration testing,\s*and\s+/i, 'unit and integration testing with ')
+    .replace(/^(?:and|of|the|to|for|in|on|with|across)\s+/i, '')
+    .trim()
+
+  // If first character is lowercase, adjust, preserving acronyms and proper tech nouns
+  if (remainingAction.length > 0) {
+    if (!/^[A-Z]{2,}\b/.test(remainingAction) && !/^(?:Spring|React|Angular|Vue|Python|Java|Node|MongoDB|SQL|AWS|Docker|Kubernetes|Bootstrap|PostgreSQL|TypeScript|JavaScript|Jest|Karma|Jasmine|Zeplin|D3|MERN|EHR|Epic|HIPAA|GAAP|SAP|REST|QA|UI|UX|API|CMS)\b/i.test(remainingAction)) {
+      remainingAction = remainingAction.charAt(0).toLowerCase() + remainingAction.slice(1)
+    }
+  }
+
+  // Case A: PRESERVE EXISTING METRIC if already quantified
+  if (alreadyQuantified) {
+    if (hasCarStructure && resultClause) {
+      // Check if challenge had scale e.g. 100,000+ bank employees
+      let challengeContext = ''
+      const challengeScale = challengeClause.match(/\b\d+(?:,\d{3})*\+?\s*(?:bank employees|employees|users|clients|customers|transactions)\b/i)
+      if (challengeScale && !new RegExp(challengeScale[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(remainingAction)) {
+        challengeContext = ` serving ${challengeScale[0]}`
+      }
+
+      // Convert resultClause to gerund if needed
+      let formattedResult = resultClause
+        .replace(/^Achieved\s+/i, 'achieving ')
+        .replace(/^Delivered\s+/i, 'delivering ')
+        .replace(/^Reduced\s+/i, 'reducing ')
+        .replace(/^Cut\s+/i, 'cutting ')
+        .replace(/^Improved\s+/i, 'improving ')
+        .replace(/^Enabled\s+/i, 'enabling ')
+        .replace(/^Strengthened\s+/i, 'strengthening ')
+        .replace(/^Produced\s+/i, 'producing ')
+        .replace(/^Supported\s+/i, 'supporting ')
+        .replace(/^Streamlined\s+/i, 'streamlining ')
+        .replace(/^Speeding\s+up\s+/i, 'accelerating ')
+
+      if (/^[A-Z]/.test(formattedResult)) {
+        formattedResult = formattedResult.charAt(0).toLowerCase() + formattedResult.slice(1)
+      }
+
+      let res = `${leadingVerb} ${remainingAction}${challengeContext}, ${formattedResult}.`
+      return cleanRewriteText(res)
+    } else {
+      // Standard quantified bullet without CAR
+      let res = `${leadingVerb} ${remainingAction}.`
+      return cleanRewriteText(res)
+    }
+  }
+
+  // Case B: UNQUANTIFIED BULLET -> Calibrate unique context-matched metric
+  // If remainingAction ends with an unquantified trailing outcome clause (e.g. ", identifying high-value leads and driving targeted engagement strategies")
+  // strip that unquantified clause so we replace it with the calibrated outcome rather than appending a duplicate outcome
+  const trailingOutcomeMatch = remainingAction.match(/,\s*(?:identifying|driving|enabling|resulting in|improving|reducing|cutting|delivering|ensuring|increasing|supporting|streamlining|accelerating|saving)\b.*$/i)
+  if (trailingOutcomeMatch) {
+    remainingAction = remainingAction.slice(0, trailingOutcomeMatch.index).trim()
+  }
+
+  const pool = DOMAIN_METRIC_POOLS[domainKey] || DOMAIN_METRIC_POOLS.general
+  let selectedVariant = null
+  for (const v of pool) {
+    if (!usedMetricsSet.has(v.key)) {
+      selectedVariant = v
+      break
+    }
+  }
+  if (!selectedVariant) {
+    selectedVariant = pool[bulletIndex % pool.length]
+  }
+  usedMetricsSet.add(selectedVariant.key)
+
+  let res = `${leadingVerb} ${remainingAction}, ${selectedVariant.outcome}.`
+  return cleanRewriteText(res)
 }
 
 /**
@@ -351,7 +686,7 @@ export function buildFivePartPlaybookRewrite(bulletText, { targetRole = '', isCu
  * Normalizes opening gerund participles (-ing) into direct action verbs and
  * ensures every IMPROVE or FIX bullet has a concrete ready-to-copy rewrite.
  */
-export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, targetRole = '') {
+export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, targetRole = '', usedMetricsSet = new Set()) {
   if (!bulletText) return null
   let clean = bulletText
     .replace(/^[•\-*▪–—\s]+/, '')
@@ -368,12 +703,12 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   let matchedOpener = false
 
-  // Special case: "Analyze complex business questions..." or weak/present-tense opening verbs
-  if (/^analyze\s+complex\s+business\s+questions\b/i.test(clean)) {
+  // Special case: "Analyze complex business questions..." or "Answered complex business questions..."
+  if (/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions\b/i.test(clean)) {
     if (isCurrentRole) {
-      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Translate complex business questions into SQL-backed executive briefings')
+      clean = clean.replace(/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Translate complex business questions into SQL-backed executive briefings')
     } else {
-      clean = clean.replace(/^analyze\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Synthesized complex business questions with SQL and delivered executive briefings')
+      clean = clean.replace(/^(?:analyze|analyzed|answered?|answering)\s+complex\s+business\s+questions(?:\s+with\s+sql)?\b/i, 'Synthesized complex business questions with SQL and delivered executive briefings')
     }
     matchedOpener = true
   } else if (!isCurrentRole && /^analyze\b/i.test(clean)) {
@@ -515,13 +850,9 @@ export function generateDeterministicRewrite(bulletText, sig, isCurrentRole, tar
 
   const hasArchitecturalMechanism = /\bby\s+(?:architecting|engineering|transitioning|developing|implementing|establishing|building|automating|optimizing|orchestrating|designing|deploying|adopting|utilizing)\b/i.test(clean)
 
-  // If the rewrite is a lazy suffix append or lacks a real metric/mechanism, build a complete 5-Part Playbook Rewrite
+  // If the rewrite is a lazy suffix append or lacks a real metric/mechanism, use applyLightVerbFix instead of patching canned playbook text
   if (isLazySuffixAppend(clean, originalClean) || (!hasRealMetric && !hasArchitecturalMechanism)) {
-    return buildFivePartPlaybookRewrite(originalClean, {
-      targetRole,
-      isCurrentRole,
-      sig,
-    })
+    return applyLightVerbFix(originalClean, sig, isCurrentRole)
   }
 
   // 5. Clean punctuation and whitespace
@@ -601,6 +932,11 @@ export function computeScorecard({
   targetJobDescription = '',
   targetRole = '',
   marketProfile = null,
+  rawResumeText: passedRawResumeText = '',
+  state = null,
+  parsedDoc = null,
+  userAnswers = null,
+  answers = null,
 }) {
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
   const strengths = Array.isArray(analysis?.strengths) ? analysis.strengths.filter(Boolean) : []
@@ -750,9 +1086,46 @@ export function computeScorecard({
 
   // ── 5. Section-by-Section /10 Audit (Video-Style Playbook Framework) ─────
   const contact = canonicalResume?.candidate?.contact || {}
-  const hasEmail = Boolean(contact.email || canonicalResume?.candidate?.email || precomputedSignals?.contactMerge?.emailDetected)
-  const hasPhone = Boolean(contact.phone || canonicalResume?.candidate?.phone || precomputedSignals?.contactMerge?.phoneDetected)
-  const hasLinkedin = Boolean(contact.linkedin || canonicalResume?.candidate?.linkedin || precomputedSignals?.contactMerge?.urlDetected)
+  const effectiveAnswers = userAnswers || answers || state?.answers || {}
+  const rawResumeText = passedRawResumeText ||
+                        canonicalResume?.rawText ||
+                        canonicalResume?.text ||
+                        canonicalResume?.metadata?.rawTextPreview ||
+                        precomputedSignals?.rawText ||
+                        state?.resumeText ||
+                        parsedDoc?.rawText ||
+                        parsedDoc?.text ||
+                        ''
+
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+  const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10,12}\b/
+  const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
+
+  const hasEmail = Boolean(contact.email && contact.email !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.email && canonicalResume.candidate.email !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.contact?.email && canonicalResume.candidate.contact.email !== 'N/A') ||
+                   Boolean(precomputedSignals?.contactMerge?.emailDetected) ||
+                   Boolean(rawResumeText && emailRegex.test(rawResumeText)) ||
+                   Boolean(effectiveAnswers?.email && emailRegex.test(effectiveAnswers.email)) ||
+                   Boolean(state?.candidateEmail && emailRegex.test(state.candidateEmail))
+
+  const hasPhone = Boolean(contact.phone && contact.phone !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.phone && canonicalResume.candidate.phone !== 'N/A') ||
+                   Boolean(canonicalResume?.candidate?.contact?.phone && canonicalResume.candidate.contact.phone !== 'N/A') ||
+                   Boolean(precomputedSignals?.contactMerge?.phoneDetected) ||
+                   Boolean(rawResumeText && (extractCleanPhoneNumber(rawResumeText) || phoneRegex.test(rawResumeText))) ||
+                   Boolean(effectiveAnswers?.phone && (extractCleanPhoneNumber(effectiveAnswers.phone) || phoneRegex.test(effectiveAnswers.phone))) ||
+                   Boolean(state?.candidatePhone && (extractCleanPhoneNumber(state.candidatePhone) || phoneRegex.test(state.candidatePhone)))
+
+  const hasLinkedin = Boolean(contact.linkedin) ||
+                      Boolean(canonicalResume?.candidate?.linkedin) ||
+                      Boolean(canonicalResume?.candidate?.contact?.linkedin) ||
+                      Boolean(precomputedSignals?.contactMerge?.urlDetected) ||
+                      Boolean(rawResumeText && linkedinRegex.test(rawResumeText)) ||
+                      Boolean(effectiveAnswers?.linkedin && linkedinRegex.test(effectiveAnswers.linkedin)) ||
+                      Boolean(effectiveAnswers?.linkedinUrl && linkedinRegex.test(effectiveAnswers.linkedinUrl)) ||
+                      Boolean(state?.linkedinUrl && linkedinRegex.test(state.linkedinUrl))
+
   const hasNonUsPersonal = Boolean(flags.photoPresent || flags.maritalStatusPresent || flags.dobPresent || flags.fullAddressPresent)
 
   // 1. Header & Contact Parsing (/10)
@@ -763,7 +1136,9 @@ export function computeScorecard({
   if (hasNonUsPersonal) headerScore -= 3
   const headerScore10 = clamp(headerScore, 1, 10)
   const headerStatus = headerScore10 >= 9 ? 'pass' : headerScore10 >= 6 ? 'warn' : 'fail'
-  const headerHurting = contactMerge.isContactMerged
+  const headerHurting = headerScore10 >= 9
+    ? null
+    : contactMerge.isContactMerged
     ? 'Extracted contact details merged into summary text, creating ATS parsing hazards for phone and LinkedIn links.'
     : (!hasEmail || !hasPhone)
     ? 'Missing direct email or phone number in contact header, preventing recruiter outreach.'
@@ -802,9 +1177,14 @@ export function computeScorecard({
 
   // 3. Experience Bullets & Quantified Impact (/10)
   const allExpBullets = bulletAudit.length > 0 ? bulletAudit : []
-  const realQuantifiedCount = allExpBullets.filter((b) => isTrueQuantified(b.text || b.originalText || '')).length
+  const realQuantifiedCount = allExpBullets.filter((b) => b.hasQuantifier === true || isTrueQuantified(b.text || b.originalText || '')).length
   const expTotalBullets = allExpBullets.length > 0 ? allExpBullets.length : (quant.totalBullets || 1)
   const realDensity = expTotalBullets > 0 ? realQuantifiedCount / expTotalBullets : 0
+  const effectiveQuant = {
+    totalBullets: expTotalBullets,
+    quantifiedBullets: realQuantifiedCount,
+    density: realDensity,
+  }
 
   let rawExpScore10 = Math.round(scores.impact / 10)
   let expStatus = 'pass'
@@ -863,19 +1243,23 @@ export function computeScorecard({
     ? 'Trim older roles or secondary bullets to fit cleanly on exactly 1 page.'
     : 'Keep bullet points between 15-28 words with standard clean margins and standard single-column headers.'
 
+  const headerAuditObj = {
+    score10: headerScore10,
+    status: headerStatus,
+    label: 'Header & Contact Parsing',
+    name: 'Header & Contact Parsing',
+    whatsHurting: headerHurting,
+    hurtingReason: headerHurting,
+    requiredImprovement: headerImprovement,
+  }
+
   const sectionAudit = {
-    headerAndContact: {
-      score10: headerScore10,
-      status: headerStatus,
-      label: 'Header & Contact Parsing',
-      whatsHurting: headerHurting,
-      hurtingReason: headerHurting,
-      requiredImprovement: headerImprovement,
-    },
+    headerAndContact: headerAuditObj,
     summary: {
       score10: summaryScore10,
       status: summaryStatus,
       label: 'Professional Summary',
+      name: 'Professional Summary',
       whatsHurting: summaryHurting,
       hurtingReason: summaryHurting,
       requiredImprovement: summaryImprovement,
@@ -884,6 +1268,7 @@ export function computeScorecard({
       score10: expScore10,
       status: expStatus,
       label: 'Experience Bullets & Quantified Impact',
+      name: 'Work Experience & Bullets',
       whatsHurting: expHurting,
       hurtingReason: expHurting,
       requiredImprovement: expImprovement,
@@ -892,6 +1277,7 @@ export function computeScorecard({
       score10: skillsScore10,
       status: skillsStatus,
       label: 'Skills & Market Keyword Alignment',
+      name: 'Technical Skills Architecture',
       whatsHurting: skillsHurting,
       hurtingReason: skillsHurting,
       requiredImprovement: skillsImprovement,
@@ -900,6 +1286,7 @@ export function computeScorecard({
       score10: formattingScore10,
       status: formattingStatus,
       label: 'Formatting, Length & ATS Safety',
+      name: 'Document Layout & ATS Formatting',
       whatsHurting: formattingHurting,
       hurtingReason: formattingHurting,
       requiredImprovement: formattingImprovement,
@@ -916,6 +1303,8 @@ export function computeScorecard({
     grades,
     dimensions: grades, // alias for backwards compatibility
     sectionAudit,
+    quantification: effectiveQuant,
+    bulletStats: effectiveQuant,
     checks,
     checklist: checks, // alias for backwards compatibility
     bulletAudit,
@@ -1181,7 +1570,7 @@ function buildChecks({
  * Builds the per-bullet audit: every experience/project bullet gets a status,
  * a one-line reason, and the before→after rewrite when an issue cites it.
  */
-function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [], targetRole = '' }) {
+export function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBulletRewrites = [], targetRole = '' }) {
   const roleTarget =
     targetRole ||
     analysis?.candidateSnapshot?.targetRole ||
@@ -1200,35 +1589,55 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
     })
   }
 
-  // 1. Build lookup map upgradeByBullet keyed by bulletId
+  // 1. Build lookup map upgradeByBullet keyed by bulletId and trimmed text
   const upgradeByBullet = new Map()
   if (Array.isArray(analysis?.bulletUpgrades)) {
     analysis.bulletUpgrades.forEach((upg) => {
       if (upg?.bulletId) upgradeByBullet.set(upg.bulletId, upg)
-      else if (upg?.id) upgradeByBullet.set(upg.id, upg)
+      if (upg?.id) upgradeByBullet.set(upg.id, upg)
+      if (upg?.originalText) upgradeByBullet.set(upg.originalText.trim(), upg)
+      if (upg?.text) upgradeByBullet.set(upg.text.trim(), upg)
     })
   }
 
-  // 1b. Build lookup map evalByBullet keyed by bulletId
+  // 1b. Build lookup map evalByBullet keyed by bulletId and trimmed text
   const evalByBullet = new Map()
   if (Array.isArray(analysis?.bulletEvaluations)) {
     analysis.bulletEvaluations.forEach((ev) => {
       if (ev?.bulletId) evalByBullet.set(ev.bulletId, ev)
+      if (ev?.id) evalByBullet.set(ev.id, ev)
+      if (ev?.originalText) evalByBullet.set(ev.originalText.trim(), ev)
+      if (ev?.text) evalByBullet.set(ev.text.trim(), ev)
     })
   }
 
   const issues = Array.isArray(analysis?.issues) ? analysis.issues.filter(Boolean) : []
 
-  // Map bulletId → worst issue affecting it
+  // Map bulletId and text → worst issue affecting it
   const sevRank = { high: 3, medium: 2, low: 1 }
   const issueByBullet = new Map()
   for (const issue of issues) {
     const evList = Array.isArray(issue.evidence) ? issue.evidence : [issue.evidence].filter(Boolean)
     for (const ev of evList) {
-      if (!ev?.bulletId) continue
-      const existing = issueByBullet.get(ev.bulletId)
+      if (ev?.bulletId) {
+        const existing = issueByBullet.get(ev.bulletId)
+        if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
+          issueByBullet.set(ev.bulletId, issue)
+        }
+      }
+      const evText = (ev?.originalText || ev?.text || '').trim()
+      if (evText) {
+        const existing = issueByBullet.get(evText)
+        if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
+          issueByBullet.set(evText, issue)
+        }
+      }
+    }
+    if (issue.originalText) {
+      const ot = issue.originalText.trim()
+      const existing = issueByBullet.get(ot)
       if (!existing || (sevRank[issue.severity] || 0) > (sevRank[existing.severity] || 0)) {
-        issueByBullet.set(ev.bulletId, issue)
+        issueByBullet.set(ot, issue)
       }
     }
   }
@@ -1236,9 +1645,12 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
   const signalByBullet = new Map()
   for (const sig of bulletSignalsList || []) {
     if (sig?.bulletId) signalByBullet.set(sig.bulletId, sig)
+    if (sig?.text) signalByBullet.set(sig.text.trim(), sig)
+    if (sig?.originalText) signalByBullet.set(sig.originalText.trim(), sig)
   }
 
   const audit = []
+  const usedMetricsSet = new Set()
   const isDateLike = (s) => !s || /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{4})/i.test(s.trim())
   const rawExperiences =
     canonicalResume?.experiences ||
@@ -1276,20 +1688,32 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         if (!bText) continue
         const bId = (typeof rawB === 'object' && rawB?.id) ? rawB.id : `${section.key}_${itemIndex}_b${bIdx}`
         const b = { id: bId, text: bText }
-        const sig = signalByBullet.get(b.id)
-        const issue = issueByBullet.get(b.id)
-        const upgrade = upgradeByBullet.get(b.id)
+        const sig = signalByBullet.get(b.id) || signalByBullet.get(b.text.trim())
+        const issue = issueByBullet.get(b.id) || issueByBullet.get(b.text.trim())
+        const upgrade = upgradeByBullet.get(b.id) || upgradeByBullet.get(b.text.trim())
         const llmMatch = llmRewriteMap.get(b.id) || llmRewriteMap.get(b.text.trim())
+
+        const bEval = evalByBullet.get(b.id) || evalByBullet.get(b.text.trim())
+        const isEvalHurting = Boolean(bEval && (bEval.verdict === 'hurting' || (Array.isArray(bEval.missingElements) && bEval.missingElements.length > 0)))
 
         let status = 'pass'
         let reason = 'Clear, specific, no defects found'
         let quickPolishNote = null
         let rewrite = null
+        let whyItWorks = null
 
-        if (llmMatch) {
-          rewrite = llmMatch.rewritten || llmMatch.rewrittenText || llmMatch.rewrite || null
+        if (upgrade) {
+          rewrite = upgrade.rewrittenText || null
+          reason = upgrade.reason || upgrade.critique || null
+          whyItWorks = upgrade.whyItWorks || null
+          if (upgrade.status) status = upgrade.status
+        } else if (llmMatch) {
+          rewrite = llmMatch.rewrittenText || llmMatch.rewritten || llmMatch.rewrite || null
           if (llmMatch.critique || llmMatch.reason) {
             reason = llmMatch.critique || llmMatch.reason
+          }
+          if (llmMatch.whyItWorks) {
+            whyItWorks = llmMatch.whyItWorks
           }
         }
 
@@ -1300,43 +1724,41 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         if (issue) {
           status = issue.severity === 'low' ? 'warn' : 'fix'
           reason = issue.title || issue.diagnosis || 'Flagged by analysis'
-          rewrite = issue.correctedText || null
+          if (issue.correctedText) rewrite = issue.correctedText
+          if (issue.whyItMatters) whyItWorks = issue.whyItMatters
         } else if (upgrade) {
           status = upgrade.status || 'warn'
-          reason = upgrade.reason || 'Bullet upgraded for stronger recruiter signal'
-          rewrite = upgrade.rewrittenText || null
+          reason = upgrade.reason || upgrade.critique || 'Bullet upgraded for stronger recruiter signal'
+          rewrite = upgrade.rewrittenText || rewrite
+        } else if (isEvalHurting) {
+          status = 'warn'
+          const evalCritique = bEval?.critique || (bEval?.missingElements?.length ? `Lacks ${bEval.missingElements.slice(0, 2).join(' and ')} required for senior recruiter scan` : null)
+          reason = evalCritique || 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
         } else if (hasWeakOpener) {
           status = 'warn'
           reason = `Opens with weak/supporting phrasing ('${sig?.weakVerbMatch || 'weak verb'}') — start with a strong ownership action verb (e.g., Architected, Engineered, Spearheaded)`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.tenseIssue === 'gerund_opening') {
           const targetVerb = normalizeGerundVerb(sig.openingWord, isCurrentRole)
           quickPolishNote = `Change '${sig.openingWord}' to '${targetVerb}' for direct action tense`
           if (isAccomplished) {
             status = 'pass'
             reason = 'Strong accomplishment with verified outcomes'
-            rewrite = null
           } else {
             status = 'warn'
             reason = `Starts with an '-ing' participle ('${sig.openingWord}') — recommend ${isCurrentRole ? 'present-tense verb' : 'past-tense verb'} for direct action tense`
-            rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
           }
         } else if (sig?.tenseIssue === 'wrong_tense') {
           status = 'warn'
           reason = `Past role uses present-tense verb ('${sig.openingWord}') — switch to past tense for completed roles`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.repetitiveVerbIssue) {
           status = 'warn'
           reason = `Repeats opening verb '${sig.openingWord}' (used ${sig.openingVerbCount}x) — vary your action verbs to keep each bullet distinct`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.buzzwordIssue) {
           status = 'warn'
           reason = `Contains generic/AI-sounding buzzword ('${sig.buzzwordMatch}') — replace with plain, authentic human phrasing`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (sig?.isToolDumpCandidate) {
           status = 'warn'
           reason = 'Lists multiple technologies without demonstrating the concrete system built or delivered'
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else if (lacksOutcome) {
           status = 'warn'
           const opener = sig?.openingWord || 'Bullet'
@@ -1344,42 +1766,26 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           const cleanItemName = typeof itemName === 'string' ? itemName.split('|')[0].trim() : String(itemName || '')
           const locationPhrase = section.key === 'projects' ? `in your ${cleanItemName} project` : `at ${cleanItemName}`
           reason = `'${opener}'${techMention} describes the technical task ${locationPhrase} but omits the business result — add measurable impact`
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
         } else {
           status = 'pass'
           reason = 'Clear, specific, no defects found'
-          rewrite = null
-        }
-
-        // Fallback to legacy llmMatch if no rewrite and no quickPolishNote
-        if (!rewrite && !quickPolishNote && llmRewriteMap.has(b.id)) {
-          rewrite = llmRewriteMap.get(b.id)?.rewrittenText || null
-        }
-
-        // Safety guarantee: EVERY bullet marked 'warn' or 'fix' MUST have a non-null rewrite!
-        if ((status === 'warn' || status === 'fix') && !rewrite) {
-          rewrite = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
-        }
-
-        if (rewrite) {
-          rewrite = sanitizeSingleAddPlaceholder(rewrite)
-          if (isCurrentRole) {
-            const m = rewrite.match(/^([•\-*▪–—\s]*)([A-Za-z]+)\b(.*)$/s)
-            if (m) {
-              const prefix = m[1]
-              const firstWord = m[2]
-              const rest = m[3]
-              const presentWord = toPresentTense(firstWord)
-              if (presentWord && presentWord.toLowerCase() !== firstWord.toLowerCase()) {
-                rewrite = `${prefix}${presentWord}${rest}`
-              }
-            }
+          if (!llmMatch && !upgrade) {
+            rewrite = null
           }
         }
 
         let cleanImproved = rewrite ? cleanRewriteText(rewrite) : null
+        // Reject 1-word verb swaps or identical rewrites
+        if (cleanImproved && isWordForWordIdentical(cleanImproved, b.text, 0.85)) {
+          if (upgrade?.rewrittenText && !isWordForWordIdentical(upgrade.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(upgrade.rewrittenText)
+          } else if (llmMatch?.rewrittenText && !isWordForWordIdentical(llmMatch.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(llmMatch.rewrittenText)
+          } else {
+            cleanImproved = null
+          }
+        }
 
-        const bEval = evalByBullet.get(b.id)
         let verdict
         let fivePartFlags
         let isResponsibilityOnly
@@ -1413,17 +1819,71 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           verdict = (status === 'pass' && !hasWeakOpener && (hasMetric || hasOutcome)) ? 'helping' : 'hurting'
         }
 
-        if (verdict === 'hurting' && !cleanImproved) {
-          const fallbackRw = generateDeterministicRewrite(b.text, sig, isCurrentRole, roleTarget)
-          cleanImproved = fallbackRw ? cleanRewriteText(fallbackRw) : null
+        if (verdict === 'hurting' || isEvalHurting || status !== 'pass') {
+          verdict = 'hurting'
+          if (status === 'pass') {
+            status = 'warn'
+          }
+          if (!reason || reason === 'Clear, specific, no defects found' || /clear,\s*specific,\s*no defects found/i.test(reason)) {
+            const evalCritique = bEval?.critique || upgrade?.critique || llmMatch?.critique
+            if (evalCritique && !/no defects found/i.test(evalCritique)) {
+              reason = evalCritique
+            } else if (bEval?.missingElements?.length) {
+              reason = `Lacks ${bEval.missingElements.slice(0, 2).join(' and ')} required for senior recruiter scan.`
+            } else {
+              const missing = []
+              if (!fivePartFlags.metric) missing.push('quantified business metrics')
+              if (!fivePartFlags.outcome) missing.push('measurable business outcome')
+              if (!fivePartFlags.actionVerb) missing.push('an active ownership verb')
+              if (!fivePartFlags.hardSkill) missing.push('concrete technical tooling')
+
+              if (missing.length > 0) {
+                reason = `Lacks ${missing.slice(0, 2).join(' and ')} required to demonstrate senior analytical/engineering ownership.`
+              } else {
+                reason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+              }
+            }
+          }
+          if (!cleanImproved && upgrade?.rewrittenText && !isWordForWordIdentical(upgrade.rewrittenText, b.text, 0.85)) {
+            cleanImproved = cleanRewriteText(upgrade.rewrittenText)
+          }
+          if (!cleanImproved) {
+            const fallbackRw = buildFivePartPlaybookRewrite(b.text, { targetRole: roleTarget, isCurrentRole, usedMetricsSet, bulletIndex: bIdx })
+            if (fallbackRw && !isWordForWordIdentical(fallbackRw, b.text, 0.85)) {
+              cleanImproved = cleanRewriteText(fallbackRw)
+            }
+          }
+        }
+
+        if (cleanImproved && isWordForWordIdentical(cleanImproved, b.text, 0.85)) {
+          cleanImproved = null
         }
 
         const finalWhyItWorks =
+          whyItWorks ||
           llmMatch?.whyItWorks ||
           llmMatch?.why ||
           upgrade?.whyItWorks ||
           upgrade?.why ||
           synthesizeWhyItWorks(b.text, cleanImproved)
+
+        const rawMetricOpps = llmMatch?.metricOpportunities || upgrade?.metricOpportunities || issue?.metricOpportunities || []
+        const metricOpportunities = Array.isArray(rawMetricOpps) && rawMetricOpps.length > 0
+          ? normalizeMetricOpportunities(rawMetricOpps)
+          : generateFallbackMetricOpportunities(b.text, roleTarget)
+
+        const isOrigQuant = isTrueQuantified(b.text) || Boolean(sig?.hasQuantifier)
+        const isRwQuant = cleanImproved ? isTrueQuantified(cleanImproved) : false
+        const metricSource = isOrigQuant ? 'resume_verified' : (isRwQuant ? 'ai_calibrated' : null)
+
+        // Final assertion: If verdict === 'hurting' or status !== 'pass', reason and critique MUST NEVER be 'Clear, specific, no defects found'
+        let finalReason = reason
+        if (verdict === 'hurting' || status !== 'pass') {
+          if (status === 'pass') status = 'warn'
+          if (!finalReason || /clear,\s*specific,\s*no defects found/i.test(finalReason)) {
+            finalReason = 'Omits measurable business impact and technical scale needed for senior recruiter scan.'
+          }
+        }
 
         audit.push({
           bulletId: b.id,
@@ -1432,8 +1892,8 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           text: b.text,
           original: b.text,
           status,
-          reason: balanceParentheses(reason),
-          critique: balanceParentheses(reason),
+          reason: balanceParentheses(finalReason),
+          critique: balanceParentheses(finalReason),
           whyItWorks: finalWhyItWorks,
           why: finalWhyItWorks,
           guidance: lacksOutcome ? 'Consider adding a quantified percentage or business impact metric if verifiable.' : null,
@@ -1441,6 +1901,10 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
           rewrite: cleanImproved,
           rewritten: cleanImproved,
           improved: cleanImproved,
+          hasQuantifier: isOrigQuant,
+          isQuantified: isOrigQuant,
+          metricSource,
+          metricOpportunities,
           issueId: issue?.id || null,
           category: issue?.category || null,
           verdict,
@@ -1460,6 +1924,10 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
       const cleanRw = cleanRewriteText(rw.rewritten || rw.rewrite || rw.rewrittenText || orig)
       const isPass = rw.status === 'pass' || rw.severity === 'PASS'
       const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(orig, cleanRw)
+      const rawMetricOpps = rw.metricOpportunities || rw.discoveryOpportunities || []
+      const metricOpportunities = Array.isArray(rawMetricOpps) && rawMetricOpps.length > 0
+        ? normalizeMetricOpportunities(rawMetricOpps)
+        : generateFallbackMetricOpportunities(orig, roleTarget)
       audit.push({
         bulletId: rw.bulletId || rw.id || `llm_b_${idx}`,
         section: 'experience',
@@ -1474,6 +1942,7 @@ function buildBulletAudit({ analysis, canonicalResume, bulletSignalsList, llmBul
         rewrite: cleanRw,
         rewritten: cleanRw,
         improved: cleanRw,
+        metricOpportunities,
         verdict: isPass ? 'helping' : 'hurting',
         fivePartFlags: rw.fiveParts || rw.fivePartFlags || {
           actionVerb: true,

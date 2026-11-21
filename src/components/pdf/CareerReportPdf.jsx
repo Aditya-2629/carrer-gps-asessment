@@ -66,6 +66,27 @@ function formatNum(num) {
   return n.toLocaleString('en-US')
 }
 
+function isTrueQuantifiedPdf(text) {
+  if (!text || typeof text !== 'string') return false
+  const clean = text
+    .replace(/\b(?:react|angular|vue|python|d3|node|es|oauth|jwt|html|css|java|ecma|c\+\+|c#|dot net|\.net)\.?\s*\d+(?:\.\d+)?\b/gi, '')
+    .replace(/\bv\d+(?:\.\d+)?\b/gi, '')
+    .replace(/\b(?:19|20)\d{2}\b/g, '')
+
+  if (/\d+(?:\.\d+)?%/.test(clean)) return true
+  if (/\b\d+(?:\.\d+)?[xX]\b/.test(clean)) return true
+  if (/(?:(?:[\$€£₹]|(?:Rs\.?|INR|CAD|AUD)\s*)\s*[\d,]+(?:\.\d+)?(?:\s*[kmb]\b|\s*million|\s*billion|\s*lakhs?|\s*crores?)?|\b[\d,]+(?:\.\d+)?\s*(?:lakhs?|crores?)\s*(?:INR|Rs\.?)?\b)/i.test(clean)) return true
+  if (/\b\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:ms|milliseconds?|seconds?|sec|mins?|minutes?|hours?|hrs?|days?|weeks?|months?)\b/i.test(clean)) return true
+  if (/\b\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?)\s*(?:to|–|-)\s*(?:under\s+)?\d+\s*(?:hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)\b/i.test(clean)) return true
+  if (/\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:k|m|million|billion)\+?/i.test(clean)) return true
+  if (/\b\d+(?:,\d{3})*\+?(?:-(?:person|member|engineer|developer|query|model|tool|node|cluster|pipeline|report|server|table))?\s*(?:users|qps|rps|tps|events|requests|records|rows|bank employees|employees|clients|customers|patients|queries|reports|dashboards|features|releases|deployments|transactions|microservices|services|endpoints|tables|models|cves|vulnerabilities|tickets|bugs|defects|test cases|builds|pipelines|nodes|clusters|servers|containers|pods|members|engineers|developers|analysts|people|beds|team|accounts|leads|subscribers)\b/i.test(clean)) return true
+  if (/\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts|members))\b/i.test(clean)) return true
+  if (/\b\d{2,}\+?\s+(?:production|enterprise|distributed|active|concurrent|client|bed)\b/i.test(clean)) return true
+  if (/\bwcag\s*(?:2\.[012]|2\s*aa)\b/i.test(clean)) return true
+
+  return false
+}
+
 /**
  * Computes polygon points for regular 6-axis radar charts.
  */
@@ -443,8 +464,8 @@ const styles = StyleSheet.create({
 export default function CareerReportPdf({ reportData = {} }) {
   // Candidate & Target Role Identification
   const candidateName = safeStr(
-    reportData?.resume_agent?.candidateSnapshot?.name ||
     reportData?.resume_json?.candidate?.name ||
+    reportData?.resume_agent?.candidateSnapshot?.name ||
     reportData?.resume_json?.candidate_name ||
     reportData?.user_answers?.name,
     'Candidate'
@@ -579,28 +600,63 @@ export default function CareerReportPdf({ reportData = {} }) {
   const resumeDashboard = resumeAgent.dashboard || {}
   const canonicalResume = reportData?.resume_json || resumeAgent.canonicalResume || {}
 
-  const baseSectionAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || {
-    summary: { name: 'Professional Summary', score10: 7, status: 'warn', hurtingReason: 'Generic summary lacking target role keyword anchoring and hard proof metrics.', requiredImprovement: 'Open with exact target title and core technical specializations.' },
-    experience: { name: 'Work Experience & Bullets', score10: 5, status: 'warn', hurtingReason: 'Bullets focus on passive responsibilities rather than quantified outcomes.', requiredImprovement: 'Quantify impact using Accomplished [X] measured by [Y] by doing [Z].' },
-    skills: { name: 'Technical Skills Architecture', score10: 8, status: 'pass', hurtingReason: null, requiredImprovement: 'Group technical tools into categoric clusters.' },
-    layout: { name: 'Document Layout & ATS Formatting', score10: 9, status: 'pass', hurtingReason: null, requiredImprovement: 'Maintain clean single-column structure with standard ATS section headings.' },
-    atsDensity: { name: 'ATS Keyword Density & Indexing', score10: 7, status: 'warn', hurtingReason: 'Core target keywords appear in skills list only, not validated within experience bullets.', requiredImprovement: 'Weave missing domain keywords directly into role achievement bullet points.' },
+  const rawAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || reportData?.resume_agent?.sectionAudit || null
+  const bulletAuditList = (Array.isArray(resumeDashboard?.bulletAudit) && resumeDashboard.bulletAudit.length > 0)
+    ? resumeDashboard.bulletAudit
+    : (Array.isArray(reportData?.bullet_rewrites) ? reportData.bullet_rewrites : [])
+  const totalExpCount = resumeDashboard?.quantification?.totalBullets ||
+                        resumeDashboard?.bulletStats?.totalBullets ||
+                        resumeAgent?.quantification?.totalBullets ||
+                        bulletAuditList.length ||
+                        (Array.isArray(canonicalResume?.experiences)
+                          ? canonicalResume.experiences.reduce((sum, e) => sum + (e.bullets?.length || 0), 0)
+                          : 0)
+  const quantCount = resumeDashboard?.quantification?.quantifiedBullets ??
+                     resumeDashboard?.bulletStats?.quantifiedBullets ??
+                     resumeAgent?.quantification?.quantifiedBullets ??
+                     bulletAuditList.filter((b) => b.hasQuantifier || b.status === 'pass' || isTrueQuantifiedPdf(b.text || b.originalText || b.original || '')).length
+
+  let resumeSectionAudit = {}
+  if (rawAudit && typeof rawAudit === 'object' && Object.keys(rawAudit).length > 0) {
+    resumeSectionAudit = JSON.parse(JSON.stringify(rawAudit))
+  } else {
+    const expDensity = totalExpCount > 0 ? quantCount / totalExpCount : 0
+    resumeSectionAudit = {
+      headerAndContact: { name: 'Header & Contact Parsing', score10: 10, status: 'pass', hurtingReason: null, requiredImprovement: 'Format contact info as a clean single line at the top: Name | Location | Phone | Email | LinkedIn.' },
+      summary: { name: 'Professional Summary', score10: 7, status: 'warn', hurtingReason: 'Generic summary lacking target role keyword anchoring and hard proof metrics.', requiredImprovement: 'Open with exact target title and core technical specializations.' },
+      experience: {
+        name: 'Work Experience & Bullets',
+        score10: expDensity >= 0.5 ? 9 : expDensity > 0 ? 7 : 5,
+        status: expDensity >= 0.5 ? 'pass' : 'warn',
+        hurtingReason: expDensity >= 0.5
+          ? null
+          : expDensity === 0
+          ? `0 of ${totalExpCount} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+          : `Only ${quantCount} of ${totalExpCount} bullets (${Math.round(expDensity * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`,
+        requiredImprovement: 'Quantify impact using Accomplished [X] measured by [Y] by doing [Z].'
+      },
+      skills: { name: 'Technical Skills Architecture', score10: 8, status: 'pass', hurtingReason: null, requiredImprovement: 'Group technical tools into categoric clusters.' },
+      formatting: { name: 'Document Layout & ATS Formatting', score10: 9, status: 'pass', hurtingReason: null, requiredImprovement: 'Maintain clean single-column structure with standard ATS section headings.' },
+    }
   }
 
-  const resumeSectionAudit = JSON.parse(JSON.stringify(baseSectionAudit))
-  // Enforce hard deterministic rubric ceiling on experience:
-  const quantCount = resumeDashboard?.quantification?.quantifiedBullets ?? resumeAgent?.quantification?.quantifiedBullets ?? (reportData?.unquantified_count ? 0 : 0)
-  const totalExpCount = resumeDashboard?.quantification?.totalBullets ?? resumeAgent?.quantification?.totalBullets ?? 27
-  if (resumeSectionAudit?.experience) {
-    if (quantCount === 0 || totalExpCount === 0) {
+  // Ensure experience numbers are dynamically synchronized with real counts:
+  if (resumeSectionAudit?.experience && totalExpCount > 0) {
+    const expDensity = quantCount / totalExpCount
+    if (quantCount === 0) {
       resumeSectionAudit.experience.score10 = Math.min(resumeSectionAudit.experience.score10 || 5, 5)
       resumeSectionAudit.experience.status = 'warn'
-      if (!resumeSectionAudit.experience.hurtingReason || !resumeSectionAudit.experience.hurtingReason.includes('0 of')) {
-        resumeSectionAudit.experience.hurtingReason = `0 of ${totalExpCount} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
-      }
-    } else if (quantCount < totalExpCount * 0.5) {
+      resumeSectionAudit.experience.hurtingReason = `0 of ${totalExpCount} bullets (0%) contain measurable metrics. Without quantified outcomes (% or $ scale), recruiters cannot verify your engineering impact.`
+    } else if (expDensity < 0.5) {
       resumeSectionAudit.experience.score10 = Math.min(resumeSectionAudit.experience.score10 || 7, 7)
       resumeSectionAudit.experience.status = 'warn'
+      if (!resumeSectionAudit.experience.hurtingReason || resumeSectionAudit.experience.hurtingReason.includes('0 of')) {
+        resumeSectionAudit.experience.hurtingReason = `Only ${quantCount} of ${totalExpCount} bullets (${Math.round(expDensity * 100)}%) contain measurable metrics, falling below the 50% recruiter benchmark.`
+      }
+    } else {
+      if ((resumeSectionAudit.experience.score10 || 0) < 8) resumeSectionAudit.experience.score10 = 9
+      resumeSectionAudit.experience.status = 'pass'
+      resumeSectionAudit.experience.hurtingReason = null
     }
   }
 
@@ -609,7 +665,7 @@ export default function CareerReportPdf({ reportData = {} }) {
   const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
     .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
     .filter(Boolean)
-  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'modern full-stack systems and scalable cloud infrastructure'
+  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'enterprise architecture and cloud technologies'
 
   const rawRewrittenSummary = summaryOpt.rewrittenSummary || summaryOpt.executiveSummaryRewrite || reportData?.summary_rewrite || ''
   const isGenericSummary = !rawRewrittenSummary ||
@@ -677,6 +733,20 @@ export default function CareerReportPdf({ reportData = {} }) {
     if (!rewritten || typeof rewritten !== 'string' || !rewritten.trim()) continue
 
     const original = b.original || b.bullet || b.originalText || b.text || ''
+    if (original && rewritten) {
+      const cleanOrig = original.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').toLowerCase()
+      const cleanRw = rewritten.trim().replace(/^[•\-*▪–—·\s]+/, '').replace(/[.!?]+$/, '').toLowerCase()
+      if (cleanOrig === cleanRw) continue
+      const origWords = cleanOrig.split(/\s+/)
+      const rwWords = cleanRw.split(/\s+/)
+      if (origWords.length === rwWords.length && origWords.length > 3) {
+        let sameCount = 0
+        for (let i = 1; i < origWords.length; i++) {
+          if (origWords[i] === rwWords[i]) sameCount++
+        }
+        if (sameCount / (origWords.length - 1) >= 0.85) continue
+      }
+    }
     const bulletId = b.bulletId || b.id || (original ? original.slice(0, 45).toLowerCase().replace(/\s+/g, ' ') : null)
     if (!bulletId) continue
 
@@ -687,6 +757,9 @@ export default function CareerReportPdf({ reportData = {} }) {
         rewritten: rewritten.trim(),
         whyItWorks: b.whyItWorks || b.why || b.reason || b.critique || 'Restructures bullet into verified Google XYZ format: Action + Technical Mechanism + Measurable Impact.',
         critique: b.critique || b.issue || b.reason || null,
+        metricOpportunities: Array.isArray(b.metricOpportunities) ? b.metricOpportunities : [],
+        evidenceStatus: b.evidenceStatus || null,
+        confirmedMetric: b.confirmedMetric || null,
       })
     }
   }
@@ -1353,7 +1426,9 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View style={styles.card} wrap={false}>
-          {Object.entries(resumeSectionAudit).map(([secKey, secVal]) => {
+          {Object.entries(resumeSectionAudit)
+            .filter(([secKey]) => secKey !== 'header' || !resumeSectionAudit.headerAndContact)
+            .map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
             const isCrit = score < 6
             const isWarn = score >= 6 && score < 8
@@ -1512,7 +1587,19 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
                   Bullet Rewrite #{idx + 1}
                 </Text>
-                <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
+                <View style={{ flexDirection: 'row', gap: 3 }}>
+                  {b.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
+                    <Text style={[styles.tagPass, { backgroundColor: '#DCFCE7', color: '#15803D' }]}>
+                      CONFIRMED METRIC
+                    </Text>
+                  )}
+                  {b.evidenceStatus === 'CALCULATED' && (
+                    <Text style={[styles.tagPass, { backgroundColor: '#EEF2FF', color: '#4338CA' }]}>
+                      CALCULATED IMPACT
+                    </Text>
+                  )}
+                  <Text style={styles.tagNeutral}>GOOGLE XYZ SYNTAX</Text>
+                </View>
               </View>
 
               <View style={styles.grid2}>

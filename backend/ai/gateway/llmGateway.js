@@ -16,6 +16,7 @@ import { LLMCache, llmCache } from '../cache/llmCache.js'
 import { llmQueue } from '../queue/llmQueue.js'
 import { liteLlmRouter } from './liteLlmRouter.js'
 import { costTracker } from '../../utils/costTracker.js'
+import { jsonrepair } from 'jsonrepair'
 
 // Production fallback chain in priority order:
 // 1. Primary: OpenRouter (100% SLA, multi-model task routing)
@@ -37,13 +38,18 @@ export const TRAP_MODELS = new Set([
 export const TASK_MODEL_ROUTING = {
   jd_extraction: 'google/gemini-2.5-flash-lite',
   fast_catch: 'google/gemini-2.5-flash-lite',
-  resume_synthesis: 'google/gemini-2.5-flash-lite',
-  bullet_rewrites: 'google/gemini-2.5-flash-lite',
-  linkedin_synthesis: 'google/gemini-2.5-flash-lite',
-  thought_leadership: 'google/gemini-2.5-flash-lite',
-  report_generation: 'google/gemini-2.5-flash-lite',
+  resume_synthesis: 'google/gemini-3.5-flash',
+  bullet_rewrites: 'openai/gpt-oss-120b',
+  bullet_batch_rewrite: 'openai/gpt-oss-120b',
+  bullet_repetition_repair: 'openai/gpt-oss-120b',
+  bullet_batch_weave: 'google/gemini-3.5-flash-lite',
+  linkedin_synthesis: 'google/gemini-3.5-flash-lite',
+  thought_leadership: 'google/gemini-3.5-flash-lite',
+  report_generation: 'google/gemini-3.5-flash-lite',
   judge_gate: 'google/gemini-2.5-flash-lite',
-  unified_synthesis: 'google/gemini-2.5-flash-lite',
+  unified_synthesis: 'google/gemini-3.5-flash-lite',
+  action_plan_generation: 'openai/gpt-oss-120b',
+  dynamic_action_plan: 'openai/gpt-oss-120b',
   jev_decision: 'typesafe/jev-1.14',
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
@@ -52,9 +58,11 @@ export const TASK_MODEL_ROUTING = {
 
 export const PROVIDER_MODEL_FALLBACKS = {
   openrouter: [
+    'google/gemini-3.5-flash-lite',
     'google/gemini-2.5-flash-lite',
-    'deepseek/deepseek-v3.2',
+    'google/gemini-3.5-flash',
     'meta-llama/llama-3.3-70b-instruct',
+    'deepseek/deepseek-v3.2',
   ],
   groq: [
     'openai/gpt-oss-120b', // ONLY active model for Groq
@@ -171,19 +179,17 @@ export class LLMGateway {
     if (allowFallback) {
       if (purpose === 'bullet_batch_weave') {
         modelsToTry = Array.from(new Set([
-          requestedModelId || 'google/gemini-2.5-flash-lite',
-          'google/gemini-2.5-flash-lite',
+          requestedModelId || 'google/gemini-3.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'google/gemini-3-flash-preview',
           'openai/gpt-oss-120b',
+          'google/gemini-2.5-flash-lite',
+          'google/gemini-3.5-flash',
         ].filter(Boolean)))
       } else if ((purpose === 'career_chatbot' || purpose === 'market_jd_analysis') && !model && !task) {
         modelsToTry = [
-          'google/gemini-2.5-flash-lite',
           'google/gemini-3.5-flash-lite',
-          'google/gemini-3-flash-preview',
-          'google/gemini-2.5-flash',
           'openai/gpt-oss-120b',
+          'deepseek/deepseek-chat',
         ]
       } else {
         const chain = new Set()
@@ -389,14 +395,15 @@ export class LLMGateway {
 
         // Cost & Token Tracking
         try {
-          costTracker.trackLLM({
-            reqId: reqId || runId || span.requestId,
+          costTracker.trackLlmCall({
+            reqId: runId || reqId || costTracker.getActiveRunId() || span.requestId,
+            runId: runId || costTracker.getActiveRunId() || null,
             stage: stage || task || purpose || 'LLM_GENERATION',
             provider: providerKey,
             model: result.actualModel || currentModelId,
             promptTokens: result.tokens?.prompt || 0,
             completionTokens: result.tokens?.completion || 0,
-            directCost: result.tokens?.cost || result.usage?.cost || null,
+            directCost: result.tokens?.cost ?? result.usage?.cost ?? null,
           })
         } catch (_costErr) {
           // Graceful handling: never break generation
@@ -407,6 +414,59 @@ export class LLMGateway {
           const outerFenced = finalText.trim().match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
           if (outerFenced) {
             finalText = outerFenced[1].trim()
+          }
+        }
+
+        // Validate JSON if responseFormat is json_object or requested as JSON
+        if (isJsonFormat && typeof finalText === 'string') {
+          let isValidJson = false
+          try {
+            JSON.parse(finalText)
+            isValidJson = true
+          } catch {
+            try {
+              let stripped = finalText.trim()
+              const codeBlockMatch = stripped.match(/```(?:json)?\s*([\s\S]*?)\s*```/i)
+              if (codeBlockMatch && codeBlockMatch[1]) {
+                stripped = codeBlockMatch[1].trim()
+              }
+              JSON.parse(jsonrepair(stripped))
+              isValidJson = true
+            } catch {
+              isValidJson = false
+            }
+          }
+
+          if (!isValidJson && i < modelsToTry.length - 1 && allowFallback) {
+            span.finish({
+              success: false,
+              error: { code: PROVIDER_ERROR_CODES.INVALID_JSON, message: 'Provider returned invalid or unparseable JSON' },
+            })
+            console.warn(
+              `[LLMGateway] Invalid JSON response on ${currentModelId} (${providerKey}). Escalating to fallback candidate: ${modelsToTry[i + 1]}`
+            )
+            lastError = new ProviderError({
+              code: PROVIDER_ERROR_CODES.INVALID_JSON,
+              message: `[${currentModelId}] output could not be parsed as valid JSON: ${(finalText || '').slice(0, 100)}...`,
+              provider: providerKey,
+              model: currentModelId,
+              statusCode: 500,
+              isRetryable: true,
+            })
+            // Fast-failover: if OpenRouter returned invalid JSON, escalate Groq to next attempt
+            if (providerKey === 'openrouter') {
+              const altIdx = modelsToTry.findIndex((m, idx) => {
+                if (idx <= i) return false
+                const meta = getModel(m)
+                return meta && meta.provider === 'groq' && liteLlmRouter.isProviderAvailable('groq').isAvailable
+              })
+              if (altIdx > i + 1) {
+                const [groqModel] = modelsToTry.splice(altIdx, 1)
+                modelsToTry.splice(i + 1, 0, groqModel)
+                console.warn(`[LLMGateway] Fast-failover: Escalated Groq (${groqModel}) to next position after invalid JSON from OpenRouter.`)
+              }
+            }
+            continue
           }
         }
 
@@ -445,17 +505,35 @@ export class LLMGateway {
         // Production Fallback check: fallback for transient retryable conditions OR model 404 when remaining candidates exist
         const isRetryable =
           err.isRetryable ||
-          [402, 408, 413, 429, 500, 502, 503].includes(err.statusCode) ||
+          (typeof err.statusCode === 'number' && err.statusCode >= 500 && err.statusCode < 600) ||
+          [402, 408, 413, 429].includes(err.statusCode) ||
           (err.statusCode === 404 && i < modelsToTry.length - 1) ||
           (err.code === PROVIDER_ERROR_CODES.MODEL_NOT_FOUND && i < modelsToTry.length - 1) ||
           err.code === PROVIDER_ERROR_CODES.RATE_LIMIT ||
           err.code === PROVIDER_ERROR_CODES.TIMEOUT ||
           err.code === PROVIDER_ERROR_CODES.EMPTY_CONTENT ||
           err.code === PROVIDER_ERROR_CODES.SERVICE_UNAVAILABLE ||
-          err.code === 'SERVICE_UNAVAILABLE'
+          err.code === PROVIDER_ERROR_CODES.INVALID_JSON ||
+          err.code === 'INVALID_JSON_RESPONSE' ||
+          err.code === 'SERVICE_UNAVAILABLE' ||
+          /timeout|aborted|rate limit|quota|5\d\d|invalid json/i.test(err.message || '')
 
         if (!isRetryable || i === modelsToTry.length - 1) {
           throw err
+        }
+
+        // Fast-failover: if OpenRouter encountered timeout, 429, 5xx, or network failure, escalate Groq to next attempt
+        if (providerKey === 'openrouter') {
+          const altIdx = modelsToTry.findIndex((m, idx) => {
+            if (idx <= i) return false
+            const meta = getModel(m)
+            return meta && meta.provider === 'groq' && liteLlmRouter.isProviderAvailable('groq').isAvailable
+          })
+          if (altIdx > i + 1) {
+            const [groqModel] = modelsToTry.splice(altIdx, 1)
+            modelsToTry.splice(i + 1, 0, groqModel)
+            console.warn(`[LLMGateway] Fast-failover: Escalated Groq (${groqModel}) to next position ahead of remaining OpenRouter models.`)
+          }
         }
 
         console.warn(

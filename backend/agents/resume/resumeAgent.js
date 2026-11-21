@@ -8,7 +8,7 @@
 
 import { DocumentParser } from '../../services/documentParser/index.js'
 import { DeterministicChunker, ContextBudgetExceededError } from './chunking/deterministicChunker.js'
-import { ResumeNormalizer } from './resumeAgent.normalizer.js'
+import { ResumeNormalizer, extractCleanPhoneNumber } from './resumeAgent.normalizer.js'
 import { ResumeAgentPrompt, PROMPT_VERSION as V2_PROMPT_VERSION } from './resumeAgent.prompt.js'
 import { ResumeAgentValidator } from './resumeAgent.validator.js'
 import { llmGateway } from '../../ai/gateway/llmGateway.js'
@@ -20,6 +20,7 @@ import {
 } from './resumeAgent.inputSerializer.js'
 import { generateResumeSignals } from './signals/signalEngine.js'
 import { computePrecomputedSignals } from './signals/precomputedSignals.js'
+import { analyzeTimeline } from './signals/timelineAnalyzer.js'
 import { PROMPT_VERSION } from './resumeAgent.prompt.js'
 
 // ── V3 Pipeline Modules ───────────────────────────────────────────────────────
@@ -46,7 +47,7 @@ import { analyzeEvidence, filterGroundedObservations } from './analyzers/evidenc
 import { buildSynthesisMessages, SYNTHESIS_PROMPT_VERSION } from './synthesis/resumeSynthesis.js'
 import { validateAllRewrites } from './validation/rewriteValidator.js'
 import { detectUnsupportedAssumptions } from './validation/assumptionValidator.js'
-import { validateClaims, buildSourceFactTokens } from './validation/claimValidator.js'
+import { validateClaims, buildSourceFactTokens, replaceUnverifiedNumericTokens } from './validation/claimValidator.js'
 import { validateRecommendations } from './validation/recommendationValidator.js'
 import { classifyAllEvidence, resolveEvidenceConsistency } from './classification/index.js'
 import { formatCompactSignalSummary } from './signals/signalEngine.js'
@@ -57,6 +58,7 @@ import { getMarketDataForBucket } from './market/marketJdRetriever.js'
 import { evaluateMarketEvidence, isMarketLanguageSafe } from './market/marketEvidence.js'
 import { setMarketContext } from './state/resumeState.js'
 import { computeScorecard } from './scoring/resumeScorecard.js'
+import { validateResumeContent, ResumeValidationError } from './validation/resumeContentValidator.js'
 import { RESUME_AGENT } from '../core/agentContract.js'
 import { runAgentLifecycle } from '../core/BaseAgent.js'
 import { generateStructured } from '../core/structuredOutput.js'
@@ -68,15 +70,48 @@ import { runOrchestratedSynthesis } from './orchestration/orchestrationRunner.js
 // is traceable to exact prompt text via hash.
 registerPrompt('resume-synthesis', SYNTHESIS_PROMPT_VERSION, SYNTHESIS_SYSTEM_PROMPT)
 
-/**
- * Strips unverified numeric tokens (numbers, percentages, currencies) not present
- * in sourceTokens and replaces them with [ADD: measurable metric], keeping 100% of the
- * LLM's rewritten sentence structure intact.
- */
-export function replaceUnverifiedNumericTokens(correctedText, sourceTokens, canonicalResume) {
-  if (!correctedText || typeof correctedText !== 'string') return correctedText
-  // 5-Part Playbook Formula: Preserve role-calibrated metrics in correctedText; never inject [ADD: ...]
-  return correctedText
+export { replaceUnverifiedNumericTokens, ResumeValidationError }
+
+function reVerifyCanonicalContact(canonicalResume, rawTextToSearch = '') {
+  if (!canonicalResume) return
+  if (!canonicalResume.candidate) canonicalResume.candidate = {}
+  if (!canonicalResume.candidate.contact) canonicalResume.candidate.contact = {}
+  const cand = canonicalResume.candidate
+  const cont = canonicalResume.candidate.contact
+
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+  const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,5}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,5}|\b\d{10,12}\b/
+  const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
+
+  if (rawTextToSearch) {
+    if (!cont.email || cont.email === 'N/A' || !cand.email || cand.email === 'N/A') {
+      const emailMatch = rawTextToSearch.match(emailRegex)
+      if (emailMatch) {
+        cont.email = cont.email && cont.email !== 'N/A' ? cont.email : emailMatch[0].trim()
+        cand.email = cand.email && cand.email !== 'N/A' ? cand.email : emailMatch[0].trim()
+      }
+    }
+    if (!cont.phone || cont.phone === 'N/A' || !cand.phone || cand.phone === 'N/A') {
+      const cleanPhone = extractCleanPhoneNumber(rawTextToSearch)
+      if (cleanPhone) {
+        cont.phone = cont.phone && cont.phone !== 'N/A' ? cont.phone : cleanPhone
+        cand.phone = cand.phone && cand.phone !== 'N/A' ? cand.phone : cleanPhone
+      } else {
+        const phoneMatch = rawTextToSearch.match(phoneRegex)
+        if (phoneMatch) {
+          cont.phone = cont.phone && cont.phone !== 'N/A' ? cont.phone : phoneMatch[0].trim()
+          cand.phone = cand.phone && cand.phone !== 'N/A' ? cand.phone : phoneMatch[0].trim()
+        }
+      }
+    }
+    if (!cont.linkedin || !cand.linkedin) {
+      const linkedinMatch = rawTextToSearch.match(linkedinRegex)
+      if (linkedinMatch) {
+        cont.linkedin = cont.linkedin || linkedinMatch[0].trim()
+        cand.linkedin = cand.linkedin || linkedinMatch[0].trim()
+      }
+    }
+  }
 }
 
 export class ResumeAgent {
@@ -106,6 +141,12 @@ export class ResumeAgent {
       })
     }
 
+    const rawTextToValidate = parsedDoc?.rawText || resumeText || ''
+    const contentValidation = validateResumeContent(rawTextToValidate, filename || parsedDoc?.filename || '')
+    if (!contentValidation.valid) {
+      throw new ResumeValidationError(contentValidation.code, contentValidation.message)
+    }
+
     if (!canonicalResume) {
       const chunkResult = DeterministicChunker.process(parsedDoc, {
         safeTokenBudget: 32000,
@@ -116,10 +157,34 @@ export class ResumeAgent {
     }
 
     if (canonicalResume) {
+      if (!canonicalResume.rawText && parsedDoc?.rawText) {
+        canonicalResume.rawText = parsedDoc.rawText
+      } else if (!canonicalResume.rawText && resumeText) {
+        canonicalResume.rawText = resumeText
+      }
+      if (!canonicalResume.metadata) canonicalResume.metadata = {}
+      if (!canonicalResume.metadata.rawTextPreview && (canonicalResume.rawText || parsedDoc?.rawText || resumeText)) {
+        canonicalResume.metadata.rawTextPreview = (canonicalResume.rawText || parsedDoc?.rawText || resumeText || '').slice(0, 1000)
+      }
       if (!canonicalResume.experiences && canonicalResume.experience) {
         canonicalResume.experiences = canonicalResume.experience
       } else if (!canonicalResume.experience && canonicalResume.experiences) {
         canonicalResume.experience = canonicalResume.experiences
+      }
+      reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
+      if (!canonicalResume.totalExperienceYears || !canonicalResume.years_of_experience) {
+        const timeline = canonicalResume.timeline || analyzeTimeline(canonicalResume)
+        const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+        const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+        const floorYears = Math.floor(totalExperienceYears)
+        const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+        canonicalResume.timeline = timeline
+        canonicalResume.totalExperienceYears = totalExperienceYears
+        canonicalResume.years_of_experience = yearsOfExp
+        if (canonicalResume.candidate) {
+          canonicalResume.candidate.totalExperienceYears = totalExperienceYears
+          canonicalResume.candidate.years_of_experience = yearsOfExp
+        }
       }
     }
 
@@ -202,8 +267,10 @@ export class ResumeAgent {
         })
       }
 
-      if (!parsedDoc.rawText || !parsedDoc.rawText.trim()) {
-        throw new Error('Could not extract readable text from document. Scanned or empty document.')
+      const rawTextToValidate = parsedDoc?.rawText || resumeText || ''
+      const contentValidation = validateResumeContent(rawTextToValidate, filename || parsedDoc?.filename || '')
+      if (!contentValidation.valid) {
+        throw new ResumeValidationError(contentValidation.code, contentValidation.message)
       }
 
       // ── Step 1.5: Deterministic Chunking & Deduplication ───────────────────
@@ -218,10 +285,34 @@ export class ResumeAgent {
         canonicalResume = await ResumeNormalizer.normalizeAsync(parsedDoc, targetRole)
       }
       if (canonicalResume) {
+        if (!canonicalResume.rawText && parsedDoc?.rawText) {
+          canonicalResume.rawText = parsedDoc.rawText
+        } else if (!canonicalResume.rawText && resumeText) {
+          canonicalResume.rawText = resumeText
+        }
+        if (!canonicalResume.metadata) canonicalResume.metadata = {}
+        if (!canonicalResume.metadata.rawTextPreview && (canonicalResume.rawText || parsedDoc?.rawText || resumeText)) {
+          canonicalResume.metadata.rawTextPreview = (canonicalResume.rawText || parsedDoc?.rawText || resumeText || '').slice(0, 1000)
+        }
         if (!canonicalResume.experiences && canonicalResume.experience) {
           canonicalResume.experiences = canonicalResume.experience
         } else if (!canonicalResume.experience && canonicalResume.experiences) {
           canonicalResume.experience = canonicalResume.experiences
+        }
+        reVerifyCanonicalContact(canonicalResume, canonicalResume.rawText || parsedDoc?.rawText || resumeText || '')
+        if (!canonicalResume.totalExperienceYears || !canonicalResume.years_of_experience) {
+          const timeline = canonicalResume.timeline || analyzeTimeline(canonicalResume)
+          const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+          const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+          const floorYears = Math.floor(totalExperienceYears)
+          const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+          canonicalResume.timeline = timeline
+          canonicalResume.totalExperienceYears = totalExperienceYears
+          canonicalResume.years_of_experience = yearsOfExp
+          if (canonicalResume.candidate) {
+            canonicalResume.candidate.totalExperienceYears = totalExperienceYears
+            canonicalResume.candidate.years_of_experience = yearsOfExp
+          }
         }
       }
       if (linkedinUrl && canonicalResume?.candidate?.contact && !canonicalResume.candidate.contact.linkedin) {
@@ -738,6 +829,13 @@ export class ResumeAgent {
             }
             if (iss.correctedText) {
               iss.correctionType = 'rewrite'
+              const ev = (Array.isArray(iss.evidence) ? iss.evidence[0] : iss.evidence) || {}
+              const bulletId = ev.bulletId || ev.itemId
+              iss.correctedText = replaceUnverifiedNumericTokens(iss.correctedText, sourceTokens, canonicalResume, {
+                bulletId,
+                sourceText: ev.originalText,
+                evidenceStatus: iss.evidenceStatus,
+              })
             }
           }
 
@@ -841,6 +939,10 @@ export class ResumeAgent {
           targetJobDescription: state?.targetJobDescription || canonicalResume?.targetJobDescription || '',
           targetRole: effectiveRole || canonicalResume?.candidate?.targetRole || '',
           marketProfile: state?.marketProfile || null,
+          state,
+          parsedDoc,
+          userAnswers: answers || state?.answers || {},
+          rawResumeText: canonicalResume?.rawText || parsedDoc?.rawText || resumeText || state?.resumeText || '',
         })
       } catch (scoreErr) {
         console.warn('[ResumeAgent] Scorecard computation failed:', scoreErr.message)
@@ -848,13 +950,30 @@ export class ResumeAgent {
 
       const activeMarketContext = state?.marketContext || null
 
+      const deterministicYears =
+        canonicalResume.totalExperienceYears ||
+        canonicalResume.timeline?.careerDuration?.totalYears ||
+        state?.signals?.timeline?.summary?.totalExperienceYears ||
+        state?.signals?.timeline?.careerDuration?.totalYears ||
+        0
+
+      const deterministicYoe =
+        canonicalResume.years_of_experience ||
+        (deterministicYears > 0 ? `${Math.floor(deterministicYears)}+ years` : null)
+
+      const experienceLevel =
+        deterministicYoe ||
+        parsedAnalysis.candidateSnapshot?.experienceLevel ||
+        ((canonicalResume.experiences || canonicalResume.experience)?.length ? `${Math.max(1, (canonicalResume.experiences || canonicalResume.experience).length * 2)}+ years` : '')
+
       const finalAnalysis = {
         ...parsedAnalysis,
         candidateSnapshot: {
           ...(parsedAnalysis.candidateSnapshot || {}),
           name: parsedAnalysis.candidateSnapshot?.name || canonicalResume.candidate?.name || '',
           targetRole: parsedAnalysis.candidateSnapshot?.targetRole || canonicalResume.candidate?.targetRole || effectiveRole || '',
-          experienceLevel: parsedAnalysis.candidateSnapshot?.experienceLevel || ((canonicalResume.experiences || canonicalResume.experience)?.length ? `${Math.max(1, (canonicalResume.experiences || canonicalResume.experience).length * 2)}+ years` : ''),
+          experienceLevel,
+          yearsOfExperience: deterministicYoe || experienceLevel,
           presentRole: canonicalResume.candidate?.presentRole || '',
           presentCompany: canonicalResume.candidate?.presentCompany || '',
           pastRoles: canonicalResume.candidate?.pastRoles || [],
@@ -982,15 +1101,16 @@ export class ResumeAgent {
 
       const telemetryRecord = span.finish({ success: false, error: { ...err, message: sanitizedMsg } })
       const isBudgetExceeded = err instanceof ContextBudgetExceededError || err.code === 'CONTEXT_BUDGET_EXCEEDED'
-      const statusClassification = isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'
+      const isValidationError = err instanceof ResumeValidationError || err.code === 'NOT_A_RESUME' || err.code === 'SCANNED_OR_EMPTY_FILE'
+      const statusClassification = isValidationError ? err.code : (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR')
 
       return {
         success: false,
         status: statusClassification,
         classification: statusClassification,
         error: sanitizedMsg,
-        code: err.code || (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR'),
-        statusCode: err.statusCode || (isBudgetExceeded ? 413 : 500),
+        code: err.code || (isValidationError ? err.code : (isBudgetExceeded ? 'CONTEXT_BUDGET_EXCEEDED' : 'PROVIDER_ERROR')),
+        statusCode: err.statusCode || (isValidationError ? 422 : (isBudgetExceeded ? 413 : 500)),
         provider: err.provider || 'gateway',
         details: err.details || (isBudgetExceeded ? { estimatedTokens: err.estimatedTokens, safeTokenBudget: err.safeTokenBudget } : null),
         rawModelOutput,

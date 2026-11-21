@@ -25,6 +25,7 @@ export class OpenRouterProvider {
     maxTokens = 4096,
     responseFormat = 'json_object',
     supportsJsonObject = false,
+    reasoning = null,
     signal = null,
     timeoutMs = 60000,
     requestId = null,
@@ -46,14 +47,20 @@ export class OpenRouterProvider {
       messages,
       temperature,
       max_tokens: maxTokens,
+      usage: { include: true },
     }
 
-    if (
+    if (reasoning) {
+      payload.reasoning = reasoning?.effort === 'none' ? { effort: 'minimal' } : reasoning
+    } else if (
       responseFormat === 'json_object' ||
       responseFormat?.type === 'json_object' ||
       supportsJsonObject
     ) {
       payload.response_format = { type: 'json_object' }
+      if (!targetModel.includes('-lite')) {
+        payload.reasoning = { effort: 'minimal' }
+      }
     }
 
     const effectiveTimeoutMs = timeoutMs || this.config.timeoutMs || 60000

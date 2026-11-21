@@ -24,7 +24,8 @@ import {
   CaretUp,
   Article,
   ChatCircleText,
-  Sparkle,
+  SlidersHorizontal,
+  ImageSquare,
   Camera,
   EnvelopeSimple,
   Lightning,
@@ -448,23 +449,29 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   }
 
   const candidateSnap = reportData?.resume_agent?.candidateSnapshot || {}
-  // Check candidateSnap.experienceLevel FIRST when resolving yoe (e.g. "3+ years" extracts 3, not 1 from "Junior–Mid / 1–3 Yrs Experience")
-  const rawYoe = candidateSnap.experienceLevel ||
+  // Prioritize verified resume_json totalExperienceYears / years_of_experience first so parsed 8+ year timeline is never overridden by quiz buckets (e.g. "3–5" / "5+")
+  const rawYoe = reportData?.resume_json?.totalExperienceYears ||
+                 reportData?.resume_json?.years_of_experience ||
+                 candidateSnap.yearsOfExperience ||
+                 candidateSnap.experienceLevel ||
                  candidateSnap.experienceYears ||
                  candidateSnap.yearsExperience ||
-                 reportData?.resume_json?.years_of_experience ||
                  reportData?.user_answers?.experience ||
                  ''
 
   let yoeNum = '3'
-  const yoeStr = String(rawYoe).trim()
-  const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
-  if (rangeMatch) {
-    yoeNum = rangeMatch[2] // Take upper number of the range (e.g. "1–3" -> 3)
+  if (typeof rawYoe === 'number' && rawYoe > 0) {
+    yoeNum = String(Math.floor(rawYoe))
   } else {
-    const singleMatch = yoeStr.match(/(\d+)/)
-    if (singleMatch) {
-      yoeNum = singleMatch[1]
+    const yoeStr = String(rawYoe).trim()
+    const rangeMatch = yoeStr.match(/(\d+)\s*[–—-]\s*(\d+)/)
+    if (rangeMatch) {
+      yoeNum = rangeMatch[2] // Take upper number of the range (e.g. "1–3" -> 3)
+    } else {
+      const singleMatch = yoeStr.match(/(\d+)/)
+      if (singleMatch) {
+        yoeNum = singleMatch[1]
+      }
     }
   }
   const yoe = String(yoeNum).replace(/\++$/, '') || '3'
@@ -1233,7 +1240,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
           <div className="space-y-0.5">
             <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkle size={15} weight="fill" className="text-[var(--primary)]" />
+              <SlidersHorizontal size={15} weight="bold" className="text-[var(--primary)]" />
               Section-by-Section LinkedIn Audit (/10)
             </span>
             <p className="text-xs text-[var(--text-secondary)]">
@@ -1422,7 +1429,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                  <Sparkle size={14} className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
+                  <ImageSquare size={14} weight="bold" className="text-amber-500" /> 6-Element Cover Banner Prompt (1584x396 px)
                 </span>
                 <span className="text-[10px] font-mono uppercase bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded border border-amber-500/20">
                   Canva / AI Banner

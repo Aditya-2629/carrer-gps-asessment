@@ -244,7 +244,14 @@ export function buildDeterministicOptimizations(
   }
 
   const metricPhrase = bestMetricPhrase || (bestMetricNum ? `driving ${bestMetricNum} performance gains` : '')
-  const yoeText = canonical.years_of_experience || canonical.totalExperienceYears || '3+ years'
+  const yoeText =
+    canonical.years_of_experience ||
+    (canonical.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    effectiveResumeContext?.years_of_experience ||
+    (effectiveResumeContext?.totalExperienceYears ? `${Math.floor(effectiveResumeContext.totalExperienceYears)}+ years` : null) ||
+    profile.years_of_experience ||
+    (Array.isArray(profile.experiences) && profile.experiences.length > 0 ? `${Math.max(1, profile.experiences.length * 2)}+ years` : null) ||
+    '5+ years'
   const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
 
   const bullet1 = allBullets[0] || ''
@@ -787,11 +794,21 @@ export async function runLinkedInSynthesis(
     profile?.headline ||
     'Professional'
 
+  const yoeText =
+    canonical.years_of_experience ||
+    (canonical.totalExperienceYears ? `${Math.floor(canonical.totalExperienceYears)}+ years` : null) ||
+    resumeContext?.years_of_experience ||
+    (resumeContext?.totalExperienceYears ? `${Math.floor(resumeContext.totalExperienceYears)}+ years` : null) ||
+    profile.years_of_experience ||
+    (Array.isArray(profile.experiences) && profile.experiences.length > 0 ? `${Math.max(1, profile.experiences.length * 2)}+ years` : null) ||
+    '5+ years'
+  const yoeClause = typeof yoeText === 'number' ? `${yoeText}+ years` : yoeText
+
   // Route via task-based OpenRouter model routing with provider isolation
   const resumeProvider = resumeContext?.provider || resumeContext?.lastProvider
   const excludeProvider = options?.excludeProvider || (resumeProvider ? resumeProvider : null)
   const preferredProvider = options?.preferredProvider || (resumeProvider === 'gemini' ? 'groq' : (resumeProvider === 'groq' ? 'gemini' : 'openrouter'))
-  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : null)
+  const effectiveModel = options?.model || (preferredProvider === 'groq' ? 'openai/gpt-oss-120b' : 'google/gemini-3.5-flash-lite')
   const effectiveAnswers = options?.answers || resumeContext?.answers || null
 
   try {
@@ -835,18 +852,18 @@ export async function runLinkedInSynthesis(
     }
 
     async function executeTask(taskName, messages, maxTokens) {
+      // 1. Primary: OpenRouter with google/gemini-3.5-flash-lite
       try {
         const response = await llmGateway.generate({
           purpose: 'linkedin_analysis',
           task: 'linkedin_synthesis',
-          preferredProvider,
-          excludeProvider,
-          model: effectiveModel,
+          preferredProvider: 'openrouter',
+          model: 'google/gemini-3.5-flash-lite',
           messages,
           temperature: 0.25,
           maxTokens,
           responseFormat: { type: 'json_object' },
-          timeoutMs: 45000,
+          timeoutMs: 30000,
         })
 
         let parsed = tryParseJson(response?.text)
@@ -856,11 +873,39 @@ export async function runLinkedInSynthesis(
             parsed = JSON.parse(repaired)
           } catch {}
         }
-        return parsed
+        if (parsed) return parsed
       } catch (err) {
-        console.warn(`[LinkedInSynthesis] ${taskName} execution failed:`, err.message)
-        return null
+        console.warn(`[LinkedInSynthesis] Primary ${taskName} execution failed:`, err.message)
       }
+
+      // 2. Secondary Fallback: Groq with openai/gpt-oss-120b
+      try {
+        console.log(`[LinkedInSynthesis] Invoking secondary Groq fallback for ${taskName}...`)
+        const response = await llmGateway.generate({
+          purpose: 'linkedin_analysis',
+          task: 'linkedin_synthesis',
+          preferredProvider: 'groq',
+          model: 'openai/gpt-oss-120b',
+          messages,
+          temperature: 0.25,
+          maxTokens,
+          responseFormat: { type: 'json_object' },
+          timeoutMs: 25000,
+        })
+
+        let parsed = tryParseJson(response?.text)
+        if (!parsed && response?.text) {
+          try {
+            const repaired = jsonrepair(response.text)
+            parsed = JSON.parse(repaired)
+          } catch {}
+        }
+        if (parsed) return parsed
+      } catch (secErr) {
+        console.warn(`[LinkedInSynthesis] Secondary Groq ${taskName} execution failed:`, secErr.message)
+      }
+
+      return null
     }
 
     // Run Task 1 and Task 2 in parallel for lower latency
@@ -905,14 +950,28 @@ export async function runLinkedInSynthesis(
     let aboutRewrite = fallback.aboutRewrite
     const rawAbout = task1Result?.aboutRewrite || task2Result?.aboutRewrite
     if (rawAbout && typeof rawAbout === 'object') {
-      const professionalJourney = rawAbout.professionalJourney || rawAbout.hook || fallback.aboutRewrite.professionalJourney
-      const specializationAndProof = rawAbout.specializationAndProof || rawAbout.approachAndSkills || rawAbout.audienceAndProblem || fallback.aboutRewrite.specializationAndProof
-      const directionAndNetworking = rawAbout.directionAndNetworking || rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.directionAndNetworking
+      let professionalJourney = rawAbout.professionalJourney || rawAbout.hook || fallback.aboutRewrite.professionalJourney
+      let specializationAndProof = rawAbout.specializationAndProof || rawAbout.approachAndSkills || rawAbout.audienceAndProblem || fallback.aboutRewrite.specializationAndProof
+      let directionAndNetworking = rawAbout.directionAndNetworking || rawAbout.closingCta || rawAbout.callToAction || fallback.aboutRewrite.directionAndNetworking
       const keywordsUsed = Array.isArray(rawAbout.keywordsUsed) && rawAbout.keywordsUsed.length > 0
         ? rawAbout.keywordsUsed
         : fallback.aboutRewrite.keywordsUsed || []
 
-      const combined = rawAbout.fullText || [professionalJourney, specializationAndProof, directionAndNetworking].filter(Boolean).join('\n\n')
+      // Guard: Ensure LLM about rewrite respects verified total experience (never understates as 3+ or 5+ years when 8+ years is verified)
+      if (yoeClause && !yoeClause.startsWith('5+') && !yoeClause.startsWith('3+')) {
+        const understatedRegex = /\b(?:over\s+)?(?:5\+|5|3\+|3)\s*(?:years|yrs)\b/gi
+        if (understatedRegex.test(professionalJourney)) {
+          professionalJourney = professionalJourney.replace(understatedRegex, yoeClause)
+        }
+      }
+
+      let combined = rawAbout.fullText || [professionalJourney, specializationAndProof, directionAndNetworking].filter(Boolean).join('\n\n')
+      if (yoeClause && !yoeClause.startsWith('5+') && !yoeClause.startsWith('3+')) {
+        const understatedRegex = /\b(?:over\s+)?(?:5\+|5|3\+|3)\s*(?:years|yrs)\b/gi
+        if (understatedRegex.test(combined)) {
+          combined = combined.replace(understatedRegex, yoeClause)
+        }
+      }
 
       aboutRewrite = {
         currentCritique: rawAbout.currentCritique || fallback.aboutRewrite.currentCritique || '',

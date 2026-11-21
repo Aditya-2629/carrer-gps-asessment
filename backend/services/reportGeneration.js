@@ -447,7 +447,7 @@ export function renderAtlasPrompt(userData = {}, resumeData = null, options = {}
 export async function callAtlas(promptText, extraInstructions = '', userAnswers = {}) {
   const combinedInstructions = `${extraInstructions}\n\nIMPORTANT: Return raw JSON only. Zero markdown backticks.`
   const startTime = Date.now()
-  let modelUsed = 'google/gemini-2.5-flash-lite'
+  let modelUsed = 'google/gemini-3.5-flash-lite'
   let fallbackTriggered = false
   let responseText = null
 
@@ -456,7 +456,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       purpose: 'assessment_report',
       task: 'report_generation',
       preferredProvider: 'openrouter',
-      model: 'google/gemini-2.5-flash-lite',
+      model: 'google/gemini-3.5-flash-lite',
       systemPrompt: ATLAS_EXECUTIVE_COACH_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: promptText + ATLAS_FORMAT_CONTRACT + combinedInstructions }],
       responseFormat: 'json_object',
@@ -464,7 +464,7 @@ export async function callAtlas(promptText, extraInstructions = '', userAnswers 
       timeoutMs: 15000,
     })
     responseText = res.text
-    modelUsed = res.actualModel || 'google/gemini-2.5-flash-lite'
+    modelUsed = res.actualModel || 'google/gemini-3.5-flash-lite'
   } catch (primaryErr) {
     fallbackTriggered = true
   }
@@ -670,7 +670,7 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
       purpose: 'unified_synthesis',
       task: 'unified_synthesis',
       preferredProvider: options.preferredProvider || 'openrouter',
-      model: options.model || 'google/gemini-2.5-flash-lite',
+      model: options.model || 'google/gemini-3.5-flash-lite',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -830,7 +830,7 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'preparing', message: 'Executing Stage 0 Deterministic Triage…' })
+      params.onProgress({ stage: 'preparing', agent: 'all', message: 'Executing Stage 0 Deterministic Triage…' })
     } catch (_pErr) {}
   }
 
@@ -845,7 +845,10 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'agents_running', message: 'Synthesizing Single-Pass Executive Report…' })
+      params.onProgress({ stage: 'agents_running', agent: 'all', message: 'Deploying Resume, LinkedIn & Atlas agents in parallel…' })
+      params.onProgress({ stage: 'resume_parsing', agent: 'resume', message: 'Auditing resume bullets & quantifying impact…' })
+      params.onProgress({ stage: 'linkedin_auditing', agent: 'linkedin', message: 'Auditing LinkedIn headline, SEO & skills alignment…' })
+      params.onProgress({ stage: 'atlas_synthesizing', agent: 'overall', message: 'Synthesizing 7-day recruiter playbook & market reality check…' })
     } catch (_pErr) {}
   }
 
@@ -922,6 +925,8 @@ export async function generateReportBundle(params = {}, options = {}) {
           },
           bulletRewrites: report.bulletRewrites || [],
         },
+        rawResumeText: resumeJson?.rawText || params.resumeText || user?.resumeText || '',
+        userAnswers: user?.user_answers || user?.answers || params.user_answers || {},
       })
       if (scorecard) {
         report.resume_agent.dashboard = scorecard
@@ -970,7 +975,7 @@ export async function generateReportBundle(params = {}, options = {}) {
 
   if (typeof params.onProgress === 'function') {
     try {
-      params.onProgress({ stage: 'report_ready', message: 'Report ready.', report })
+      params.onProgress({ stage: 'report_ready', agent: 'overall', message: 'Report ready.', report })
     } catch (_progErr) {}
   }
 

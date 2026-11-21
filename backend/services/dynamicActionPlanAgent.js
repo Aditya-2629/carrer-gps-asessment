@@ -481,12 +481,14 @@ OUTPUT JSON SCHEMA:
   ]
 }`
 
+  let response = null
+  // 1. Primary: Groq with openai/gpt-oss-120b (fast, eliminates OpenRouter timeouts and burns zero credits)
   try {
-    const response = await llmGateway.generate({
+    response = await llmGateway.generate({
       purpose: 'dynamic_action_plan',
       task: 'action_plan_generation',
-      preferredProvider: options.preferredProvider || 'openrouter',
-      model: options.model || 'google/gemini-2.5-flash-lite',
+      preferredProvider: options.preferredProvider || 'groq',
+      model: options.model || 'openai/gpt-oss-120b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -494,9 +496,36 @@ OUTPUT JSON SCHEMA:
       responseFormat: { type: 'json_object' },
       temperature: 0.2,
       maxTokens: 3000,
-      timeoutMs: options.timeoutMs || 14000,
+      timeoutMs: options.timeoutMs || 15000,
     })
+  } catch (primErr) {
+    console.warn('[DynamicActionPlanAgent] Primary Groq action plan generation failed:', primErr.message)
+  }
 
+  // 2. Secondary Fallback: OpenRouter with google/gemini-3.5-flash-lite
+  if (!response?.text && !response?.content) {
+    try {
+      console.log('[DynamicActionPlanAgent] Invoking secondary fallback via OpenRouter (google/gemini-3.5-flash-lite)...')
+      response = await llmGateway.generate({
+        purpose: 'dynamic_action_plan',
+        task: 'action_plan_generation',
+        preferredProvider: 'openrouter',
+        model: 'google/gemini-3.5-flash-lite',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        responseFormat: { type: 'json_object' },
+        temperature: 0.2,
+        maxTokens: 3000,
+        timeoutMs: 12000,
+      })
+    } catch (secErr) {
+      console.warn('[DynamicActionPlanAgent] Secondary fallback failed:', secErr.message)
+    }
+  }
+
+  if (response) {
     const rawText = response?.text || response?.content || '{}'
     const parsed = safeParseJson(rawText)
 
@@ -521,8 +550,6 @@ OUTPUT JSON SCHEMA:
         isDynamic: true,
       }
     }
-  } catch (err) {
-    console.warn('[DynamicActionPlanAgent] LLM generation non-fatal fallback:', err.message)
   }
 
   return {

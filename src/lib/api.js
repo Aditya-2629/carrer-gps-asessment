@@ -83,7 +83,12 @@ export const api = {
       })
       return res.data
     } catch (err) {
-      throw new Error(err.response?.data?.message || err.response?.data?.error || 'Failed to extract resume data.')
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to extract resume data.'
+      const apiErr = new Error(msg)
+      apiErr.code = err.response?.data?.code || 'UPLOAD_FAILED'
+      apiErr.status = err.response?.status || 500
+      apiErr.response = err.response
+      throw apiErr
     }
   },
 
@@ -111,6 +116,16 @@ export const api = {
         throw err
       }
       throw new Error(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to evaluate resume.')
+    }
+  },
+
+  // POST /api/resume-agent/confirm-metric (Layer C Interactive Metric Confirmation)
+  confirmBulletMetric: async (payload) => {
+    try {
+      const res = await client.post('/resume-agent/confirm-metric', payload)
+      return res.data
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.response?.data?.error || 'Failed to confirm bullet metric.')
     }
   },
 

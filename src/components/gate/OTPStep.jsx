@@ -153,11 +153,11 @@ export default function OTPStep() {
         transition={{ duration: 0.4 }}
       >
         {devOtp && (
-          <div className="mb-6 p-4 rounded-xl text-sm flex flex-col gap-1.5 text-amber-400 bg-amber-400/10 border border-amber-400/20 text-center">
+          <div className="mb-6 p-4 rounded-xl text-sm flex flex-col gap-1.5 text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-500/25 text-center">
             <div className="font-semibold text-xs uppercase tracking-wider">⚠️ SMTP Delivery Failed (Server Limit)</div>
-            <div className="text-xs opacity-80">
+            <div className="text-xs opacity-90">
               Please use this bypass verification code:
-              <div className="font-bold text-lg tracking-wider mt-1 select-all underline text-red">
+              <div className="text-[var(--text-primary)] font-mono font-bold tracking-widest text-lg mt-1 select-all underline">
                 {devOtp}
               </div>
             </div>

@@ -5,6 +5,7 @@
  */
 
 import { detectCertifications } from './signals/certificationDetector.js'
+import { analyzeTimeline } from './signals/timelineAnalyzer.js'
 import { normalizeLinkedInUrl } from '../../utils/linkedinUrlUtils.js'
 import { parseResumeWithAI } from './parser/aiResumeParserAgent.js'
 
@@ -281,31 +282,43 @@ export class ResumeNormalizer {
    * @returns {Object} Canonical Resume Representation
    */
   static normalize(parsedDoc, targetRoleOverride = '') {
-    const rawText = this.stitchBulletWraps(parsedDoc.rawText || '')
+    const doc = typeof parsedDoc === 'string' ? { rawText: parsedDoc } : (parsedDoc || {})
+    const rawText = this.stitchBulletWraps(doc.rawText || '')
     const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean)
 
     const candidate = this.extractCandidateInfo(lines, targetRoleOverride, rawText)
-    if (parsedDoc.candidate && typeof parsedDoc.candidate === 'object') {
-      if (parsedDoc.candidate.name && parsedDoc.candidate.name !== 'Candidate') {
-        candidate.name = parsedDoc.candidate.name
+    if (doc.candidate && typeof doc.candidate === 'object') {
+      if (doc.candidate.name && doc.candidate.name !== 'Candidate') {
+        candidate.name = doc.candidate.name
       }
-      if (parsedDoc.candidate.targetRole) {
-        candidate.targetRole = parsedDoc.candidate.targetRole
-        candidate.headline = parsedDoc.candidate.targetRole
+      if (doc.candidate.targetRole) {
+        candidate.targetRole = doc.candidate.targetRole
+        candidate.headline = doc.candidate.targetRole
       }
-      if (parsedDoc.candidate.contact) {
+      if (doc.candidate.contact) {
         candidate.contact = {
-          ...candidate.contact,
-          ...parsedDoc.candidate.contact,
+          email: (doc.candidate.contact.email && doc.candidate.contact.email !== 'N/A') ? doc.candidate.contact.email : candidate.contact.email,
+          phone: (doc.candidate.contact.phone && doc.candidate.contact.phone !== 'N/A') ? doc.candidate.contact.phone : candidate.contact.phone,
+          location: (doc.candidate.contact.location && doc.candidate.contact.location !== 'N/A') ? doc.candidate.contact.location : candidate.contact.location,
+          linkedin: doc.candidate.contact.linkedin ? doc.candidate.contact.linkedin : candidate.contact.linkedin,
+          github: doc.candidate.contact.github ? doc.candidate.contact.github : candidate.contact.github,
         }
       }
+      if (!candidate.phone && doc.candidate.phone && doc.candidate.phone !== 'N/A') {
+        candidate.phone = doc.candidate.phone
+      }
+      if (!candidate.email && doc.candidate.email && doc.candidate.email !== 'N/A') {
+        candidate.email = doc.candidate.email
+      }
     }
+    candidate.phone = candidate.phone || (candidate.contact.phone && candidate.contact.phone !== 'N/A' ? candidate.contact.phone : null)
+    candidate.email = candidate.email || (candidate.contact.email && candidate.contact.email !== 'N/A' ? candidate.contact.email : null)
     const sections = this.segmentSections(lines)
 
     // Check if structured experiences, projects, skills, education, certifications already exist from AI Chunker or Parser
-    const structuredExp = parsedDoc.experiences || parsedDoc.experience || parsedDoc.structuredResume?.experiences || parsedDoc.resumeJson?.experiences
-    const structuredProjects = parsedDoc.projects || parsedDoc.structuredResume?.projects || parsedDoc.resumeJson?.projects
-    const structuredSkills = parsedDoc.skills || parsedDoc.structuredResume?.skills || parsedDoc.resumeJson?.skills
+    const structuredExp = doc.experiences || doc.experience || doc.structuredResume?.experiences || doc.resumeJson?.experiences
+    const structuredProjects = doc.projects || doc.structuredResume?.projects || doc.resumeJson?.projects
+    const structuredSkills = doc.skills || doc.structuredResume?.skills || doc.resumeJson?.skills
     const structuredEdu = parsedDoc.education || parsedDoc.structuredResume?.education || parsedDoc.resumeJson?.education
     const structuredCerts = parsedDoc.certifications || parsedDoc.structuredResume?.certifications || parsedDoc.resumeJson?.certifications
 
@@ -595,6 +608,10 @@ export class ResumeNormalizer {
     candidate.allRoles = allRoles
 
     const canonical = {
+      rawText: rawText || parsedDoc?.rawText || '',
+      metadata: {
+        rawTextPreview: (rawText || parsedDoc?.rawText || '').slice(0, 1000),
+      },
       document: {
         type: parsedDoc.type || 'text',
         pageCount: parsedDoc.pageCount || 1,
@@ -644,6 +661,21 @@ export class ResumeNormalizer {
       }
     }
 
+    // Deterministically compute timeline facts and duration across experience
+    const timeline = analyzeTimeline(canonical)
+    const rawTotalYears = timeline?.careerDuration?.totalYears || 0
+    const totalExperienceYears = Math.round(rawTotalYears * 10) / 10
+    const floorYears = Math.floor(totalExperienceYears)
+    const yearsOfExp = floorYears >= 1 ? `${floorYears}+ years` : `${timeline?.careerDuration?.totalMonths || 0} months`
+
+    canonical.timeline = timeline
+    canonical.totalExperienceYears = totalExperienceYears
+    canonical.years_of_experience = yearsOfExp
+    if (canonical.candidate) {
+      canonical.candidate.totalExperienceYears = totalExperienceYears
+      canonical.candidate.years_of_experience = yearsOfExp
+    }
+
     return canonical
   }
 
@@ -651,7 +683,7 @@ export class ResumeNormalizer {
    * Extracts candidate name, contact, LinkedIn, and target role from header lines and full text
    */
   static extractCandidateInfo(lines, targetRoleOverride, rawText = '') {
-    const headerLines = lines.slice(0, 15)
+    const headerLines = lines.slice(0, 20)
     let email = null
     let phone = null
     let location = null
@@ -660,7 +692,7 @@ export class ResumeNormalizer {
     let headline = ''
     let name = ''
 
-    const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/
+    const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/
     const linkedinRegex = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in\/[a-zA-Z0-9_%-]+|[a-zA-Z0-9_%-]+)/i
     const githubRegex = /(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)/i
 
@@ -756,6 +788,7 @@ export class ResumeNormalizer {
       headline: headline || '',
       targetRole: targetRoleOverride || headline || '',
       phone: phone || null,
+      email: email || null,
       contact: {
         email: email || 'N/A',
         phone: phone || null,
@@ -1513,14 +1546,25 @@ export class ResumeNormalizer {
           bulletCounter++
         }
       } else if (currentProj && currentProj.bullets.length === 0) {
-        // First description line under project
-        const bulletId = `${currentProj.id}_b${String(bulletCounter).padStart(2, '0')}`
-        currentProj.bullets.push({
-          id: bulletId,
-          text: line,
-          source: { page: 1 },
-        })
-        bulletCounter++
+        // Detect if line is a continuation of the project title/tech stack rather than a real bullet
+        const isLikelyTitleContinuation =
+          !isBullet &&
+          !/^(?:developed|engineered|architected|built|designed|implemented|led|managed|created|spearheaded|optimized|automated|collaborated|authored|analyzed|delivered|reduced|improved|answered|trained|combined|mentored|saved|ran|migrated|added|rebuilt)\b/i.test(line) &&
+          line.length < 60 &&
+          !line.endsWith('.')
+
+        if (isLikelyTitleContinuation) {
+          currentProj.title = `${currentProj.title} ${line}`.trim()
+        } else {
+          // First description line under project
+          const bulletId = `${currentProj.id}_b${String(bulletCounter).padStart(2, '0')}`
+          currentProj.bullets.push({
+            id: bulletId,
+            text: line,
+            source: { page: 1 },
+          })
+          bulletCounter++
+        }
       } else if (currentProj && currentProj.bullets.length > 0) {
         const lastBullet = currentProj.bullets[currentProj.bullets.length - 1]
         const startsLower = /^[a-z]/.test(line)

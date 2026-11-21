@@ -134,13 +134,13 @@ export function analyzeTimeline(canonicalResume, options = {}) {
   const { year: currentYear, month: currentMonth } = getCurrentDate(referenceDate)
 
   const emptyResult = {
-    careerDuration: { totalMonths: 0, totalYears: 0, formatted: '0 months' },
+    careerDuration: { totalMonths: 0, totalYears: 0, formatted: '0 months', yearsOfExperience: '0 years' },
     currentRole: { isCurrentlyEmployed: false, role: null, company: null, dates: null, startDate: null, tenureMonths: 0 },
     careerGaps: [],
     promotions: [],
     overlaps: [],
     items: [],
-    summary: { totalItemsWithDates: 0, overlapCount: 0, gapCount: 0, promotionCount: 0, totalExperienceYears: 0, isCurrentlyEmployed: false },
+    summary: { totalItemsWithDates: 0, overlapCount: 0, gapCount: 0, promotionCount: 0, totalExperienceYears: 0, yearsOfExperience: '0 years', isCurrentlyEmployed: false },
   }
 
   if (!canonicalResume || typeof canonicalResume !== 'object') {
@@ -312,11 +312,14 @@ export function analyzeTimeline(canonicalResume, options = {}) {
     }
   }
 
+  const yearsOfExperienceText = yrs >= 1 ? `${yrs}+ years` : `${totalExperienceMonths} months`
+
   return {
     careerDuration: {
       totalMonths: totalExperienceMonths,
       totalYears: totalExperienceYears,
       formatted: formattedDuration,
+      yearsOfExperience: yearsOfExperienceText,
     },
     currentRole,
     careerGaps,
@@ -335,6 +338,7 @@ export function analyzeTimeline(canonicalResume, options = {}) {
       gapCount: careerGaps.length,
       promotionCount: promotions.length,
       totalExperienceYears,
+      yearsOfExperience: yearsOfExperienceText,
       isCurrentlyEmployed: currentRole.isCurrentlyEmployed,
     },
   }

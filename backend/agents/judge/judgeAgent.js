@@ -26,43 +26,60 @@ export const JUDGE_AGENT = defineAgent({
 
 const JUDGE_SYSTEM_PROMPT = `You are the Quality Auditor for Crafture's career diagnosis platform. You score generated career reports before they reach candidates. You are ruthless about generic AI writing, mathematical discrepancies, and fabricated claims.
 
-Score the report 0-10 overall and on these subscales (each 0-10):
-- tone: warm, connected, talks TO the candidate by name; zero corporate filler or AI buzzwords
-- specificity: findings cite the candidate's actual words, scope, and metrics; nothing generic like "add metrics"
-- mathematical_integrity: career health score exactly matches 4-pillar sum (25% each) and reported funnel numbers align
-- us_market_fit: advice strictly fits US tech hiring norms (ATS 6-sec scan, cold portal vs referral rates, leveling)
-- safety: no fabricated numbers, no invented claims, no overpromising
-- structure: clear diagnosis → why it matters → concrete next step, per finding
+Score the report across 7 Weighted Quality Dimensions (Total 100):
+1. achievement_clarity (0–20): High-conviction action verbs, clear statement of what was accomplished; replaces vague duties with concrete engineering/operational ownership.
+2. technical_business_impact (0–20): Measurable technical scale, system throughput, reliability, defect prevention, or financial/business impact.
+3. specificity_action_mechanism (0–15): Cites exact tools, protocols, architectures, or technical implementation mechanisms (e.g. Docker, Kubernetes, indexing, Kafka, dbt, Redis, connection pools); zero hand-waving.
+4. quantification_quality (0–15):
+   - Rewards verified/confirmed metrics and honest qualitative outcomes.
+   - HEAVILY PENALIZES unverified/invented percentages, fake scale claims, or repetitive canned suffixes (e.g., repeating "~20–35% latency" or "cutting p99 query latency by 32%").
+   - Strong qualitative bullets without % MUST score high (>= 12/15) if technical/business impact is clear!
+5. domain_role_relevance (0–15): Strictly level-appropriate and aligned with the candidate's target role and domain.
+6. recruiter_readability (0–10): Scannable, 18–32 words, Google XYZ syntax, zero walls of text.
+7. natural_human_writing (0–5): Sounds like a senior engineering peer; zero robotic AI buzzwords ("spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate").
 
-ANTI-AI-SLOP & HUMAN VOICE RULES (CRITICAL):
-- Deduct at least 2 points on the "tone" subscale if the report contains ANY of these banned robotic buzzwords or clichés:
-  "spearheaded", "leveraged", "synergistic", "cutting-edge", "results-driven", "passionate",
-  "dynamic", "pivotal", "instrumental", "testament to", "proven track record", "hands-on experience with",
-  "delved into", "thrives in fast-paced", "responsible for", or decorative em-dashes (—).
-- Deduct at least 2 points on "specificity" if bullet rewrites use generic unverified placeholders like "[ADD: ...]" or repeatedly invent ungrounded "by 40%" metrics without citing technical mechanisms.
-- The narrative must speak directly TO the candidate by first name with constructive peer empathy (like an ex-Google/Meta senior recruiter over coffee), NOT as a distant corporate auditor.
-- If any banned buzzword is detected, add an explicit fix instruction to "flags" (e.g. "Remove AI buzzword 'spearheaded' from experience bullet 2; replace with concrete engineering verb like 'Architected' or 'Migrated'").
-
-Strict Penalty Rules:
-- If generic corporate filler is detected ("navigating the job market", "delve", "testament to", "it is crucial", "in conclusion", "synergies"), cap "tone" at 4/10 and overall score at 5/10.
-- If robotic buzzwords ("spearheaded", "leveraged", "synergistic", "cutting-edge") are detected, cap "tone" at 5/10 and overall score at 6/10.
-- Be honest: generic output scores 4-6. Good output scores 7-8. Excellent 9-10.
-- flags: short actionable strings for what to fix (max 5). Empty array if score >= 9.
+Scoring Guidelines:
+- Total score >= 80 indicates high-quality, recruiter-grade work.
+- Output MUST include both "totalScore" (0-100) and "score" (0-10, computed as totalScore / 10).
+- flags: short actionable strings for what to fix (max 5). Empty array if totalScore >= 90.
 - Return ONLY valid JSON.
 
 JSON shape:
-{"score": number, "subscores": {"tone": n, "specificity": n, "mathematical_integrity": n, "us_market_fit": n, "safety": n, "structure": n}, "flags": ["..."], "summary": "one honest sentence"}`
+{
+  "totalScore": number,
+  "score": number,
+  "dimensions": {
+    "achievement_clarity": number,
+    "technical_business_impact": number,
+    "specificity_action_mechanism": number,
+    "quantification_quality": number,
+    "domain_role_relevance": number,
+    "recruiter_readability": number,
+    "natural_human_writing": number
+  },
+  "flags": ["..."],
+  "summary": "one honest sentence"
+}`
 
-registerPrompt('judge-quality', 'judge-quality-v1', JUDGE_SYSTEM_PROMPT)
+registerPrompt('judge-quality', 'judge-quality-v2', JUDGE_SYSTEM_PROMPT)
 
 // ── Deterministic fallback ───────────────────────────────────────────────────
 
 export const BANNED_AI_SLOP_REGEX = /\b(spearheaded|leveraged|synerg(y|istic)|cutting-edge|results-driven|passionate|pivotal|instrumental|testament to|proven track record|delved|thrives in fast-paced|seamlessly integrated)\b/i
 
-function heuristicScore(digest) {
+const CANNED_SUFFIX_PATTERNS = [
+  /cutting\s+p99\s+query\s+latency\s+by\s+32%/i,
+  /reducing\s+retrieval\s+latency\s+by\s+32%/i,
+  /supporting\s+500k\+\s+daily\s+transactions/i,
+  /reducing\s+defect\s+leakage\s+by\s+40%/i,
+  /from\s+14s\s+to\s+850ms/i,
+]
+
+export function heuristicScore(digest) {
   const review = digest.review || ''
   const text = digest.text || ''
   const issues = digest.issues || []
+  const rewrites = (digest.sampleRewrites || []).map((rw) => (typeof rw === 'string' ? rw : rw?.rewrittenText || rw?.rewrite || ''))
   const withEvidence = issues.filter((i) => i.evidence && String(i.evidence).length > 10).length
   const groundingRate = issues.length ? withEvidence / issues.length : 0
 
@@ -80,37 +97,245 @@ function heuristicScore(digest) {
         BANNED_AI_SLOP_REGEX.test(i.evidence || '')
     )
 
-  const structureOk = issues.length > 0 && Boolean(review)
+  // 1. Achievement Clarity (0–20)
+  let achievementClarity = 14
+  if (issues.length >= 3) achievementClarity += 2
+  if (issues.some((i) => (i.whyItMatters || '').includes('Deficit') || (i.recommendation || '').length > 20)) {
+    achievementClarity += 3
+  }
+  if (rewrites.some((rw) => /^(?:architected|engineered|automated|orchestrated|spearheaded|optimized|reduced|built|delivered)\b/i.test(rw))) {
+    achievementClarity += 1
+  }
+  achievementClarity = Math.max(5, Math.min(20, achievementClarity))
 
-  let score = 3 + groundingRate * 4 + (structureOk ? 1.5 : 0) + (issues.length >= 3 ? 1 : 0)
-  if (hasAiSlop) score = Math.min(score, 6)
-  if (filler) score = Math.min(score, 5)
-  score = Math.max(1, Math.min(10, Math.round(score)))
+  // 2. Technical / Business Impact (0–20)
+  let technicalImpact = 12 + Math.round(groundingRate * 5)
+  if (rewrites.some((rw) => /availability|throughput|latency|bottleneck|downtime|defect|scale|reliability|security/i.test(rw))) {
+    technicalImpact += 3
+  }
+  technicalImpact = Math.max(5, Math.min(20, technicalImpact))
 
-  let toneScore = 8
-  if (hasAiSlop) toneScore = Math.min(toneScore, 5)
-  if (filler) toneScore = Math.min(toneScore, 4)
+  // 3. Specificity of Action & Mechanism (0–15)
+  let specificity = 9
+  const techPattern = /\b(docker|kubernetes|postgres|mysql|redis|kafka|snowflake|dbt|aws|gcp|azure|api|graphql|index|dag|react|python)\b/i
+  if (techPattern.test(text) || rewrites.some((rw) => techPattern.test(rw))) {
+    specificity += 4
+  }
+  if (groundingRate >= 0.8) specificity += 2
+  specificity = Math.max(4, Math.min(15, specificity))
+
+  // 4. Quantification Quality (0–15)
+  // Reward honest qualitative outcomes or verified metrics; penalize unverified % or repetitive canned suffixes
+  let quantification = 13
+  const hasCannedSuffix = rewrites.some((rw) => CANNED_SUFFIX_PATTERNS.some((p) => p.test(rw)))
+  const hasUnverifiedPercent = rewrites.some((rw) => /\b\d+(?:\.\d+)?%/i.test(rw) && !text.includes(rw.match(/\b\d+(?:\.\d+)?%/i)[0]))
+
+  if (hasCannedSuffix) {
+    quantification -= 6
+  }
+  if (hasUnverifiedPercent) {
+    quantification -= 3
+  }
+  quantification = Math.max(2, Math.min(15, quantification))
+
+  // 5. Domain & Role Relevance (0–15)
+  let domainRelevance = 12
+  if (digest.domain && text.toLowerCase().includes(digest.domain.toLowerCase())) {
+    domainRelevance += 3
+  }
+  domainRelevance = Math.max(5, Math.min(15, domainRelevance))
+
+  // 6. Recruiter Readability (0–10)
+  let readability = 8
+  const avgWordCount = rewrites.length
+    ? rewrites.reduce((sum, rw) => sum + rw.split(/\s+/).length, 0) / rewrites.length
+    : 24
+  if (avgWordCount >= 18 && avgWordCount <= 34) {
+    readability += 2
+  } else if (avgWordCount > 45) {
+    readability -= 3
+  }
+  readability = Math.max(2, Math.min(10, readability))
+
+  // 7. Natural Human Writing (0–5)
+  let naturalWriting = 5
+  if (hasAiSlop) naturalWriting = Math.min(naturalWriting, 1)
+  if (filler) naturalWriting = Math.min(naturalWriting, 2)
+  naturalWriting = Math.max(0, Math.min(5, naturalWriting))
+
+  const totalScore = Math.max(10, Math.min(100, Math.round(
+    achievementClarity +
+    technicalImpact +
+    specificity +
+    quantification +
+    domainRelevance +
+    readability +
+    naturalWriting
+  )))
+
+  const score10 = Math.round((totalScore / 10) * 10) / 10
+
+  const dimensions = {
+    achievement_clarity: achievementClarity,
+    technical_business_impact: technicalImpact,
+    specificity_action_mechanism: specificity,
+    quantification_quality: quantification,
+    domain_role_relevance: domainRelevance,
+    recruiter_readability: readability,
+    natural_human_writing: naturalWriting,
+  }
+
+  const flags = [
+    ...(issues.length === 0 ? ['Report has no diagnosable findings — regenerate'] : []),
+    ...(filler ? ['Remove corporate filler phrases from narrative'] : []),
+    ...(hasAiSlop
+      ? ['Remove robotic AI buzzwords (spearheaded, leveraged, synergistic) and replace with grounded engineering verbs']
+      : []),
+    ...(hasCannedSuffix ? ['Remove repetitive canned metric suffixes from bullet rewrites'] : []),
+    ...(groundingRate < 0.8 && issues.length > 0 ? ['Findings must cite the candidate’s actual words/evidence'] : []),
+  ]
 
   return {
-    score,
-    subscores: {
-      tone: toneScore,
-      specificity: Math.round(groundingRate * 10),
-      mathematical_integrity: 8,
-      us_market_fit: 8,
-      safety: 8,
-      structure: structureOk ? 7 : 4,
-    },
-    flags: [
-      ...(issues.length === 0 ? ['Report has no diagnosable findings — regenerate'] : []),
-      ...(filler ? ['Remove corporate filler phrases from narrative'] : []),
-      ...(hasAiSlop
-        ? ['Remove robotic AI buzzwords (spearheaded, leveraged, synergistic) and replace with grounded engineering verbs']
-        : []),
-      ...(groundingRate < 0.8 && issues.length > 0 ? ['Findings must cite the candidate’s actual words/evidence'] : []),
-    ],
-    summary: `Deterministic fallback score (judge LLM unavailable): grounding ${(groundingRate * 100).toFixed(0)}%.`,
+    totalScore,
+    score: score10,
+    dimensions,
+    subscores: dimensions,
+    flags,
+    summary: `Deterministic 7-dimension quality score: ${totalScore}/100 (${score10}/10). Grounding ${(groundingRate * 100).toFixed(0)}%.`,
     fallback: true,
+  }
+}
+
+/**
+ * Dedicated 7-dimension quality evaluator for a single bullet rewrite.
+ * Ensures strong architectural/operational bullets without percentages score high (>= 80/100).
+ *
+ * @param {Object} params
+ * @param {string} params.rewrite
+ * @param {string} [params.originalText='']
+ * @param {string} [params.targetRole='']
+ * @param {string} [params.evidenceStatus='GROUNDED_QUALITATIVE']
+ * @returns {{ totalScore: number, dimensions: Object, passesThreshold: boolean, flags: string[] }}
+ */
+export function judgeBulletRewrite({
+  rewrite = '',
+  originalText = '',
+  targetRole = '',
+  evidenceStatus = 'GROUNDED_QUALITATIVE',
+  domain = '',
+} = {}) {
+  const rw = String(rewrite || '').trim()
+  const orig = String(originalText || '').trim()
+  const flags = []
+
+  const cleanRole = (targetRole || '').toLowerCase()
+  const cleanDomain = domain || (
+    /nurse|clinical|patient|hospital|medical|healthcare/i.test(cleanRole) ? 'healthcare' :
+    /finance|financial|fp&a|accounting|audit|budget/i.test(cleanRole) ? 'finance' :
+    /sales|account\s+exec|pipeline|revenue|quota/i.test(cleanRole) ? 'sales' :
+    /data\s+analyst|data\s+sci|analytics|bi\b/i.test(cleanRole) ? 'data' :
+    /software|developer|engineer|devops|cloud|platform/i.test(cleanRole) ? 'software' :
+    'general'
+  )
+
+  // 1. Achievement Clarity (0–20)
+  let clarity = 15
+  if (/^(?:architected|engineered|automated|orchestrated|spearheaded|optimized|reduced|built|delivered|hardened|standardized|coordinated|administered|reconciled|accelerated|synthesized|negotiated)\b/i.test(rw)) {
+    clarity += 4
+  } else if (/^(?:worked on|responsible for|helped|assisted|handled)\b/i.test(rw)) {
+    clarity -= 5
+    flags.push('Weak opening verb undercut seniority')
+  }
+  clarity = Math.max(5, Math.min(20, clarity))
+
+  // 2. Technical / Business Impact (0–20)
+  let impact = 15
+  const impactPatterns = {
+    healthcare: /patient\s+care|patient\s+safety|clinical|triage|wait\s+time|readmission|compliance|care\s+delivery|error\s+rate|turnaround|satisfaction|acuity|hipaa/i,
+    finance: /cash\s+flow|margin|variance|ebitda|audit|gaap|budget|forecast|revenue|cost\s+reduction|p&l|balance\s+sheet|turnaround/i,
+    sales: /quota|pipeline|win\s+rate|conversion|arr|mrr|acv|revenue|bookings|deal\s+size|retention|turnaround/i,
+    data: /query\s+runtime|pipeline|freshness|adoption|reporting\s+turnaround|accuracy|latency|throughput/i,
+    software: /availability|throughput|latency|reliability|defect|concurrency|security|zero-downtime|turnaround/i,
+    general: /efficiency|turnaround|reliability|outcome|accuracy|quality|deliverable|throughput/i,
+  }
+  const impactRegex = impactPatterns[cleanDomain] || impactPatterns.general
+  if (impactRegex.test(rw)) {
+    impact += 4
+  }
+  impact = Math.max(5, Math.min(20, impact))
+
+  // 3. Specificity of Action & Mechanism (0–15)
+  let specificity = 12
+  const mechanismPatterns = {
+    healthcare: /\b(epic|ehr|emr|hipaa|triage|vitals|medication|protocol|acuity|telemetry|rounding|infusion|icu|ccu|care\s+plan)\b/i,
+    finance: /\b(erp|sap|excel|financial\s+model|gaap|variance\s+analysis|p&l|hyperion|netsuite|reconciliation|dcf|general\s+ledger)\b/i,
+    sales: /\b(salesforce|hubspot|crm|outreach|pipeline|discovery|prospecting|cold\s+call|cadence|lead\s+scoring|demo)\b/i,
+    data: /\b(sql|tableau|power\s*bi|dbt|snowflake|etl|bigquery|python|pandas|r\b|looker|data\s+warehouse)\b/i,
+    software: /\b(docker|kubernetes|postgres|sql|redis|kafka|snowflake|dbt|aws|gcp|azure|api|graphql|indexes|pipeline)\b/i,
+    general: /\b(standardized|framework|protocol|methodology|pipeline|workflow|system|platform)\b/i,
+  }
+  const mechanismRegex = mechanismPatterns[cleanDomain] || mechanismPatterns.general
+  if (mechanismRegex.test(rw)) {
+    specificity += 3
+  }
+  specificity = Math.max(4, Math.min(15, specificity))
+
+  // 4. Quantification Quality (0–15)
+  let quant = 14
+  if (evidenceStatus === 'VERIFIED' || evidenceStatus === 'CANDIDATE_CONFIRMED' || evidenceStatus === 'CALCULATED') {
+    quant = 15
+  } else if (evidenceStatus === 'GROUNDED_QUALITATIVE') {
+    // Strong architectural/operational bullet without percentages scores high
+    quant = 14
+  } else if (evidenceStatus === 'UNVERIFIED') {
+    quant = 5
+    flags.push('Unverified numeric claim penalized')
+  }
+  if (CANNED_SUFFIX_PATTERNS.some((p) => p.test(rw))) {
+    quant = Math.min(quant, 6)
+    flags.push('Repetitive canned suffix detected')
+  }
+
+  // 5. Domain & Role Relevance (0–15)
+  let relevance = 14
+  if (targetRole && !rw.toLowerCase().includes(targetRole.toLowerCase().split(/\s+/)[0])) {
+    relevance = 13
+  }
+
+  // 6. Recruiter Readability (0–10)
+  let readability = 8
+  const wordCount = rw.split(/\s+/).length
+  if (wordCount >= 18 && wordCount <= 32) {
+    readability = 10
+  } else if (wordCount > 40) {
+    readability = 5
+    flags.push('Bullet exceeds recommended length (wall of text)')
+  }
+
+  // 7. Natural Human Writing (0–5)
+  let humanWriting = 5
+  if (BANNED_AI_SLOP_REGEX.test(rw)) {
+    humanWriting = 1
+    flags.push('Contains banned AI buzzwords')
+  }
+
+  const totalScore = Math.max(10, Math.min(100, Math.round(
+    clarity + impact + specificity + quant + relevance + readability + humanWriting
+  )))
+
+  return {
+    totalScore,
+    dimensions: {
+      achievement_clarity: clarity,
+      technical_business_impact: impact,
+      specificity_action_mechanism: specificity,
+      quantification_quality: quant,
+      domain_role_relevance: relevance,
+      recruiter_readability: readability,
+      natural_human_writing: humanWriting,
+    },
+    passesThreshold: totalScore >= 80,
+    flags,
   }
 }
 
@@ -260,8 +485,9 @@ async function executeJudge(aiReport) {
       validate: (raw) => {
         try {
           const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim())
-          if (typeof parsed.score !== 'number' || parsed.score < 0 || parsed.score > 10) {
-            return { valid: false, errors: ['score must be a number 0-10'] }
+          const s = typeof parsed.totalScore === 'number' ? parsed.totalScore : parsed.score
+          if (typeof s !== 'number' || s < 0) {
+            return { valid: false, errors: ['score must be a valid number'] }
           }
           return { valid: true, errors: [] }
         } catch (e) {
@@ -271,9 +497,19 @@ async function executeJudge(aiReport) {
     })
 
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
+    const totalScore = typeof parsed.totalScore === 'number'
+      ? Math.round(parsed.totalScore)
+      : (typeof parsed.score === 'number' && parsed.score <= 10 ? Math.round(parsed.score * 10) : 75)
+    const score10 = typeof parsed.score === 'number' && parsed.score <= 10
+      ? parsed.score
+      : Math.round((totalScore / 10) * 10) / 10
+
+    const dimensions = parsed.dimensions || parsed.subscores || {}
     return {
-      score: Math.round(parsed.score * 10) / 10,
-      subscores: parsed.subscores || {},
+      totalScore,
+      score: score10,
+      dimensions,
+      subscores: dimensions,
       flags: Array.isArray(parsed.flags) ? parsed.flags.slice(0, 5) : [],
       summary: parsed.summary || '',
       fallback: false,
@@ -286,7 +522,7 @@ async function executeJudge(aiReport) {
 
 /**
  * Public API: judge a full report bundle.
- * Returns { success, result: { score, subscores, flags, summary, fallback }, telemetry }.
+ * Returns { success, result: { totalScore, score, dimensions, subscores, flags, summary, fallback }, telemetry }.
  */
 export function judgeReport(aiReport) {
   return runAgentLifecycle({
@@ -302,4 +538,4 @@ export function judgeReport(aiReport) {
   })
 }
 
-export default { judgeReport, JUDGE_AGENT }
+export default { judgeReport, judgeBulletRewrite, JUDGE_AGENT }

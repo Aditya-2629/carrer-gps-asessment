@@ -52,8 +52,8 @@ export function extractMetricsFromText(text, source) {
     }
   }
 
-  // 1. Range metrics (e.g. "72% to 94%", "850ms to 120ms", "5 to 10", "10–20", "5-10%")
-  const rangeRegex = /\b\d+(?:\.\d+)?(?:%|ms|s|x)?\s*(?:to|–)\s*\d+(?:\.\d+)?(?:%|ms|s|x)?\b|\b\d+(?:\.\d+)?(?:%|ms|s|x)\s*-\s*\d+(?:\.\d+)?(?:%|ms|s|x)?\b|\b\d+\s*-\s*\d+%/gi
+  // 1. Range metrics (e.g. "72% to 94%", "850ms to 120ms", "8 hours to 4 hours", "5 to 10", "10–20", "5-10%")
+  const rangeRegex = /\b\d+(?:\.\d+)?(?:%|ms|s|x|hours?|hrs?|days?|weeks?|mins?|minutes?)?\s*(?:to|–|-)\s*(?:under\s+)?\d+(?:\.\d+)?(?:%|ms|s|x|hours?|hrs?|days?|weeks?|mins?|minutes?|seconds?|ms)?\b/gi
   let match
   while ((match = rangeRegex.exec(clean)) !== null) {
     if (!takenPositions.has(match.index)) {
@@ -68,7 +68,7 @@ export function extractMetricsFromText(text, source) {
   }
 
   // 3. Multiplier metrics (e.g. "3x", "10x", "2.5x")
-  const multRegex = /\b\d+(?:\.\d+)?x\b/gi
+  const multRegex = /\b\d+(?:\.\d+)?[xX]\b/g
   while ((match = multRegex.exec(clean)) !== null) {
     addMatch(match[0], METRIC_CATEGORIES.MULTIPLIER, match.index, match.index + match[0].length)
   }
@@ -79,8 +79,8 @@ export function extractMetricsFromText(text, source) {
     addMatch(match[0].trim(), METRIC_CATEGORIES.CURRENCY, match.index, match.index + match[0].length)
   }
 
-  // 5. Time & latency metrics (e.g. "<1 second", "< 1 second", "sub-50ms", "850ms", "120ms")
-  const timeRegex = /(?:<|sub-)?\s*\d+(?:\.\d+)?\s*(?:ms|milliseconds?|seconds?|sec|minutes?|mins?|hours?|hrs?)\b/gi
+  // 5. Time & latency metrics (e.g. "40+ manual hours", "90 minutes", "6+ hours", "<1 second", "sub-50ms", "850ms", "120ms")
+  const timeRegex = /(?:<|sub-)?\s*\d+(?:\.\d+)?\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:ms|milliseconds?|seconds?|sec|minutes?|mins?|hours?|hrs?|days?|weeks?|months?)\b/gi
   while ((match = timeRegex.exec(clean)) !== null) {
     const val = match[0].trim()
     // Distinguish duration vs latency/time
@@ -94,22 +94,38 @@ export function extractMetricsFromText(text, source) {
   }
 
   // 6. Explicit compound durations (e.g. "50+ hours/month", "25+ hours/week", "20+ hours", "12 months")
-  const durationRegex = /\b\d+\+?\s*(?:hours?|hrs?|days?|weeks?|months?|years?)(?:\/(?:month|week|day|year))?\b/gi
+  const durationRegex = /\b\d+\+?\s*(?:(?:manual|working|analytical|engineering|operational|labor)\s+)?(?:hours?|hrs?|days?|weeks?|months?|years?)(?:\/(?:month|week|day|year))?\b/gi
   while ((match = durationRegex.exec(clean)) !== null) {
     addMatch(match[0], METRIC_CATEGORIES.DURATION, match.index, match.index + match[0].length)
   }
 
-  // 7. Counts with units or plus signs (e.g. "5,000+", "200+", "170-query", "20+ production releases", "9 tools", "100 simulated")
-  const countWithUnitRegex = /\b\d+(?:,\d{3})*\+?(?:-(?:query|model|tool|node|cluster|pipeline))?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?)?\b/gi
+  // 7. Counts with units or plus signs (e.g. "50,000+ transactions", "15-person team", "100K+ users", "15+ reports", "5,000+", "200+", "170-query")
+  const countWithUnitRegex = /\b\d+(?:,\d{3})*\+?(?:-(?:person|query|model|tool|node|cluster|pipeline|member|engineer|developer|seat))?\s*(?:[a-z]+-)?(?:financial|operational|clinical|concurrent|active|daily|monthly|annual|historical|enterprise|production|unique|cross-functional|internal)?\s*(?:tools?|queries|releases?|users?|members?|faculty|engineers?|sessions?|requests?|events\/second|events|records?|transactions?|tables?|deployments?|services?|reports?|dashboards?|features?|tickets?|bugs?|defects?|vulnerabilities?|cves?|test cases?|builds?|pipelines?|nodes?|clusters?|servers?|containers?|pods?|patients?|beds?|clients?|customers?|accounts?|leads?|team)\b/gi
   while ((match = countWithUnitRegex.exec(clean)) !== null) {
     const matchedStr = match[0].trim()
-    // Must contain numbers
     if (/\d/.test(matchedStr) && !takenPositions.has(match.index)) {
-      // Don't capture plain standalone calendar years (e.g. 2021, 2023) as counts
       const isYear = /^(?:19|20)\d{2}$/.test(matchedStr)
       if (!isYear) {
         addMatch(matchedStr, METRIC_CATEGORIES.COUNT, match.index, match.index + matchedStr.length)
       }
+    }
+  }
+
+  // 8. Scale / Volume notations (e.g. "100K+ users", "10M+", "500k+")
+  const scaleRegex = /\b\d+(?:,\d{3})*(?:\.\d+)?\s*(?:[kKmMbB]|million|billion)\+?(?:\s*(?:users?|customers?|clients?|transactions?|records?|requests?|events?|queries?))?\b/gi
+  while ((match = scaleRegex.exec(clean)) !== null) {
+    const matchedStr = match[0].trim()
+    if (!takenPositions.has(match.index)) {
+      addMatch(matchedStr, METRIC_CATEGORIES.COUNT, match.index, match.index + matchedStr.length)
+    }
+  }
+
+  // 9. Team size patterns (e.g. "15-person team", "team of 12", "led 8 engineers")
+  const teamRegex = /\b(?:\d+\s*-\s*person(?:\s+team)?|team\s+of\s+\d+|led\s+\d+\s+(?:engineers|developers|people|analysts))\b/gi
+  while ((match = teamRegex.exec(clean)) !== null) {
+    const matchedStr = match[0].trim()
+    if (!takenPositions.has(match.index)) {
+      addMatch(matchedStr, METRIC_CATEGORIES.COUNT, match.index, match.index + matchedStr.length)
     }
   }
 
