@@ -111,6 +111,10 @@ function SectionHeader({ icon, title, accent }) {
 }
 
 export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData }) {
+  const [toastMsg, setToastMsg] = useState('')
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
+  const [copiedSummary, setCopiedSummary] = useState(false)
+
   const theme = useAppStore((s) => s.theme)
   const storeReportData = useAppStore((s) => s.reportData)
   const reportData = propReportData || storeReportData || {}
@@ -125,8 +129,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
 
-  const [toastMsg, setToastMsg] = useState('')
-  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const wovenList =
     resumeAgent?.interviewLedger ||
     resumeAgent?.wovenKeywords ||
@@ -300,8 +302,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     }
     return cleanAudit
   }, [rawSectionAudit, dashboard, resolvedBullets])
-
-  const [copiedSummary, setCopiedSummary] = useState(false)
 
   const handleCopySummary = () => {
     if (!summaryOptimization?.rewrittenSummary) return
