@@ -19,6 +19,7 @@ import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api, normalizeReportData } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -425,6 +426,23 @@ export default function AnalysisLoader() {
             Crafture <span className="text-[var(--primary)]">Career GPS</span>
           </span>
         </div>
+      </motion.div>
+
+      {/* ── Official Crafture Copilot Mascot (Live Synthesis State) ── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-3 flex flex-col items-center justify-center"
+      >
+        <CrafturePoseMascot
+          pose={displayProgress >= 100 ? 'thumbsup' : 'laptop'}
+          size={124}
+          animation={displayProgress >= 100 ? 'bounce' : 'working'}
+          showShadow={true}
+          interactive={false}
+          priority
+        />
       </motion.div>
 
       {/* Title */}

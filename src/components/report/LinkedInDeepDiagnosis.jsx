@@ -33,6 +33,7 @@ import {
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 const severityChip = {
   high: 'bg-red-500/10 text-red-600 border border-red-500/20',
@@ -1190,14 +1191,24 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   return (
     <section id="linkedin-ai" className="space-y-8 scroll-mt-28">
       {/* ── Section Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 mb-1">
-        <span className="text-[#0a66c2] flex items-center">
-          <LinkedinLogo size={26} weight="fill" />
-        </span>
-        <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
-          Executive LinkedIn Diagnostic & Optimization Studio
-        </h2>
-        <span className="flex-1 h-px bg-[var(--border-default)]" />
+      <div className="flex items-center gap-3.5 mb-1">
+        <CrafturePoseMascot
+          pose="laptop"
+          size={68}
+          animation="float"
+          showShadow={false}
+          className="shrink-0 hidden sm:inline-flex"
+          alt="LinkedIn Optimization Mascot"
+        />
+        <div className="flex items-center gap-3 flex-1">
+          <span className="text-[#0a66c2] flex items-center">
+            <LinkedinLogo size={26} weight="fill" />
+          </span>
+          <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
+            Executive LinkedIn Diagnostic & Optimization Studio
+          </h2>
+          <span className="flex-1 h-px bg-[var(--border-default)]" />
+        </div>
       </div>
 
       {/* Amber alert if blank/unlinked profile */}

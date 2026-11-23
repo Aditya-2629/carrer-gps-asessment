@@ -82,6 +82,9 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
                 })
               }
             }
+          } else {
+            bulkUpdates.linkedin = ''
+            bulkUpdates.linkedinData = null
           }
           // Always overwrite identity fields from newly parsed resume (never keep stale test candidate)
           if (detectedName) {
@@ -114,6 +117,8 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
             bulkUpdates.phone = rawPhone
           } else if (fastPhone) {
             bulkUpdates.phone = fastPhone
+          } else {
+            bulkUpdates.phone = ''
           }
 
           const detectedLocation =
@@ -218,6 +223,10 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
       if (typeof sessionStorage !== 'undefined') {
         sessionStorage.removeItem('craftureResumeReport')
         sessionStorage.removeItem('craftureLinkedinScrape')
+      }
+      if (typeof window !== 'undefined') {
+        window.__linkedinScrapeInProgress = null
+        window.__linkedinScrapePromise = null
       }
 
       // 2. Reset the store state to ensure no previous candidate metadata is sent

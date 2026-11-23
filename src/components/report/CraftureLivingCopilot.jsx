@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { Mascot } from 'wobnimo/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
 import {
@@ -9,7 +8,7 @@ import {
   GUIDE_EMOTIONS,
   SECTION_INSIGHTS,
 } from '../../store/useReportGuideStore'
-import { crafturePerson } from '../../mascots/crafturePerson'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 import { ArrowRight, X, MessageSquare } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
 
@@ -265,14 +264,40 @@ export default function CraftureLivingCopilot({
     (mode === 'solution' ? storeInsight?.solution : storeInsight?.thought || storeInsight?.problem)
 
   const currentEmotion = activeThought?.emotion || emotion || 'idle'
-  const rawWobnimoState = isCelebrating
-    ? 'celebrating'
-    : isAsleep
-    ? 'sleeping'
-    : reactionWobnimo || EMOTION_TO_WOBNIMO[currentEmotion] || 'idle'
-  const wobnimoState = sanitizeWobnimoState(rawWobnimoState)
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
   const accentColor = currentPalette.shell || '#6366F1'
+
+  // Map state and active context directly to 3D Forest-Green character poses
+  const activePose = useMemo(() => {
+    if (isCelebrating) return 'thumbsup'
+    if (isAssessment) {
+      const stepName = step?.name
+      if (stepName === 'resume') return 'reading'
+      if (stepName === 'linkedin') return 'laptop'
+      if (stepName === 'apps30d' || stepName === 'funnel90d') return 'chart'
+      if (stepName === 'targetRole' || stepName === 'visa') return 'thinking'
+      if (stepName === 'DropOffStage' || stepName === 'biggestChallenge') return 'idea'
+      if (stepName === 'searchMethods' || stepName === 'outreach') return 'point'
+      if (stepName === 'alreadyTried' || stepName === 'consultancy') return 'clipboard'
+      return 'wave'
+    }
+    // In report mode:
+    if (activeNodeId === 'overview-pulse') return 'wave'
+    if (activeNodeId === 'overview-bottleneck') return 'thinking'
+    if (activeNodeId === 'top-priorities') return 'clipboard'
+    if (activeNodeId === 'funnel-leak' || activeNodeId === 'funnel-sankey') return 'chart'
+    if (activeNodeId === 'sprint-roadmap') return 'roadmap'
+    if (activeNodeId === 'next-action') return 'thumbsup'
+    if (activeNodeId === 'resume-scorecard') return 'analytics'
+    if (activeNodeId === 'resume-audit' || activeNodeId === 'resume-bullets' || activeNodeId === 'resume-summary') return 'reading'
+    if (activeNodeId === 'linkedin-headline' || activeNodeId === 'linkedin-skills') return 'laptop'
+
+    if (currentEmotion === 'victory' || currentEmotion === 'celebrating') return 'thumbsup'
+    if (currentEmotion === 'thinking' || currentEmotion === 'surprised') return 'thinking'
+    if (currentEmotion === 'speaking') return 'point'
+    if (currentEmotion === 'listening') return 'clipboard'
+    return 'wave'
+  }, [isCelebrating, isAssessment, step?.name, activeNodeId, currentEmotion])
 
   // 1. Ronaldo "SIUUU!" Celebration Animation (Reserved strictly for genuine wins)
   const triggerSiuuu = useCallback((customMsg = null) => {
@@ -972,19 +997,14 @@ export default function CraftureLivingCopilot({
           className="relative cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 group/mascot"
           title={cloudMinimized ? 'Click to restore thought cloud' : isAssessment ? 'Click to toggle thought cloud' : 'Click to toggle Issue/Fix mode • Double-click to celebrate'}
         >
-          {/* Floor Ambient Drop Shadow */}
-          <div
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-28 h-6 rounded-full pointer-events-none transition-opacity duration-200"
-            style={{
-              background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 70%)',
-            }}
-          />
-
-          {/* 3D SDF Mascot Canvas (Wobnimo) */}
-          <Mascot
-            character={crafturePerson}
-            state={wobnimoState}
-            style={{ width: 136, height: 136 }}
+          {/* Official 3D Forest-Green Crafture Mascot */}
+          <CrafturePoseMascot
+            pose={activePose}
+            size={136}
+            animation={isCelebrating ? 'idle' : 'float'}
+            showShadow={true}
+            interactive={false}
+            priority
           />
 
           {/* Minimal Floating Indicator Badge on hover */}

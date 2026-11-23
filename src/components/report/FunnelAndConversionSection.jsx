@@ -10,6 +10,7 @@ import {
 } from '@phosphor-icons/react'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { StageBars } from '../stage-bars'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 export default function FunnelAndConversionSection({
   funnelData: _funnelData,
@@ -163,14 +164,24 @@ export default function FunnelAndConversionSection({
   return (
     <section id="funnel-sankey" className="space-y-6 break-before-page page-break-before-always">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 border-b border-[var(--border-default)] pb-4">
-        <div>
-          <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
-            Inside the hiring funnel
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight">
-            Monthly Funnel Outcomes &amp; Conversion Velocity
-          </h2>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--border-default)] pb-4">
+        <div className="flex items-center gap-3.5">
+          <CrafturePoseMascot
+            pose="chart"
+            size={74}
+            animation="float"
+            showShadow={false}
+            className="shrink-0 hidden sm:inline-flex"
+            alt="Funnel & Pipeline Mascot"
+          />
+          <div>
+            <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
+              Inside the hiring funnel
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight">
+              Monthly Funnel Outcomes &amp; Conversion Velocity
+            </h2>
+          </div>
         </div>
         <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium">
           Benchmarked against 1,000+ technical candidate pipelines in your target role
