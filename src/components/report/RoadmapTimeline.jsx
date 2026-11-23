@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Trophy } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -432,19 +433,29 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     >
       {/* Section Header with Segmented View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--border-default)] pb-4">
-        <div>
-          <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
-            Action roadmap &amp; milestones
-          </span>
-          <h2
-            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
-            style={{ fontFamily: 'var(--font-head)' }}
-          >
-            Action Plan &amp; Milestone Pathway
-          </h2>
-          <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
-            Calibrated to {targetRole} hiring expectations and conversion bottlenecks
-          </p>
+        <div className="flex items-center gap-3.5">
+          <CrafturePoseMascot
+            pose={activeView === '7day' ? 'clipboard' : 'roadmap'}
+            size={74}
+            animation="float"
+            showShadow={false}
+            className="shrink-0 hidden sm:inline-flex"
+            alt={activeView === '7day' ? 'Action Plan Mascot' : 'Roadmap Mascot'}
+          />
+          <div>
+            <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
+              Action roadmap &amp; milestones
+            </span>
+            <h2
+              className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
+              style={{ fontFamily: 'var(--font-head)' }}
+            >
+              Action Plan &amp; Milestone Pathway
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
+              Calibrated to {targetRole} hiring expectations and conversion bottlenecks
+            </p>
+          </div>
         </div>
 
         {/* Clean Segmented Switcher (Screen View) */}
