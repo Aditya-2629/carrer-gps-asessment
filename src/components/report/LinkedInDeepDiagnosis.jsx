@@ -805,7 +805,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     }
   }, [visualPrompts, targetRole, coreSkillList])
 
-  const showOutFox = Boolean(
+  const showCraftureNetwork = Boolean(
     networkingRecommendation?.isRecommended ||
     effectiveSectionAudit?.activityAndNetworking?.score10 <= 6 ||
     linkedinAgent?.activitySignals?.isGhostProfile
@@ -1332,12 +1332,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         </div>
       </div>
 
-      {/* ── 1C. Gentle Crafture OutFox Recommendation (When Activity Is Hurting) ── */}
-      {showOutFox && (
+      {/* ── 1C. Gentle Crafture Network Recommendation (When Activity Is Hurting) ── */}
+      {showCraftureNetwork && (
         <div
-          id="linkedin-outfox"
+          id="linkedin-crafture-network"
           className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs"
-          data-mascot-cue="Automate daily connection limits safely with Crafture OutFox to boost visibility without manual outreach exhaustion."
+          data-mascot-cue="Automate daily connection limits safely with Crafture Network to boost visibility without manual outreach exhaustion."
           data-mascot-chip="Networking Velocity"
           data-mascot-emotion="speaking"
         >
@@ -1348,7 +1348,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               </span>
               <div>
                 <h4 className="text-sm font-bold text-[var(--text-primary)]">
-                  Automate Your LinkedIn Reach With Crafture OutFox
+                  Automate Your LinkedIn Reach With Crafture Network
                 </h4>
                 <p className="text-xs text-[var(--text-secondary)]">
                   Safe, executive-grade networking automation to stay visible to hiring managers daily.
@@ -1366,16 +1366,16 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               {networkingRecommendation?.bottleneck || 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.'}
             </p>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">OutFox</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
+              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">Crafture Network</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
             </p>
 
             <div className="pt-1">
               <a
-                href="mailto:aditya@crafture.in?subject=OutFox%20Access%20Inquiry%20-%20Career%20GPS"
+                href="mailto:aditya@crafture.in?subject=Crafture%20Network%20Access%20Inquiry%20-%20Career%20GPS"
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-all shadow-xs cursor-pointer"
               >
                 <EnvelopeSimple size={14} weight="bold" />
-                Inquire About OutFox Access
+                Inquire About Crafture Network Access
               </a>
             </div>
           </div>

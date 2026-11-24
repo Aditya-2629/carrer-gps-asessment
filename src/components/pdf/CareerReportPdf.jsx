@@ -842,13 +842,13 @@ export default function CareerReportPdf({ reportData = {} }) {
     coverBannerPrompt: `Design a high-converting LinkedIn Cover Banner (1584x396 px) for a ${targetRole}. Features: 1) Authority Headline: "${targetRole} | Enterprise Systems & Scalable Impact", 2) Core Value Pillars: ${pinnedSkills.join(' * ')}, 3) High-contrast executive layout with dark navy/slate base, keeping lower-left 30% clear for circular avatar photo.`,
   }
 
-  // Crafture OutFox Networking Recommendation
+  // Crafture Network Recommendation
   const networkingRec = linkedinAgent.networkingRecommendation ||
     linkedinAgent.optimizations?.networkingRecommendation ||
     linkedinAgent.activitySignals?.networkingRecommendation || {
       isRecommended: true,
       bottleneck: 'Low posting, commenting, and connection activity is limiting your inbound visibility to hiring managers.',
-      recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate OutFox -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
+      recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate Crafture Network -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
     }
 
   // Stepper 6 Phases
@@ -1828,7 +1828,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* Visual Identity & Crafture OutFox Networking Card */}
+        {/* Visual Identity & Crafture Network Card */}
         <View style={styles.grid2} wrap={false}>
           <View style={styles.col2}>
             <View style={styles.card}>
@@ -1844,7 +1844,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View style={styles.cardHighlighted}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
-                  CRAFTURE OUTFOX NETWORKING AGENT
+                  CRAFTURE NETWORK
                 </Text>
                 <Text style={styles.tagPass}>RECOMMENDED</Text>
               </View>

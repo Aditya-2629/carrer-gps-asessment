@@ -109,7 +109,7 @@ const OBSERVED_SECTION_IDS = [
   'linkedin-headlines',
   'linkedin-about',
   'linkedin-skills',
-  'linkedin-outfox',
+  'linkedin-crafture-network',
 ]
 
 // Section to Choreography Mapping
@@ -141,7 +141,7 @@ const SECTION_TO_REACTION = {
   'linkedin-headlines': 'swagger_bounce',
   'linkedin-about': 'swagger_bounce',
   'linkedin-skills': 'swagger_bounce',
-  'linkedin-outfox': 'swagger_bounce',
+  'linkedin-crafture-network': 'swagger_bounce',
   'linkedin-scorecard': 'swagger_bounce',
   'linkedin-audit': 'swagger_bounce',
 
@@ -584,7 +584,7 @@ export default function CraftureLivingCopilot({
         break
 
       case 'swagger_bounce':
-        // linkedin-headlines, linkedin-about, linkedin-outfox, etc.: Confident double-hop + side turn
+        // linkedin-headlines, linkedin-about, linkedin-crafture-network, etc.: Confident double-hop + side turn
         gsap.timeline()
           .to(mascotContainerRef.current, { y: -9, rotationY: 14, duration: 0.2, ease: 'power2.out' })
           .to(mascotContainerRef.current, { y: 0, duration: 0.16, ease: 'power2.in' })
