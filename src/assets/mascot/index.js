@@ -4,6 +4,7 @@ import poseClipboard from './pose-clipboard.png'
 import poseThinking from './pose-thinking.png'
 import poseChart from './pose-chart.png'
 import poseAnalytics from './pose-analytics.png'
+import poseAnalyticsGif from './mascot-analytics.gif'
 import poseReading from './pose-reading.png'
 import poseLaptop from './pose-laptop.png'
 import poseThumbsUp from './pose-thumbsup.png'
@@ -18,6 +19,7 @@ export {
   poseThinking,
   poseChart,
   poseAnalytics,
+  poseAnalyticsGif,
   poseReading,
   poseLaptop,
   poseThumbsUp,
@@ -32,8 +34,8 @@ export const MASCOT_POSES = {
   point: posePoint,
   clipboard: poseClipboard,
   thinking: poseThinking,
-  chart: poseChart,
-  analytics: poseAnalytics,
+  chart: poseAnalyticsGif || poseChart,
+  analytics: poseAnalyticsGif || poseAnalytics,
   reading: poseReading,
   laptop: poseLaptop,
   thumbsup: poseThumbsUp,
@@ -54,15 +56,15 @@ export const MASCOT_POSES = {
 
   // 03 Plan & Analyse
   plan: poseIdea,
-  analyse: poseAnalytics,
-  analysis: poseAnalytics,
+  analyse: poseAnalyticsGif || poseAnalytics,
+  analysis: poseAnalyticsGif || poseAnalytics,
   executive: poseWave,
 
   // 04 Show Progress
-  progress: poseChart,
-  healthScore: poseChart,
-  funnel: poseChart,
-  metrics: poseChart,
+  progress: poseAnalyticsGif || poseChart,
+  healthScore: poseAnalyticsGif || poseChart,
+  funnel: poseAnalyticsGif || poseChart,
+  metrics: poseAnalyticsGif || poseChart,
 
   // 05 Find Opportunities
   opportunities: posePoint,
@@ -113,6 +115,33 @@ export function getMascotPose(poseName) {
   if (MASCOT_POSES[key]) return MASCOT_POSES[key]
   if (MASCOT_POSES[poseName]) return MASCOT_POSES[poseName]
   return poseWave
+}
+
+let hasPreloaded = false
+export function preloadMascotAssets() {
+  if (typeof window === 'undefined' || hasPreloaded) return
+  hasPreloaded = true
+  const urls = [
+    poseWave,
+    posePoint,
+    poseClipboard,
+    poseThinking,
+    poseAnalyticsGif,
+    poseChart,
+    poseAnalytics,
+    poseReading,
+    poseLaptop,
+    poseThumbsUp,
+    poseRoadmap,
+    poseSpeech,
+    poseIdea,
+  ]
+  urls.forEach((src) => {
+    if (src && typeof src === 'string') {
+      const img = new Image()
+      img.src = src
+    }
+  })
 }
 
 export default MASCOT_POSES

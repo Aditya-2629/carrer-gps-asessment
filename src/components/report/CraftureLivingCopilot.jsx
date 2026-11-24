@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
+import { Mascot } from 'wobnimo/react'
+import crafturePerson from '../../mascots/crafturePerson'
+import { getMascotPose, preloadMascotAssets } from '../../assets/mascot'
 import {
   useReportGuideStore,
   EMOTION_TO_WOBNIMO,
@@ -8,9 +11,50 @@ import {
   GUIDE_EMOTIONS,
   SECTION_INSIGHTS,
 } from '../../store/useReportGuideStore'
-import CrafturePoseMascot from '../common/CrafturePoseMascot'
 import { ArrowRight, X, MessageSquare } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
+
+const PROP_POSES = new Set([
+  'chart',
+  'analytics',
+  'progress',
+  'healthscore',
+  'funnel',
+  'metrics',
+  'laptop',
+  'apply',
+  'working',
+  'clipboard',
+  'audit',
+  'checklist',
+  'roadmap',
+  'roadmap_plan',
+  'sprint',
+  'journey',
+  'milestones',
+  'speech',
+  'dialogue',
+  'tip',
+  'feedback',
+  'thumbsup',
+  'success',
+  'offer',
+  'siuuu',
+  'reading',
+  'resume',
+  'ats',
+  'idea',
+  'plan',
+  'eureka',
+  'insights',
+  'point',
+  'network',
+  'opportunities',
+  'radar',
+  'market',
+  'directing',
+  'highlight',
+])
 
 const ASSESSMENT_STEP_TIPS = {
   resume: {
@@ -221,6 +265,12 @@ export default function CraftureLivingCopilot({
   const [activeThought, setActiveThought] = useState(null)
   const [reactionWobnimo, setReactionWobnimo] = useState(null)
   const [isAsleep, setIsAsleep] = useState(false)
+  const [isStageHovered, setIsStageHovered] = useState(false)
+
+  // Preload all animated clips and pose assets for 0ms zero-flicker switching
+  useEffect(() => {
+    preloadMascotAssets()
+  }, [])
 
   const isChoreographingRef = useRef(false)
   const choreoTimerRef = useRef(null)
@@ -298,6 +348,26 @@ export default function CraftureLivingCopilot({
     if (currentEmotion === 'listening') return 'clipboard'
     return 'wave'
   }, [isCelebrating, isAssessment, step?.name, activeNodeId, currentEmotion])
+
+  // Approach 2 Same-Spot Hybrid resolvers
+  const isPropScene = useMemo(() => {
+    return PROP_POSES.has(String(activePose || '').toLowerCase())
+  }, [activePose])
+
+  const isWobnimoActive = isStageHovered || isCelebrating || !isPropScene || isThinking || isAsleep || activePose === 'wave'
+
+  const resolvedPropSrc = useMemo(() => {
+    return getMascotPose(activePose)
+  }, [activePose])
+
+  const resolvedWobnimoState = useMemo(() => {
+    if (isCelebrating) return 'celebrating'
+    if (isAsleep) return 'sleeping'
+    if (isThinking) return 'thinking'
+    if (isStageHovered) return 'thinking'
+    if (reactionWobnimo) return sanitizeWobnimoState(reactionWobnimo)
+    return sanitizeWobnimoState(EMOTION_TO_WOBNIMO[emotion] || currentEmotion || 'idle')
+  }, [isCelebrating, isAsleep, isThinking, isStageHovered, reactionWobnimo, emotion, currentEmotion])
 
   // 1. Ronaldo "SIUUU!" Celebration Animation (Reserved strictly for genuine wins)
   const triggerSiuuu = useCallback((customMsg = null) => {
@@ -987,32 +1057,72 @@ export default function CraftureLivingCopilot({
         )}
       </AnimatePresence>
 
-      {/* ─── Transparent Floating 3D Mascot Character ─── */}
-      <div className={`relative pointer-events-auto flex flex-col items-center ${isAssessment ? 'scale-[0.72] sm:scale-100' : 'scale-[0.78] sm:scale-100'} origin-bottom-right`}>
-        {/* Mascot Click Area with Hover Lift */}
+      {/* ─── Approach 2 Same-Spot Hybrid Mascot (Locked 156px x 156px / mobile 120px x 120px) ─── */}
+      <div className="relative pointer-events-auto flex flex-col items-center origin-bottom-right">
+        {/* Mascot Click Area & Locked Stage */}
         <div
           ref={mascotContainerRef}
           onClick={handleMascotClick}
           onDoubleClick={handleMascotDoubleClick}
-          className="relative cursor-pointer transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 group/mascot"
-          title={cloudMinimized ? 'Click to restore thought cloud' : isAssessment ? 'Click to toggle thought cloud' : 'Click to toggle Issue/Fix mode • Double-click to celebrate'}
+          onMouseEnter={() => setIsStageHovered(true)}
+          onMouseLeave={() => setIsStageHovered(false)}
+          className="relative w-[120px] h-[120px] sm:w-[156px] sm:h-[156px] flex items-center justify-center cursor-pointer select-none group/mascot"
+          title={
+            cloudMinimized
+              ? 'Click to restore thought cloud'
+              : isAssessment
+              ? 'Click to toggle thought cloud'
+              : 'Click to toggle Issue/Fix mode • Double-click to celebrate'
+          }
         >
-          {/* Official 3D Forest-Green Crafture Mascot */}
-          <CrafturePoseMascot
-            pose={activePose}
-            size={136}
-            animation={isCelebrating ? 'idle' : 'float'}
-            showShadow={true}
-            interactive={false}
-            priority
+          {/* Shared Soft Elliptical Floor Shadow */}
+          <div
+            className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-3 sm:h-4 bg-slate-900/15 dark:bg-black/35 rounded-full blur-[4px] pointer-events-none transition-all duration-300"
+            style={{
+              transform: `translateX(-50%) scale(${isCelebrating ? 0.7 : 1})`,
+              opacity: isCelebrating ? 0.15 : 0.35,
+            }}
           />
+
+          {/* Layer 1: Prop Scene Graphics (Preloaded Animated GIF / High-Res Pose) */}
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out will-change-transform ${
+              !isWobnimoActive
+                ? 'opacity-100 scale-100 pointer-events-auto'
+                : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          >
+            <img
+              src={resolvedPropSrc}
+              alt="Crafture Mascot Pose"
+              className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+
+          {/* Layer 2: Live Interactive Wobnimo 3D SDF Mascot (Real-time Gaze & Wave) */}
+          <div
+            className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out will-change-transform ${
+              isWobnimoActive
+                ? 'opacity-100 scale-100 pointer-events-auto'
+                : 'opacity-0 scale-95 pointer-events-none'
+            }`}
+          >
+            <Mascot
+              character={crafturePerson}
+              state={resolvedWobnimoState}
+              interactive={true}
+              className="w-full h-full object-contain select-none"
+            />
+          </div>
 
           {/* Minimal Floating Indicator Badge on hover */}
           {!isChatOpen && (
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               whileHover={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none"
+              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none z-20"
             >
               {isAsleep
                 ? 'Paused — scroll or hover to wake'
