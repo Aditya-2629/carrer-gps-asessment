@@ -1,60 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import gsap from 'gsap'
-import { Mascot } from 'wobnimo/react'
-import crafturePerson from '../../mascots/crafturePerson'
 import { getMascotPose, preloadMascotAssets } from '../../assets/mascot'
 import {
   useReportGuideStore,
-  EMOTION_TO_WOBNIMO,
   EMOTION_PALETTES,
   GUIDE_EMOTIONS,
   SECTION_INSIGHTS,
 } from '../../store/useReportGuideStore'
 import { ArrowRight, X, MessageSquare } from 'lucide-react'
 import useAppStore from '../../store/useAppStore'
-
-const PROP_POSES = new Set([
-  'chart',
-  'analytics',
-  'progress',
-  'healthscore',
-  'funnel',
-  'metrics',
-  'laptop',
-  'apply',
-  'working',
-  'clipboard',
-  'audit',
-  'checklist',
-  'roadmap',
-  'roadmap_plan',
-  'sprint',
-  'journey',
-  'milestones',
-  'speech',
-  'dialogue',
-  'tip',
-  'feedback',
-  'thumbsup',
-  'success',
-  'offer',
-  'siuuu',
-  'reading',
-  'resume',
-  'ats',
-  'idea',
-  'plan',
-  'eureka',
-  'insights',
-  'point',
-  'network',
-  'opportunities',
-  'radar',
-  'market',
-  'directing',
-  'highlight',
-])
 
 const ASSESSMENT_STEP_TIPS = {
   resume: {
@@ -193,44 +148,6 @@ const SECTION_TO_REACTION = {
   'next-action': 'call_invite_wave',
 }
 
-const REACTION_TO_WOBNIMO = {
-  welcome_wave: 'speaking',
-  alarm_double_take: 'surprised',
-  confident_nod: 'listening',
-  inspector_lean: 'thinking',
-  deep_think_rock: 'thinking',
-  lightbulb_pop: 'celebrating',
-  swagger_bounce: 'celebrating',
-  call_invite_wave: 'celebrating',
-  siuuu_celebrate: 'celebrating',
-  idle_sleep: 'sleeping',
-}
-
-const VALID_WOBNIMO_STATES = new Set([
-  'idle',
-  'thinking',
-  'listening',
-  'speaking',
-  'sleeping',
-  'working',
-  'error',
-  'surprised',
-  'celebrating',
-  'sad',
-])
-
-export function sanitizeWobnimoState(state) {
-  if (!state || typeof state !== 'string') return 'idle'
-  const s = state.toLowerCase().trim()
-  if (s === 'sleep') return 'sleeping'
-  if (s === 'curious' || s === 'inspect') return 'thinking'
-  if (s === 'happy' || s === 'proud' || s === 'victory' || s === 'cta') return 'celebrating'
-  if (s === 'alert' || s === 'concerned') return 'surprised'
-  if (s === 'coach') return 'speaking'
-  if (s === 'move') return 'working'
-  return VALID_WOBNIMO_STATES.has(s) ? s : 'idle'
-}
-
 export default function CraftureLivingCopilot({
   activeTab = 'overview',
   context = 'report',
@@ -263,7 +180,6 @@ export default function CraftureLivingCopilot({
   const [isThinking, setIsThinking] = useState(false)
   const [isCelebrating, setIsCelebrating] = useState(false)
   const [activeThought, setActiveThought] = useState(null)
-  const [reactionWobnimo, setReactionWobnimo] = useState(null)
   const [isAsleep, setIsAsleep] = useState(false)
   const [isStageHovered, setIsStageHovered] = useState(false)
 
@@ -349,25 +265,18 @@ export default function CraftureLivingCopilot({
     return 'wave'
   }, [isCelebrating, isAssessment, step?.name, activeNodeId, currentEmotion])
 
-  // Approach 2 Same-Spot Hybrid resolvers
-  const isPropScene = useMemo(() => {
-    return PROP_POSES.has(String(activePose || '').toLowerCase())
-  }, [activePose])
+  // Hover reaction: temporarily switch to wave (report) or point (assessment) on hover
+  const currentMascotPose = useMemo(() => {
+    if (isCelebrating) return 'thumbsup'
+    if (isStageHovered) {
+      return isAssessment ? 'point' : 'wave'
+    }
+    return activePose
+  }, [isCelebrating, isStageHovered, isAssessment, activePose])
 
-  const isWobnimoActive = isStageHovered || isCelebrating || !isPropScene || isThinking || isAsleep || activePose === 'wave'
-
-  const resolvedPropSrc = useMemo(() => {
-    return getMascotPose(activePose)
-  }, [activePose])
-
-  const resolvedWobnimoState = useMemo(() => {
-    if (isCelebrating) return 'celebrating'
-    if (isAsleep) return 'sleeping'
-    if (isThinking) return 'thinking'
-    if (isStageHovered) return 'thinking'
-    if (reactionWobnimo) return sanitizeWobnimoState(reactionWobnimo)
-    return sanitizeWobnimoState(EMOTION_TO_WOBNIMO[emotion] || currentEmotion || 'idle')
-  }, [isCelebrating, isAsleep, isThinking, isStageHovered, reactionWobnimo, emotion, currentEmotion])
+  const resolvedMascotSrc = useMemo(() => {
+    return getMascotPose(currentMascotPose)
+  }, [currentMascotPose])
 
   // 1. Ronaldo "SIUUU!" Celebration Animation (Reserved strictly for genuine wins)
   const triggerSiuuu = useCallback((customMsg = null) => {
@@ -596,13 +505,6 @@ export default function CraftureLivingCopilot({
       isChoreographingRef.current = false
     }, 550)
 
-    // Set Wobnimo state for the reaction
-    const wobState = REACTION_TO_WOBNIMO[reactionKey] || 'speaking'
-    setReactionWobnimo(wobState)
-    setTimeout(() => {
-      setReactionWobnimo(null)
-    }, 2200)
-
     switch (reactionKey) {
       case 'welcome_wave':
         // overview-pulse: Gentle welcome bow + double-tilt
@@ -766,7 +668,7 @@ export default function CraftureLivingCopilot({
       ease: 'power3.out',
     })
 
-    gsap.set(mascotContainerRef.current, { transformPerspective: 800 })
+    gsap.set(mascotContainerRef.current, { transformPerspective: 700 })
 
     const handleMouseMove = (e) => {
       if (window.innerWidth < 640 || !mascotContainerRef.current || isCelebratingRef.current || isChoreographingRef.current || isAsleep) return
@@ -781,8 +683,8 @@ export default function CraftureLivingCopilot({
       const clampedX = Math.max(-1, Math.min(1, dx))
       const clampedY = Math.max(-1, Math.min(1, dy))
 
-      rotYTo(clampedX * 8)
-      rotXTo(-clampedY * 6)
+      rotYTo(clampedX * 10)
+      rotXTo(-clampedY * 8)
       xTo(clampedX * 4)
       yTo(clampedY * 4)
     }
@@ -1057,7 +959,7 @@ export default function CraftureLivingCopilot({
         )}
       </AnimatePresence>
 
-      {/* ─── Approach 2 Same-Spot Hybrid Mascot (Locked 156px x 156px / mobile 120px x 120px) ─── */}
+      {/* ─── Studio-Grade Forest Green Mascot (Locked 148px x 148px / mobile 112px x 112px) ─── */}
       <div className="relative pointer-events-auto flex flex-col items-center origin-bottom-right">
         {/* Mascot Click Area & Locked Stage */}
         <div
@@ -1066,7 +968,7 @@ export default function CraftureLivingCopilot({
           onDoubleClick={handleMascotDoubleClick}
           onMouseEnter={() => setIsStageHovered(true)}
           onMouseLeave={() => setIsStageHovered(false)}
-          className="relative w-[120px] h-[120px] sm:w-[156px] sm:h-[156px] flex items-center justify-center cursor-pointer select-none group/mascot"
+          className="relative w-[112px] h-[112px] sm:w-[148px] sm:h-[148px] flex items-center justify-center cursor-pointer select-none group/mascot"
           title={
             cloudMinimized
               ? 'Click to restore thought cloud'
@@ -1077,45 +979,33 @@ export default function CraftureLivingCopilot({
         >
           {/* Shared Soft Elliptical Floor Shadow */}
           <div
-            className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 w-20 sm:w-28 h-3 sm:h-4 bg-slate-900/15 dark:bg-black/35 rounded-full blur-[4px] pointer-events-none transition-all duration-300"
+            className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-2.5 sm:h-3.5 bg-slate-900/15 dark:bg-black/35 rounded-full blur-[4px] pointer-events-none transition-all duration-300"
             style={{
-              transform: `translateX(-50%) scale(${isCelebrating ? 0.7 : 1})`,
-              opacity: isCelebrating ? 0.15 : 0.35,
+              transform: `translateX(-50%) scale(${isCelebrating ? 0.65 : isStageHovered ? 1.08 : 1})`,
+              opacity: isCelebrating ? 0.15 : isStageHovered ? 0.45 : 0.32,
             }}
           />
 
-          {/* Layer 1: Prop Scene Graphics (Preloaded Animated GIF / High-Res Pose) */}
-          <div
-            className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out will-change-transform ${
-              !isWobnimoActive
-                ? 'opacity-100 scale-100 pointer-events-auto'
-                : 'opacity-0 scale-95 pointer-events-none'
-            }`}
+          {/* Interactive Studio Mascot with Spring Scale on Hover */}
+          <motion.div
+            className="relative w-full h-full flex items-center justify-center will-change-transform"
+            animate={{
+              scale: isStageHovered && !isCelebrating ? 1.06 : 1,
+            }}
+            transition={{
+              type: 'spring',
+              stiffness: 400,
+              damping: 25,
+            }}
           >
             <img
-              src={resolvedPropSrc}
-              alt="Crafture Mascot Pose"
-              className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
+              src={resolvedMascotSrc}
+              alt="Crafture Executive Mascot"
+              className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none transition-opacity duration-150"
               loading="eager"
               decoding="async"
             />
-          </div>
-
-          {/* Layer 2: Live Interactive Wobnimo 3D SDF Mascot (Real-time Gaze & Wave) */}
-          <div
-            className={`absolute inset-0 flex items-center justify-center transition-all duration-200 ease-out will-change-transform ${
-              isWobnimoActive
-                ? 'opacity-100 scale-100 pointer-events-auto'
-                : 'opacity-0 scale-95 pointer-events-none'
-            }`}
-          >
-            <Mascot
-              character={crafturePerson}
-              state={resolvedWobnimoState}
-              interactive={true}
-              className="w-full h-full object-contain select-none"
-            />
-          </div>
+          </motion.div>
 
           {/* Minimal Floating Indicator Badge on hover */}
           {!isChatOpen && (
