@@ -168,12 +168,12 @@ export function synthesizeWhyItWorks(original = '', rewritten = '', existingWhyI
     return `Replaces passive opener ('${origFirstWord}') with active verb ('${rwFirstWord}') and anchors quantified production metrics.`
   }
   if (!hadMetric && hasMetric) {
-    return `Anchors technical scope with measurable business outcome metrics (% or scale) to pass recruiter 6-second scans.`
+    return `Anchors technical scope with verified production metrics to pass recruiter 6-second scans.`
   }
   if (verbChanged) {
-    return `Leads with decisive action verb ('${rwFirstWord}') and articulates clear business deliverable.`
+    return `Leads with decisive action verb ('${rwFirstWord}') and clearly defines technical ownership and deliverables.`
   }
-  return `Restructures task description into verified Google XYZ format: Action + Technical Tool + Measurable Outcome.`
+  return `Clarifies technical execution mechanism and operational scope using verified stack components.`
 }
 
 export default {

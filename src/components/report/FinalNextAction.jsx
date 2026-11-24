@@ -43,9 +43,17 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
     reportData?.user_answers?.name ||
     'Candidate'
 
+  const phaseId = Number(
+    reportData?.funnel_stages?.bottleneckStageId ||
+    reportData?.funnel_stages?.stateMachine?.stageNum ||
+    reportData?.current_phase_id ||
+    reportData?.phase?.id ||
+    reportData?.career_journey?.current_phase_id ||
+    1
+  )
   const currentPhase = reportData?.phase || reportData?.career_journey?.current_phase || {}
-  const phaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || 1)
   const phaseShort =
+    reportData?.funnel_stages?.stateMachine?.shortName ||
     currentPhase.shortName ||
     currentPhase.name ||
     (phaseId === 1
@@ -57,6 +65,10 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
       : phaseId === 4
       ? 'Final Loops'
       : 'Offer Closing')
+
+  const summaryCopy = phaseId >= 3
+    ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`
+    : `Work directly with an executive technical recruiter to calibrate your ${targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.`
 
   const [isDownloading, setIsDownloading] = useState(false)
 
@@ -88,7 +100,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
               {/* Concise 2-line summary */}
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium leading-relaxed">
-                Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.
+                {summaryCopy}
               </p>
             </div>
 

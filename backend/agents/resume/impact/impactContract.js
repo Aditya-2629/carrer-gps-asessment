@@ -9,22 +9,23 @@ UNIFIED IMPACT CONTRACT (LAYER A + LAYER B):
 Every experience bullet upgrade and issue rewrite MUST follow this two-layer architecture:
 
 LAYER A: PUBLICATION-READY GROUNDED REWRITE (rewrittenText / correctedText)
-1. SELECTIVE INJECTION RULE ("Add Only Where Needed"):
-   - PRESERVE EXISTING METRICS: If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a second synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure.
-   - ONLY calibrate and suggest realistic metrics for bullets that currently lack measurable numbers or scale.
-2. PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD:
+1. ZERO INVENTED NUMBERS MANDATE ("Strict Grounding in Source"):
+   - ZERO HALLUCINATED METRICS: Strictly PROHIBIT inventing or guessing unverified percentages (e.g. 22%, 18%, 35%, 24%), time savings (e.g. 15+ hours), uptime (e.g. 99.9%), throughput numbers, or user counts not explicitly stated in the candidate's source resume.
+   - PRESERVE EXISTING METRICS: If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact verified metric and outcome. Tighten its action verb, technical mechanism, and structure.
+   - GROUNDED QUALITATIVE REWRITES FOR UNQUANTIFIED BULLETS: If the original bullet lacks numbers, focus the rewrite entirely on verified tools, concrete technical mechanisms, architectural scope, and honest qualitative outcomes (e.g., system reliability, modularity, automated test coverage, audit compliance, release velocity) WITHOUT fabricating synthetic numbers.
+   - CONFIRMATION PROMPTS OUTSIDE REWRITE: For unquantified bullets, attach a confirmation discovery prompt in "metricOpportunities" or "metricPrompt" (e.g., metricPrompt: "Confirm real impact (e.g., hours saved/week or % turnaround gain)") OUTSIDE the verified claim text so the candidate can provide verified numbers.
+2. PER-RESUME ACTION VERB DIVERSITY & ANTI-REPETITION GUARD:
    - NO REPEATED OPENING VERBS: Never start more than 2 bullets across the entire resume with the same action verb (e.g., maximum 2 bullets starting with "Architected", 2 with "Engineered", 2 with "Automated", etc.). Vary opening verbs naturally across strong, domain-appropriate action verbs (e.g., Architected, Engineered, Developed, Built, Spearheaded, Automated, Optimized, Streamlined, Designed, Orchestrated, Scaled, Deployed, Standardized, Modernized; or for active current roles: Architect, Engineer, Develop, Build, Spearhead, Automate, Optimize, Streamline, Design, Orchestrate, Scale, Deploy, Standardize, Modernize).
    - VARIED SENTENCE STRUCTURE & OPENINGS: Do NOT use a rigid formula or identical grammatical pattern on consecutive bullets. Vary openings and clause orders naturally across the resume (e.g., some bullets lead with the decisive action verb + technical mechanism, while others lead with the delivered business outcome or system deliverable + technical architecture; 16–28 words).
-   - UNIQUE METRICS & OUTCOMES: Every AI-calibrated metric (%, ms, hours, records, $, multiplier, etc.) and business outcome phrase MUST be completely unique across all bullets in the resume. Never reuse the same percentage (e.g., "35%"), time savings, or scale numbers across multiple bullets.
-   - Integrate the metric naturally inside the sentence (never tack it on as a generic "partnering with cross-functional squads, cutting p99..." at the end of every bullet).
-   - Match the metric strictly to what that specific bullet actually does:
-     * QA / Testing -> test coverage %, automated regression count, bug escape reduction, CI test runtime
-     * UI / Frontend / Figma -> Lighthouse/accessibility score, page load / LCP improvement, bundle size, UI delivery speed
-     * Security / Auth -> CVE/vulnerability reduction, auth latency, audit pass rate, zero-incident compliance
-     * Backend / APIs / DB -> p95/p99 response time, query execution time, throughput, uptime
-     * Data / ETL / Reporting -> pipeline runtime, hours saved per week, data accuracy / reconciliation rate
-     * GenAI / RAG / Agents -> retrieval accuracy, latency, support deflection %, eval pass rate
-     * Non-Tech (Healthcare, Finance, Sales, Ops) -> patient throughput/charting accuracy, close cycle/variance reduction, quota/pipeline conversion, SLA turnaround.
+   - Integrate outcomes naturally inside the sentence (never tack them on as generic "partnering with cross-functional squads, cutting p99..." at the end of every bullet).
+   - Match outcomes strictly to what that specific bullet actually does:
+     * QA / Testing -> automated regression coverage, defect escapes, CI test runtime
+     * UI / Frontend / Figma -> page load, accessibility compliance, bundle size, UI delivery cadence
+     * Security / Auth -> vulnerability mitigation, auth flow latency, zero-incident compliance
+     * Backend / APIs / DB -> response latency, query execution efficiency, throughput, high availability
+     * Data / ETL / Reporting -> pipeline runtime, workflow automation, data accuracy / reconciliation
+     * GenAI / RAG / Agents -> retrieval precision, response latency, support deflection, eval pass rate
+     * Non-Tech (Healthcare, Finance, Sales, Ops) -> patient charting accuracy, SLA turnaround, reporting cycle velocity.
 3. STRICT TENSE DISCIPLINE (Present Company = Present Tense, Past Company/Project = Past Tense):
    - For bullets belonging to an active current role (dates indicating "Present", "Current", or "Till Date"): Lead with an active PRESENT-TENSE verb (e.g. Lead, Architect, Synthesize, Optimize, Develop, Partner, Automate).
    - For bullets belonging to completed past roles or projects: Strictly lead with an active PAST-TENSE verb (e.g. Led, Architected, Synthesized, Optimized, Developed, Partnered, Automated).

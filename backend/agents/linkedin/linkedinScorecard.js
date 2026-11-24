@@ -312,7 +312,7 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
         'high',
         'activity',
         'Dormant LinkedIn Activity (Ghost Profile)',
-        'Your profile has zero recent posts or public technical discussions. Modern technical recruiters and hiring managers view inactive profiles as dormant, reducing inbound recruiter reach by up to 40%.',
+        'Your profile has 0 recent posts in the last 30 days. Inactive feeds limit feed visibility and passive recruiter discovery in technical candidate searches.',
         'Share 1-2 focused technical insights, architectural decisions, or lessons learned per month to signal active domain expertise.',
         'li_act_001'
       )
@@ -661,7 +661,7 @@ export function computeLinkedInScorecard(signals = {}, crossAnalysis = null, tar
   if (isDormant || (!hasActivitySignals && isConnUnder500)) {
     activityScore10 = 2
     activityStatus = 'fail'
-    activityHurting = 'Dormant activity feed with 0 recent posts and under 500 connections tells hiring managers your profile is inactive, reducing inbound reach by up to 40%.'
+    activityHurting = 'Dormant activity feed with 0 recent posts in the last 30 days and under 500 connections limits algorithmic feed distribution and reduces search visibility for recruiters sourcing your target role.'
   } else if (isConnUnder500) {
     activityScore10 = 4
     activityStatus = 'fail'

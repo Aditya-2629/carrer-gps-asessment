@@ -292,37 +292,49 @@ export function buildDeterministicActionPlan({
       title: `Funnel Calibration at ${dropOffGate}`,
       action: `Review response rates for submitted applications (${effectiveApps90d.toLocaleString()} apps at ${callbackRate}% callback), audit profile views, and calibrate outbound targeting at the ${dropOffGate}.`,
       deliverable: 'Weekly conversion report & 7-day outbound follow-up schedule.',
-      metricTarget: 'Screen callback rate target >= 5.0%.',
+      metricTarget: Number(callbackRate) >= 5.0
+        ? `Screening maintained at ${callbackRate}%+; technical pass target >= ${Math.min(85, Math.max(40, Math.ceil((effectiveScreens > 0 ? (Number(funnelStages?.technicalRounds ?? 0) / effectiveScreens) * 100 : 0) * 1.25)))}%.`
+        : `Screen callback rate target >= ${Math.min(25, Math.max(5, Math.ceil(Number(callbackRate) * 1.35)))}%.`,
     },
   ]
+
+  const numCallback = Number(callbackRate) || 0
+  const isPhase2Healthy = numCallback >= 5.0
+  const currentScreenToTech = effectiveScreens > 0 ? Math.round((Number(funnelStages?.technicalRounds ?? 0) / effectiveScreens) * 100) : 0
+  const targetCallbackRate = Math.min(25, Math.max(5, Math.ceil(numCallback * 1.35)))
+  const targetScreenToTech = Math.min(85, Math.max(40, Math.ceil(currentScreenToTech * 1.25)))
 
   const milestonePathway = [
     {
       period: '30 Days',
-      stage: 'Asset Calibration & Outbound Sourcing Engine',
-      goal: isHighVolumeLowCallback
-        ? `Transition from low-yield volume (${effectiveApps90d.toLocaleString()} applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, capping volume at 15 targeted referrals/week to lift conversion to >= 5.0% and reliably secure 3-5 recruiter screens monthly.`
-        : `Transition from low-yield volume (${effectiveApps30d} monthly applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, lifting conversion to >= 5.0% to reliably secure 3-5 recruiter screens monthly.`,
+      stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Asset Calibration & Outbound Sourcing Engine',
+      goal: isPhase2Healthy
+        ? `Maintain healthy ${callbackRate}% screening velocity (beating 5.0% benchmark) while shifting focus to elevating recruiter screen-to-technical conversion from ${currentScreenToTech}% to >= ${targetScreenToTech}%.`
+        : (isHighVolumeLowCallback
+          ? `Transition from low-yield volume (${effectiveApps90d.toLocaleString()} applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, capping volume at 15 targeted referrals/week to lift conversion to >= ${targetCallbackRate}% and reliably secure 3-5 recruiter screens monthly.`
+          : `Transition from low-yield volume (${effectiveApps30d} monthly applications yielding ${effectiveScreens} screens at ${callbackRate}% callback) to targeted outreach, lifting conversion to >= ${targetCallbackRate}% to reliably secure 3-5 recruiter screens monthly.`),
       actions: [
         `Deploy single-column Google XYZ resume embedding verified ${missingSkillsStr} to overcome ATS drop-offs at the ${dropOffGate}.`,
         `Deploy LinkedIn Boolean search query (${booleanSearchString}) to source 30 target companies actively hiring for ${targetRole}.`,
         `Submit 10-15 high-intent applications weekly directly via company portals while multi-threading with the 3-line hiring manager outreach script.`,
       ],
       deliverable: 'ATS-Calibrated Resume + 30 Target Account Outbound Tracker',
-      successSignal: 'Screen callback rate >= 5.0% with 3-5 recruiter screens booked monthly.',
+      successSignal: isPhase2Healthy
+        ? `Screen callback maintained at ${callbackRate}%+; recruiter-to-tech conversion >= ${targetScreenToTech}%.`
+        : `Screen callback rate >= ${targetCallbackRate}% with 3-5 recruiter screens booked monthly.`,
       active: true,
     },
     {
       period: '60 Days',
       stage: 'Recruiter Screen Mastery & Technical Loop Velocity',
-      goal: `Convert recruiter screens into live technical rounds (${archetype.interviewMechanism}) and advance through panel assessments.`,
+      goal: `Convert recruiter screens into live technical rounds (${archetype.interviewMechanism}) and advance through panel assessments at >= ${targetScreenToTech}%.`,
       actions: [
         `Engage 10 ${hiringTitles[0]}s weekly using personalized outreach notes embedding your top wins.`,
         `Complete 15 timed practical problem sets and system architecture defense sessions in ${skillsStr}.`,
         'Conduct 2 weekly mock technical interviews focusing on verbalizing trade-offs out loud.',
       ],
       deliverable: 'Multi-Threaded Active Pipeline of 3+ Concurrent Technical Interview Loops',
-      successSignal: 'Consistent conversion of >= 60% from recruiter screen to live technical round.',
+      successSignal: `Consistent conversion of >= ${targetScreenToTech}% from recruiter screen to live technical round.`,
       active: false,
     },
     {

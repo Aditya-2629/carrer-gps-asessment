@@ -28,6 +28,7 @@ import { toPresentTense } from '../signals/patterns.js'
 import { synthesizeWhyItWorks } from '../../../utils/humanizeReportCopy.js'
 import { getDynamicFewShotExamples } from '../../../services/promptExampleService.js'
 import { IMPACT_POLICY_INSTRUCTIONS, normalizeMetricOpportunities, generateFallbackMetricOpportunities } from '../impact/impactContract.js'
+import { replaceUnverifiedNumericTokens, buildBulletSourceTokens, buildSourceFactTokens } from '../validation/claimValidator.js'
 
 export { cleanRewriteText, isLazySuffixAppend, buildFivePartPlaybookRewrite, isWordForWordIdentical }
 export const MODE_C_NAME = 'hybrid_deterministic_reasoning'
@@ -341,17 +342,29 @@ export function sanitizeModeCOutput(analysis, state = {}) {
         }
       }
       const origText = iss.evidence?.[0]?.originalText || iss.originalText || ''
+      const bulletId = iss.evidence?.[0]?.bulletId || iss.bulletId || 'exp_001_b01'
       const effectiveRole = analysis.candidateSnapshot?.targetRole || state.targetRole || ''
+      const bulletSourceTokens = buildBulletSourceTokens(state.canonicalResume, bulletId, null, origText)
       if (iss?.correctedText) {
         iss.correctedText = cleanRewriteText(iss.correctedText)
+        iss.correctedText = replaceUnverifiedNumericTokens(iss.correctedText, bulletSourceTokens, state.canonicalResume, {
+          bulletId,
+          sourceText: origText,
+        })
       }
       if (iss?.rewrite) {
         iss.rewrite = cleanRewriteText(iss.rewrite)
+        iss.rewrite = replaceUnverifiedNumericTokens(iss.rewrite, bulletSourceTokens, state.canonicalResume, {
+          bulletId,
+          sourceText: origText,
+        })
       }
       iss.metricOpportunities = normalizeMetricOpportunities(
         iss.metricOpportunities || iss.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
       )
-      iss.metricSource = isTrueQuantified(origText) ? 'resume_verified' : (isTrueQuantified(iss.correctedText) ? 'ai_calibrated' : null)
+      const isOrigQuant = isTrueQuantified(origText)
+      iss.metricSource = isOrigQuant ? 'resume_verified' : 'grounded_qualitative'
+      iss.metricPrompt = !isOrigQuant ? 'Confirm real impact (e.g., hours saved/week or % turnaround gain)' : null
     })
   } else {
     analysis.issues = []
@@ -364,12 +377,20 @@ export function sanitizeModeCOutput(analysis, state = {}) {
       .filter((rw) => rw && typeof rw === 'object' && (rw.bulletId || rw.originalText || rw.original || rw.text) && (rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite))
       .map((rw) => {
         const origText = rw.original || rw.originalText || rw.text || ''
+        const bulletId = rw.bulletId || rw.id
+        const bulletSourceTokens = buildBulletSourceTokens(state.canonicalResume, bulletId, null, origText)
         let cleanedText = cleanRewriteText(rw.rewrittenText || rw.readyToUseRewrite || rw.rewritten || rw.rewrite)
+        cleanedText = replaceUnverifiedNumericTokens(cleanedText, bulletSourceTokens, state.canonicalResume, {
+          bulletId,
+          sourceText: origText,
+        })
         const whyItWorks = rw.whyItWorks || rw.why || synthesizeWhyItWorks(origText, cleanedText)
         const metricOpps = normalizeMetricOpportunities(
           rw.metricOpportunities || rw.discoveryOpportunities || generateFallbackMetricOpportunities(origText, effectiveRole)
         )
-        const metricSource = isTrueQuantified(origText) ? 'resume_verified' : (isTrueQuantified(cleanedText) ? 'ai_calibrated' : null)
+        const isOrigQuant = isTrueQuantified(origText)
+        const metricSource = isOrigQuant ? 'resume_verified' : 'grounded_qualitative'
+        const metricPrompt = !isOrigQuant ? 'Confirm real impact (e.g., hours saved/week or % turnaround gain)' : null
         return {
           ...rw,
           original: origText,
@@ -381,6 +402,7 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           whyItWorks,
           why: whyItWorks,
           metricSource,
+          metricPrompt,
           metricOpportunities: metricOpps,
           fiveParts: rw.fiveParts || rw.fivePartFlags || null,
           impactScore: rw.impactScore || (rw.status === 'pass' ? 90 : 60),
@@ -452,15 +474,23 @@ export function sanitizeModeCOutput(analysis, state = {}) {
           }
         }
         let rwText = cleanRewriteText(upg.rewrittenText)
+        const bulletSourceTokens = buildBulletSourceTokens(state.canonicalResume, upg.bulletId, null, upg.originalText)
+        rwText = replaceUnverifiedNumericTokens(rwText, bulletSourceTokens, state.canonicalResume, {
+          bulletId: upg.bulletId,
+          sourceText: upg.originalText,
+        })
         const metricOpps = normalizeMetricOpportunities(
           upg.metricOpportunities || upg.discoveryOpportunities || generateFallbackMetricOpportunities(upg.originalText, effectiveRole)
         )
-        const metricSource = isTrueQuantified(upg.originalText) ? 'resume_verified' : (isTrueQuantified(rwText) ? 'ai_calibrated' : null)
+        const isOrigQuant = isTrueQuantified(upg.originalText)
+        const metricSource = isOrigQuant ? 'resume_verified' : 'grounded_qualitative'
+        const metricPrompt = !isOrigQuant ? 'Confirm real impact (e.g., hours saved/week or % turnaround gain)' : null
         return {
           ...upg,
           reason,
           rewrittenText: rwText,
           metricSource,
+          metricPrompt,
           metricOpportunities: metricOpps,
         }
       })
@@ -500,6 +530,14 @@ export function sanitizeModeCOutput(analysis, state = {}) {
     }
     if (sOpt.rewrittenSummary && verifiedYoE && verifiedYoE !== '5+ years') {
       sOpt.rewrittenSummary = sOpt.rewrittenSummary.replace(/\b5\+\s*years\b/gi, verifiedYoE)
+    }
+    if (sOpt.rewrittenSummary && typeof sOpt.rewrittenSummary === 'string') {
+      const sourceTokens = buildSourceFactTokens(state.canonicalResume)
+      sOpt.rewrittenSummary = replaceUnverifiedNumericTokens(
+        sOpt.rewrittenSummary,
+        sourceTokens,
+        state.canonicalResume
+      )
     }
   }
 
@@ -666,16 +704,18 @@ Generate 5 to 7 high-conviction issues in the "issues" array that deeply diagnos
    - Rewrite them into punchy, executive-grade engineering bullets following the Google XYZ standard:
      "Accomplished [X], evidenced by [Y], by executing [Z]."
    - CRITICAL 5-PART RESUME PLAYBOOK MANDATE (18–32 WORDS, ZERO PLACEHOLDERS):
-     * SELECTIVE INJECTION RULE: PRESERVE verified metrics verbatim! If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure. ONLY calibrate realistic metrics for bullets that lack measurable numbers or scale.
+     * ZERO INVENTED NUMBERS MANDATE: Strictly PROHIBIT inventing synthetic percentages (e.g. 22%, 18%, 35%, 24%), hours saved (e.g. 15+ hours), uptime (e.g. 99.9%), or user counts not explicitly stated in the source resume bullet. Any unverified number is considered a hallucination and is strictly banned.
+     * SELECTIVE INJECTION RULE: PRESERVE verified metrics verbatim! If a candidate bullet already contains a verified metric (e.g. 25%, 30+ queries, $2M, 3x, 100,000+ users, 2.5 seconds), PRESERVE that exact metric and outcome! Do NOT inject a synthetic metric on top of it — only tighten its action verb, technical mechanism, and structure.
+     * GROUNDED QUALITATIVE REWRITES FOR UNQUANTIFIED BULLETS: When the original bullet lacks numbers, focus the rewrite entirely on verified tools, concrete technical mechanisms, architectural scope, and honest qualitative outcomes (e.g., system reliability, modularity, automated testing, zero-downtime releases) WITHOUT fabricating synthetic numbers.
      * PER-RESUME METRIC DIVERSITY & ANTI-REPETITION GUARD:
         - NO REPEATED OPENING VERBS: Never start more than 2 bullets across the entire resume with the same action verb (e.g., maximum 2 bullets starting with "Architected", 2 with "Engineered", 2 with "Automated", etc.). Vary opening verbs naturally across strong, domain-appropriate action verbs (e.g., Architected, Engineered, Developed, Built, Spearheaded, Automated, Optimized, Streamlined, Designed, Orchestrated, Scaled, Deployed, Standardized, Modernized; or in Present tense: Lead, Architect, Build, Automate, Optimize, Streamline, Design, Orchestrate, Scale, Deploy, Standardize, Modernize).
         - VARIED SENTENCE STRUCTURE: Do NOT use a rigid formula or identical grammatical pattern on consecutive bullets. Vary openings and clause orders naturally across the resume (e.g., some bullets lead with decisive action verb + technical mechanism, while others lead with delivered business outcome or system deliverable + technical architecture; 16–28 words).
-        - UNIQUE METRICS & OUTCOMES: Every AI-calibrated metric (%, ms, hours, records, $, etc.) and business outcome phrase MUST be completely unique across all bullets in the resume. Never reuse "32%", "35%", "500k+", "12+ hrs", or the same outcome phrase across two different bullets.
-        - Integrate the metric naturally inside the sentence (never append as generic trailing boilerplate). Match the metric strictly to what that specific bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
+        - UNIQUE DELIVERABLES & OUTCOMES: Every rewrite must deliver a distinct technical deliverable or qualitative outcome. Never repeat identical outcome phrases across two different bullets.
+        - Integrate the outcome naturally inside the sentence (never append as generic trailing boilerplate). Match the outcome strictly to what that specific bullet does (QA -> test coverage/regression, UI -> Lighthouse/accessibility/FCP, Security -> CVE/auth, DB -> query p95/throughput, Data -> hours saved/accuracy, AI -> retrieval/inference, etc.).
      * NEVER output bracketed placeholders like "[ADD: ...]", "[insert metric]", or "<metric>".
      * STRICT BAN ON LAZY SUFFIX APPENDS: NEVER take the candidate's existing bullet and merely append 'by [doing X]' or ', using [Y]' to the end while leaving the original weak opening intact.
      * Any rewrite where the first 35 characters match the original bullet (e.g. rewrite.toLowerCase().startsWith(original.toLowerCase().slice(0, 35))) is STRICTLY FORBIDDEN and will be rejected.
-     * When the original bullet lacks numbers, calibrate a realistic, role-appropriate metric and outcome matching the exact technical mechanism.
+     * When the original bullet lacks numbers, rewrite using verified tools, architecture, and honest qualitative outcomes without fabricating synthetic numbers.
      * The rewrite MUST be 100% complete, fluent, and ready to be used as-is by the candidate.
 
 3. Tool Dumping & Passive Ownership:
@@ -774,7 +814,7 @@ In addition to the 5 to 7 primary issues, systematically audit and rewrite EVERY
 Provide a clean critique and Google XYZ rewrite for each in the "bulletUpgrades" array:
 - Set "status": "warn" (or "fix").
 - Set "reason": A specific 1-sentence recruiter critique of why this bullet is weak or unquantified.
-- Set "rewrittenText": Complete 5-part Google XYZ rewrite (18–32 words) with strong action verb, verified skills, team scope, calibrated metric, and concrete outcome. STRICTLY NO lazy suffix appends and NO [ADD: ...] placeholders.
+- Set "rewrittenText": Complete Google XYZ rewrite (18–32 words) with strong action verb, verified skills, and concrete qualitative or verified outcome. STRICTLY NO invented numbers (zero 22%, 18%, 35%, 15+ hrs), NO lazy suffix appends, and NO [ADD: ...] placeholders.
 
 ==================================================
 6. PROFESSIONAL SUMMARY AUDIT & REWRITE MANDATE ("summaryOptimization")
@@ -1415,27 +1455,20 @@ export function applyDeterministicRepetitionSafetyNet(parsedForValidation, canon
     }
   }
 
-  // 2. Fix metric collisions
+  // 2. Fix metric collisions & sanitize unverified synthetic metrics
   const seenMetrics = new Map()
-  const fallbackPercents = ['24%', '31%', '18%', '42%', '27%', '36%', '19%', '29%', '33%', '22%']
-  let percentIdx = 0
-
   for (const b of allBullets) {
     const origMetrics = new Set(extractMetricTokens(b.originalText))
     const rwMetrics = extractMetricTokens(b.rewrittenText)
     for (const m of rwMetrics) {
       if (origMetrics.has(m)) continue
-      if (!seenMetrics.has(m)) {
-        seenMetrics.set(m, b.bulletId)
-      } else if (seenMetrics.get(m) !== b.bulletId) {
-        if (m.endsWith('%')) {
-          const fresh = fallbackPercents[percentIdx++ % fallbackPercents.length]
-          const numOnly = m.replace('%', '').trim()
-          b.rewrittenText = b.rewrittenText.replace(new RegExp(`\\b${numOnly}%(?!\\w)`, 'i'), fresh)
-          seenMetrics.set(fresh.toLowerCase(), b.bulletId)
-          syncRepairedBullet(parsedForValidation, b.bulletId, b.rewrittenText)
-        }
-      }
+      // Any metric not present in the original bullet is synthetic — sanitize to grounded qualitative outcome
+      const bulletSourceTokens = buildBulletSourceTokens(canonicalResume, b.bulletId, null, b.originalText)
+      b.rewrittenText = replaceUnverifiedNumericTokens(b.rewrittenText, bulletSourceTokens, canonicalResume, {
+        bulletId: b.bulletId,
+        sourceText: b.originalText,
+      })
+      syncRepairedBullet(parsedForValidation, b.bulletId, b.rewrittenText)
     }
   }
 
@@ -2022,7 +2055,7 @@ CANDIDATE STACK: ${(canonicalResume.skills || []).slice(0, 10).join(', ')}
 
 STRICT REPAIR CONSTRAINTS FOR EACH BULLET:
 1. NO REPEATED OPENING VERBS: You MUST NOT use any verb listed in its "forbiddenVerbs". Pick a distinct, high-impact verb matching its tense.
-2. NO REPEATED METRICS: You MUST NOT use any metric listed in its "forbiddenMetrics". If a new metric is needed, use a completely unique metric type and number appropriate to the domain.
+2. ZERO INVENTED NUMBERS: STRICTLY PROHIBIT inventing synthetic percentages (e.g. 22%, 18%, 35%), hours, or uptime. Use only verified metrics from the original bullet or honest qualitative outcomes.
 3. NO BOILERPLATE PHRASES: Do NOT include any phrase from "forbiddenPhrases".
 4. STRICT TENSE DISCIPLINE:
    - "tense": "PRESENT" -> Start with an active PRESENT-TENSE verb (e.g. Lead, Architect, Synthesize, Optimize, Develop, Automate, Streamline).

@@ -50,7 +50,11 @@ const DEFAULT_DAY_TAGS = [
   'Funnel Calibration',
 ]
 
-function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
+function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId, funnelRates = {}) {
+  const currentCallback = Number(funnelRates.appToScreenRate) || 0
+  const currentScreenToTech = Number(funnelRates.screenToTechRate) || 0
+  const targetCallbackRate = Math.min(25, Math.max(5, Math.ceil(currentCallback * 1.35)))
+  const targetScreenToTech = Math.min(85, Math.max(40, Math.ceil(currentScreenToTech * 1.25)))
   if (effectivePhaseId === 1) {
     return [
       {
@@ -107,7 +111,7 @@ function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
         tag: 'Funnel Calibration',
         action: 'Analyze Week 1 response rates, log profile views, and prepare follow-up touches for submitted applications.',
         deliverable: 'Weekly conversion report & 7-day outbound follow-up calendar.',
-        metricTarget: 'Screen callback rate target >= 5.0%',
+        metricTarget: `Screen callback rate target >= ${targetCallbackRate}%`,
       },
     ]
   } else if (effectivePhaseId === 2) {
@@ -225,7 +229,7 @@ function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
         tag: 'Panel Readiness',
         action: 'Synthesize all technical mock feedback into a final pre-interview checklist for upcoming loops.',
         deliverable: 'Pre-interview technical readiness checklist.',
-        metricTarget: 'Technical round pass rate target >= 40%',
+        metricTarget: `Technical round pass rate target >= ${targetScreenToTech}%`,
       },
     ]
   }
@@ -253,7 +257,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       ? reportData.sevenDayQuickPlan
       : (Array.isArray(reportData?.action_plan?.sevenDayQuickPlan) && reportData.action_plan.sevenDayQuickPlan.length > 0)
       ? reportData.action_plan.sevenDayQuickPlan
-      : getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId)
+      : getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId, reportData?.funnel_stages?.rates || {})
 
   // -------------------------------------------------------------
   // Dynamic 30-60-90 Day Milestone Pathway

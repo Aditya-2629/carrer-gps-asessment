@@ -238,6 +238,101 @@ export function extractQuantMetric(val, fallbackNum = 0, defaultPeriod = 'month'
   }
 }
 
+export function resolveBottleneckStateMachine({
+  totalApps = 0,
+  totalScreens = 0,
+  screens = 0,
+  technicalRounds = 0,
+  finalRounds = 0,
+  offers = 0,
+  targetRole = 'Professional',
+} = {}) {
+  const effectiveScreens = Number(totalScreens || screens || 0)
+  const appToScreenRate = totalApps > 0 ? (effectiveScreens / totalApps) * 100 : 0
+  const screenToTechRate = effectiveScreens > 0 ? (technicalRounds / effectiveScreens) * 100 : 0
+  const techToFinalRate = technicalRounds > 0 ? (finalRounds / technicalRounds) * 100 : 0
+  const finalToOfferRate = finalRounds > 0 ? (offers / finalRounds) * 100 : 0
+
+  let bottleneckStageId = 2
+  let shortName = 'Screening'
+  let phaseName = 'Screening Velocity'
+  let title = 'Top-of-Funnel ATS Keyword Filtering & Low Screen Velocity'
+  let whyItMatters = 'Recruiters scan applications in under 10 seconds. Missing target keywords and unquantified achievements cause automated ATS drop-off before recruiter review.'
+  let diagnosis = `You submitted ${totalApps.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate vs 5.0% benchmark), indicating ATS keyword filtering or unquantified task bullets.`
+  let metricGoal = 'Achieve >= 5.0% application-to-screen callback conversion.'
+  let recoveryTarget = 'Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity to >= 5.0%.'
+  const isPhase2Healthy = appToScreenRate >= 5.0
+
+  if (offers >= 1) {
+    bottleneckStageId = 6
+    shortName = 'Onboarding & BGV'
+    phaseName = 'Offer to Onboarding & Background Verification'
+    title = 'Offer Acceptance, Onboarding Buffers & BGV Clarity'
+    whyItMatters = 'Securing an offer transitions the search to background check verification, notice period buffers, and signing terms.'
+    diagnosis = `You have secured ${offers} formal offer(s). Transition focus to background verification clearance and onboarding start dates.`
+    metricGoal = 'Complete background verification and onboarding transition smoothly.'
+    recoveryTarget = 'Prepare verified employment documentation, address verification buffers, and finalize start dates.'
+  } else if (finalRounds >= 1 && offers === 0) {
+    bottleneckStageId = 5
+    shortName = 'Offer Conversion'
+    phaseName = 'Final Round to Offer Conversion'
+    title = 'Final Round Executive Conversion & Value Alignment'
+    whyItMatters = 'Reaching final onsite loops demonstrates strong engineering fundamentals, but converting to written offers requires executive ROI framing and culture fit alignment.'
+    diagnosis = `Reaching ${finalRounds} final round(s) with 0 written offers indicates strong technical baseline but closing friction at the executive decision gate.`
+    metricGoal = 'Convert final interview rounds into formal competitive offers.'
+    recoveryTarget = 'Rehearse executive storytelling, business impact demonstration, and compensation leverage.'
+  } else if (isPhase2Healthy && screenToTechRate >= 40 && techToFinalRate < 35 && technicalRounds >= 1) {
+    bottleneckStageId = 4
+    shortName = 'Final Loops'
+    phaseName = 'Technical to Final Round Advancement'
+    title = 'System Architecture & Technical Panel Conversion'
+    whyItMatters = 'Coding challenges are cleared, but conversion drops during deeper architectural design, failure mode defense, and live panel questioning.'
+    diagnosis = `Technical-to-final conversion is ${techToFinalRate.toFixed(1)}% (benchmark: >= 35%). Live problem-solving friction and trade-off defense limit panel advancement.`
+    metricGoal = 'Advance >35% of technical rounds to final onsite panels.'
+    recoveryTarget = 'Focus on scalable system design trade-offs, failure mode diagnosis, and end-to-end operational defense.'
+  } else if (isPhase2Healthy && screenToTechRate < 40) {
+    bottleneckStageId = 3
+    shortName = 'Technical Loops'
+    phaseName = 'Screening to Technical Round Conversion'
+    title = 'Recruiter Screen to Technical Handoff Friction'
+    whyItMatters = `Resume is successfully clearing ATS filters and generating recruiter screens (${appToScreenRate.toFixed(1)}% callback, beating the 5.0% benchmark), but conversation drops before live technical rounds.`
+    diagnosis = `Screening callback is healthy at ${appToScreenRate.toFixed(1)}%, but converting only ${screenToTechRate.toFixed(1)}% to technical rounds indicates elevator pitch friction, leveling misalignment, or salary framing disconnect.`
+    metricGoal = 'Convert >= 40% of recruiter screens into live technical rounds.'
+    recoveryTarget = 'Refine 60-second verbal elevator pitch, salary expectation alignment, and architectural scope articulation.'
+  } else {
+    // Phase 2 bottleneck
+    bottleneckStageId = 2
+    shortName = 'Screening'
+    phaseName = 'Application to Screening Velocity'
+    title = 'Top-of-Funnel ATS Keyword Filtering & Low Screen Velocity'
+    whyItMatters = 'Applications are not yielding sufficient recruiter screening calls (< 5.0% callback rate).'
+    diagnosis = `Callback rate is ${appToScreenRate.toFixed(1)}% across ${totalApps} applications (industry benchmark: >= 5.0%), triggering automated ATS drops.`
+    metricGoal = 'Elevate application-to-screen callback rate to >= 5.0%.'
+    recoveryTarget = 'Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity to >= 5.0%.'
+  }
+
+  return {
+    bottleneckStageId,
+    id: bottleneckStageId,
+    shortName,
+    phaseName,
+    name: phaseName,
+    title,
+    whyItMatters,
+    diagnosis,
+    evidence: diagnosis,
+    metricGoal,
+    recoveryTarget,
+    isPhase2Healthy,
+    rates: {
+      appToScreenRate: Math.round(appToScreenRate * 10) / 10,
+      screenToTechRate: Math.round(screenToTechRate * 10) / 10,
+      techToFinalRate: Math.round(techToFinalRate * 10) / 10,
+      finalToOfferRate: Math.round(finalToOfferRate * 10) / 10,
+    },
+  }
+}
+
 export function deriveFunnelFromAnswers(answers = {}) {
   const f90 = (answers.funnel90d && typeof answers.funnel90d === 'object') ? answers.funnel90d : {}
 
@@ -279,48 +374,28 @@ export function deriveFunnelFromAnswers(answers = {}) {
     ? (recruiterScreens + assessments + aiInterviews)
     : recruiterScreens
 
+  const stateMachine = resolveBottleneckStateMachine({
+    totalApps: totalAppsMonthly,
+    totalScreens,
+    technicalRounds,
+    finalRounds,
+    offers,
+    targetRole: answers.targetRole || 'Professional',
+  })
+
   const appToScreenRate = totalAppsMonthly > 0 ? (totalScreens / totalAppsMonthly) * 100 : 0
   const screenToTechRate = totalScreens > 0 ? (technicalRounds / totalScreens) * 100 : 0
   const techToFinalRate = technicalRounds > 0 ? (finalRounds / technicalRounds) * 100 : 0
   const finalToOfferRate = finalRounds > 0 ? (offers / finalRounds) * 100 : 0
 
   let biggest_leak_stage = 'top_of_funnel'
-  let leak_title = 'Top-of-Funnel Application Black Hole'
-  let diagnosis_message = `You submitted ${totalAppsMonthly.toLocaleString()} applications yielding only ${totalScreens.toLocaleString()} recruiter screens (${appToScreenRate.toFixed(1)}% conversion rate), indicating ATS keyword filtering or cold portal black holes.`
+  if (stateMachine.bottleneckStageId === 3) biggest_leak_stage = 'recruiter_screen'
+  else if (stateMachine.bottleneckStageId === 4) biggest_leak_stage = 'technical_round'
+  else if (stateMachine.bottleneckStageId === 5) biggest_leak_stage = 'final_round_drop'
+  else if (stateMachine.bottleneckStageId === 6) biggest_leak_stage = 'offer_onboarding'
 
-  if (totalAppsMonthly > 80 && totalScreens < 3) {
-    diagnosis_message = 'The Cold Portal Lottery Trap — Relying on Easy Apply volume without direct hiring manager outreach or targeted ATS customization.'
-  }
-
-  if (totalAppsMonthly < 15 && totalScreens === 0) {
-    biggest_leak_stage = 'readiness_stall'
-    leak_title = 'Application Readiness & Search Inactivity'
-    diagnosis_message = 'Pipeline has stalled before launch with under 15 applications and 0 recruiter screens. Focus on resume tailoring and initiating active outreach.'
-  } else if (offers >= 1) {
-    biggest_leak_stage = 'offer_onboarding'
-    leak_title = 'Offer Decision & Negotiation Strategy'
-    diagnosis_message = 'You have secured at least one formal offer. Focus on compensation benchmarking, multiple offer leverage, and final team alignment.'
-  } else if (finalRounds >= 1 && offers === 0) {
-    biggest_leak_stage = 'final_round_drop'
-    leak_title = 'Final Executive & Hiring Manager Conversion'
-    diagnosis_message = 'Reaching final rounds indicates strong technical baseline, but converting to written offers requires sharper executive alignment and strategic business ROI demonstration.'
-  } else if (totalScreens > 5 && technicalRounds === 0) {
-    biggest_leak_stage = 'recruiter_screen'
-    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
-    diagnosis_message = 'The Elevator Pitch / Storytelling Deficit — Getting the call but failing to articulate architectural trade-offs during the initial 15-minute phone screen.'
-  } else if (totalScreens >= 4 && technicalRounds <= 1 && screenToTechRate <= 20) {
-    biggest_leak_stage = 'recruiter_screen'
-    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
-    diagnosis_message = 'Recruiter screens are occurring, but failure to advance to technical rounds signals a disconnect in salary alignment, visa sponsorship clarity, or behavioral positioning.'
-  } else if (technicalRounds >= 1 && finalRounds === 0) {
-    biggest_leak_stage = 'technical_round'
-    leak_title = 'Technical Architecture & Coding Assessments'
-    diagnosis_message = 'Clearing recruiter screens confirms resume credibility, but dropping out at technical/system design rounds points to live problem-solving friction.'
-  } else if (totalScreens >= 3 && technicalRounds === 0) {
-    biggest_leak_stage = 'recruiter_screen'
-    leak_title = 'Recruiter Screen to Hiring Manager Handoff'
-    diagnosis_message = 'Recruiter screens are occurring, but failure to advance to technical rounds signals a disconnect in salary alignment, visa sponsorship clarity, or behavioral positioning.'
-  }
+  const targetCallbackRate = Math.min(25, Math.max(5, Math.ceil(appToScreenRate * 1.35)))
+  const targetScreenToTech = Math.min(85, Math.max(40, Math.ceil(screenToTechRate * 1.25)))
 
   return {
     applications_count: totalAppsMonthly,
@@ -342,9 +417,16 @@ export function deriveFunnelFromAnswers(answers = {}) {
       techToFinalRate: Math.round(techToFinalRate * 10) / 10,
       finalToOfferRate: Math.round(finalToOfferRate * 10) / 10,
     },
+    targets: {
+      targetCallbackRate,
+      targetScreenToTech,
+    },
+    bottleneckStageId: stateMachine.bottleneckStageId,
+    stateMachine,
+    isPhase2Healthy: stateMachine.isPhase2Healthy,
     biggest_leak_stage,
-    leak_title,
-    diagnosis_message,
+    leak_title: stateMachine.title,
+    diagnosis_message: stateMachine.diagnosis,
   }
 }
 
@@ -362,10 +444,62 @@ export function normalizeAtlasShapes(report, answers = {}) {
       biggest_leak_stage: report.funnel_stages.biggest_leak_stage || funnel.biggest_leak_stage,
       leak_title: leakTitle,
       diagnosis_message: report.funnel_stages.diagnosis_message || funnel.diagnosis_message,
+      targets: funnel.targets,
+      stateMachine: funnel.stateMachine,
+      bottleneckStageId: funnel.bottleneckStageId,
+      isPhase2Healthy: funnel.isPhase2Healthy,
     }
   }
 
   const targetRole = answers.targetRole || report.target_role || report.targetRole || 'Professional'
+  const stateMachine = funnel.stateMachine || resolveBottleneckStateMachine({
+    totalApps: funnel.totalAppsMonthly,
+    totalScreens: funnel.totalScreens,
+    technicalRounds: funnel.technicalRounds,
+    finalRounds: funnel.finalRounds,
+    offers: funnel.offers,
+    targetRole,
+  })
+
+  report.bottleneckStageId = stateMachine.bottleneckStageId
+  report.current_phase_id = stateMachine.bottleneckStageId
+
+  report.phase = {
+    id: stateMachine.bottleneckStageId,
+    bottleneckStageId: stateMachine.bottleneckStageId,
+    name: stateMachine.phaseName,
+    shortName: stateMachine.shortName,
+    stuckDescription: stateMachine.diagnosis,
+    whyItMatters: stateMachine.whyItMatters,
+    metricGoal: stateMachine.metricGoal,
+    recoveryTarget: stateMachine.recoveryTarget,
+    isPhase2Healthy: stateMachine.isPhase2Healthy,
+  }
+
+  report.primary_bottleneck = {
+    id: stateMachine.bottleneckStageId,
+    bottleneckStageId: stateMachine.bottleneckStageId,
+    title: stateMachine.title,
+    whyItMatters: stateMachine.whyItMatters,
+    evidence: stateMachine.evidence,
+    diagnosis: stateMachine.diagnosis,
+    recoveryTarget: stateMachine.recoveryTarget,
+    metricGoal: stateMachine.metricGoal,
+    isPhase2Healthy: stateMachine.isPhase2Healthy,
+  }
+  report.primaryBottleneck = report.primary_bottleneck
+
+  if (!report.career_journey || typeof report.career_journey !== 'object') {
+    report.career_journey = {
+      current_phase_id: stateMachine.bottleneckStageId,
+      phase_name: stateMachine.phaseName,
+      guide_message: `Detected primary constraint at Phase ${stateMachine.bottleneckStageId}: ${stateMachine.shortName}. Focus your 7-day sprint here to unlock interview progression.`,
+    }
+  } else {
+    report.career_journey.current_phase_id = stateMachine.bottleneckStageId
+    report.career_journey.phase_name = stateMachine.phaseName
+  }
+
   const effectiveLeakTitle = report.funnel_stages.leak_title || funnel.leak_title
 
   if (!report.coach_intervention || typeof report.coach_intervention !== 'object') {
@@ -961,6 +1095,44 @@ export async function generateReportBundle(params = {}, options = {}) {
   if (targetRole && (!report.target_role || !isConcreteRole(report.target_role))) {
     report.target_role = targetRole
   }
+
+  // Enforce Single Source of Truth for Health Score: overallScore = resume25 + linkedin25 + outbound25 + interview25
+  const resumeScore100 = Number(report.resume_agent?.dashboard?.score ?? triage?.deterministicScores?.overall ?? 72)
+  const resume25 = Math.max(0, Math.min(25, Math.round((resumeScore100 / 100) * 25)))
+
+  const liScore100 = Number(report.linkedin_agent?.score ?? 68)
+  const linkedin25 = Math.max(0, Math.min(25, Math.round((liScore100 / 100) * 25)))
+
+  const outRate = funnelStages?.rates?.appToScreenRate ?? 0
+  const outboundScore100 = outRate >= 5 ? 75 : Math.max(30, Math.round(outRate * 12))
+  const outbound25 = Math.max(0, Math.min(25, Math.round((outboundScore100 / 100) * 25)))
+
+  const techRate = funnelStages?.rates?.screenToTechRate ?? 0
+  const interviewScore100 = techRate >= 40 ? 80 : Math.max(35, Math.round(techRate * 1.5))
+  const interview25 = Math.max(0, Math.min(25, Math.round((interviewScore100 / 100) * 25)))
+
+  const unifiedOverallScore = Math.max(0, Math.min(100, resume25 + linkedin25 + outbound25 + interview25))
+
+  report.score_breakdown = {
+    resume: { score: resume25, maxScore: 25, percentage: Math.round((resume25 / 25) * 100), diagnosis: report.score_breakdown?.resume?.diagnosis || 'Resume ATS readability & metric density' },
+    linkedin: { score: linkedin25, maxScore: 25, percentage: Math.round((linkedin25 / 25) * 100), diagnosis: report.score_breakdown?.linkedin?.diagnosis || 'LinkedIn SEO headline & active industry positioning' },
+    outbound: { score: outbound25, maxScore: 25, percentage: Math.round((outbound25 / 25) * 100), diagnosis: report.score_breakdown?.outbound?.diagnosis || 'Outreach volume & referral network velocity' },
+    interview: { score: interview25, maxScore: 25, percentage: Math.round((interview25 / 25) * 100), diagnosis: report.score_breakdown?.interviews?.diagnosis || report.score_breakdown?.interview?.diagnosis || 'Recruiter screen to technical round conversion' },
+  }
+
+  report.career_health_score = {
+    overall: unifiedOverallScore,
+    resume25,
+    linkedin25,
+    outbound25,
+    interview25,
+    marketAlignment: triage?.deterministicScores?.marketAlignment ?? 76,
+    impactAndMetrics: triage?.deterministicScores?.impactAndMetrics ?? 62,
+    atsCompatibility: triage?.deterministicScores?.atsCompatibility ?? 88,
+  }
+  report.heroScore = report.career_health_score
+  report.score = unifiedOverallScore
+  report.careerScore = unifiedOverallScore
 
   // Save to user if available
   if (user) {

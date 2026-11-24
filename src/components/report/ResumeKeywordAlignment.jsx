@@ -276,39 +276,39 @@ export default function ResumeKeywordAlignment({
         </div>
       </div>
 
-      {/* ── Hairline ShareBar: Verified in Work Experience | In Skills Section Only | Critical Missing ── */}
+      {/* ── Hairline ShareBar: Demonstrated in Work Experience | Listed in Skills Only | Missing Target/Market Keywords ── */}
       <div className="pt-1 pb-2">
         <ShareBar
           items={[
             {
-              label: 'Verified in Work Experience',
+              label: 'Demonstrated in Work Experience',
               value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanMatched.length : 21,
               color: '#10B981',
             },
             {
-              label: 'In Skills Section Only',
+              label: 'Listed in Skills Only (Not Demonstrated in Bullets)',
               value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? cleanSkillsOnly.length : 25,
               color: '#F59E0B',
             },
             {
-              label: 'Critical Missing',
+              label: 'Missing Target/Market Keywords (Not Evidenced in Resume)',
               value: (cleanMatched.length + cleanSkillsOnly.length + uniqueMissing.length) > 0 ? uniqueMissing.length : 5,
               color: '#F43F5E',
             },
           ]}
           title="Candidate Keyword Inventory Breakdown"
-          caption="Distribution of job description target skills across verifiable experience vs stranded lists"
+          caption="Distribution of job description target skills across demonstrated experience vs listed or missing keywords"
           defaultExpanded={true}
           className="w-full"
         />
       </div>
 
-      {/* ── Section 1: Verified in Work Experience (Green Checked Badges) ── */}
+      {/* ── Section 1: Demonstrated in Work Experience (Green Checked Badges) ── */}
       <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
             <CheckCircle size={16} weight="fill" className="text-emerald-600 dark:text-emerald-400" />
-            Verified in Work Experience ({cleanMatched.length} Target Skills)
+            Demonstrated in Work Experience ({cleanMatched.length} Target Skills)
           </span>
           <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md">
             Full ATS Impact Credit
@@ -329,13 +329,13 @@ export default function ResumeKeywordAlignment({
         </div>
       </div>
 
-      {/* ── Section 2: Top Critical Missing Skills (High JD Frequency Gaps) ── */}
+      {/* ── Section 2: Missing Target/Market Keywords (High JD Frequency Gaps) ── */}
       {itemsToRender.length > 0 && (
         <div className="p-4 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-rose-800 dark:text-rose-200 flex items-center gap-1.5">
               <XCircle size={16} weight="fill" className="text-rose-600 dark:text-rose-400" />
-              Critical Missing Skills (High JD Demand Gaps)
+              Missing Target/Market Keywords (Not Evidenced in Resume)
             </span>
             <span className="text-xs font-medium text-[var(--text-muted)]">
               Click checkbox to weave into tailored resume
@@ -397,13 +397,13 @@ export default function ResumeKeywordAlignment({
         </div>
       )}
 
-      {/* ── Section 3: In Skills Section Only (Stranded Skills Warning) ── */}
+      {/* ── Section 3: Listed in Skills Only (Not Demonstrated in Bullets) ── */}
       {cleanSkillsOnly.length > 0 && (
         <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
               <Warning size={16} weight="fill" className="text-amber-500" />
-              In Skills Section Only — Missing from Work Bullets ({cleanSkillsOnly.length})
+              Listed in Skills Only (Not Demonstrated in Bullets) ({cleanSkillsOnly.length})
             </span>
           </div>
           <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 leading-relaxed">
