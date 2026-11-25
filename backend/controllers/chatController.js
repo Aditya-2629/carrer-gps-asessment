@@ -34,6 +34,99 @@ import {
   JEV_CHAT_INTENTS,
 } from '../agents/resume/scoring/jevChatIntentClassifier.js'
 
+/**
+ * Guardrail: Converts any accidental LLM raw JSON responses into clean conversational Markdown.
+ */
+export function formatJsonChatResponse(text) {
+  if (!text || typeof text !== 'string') return ''
+  const trimmed = text.trim()
+
+  const isJsonCandidate =
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (/^```(?:json)?\s*\{[\s\S]*\}\s*```$/i.test(trimmed))
+
+  if (!isJsonCandidate) return text
+
+  try {
+    const rawJson = trimmed.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim()
+    const parsed = JSON.parse(rawJson)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return text
+
+    const parts = []
+
+    // 1. Primary commentary / conversational text
+    const mainText =
+      parsed.coach ||
+      parsed.coach_response ||
+      parsed.response ||
+      parsed.message ||
+      parsed.answer ||
+      parsed.reply ||
+      parsed.summary ||
+      parsed.overview ||
+      ''
+    if (mainText && typeof mainText === 'string') {
+      parts.push(mainText.trim())
+    }
+
+    // 2. Actionable feedback / critique / analysis
+    const feedback =
+      parsed.actionable_feedback ||
+      parsed.feedback ||
+      parsed.critique ||
+      parsed.analysis ||
+      parsed.assessment ||
+      ''
+    if (feedback && typeof feedback === 'string' && feedback.trim() !== mainText.trim()) {
+      parts.push(`### Actionable Feedback\n${feedback.trim()}`)
+    }
+
+    // 3. Bullet fix / example / copy block
+    const bulletExample =
+      parsed.bullet_fix_example ||
+      parsed.bullet_example ||
+      parsed.copy_block ||
+      parsed.rewrite ||
+      parsed.example ||
+      parsed.sample ||
+      ''
+    if (bulletExample && typeof bulletExample === 'string') {
+      const cleanSnippet = bulletExample.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()
+      parts.push(`### Recommended Bullet Fix\n\`\`\`text\n${cleanSnippet}\n\`\`\``)
+    }
+
+    // 4. Tactical next step / recommendation
+    const nextStep =
+      parsed.tactical_next_step ||
+      parsed.next_step ||
+      parsed.recommendation ||
+      parsed.action_item ||
+      ''
+    if (nextStep && typeof nextStep === 'string') {
+      parts.push(`**Tactical Next Step**: ${nextStep.trim()}`)
+    }
+
+    // Fallback: If no recognized keys, format any string key-values nicely
+    if (parts.length === 0) {
+      const stringValues = Object.entries(parsed)
+        .filter(([_, v]) => typeof v === 'string' && v.trim().length > 0)
+        .map(([k, v]) => {
+          const title = k.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+          return `**${title}**:\n${v.trim()}`
+        })
+      if (stringValues.length > 0) {
+        return stringValues.join('\n\n')
+      }
+    } else {
+      return parts.join('\n\n')
+    }
+  } catch (_) {
+    // Return original text if parsing fails
+  }
+
+  return text
+}
+
 export const CHAT_INTENTS = [
   {
     id: 'interview',
@@ -405,6 +498,7 @@ COMPLIANCE & ETHICAL SAFETY GUARDRAILS:
 3. MULTI-DOMAIN MANDATE: Crafture is a universal multi-domain platform. Never describe Crafture as serving only IT candidates; Crafture is not IT-only. We serve professionals across Engineering, Data, Healthcare, Finance, Marketing, Product, and Operations. Tailor your coaching to the candidate's exact profession.
 
 EXECUTIVE COACHING VOICE & RULES:
+0. CONVERSATIONAL MARKDOWN ONLY (NEVER JSON): Always respond in natural, crisp conversational Markdown (short paragraphs + bullet points). NEVER output raw JSON objects, JSON keys, or { "coach": ... } structures. All advice must be plain, human-readable text.
 1. Speak directly ("you", "your") as a member of Crafture ("we", "our team"). Be direct, intellectually rigorous, candid, and encouraging. Never sound like a bland generic AI assistant.
 2. BAN CORPORATE FILLER: Never write "navigating the job market", "delve", "it is crucial", "in conclusion", or "testament to".
 3. PROVIDE EXACT SOLUTIONS: When asked to fix a bullet or write a message, write the EXACT ready-to-paste text inside fenced blocks (\`\`\`text ... \`\`\`).
@@ -659,7 +753,7 @@ export async function handleChatStream(req, res) {
           maxTokens: 1024,
           timeoutMs: 20000,
         })
-        const text = fallbackRes.text || ''
+        const text = formatJsonChatResponse(fallbackRes.text || '')
         onToken(text)
       } catch (err) {
         onToken(`I'm analyzing your profile for **${dossier.targetRole}**. The primary priority is resolving your **${dossier.primaryBottleneck}**. What specific section should we drill down on first?`)
@@ -807,27 +901,12 @@ export async function handleChatMessage(req, res) {
       }
     }
 
-    let cleanAnswer = (replyText || '').trim()
+    let cleanAnswer = formatJsonChatResponse(replyText || '')
 
     // Strip outer code fences if wrapped entirely in ```
     const outerMatch = cleanAnswer.match(/^```(?:markdown|text|json|plaintext)?\s*([\s\S]*?)\s*```$/i)
     if (outerMatch) {
-      cleanAnswer = outerMatch[1].trim()
-    }
-
-    if (cleanAnswer.startsWith('{') && cleanAnswer.endsWith('}')) {
-      try {
-        const parsed = JSON.parse(cleanAnswer)
-        if (parsed.coach_response || parsed.copy_block) {
-          const responseText = (parsed.coach_response || parsed.answer || parsed.reply || '').trim()
-          const copySnippet = parsed.copy_block
-            ? `\n\n\`\`\`text\n${parsed.copy_block.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()}\n\`\`\``
-            : ''
-          cleanAnswer = `${responseText}${copySnippet}`
-        } else if (parsed.answer || parsed.reply) {
-          cleanAnswer = (parsed.answer || parsed.reply).trim()
-        }
-      } catch (_) {}
+      cleanAnswer = formatJsonChatResponse(outerMatch[1].trim())
     }
 
     const shouldSuggestCall =

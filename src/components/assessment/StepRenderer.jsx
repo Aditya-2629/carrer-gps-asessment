@@ -23,12 +23,13 @@ import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) {
-  const { formData, setFormData } = useAppStore()
+  const { formData, setFormData, resumeAnalysis } = useAppStore()
   const [error, setError] = useState('')
   const [shaking, setShaking] = useState(false)
   const [activeReaction, setActiveReaction] = useState(null)
 
   const currentValue = formData[step.name]
+  const isAnalyzingResume = (step.name === 'resume' || step.type === 'file') && resumeAnalysis?.status === 'analyzing'
 
   useEffect(() => {
     setActiveReaction(null)
@@ -99,7 +100,7 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
       const analysis = storeState.resumeAnalysis
       const resumeFile = storeState.resumeFile
       if (analysis?.status === 'analyzing') {
-        triggerError('Please wait for resume extraction to finish before proceeding.')
+        // Resume extraction currently running; silently prevent advancing without triggering an error alert
         return false
       }
       if (analysis?.status === 'error') {
@@ -212,6 +213,11 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
   }, [formData, step, triggerError, setFormData, handleValue])
 
   const handleNext = useCallback(() => {
+    const storeState = useAppStore.getState()
+    const analysis = storeState.resumeAnalysis
+    if ((step.name === 'resume' || step.type === 'file') && analysis?.status === 'analyzing') {
+      return
+    }
     if (!validate()) return
 
     // Step background scrape trigger: non-blocking LinkedIn scrape
@@ -425,10 +431,19 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
         <button
           type="button"
           onClick={handleNext}
-          className="btn-primary flex-1 min-h-[44px] active:scale-[0.98] transition-transform select-none"
+          disabled={isAnalyzingResume}
+          className={`btn-primary flex-1 min-h-[44px] active:scale-[0.98] transition-transform select-none ${
+            isAnalyzingResume ? 'opacity-80 cursor-wait' : ''
+          }`}
           id={isLast ? `submit-btn-${step.id}` : `next-btn-${step.id}`}
+          aria-busy={isAnalyzingResume}
         >
-          {isLast ? (
+          {isAnalyzingResume ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span>Scanning Resume...</span>
+            </span>
+          ) : isLast ? (
             <>
               <span>Submit Assessment</span>
               <RocketLaunch size={16} weight="bold" />

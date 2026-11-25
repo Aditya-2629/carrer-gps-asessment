@@ -309,7 +309,8 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   const lowerFileName = fileName.toLowerCase()
   const isDocx = lowerFileName.endsWith('.docx') || lowerFileName.endsWith('.doc')
 
-  const isError = Boolean(fileError || error || resumeAnalysis?.status === 'error')
+  const isAnalyzing = resumeAnalysis?.status === 'analyzing'
+  const isError = !isAnalyzing && Boolean(fileError || (resumeAnalysis?.status === 'error' && resumeAnalysis?.error))
 
   return (
     <div className="space-y-3">
