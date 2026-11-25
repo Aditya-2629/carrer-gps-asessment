@@ -33,6 +33,23 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    callBookedAt: {
+      type: Date,
+      default: null,
+    },
+    pipelineStage: {
+      type: String,
+      enum: ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed'],
+      default: 'new',
+    },
+    adminNotes: {
+      type: String,
+      default: '',
+    },
+    followUpDate: {
+      type: Date,
+      default: null,
+    },
     deliveredAt: {
       type: Date,
       default: null,

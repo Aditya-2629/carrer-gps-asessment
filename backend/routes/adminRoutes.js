@@ -62,6 +62,8 @@ import {
   getSelfLearningInsights,
   getOpenRouterBalance,
   getAnalyticsOverview,
+  getSystemStorage,
+  cleanupStaleSessions,
 } from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -103,6 +105,8 @@ router.get('/telemetry/fallbacks-and-errors', getFallbackAndErrorAnalytics)
 router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
 router.get('/telemetry/openrouter-balance', getOpenRouterBalance)
 router.get('/analytics/overview', getAnalyticsOverview)
+router.get('/system/storage', getSystemStorage)
+router.post('/system/cleanup-sessions', cleanupStaleSessions)
 router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
 router.post('/telemetry/reset-cooldowns', resetCooldowns)
 router.post('/telemetry/ping-jev', pingJevDecisions)

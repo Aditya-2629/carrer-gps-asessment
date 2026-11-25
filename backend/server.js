@@ -15,6 +15,7 @@ import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
 import { getGlobalSettings } from './models/AppSettings.js'
+import User from './models/User.js'
 import { getPublicReportById } from './controllers/assessmentController.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
@@ -169,6 +170,81 @@ app.get('/api/settings/public', async (_req, res) => {
 
 // Public Shareable Report Route (zero extra DB storage; reads from existing User/Assessment record)
 app.get('/api/report/:id', getPublicReportById)
+
+// Booking Webhook Auto-Sync (SuperProfile / Calendly)
+app.post('/api/webhooks/booking', async (req, res) => {
+  try {
+    const b = req.body || {}
+    const rawEmail =
+      b.email ||
+      b.payload?.email ||
+      b.invitee?.email ||
+      b.customer?.email ||
+      b.data?.email ||
+      b.attendee?.email ||
+      ''
+    const rawPhone =
+      b.phone ||
+      b.mobile ||
+      b.phoneNumber ||
+      b.payload?.phone ||
+      b.customer?.phone ||
+      b.data?.phone ||
+      ''
+
+    const normalizedEmail = String(rawEmail).trim().toLowerCase()
+    const digits = String(rawPhone).replace(/\D/g, '')
+    const last10 = digits.length >= 10 ? digits.slice(-10) : ''
+
+    if (!normalizedEmail && !last10) {
+      return res.status(400).json({ success: false, message: 'Booking payload must include email or phone.' })
+    }
+
+    let user = null
+    if (normalizedEmail) {
+      user = await User.findOne({ email: normalizedEmail })
+    }
+    if (!user && last10) {
+      user = await User.findOne({
+        $or: [
+          { 'answers.phone': new RegExp(`${last10}$`) },
+          { 'resumeJson.candidate.phone': new RegExp(`${last10}$`) },
+        ],
+      })
+    }
+
+    if (!user) {
+      return res.status(200).json({ success: true, matched: false, message: 'No matching candidate found.' })
+    }
+
+    const now = new Date()
+    user.callBooked = true
+    user.callBookedAt = now
+    user.pipelineStage = 'call_booked'
+    user.answers = user.answers || {}
+    user.answers.callBooked = true
+    user.answers.leadPipeline = {
+      ...(user.answers.leadPipeline || {}),
+      stage: 'call_booked',
+      lastContactedAt: now,
+      updatedAt: now,
+    }
+    user.markModified('answers')
+    await user.save()
+
+    return res.status(200).json({
+      success: true,
+      matched: true,
+      userId: String(user._id),
+      pipelineStage: user.pipelineStage,
+      callBooked: user.callBooked,
+      callBookedAt: user.callBookedAt,
+    })
+  } catch (err) {
+    console.error('[Webhook/booking] Error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to process booking webhook.' })
+  }
+})
 
 // Health Check
 app.get('/health', (req, res) => {

@@ -653,6 +653,15 @@ export const saveAnswers = async (req, res) => {
 
 // Generate report and notify admin
 export const generateReport = async (req, res) => {
+  const settings = await getGlobalSettings().catch(() => null)
+  if (settings?.aiPaused) {
+    return res.status(503).json({
+      success: false,
+      code: 'AI_PAUSED',
+      message: settings.maintenanceMessage || 'AI Career GPS analysis is temporarily paused for maintenance.',
+    })
+  }
+
   const { userId } = req.body
   let { semanticProfile } = req.body
 
@@ -703,6 +712,15 @@ export const generateReport = async (req, res) => {
 
 // Live Server-Sent Events (SSE) Report Stream
 export const generateReportStream = async (req, res) => {
+  const settings = await getGlobalSettings().catch(() => null)
+  if (settings?.aiPaused) {
+    return res.status(503).json({
+      success: false,
+      code: 'AI_PAUSED',
+      message: settings.maintenanceMessage || 'AI Career GPS analysis is temporarily paused for maintenance.',
+    })
+  }
+
   const { userId } = req.query
 
   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {

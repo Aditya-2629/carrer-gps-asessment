@@ -18,6 +18,7 @@ import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { userSessionGuard } from '../utils/userAuth.js'
+import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
 
 const router = Router()
@@ -39,6 +40,15 @@ function pushEvent(job, stage, message, agent = null) {
 // ─── Create job ──────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   try {
+    const settings = await getGlobalSettings().catch(() => null)
+    if (settings?.aiPaused) {
+      return res.status(503).json({
+        success: false,
+        code: 'AI_PAUSED',
+        message: settings.maintenanceMessage || 'AI Career GPS analysis is temporarily paused for maintenance.',
+      })
+    }
+
     const { userId, semanticProfile, precomputedResumeAgent, precomputedResumeJson, linkedinData } = req.body || {}
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: 'Valid userId is required.' })

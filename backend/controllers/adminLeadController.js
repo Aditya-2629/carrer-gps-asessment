@@ -12,9 +12,37 @@
 
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
+import AgentRun from '../models/AgentRun.js'
 import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { DEFAULT_PRICING } from '../utils/costTracker.js'
+
+const INR_PER_USD = 94
+
+function computeRunUsd(run) {
+  if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+    return run.cost.estimatedUsd
+  }
+  const inTok = Number(run?.cost?.inputTokens || 0)
+  const outTok = Number(run?.cost?.outputTokens || 0)
+  if (inTok <= 0 && outTok <= 0) return 0
+  const rates = DEFAULT_PRICING.models[String(run?.model || '').toLowerCase().trim()] || DEFAULT_PRICING.models.default
+  return (inTok * rates.input + outTok * rates.output) / 1_000_000
+}
+
+async function aggregateCostByUserIds(userIds = []) {
+  const map = new Map()
+  if (!userIds.length) return map
+  const runs = await AgentRun.find({ userId: { $in: userIds } })
+    .select('userId cost model')
+    .lean()
+  for (const run of runs) {
+    const key = String(run.userId)
+    map.set(key, (map.get(key) || 0) + computeRunUsd(run))
+  }
+  return map
+}
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
 
@@ -126,8 +154,8 @@ export function calculateLeadMetrics(user) {
 
   // CRM Pipeline Stage
   const pipeline = user.answers?.leadPipeline || {}
-  const leadStage = pipeline.stage || 'new'
-  const leadNotes = pipeline.notes || ''
+  const leadStage = user.pipelineStage || pipeline.stage || 'new'
+  const leadNotes = user.adminNotes !== undefined && user.adminNotes !== '' ? user.adminNotes : (pipeline.notes || '')
   const lastContactedAt = pipeline.lastContactedAt || null
 
   // Outreach Scripts
@@ -161,7 +189,11 @@ export function calculateLeadMetrics(user) {
     linkedinScore,
     bottleneckPhase: r.primary_bottleneck?.phase || r.bottleneck_phase || null,
     reportUnlocked: Boolean(user.reportUnlocked),
-    callBooked: Boolean(leadStage === 'scheduled' || user.answers?.callBooked),
+    unlockedAt: user.unlockedAt || null,
+    deliveredAt: user.deliveredAt || null,
+    callBooked: Boolean(user.callBooked || leadStage === 'call_booked' || leadStage === 'scheduled' || user.answers?.callBooked),
+    callBookedAt: user.callBookedAt || null,
+    followUpDate: user.followUpDate || null,
     discrepancyCount,
     missingSkills: topMissingSkills,
     topMissingSkills,
@@ -172,6 +204,7 @@ export function calculateLeadMetrics(user) {
     leadTier,
     pipelineStage: leadStage,
     leadStage,
+    adminNotes: leadNotes,
     leadNotes,
     lastContactedAt,
     hasResume: Boolean(user.resumeData),
@@ -229,7 +262,7 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate')
       .lean()
 
     // Transform and calculate metrics
@@ -260,13 +293,22 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
+    const costMap = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
+    const leadsWithCost = paginatedLeads.map((l) => {
+      const costUsd = Number((costMap.get(l.id) || 0).toFixed(5))
+      return {
+        ...l,
+        costUsd,
+        costInr: Number((costUsd * INR_PER_USD).toFixed(2)),
+      }
+    })
 
     return res.status(200).json({
       success: true,
       total,
       page,
       pages: Math.ceil(total / limit) || 1,
-      leads: paginatedLeads,
+      leads: leadsWithCost,
     })
   } catch (err) {
     console.error('[AdminLeadController] listLeads error:', err)
@@ -334,10 +376,11 @@ export async function getLeadStats(_req, res) {
 export async function updateLeadStage(req, res) {
   try {
     const { id } = req.params
-    const { stage, notes } = req.body || {}
+    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked } = req.body || {}
+    const nextStage = pipelineStage ?? stage
 
-    const validStages = ['new', 'contacted', 'scheduled', 'converted', 'placed']
-    if (stage && !validStages.includes(stage)) {
+    const validStages = ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed']
+    if (nextStage && !validStages.includes(nextStage)) {
       return res.status(400).json({ success: false, message: `Invalid stage. Must be one of: ${validStages.join(', ')}` })
     }
 
@@ -346,14 +389,31 @@ export async function updateLeadStage(req, res) {
       return res.status(404).json({ success: false, message: 'Candidate user not found.' })
     }
 
+    if (nextStage) user.pipelineStage = nextStage
+    const nextNotes = adminNotes !== undefined ? adminNotes : notes
+    if (nextNotes !== undefined) user.adminNotes = String(nextNotes)
+    if (followUpDate !== undefined) {
+      user.followUpDate = followUpDate ? new Date(followUpDate) : null
+    }
+    if (typeof callBooked === 'boolean') {
+      user.callBooked = callBooked
+      if (callBooked && !user.callBookedAt) user.callBookedAt = new Date()
+    } else if (nextStage === 'call_booked' || nextStage === 'scheduled') {
+      user.callBooked = true
+      if (!user.callBookedAt) user.callBookedAt = new Date()
+    }
+
     user.answers = user.answers || {}
     const existingPipeline = user.answers.leadPipeline || {}
 
     user.answers.leadPipeline = {
       ...existingPipeline,
-      stage: stage || existingPipeline.stage || 'new',
-      notes: notes !== undefined ? notes : existingPipeline.notes || '',
-      lastContactedAt: stage === 'contacted' || stage === 'scheduled' ? new Date() : existingPipeline.lastContactedAt,
+      stage: nextStage || user.pipelineStage || existingPipeline.stage || 'new',
+      notes: nextNotes !== undefined ? String(nextNotes) : (existingPipeline.notes || ''),
+      lastContactedAt:
+        nextStage === 'contacted' || nextStage === 'scheduled' || nextStage === 'call_booked' || nextStage === 'follow_up'
+          ? new Date()
+          : existingPipeline.lastContactedAt,
       updatedAt: new Date(),
     }
 
@@ -363,6 +423,7 @@ export async function updateLeadStage(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Lead pipeline metadata updated successfully.',
+      lead: calculateLeadMetrics(user),
       leadPipeline: user.answers.leadPipeline,
     })
   } catch (err) {
@@ -548,10 +609,17 @@ export async function getCandidateDossier(req, res) {
       { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
     ]
 
+    const costMap = await aggregateCostByUserIds([user._id])
+    const costUsd = Number((costMap.get(String(user._id)) || 0).toFixed(5))
+    const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+    const leadWithCost = { ...leadInfo, costUsd, costInr }
+
     return res.status(200).json({
       success: true,
-      lead: leadInfo,
-      candidate: leadInfo,
+      lead: leadWithCost,
+      candidate: leadWithCost,
+      costUsd,
+      costInr,
       phases,
       resumeProfile,
       linkedinProfile,
@@ -661,6 +729,8 @@ export async function getAppSettings(req, res) {
         fomoHeadline: settings.ctaHeadline || '',
         ctaButtonLabel: settings.ctaButtonLabel || '',
         fomoCtaLabel: settings.ctaButtonLabel || '',
+        aiPaused: Boolean(settings.aiPaused),
+        maintenanceMessage: settings.maintenanceMessage || '',
       },
     })
   } catch (err) {
@@ -683,6 +753,8 @@ export async function updateAppSettings(req, res) {
       fomoHeadline,
       ctaButtonLabel,
       fomoCtaLabel,
+      aiPaused,
+      maintenanceMessage,
     } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
@@ -696,6 +768,8 @@ export async function updateAppSettings(req, res) {
     if (typeof headline === 'string') update.ctaHeadline = headline.trim()
     const btnLabel = ctaButtonLabel ?? fomoCtaLabel
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
+    if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
+    if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
 
     const updated = await AppSettings.findOneAndUpdate(
       { key: 'global' },
@@ -715,6 +789,8 @@ export async function updateAppSettings(req, res) {
         fomoHeadline: updated.ctaHeadline || '',
         ctaButtonLabel: updated.ctaButtonLabel || '',
         fomoCtaLabel: updated.ctaButtonLabel || '',
+        aiPaused: Boolean(updated.aiPaused),
+        maintenanceMessage: updated.maintenanceMessage || '',
       },
     })
   } catch (err) {

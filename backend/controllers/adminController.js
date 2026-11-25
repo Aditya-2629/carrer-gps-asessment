@@ -254,7 +254,7 @@ export const getStats = async (_req, res) => {
       },
     })
 
-    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns] = await Promise.all([
+    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns, allRuns] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ $or: [{ resumeData: { $type: 'binData' } }, { resumeJson: { $ne: null } }, { resumeName: { $ne: null } }] }),
@@ -285,21 +285,30 @@ export const getStats = async (_req, res) => {
       ]),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
       AgentRun.find({ createdAt: { $gte: startOfToday } }).select('cost model').lean(),
+      AgentRun.find({}).select('cost model').lean(),
     ])
 
-    let todayLlmSpendUsd = 0
-    for (const run of todayRuns || []) {
-      if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
-        todayLlmSpendUsd += run.cost.estimatedUsd
-      } else {
-        const inTok = Number(run?.cost?.inputTokens || 0)
-        const outTok = Number(run?.cost?.outputTokens || 0)
-        if (inTok > 0 || outTok > 0) {
-          const rates = DEFAULT_PRICING.models[String(run?.model || '').toLowerCase().trim()] || DEFAULT_PRICING.models.default
-          todayLlmSpendUsd += (inTok * rates.input + outTok * rates.output) / 1_000_000
+    const calcUsd = (runs) => {
+      let sum = 0
+      for (const run of runs || []) {
+        if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+          sum += run.cost.estimatedUsd
+        } else {
+          const inTok = Number(run?.cost?.inputTokens || 0)
+          const outTok = Number(run?.cost?.outputTokens || 0)
+          if (inTok > 0 || outTok > 0) {
+            const rates = DEFAULT_PRICING.models[String(run?.model || '').toLowerCase().trim()] || DEFAULT_PRICING.models.default
+            sum += (inTok * rates.input + outTok * rates.output) / 1_000_000
+          }
         }
       }
+      return sum
     }
+
+    const todayLlmSpendUsd = calcUsd(todayRuns)
+    const totalLlmSpendUsd = calcUsd(allRuns)
+    const leadDenom = withReport > 0 ? withReport : totalUsers
+    const avgCostPerLeadUsd = leadDenom > 0 ? Number((totalLlmSpendUsd / leadDenom).toFixed(5)) : 0
 
     const agg = reportAgg[0] || {}
     const round1 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null)
@@ -315,6 +324,8 @@ export const getStats = async (_req, res) => {
         newToday: newToday ?? 0,
         todayLlmSpendUsd: Number(todayLlmSpendUsd.toFixed(5)),
         todayLlmSpendInr: Number((todayLlmSpendUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        avgCostPerLeadUsd,
+        avgCostPerLeadInr: Number((avgCostPerLeadUsd * 94).toFixed(2)),
         avgCareerScore: round1(agg.avgCareer),
         avgResumeScore: round1(agg.avgResume),
         avgLinkedinScore: round1(agg.avgLinkedin),

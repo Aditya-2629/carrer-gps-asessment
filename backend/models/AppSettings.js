@@ -18,6 +18,14 @@ const appSettingsSchema = new mongoose.Schema(
       type: String,
       default: 'Book Free 1:1 Strategy Call',
     },
+    aiPaused: {
+      type: Boolean,
+      default: false,
+    },
+    maintenanceMessage: {
+      type: String,
+      default: 'AI Career GPS analysis is temporarily paused for maintenance. Please check back shortly.',
+    },
   },
   { timestamps: true }
 )

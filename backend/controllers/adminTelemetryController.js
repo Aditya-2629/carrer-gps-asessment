@@ -1,7 +1,9 @@
+import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
 import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
+import JobMarketBucket from '../models/JobMarketBucket.js'
 import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
@@ -643,6 +645,66 @@ export async function getAnalyticsOverview(req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] getAnalyticsOverview error:', err)
     return res.status(500).json({ success: false, message: 'Failed to retrieve analytics overview.' })
+  }
+}
+
+/**
+ * GET /api/admin/system/storage
+ * Returns MongoDB storage usage against 512MB free-tier limit plus collection document counts.
+ */
+export async function getSystemStorage(_req, res) {
+  try {
+    const dbStats = await mongoose.connection.db.stats()
+    const limitMb = 512
+    const dataSizeMb = Number(((dbStats.dataSize || 0) / (1024 * 1024)).toFixed(2))
+    const storageSizeMb = Number(((dbStats.storageSize || 0) / (1024 * 1024)).toFixed(2))
+    const percentUsed = Number(((storageSizeMb / limitMb) * 100).toFixed(2))
+
+    const [users, visitorSessions, agentRuns, marketBuckets, dailyAnalytics] = await Promise.all([
+      User.countDocuments({}),
+      VisitorSession.countDocuments({}),
+      AgentRun.countDocuments({}),
+      JobMarketBucket.countDocuments({}),
+      DailyAnalyticsSummary.countDocuments({}),
+    ])
+
+    return res.status(200).json({
+      success: true,
+      dataSizeMb,
+      storageSizeMb,
+      limitMb,
+      percentUsed,
+      collections: {
+        users,
+        visitorSessions,
+        agentRuns,
+        marketBuckets,
+        dailyAnalytics,
+      },
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getSystemStorage error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve storage stats.' })
+  }
+}
+
+/**
+ * POST /api/admin/system/cleanup-sessions
+ * Purges expired/stale VisitorSession records older than 7 days.
+ */
+export async function cleanupStaleSessions(_req, res) {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const result = await VisitorSession.deleteMany({
+      lastHeartbeatAt: { $lt: sevenDaysAgo },
+    })
+    return res.status(200).json({
+      success: true,
+      deletedCount: result.deletedCount || 0,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] cleanupStaleSessions error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to clean up stale sessions.' })
   }
 }
 
