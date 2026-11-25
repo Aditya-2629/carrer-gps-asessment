@@ -13,6 +13,7 @@ import linkedinAgentRoutes from './routes/linkedinAgentRoutes.js'
 import adminRoutes from './routes/adminRoutes.js'
 import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
+import analyticsRoutes from './routes/analyticsRoutes.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
@@ -59,8 +60,9 @@ app.use((req, _res, next) => {
   next()
 })
 
-// Parse optional admin frontend URLs (comma-separated support)
-const adminOrigins = (process.env.ADMIN_FRONTEND_URL || '')
+// Parse optional admin frontend URLs (comma-separated support for ADMIN_APP_URL & ADMIN_FRONTEND_URL)
+const adminOrigins = [process.env.ADMIN_APP_URL || '', process.env.ADMIN_FRONTEND_URL || '']
+  .join(',')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean)
@@ -88,6 +90,7 @@ app.use(cors({
     callback(new Error(`CORS blocked: ${origin} not in allowed list`))
   },
   credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-api-key', 'x-requested-with'],
 }))
 
 // Reduce JSON/URL-encoded payload limit to 2mb (Multer manages 10mb file uploads separately)
@@ -136,6 +139,7 @@ app.use('/api/linkedin-agent', linkedinAgentRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/report-jobs', reportJobRoutes)
 app.use('/api/feedback', feedbackRoutes)
+app.use('/api/analytics', analyticsRoutes)
 
 // Health Check
 app.get('/health', (req, res) => {

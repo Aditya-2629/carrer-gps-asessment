@@ -1,5 +1,6 @@
 import AgentRun from '../models/AgentRun.js'
 import User from '../models/User.js'
+import VisitorSession from '../models/VisitorSession.js'
 import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
@@ -437,6 +438,165 @@ export async function getSelfLearningInsights(req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] Failed to load learning insights:', err)
     return res.status(500).json({ success: false, message: 'Failed to load self-learning insights.' })
+  }
+}
+
+/**
+ * GET /api/admin/telemetry/openrouter-balance
+ * Queries OpenRouter /api/v1/auth/key for live credit usage/remaining and aggregates daily spend from AgentRun.
+ */
+export async function getOpenRouterBalance(req, res) {
+  try {
+    const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
+    let openrouter = {
+      configured: Boolean(apiKey),
+      usage: null,
+      limit: null,
+      limitRemaining: null,
+      isFreeTier: null,
+      error: null,
+    }
+
+    if (apiKey) {
+      try {
+        const keyRes = await fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(8000),
+        })
+        if (keyRes.ok) {
+          const json = await keyRes.json()
+          const d = json?.data || json || {}
+          openrouter = {
+            configured: true,
+            usage: d.usage ?? null,
+            limit: d.limit ?? null,
+            limitRemaining: d.limit_remaining ?? null,
+            isFreeTier: d.is_free_tier ?? null,
+            error: null,
+          }
+        } else {
+          openrouter.error = `HTTP ${keyRes.status}`
+        }
+      } catch (fetchErr) {
+        openrouter.error = fetchErr.message
+      }
+    }
+
+    const now = new Date()
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const sevenDaysAgo = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000)
+
+    const [todayAgg, dailySeries] = await Promise.all([
+      AgentRun.aggregate([
+        { $match: { createdAt: { $gte: startOfToday } } },
+        {
+          $group: {
+            _id: null,
+            spendUsd: { $sum: { $ifNull: ['$cost.estimatedUsd', 0] } },
+            runs: { $sum: 1 },
+            inputTokens: { $sum: { $ifNull: ['$cost.inputTokens', 0] } },
+            outputTokens: { $sum: { $ifNull: ['$cost.outputTokens', 0] } },
+          },
+        },
+      ]),
+      AgentRun.aggregate([
+        { $match: { createdAt: { $gte: sevenDaysAgo } } },
+        {
+          $group: {
+            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            spendUsd: { $sum: { $ifNull: ['$cost.estimatedUsd', 0] } },
+            runs: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ])
+
+    const todayStats = todayAgg[0] || { spendUsd: 0, runs: 0, inputTokens: 0, outputTokens: 0 }
+
+    return res.status(200).json({
+      success: true,
+      ...openrouter,
+      dailySpend: {
+        todayUsd: Number((todayStats.spendUsd || 0).toFixed(5)),
+        runsToday: todayStats.runs || 0,
+        inputTokensToday: todayStats.inputTokens || 0,
+        outputTokensToday: todayStats.outputTokens || 0,
+        last7Days: dailySeries.map((d) => ({
+          date: d._id,
+          spendUsd: Number((d.spendUsd || 0).toFixed(5)),
+          runs: d.runs || 0,
+        })),
+      },
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getOpenRouterBalance error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve OpenRouter balance.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/overview
+ * Returns live active count (last 5 min), 14-step drop-off funnel counts, device breakdown, and abandoned leads.
+ */
+export async function getAnalyticsOverview(req, res) {
+  try {
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads] = await Promise.all([
+      VisitorSession.countDocuments({ lastHeartbeatAt: { $gte: fiveMinsAgo } }),
+      VisitorSession.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$currentStep', count: { $sum: 1 } } },
+      ]),
+      VisitorSession.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$device', count: { $sum: 1 } } },
+      ]),
+      VisitorSession.find({
+        currentPhase: { $ne: 'report' },
+        $or: [
+          { 'abandonedDraft.email': { $ne: '' } },
+          { 'abandonedDraft.phone': { $ne: '' } },
+          { 'abandonedDraft.linkedin': { $ne: '' } },
+          { 'abandonedDraft.resumeFilename': { $ne: '' } },
+        ],
+      })
+        .sort({ lastHeartbeatAt: -1 })
+        .limit(50)
+        .lean(),
+    ])
+
+    const stepFunnel = {}
+    stepFunnelAgg.forEach((row) => {
+      if (row._id) stepFunnel[row._id] = row.count
+    })
+
+    const deviceBreakdown = {}
+    deviceAgg.forEach((row) => {
+      if (row._id) deviceBreakdown[row._id] = row.count
+    })
+
+    return res.status(200).json({
+      success: true,
+      liveActiveCount,
+      stepFunnel,
+      deviceBreakdown,
+      abandonedLeads: abandonedLeads.map((s) => ({
+        sessionId: s.sessionId,
+        currentPhase: s.currentPhase,
+        currentStep: s.currentStep,
+        lastHeartbeatAt: s.lastHeartbeatAt,
+        device: s.device,
+        city: s.city,
+        referrer: s.referrer,
+        abandonedDraft: s.abandonedDraft || {},
+      })),
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getAnalyticsOverview error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve analytics overview.' })
   }
 }
 

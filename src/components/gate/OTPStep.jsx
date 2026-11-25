@@ -6,6 +6,7 @@ import useAppStore, { GATE_STEPS, PHASES, showToast } from '../../store/useAppSt
 import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
+import { trackAnalytics } from '../../lib/analytics'
 
 const OTP_LENGTH = 6
 
@@ -17,6 +18,10 @@ export default function OTPStep() {
   const [resendCooldown, setResendCooldown] = useState(30)
   const [isResending, setIsResending] = useState(false)
   const inputsRef = useRef([])
+
+  useEffect(() => {
+    trackAnalytics({ currentPhase: 'gate', currentStep: 'otp', abandonedDraft: { email } })
+  }, [email])
 
   // 30s countdown timer
   useEffect(() => {

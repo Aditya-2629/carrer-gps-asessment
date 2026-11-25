@@ -39,6 +39,10 @@ import {
   exportLeadsCsv,
   getCandidateDossier,
   overrideBulletRewrite,
+  getAppSettings,
+  updateAppSettings,
+  toggleLeadUnlock,
+  deliverFullReport,
 } from '../controllers/adminLeadController.js'
 import {
   getEngineConfig,
@@ -56,6 +60,8 @@ import {
   resetCooldowns,
   pingJevDecisions,
   getSelfLearningInsights,
+  getOpenRouterBalance,
+  getAnalyticsOverview,
 } from '../controllers/adminTelemetryController.js'
 import { adminGuard } from '../utils/adminAuth.js'
 
@@ -73,7 +79,13 @@ router.get('/leads/export.csv', exportLeadsCsv)
 router.get('/leads', listLeads)
 router.get('/leads/:id/dossier', getCandidateDossier)
 router.patch('/leads/:id', updateLeadStage)
+router.patch('/leads/:id/unlock', toggleLeadUnlock)
+router.post('/leads/:id/deliver-full', deliverFullReport)
 router.post('/leads/:id/override-bullet', overrideBulletRewrite)
+
+// ── Global App Settings (50% Teaser Mode & CTAs) ─────────────────────────────
+router.get('/settings', getAppSettings)
+router.patch('/settings', updateAppSettings)
 
 // ── Zero-Restart Dynamic Engine & SmartKeyPool ──────────────────────────────
 router.get('/health', getAdminHealth)
@@ -87,6 +99,8 @@ router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 // ── Observability Hub, LLM Telemetry & Fallback Analytics ────────────────────
 router.get('/telemetry/fallbacks-and-errors', getFallbackAndErrorAnalytics)
 router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
+router.get('/telemetry/openrouter-balance', getOpenRouterBalance)
+router.get('/analytics/overview', getAnalyticsOverview)
 router.post('/telemetry/purge-cooldowns', purgeKeyCooldowns)
 router.post('/telemetry/reset-cooldowns', resetCooldowns)
 router.post('/telemetry/ping-jev', pingJevDecisions)

@@ -6,9 +6,13 @@ import {
   ArrowRight,
   SpinnerGap,
   DownloadSimple,
+  LockKey,
+  CalendarBlank,
+  WhatsappLogo,
 } from '@phosphor-icons/react'
 import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { trackAnalytics } from '../../lib/analytics'
 import { navigateTo } from '../../lib/navigation'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
@@ -824,7 +828,37 @@ function ReportDashboardContent() {
 
   const [isRecovering, setIsRecovering] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [teaserConfig, setTeaserConfig] = useState({
+    teaserModeEnabled: false,
+    reportUnlocked: false,
+    callBookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+    whatsappCtaNumber: '',
+  })
   const hasAttemptedRecovery = useRef(false)
+
+  useEffect(() => {
+    const targetUserId = userId || storeReportData?.userId || storeReportData?._id
+    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
+    fetch(`${apiBase}/assessment/teaser-config${targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : ''}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((cfg) => {
+        if (cfg) {
+          setTeaserConfig((prev) => ({
+            teaserModeEnabled: Boolean(cfg.teaserModeEnabled),
+            reportUnlocked: Boolean(cfg.reportUnlocked),
+            callBookingUrl: cfg.callBookingUrl || prev.callBookingUrl,
+            whatsappCtaNumber: cfg.whatsappCtaNumber || prev.whatsappCtaNumber,
+          }))
+        }
+      })
+      .catch(() => {})
+
+    trackAnalytics({
+      currentPhase: 'report',
+      currentStep: 'report',
+      userId: targetUserId,
+    })
+  }, [userId, storeReportData?.userId, storeReportData?._id])
 
   useEffect(() => {
     if (storeReportData || isMockPreview) return
@@ -1100,7 +1134,72 @@ function ReportDashboardContent() {
 
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
 
+  const forceTeaserPreview = typeof window !== 'undefined' && window.location.search.includes('teaser=true')
+  const effectiveTeaserEnabled = teaserConfig.teaserModeEnabled || Boolean(reportData?.teaserModeEnabled)
+  const effectiveReportUnlocked = teaserConfig.reportUnlocked || Boolean(reportData?.reportUnlocked)
+  const isTeaserLocked = Boolean((effectiveTeaserEnabled && !effectiveReportUnlocked && !isMockPreview) || forceTeaserPreview)
+
+  const bookingUrl = teaserConfig.callBookingUrl || reportData?.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
+  const cleanWhatsappNum = String(teaserConfig.whatsappCtaNumber || reportData?.whatsappCtaNumber || '').replace(/\D/g, '')
+  const whatsappUnlockUrl = cleanWhatsappNum
+    ? `https://wa.me/${cleanWhatsappNum}?text=${encodeURIComponent(`Hi Crafture team, I'd like to unlock my full Career GPS Report (${candidateName || email || ''}).`)}`
+    : `https://wa.me/?text=${encodeURIComponent(`Hi Crafture team, I'd like to unlock my full Career GPS Report.`)}`
+
+  const TeaserBlurGate = ({ children, heightClass = 'max-h-[480px]' }) => {
+    if (!isTeaserLocked) return children
+    return (
+      <div className={`relative ${heightClass} overflow-hidden rounded-2xl`}>
+        <div className="pointer-events-none select-none blur-[6px] opacity-65">
+          {children}
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--surface-base)]/80 to-[var(--surface-base)]/95 flex items-center justify-center p-4 sm:p-6">
+          <div className="w-full max-w-lg rounded-2xl bg-[var(--surface-card)]/95 backdrop-blur-xl border border-[var(--border-default)] p-6 sm:p-8 text-center shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-[var(--primary)] flex items-center justify-center mx-auto">
+              <LockKey size={24} weight="fill" />
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-block text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
+                50% Preview Mode
+              </span>
+              <h3 className="text-lg sm:text-xl font-bold text-[var(--text-primary)]">
+                Unlock Your Complete Career GPS Diagnosis
+              </h3>
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                Book your free 1-on-1 strategy session or message our team on WhatsApp to unlock all line-by-line bullet rewrites, LinkedIn SEO prompts, and your full downloadable ATS report.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleBookCall}
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
+              >
+                <CalendarBlank size={16} weight="bold" />
+                <span>Book Free 1-on-1 Strategy Call</span>
+              </a>
+              <a
+                href={whatsappUnlockUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
+              >
+                <WhatsappLogo size={17} weight="fill" />
+                <span>Unlock via WhatsApp</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const handleDownloadPdf = async () => {
+    if (isTeaserLocked) {
+      showToast('Unlock your full report via strategy call or WhatsApp to download the complete PDF.', 'info')
+      return
+    }
     setIsDownloadingPdf(true)
     try {
       await downloadFullVisualReport(reportData, candidateName)
@@ -1134,27 +1233,29 @@ function ReportDashboardContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf}
-              className="min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
-              title="Download full diagnostic report as PDF"
-            >
-              <DownloadSimple size={14} weight="bold" />
-              <span>
-                {isDownloadingPdf ? (
-                  <>
-                    <span className="sm:hidden">PDF...</span>
-                    <span className="hidden sm:inline">Generating PDF...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="sm:hidden">PDF</span>
-                    <span className="hidden sm:inline">Download Full Report</span>
-                  </>
-                )}
-              </span>
-            </button>
+            {!isTeaserLocked && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+                title="Download full diagnostic report as PDF"
+              >
+                <DownloadSimple size={14} weight="bold" />
+                <span>
+                  {isDownloadingPdf ? (
+                    <>
+                      <span className="sm:hidden">PDF...</span>
+                      <span className="hidden sm:inline">Generating PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="sm:hidden">PDF</span>
+                      <span className="hidden sm:inline">Download Full Report</span>
+                    </>
+                  )}
+                </span>
+              </button>
+            )}
 
             <button
               onClick={toggleTheme}
@@ -1176,6 +1277,7 @@ function ReportDashboardContent() {
         targetRole={targetRole}
         healthScore={healthScore}
         reportData={reportData}
+        isTeaserLocked={isTeaserLocked}
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}
@@ -1211,50 +1313,88 @@ function ReportDashboardContent() {
                   onNavigateSection={handleNavigateSection}
                 />
               </div>
-              <div id="funnel-leak">
-                <FunnelAndConversionSection
-                  funnelData={reportData.funnel_stages}
-                  rejectionData={{
-                    factors: reportData.rejection_factors,
-                    insight: reportData.rejection_insight,
-                  }}
-                  riskData={reportData.risk_heatmap}
-                  reportData={reportData}
-                />
-              </div>
-              <div id="risk-matrix" className="space-y-6">
-                {reportData.risk_heatmap && (
-                  <RiskHeatMap data={reportData.risk_heatmap} />
-                )}
-                {reportData.mission_board && (
-                  <MissionBoard data={reportData.mission_board} />
-                )}
-              </div>
-              <div id="sprint-roadmap" className="space-y-10">
-                <RoadmapTimeline
-                  roadmapData={reportData.roadmap}
-                  currentPhaseId={reportData.career_journey?.current_phase_id}
-                  reportData={reportData}
-                />
-              </div>
+              <TeaserBlurGate heightClass="max-h-[540px]">
+                <div id="funnel-leak">
+                  <FunnelAndConversionSection
+                    funnelData={reportData.funnel_stages}
+                    rejectionData={{
+                      factors: reportData.rejection_factors,
+                      insight: reportData.rejection_insight,
+                    }}
+                    riskData={reportData.risk_heatmap}
+                    reportData={reportData}
+                  />
+                </div>
+                <div id="risk-matrix" className="space-y-6 mt-10">
+                  {reportData.risk_heatmap && (
+                    <RiskHeatMap data={reportData.risk_heatmap} />
+                  )}
+                  {reportData.mission_board && (
+                    <MissionBoard data={reportData.mission_board} />
+                  )}
+                </div>
+                <div id="sprint-roadmap" className="space-y-10 mt-10">
+                  <RoadmapTimeline
+                    roadmapData={reportData.roadmap}
+                    currentPhaseId={reportData.career_journey?.current_phase_id}
+                    reportData={reportData}
+                  />
+                </div>
+              </TeaserBlurGate>
             </div>
           )}
 
           {activeTab === 'resume' && (
             <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-              />
+              {isTeaserLocked ? (
+                <div className="relative">
+                  <ResumeDeepDiagnosis
+                    resumeAgent={reportData.resume_agent}
+                    reportData={reportData}
+                  />
+                  <div className="mt-6">
+                    <TeaserBlurGate heightClass="max-h-[360px]">
+                      <div className="h-64 bg-[var(--surface-card)] rounded-2xl border border-[var(--border-default)] p-6 space-y-4">
+                        <div className="h-6 w-1/3 bg-[var(--surface-sunken)] rounded" />
+                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
+                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
+                      </div>
+                    </TeaserBlurGate>
+                  </div>
+                </div>
+              ) : (
+                <ResumeDeepDiagnosis
+                  resumeAgent={reportData.resume_agent}
+                  reportData={reportData}
+                />
+              )}
             </div>
           )}
 
           {activeTab === 'linkedin' && (
             <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
-              <LinkedInDeepDiagnosis
-                linkedinAgent={reportData.linkedin_agent}
-                reportData={reportData}
-              />
+              {isTeaserLocked ? (
+                <div className="relative">
+                  <LinkedInDeepDiagnosis
+                    linkedinAgent={reportData.linkedin_agent}
+                    reportData={reportData}
+                  />
+                  <div className="mt-6">
+                    <TeaserBlurGate heightClass="max-h-[360px]">
+                      <div className="h-64 bg-[var(--surface-card)] rounded-2xl border border-[var(--border-default)] p-6 space-y-4">
+                        <div className="h-6 w-1/3 bg-[var(--surface-sunken)] rounded" />
+                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
+                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
+                      </div>
+                    </TeaserBlurGate>
+                  </div>
+                </div>
+              ) : (
+                <LinkedInDeepDiagnosis
+                  linkedinAgent={reportData.linkedin_agent}
+                  reportData={reportData}
+                />
+              )}
             </div>
           )}
 
@@ -1263,6 +1403,7 @@ function ReportDashboardContent() {
             coachData={reportData.coach_intervention}
             reportData={reportData}
             onBookCall={handleBookCall}
+            isTeaserLocked={isTeaserLocked}
           />
 
           {/* Interactive Bottom Section Navigation Controls */}

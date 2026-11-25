@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { EnvelopeSimple, SpinnerGap, ArrowRight, WarningCircle } from '@phosphor
 import useAppStore, { GATE_STEPS, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
+import { trackAnalytics } from '../../lib/analytics'
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -16,6 +17,10 @@ const schema = z.object({
 export default function EmailStep() {
   const { setEmail, setGateStep } = useAppStore()
   const [shaking, setShaking] = useState(false)
+
+  useEffect(() => {
+    trackAnalytics({ currentPhase: 'gate', currentStep: 'email' })
+  }, [])
 
   const {
     register,
@@ -42,7 +47,10 @@ export default function EmailStep() {
     },
   })
 
-  const onSubmit = (data) => mutation.mutate({ email: data.email })
+  const onSubmit = (data) => {
+    trackAnalytics({ currentPhase: 'gate', currentStep: 'email', abandonedDraft: { email: data.email } })
+    mutation.mutate({ email: data.email })
+  }
 
   return (
     <div>

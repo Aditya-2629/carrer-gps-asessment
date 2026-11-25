@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    reportUnlocked: {
+      type: Boolean,
+      default: false,
+    },
     answers: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

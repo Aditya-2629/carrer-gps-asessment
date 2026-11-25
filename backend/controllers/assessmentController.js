@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
+import { getGlobalSettings } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
@@ -1026,10 +1027,38 @@ export const getReport = async (req, res) => {
       })
     }
 
-    return res.status(200).json(user.aiReport)
+    const settings = await getGlobalSettings().catch(() => ({ teaserModeEnabled: false }))
+    return res.status(200).json({
+      ...user.aiReport,
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      reportUnlocked: Boolean(user.reportUnlocked),
+      callBookingUrl: settings.callBookingUrl || '',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+    })
   } catch (error) {
     console.error('Error in getReport controller:', error)
     return res.status(500).json({ message: 'Failed to retrieve report.' })
+  }
+}
+
+export const getTeaserConfig = async (req, res) => {
+  try {
+    const settings = await getGlobalSettings()
+    const userId = req.query?.userId
+    let reportUnlocked = false
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const user = await User.findById(userId).select('reportUnlocked').lean()
+      reportUnlocked = Boolean(user?.reportUnlocked)
+    }
+    return res.status(200).json({
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      reportUnlocked,
+      callBookingUrl: settings.callBookingUrl || '',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+    })
+  } catch (err) {
+    console.error('Error in getTeaserConfig:', err)
+    return res.status(200).json({ teaserModeEnabled: false, reportUnlocked: false })
   }
 }
 

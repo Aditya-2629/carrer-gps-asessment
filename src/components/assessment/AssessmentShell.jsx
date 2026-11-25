@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Sun, Moon } from '@phosphor-icons/react'
 import useAppStore, { PHASES } from '../../store/useAppStore'
@@ -6,6 +7,7 @@ import StepRenderer from './StepRenderer'
 import CraftureLivingCopilot from '../report/CraftureLivingCopilot'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import { api } from '../../lib/api'
+import { trackAnalytics } from '../../lib/analytics'
 
 const slideVariants = {
   enter: (dir) => ({
@@ -30,6 +32,26 @@ export default function AssessmentShell() {
   const totalSteps = STEPS.length
   const progress = Math.round(((currentStep + 1) / totalSteps) * 100)
   const activeChapter = CHAPTERS.find((c) => step.id >= c.range[0] && step.id <= c.range[1]) || CHAPTERS[0]
+
+  useEffect(() => {
+    const sendPing = () => {
+      const fd = useAppStore.getState().formData || {}
+      trackAnalytics({
+        currentPhase: 'assessment',
+        currentStep: String(currentStep + 1),
+        abandonedDraft: {
+          name: fd.name || fd.fullName || '',
+          email: fd.email || '',
+          phone: fd.phone || '',
+          linkedin: fd.linkedin || '',
+          targetRole: fd.targetRole || '',
+        },
+      })
+    }
+    sendPing()
+    const timer = setInterval(sendPing, 60000)
+    return () => clearInterval(timer)
+  }, [currentStep])
 
   const goNext = () => {
     // Scrape LinkedIn profile via Apify (0 LLM calls) when user advances from LinkedIn question

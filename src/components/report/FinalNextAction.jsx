@@ -20,7 +20,7 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function FinalNextAction({ coachData, reportData, onBookCall }) {
+export default function FinalNextAction({ coachData, reportData, onBookCall, isTeaserLocked = false }) {
   const rawTargetRole =
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
@@ -154,22 +154,24 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                 <ArrowRight size={14} weight="bold" />
               </a>
 
-              <button
-                type="button"
-                disabled={isDownloading}
-                onClick={async () => {
-                  setIsDownloading(true)
-                  try {
-                    await downloadFullVisualReport(reportData, candidateName)
-                  } finally {
-                    setIsDownloading(false)
-                  }
-                }}
-                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-              >
-                <DownloadSimple size={18} weight="bold" />
-                <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
-              </button>
+              {!isTeaserLocked && (
+                <button
+                  type="button"
+                  disabled={isDownloading}
+                  onClick={async () => {
+                    setIsDownloading(true)
+                    try {
+                      await downloadFullVisualReport(reportData, candidateName)
+                    } finally {
+                      setIsDownloading(false)
+                    }
+                  }}
+                  className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <DownloadSimple size={18} weight="bold" />
+                  <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
+                </button>
+              )}
             </div>
           </div>
 

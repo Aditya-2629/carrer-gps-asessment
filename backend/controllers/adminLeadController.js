@@ -10,7 +10,10 @@
  * - Candidate Dossier "God Mode" deep payload & bullet override
  */
 
+import nodemailer from 'nodemailer'
 import User from '../models/User.js'
+import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
 
@@ -576,6 +579,186 @@ export async function overrideBulletRewrite(req, res) {
   } catch (err) {
     console.error('[AdminLeadController] overrideBulletRewrite error:', err)
     return res.status(500).json({ success: false, message: 'Failed to override bullet rewrite.' })
+  }
+}
+
+// ─── GET /api/admin/settings ────────────────────────────────────────────────
+
+export async function getAppSettings(req, res) {
+  try {
+    const settings = await getGlobalSettings()
+    return res.status(200).json({
+      success: true,
+      settings: {
+        teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+        callBookingUrl: settings.callBookingUrl || '',
+        whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      },
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] getAppSettings error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve app settings.' })
+  }
+}
+
+// ─── PATCH /api/admin/settings ──────────────────────────────────────────────
+
+export async function updateAppSettings(req, res) {
+  try {
+    const { teaserModeEnabled, callBookingUrl, whatsappCtaNumber } = req.body || {}
+    const update = {}
+    if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
+    if (typeof callBookingUrl === 'string') update.callBookingUrl = callBookingUrl.trim()
+    if (typeof whatsappCtaNumber === 'string') update.whatsappCtaNumber = whatsappCtaNumber.trim()
+
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: update, $setOnInsert: { key: 'global' } },
+      { upsert: true, new: true }
+    ).lean()
+
+    return res.status(200).json({
+      success: true,
+      settings: {
+        teaserModeEnabled: Boolean(updated.teaserModeEnabled),
+        callBookingUrl: updated.callBookingUrl || '',
+        whatsappCtaNumber: updated.whatsappCtaNumber || '',
+      },
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] updateAppSettings error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to update app settings.' })
+  }
+}
+
+// ─── PATCH /api/admin/leads/:id/unlock ──────────────────────────────────────
+
+export async function toggleLeadUnlock(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+
+    const nextUnlocked = typeof req.body?.reportUnlocked === 'boolean'
+      ? req.body.reportUnlocked
+      : !Boolean(user.reportUnlocked)
+
+    user.reportUnlocked = nextUnlocked
+    await user.save()
+
+    return res.status(200).json({
+      success: true,
+      userId: user._id,
+      reportUnlocked: user.reportUnlocked,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] toggleLeadUnlock error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to update report unlock status.' })
+  }
+}
+
+// ─── POST /api/admin/leads/:id/deliver-full ─────────────────────────────────
+
+export async function deliverFullReport(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+
+    // 1. Unlock report immediately
+    user.reportUnlocked = true
+    await user.save()
+
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '')
+    const reportUrl = `${frontendBase}/report?userId=${user._id}`
+    const candidateName =
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      user.answers?.name ||
+      user.email.split('@')[0]
+
+    // 2. Build tailored .docx resume attachment if canonical resume exists
+    let docxBuffer = null
+    let docxFilename = `${String(candidateName).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'}_Tailored_ATS_Resume.docx`
+    try {
+      const ra = user.aiReport?.resume_agent || user.resume_agent || {}
+      const canonical = ra.canonicalResume || user.resumeJson
+      if (canonical && typeof canonical === 'object') {
+        const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || ra.bulletRewrites || []
+        const missingList = ra.keywordAlignment?.missingKeywords || ra.keywordAlignment?.missingFromResume || []
+        const jdKeywords = missingList.map((kw) => ({
+          keyword: typeof kw === 'string' ? kw : (kw?.keyword || kw?.name || ''),
+          count: 1,
+        })).filter((k) => k.keyword)
+        const built = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
+        docxBuffer = built?.buffer || null
+      }
+    } catch (docxErr) {
+      console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
+    }
+
+    // 3. Send email with full report link & attached .docx if SMTP configured
+    let emailSent = false
+    let emailError = null
+    if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '465', 10),
+          secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        })
+        const mailOptions = {
+          from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
+          to: user.email,
+          subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
+              <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
+              <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
+              <p style="margin: 24px 0;">
+                <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                  Open Full Career GPS Report
+                </a>
+              </p>
+              ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
+              <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
+            </div>
+          `,
+          attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
+        }
+        await transporter.sendMail(mailOptions)
+        emailSent = true
+      } catch (mailErr) {
+        emailError = mailErr.message
+        console.warn('[AdminLeadController] deliverFullReport email error:', mailErr.message)
+      }
+    }
+
+    // 4. Construct pre-filled WhatsApp delivery URL
+    const rawPhone = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').replace(/\D/g, '')
+    const whatsappMessage = `Hi ${candidateName}, your full Crafture Career GPS Report is now unlocked! View it here: ${reportUrl}`
+    const whatsappUrl = rawPhone
+      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(whatsappMessage)}`
+      : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
+
+    return res.status(200).json({
+      success: true,
+      userId: user._id,
+      reportUnlocked: true,
+      reportUrl,
+      docxAttached: Boolean(docxBuffer),
+      emailSent,
+      emailError,
+      whatsappUrl,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] deliverFullReport error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to deliver full report.' })
   }
 }
 
