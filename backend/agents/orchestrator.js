@@ -74,6 +74,17 @@ async function persistRun(row) {
     }
     // Strip oversized raw text/prompt blobs before saving to MongoDB
     const cleanRow = { ...row }
+    if (cleanRow.cost && (cleanRow.cost.estimatedUsd === null || cleanRow.cost.estimatedUsd === undefined)) {
+      const inTok = Number(cleanRow.cost.inputTokens || 0)
+      const outTok = Number(cleanRow.cost.outputTokens || 0)
+      if (inTok > 0 || outTok > 0) {
+        const rates = costTracker.getModelPricing(cleanRow.model || '')
+        cleanRow.cost = {
+          ...cleanRow.cost,
+          estimatedUsd: Number(((inTok * rates.input + outTok * rates.output) / 1_000_000).toFixed(6)),
+        }
+      }
+    }
     if (cleanRow.output && typeof cleanRow.output === 'object') {
       const copy = { ...cleanRow.output }
       delete copy.rawText

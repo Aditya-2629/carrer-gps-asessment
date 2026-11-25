@@ -4,11 +4,20 @@ const appSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, default: 'global', unique: true },
     teaserModeEnabled: { type: Boolean, default: false },
+    teaserVisiblePercent: { type: Number, default: 50 },
     callBookingUrl: {
       type: String,
       default: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
     },
     whatsappCtaNumber: { type: String, default: '' },
+    ctaHeadline: {
+      type: String,
+      default: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+    },
+    ctaButtonLabel: {
+      type: String,
+      default: 'Book Free 1:1 Strategy Call',
+    },
   },
   { timestamps: true }
 )

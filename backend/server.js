@@ -15,6 +15,7 @@ import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
 import { getGlobalSettings } from './models/AppSettings.js'
+import { getPublicReportById } from './controllers/assessmentController.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
@@ -148,17 +149,26 @@ app.get('/api/settings/public', async (_req, res) => {
     const s = await getGlobalSettings()
     return res.status(200).json({
       teaserModeEnabled: Boolean(s.teaserModeEnabled),
+      teaserVisiblePercent: Number(s.teaserVisiblePercent ?? 50),
       bookingUrl: s.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: s.whatsappCtaNumber || '',
+      ctaHeadline: s.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaButtonLabel: s.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
     })
   } catch {
     return res.status(200).json({
       teaserModeEnabled: false,
+      teaserVisiblePercent: 50,
       bookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: '',
+      ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaButtonLabel: 'Book Free 1:1 Strategy Call',
     })
   }
 })
+
+// Public Shareable Report Route (zero extra DB storage; reads from existing User/Assessment record)
+app.get('/api/report/:id', getPublicReportById)
 
 // Health Check
 app.get('/health', (req, res) => {

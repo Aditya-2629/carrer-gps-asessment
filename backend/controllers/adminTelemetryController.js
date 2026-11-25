@@ -446,11 +446,27 @@ export async function getSelfLearningInsights(req, res) {
  * GET /api/admin/telemetry/openrouter-balance
  * Queries OpenRouter /api/v1/auth/key for live credit usage/remaining and aggregates daily spend from AgentRun.
  */
+function computeRunUsd(run) {
+  if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+    return run.cost.estimatedUsd
+  }
+  const inTok = Number(run?.cost?.inputTokens || 0)
+  const outTok = Number(run?.cost?.outputTokens || 0)
+  if (inTok <= 0 && outTok <= 0) return 0
+  const modelKey = String(run?.model || '').toLowerCase().trim()
+  const rates = DEFAULT_PRICING.models[modelKey] || DEFAULT_PRICING.models.default
+  return (inTok * rates.input + outTok * rates.output) / 1_000_000
+}
+
 export async function getOpenRouterBalance(req, res) {
   try {
     const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
     let openrouter = {
       configured: Boolean(apiKey),
+      totalCredits: null,
+      totalUsage: null,
+      remainingUsd: null,
+      remainingInr: null,
       usage: null,
       limit: null,
       limitRemaining: null,
@@ -459,27 +475,48 @@ export async function getOpenRouterBalance(req, res) {
     }
 
     if (apiKey) {
-      try {
-        const keyRes = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      const [creditsRes, keyRes] = await Promise.allSettled([
+        fetch('https://openrouter.ai/api/v1/credits', {
           headers: { Authorization: `Bearer ${apiKey}` },
           signal: AbortSignal.timeout(8000),
-        })
-        if (keyRes.ok) {
-          const json = await keyRes.json()
-          const d = json?.data || json || {}
-          openrouter = {
-            configured: true,
-            usage: d.usage ?? null,
-            limit: d.limit ?? null,
-            limitRemaining: d.limit_remaining ?? null,
-            isFreeTier: d.is_free_tier ?? null,
-            error: null,
-          }
-        } else {
-          openrouter.error = `HTTP ${keyRes.status}`
+        }),
+        fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(8000),
+        }),
+      ])
+
+      if (creditsRes.status === 'fulfilled' && creditsRes.value.ok) {
+        const cJson = await creditsRes.value.json().catch(() => ({}))
+        const cd = cJson?.data || cJson || {}
+        const totalCredits = Number(cd.total_credits ?? 0)
+        const totalUsage = Number(cd.total_usage ?? 0)
+        const remainingUsd = Math.max(0, Number((totalCredits - totalUsage).toFixed(4)))
+        openrouter.totalCredits = totalCredits
+        openrouter.totalUsage = totalUsage
+        openrouter.remainingUsd = remainingUsd
+        openrouter.remainingInr = Number((remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+        openrouter.limit = totalCredits
+        openrouter.usage = totalUsage
+        openrouter.limitRemaining = remainingUsd
+      } else if (creditsRes.status === 'fulfilled') {
+        openrouter.error = `Credits HTTP ${creditsRes.value.status}`
+      } else if (creditsRes.status === 'rejected') {
+        openrouter.error = creditsRes.reason?.message || 'Credits fetch failed'
+      }
+
+      if (keyRes.status === 'fulfilled' && keyRes.value.ok) {
+        const kJson = await keyRes.value.json().catch(() => ({}))
+        const kd = kJson?.data || kJson || {}
+        openrouter.keyUsage = kd.usage ?? null
+        openrouter.keyLimit = kd.limit ?? null
+        openrouter.keyLimitRemaining = kd.limit_remaining ?? null
+        openrouter.isFreeTier = kd.is_free_tier ?? null
+        if (openrouter.remainingUsd === null && kd.limit_remaining != null) {
+          openrouter.remainingUsd = Number(kd.limit_remaining)
+          openrouter.remainingInr = Number((openrouter.remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+          openrouter.limitRemaining = openrouter.remainingUsd
         }
-      } catch (fetchErr) {
-        openrouter.error = fetchErr.message
       }
     }
 
@@ -487,47 +524,50 @@ export async function getOpenRouterBalance(req, res) {
     const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
     const sevenDaysAgo = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000)
 
-    const [todayAgg, dailySeries] = await Promise.all([
-      AgentRun.aggregate([
-        { $match: { createdAt: { $gte: startOfToday } } },
-        {
-          $group: {
-            _id: null,
-            spendUsd: { $sum: { $ifNull: ['$cost.estimatedUsd', 0] } },
-            runs: { $sum: 1 },
-            inputTokens: { $sum: { $ifNull: ['$cost.inputTokens', 0] } },
-            outputTokens: { $sum: { $ifNull: ['$cost.outputTokens', 0] } },
-          },
-        },
-      ]),
-      AgentRun.aggregate([
-        { $match: { createdAt: { $gte: sevenDaysAgo } } },
-        {
-          $group: {
-            _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            spendUsd: { $sum: { $ifNull: ['$cost.estimatedUsd', 0] } },
-            runs: { $sum: 1 },
-          },
-        },
-        { $sort: { _id: 1 } },
-      ]),
-    ])
+    const recentRuns = await AgentRun.find({ createdAt: { $gte: sevenDaysAgo } })
+      .select('createdAt cost model')
+      .lean()
 
-    const todayStats = todayAgg[0] || { spendUsd: 0, runs: 0, inputTokens: 0, outputTokens: 0 }
+    let todayUsd = 0
+    let runsToday = 0
+    let inputTokensToday = 0
+    let outputTokensToday = 0
+    const byDate = new Map()
+
+    for (const r of recentRuns) {
+      const usd = computeRunUsd(r)
+      const dateKey = new Date(r.createdAt).toISOString().slice(0, 10)
+      const dayEntry = byDate.get(dateKey) || { date: dateKey, spendUsd: 0, runs: 0 }
+      dayEntry.spendUsd += usd
+      dayEntry.runs += 1
+      byDate.set(dateKey, dayEntry)
+
+      if (new Date(r.createdAt) >= startOfToday) {
+        todayUsd += usd
+        runsToday += 1
+        inputTokensToday += Number(r?.cost?.inputTokens || 0)
+        outputTokensToday += Number(r?.cost?.outputTokens || 0)
+      }
+    }
+
+    const last7Days = Array.from(byDate.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => ({
+        date: d.date,
+        spendUsd: Number(d.spendUsd.toFixed(5)),
+        runs: d.runs,
+      }))
 
     return res.status(200).json({
       success: true,
       ...openrouter,
       dailySpend: {
-        todayUsd: Number((todayStats.spendUsd || 0).toFixed(5)),
-        runsToday: todayStats.runs || 0,
-        inputTokensToday: todayStats.inputTokens || 0,
-        outputTokensToday: todayStats.outputTokens || 0,
-        last7Days: dailySeries.map((d) => ({
-          date: d._id,
-          spendUsd: Number((d.spendUsd || 0).toFixed(5)),
-          runs: d.runs || 0,
-        })),
+        todayUsd: Number(todayUsd.toFixed(5)),
+        todayInr: Number((todayUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        runsToday,
+        inputTokensToday,
+        outputTokensToday,
+        last7Days,
       },
     })
   } catch (err) {

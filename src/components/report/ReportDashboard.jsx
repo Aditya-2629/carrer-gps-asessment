@@ -801,15 +801,15 @@ const MOCK_REPORT = {
 
 import ReportErrorBoundary from './ReportErrorBoundary'
 
-export default function ReportDashboard() {
+export default function ReportDashboard({ sharedReportId = null }) {
   return (
     <ReportErrorBoundary>
-      <ReportDashboardContent />
+      <ReportDashboardContent sharedReportId={sharedReportId} />
     </ReportErrorBoundary>
   )
 }
 
-function ReportDashboardContent() {
+function ReportDashboardContent({ sharedReportId = null }) {
   const storeReportData = useAppStore((s) => s.reportData)
   const userId = useAppStore((s) => s.userId)
   const email = useAppStore((s) => s.email)
@@ -826,42 +826,106 @@ function ReportDashboardContent() {
     window.location.pathname.toLowerCase() === '/report-preview'
   )
 
-  const [isRecovering, setIsRecovering] = useState(false)
+  const [isRecovering, setIsRecovering] = useState(Boolean(sharedReportId))
+  const [sharedReportError, setSharedReportError] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
   const [teaserConfig, setTeaserConfig] = useState({
     teaserModeEnabled: false,
+    teaserVisiblePercent: 50,
     reportUnlocked: false,
     callBookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
     whatsappCtaNumber: '',
+    ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+    ctaButtonLabel: 'Book Free 1:1 Strategy Call',
   })
   const hasAttemptedRecovery = useRef(false)
 
+  // Public Shareable Report Hydration (/report/:id)
   useEffect(() => {
-    const targetUserId = userId || storeReportData?.userId || storeReportData?._id
+    if (!sharedReportId) return
+    let isMounted = true
     const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
-    fetch(`${apiBase}/assessment/teaser-config${targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : ''}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((cfg) => {
-        if (cfg) {
+
+    setIsRecovering(true)
+    setSharedReportError(false)
+
+    fetch(`${apiBase}/report/${encodeURIComponent(sharedReportId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data) => {
+        if (!isMounted) return
+        if (data?.assessment) {
+          setReportData(data.assessment)
+          const ts = data.teaserSettings || {}
           setTeaserConfig((prev) => ({
-            teaserModeEnabled: Boolean(cfg.teaserModeEnabled),
-            reportUnlocked: Boolean(cfg.reportUnlocked),
-            callBookingUrl: cfg.callBookingUrl || prev.callBookingUrl,
-            whatsappCtaNumber: cfg.whatsappCtaNumber || prev.whatsappCtaNumber,
+            teaserModeEnabled: Boolean(ts.teaserModeEnabled ?? prev.teaserModeEnabled),
+            teaserVisiblePercent: Number(ts.teaserVisiblePercent ?? prev.teaserVisiblePercent ?? 50),
+            reportUnlocked: Boolean(data.reportUnlocked),
+            callBookingUrl: ts.bookingUrl || prev.callBookingUrl,
+            whatsappCtaNumber: ts.whatsappNumber || prev.whatsappCtaNumber,
+            ctaHeadline: ts.ctaHeadline || prev.ctaHeadline,
+            ctaButtonLabel: ts.ctaButtonLabel || prev.ctaButtonLabel,
           }))
+        } else {
+          setSharedReportError(true)
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('[ReportDashboard] Failed to load shared report:', err)
+        if (isMounted) setSharedReportError(true)
+      })
+      .finally(() => {
+        if (isMounted) setIsRecovering(false)
+      })
+
+    trackAnalytics({
+      currentPhase: 'report',
+      currentStep: 'report',
+      userId: sharedReportId,
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [sharedReportId, setReportData])
+
+  useEffect(() => {
+    if (sharedReportId) return
+    const targetUserId = userId || storeReportData?.userId || storeReportData?._id
+    const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
+
+    Promise.allSettled([
+      fetch(`${apiBase}/settings/public`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${apiBase}/assessment/teaser-config${targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : ''}`).then((r) =>
+        r.ok ? r.json() : null
+      ),
+    ]).then(([pubRes, userRes]) => {
+      const pub = pubRes.status === 'fulfilled' ? pubRes.value : null
+      const usr = userRes.status === 'fulfilled' ? userRes.value : null
+      if (pub || usr) {
+        setTeaserConfig((prev) => ({
+          teaserModeEnabled: Boolean(pub?.teaserModeEnabled ?? usr?.teaserModeEnabled ?? prev.teaserModeEnabled),
+          teaserVisiblePercent: Number(pub?.teaserVisiblePercent ?? prev.teaserVisiblePercent ?? 50),
+          reportUnlocked: Boolean(usr?.reportUnlocked ?? prev.reportUnlocked),
+          callBookingUrl: pub?.bookingUrl || usr?.callBookingUrl || prev.callBookingUrl,
+          whatsappCtaNumber: pub?.whatsappNumber || usr?.whatsappCtaNumber || prev.whatsappCtaNumber,
+          ctaHeadline: pub?.ctaHeadline || prev.ctaHeadline,
+          ctaButtonLabel: pub?.ctaButtonLabel || prev.ctaButtonLabel,
+        }))
+      }
+    })
 
     trackAnalytics({
       currentPhase: 'report',
       currentStep: 'report',
       userId: targetUserId,
     })
-  }, [userId, storeReportData?.userId, storeReportData?._id])
+  }, [sharedReportId, userId, storeReportData?.userId, storeReportData?._id])
 
   useEffect(() => {
-    if (storeReportData || isMockPreview) return
+    if (sharedReportId || storeReportData || isMockPreview) return
     if (hasAttemptedRecovery.current) return
     if (!userId && !email) return
 
@@ -968,8 +1032,8 @@ function ReportDashboardContent() {
     return <AnalysisLoader />
   }
 
-  // Case 3: No report, and no active user session (cold visit to /report)
-  if (!storeReportData && !isMockPreview) {
+  // Case 3: No report, and no active user session (cold visit to /report or invalid/expired /report/:id)
+  if ((!storeReportData && !isMockPreview) || sharedReportError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[var(--surface-base)] text-[var(--text-primary)]">
         <div className="max-w-md w-full p-8 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xl text-center space-y-5">
@@ -977,10 +1041,12 @@ function ReportDashboardContent() {
             <Compass size={36} weight="duotone" />
           </div>
           <h2 className="text-2xl font-bold font-['Poppins'] text-[var(--text-primary)]">
-            No Assessment Found
+            {sharedReportError ? 'Report Not Found or Expired' : 'No Assessment Found'}
           </h2>
           <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            You haven't completed a Career GPS assessment yet, or your previous session has expired. Complete our 3-minute assessment to unlock your personalized career diagnosis.
+            {sharedReportError
+              ? 'This shared Career GPS report link is invalid or has expired. Start a fresh 3-minute assessment to generate your personalized career diagnosis.'
+              : "You haven't completed a Career GPS assessment yet, or your previous session has expired. Complete our 3-minute assessment to unlock your personalized career diagnosis."}
           </p>
           <button
             onClick={() => {
@@ -1160,10 +1226,10 @@ function ReportDashboardContent() {
             </div>
             <div className="space-y-1.5">
               <span className="inline-block text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
-                50% Preview Mode
+                {teaserConfig.teaserVisiblePercent || 50}% Preview Mode
               </span>
               <h3 className="text-lg sm:text-xl font-bold text-[var(--text-primary)]">
-                50% Preview — Unlock Your Complete Career GPS Report &amp; Updated ATS Resume
+                {teaserConfig.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume'}
               </h3>
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
                 Book your free 1-on-1 strategy session or connect on WhatsApp to unlock all line-by-line bullet rewrites, LinkedIn SEO prompts, and your updated ATS resume.
@@ -1178,7 +1244,7 @@ function ReportDashboardContent() {
                 className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
               >
                 <CalendarBlank size={16} weight="bold" />
-                <span>Book Free 1:1 Strategy Call</span>
+                <span>{teaserConfig.ctaButtonLabel || 'Book Free 1:1 Strategy Call'}</span>
               </a>
               <a
                 href={whatsappUnlockUrl}

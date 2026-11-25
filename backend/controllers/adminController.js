@@ -11,6 +11,7 @@ import FindingFeedback from '../models/FindingFeedback.js'
 import ReportJob from '../models/ReportJob.js'
 import { adminLogin } from '../utils/adminAuth.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
+import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,16 @@ export const getStats = async (_req, res) => {
     const startOfToday = new Date()
     startOfToday.setHours(0, 0, 0, 0)
 
-    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday] = await Promise.all([
+    const safeToDouble = (expr) => ({
+      $convert: {
+        input: expr,
+        to: 'double',
+        onError: null,
+        onNull: null,
+      },
+    })
+
+    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ $or: [{ resumeData: { $type: 'binData' } }, { resumeJson: { $ne: null } }, { resumeName: { $ne: null } }] }),
@@ -255,50 +265,63 @@ export const getStats = async (_req, res) => {
         {
           $group: {
             _id: null,
-            avgCareer: { $avg: { $toDouble: '$aiReport.career_health_score' } },
-            avgResume: {
-              $avg: {
+            avgCareer: {
+              $avg: safeToDouble({
                 $cond: [
-                  { $ifNull: ['$aiReport.resume_agent.dashboard.score', false] },
-                  { $toDouble: '$aiReport.resume_agent.dashboard.score' },
-                  null,
+                  { $eq: [{ $type: '$aiReport.career_health_score' }, 'object'] },
+                  '$aiReport.career_health_score.overall',
+                  '$aiReport.career_health_score',
                 ],
-              },
+              }),
+            },
+            avgResume: {
+              $avg: safeToDouble('$aiReport.resume_agent.dashboard.score'),
             },
             avgLinkedin: {
-              $avg: {
-                $cond: [
-                  { $ifNull: ['$aiReport.linkedin_agent.score', false] },
-                  { $toDouble: '$aiReport.linkedin_agent.score' },
-                  null,
-                ],
-              },
+              $avg: safeToDouble('$aiReport.linkedin_agent.score'),
             },
           },
         },
       ]),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      AgentRun.find({ createdAt: { $gte: startOfToday } }).select('cost model').lean(),
     ])
 
+    let todayLlmSpendUsd = 0
+    for (const run of todayRuns || []) {
+      if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+        todayLlmSpendUsd += run.cost.estimatedUsd
+      } else {
+        const inTok = Number(run?.cost?.inputTokens || 0)
+        const outTok = Number(run?.cost?.outputTokens || 0)
+        if (inTok > 0 || outTok > 0) {
+          const rates = DEFAULT_PRICING.models[String(run?.model || '').toLowerCase().trim()] || DEFAULT_PRICING.models.default
+          todayLlmSpendUsd += (inTok * rates.input + outTok * rates.output) / 1_000_000
+        }
+      }
+    }
+
     const agg = reportAgg[0] || {}
-    const round1 = (v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : null)
+    const round1 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null)
 
     return res.status(200).json({
       success: true,
       stats: {
-        totalUsers,
-        verifiedUsers,
-        withResume,
-        withReport,
-        newThisWeek,
-        newToday,
+        totalUsers: totalUsers ?? 0,
+        verifiedUsers: verifiedUsers ?? 0,
+        withResume: withResume ?? 0,
+        withReport: withReport ?? 0,
+        newThisWeek: newThisWeek ?? 0,
+        newToday: newToday ?? 0,
+        todayLlmSpendUsd: Number(todayLlmSpendUsd.toFixed(5)),
+        todayLlmSpendInr: Number((todayLlmSpendUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
         avgCareerScore: round1(agg.avgCareer),
         avgResumeScore: round1(agg.avgResume),
         avgLinkedinScore: round1(agg.avgLinkedin),
       },
     })
   } catch (err) {
-    console.error('Admin getStats error:', err)
+    console.error('[admin/stats]', err)
     return res.status(500).json({ success: false, message: 'Failed to load stats.' })
   }
 }

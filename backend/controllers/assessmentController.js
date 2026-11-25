@@ -1087,6 +1087,80 @@ export const getTeaserConfig = async (req, res) => {
   }
 }
 
+/**
+ * GET /api/report/:id
+ * Public shareable report endpoint (zero extra DB storage; reads directly from User/Assessment record).
+ */
+export const getPublicReportById = async (req, res) => {
+  const { id } = req.params
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: 'Report not found or invalid ID.' })
+  }
+
+  try {
+    const [user, settings] = await Promise.all([
+      User.findById(id)
+        .select('name targetRole answers aiReport reportUnlocked resumeJson')
+        .lean(),
+      getGlobalSettings().catch(() => ({ teaserModeEnabled: false, teaserVisiblePercent: 50 })),
+    ])
+
+    if (!user || !user.aiReport) {
+      return res.status(404).json({ success: false, message: 'Report not found or expired.' })
+    }
+
+    const candidateName =
+      user.name ||
+      user.answers?.name ||
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      ''
+    const targetRole =
+      user.targetRole ||
+      user.answers?.targetRole ||
+      user.aiReport?.target_role ||
+      ''
+    const yoe =
+      user.answers?.yoe ??
+      user.answers?.experienceYears ??
+      user.aiReport?.yoe ??
+      null
+
+    const assessment = {
+      ...user.aiReport,
+      userId: String(user._id),
+      candidateName: user.aiReport?.candidateName || candidateName,
+      targetRole: user.aiReport?.targetRole || targetRole,
+      yoe: user.aiReport?.yoe ?? yoe,
+      resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+    }
+
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const teaserSettings = {
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      teaserVisiblePercent: Number(settings.teaserVisiblePercent ?? 50),
+      bookingUrl:
+        settings.callBookingUrl ||
+        'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappNumber: settings.whatsappCtaNumber || '',
+      ctaHeadline:
+        settings.ctaHeadline ||
+        '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaButtonLabel: settings.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
+    }
+
+    return res.status(200).json({
+      success: true,
+      assessment,
+      reportUnlocked,
+      teaserSettings,
+    })
+  } catch (error) {
+    console.error('[getPublicReportById] Error:', error)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve report.' })
+  }
+}
+
 export const downloadAtsResumeDocx = async (req, res) => {
   try {
     const rawUserId = req.params?.userId || req.query?.userId || req.body?.userId

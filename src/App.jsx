@@ -6,6 +6,7 @@ import AssessmentShell from './components/assessment/AssessmentShell'
 import AnalysisLoader from './components/loading/AnalysisLoader'
 import ReportDashboard from './components/report/ReportDashboard'
 import { GlobalToast } from './components/common/Toast'
+import { trackAnalytics } from './lib/analytics'
 
 const phaseVariants = {
   initial: { opacity: 0 },
@@ -27,19 +28,46 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleLocationChange)
   }, [])
 
-  // Public Report Route
-  const isReportRoute = [
-    '/report',
-    '/report-preview',
-    '/career-gps-report',
-  ].includes(pathname.toLowerCase()) || window.location.search.includes('phase=report') || phase === PHASES.REPORT
+  // Send initial landing visitor heartbeat & keepalive every 30s
+  useEffect(() => {
+    const ping = () => {
+      const fd = useAppStore.getState().formData || {}
+      trackAnalytics({
+        currentPhase: phase === PHASES.GATE ? 'landing' : String(phase || 'landing').toLowerCase(),
+        currentStep: phase === PHASES.GATE ? 'landing' : undefined,
+        abandonedDraft: {
+          name: fd.name || fd.fullName || '',
+          email: fd.email || '',
+          phone: fd.phone || '',
+          linkedin: fd.linkedin || '',
+          targetRole: fd.targetRole || '',
+        },
+      })
+    }
+    ping()
+    const timer = setInterval(ping, 30000)
+    return () => clearInterval(timer)
+  }, [phase])
+
+  // Public Report Route (supports /report, /report/:id, /report-preview, /career-gps-report)
+  const reportIdMatch = pathname.match(/^\/report\/([^/]+)\/?$/i)
+  const sharedReportId = reportIdMatch ? reportIdMatch[1] : null
+  const isReportRoute =
+    Boolean(sharedReportId) ||
+    [
+      '/report',
+      '/report-preview',
+      '/career-gps-report',
+    ].includes(pathname.toLowerCase()) ||
+    window.location.search.includes('phase=report') ||
+    phase === PHASES.REPORT
 
   if (isReportRoute) {
     return (
       <>
         <GlobalToast />
         <div className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] relative transition-colors duration-150">
-          <ReportDashboard />
+          <ReportDashboard sharedReportId={sharedReportId} />
         </div>
       </>
     )

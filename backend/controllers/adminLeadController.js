@@ -151,11 +151,17 @@ export function calculateLeadMetrics(user) {
     candidateName,
     firstName,
     email: user.email,
+    phone: user.answers?.phone || candidate.phone || '',
+    jobTitle: user.answers?.currentRole || rj.experiences?.[0]?.role || '',
+    yoe: user.answers?.experience || rj.years_of_experience || null,
     targetRole,
     atsScore: overallScore,
     overallScore,
     resumeScore,
     linkedinScore,
+    bottleneckPhase: r.primary_bottleneck?.phase || r.bottleneck_phase || null,
+    reportUnlocked: Boolean(user.reportUnlocked),
+    callBooked: Boolean(leadStage === 'scheduled' || user.answers?.callBooked),
     discrepancyCount,
     missingSkills: topMissingSkills,
     topMissingSkills,
@@ -187,7 +193,7 @@ export async function listLeads(req, res) {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
     const limit = Math.min(100, Math.max(5, parseInt(req.query.limit, 10) || 20))
-    const { tier, stage, role, q, sort = 'intent_desc' } = req.query
+    const { tier, stage, role, q, sort = 'newest' } = req.query
 
     const query = {}
 
@@ -223,7 +229,7 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked')
       .lean()
 
     // Transform and calculate metrics
@@ -470,11 +476,13 @@ export async function getCandidateDossier(req, res) {
         bulletId: b.bulletId || `bullet_${idx + 1}`,
         section: b.section || 'experience',
         roleOrProject: b.role || b.company || b.title || 'Work Experience',
-        originalText: b.text || '',
+        originalText: b.text || b.originalText || '',
         status: b.status || (b.issues?.length > 0 ? 'Fix' : 'Pass'), // Pass, Warn, Fix
         issue: b.issue || b.diagnosis || (b.issues && b.issues[0]?.message) || null,
         proposedRewrite: matchedRewrite?.rewrite || matchedRewrite?.suggestedRewrite || b.proposedRewrite || null,
         whyItMatters: b.whyItMatters || matchedRewrite?.whyItMatters || null,
+        anatomy: b.anatomy || b.tags || b.signals || null,
+        isOverriddenByAdmin: Boolean(matchedRewrite?.isOverriddenByAdmin),
       }
     })
 
@@ -491,12 +499,65 @@ export async function getCandidateDossier(req, res) {
     // Discrepancies
     const discrepancies = la.crossAudit?.discrepancies || la.discrepancyReport?.discrepancies || []
 
+    // LinkedIn Studio Audit
+    const laOpt = la.optimizations || {}
+    const linkedinAudit = {
+      score: leadInfo.linkedinScore,
+      url: linkedinProfile.url,
+      currentHeadline: linkedinProfile.headline,
+      recommendedHeadline:
+        laOpt.headline?.recommended ||
+        laOpt.headlineRewrite ||
+        la.recommendedHeadline ||
+        linkedinProfile.headline ||
+        '',
+      aboutAudit:
+        laOpt.about?.recommended ||
+        laOpt.aboutRewrite ||
+        laOpt.summary?.recommended ||
+        la.aboutAudit ||
+        linkedinProfile.summary ||
+        '',
+      experienceFeedback: laOpt.experience || la.experienceFeedback || [],
+      skillsFeedback: laOpt.skills || la.skillsFeedback || [],
+      bannerFeedback: laOpt.banner || laOpt.visuals || null,
+      activitySignals: linkedinProfile.activitySignals,
+      discrepancies,
+    }
+
+    // Original vs Updated ATS Resume JSON for Diff Viewer
+    const originalResumeJson = user.resumeJson || resumeProfile
+    const updatedResumeJson =
+      ra.canonicalResume ||
+      ra.tailoredResume || {
+        ...originalResumeJson,
+        summary: ra.summaryRewrite || originalResumeJson.summary,
+        bulletRewrites: bullets.map((b) => ({
+          bulletId: b.bulletId,
+          section: b.section,
+          originalText: b.originalText,
+          proposedRewrite: b.proposedRewrite,
+        })),
+      }
+
+    // 4-Phase / Agent Scorecards
+    const phases = [
+      { name: 'Career Health', score: leadInfo.overallScore ?? 0, summary: aiReport.primary_bottleneck?.headline || '' },
+      { name: 'Resume Lab', score: leadInfo.resumeScore ?? 0, summary: dash.gradeLabel || '' },
+      { name: 'LinkedIn Studio', score: leadInfo.linkedinScore ?? 0, summary: linkedinProfile.activitySignals?.recencyTier || '' },
+      { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
+    ]
+
     return res.status(200).json({
       success: true,
       lead: leadInfo,
       candidate: leadInfo,
+      phases,
       resumeProfile,
       linkedinProfile,
+      linkedinAudit,
+      originalResumeJson,
+      updatedResumeJson,
       discrepancies,
       autopsy: {
         headline: linkedinProfile.headline,
@@ -592,8 +653,14 @@ export async function getAppSettings(req, res) {
       success: true,
       settings: {
         teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+        teaserVisiblePercent: Number(settings.teaserVisiblePercent ?? 50),
+        teaserPercentage: Number(settings.teaserVisiblePercent ?? 50),
         callBookingUrl: settings.callBookingUrl || '',
         whatsappCtaNumber: settings.whatsappCtaNumber || '',
+        ctaHeadline: settings.ctaHeadline || '',
+        fomoHeadline: settings.ctaHeadline || '',
+        ctaButtonLabel: settings.ctaButtonLabel || '',
+        fomoCtaLabel: settings.ctaButtonLabel || '',
       },
     })
   } catch (err) {
@@ -606,11 +673,29 @@ export async function getAppSettings(req, res) {
 
 export async function updateAppSettings(req, res) {
   try {
-    const { teaserModeEnabled, callBookingUrl, whatsappCtaNumber } = req.body || {}
+    const {
+      teaserModeEnabled,
+      teaserVisiblePercent,
+      teaserPercentage,
+      callBookingUrl,
+      whatsappCtaNumber,
+      ctaHeadline,
+      fomoHeadline,
+      ctaButtonLabel,
+      fomoCtaLabel,
+    } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
+    const pct = teaserVisiblePercent ?? teaserPercentage
+    if (typeof pct === 'number' && Number.isFinite(pct)) {
+      update.teaserVisiblePercent = Math.min(95, Math.max(10, pct))
+    }
     if (typeof callBookingUrl === 'string') update.callBookingUrl = callBookingUrl.trim()
     if (typeof whatsappCtaNumber === 'string') update.whatsappCtaNumber = whatsappCtaNumber.trim()
+    const headline = ctaHeadline ?? fomoHeadline
+    if (typeof headline === 'string') update.ctaHeadline = headline.trim()
+    const btnLabel = ctaButtonLabel ?? fomoCtaLabel
+    if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
 
     const updated = await AppSettings.findOneAndUpdate(
       { key: 'global' },
@@ -622,8 +707,14 @@ export async function updateAppSettings(req, res) {
       success: true,
       settings: {
         teaserModeEnabled: Boolean(updated.teaserModeEnabled),
+        teaserVisiblePercent: Number(updated.teaserVisiblePercent ?? 50),
+        teaserPercentage: Number(updated.teaserVisiblePercent ?? 50),
         callBookingUrl: updated.callBookingUrl || '',
         whatsappCtaNumber: updated.whatsappCtaNumber || '',
+        ctaHeadline: updated.ctaHeadline || '',
+        fomoHeadline: updated.ctaHeadline || '',
+        ctaButtonLabel: updated.ctaButtonLabel || '',
+        fomoCtaLabel: updated.ctaButtonLabel || '',
       },
     })
   } catch (err) {
@@ -679,8 +770,8 @@ export async function deliverFullReport(req, res) {
     user.deliveredAt = now
     await user.save()
 
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '')
-    const reportUrl = `${frontendBase}/report?userId=${user._id}`
+    const frontendBase = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '')
+    const reportUrl = `${frontendBase}/report/${user._id}`
     const candidateName =
       user.resumeJson?.candidate?.name ||
       user.resumeJson?.candidate_name ||
