@@ -214,7 +214,16 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
     [profileData.firstName, profileData.lastName].filter(Boolean).join(' ') ||
     'LinkedIn Member'
   const headline = (profileData.headline || '').trim()
-  const pictureUrl = profileData.pictureUrl || profileData.avatar || profileData.photoUrl || profileData.profilePicture || ''
+  const pictureUrl =
+    profileData.pictureUrl ||
+    profileData.profilePic ||
+    profileData.profilePicHighQuality ||
+    profileData.profilePicture ||
+    profileData.avatar ||
+    profileData.photoUrl ||
+    profileData.displayPictureUrl ||
+    profileData.img ||
+    ''
   const url = profileData.url || profileData.linkedinUrl || ''
   const connections = profileData.connectionsCount || profileData.connections || '500+'
   const location = typeof profileData.location === 'string'
@@ -240,11 +249,20 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
               <img
                 src={pictureUrl}
                 alt={fullName}
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  if (e.currentTarget.parentElement) {
-                    e.currentTarget.parentElement.innerText = initials
+                  const currentSrc = e.currentTarget.getAttribute('src') || ''
+                  const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+                  const targetProxy = `${apiBase}/linkedin-agent/avatar-proxy?url=${encodeURIComponent(pictureUrl)}`
+                  if (!currentSrc.includes('/api/linkedin-agent/avatar-proxy') && !currentSrc.includes('avatar-proxy?url=')) {
+                    e.currentTarget.src = targetProxy
+                  } else {
+                    e.currentTarget.style.display = 'none'
+                    if (e.currentTarget.parentElement) {
+                      e.currentTarget.parentElement.innerText = initials
+                    }
                   }
                 }}
               />

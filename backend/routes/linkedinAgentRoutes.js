@@ -190,6 +190,63 @@ router.get('/models', (req, res) => {
 })
 
 /**
+ * GET /api/linkedin-agent/avatar-proxy
+ * Image proxy strictly for LinkedIn profile pictures from media.licdn.com to bypass CDN hotlinking / 403 blocks.
+ * Security: Strictly validates that the URL belongs to *.licdn.com or media.licdn.com (SSRF prevention).
+ */
+router.get('/avatar-proxy', async (req, res) => {
+  try {
+    const targetUrl = (req.query.url || '').trim()
+    if (!targetUrl) {
+      return res.status(400).send('Missing url parameter')
+    }
+
+    let parsed
+    try {
+      parsed = new URL(targetUrl)
+    } catch {
+      return res.status(400).send('Invalid url format')
+    }
+
+    // Strict SSRF Guard: Only allow https and *.licdn.com domains
+    if (parsed.protocol !== 'https:') {
+      return res.status(403).send('Only HTTPS protocol allowed')
+    }
+
+    const host = parsed.hostname.toLowerCase()
+    const isAllowedHost = host === 'media.licdn.com' || host === 'licdn.com' || host.endsWith('.licdn.com')
+    if (!isAllowedHost) {
+      return res.status(403).send('Host not allowed. Strictly restricted to licdn.com domains.')
+    }
+
+    const imageRes = await fetch(targetUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.linkedin.com/',
+      },
+      signal: AbortSignal.timeout(8000),
+    })
+
+    if (!imageRes.ok) {
+      return res.status(imageRes.status).send(`Upstream image fetch failed with status ${imageRes.status}`)
+    }
+
+    const contentType = imageRes.headers.get('content-type') || 'image/jpeg'
+    res.setHeader('Content-Type', contentType)
+    res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400')
+
+    const arrayBuffer = await imageRes.arrayBuffer()
+    return res.send(Buffer.from(arrayBuffer))
+  } catch (err) {
+    console.warn('[LinkedInAvatarProxy] Failed to proxy avatar:', err.message)
+    return res.status(502).send('Error proxying image')
+  }
+})
+
+/**
  * POST /api/linkedin-agent/evaluate
  * Evaluates candidate LinkedIn profile with Resume Agent context orchestration.
  * Gated behind user session authentication or admin key.

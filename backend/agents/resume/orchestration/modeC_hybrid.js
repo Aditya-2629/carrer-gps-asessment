@@ -1961,12 +1961,12 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
               let synthRewrite = ''
               if (ctx.isCurrentRole) {
                 synthRewrite = isData
-                  ? `Translate business inquiries into SQL queries and interactive executive dashboards, accelerating analytical reporting turnaround by 35%.`
-                  : `Architect automated systems and core application services, accelerating feature delivery velocity by 28%.`
+                  ? `Translate business inquiries into SQL queries and interactive executive dashboards to accelerate analytical reporting turnaround and stakeholder decision velocity.`
+                  : `Architect automated systems and core application services to streamline feature delivery velocity and improve production system reliability.`
               } else {
                 synthRewrite = isData
-                  ? `Translated business inquiries into SQL queries and interactive executive dashboards, accelerating analytical reporting turnaround by 35%.`
-                  : `Architected automated systems and core application services, accelerating feature delivery velocity by 28%.`
+                  ? `Translated business inquiries into SQL queries and interactive executive dashboards to accelerate analytical reporting turnaround and stakeholder decision velocity.`
+                  : `Architected automated systems and core application services to streamline feature delivery velocity and improve production system reliability.`
               }
 
               const critiqueText = 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan'
