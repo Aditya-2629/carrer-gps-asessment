@@ -201,13 +201,46 @@ export default function FunnelAndConversionSection({
           </span>
         </div>
 
-        {/* Mobile Swipe Hint */}
-        <div className="flex sm:hidden items-center justify-end text-[11px] font-mono text-[var(--text-muted)]">
-          <span>Swipe horizontally to inspect full funnel →</span>
+        {/* Mobile Vertical Proportional Funnel (Zero Horizontal Scroll) */}
+        <div className="block sm:hidden space-y-2.5 bg-[var(--surface-sunken)] p-3.5 rounded-xl border border-[var(--border-default)]">
+          {FUNNEL_STAGES.map((stg, idx) => {
+            const pct = totalAppsMonthly > 0 ? Math.max(6, Math.round((stg.count / totalAppsMonthly) * 100)) : (idx === 0 ? 100 : 12)
+            return (
+              <div
+                key={`mobile-funnel-${stg.id}`}
+                className={`p-2.5 rounded-lg border ${
+                  stg.isDropOffGate
+                    ? 'bg-rose-500/10 border-rose-500/30'
+                    : 'bg-[var(--surface-card)] border-[var(--border-default)]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 text-xs mb-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: stg.color }} />
+                    <span className="font-semibold text-[var(--text-primary)] truncate">{stg.label}</span>
+                    {stg.isDropOffGate && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0">
+                        Leak
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold text-[var(--text-primary)] tabular-nums shrink-0">
+                    {stg.count}
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-[var(--surface-sunken)] overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: stg.color }}
+                  />
+                </div>
+              </div>
+            )
+          })}
         </div>
 
-        {/* ── SVG Sankey Visualization ── */}
-        <div className="w-full overflow-x-auto bg-[var(--surface-sunken)] p-4 rounded-xl border border-[var(--border-default)]">
+        {/* ── SVG Sankey Visualization (Desktop & Tablet) ── */}
+        <div className="hidden sm:block w-full overflow-x-auto bg-[var(--surface-sunken)] p-4 rounded-xl border border-[var(--border-default)]">
           <svg viewBox="0 0 760 160" className="w-full min-w-[680px] h-[160px] select-none">
             <defs>
               {FUNNEL_STAGES.slice(0, 5).map((stg, i) => (

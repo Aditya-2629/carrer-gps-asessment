@@ -161,6 +161,12 @@ export const api = {
       const allAnswers = { ...cleanFormData }
 
       // Retrieve pre-scraped LinkedIn profile from formData, sessionStorage, or in-flight promise
+      const extractSlug = (u) => {
+        const m = String(u || '').toLowerCase().match(/linkedin\.com\/in\/([^/?#]+)/i)
+        return m ? m[1].replace(/\/+$/, '') : ''
+      }
+      const targetLinkedinSlug = extractSlug(cleanFormData.linkedin)
+
       let preScrapedLinkedin = cleanFormData.linkedinData || null
       if (!preScrapedLinkedin && typeof sessionStorage !== 'undefined') {
         try {
@@ -168,16 +174,38 @@ export const api = {
           if (cached) preScrapedLinkedin = JSON.parse(cached)
         } catch (_e) {}
       }
+
+      // Guard against stale cross-candidate LinkedIn profile cache (e.g. swapniljadhav05 vs semwal)
+      if (preScrapedLinkedin && targetLinkedinSlug) {
+        const scrapedSlug = extractSlug(preScrapedLinkedin.url || preScrapedLinkedin.profileUrl || preScrapedLinkedin.linkedinUrl) ||
+          String(preScrapedLinkedin.publicIdentifier || '').toLowerCase().trim()
+        if (scrapedSlug && scrapedSlug !== targetLinkedinSlug) {
+          preScrapedLinkedin = null
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('craftureLinkedinScrape')
+          }
+        }
+      }
+
       if (!preScrapedLinkedin && typeof window !== 'undefined' && window.__linkedinScrapePromise) {
         try {
-          preScrapedLinkedin = await Promise.race([
+          const awaited = await Promise.race([
             window.__linkedinScrapePromise,
             new Promise((r) => setTimeout(() => r(null), 6000)),
           ])
+          if (awaited) {
+            const awaitedSlug = extractSlug(awaited.url || awaited.profileUrl || awaited.linkedinUrl) ||
+              String(awaited.publicIdentifier || '').toLowerCase().trim()
+            if (!targetLinkedinSlug || !awaitedSlug || awaitedSlug === targetLinkedinSlug) {
+              preScrapedLinkedin = awaited
+            }
+          }
         } catch (_e) {}
       }
       if (preScrapedLinkedin) {
         allAnswers.linkedinData = preScrapedLinkedin
+      } else {
+        delete allAnswers.linkedinData
       }
 
       let resumeFile = null

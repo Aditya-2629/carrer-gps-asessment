@@ -94,12 +94,12 @@ export default function ResumeScoreCard({
     const rawUs = grades?.us_alignment?.score ?? 78
 
     return [
-      { label: 'Impact', current: rawImpact, previous: Math.min(95, rawImpact + 26) },
-      { label: 'Positioning', current: rawPos, previous: Math.min(96, rawPos + 22) },
-      { label: 'ATS Safety', current: rawAts, previous: Math.min(100, rawAts + 10) },
-      { label: 'Credibility', current: rawCred, previous: Math.min(98, rawCred + 20) },
-      { label: 'Brevity', current: rawBrev, previous: Math.min(95, rawBrev + 18) },
-      { label: 'US Alignment', current: rawUs, previous: Math.min(95, rawUs + 16) },
+      { label: 'Impact', title: 'Impact', current: rawImpact, previous: Math.min(95, rawImpact + 26) },
+      { label: 'Pos', title: 'Positioning', current: rawPos, previous: Math.min(96, rawPos + 22) },
+      { label: 'ATS', title: 'ATS Safety', current: rawAts, previous: Math.min(100, rawAts + 10) },
+      { label: 'Cred', title: 'Credibility', current: rawCred, previous: Math.min(98, rawCred + 20) },
+      { label: 'Brevity', title: 'Brevity', current: rawBrev, previous: Math.min(95, rawBrev + 18) },
+      { label: 'US Fit', title: 'US Alignment', current: rawUs, previous: Math.min(95, rawUs + 16) },
     ]
   }, [grades])
 

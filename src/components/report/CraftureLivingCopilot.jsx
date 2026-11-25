@@ -711,8 +711,8 @@ export default function CraftureLivingCopilot({
     const timer = setTimeout(() => {
       observer = new IntersectionObserver(observerCallback, {
         root: null,
-        rootMargin: '-10% 0px -30% 0px',
-        threshold: [0.15, 0.4, 0.7],
+        rootMargin: '-20% 0px -40% 0px',
+        threshold: [0.05, 0.1, 0.25],
       })
 
       OBSERVED_SECTION_IDS.forEach((id) => {
@@ -892,11 +892,8 @@ export default function CraftureLivingCopilot({
         setCloudMinimized((prev) => !prev)
         return
       }
-      if (cloudMinimized) {
-        setCloudMinimized(false)
-      } else {
-        setMode(mode === 'problem' ? 'solution' : 'problem')
-      }
+      // On /report (mobile & desktop), clicking the mascot directly opens Atlas Chatbot
+      handleLaunchChat()
     }, 240)
   }
 
@@ -914,7 +911,7 @@ export default function CraftureLivingCopilot({
       className={`fixed ${isAssessment ? 'bottom-16 right-3 sm:bottom-6 sm:right-6' : 'bottom-16 right-3 sm:bottom-20 sm:right-6'} z-40 pointer-events-none select-none print:hidden flex flex-col items-end max-w-[calc(100vw-1.5rem)]`}
       aria-label="Crafture Living Copilot Companion"
     >
-      {/* ─── Animated Thinking Cloud (Only visible when chat is closed & cloud not minimized) ─── */}
+      {/* ─── Animated Thinking Cloud (Desktop/tablet only; hidden on < 640px mobile) ─── */}
       <AnimatePresence>
         {!isChatOpen && !cloudMinimized && (
           <motion.div
@@ -923,7 +920,7 @@ export default function CraftureLivingCopilot({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 8, transition: { duration: 0.2 } }}
             transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-            className="mb-1 w-[calc(100vw-2rem)] max-w-[320px] sm:w-80 pointer-events-auto"
+            className="hidden sm:block mb-1 w-[calc(100vw-2rem)] max-w-[320px] sm:w-80 pointer-events-auto"
           >
             {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
             <div className="flex flex-col items-end mr-12 mb-1 space-y-1">

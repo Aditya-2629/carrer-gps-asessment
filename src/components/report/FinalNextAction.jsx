@@ -43,7 +43,16 @@ export default function FinalNextAction({ coachData, reportData, onBookCall, isT
     reportData?.user_answers?.name ||
     'Candidate'
 
+  const bottleneckTitle = String(
+    reportData?.primary_bottleneck?.title ||
+    reportData?.primaryBottleneck?.title ||
+    ''
+  )
+  const parsedBottleneckPhase = bottleneckTitle.match(/Phase\s*(\d+)/i)?.[1]
   const phaseId = Number(
+    reportData?.primary_bottleneck?.phaseId ||
+    reportData?.primary_bottleneck?.stageId ||
+    parsedBottleneckPhase ||
     reportData?.funnel_stages?.bottleneckStageId ||
     reportData?.funnel_stages?.stateMachine?.stageNum ||
     reportData?.current_phase_id ||
@@ -53,18 +62,15 @@ export default function FinalNextAction({ coachData, reportData, onBookCall, isT
   )
   const currentPhase = reportData?.phase || reportData?.career_journey?.current_phase || {}
   const phaseShort =
+    (phaseId === 3 ? 'Technical Rounds' :
+     phaseId === 4 ? 'Final Loops' :
+     phaseId === 5 ? 'Offer Closing' :
+     phaseId === 2 ? 'Recruiter Screens' :
+     phaseId === 1 ? 'Pre-Screen Applications' : null) ||
     reportData?.funnel_stages?.stateMachine?.shortName ||
     currentPhase.shortName ||
     currentPhase.name ||
-    (phaseId === 1
-      ? 'Pre-Screen Applications'
-      : phaseId === 2
-      ? 'Recruiter Screens'
-      : phaseId === 3
-      ? 'Technical Panels'
-      : phaseId === 4
-      ? 'Final Loops'
-      : 'Offer Closing')
+    'Positioning'
 
   const summaryCopy = phaseId >= 3
     ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`

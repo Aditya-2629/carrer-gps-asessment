@@ -223,6 +223,19 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
     // Step background scrape trigger: non-blocking LinkedIn scrape
     if (step.name === 'linkedin' && typeof formData.linkedin === 'string' && formData.linkedin.trim()) {
       const url = normalizeLinkedInUrl(formData.linkedin.trim()) || formData.linkedin.trim()
+      const currentSlug = url.toLowerCase().match(/linkedin\.com\/in\/([^/?#]+)/)?.[1] || ''
+      const cachedUrl = formData.linkedinData?.url || formData.linkedinData?.profileUrl || ''
+      const cachedSlug = cachedUrl.toLowerCase().match(/linkedin\.com\/in\/([^/?#]+)/)?.[1] || ''
+      if (currentSlug && cachedSlug && currentSlug !== cachedSlug) {
+        useAppStore.getState().setFormData('linkedinData', null)
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.removeItem('craftureLinkedinScrape')
+        }
+        if (typeof window !== 'undefined') {
+          window.__linkedinScrapeInProgress = null
+          window.__linkedinScrapePromise = null
+        }
+      }
       window.__linkedinScrapePromise = api
         .scrapeLinkedInProfile(url)
         .then((res) => {
