@@ -45,6 +45,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    resumeR2Key: {
+      type: String,
+      default: null,
+    },
     resumeJson: {
       type: mongoose.Schema.Types.Mixed,
       default: null,

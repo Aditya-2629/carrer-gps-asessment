@@ -1,6 +1,7 @@
 import AgentRun from '../models/AgentRun.js'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
+import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
 import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
@@ -544,7 +545,7 @@ export async function getAnalyticsOverview(req, res) {
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads] = await Promise.all([
+    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads, dailyHistory] = await Promise.all([
       VisitorSession.countDocuments({ lastHeartbeatAt: { $gte: fiveMinsAgo } }),
       VisitorSession.aggregate([
         { $match: { createdAt: { $gte: thirtyDaysAgo } } },
@@ -566,6 +567,10 @@ export async function getAnalyticsOverview(req, res) {
         .sort({ lastHeartbeatAt: -1 })
         .limit(50)
         .lean(),
+      DailyAnalyticsSummary.find({})
+        .sort({ date: -1 })
+        .limit(90)
+        .lean(),
     ])
 
     const stepFunnel = {}
@@ -583,6 +588,7 @@ export async function getAnalyticsOverview(req, res) {
       liveActiveCount,
       stepFunnel,
       deviceBreakdown,
+      dailyHistory: dailyHistory.reverse(),
       abandonedLeads: abandonedLeads.map((s) => ({
         sessionId: s.sessionId,
         currentPhase: s.currentPhase,

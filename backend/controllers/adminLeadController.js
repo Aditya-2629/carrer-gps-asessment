@@ -13,7 +13,8 @@
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
-import { buildAtsTailoredDocx } from '../services/docxResumeService.js'
+import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
+import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
 
@@ -681,21 +682,16 @@ export async function deliverFullReport(req, res) {
       user.answers?.name ||
       user.email.split('@')[0]
 
-    // 2. Build tailored .docx resume attachment if canonical resume exists
+    // 2. Build tailored .docx resume on-demand (supports ?version=updated|original)
+    const version = String(req.body?.version || req.query?.version || 'updated').toLowerCase()
     let docxBuffer = null
-    let docxFilename = `${String(candidateName).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'}_Tailored_ATS_Resume.docx`
+    let docxFilename = `${String(candidateName).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'}_Updated_ATS_Resume.docx`
     try {
-      const ra = user.aiReport?.resume_agent || user.resume_agent || {}
-      const canonical = ra.canonicalResume || user.resumeJson
-      if (canonical && typeof canonical === 'object') {
-        const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || ra.bulletRewrites || []
-        const missingList = ra.keywordAlignment?.missingKeywords || ra.keywordAlignment?.missingFromResume || []
-        const jdKeywords = missingList.map((kw) => ({
-          keyword: typeof kw === 'string' ? kw : (kw?.keyword || kw?.name || ''),
-          count: 1,
-        })).filter((k) => k.keyword)
-        const built = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
-        docxBuffer = built?.buffer || null
+      const built = await buildCandidateResumeDocx(user, version)
+      docxBuffer = built?.buffer || null
+      if (built?.filename) docxFilename = built.filename
+      if (docxBuffer && isR2Configured()) {
+        uploadToR2(`deliveries/${user._id}/${docxFilename}`, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document').catch(() => {})
       }
     } catch (docxErr) {
       console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)

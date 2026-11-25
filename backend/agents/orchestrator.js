@@ -72,7 +72,21 @@ async function persistRun(row) {
         return // Never cache fallback runs as SUCCESS
       }
     }
-    await AgentRun.create(row)
+    // Strip oversized raw text/prompt blobs before saving to MongoDB
+    const cleanRow = { ...row }
+    if (cleanRow.output && typeof cleanRow.output === 'object') {
+      const copy = { ...cleanRow.output }
+      delete copy.rawText
+      delete copy.rawResumeText
+      delete copy.prompt
+      delete copy.rawResponse
+      if (copy.canonicalResume && typeof copy.canonicalResume === 'object') {
+        const { rawText: _rt, metadata: meta, ...restCanon } = copy.canonicalResume
+        copy.canonicalResume = meta ? { ...restCanon, metadata: { ...meta, rawTextPreview: undefined } } : restCanon
+      }
+      cleanRow.output = copy
+    }
+    await AgentRun.create(cleanRow)
   } catch (e) {
     console.warn('[Orchestrator] AgentRun persist failed (non-fatal):', e.message)
   }

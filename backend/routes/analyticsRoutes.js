@@ -2,6 +2,7 @@ import express, { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import mongoose from 'mongoose'
 import VisitorSession from '../models/VisitorSession.js'
+import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
 
 const router = Router()
 
@@ -80,11 +81,31 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       }
     }
 
+    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep').lean()
+
     await VisitorSession.findOneAndUpdate(
       { sessionId },
       { $set: updateFields, $setOnInsert: { sessionId } },
       { upsert: true, new: false }
     )
+
+    // Roll up lightweight daily counts (~500 bytes/day) for lifetime Admin charts
+    const todayKey = new Date().toISOString().slice(0, 10)
+    const inc = {}
+    if (!existing) inc.totalVisitors = 1
+    if (updateFields.currentPhase === 'report' && existing?.currentPhase !== 'report') {
+      inc.completedReports = 1
+    }
+    if (updateFields.currentStep && updateFields.currentStep !== existing?.currentStep) {
+      inc[`stepDropoffs.${updateFields.currentStep}`] = 1
+    }
+    if (Object.keys(inc).length > 0) {
+      DailyAnalyticsSummary.findOneAndUpdate(
+        { date: todayKey },
+        { $inc: inc, $setOnInsert: { date: todayKey } },
+        { upsert: true }
+      ).catch(() => {})
+    }
 
     return res.status(200).json({ ok: true })
   } catch (err) {

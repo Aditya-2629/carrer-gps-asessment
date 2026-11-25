@@ -22,5 +22,8 @@ const visitorSessionSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+// Auto-expire raw visitor sessions after 7 days (604800s) to protect MongoDB 512MB tier
+visitorSessionSchema.index({ lastHeartbeatAt: 1 }, { expireAfterSeconds: 604800 })
+
 const VisitorSession = mongoose.model('VisitorSession', visitorSessionSchema)
 export default VisitorSession

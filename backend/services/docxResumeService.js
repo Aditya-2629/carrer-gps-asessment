@@ -876,4 +876,68 @@ export async function buildAtsTailoredDocx(canonicalResume = {}, tailoredBullets
   }
 }
 
+/**
+ * Generates an on-demand .docx Buffer directly from a User document's stored canonicalResume JSON.
+ * @param {Object} user - User document (or lean object)
+ * @param {'updated'|'original'} [version='updated']
+ * @returns {Promise<{ buffer: Buffer, filename: string, version: string }>}
+ */
+export async function buildCandidateResumeDocx(user, version = 'updated') {
+  const safeVersion = String(version || 'updated').toLowerCase() === 'original' ? 'original' : 'updated'
+  const ra = user?.aiReport?.resume_agent || user?.resume_agent || {}
+  const rawCanonical =
+    safeVersion === 'original'
+      ? (user?.resumeJson || ra.canonicalResume)
+      : (ra.canonicalResume || user?.resumeJson)
+
+  if (!rawCanonical || typeof rawCanonical !== 'object') {
+    throw new Error('No canonical resume JSON available for on-demand .docx generation.')
+  }
+
+  const canonical = JSON.parse(JSON.stringify(rawCanonical))
+  const candidateName = (
+    canonical.candidate_name ||
+    canonical.candidate?.name ||
+    canonical.name ||
+    user?.answers?.name ||
+    user?.email?.split('@')[0] ||
+    'Candidate'
+  ).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'
+
+  if (safeVersion === 'original') {
+    const built = await buildAtsTailoredDocx(canonical, [], [])
+    return {
+      buffer: built.buffer,
+      filename: `${candidateName}_Original_Resume.docx`,
+      version: 'original',
+    }
+  }
+
+  // Updated version: apply rewrittenSummary + bulletUpgrades + missing keywords
+  const rewrittenSummary =
+    ra.summaryOptimization?.rewrittenSummary ||
+    ra.executiveSummaryRewrite ||
+    ra.dashboard?.summaryOptimization?.rewrittenSummary ||
+    null
+  if (rewrittenSummary) {
+    canonical.summary = rewrittenSummary
+  }
+
+  const bulletAudit = ra.dashboard?.bulletAudit || ra.bulletAudit || ra.bulletRewrites || []
+  const missingList = ra.keywordAlignment?.missingKeywords || ra.keywordAlignment?.missingFromResume || []
+  const jdKeywords = missingList
+    .map((kw) => ({
+      keyword: typeof kw === 'string' ? kw : (kw?.keyword || kw?.name || ''),
+      count: 1,
+    }))
+    .filter((k) => k.keyword)
+
+  const built = await buildAtsTailoredDocx(canonical, bulletAudit, jdKeywords)
+  return {
+    buffer: built.buffer,
+    filename: `${candidateName}_Updated_ATS_Resume.docx`,
+    version: 'updated',
+  }
+}
+
 export { determineSkillBucket, normalizeEducationItem }

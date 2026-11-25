@@ -10,6 +10,7 @@ import AgentRun from '../models/AgentRun.js'
 import FindingFeedback from '../models/FindingFeedback.js'
 import ReportJob from '../models/ReportJob.js'
 import { adminLogin } from '../utils/adminAuth.js'
+import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export const getUserDetail = async (req, res) => {
       success: true,
       user: {
         ...rest,
-        hasResume: Boolean(resumeData),
+        hasResume: Boolean(resumeData || user.resumeJson || user.resumeName),
         ...extractScores(user),
       },
     })
@@ -142,8 +143,23 @@ export const getUserDetail = async (req, res) => {
 
 export const downloadResume = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('resumeData resumeName').lean()
-    if (!user?.resumeData) {
+    const version = String(req.query?.version || 'updated').toLowerCase()
+    const user = await User.findById(req.params.id)
+      .select('email answers resumeData resumeName resumeJson aiReport.resume_agent resume_agent')
+      .lean()
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+
+    // On-demand .docx generation directly from canonicalResume JSON (supports ?version=original|updated)
+    if (user.resumeJson || user.aiReport?.resume_agent?.canonicalResume || user.resume_agent?.canonicalResume) {
+      const { buffer, filename } = await buildCandidateResumeDocx(user, version)
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      return res.send(buffer)
+    }
+
+    if (!user.resumeData) {
       return res.status(404).json({ success: false, message: 'No resume on file.' })
     }
     const name = user.resumeName || 'resume.pdf'
@@ -231,7 +247,7 @@ export const getStats = async (_req, res) => {
     const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isVerified: true }),
-      User.countDocuments({ resumeData: { $type: 'binData' } }),
+      User.countDocuments({ $or: [{ resumeData: { $type: 'binData' } }, { resumeJson: { $ne: null } }, { resumeName: { $ne: null } }] }),
       User.countDocuments({ 'aiReport.career_health_score': { $exists: true } }),
       User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
       User.aggregate([

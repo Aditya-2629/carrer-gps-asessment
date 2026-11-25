@@ -23,6 +23,22 @@ import { costTracker } from '../utils/costTracker.js'
 import { DOCXParser } from '../services/documentParser/docxParser.js'
 import { PDFParser } from '../services/documentParser/pdfParser.js'
 import { analyzeTimeline } from '../agents/resume/signals/timelineAnalyzer.js'
+import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+
+function compactLinkedinData(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    fullName: raw.fullName || raw.name || '',
+    headline: raw.headline || '',
+    pictureUrl: raw.pictureUrl || raw.profilePic || raw.profilePicHighQuality || raw.profilePicture || raw.avatar || '',
+    about: typeof raw.about === 'string' ? raw.about.slice(0, 2500) : (typeof raw.summary === 'string' ? raw.summary.slice(0, 2500) : ''),
+    connectionsCount: raw.connectionsCount ?? raw.connections ?? null,
+    experiences: Array.isArray(raw.experiences) ? raw.experiences.slice(0, 8) : (Array.isArray(raw.positions) ? raw.positions.slice(0, 8) : []),
+    skills: Array.isArray(raw.skills) ? raw.skills.slice(0, 30) : [],
+    url: raw.url || raw.profileUrl || raw.linkedinUrl || '',
+    location: raw.location || '',
+  }
+}
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -395,14 +411,15 @@ export const saveAnswers = async (req, res) => {
       user.semanticProfile = semanticProfile
     }
 
-    // Check if linkedinData was already pre-scraped from Step 11
+    // Check if linkedinData was already pre-scraped from Step 11 (strip bloated raw Apify fields)
     if (answers.linkedinData) {
       try {
-        user.linkedinData = typeof answers.linkedinData === 'string'
+        const parsedLi = typeof answers.linkedinData === 'string'
           ? JSON.parse(answers.linkedinData)
           : answers.linkedinData
+        user.linkedinData = compactLinkedinData(parsedLi)
       } catch (_e) {
-        user.linkedinData = answers.linkedinData
+        user.linkedinData = null
       }
     }
 
@@ -436,10 +453,18 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
-    // 1. Handle uploaded resume file FIRST via Multer so parsed resume context is immediately ready
+    // 1. Handle uploaded resume file FIRST via Multer (never store binary Buffer in MongoDB)
     if (req.file) {
-      user.resumeData = req.file.buffer
+      user.resumeData = null
       user.resumeName = req.file.originalname
+      if (isR2Configured()) {
+        const r2Key = `resumes/${user._id}/${Date.now()}_${req.file.originalname.replace(/[^\w.\-]/g, '_')}`
+        uploadToR2(r2Key, req.file.buffer, req.file.mimetype).then((r2Res) => {
+          if (r2Res.uploaded) {
+            User.updateOne({ _id: user._id }, { $set: { resumeR2Key: r2Res.key } }).catch(() => {})
+          }
+        }).catch(() => {})
+      }
 
       // Wipe previous candidate resumeJson to prevent stale cache contamination across tests!
       user.resumeJson = null
