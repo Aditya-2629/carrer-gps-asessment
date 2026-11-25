@@ -12,7 +12,6 @@ import { ArrowUpRight } from '@phosphor-icons/react'
 import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { getCareerHealthAxes } from '../../lib/reportMetrics'
-import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 export default function ReportHero({ reportData, user }) {
   const { triggerGuide } = useReportGuideStore()
@@ -189,16 +188,8 @@ export default function ReportHero({ reportData, user }) {
             </p>
           </div>
 
-          {/* Overall Index Score Dial + Mascot Welcome */}
+          {/* Overall Index Score Dial */}
           <div className="flex items-center gap-3 sm:gap-4 bg-[var(--surface-sunken)] p-3 sm:p-4 rounded-xl border border-[var(--border-default)] shrink-0">
-            <CrafturePoseMascot
-              pose="wave"
-              size={76}
-              animation="float"
-              showShadow={false}
-              className="hidden sm:inline-flex shrink-0"
-              alt="Crafture Welcome Guide"
-            />
             <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle

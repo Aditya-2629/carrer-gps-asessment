@@ -10,7 +10,6 @@ import {
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
-import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 function safeText(val, fallback = '') {
   if (!val) return fallback
@@ -173,16 +172,8 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             </div>
           </div>
 
-          {/* Right Column (lg:col-span-5) - Seamless illustration with Mascot Celebration */}
+          {/* Right Column (lg:col-span-5) - Seamless illustration */}
           <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-end gap-4">
-            <CrafturePoseMascot
-              pose="thumbsup"
-              size={120}
-              animation="bounce"
-              showShadow={true}
-              className="shrink-0"
-              alt="Celebration Mascot"
-            />
             <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
               <img
                 src={strategySessionImg}

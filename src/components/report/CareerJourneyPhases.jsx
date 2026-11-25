@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { CheckCircle, MapPin, Binoculars, Target, Trophy, ChatCircleDots } from '@phosphor-icons/react'
-import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 export default function CareerJourneyPhases({ data }) {
   const currentPhaseId = data?.current_phase_id || 2
@@ -45,14 +44,6 @@ export default function CareerJourneyPhases({ data }) {
             Every job search has distinct phases. <span className="text-[var(--primary)] font-semibold">You are currently in Positioning.</span>
           </p>
         </div>
-        <CrafturePoseMascot
-          pose="roadmap"
-          size={84}
-          animation="float"
-          showShadow={false}
-          className="shrink-0 hidden sm:inline-flex"
-          alt="Career Journey Mascot"
-        />
       </div>
 
       {/* Visual Pipeline Trail */}
