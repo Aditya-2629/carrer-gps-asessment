@@ -29,6 +29,7 @@ import useAppStore, { showToast } from '../../store/useAppStore'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import { getCompanySponsorStatus } from '../../lib/sponsorIntelligence.js'
+import CrafturePoseMascot from '../common/CrafturePoseMascot.jsx'
 
 /**
  * ResumeDeepDiagnosis — the Resume Specialist Agent's section inside the MAIN
@@ -87,6 +88,14 @@ function SectionHeader({ icon, title, accent }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-[var(--border-default)] pb-4">
       <div className="flex items-center gap-3.5">
+        <CrafturePoseMascot
+          pose="reading"
+          size={68}
+          animation="float"
+          showShadow={false}
+          className="shrink-0 hidden sm:inline-flex"
+          alt="Resume Audit Mascot"
+        />
         <div>
           <div className="flex items-center gap-2">
             <span className={accent}>{icon}</span>
