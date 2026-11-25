@@ -47,7 +47,7 @@ export default function App() {
 
   // Public Loading Route
   const isLoadingRoute = ['/loading', '/analysis-loading'].includes(pathname.toLowerCase())
-  if (isLoadingRoute && phase !== PHASES.REPORT && !reportData) {
+  if (isLoadingRoute) {
     return (
       <>
         <GlobalToast />

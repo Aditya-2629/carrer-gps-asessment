@@ -1,142 +1,116 @@
-import poseWave from './pose-wave.png'
-import posePoint from './pose-point.png'
-import poseClipboard from './pose-clipboard.png'
-import poseThinking from './pose-thinking.png'
-import poseChart from './pose-chart.png'
-import poseAnalytics from './pose-analytics.png'
-import poseAnalyticsGif from './mascot-analytics.gif'
-import poseReading from './pose-reading.png'
-import poseLaptop from './pose-laptop.png'
-import poseThumbsUp from './pose-thumbsup.png'
-import poseRoadmap from './pose-roadmap.png'
-import poseSpeech from './pose-speech.png'
-import poseIdea from './pose-idea.png'
+import mascotWave from './mascot_wave.webp'
+import mascotThinking from './mascot_thinking.webp'
+import mascotReading from './mascot_reading.webp'
+import mascotLaptop from './mascot_laptop.webp'
+import mascotChart from './mascot_chart.webp'
+import mascotClipboard from './mascot_clipboard.webp'
+import mascotRoadmap from './mascot_roadmap.webp'
+import mascotThumbsup from './mascot_thumbsup.webp'
+import mascotAngry from './mascot_angry.webp'
+import mascotHappy from './mascot_happy.webp'
+import mascotSad from './mascot_sad.webp'
+import mascotShocked from './mascot_shocked.webp'
+import mascotIdle from './mascot_idle.webp'
+import mascotWorking from './mascot_working.webp'
 
 export {
-  poseWave,
-  posePoint,
-  poseClipboard,
-  poseThinking,
-  poseChart,
-  poseAnalytics,
-  poseAnalyticsGif,
-  poseReading,
-  poseLaptop,
-  poseThumbsUp,
-  poseRoadmap,
-  poseSpeech,
-  poseIdea,
+  mascotWave,
+  mascotThinking,
+  mascotReading,
+  mascotLaptop,
+  mascotChart,
+  mascotClipboard,
+  mascotRoadmap,
+  mascotThumbsup,
+  mascotAngry,
+  mascotHappy,
+  mascotSad,
+  mascotShocked,
+  mascotIdle,
+  mascotWorking,
 }
 
-export const MASCOT_POSES = {
-  // Direct Pose Names
-  wave: poseWave,
-  point: posePoint,
-  clipboard: poseClipboard,
-  thinking: poseThinking,
-  chart: poseAnalyticsGif || poseChart,
-  analytics: poseAnalyticsGif || poseAnalytics,
-  reading: poseReading,
-  laptop: poseLaptop,
-  thumbsup: poseThumbsUp,
-  roadmap: poseRoadmap,
-  speech: poseSpeech,
-  idea: poseIdea,
+export const MASCOT_ASSETS = {
+  wave: mascotWave,
+  thinking: mascotThinking,
+  reading: mascotReading,
+  laptop: mascotLaptop,
+  chart: mascotChart,
+  clipboard: mascotClipboard,
+  roadmap: mascotRoadmap,
+  thumbsup: mascotThumbsup,
+  angry: mascotAngry,
+  happy: mascotHappy,
+  sad: mascotSad,
+  shocked: mascotShocked,
+  idle: mascotIdle,
+  working: mascotWorking,
 
-  // Semantic Aliases mapped to Crafture Career GPS Guide:
-  // 01 Welcome & Guide
-  welcome: poseWave,
-  guide: poseWave,
-  intro: poseWave,
+  // Semantic aliases for seamless backwards/forwards compatibility:
+  welcome: mascotWave,
+  guide: mascotWave,
+  intro: mascotWave,
+  linkedin: mascotWave,
+  point: mascotWave,
 
-  // 02 Ask & Explore
-  ask: poseThinking,
-  explore: poseThinking,
-  question: poseThinking,
+  ask: mascotThinking,
+  explore: mascotThinking,
+  question: mascotThinking,
+  quiz: mascotThinking,
+  idea: mascotThinking,
 
-  // 03 Plan & Analyse
-  plan: poseIdea,
-  analyse: poseAnalyticsGif || poseAnalytics,
-  analysis: poseAnalyticsGif || poseAnalytics,
-  executive: poseWave,
+  resume: mascotReading,
+  ats: mascotReading,
+  uploading: mascotReading,
 
-  // 04 Show Progress
-  progress: poseAnalyticsGif || poseChart,
-  healthScore: poseAnalyticsGif || poseChart,
-  funnel: poseAnalyticsGif || poseChart,
-  metrics: poseAnalyticsGif || poseChart,
+  apply: mascotLaptop,
+  tech: mascotLaptop,
 
-  // 05 Find Opportunities
-  opportunities: posePoint,
-  radar: posePoint,
-  market: posePoint,
-  directing: posePoint,
-  highlight: posePoint,
+  progress: mascotChart,
+  healthscore: mascotChart,
+  funnel: mascotChart,
+  metrics: mascotChart,
+  analytics: mascotChart,
+  analyse: mascotChart,
+  analysis: mascotChart,
 
-  // 08 Apply for Jobs & Working
-  apply: poseLaptop,
-  working: poseLaptop,
-  analyzing: poseLaptop,
+  audit: mascotClipboard,
+  checklist: mascotClipboard,
+  notes: mascotClipboard,
 
-  // 09 Network & Connect (LinkedIn)
-  network: posePoint,
-  linkedin: poseLaptop,
+  sprint: mascotRoadmap,
+  journey: mascotRoadmap,
+  milestones: mascotRoadmap,
+  plan: mascotRoadmap,
 
-  // 11 Build a Better Resume (ATS)
-  resume: poseReading,
-  ats: poseReading,
-  audit: poseClipboard,
-  checklist: poseClipboard,
+  success: mascotThumbsup,
+  celebrate: mascotThumbsup,
+  victory: mascotHappy,
+  offer: mascotThumbsup,
+  siuuu: mascotThumbsup,
 
-  // 14 Follow the Roadmap
-  roadmap_plan: poseRoadmap,
-  sprint: poseRoadmap,
-  journey: poseRoadmap,
-  milestones: poseRoadmap,
-
-  // 15 Success & Celebrate
-  success: poseThumbsUp,
-  celebrate: poseThumbsUp,
-  victory: poseThumbsUp,
-  offer: poseThumbsUp,
-  siuuu: poseThumbsUp,
-
-  // Dialogue & Eureka
-  dialogue: poseSpeech,
-  tip: poseSpeech,
-  feedback: poseSpeech,
-  eureka: poseIdea,
-  insights: poseIdea,
+  error: mascotShocked,
+  alert: mascotAngry,
+  warning: mascotAngry,
+  rejected: mascotShocked,
+  low_score: mascotSad,
 }
 
 export function getMascotPose(poseName) {
-  if (!poseName) return poseWave
-  const key = String(poseName).toLowerCase().replace(/[^a-z0-9]/g, '')
-  if (MASCOT_POSES[key]) return MASCOT_POSES[key]
-  if (MASCOT_POSES[poseName]) return MASCOT_POSES[poseName]
-  return poseWave
+  if (!poseName) return mascotWave
+  const key = String(poseName).toLowerCase().replace(/[^a-z0-9_]/g, '')
+  if (MASCOT_ASSETS[key]) return MASCOT_ASSETS[key]
+  if (MASCOT_ASSETS[poseName]) return MASCOT_ASSETS[poseName]
+  return mascotWave
 }
 
 let hasPreloaded = false
 export function preloadMascotAssets() {
   if (typeof window === 'undefined' || hasPreloaded) return
   hasPreloaded = true
-  const urls = [
-    poseWave,
-    posePoint,
-    poseClipboard,
-    poseThinking,
-    poseAnalyticsGif,
-    poseChart,
-    poseAnalytics,
-    poseReading,
-    poseLaptop,
-    poseThumbsUp,
-    poseRoadmap,
-    poseSpeech,
-    poseIdea,
-  ]
-  urls.forEach((src) => {
+  const urls = Object.values(MASCOT_ASSETS)
+  const uniqueUrls = Array.from(new Set(urls))
+  uniqueUrls.forEach((src) => {
     if (src && typeof src === 'string') {
       const img = new Image()
       img.src = src
@@ -144,4 +118,4 @@ export function preloadMascotAssets() {
   })
 }
 
-export default MASCOT_POSES
+export default MASCOT_ASSETS

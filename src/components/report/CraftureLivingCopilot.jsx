@@ -169,6 +169,7 @@ export default function CraftureLivingCopilot({
   } = useReportGuideStore()
 
   const resumeAnalysis = useAppStore((s) => s.resumeAnalysis)
+  const reportData = useAppStore((s) => s.reportData)
   const isAssessment = context === 'assessment'
   const prevResumeStatusRef = useRef(null)
 
@@ -233,37 +234,120 @@ export default function CraftureLivingCopilot({
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
   const accentColor = currentPalette.shell || '#6366F1'
 
-  // Map state and active context directly to 3D Forest-Green character poses
+  // Map state and active context directly to 14 WebP Mascot poses
   const activePose = useMemo(() => {
     if (isCelebrating) return 'thumbsup'
+
+    // ── 1. Assessment Mode Context Mapping ──
     if (isAssessment) {
-      const stepName = step?.name
-      if (stepName === 'resume') return 'reading'
-      if (stepName === 'linkedin') return 'laptop'
-      if (stepName === 'apps30d' || stepName === 'funnel90d') return 'chart'
-      if (stepName === 'targetRole' || stepName === 'visa') return 'thinking'
-      if (stepName === 'DropOffStage' || stepName === 'biggestChallenge') return 'idea'
-      if (stepName === 'searchMethods' || stepName === 'outreach') return 'point'
-      if (stepName === 'alreadyTried' || stepName === 'consultancy') return 'clipboard'
+      const stepName = step?.name || (currentStep === 0 ? 'resume' : currentStep === 1 ? 'linkedin' : '')
+      const resumeStatus = resumeAnalysis?.status
+
+      if (stepName === 'resume' || currentStep === 0) {
+        if (resumeStatus === 'completed') return 'happy'
+        if (resumeStatus === 'error') return 'shocked'
+        if (resumeStatus === 'analyzing') return 'reading'
+        return 'reading'
+      }
+
+      if (stepName === 'apps30d' || stepName === 'funnel90d' || stepName === 'targetedMatchPct') {
+        return 'chart'
+      }
+
+      if (stepName === 'linkedin') {
+        return 'laptop'
+      }
+
+      // Diagnostic quiz questions
+      if (
+        stepName === 'targetRole' ||
+        stepName === 'visa' ||
+        stepName === 'DropOffStage' ||
+        stepName === 'biggestChallenge' ||
+        stepName === 'searchMethods' ||
+        stepName === 'alreadyTried' ||
+        stepName === 'consultancy' ||
+        stepName === 'outreach'
+      ) {
+        return 'thinking'
+      }
+
       return 'wave'
     }
-    // In report mode:
-    if (activeNodeId === 'overview-pulse') return 'wave'
-    if (activeNodeId === 'overview-bottleneck') return 'thinking'
-    if (activeNodeId === 'top-priorities') return 'clipboard'
-    if (activeNodeId === 'funnel-leak' || activeNodeId === 'funnel-sankey') return 'chart'
-    if (activeNodeId === 'sprint-roadmap') return 'roadmap'
-    if (activeNodeId === 'next-action') return 'thumbsup'
-    if (activeNodeId === 'resume-scorecard') return 'analytics'
-    if (activeNodeId === 'resume-audit' || activeNodeId === 'resume-bullets' || activeNodeId === 'resume-summary') return 'reading'
-    if (activeNodeId === 'linkedin-headline' || activeNodeId === 'linkedin-skills') return 'laptop'
 
-    if (currentEmotion === 'victory' || currentEmotion === 'celebrating') return 'thumbsup'
-    if (currentEmotion === 'thinking' || currentEmotion === 'surprised') return 'thinking'
-    if (currentEmotion === 'speaking') return 'point'
+    // ── 2. Report Mode Context Mapping ──
+    const overallScore = reportData?.overall_score ?? reportData?.career_health_score ?? null
+    const isCriticalLowScore = typeof overallScore === 'number' && overallScore < 50
+
+    // Next Action / Strategy Call
+    if (activeNodeId === 'next-action') {
+      return overallScore && overallScore >= 75 ? 'happy' : 'thumbsup'
+    }
+
+    // Critical low-score alert
+    if (isCriticalLowScore && (activeNodeId === 'overview-bottleneck' || currentEmotion === 'alert')) {
+      return 'sad'
+    }
+
+    // Action Plan / Roadmap
+    if (
+      activeNodeId === 'sprint-roadmap' ||
+      activeNodeId === 'top-priorities' ||
+      activeNodeId === 'mission-board' ||
+      activeNodeId?.includes('roadmap')
+    ) {
+      return 'roadmap'
+    }
+
+    // Resume Lab
+    if (
+      activeTab === 'resume' ||
+      activeNodeId?.startsWith('resume-')
+    ) {
+      return 'clipboard'
+    }
+
+    // LinkedIn Studio
+    if (
+      activeTab === 'linkedin' ||
+      activeNodeId?.startsWith('linkedin-')
+    ) {
+      return 'wave'
+    }
+
+    // Overview & Funnel
+    if (
+      activeTab === 'overview' ||
+      activeNodeId === 'overview-pulse' ||
+      activeNodeId === 'overview-bottleneck' ||
+      activeNodeId === 'funnel-leak' ||
+      activeNodeId === 'funnel-sankey' ||
+      activeNodeId?.startsWith('funnel-')
+    ) {
+      return 'chart'
+    }
+
+    // Emotion fallbacks
+    if (currentEmotion === 'victory' || currentEmotion === 'celebrating') return 'happy'
+    if (currentEmotion === 'alert') return isCriticalLowScore ? 'sad' : 'angry'
+    if (currentEmotion === 'surprised') return 'shocked'
+    if (currentEmotion === 'sad') return 'sad'
+    if (currentEmotion === 'thinking') return 'thinking'
     if (currentEmotion === 'listening') return 'clipboard'
+    if (currentEmotion === 'speaking') return 'wave'
+
     return 'wave'
-  }, [isCelebrating, isAssessment, step?.name, activeNodeId, currentEmotion])
+  }, [
+    isCelebrating,
+    isAssessment,
+    step?.name,
+    currentStep,
+    resumeAnalysis?.status,
+    activeNodeId,
+    activeTab,
+    currentEmotion,
+    reportData,
+  ])
 
   // Hover reaction: temporarily switch to wave (report) or point (assessment) on hover
   const currentMascotPose = useMemo(() => {
@@ -977,16 +1061,20 @@ export default function CraftureLivingCopilot({
               : 'Click to toggle Issue/Fix mode • Double-click to celebrate'
           }
         >
-          {/* Shared Soft Elliptical Floor Shadow */}
+          {/* Tight radial-gradient elliptical floor shadow underneath */}
           <div
-            className="absolute bottom-1.5 sm:bottom-2 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-2.5 sm:h-3.5 bg-slate-900/15 dark:bg-black/35 rounded-full blur-[4px] pointer-events-none transition-all duration-300"
+            className="absolute bottom-1 sm:bottom-1.5 left-1/2 -translate-x-1/2 w-16 sm:w-24 h-2.5 sm:h-3.5 rounded-full pointer-events-none transition-all duration-300"
             style={{
-              transform: `translateX(-50%) scale(${isCelebrating ? 0.65 : isStageHovered ? 1.08 : 1})`,
-              opacity: isCelebrating ? 0.15 : isStageHovered ? 0.45 : 0.32,
+              transform: `translateX(-50%) scale(${
+                isCelebrating ? 0.65 : isStageHovered ? 1.08 : 1
+              })`,
+              opacity: isCelebrating ? 0.15 : isStageHovered ? 0.45 : 0.35,
+              background:
+                'radial-gradient(ellipse at center, rgba(15, 23, 42, 0.32) 0%, rgba(15, 23, 42, 0.12) 48%, transparent 72%)',
             }}
           />
 
-          {/* Interactive Studio Mascot with Spring Scale on Hover */}
+          {/* Interactive Studio Mascot with Spring Scale on Hover and 0.18s crossfade */}
           <motion.div
             className="relative w-full h-full flex items-center justify-center will-change-transform"
             animate={{
@@ -998,13 +1086,20 @@ export default function CraftureLivingCopilot({
               damping: 25,
             }}
           >
-            <img
-              src={resolvedMascotSrc}
-              alt="Crafture Executive Mascot"
-              className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none transition-opacity duration-150"
-              loading="eager"
-              decoding="async"
-            />
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={resolvedMascotSrc}
+                src={resolvedMascotSrc}
+                alt="Crafture Executive Mascot"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
+                loading="eager"
+                decoding="async"
+              />
+            </AnimatePresence>
           </motion.div>
 
           {/* Minimal Floating Indicator Badge on hover */}
