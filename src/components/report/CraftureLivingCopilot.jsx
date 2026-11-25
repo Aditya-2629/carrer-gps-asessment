@@ -1107,7 +1107,7 @@ export default function CraftureLivingCopilot({
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               whileHover={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none z-20"
+              className="absolute -bottom-1 right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none z-20"
             >
               {isAsleep
                 ? 'Paused — scroll or hover to wake'

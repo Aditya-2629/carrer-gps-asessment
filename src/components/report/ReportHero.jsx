@@ -246,13 +246,13 @@ export default function ReportHero({ reportData, user }) {
 
         {/* ── 6-Axis Career Health Radar Visualizer ── */}
         <div className="pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-          <div className="md:col-span-7 h-[220px] sm:h-[260px] w-full">
+          <div className="md:col-span-7 h-[230px] sm:h-[260px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} outerRadius="75%">
+              <RadarChart data={radarData} outerRadius="62%" margin={{ top: 10, right: 26, bottom: 10, left: 26 }}>
                 <PolarGrid stroke="var(--border-default, #E2E8F0)" />
                 <PolarAngleAxis
                   dataKey="subject"
-                  tick={{ fill: 'var(--text-secondary, #475569)', fontSize: 11, fontWeight: 600 }}
+                  tick={{ fill: 'var(--text-secondary, #475569)', fontSize: 10, fontWeight: 600 }}
                 />
                 <PolarRadiusAxis
                   angle={30}

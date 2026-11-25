@@ -145,7 +145,7 @@ function InlineDiff({
   const runs = React.useMemo(() => absorbSmall(toRuns(diff(words(before), words(after)))), [before, after]);
   const pending = decision === "pending";
   return (
-    <p className={`text-[13.5px] leading-relaxed transition-colors duration-300 ${decision === "rejected" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`}>
+    <p className={`min-w-0 break-words text-[13.5px] leading-relaxed transition-colors duration-300 ${decision === "rejected" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]"}`}>
       {runs.map((run, i) =>
         run.kind === "same" ? (
           <React.Fragment key={i}>{run.tokens.join("")}</React.Fragment>
@@ -192,7 +192,7 @@ function LineDiff({
   );
   const pending = decision === "pending";
   return (
-    <pre className={`overflow-x-auto font-mono text-[12px] leading-5 transition-colors duration-300 ${decision === "rejected" ? "text-muted-foreground" : "text-foreground"}`}>
+    <pre className={`max-w-full overflow-x-auto font-mono text-[12px] leading-5 transition-colors duration-300 ${decision === "rejected" ? "text-muted-foreground" : "text-foreground"}`}>
       {ops.map((op, i) => {
         // Lines that don't survive the decision fold shut; the ones that do lose their tint and gutter.
         const out = (op.kind === "remove" && decision === "accepted") || (op.kind === "add" && decision === "rejected");

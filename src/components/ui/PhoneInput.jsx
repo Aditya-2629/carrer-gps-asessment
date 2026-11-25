@@ -57,9 +57,9 @@ export default function PhoneInput({
   const displayValue = cleanAndFormat(value)
 
   return (
-    <div className="flex items-center gap-2 mt-4 max-w-md">
+    <div className="flex items-center gap-2 mt-4 w-full max-w-md">
       {/* Country Flag & Code Box */}
-      <div className="flex items-center justify-center gap-1.5 px-3 py-3 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl text-[var(--text-primary)] font-semibold select-none shadow-xs shrink-0">
+      <div className="flex items-center justify-center gap-1.5 px-3 py-3 min-h-[44px] bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl text-[var(--text-primary)] font-semibold select-none shadow-xs shrink-0">
         <span className="text-lg leading-none" role="img" aria-label="United States Flag">
           🇺🇸
         </span>
@@ -74,7 +74,7 @@ export default function PhoneInput({
         onChange={handlePhoneChange}
         onKeyDown={handleKeyDown}
         placeholder={step?.placeholder || placeholder}
-        className={`premium-input flex-1 px-4 py-3 border border-[var(--border-default)] rounded-xl text-base text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${error ? 'error' : ''}`}
+        className={`premium-input flex-1 min-w-0 px-4 py-3 min-h-[44px] border border-[var(--border-default)] rounded-xl text-base text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)] ${error ? 'error' : ''}`}
         autoComplete="tel"
         aria-label={step?.label || 'Phone Number'}
         aria-invalid={!!error}

@@ -84,7 +84,7 @@ function CopyableSnippetCard({ snippet }) {
           )}
         </button>
       </div>
-      <div className="p-3.5 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-all bg-[var(--surface-base)]">
+      <div className="p-3.5 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap break-words min-w-0 select-all bg-[var(--surface-base)]">
         {trimmed}
       </div>
     </div>
@@ -991,7 +991,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
                 aria-label="Close chat"
               >
                 <X size={18} />
@@ -1012,7 +1012,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               return (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`text-xs leading-relaxed ${
+                    className={`text-xs leading-relaxed min-w-0 break-words ${
                       m.role === 'user'
                         ? 'max-w-[85%] bg-[var(--primary)] text-white px-4 py-2.5 rounded-2xl rounded-br-xs shadow-sm whitespace-pre-wrap'
                         : isExpanded
@@ -1120,7 +1120,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               type="button"
               onClick={() => send()}
               disabled={loading || !input.trim()}
-              className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0 mb-0.5"
+              className="min-w-[44px] min-h-[44px] bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0 mb-0.5"
               aria-label="Send message"
             >
               <PaperPlaneRight size={16} weight="fill" />

@@ -147,7 +147,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onBookCall}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
               >
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
@@ -165,7 +165,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                     setIsDownloading(false)
                   }
                 }}
-                className="print:hidden inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
               >
                 <DownloadSimple size={18} weight="bold" />
                 <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>

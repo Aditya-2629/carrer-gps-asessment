@@ -35,9 +35,9 @@ export default function OutreachReferralInput({ value, onChange, error }) {
     <div className="space-y-6">
       {/* 1. Weekly Personalized Outreach Messages */}
       <div className="space-y-2.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-between">
+        <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <span className="flex items-center gap-1.5">
-            <PaperPlaneTilt size={15} className="text-[var(--primary)]" />
+            <PaperPlaneTilt size={15} className="text-[var(--primary)] shrink-0" />
             1. Personalized Messages Sent (Per Week)
           </span>
           <span className="text-[11px] text-[var(--text-muted)] font-normal">To recruiters & hiring managers</span>
@@ -50,7 +50,7 @@ export default function OutreachReferralInput({ value, onChange, error }) {
                 key={preset}
                 type="button"
                 onClick={() => handleOutreachSelect(preset)}
-                className={`p-3 rounded-xl border text-center text-xs font-bold font-mono transition-all cursor-pointer ${
+                className={`min-h-[44px] p-3 rounded-xl border text-center text-xs font-bold font-mono transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm'
                     : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--primary)]/60 hover:bg-[var(--surface-base)]'
@@ -68,9 +68,9 @@ export default function OutreachReferralInput({ value, onChange, error }) {
 
       {/* 2. Monthly Referral Requests */}
       <div className="space-y-2.5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-between">
+        <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <span className="flex items-center gap-1.5">
-            <UsersThree size={15} className="text-[#8b5cf6]" />
+            <UsersThree size={15} className="text-[#8b5cf6] shrink-0" />
             2. Warm Referrals / Introductions Requested (Per Month)
           </span>
           <span className="text-[11px] text-[var(--text-muted)] font-normal">Internal employee referrals</span>
@@ -83,7 +83,7 @@ export default function OutreachReferralInput({ value, onChange, error }) {
                 key={preset}
                 type="button"
                 onClick={() => handleReferralSelect(preset)}
-                className={`p-3 rounded-xl border text-center text-xs font-bold font-mono transition-all cursor-pointer ${
+                className={`min-h-[44px] p-3 rounded-xl border text-center text-xs font-bold font-mono transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-sm'
                     : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[#8b5cf6]/60 hover:bg-[var(--surface-base)]'

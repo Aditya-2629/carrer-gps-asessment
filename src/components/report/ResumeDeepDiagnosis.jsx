@@ -119,13 +119,11 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   const storeReportData = useAppStore((s) => s.reportData)
   const reportData = propReportData || storeReportData || {}
 
-  if (!resumeAgent?.dashboard && !resumeAgent?.issues?.length) return null
-
-  const dashboard = resumeAgent.dashboard
-  const issues = (resumeAgent.issues || []).filter(Boolean)
-  const priorityActions = (resumeAgent.priorityActions || []).filter(Boolean)
-  const strengths = (resumeAgent.strengths || []).filter(Boolean)
-  const snapshot = resumeAgent.candidateSnapshot || {}
+  const dashboard = resumeAgent?.dashboard || {}
+  const issues = (resumeAgent?.issues || []).filter(Boolean)
+  const priorityActions = (resumeAgent?.priorityActions || []).filter(Boolean)
+  const strengths = (resumeAgent?.strengths || []).filter(Boolean)
+  const snapshot = resumeAgent?.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
 
@@ -537,6 +535,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       return true
     })
   }, [issues, resolvedBullets])
+
+  if (!resumeAgent?.dashboard && !resumeAgent?.issues?.length) return null
 
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">

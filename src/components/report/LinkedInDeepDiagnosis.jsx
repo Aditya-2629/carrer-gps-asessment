@@ -271,7 +271,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
               <span className="font-bold text-[#0a66c2] text-lg">{initials}</span>
             )}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">{fullName}</h3>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
