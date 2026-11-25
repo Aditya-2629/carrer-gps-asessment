@@ -24,6 +24,7 @@ const agentRunSchema = new mongoose.Schema(
     attempts: { type: Number, default: 1 },
     judgeScore: { type: Number, default: null }, // Phase D
     model: { type: String, default: null },
+    provider: { type: String, default: null },
     error: { type: mongoose.Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
@@ -31,6 +32,8 @@ const agentRunSchema = new mongoose.Schema(
 
 agentRunSchema.index({ agent: 1, createdAt: -1 })
 agentRunSchema.index({ inputHash: 1, agent: 1, createdAt: -1 })
+// Auto-expire AgentRun audit logs after 30 days (2592000s) to stay within 512MB free tier
+agentRunSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000 })
 
 const AgentRun = mongoose.model('AgentRun', agentRunSchema)
 export default AgentRun

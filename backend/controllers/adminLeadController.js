@@ -10,7 +10,39 @@
  * - Candidate Dossier "God Mode" deep payload & bullet override
  */
 
+import nodemailer from 'nodemailer'
 import User from '../models/User.js'
+import AgentRun from '../models/AgentRun.js'
+import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
+import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { DEFAULT_PRICING } from '../utils/costTracker.js'
+
+const INR_PER_USD = 94
+
+function computeRunUsd(run) {
+  if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+    return run.cost.estimatedUsd
+  }
+  const inTok = Number(run?.cost?.inputTokens || 0)
+  const outTok = Number(run?.cost?.outputTokens || 0)
+  if (inTok <= 0 && outTok <= 0) return 0
+  const rates = DEFAULT_PRICING.models[String(run?.model || '').toLowerCase().trim()] || DEFAULT_PRICING.models.default
+  return (inTok * rates.input + outTok * rates.output) / 1_000_000
+}
+
+async function aggregateCostByUserIds(userIds = []) {
+  const map = new Map()
+  if (!userIds.length) return map
+  const runs = await AgentRun.find({ userId: { $in: userIds } })
+    .select('userId cost model')
+    .lean()
+  for (const run of runs) {
+    const key = String(run.userId)
+    map.set(key, (map.get(key) || 0) + computeRunUsd(run))
+  }
+  return map
+}
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
 
@@ -122,8 +154,8 @@ export function calculateLeadMetrics(user) {
 
   // CRM Pipeline Stage
   const pipeline = user.answers?.leadPipeline || {}
-  const leadStage = pipeline.stage || 'new'
-  const leadNotes = pipeline.notes || ''
+  const leadStage = user.pipelineStage || pipeline.stage || 'new'
+  const leadNotes = user.adminNotes !== undefined && user.adminNotes !== '' ? user.adminNotes : (pipeline.notes || '')
   const lastContactedAt = pipeline.lastContactedAt || null
 
   // Outreach Scripts
@@ -147,11 +179,21 @@ export function calculateLeadMetrics(user) {
     candidateName,
     firstName,
     email: user.email,
+    phone: user.answers?.phone || candidate.phone || '',
+    jobTitle: user.answers?.currentRole || rj.experiences?.[0]?.role || '',
+    yoe: user.answers?.experience || rj.years_of_experience || null,
     targetRole,
     atsScore: overallScore,
     overallScore,
     resumeScore,
     linkedinScore,
+    bottleneckPhase: r.primary_bottleneck?.phase || r.bottleneck_phase || null,
+    reportUnlocked: Boolean(user.reportUnlocked),
+    unlockedAt: user.unlockedAt || null,
+    deliveredAt: user.deliveredAt || null,
+    callBooked: Boolean(user.callBooked || leadStage === 'call_booked' || leadStage === 'scheduled' || user.answers?.callBooked),
+    callBookedAt: user.callBookedAt || null,
+    followUpDate: user.followUpDate || null,
     discrepancyCount,
     missingSkills: topMissingSkills,
     topMissingSkills,
@@ -162,6 +204,7 @@ export function calculateLeadMetrics(user) {
     leadTier,
     pipelineStage: leadStage,
     leadStage,
+    adminNotes: leadNotes,
     leadNotes,
     lastContactedAt,
     hasResume: Boolean(user.resumeData),
@@ -183,7 +226,7 @@ export async function listLeads(req, res) {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
     const limit = Math.min(100, Math.max(5, parseInt(req.query.limit, 10) || 20))
-    const { tier, stage, role, q, sort = 'intent_desc' } = req.query
+    const { tier, stage, role, q, sort = 'newest' } = req.query
 
     const query = {}
 
@@ -219,7 +262,7 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate')
       .lean()
 
     // Transform and calculate metrics
@@ -250,13 +293,22 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
+    const costMap = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
+    const leadsWithCost = paginatedLeads.map((l) => {
+      const costUsd = Number((costMap.get(l.id) || 0).toFixed(5))
+      return {
+        ...l,
+        costUsd,
+        costInr: Number((costUsd * INR_PER_USD).toFixed(2)),
+      }
+    })
 
     return res.status(200).json({
       success: true,
       total,
       page,
       pages: Math.ceil(total / limit) || 1,
-      leads: paginatedLeads,
+      leads: leadsWithCost,
     })
   } catch (err) {
     console.error('[AdminLeadController] listLeads error:', err)
@@ -324,10 +376,11 @@ export async function getLeadStats(_req, res) {
 export async function updateLeadStage(req, res) {
   try {
     const { id } = req.params
-    const { stage, notes } = req.body || {}
+    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked } = req.body || {}
+    const nextStage = pipelineStage ?? stage
 
-    const validStages = ['new', 'contacted', 'scheduled', 'converted', 'placed']
-    if (stage && !validStages.includes(stage)) {
+    const validStages = ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed']
+    if (nextStage && !validStages.includes(nextStage)) {
       return res.status(400).json({ success: false, message: `Invalid stage. Must be one of: ${validStages.join(', ')}` })
     }
 
@@ -336,14 +389,31 @@ export async function updateLeadStage(req, res) {
       return res.status(404).json({ success: false, message: 'Candidate user not found.' })
     }
 
+    if (nextStage) user.pipelineStage = nextStage
+    const nextNotes = adminNotes !== undefined ? adminNotes : notes
+    if (nextNotes !== undefined) user.adminNotes = String(nextNotes)
+    if (followUpDate !== undefined) {
+      user.followUpDate = followUpDate ? new Date(followUpDate) : null
+    }
+    if (typeof callBooked === 'boolean') {
+      user.callBooked = callBooked
+      if (callBooked && !user.callBookedAt) user.callBookedAt = new Date()
+    } else if (nextStage === 'call_booked' || nextStage === 'scheduled') {
+      user.callBooked = true
+      if (!user.callBookedAt) user.callBookedAt = new Date()
+    }
+
     user.answers = user.answers || {}
     const existingPipeline = user.answers.leadPipeline || {}
 
     user.answers.leadPipeline = {
       ...existingPipeline,
-      stage: stage || existingPipeline.stage || 'new',
-      notes: notes !== undefined ? notes : existingPipeline.notes || '',
-      lastContactedAt: stage === 'contacted' || stage === 'scheduled' ? new Date() : existingPipeline.lastContactedAt,
+      stage: nextStage || user.pipelineStage || existingPipeline.stage || 'new',
+      notes: nextNotes !== undefined ? String(nextNotes) : (existingPipeline.notes || ''),
+      lastContactedAt:
+        nextStage === 'contacted' || nextStage === 'scheduled' || nextStage === 'call_booked' || nextStage === 'follow_up'
+          ? new Date()
+          : existingPipeline.lastContactedAt,
       updatedAt: new Date(),
     }
 
@@ -353,6 +423,7 @@ export async function updateLeadStage(req, res) {
     return res.status(200).json({
       success: true,
       message: 'Lead pipeline metadata updated successfully.',
+      lead: calculateLeadMetrics(user),
       leadPipeline: user.answers.leadPipeline,
     })
   } catch (err) {
@@ -466,11 +537,13 @@ export async function getCandidateDossier(req, res) {
         bulletId: b.bulletId || `bullet_${idx + 1}`,
         section: b.section || 'experience',
         roleOrProject: b.role || b.company || b.title || 'Work Experience',
-        originalText: b.text || '',
+        originalText: b.text || b.originalText || '',
         status: b.status || (b.issues?.length > 0 ? 'Fix' : 'Pass'), // Pass, Warn, Fix
         issue: b.issue || b.diagnosis || (b.issues && b.issues[0]?.message) || null,
         proposedRewrite: matchedRewrite?.rewrite || matchedRewrite?.suggestedRewrite || b.proposedRewrite || null,
         whyItMatters: b.whyItMatters || matchedRewrite?.whyItMatters || null,
+        anatomy: b.anatomy || b.tags || b.signals || null,
+        isOverriddenByAdmin: Boolean(matchedRewrite?.isOverriddenByAdmin),
       }
     })
 
@@ -487,12 +560,72 @@ export async function getCandidateDossier(req, res) {
     // Discrepancies
     const discrepancies = la.crossAudit?.discrepancies || la.discrepancyReport?.discrepancies || []
 
+    // LinkedIn Studio Audit
+    const laOpt = la.optimizations || {}
+    const linkedinAudit = {
+      score: leadInfo.linkedinScore,
+      url: linkedinProfile.url,
+      currentHeadline: linkedinProfile.headline,
+      recommendedHeadline:
+        laOpt.headline?.recommended ||
+        laOpt.headlineRewrite ||
+        la.recommendedHeadline ||
+        linkedinProfile.headline ||
+        '',
+      aboutAudit:
+        laOpt.about?.recommended ||
+        laOpt.aboutRewrite ||
+        laOpt.summary?.recommended ||
+        la.aboutAudit ||
+        linkedinProfile.summary ||
+        '',
+      experienceFeedback: laOpt.experience || la.experienceFeedback || [],
+      skillsFeedback: laOpt.skills || la.skillsFeedback || [],
+      bannerFeedback: laOpt.banner || laOpt.visuals || null,
+      activitySignals: linkedinProfile.activitySignals,
+      discrepancies,
+    }
+
+    // Original vs Updated ATS Resume JSON for Diff Viewer
+    const originalResumeJson = user.resumeJson || resumeProfile
+    const updatedResumeJson =
+      ra.canonicalResume ||
+      ra.tailoredResume || {
+        ...originalResumeJson,
+        summary: ra.summaryRewrite || originalResumeJson.summary,
+        bulletRewrites: bullets.map((b) => ({
+          bulletId: b.bulletId,
+          section: b.section,
+          originalText: b.originalText,
+          proposedRewrite: b.proposedRewrite,
+        })),
+      }
+
+    // 4-Phase / Agent Scorecards
+    const phases = [
+      { name: 'Career Health', score: leadInfo.overallScore ?? 0, summary: aiReport.primary_bottleneck?.headline || '' },
+      { name: 'Resume Lab', score: leadInfo.resumeScore ?? 0, summary: dash.gradeLabel || '' },
+      { name: 'LinkedIn Studio', score: leadInfo.linkedinScore ?? 0, summary: linkedinProfile.activitySignals?.recencyTier || '' },
+      { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
+    ]
+
+    const costMap = await aggregateCostByUserIds([user._id])
+    const costUsd = Number((costMap.get(String(user._id)) || 0).toFixed(5))
+    const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+    const leadWithCost = { ...leadInfo, costUsd, costInr }
+
     return res.status(200).json({
       success: true,
-      lead: leadInfo,
-      candidate: leadInfo,
+      lead: leadWithCost,
+      candidate: leadWithCost,
+      costUsd,
+      costInr,
+      phases,
       resumeProfile,
       linkedinProfile,
+      linkedinAudit,
+      originalResumeJson,
+      updatedResumeJson,
       discrepancies,
       autopsy: {
         headline: linkedinProfile.headline,
@@ -576,6 +709,254 @@ export async function overrideBulletRewrite(req, res) {
   } catch (err) {
     console.error('[AdminLeadController] overrideBulletRewrite error:', err)
     return res.status(500).json({ success: false, message: 'Failed to override bullet rewrite.' })
+  }
+}
+
+// ─── GET /api/admin/settings ────────────────────────────────────────────────
+
+export async function getAppSettings(req, res) {
+  try {
+    const settings = await getGlobalSettings()
+    return res.status(200).json({
+      success: true,
+      settings: {
+        teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+        teaserVisiblePercent: Number(settings.teaserVisiblePercent ?? 50),
+        teaserPercentage: Number(settings.teaserVisiblePercent ?? 50),
+        callBookingUrl: settings.callBookingUrl || '',
+        whatsappCtaNumber: settings.whatsappCtaNumber || '',
+        ctaHeadline: settings.ctaHeadline || '',
+        fomoHeadline: settings.ctaHeadline || '',
+        ctaButtonLabel: settings.ctaButtonLabel || '',
+        fomoCtaLabel: settings.ctaButtonLabel || '',
+        aiPaused: Boolean(settings.aiPaused),
+        maintenanceMessage: settings.maintenanceMessage || '',
+      },
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] getAppSettings error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve app settings.' })
+  }
+}
+
+// ─── PATCH /api/admin/settings ──────────────────────────────────────────────
+
+export async function updateAppSettings(req, res) {
+  try {
+    const {
+      teaserModeEnabled,
+      teaserVisiblePercent,
+      teaserPercentage,
+      callBookingUrl,
+      whatsappCtaNumber,
+      ctaHeadline,
+      fomoHeadline,
+      ctaButtonLabel,
+      fomoCtaLabel,
+      aiPaused,
+      maintenanceMessage,
+    } = req.body || {}
+    const update = {}
+    if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
+    const pct = teaserVisiblePercent ?? teaserPercentage
+    if (typeof pct === 'number' && Number.isFinite(pct)) {
+      update.teaserVisiblePercent = Math.min(95, Math.max(10, pct))
+    }
+    if (typeof callBookingUrl === 'string') update.callBookingUrl = callBookingUrl.trim()
+    if (typeof whatsappCtaNumber === 'string') update.whatsappCtaNumber = whatsappCtaNumber.trim()
+    const headline = ctaHeadline ?? fomoHeadline
+    if (typeof headline === 'string') update.ctaHeadline = headline.trim()
+    const btnLabel = ctaButtonLabel ?? fomoCtaLabel
+    if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
+    if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
+    if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
+
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: update, $setOnInsert: { key: 'global' } },
+      { upsert: true, new: true }
+    ).lean()
+
+    return res.status(200).json({
+      success: true,
+      settings: {
+        teaserModeEnabled: Boolean(updated.teaserModeEnabled),
+        teaserVisiblePercent: Number(updated.teaserVisiblePercent ?? 50),
+        teaserPercentage: Number(updated.teaserVisiblePercent ?? 50),
+        callBookingUrl: updated.callBookingUrl || '',
+        whatsappCtaNumber: updated.whatsappCtaNumber || '',
+        ctaHeadline: updated.ctaHeadline || '',
+        fomoHeadline: updated.ctaHeadline || '',
+        ctaButtonLabel: updated.ctaButtonLabel || '',
+        fomoCtaLabel: updated.ctaButtonLabel || '',
+        aiPaused: Boolean(updated.aiPaused),
+        maintenanceMessage: updated.maintenanceMessage || '',
+      },
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] updateAppSettings error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to update app settings.' })
+  }
+}
+
+// ─── PATCH /api/admin/leads/:id/unlock ──────────────────────────────────────
+
+export async function toggleLeadUnlock(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+
+    const nextUnlocked = typeof req.body?.reportUnlocked === 'boolean'
+      ? req.body.reportUnlocked
+      : (req.method === 'POST' ? true : !Boolean(user.reportUnlocked))
+
+    user.reportUnlocked = nextUnlocked
+    user.unlockedAt = nextUnlocked ? (user.unlockedAt || new Date()) : null
+    await user.save()
+
+    return res.status(200).json({
+      success: true,
+      userId: user._id,
+      reportUnlocked: user.reportUnlocked,
+      unlockedAt: user.unlockedAt,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] toggleLeadUnlock error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to update report unlock status.' })
+  }
+}
+
+// ─── POST /api/admin/leads/:id/deliver-full ─────────────────────────────────
+
+export async function deliverFullReport(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findById(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+
+    // 1. Unlock report immediately & stamp timestamps
+    const now = new Date()
+    user.reportUnlocked = true
+    user.unlockedAt = user.unlockedAt || now
+    user.deliveredAt = now
+    await user.save()
+
+    const frontendBase = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '')
+    const reportUrl = `${frontendBase}/report/${user._id}`
+    const candidateName =
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      user.answers?.name ||
+      user.email.split('@')[0]
+
+    // 2. Build tailored .docx resume on-demand (supports ?version=updated|original)
+    const version = String(req.body?.version || req.query?.version || 'updated').toLowerCase()
+    let docxBuffer = null
+    let docxFilename = `${String(candidateName).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'}_Updated_ATS_Resume.docx`
+    try {
+      const built = await buildCandidateResumeDocx(user, version)
+      docxBuffer = built?.buffer || null
+      if (built?.filename) docxFilename = built.filename
+      if (docxBuffer && isR2Configured()) {
+        uploadToR2(`deliveries/${user._id}/${docxFilename}`, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document').catch(() => {})
+      }
+    } catch (docxErr) {
+      console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
+    }
+
+    // 3. Send email with full report link & attached .docx (Resend first if configured, else SMTP)
+    let emailSent = false
+    let emailError = null
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
+        <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
+        <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
+        <p style="margin: 24px 0;">
+          <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Open Full Career GPS Report
+          </a>
+        </p>
+        ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
+        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
+      </div>
+    `
+    if (process.env.RESEND_API_KEY && user.email) {
+      try {
+        const resendRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <onboarding@resend.dev>',
+            to: [user.email],
+            subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
+            html: htmlBody,
+            attachments: docxBuffer
+              ? [{ filename: docxFilename, content: docxBuffer.toString('base64') }]
+              : [],
+          }),
+          signal: AbortSignal.timeout(10000),
+        })
+        if (resendRes.ok) {
+          emailSent = true
+        } else {
+          emailError = `Resend HTTP ${resendRes.status}`
+        }
+      } catch (resendErr) {
+        emailError = resendErr.message
+      }
+    } else if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT || '465', 10),
+          secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
+          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+        })
+        await transporter.sendMail({
+          from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
+          to: user.email,
+          subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
+          html: htmlBody,
+          attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
+        })
+        emailSent = true
+      } catch (mailErr) {
+        emailError = mailErr.message
+        console.warn('[AdminLeadController] deliverFullReport email error:', mailErr.message)
+      }
+    }
+
+    // 4. Construct pre-filled WhatsApp delivery URL
+    const rawPhone = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').replace(/\D/g, '')
+    const whatsappMessage = `Hi ${candidateName}, your full Crafture Career GPS Report is now unlocked! View it here: ${reportUrl}`
+    const whatsappUrl = rawPhone
+      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(whatsappMessage)}`
+      : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
+
+    return res.status(200).json({
+      success: true,
+      delivered: true,
+      userId: user._id,
+      reportUnlocked: true,
+      unlockedAt: user.unlockedAt,
+      deliveredAt: user.deliveredAt,
+      reportUrl,
+      docxAttached: Boolean(docxBuffer),
+      emailSent,
+      emailError,
+      whatsappUrl,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] deliverFullReport error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to deliver full report.' })
   }
 }
 

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
+import { getGlobalSettings } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
@@ -22,6 +23,22 @@ import { costTracker } from '../utils/costTracker.js'
 import { DOCXParser } from '../services/documentParser/docxParser.js'
 import { PDFParser } from '../services/documentParser/pdfParser.js'
 import { analyzeTimeline } from '../agents/resume/signals/timelineAnalyzer.js'
+import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+
+function compactLinkedinData(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    fullName: raw.fullName || raw.name || '',
+    headline: raw.headline || '',
+    pictureUrl: raw.pictureUrl || raw.profilePic || raw.profilePicHighQuality || raw.profilePicture || raw.avatar || '',
+    about: typeof raw.about === 'string' ? raw.about.slice(0, 2500) : (typeof raw.summary === 'string' ? raw.summary.slice(0, 2500) : ''),
+    connectionsCount: raw.connectionsCount ?? raw.connections ?? null,
+    experiences: Array.isArray(raw.experiences) ? raw.experiences.slice(0, 8) : (Array.isArray(raw.positions) ? raw.positions.slice(0, 8) : []),
+    skills: Array.isArray(raw.skills) ? raw.skills.slice(0, 30) : [],
+    url: raw.url || raw.profileUrl || raw.linkedinUrl || '',
+    location: raw.location || '',
+  }
+}
 
 // Helper to balance unclosed opening parentheses before a final period
 export function balanceParentheses(str) {
@@ -394,14 +411,15 @@ export const saveAnswers = async (req, res) => {
       user.semanticProfile = semanticProfile
     }
 
-    // Check if linkedinData was already pre-scraped from Step 11
+    // Check if linkedinData was already pre-scraped from Step 11 (strip bloated raw Apify fields)
     if (answers.linkedinData) {
       try {
-        user.linkedinData = typeof answers.linkedinData === 'string'
+        const parsedLi = typeof answers.linkedinData === 'string'
           ? JSON.parse(answers.linkedinData)
           : answers.linkedinData
+        user.linkedinData = compactLinkedinData(parsedLi)
       } catch (_e) {
-        user.linkedinData = answers.linkedinData
+        user.linkedinData = null
       }
     }
 
@@ -435,10 +453,18 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
-    // 1. Handle uploaded resume file FIRST via Multer so parsed resume context is immediately ready
+    // 1. Handle uploaded resume file FIRST via Multer (never store binary Buffer in MongoDB)
     if (req.file) {
-      user.resumeData = req.file.buffer
+      user.resumeData = null
       user.resumeName = req.file.originalname
+      if (isR2Configured()) {
+        const r2Key = `resumes/${user._id}/${Date.now()}_${req.file.originalname.replace(/[^\w.\-]/g, '_')}`
+        uploadToR2(r2Key, req.file.buffer, req.file.mimetype).then((r2Res) => {
+          if (r2Res.uploaded) {
+            User.updateOne({ _id: user._id }, { $set: { resumeR2Key: r2Res.key } }).catch(() => {})
+          }
+        }).catch(() => {})
+      }
 
       // Wipe previous candidate resumeJson to prevent stale cache contamination across tests!
       user.resumeJson = null
@@ -627,6 +653,15 @@ export const saveAnswers = async (req, res) => {
 
 // Generate report and notify admin
 export const generateReport = async (req, res) => {
+  const settings = await getGlobalSettings().catch(() => null)
+  if (settings?.aiPaused) {
+    return res.status(503).json({
+      success: false,
+      code: 'AI_PAUSED',
+      message: settings.maintenanceMessage || 'AI Career GPS analysis is temporarily paused for maintenance.',
+    })
+  }
+
   const { userId } = req.body
   let { semanticProfile } = req.body
 
@@ -677,6 +712,15 @@ export const generateReport = async (req, res) => {
 
 // Live Server-Sent Events (SSE) Report Stream
 export const generateReportStream = async (req, res) => {
+  const settings = await getGlobalSettings().catch(() => null)
+  if (settings?.aiPaused) {
+    return res.status(503).json({
+      success: false,
+      code: 'AI_PAUSED',
+      message: settings.maintenanceMessage || 'AI Career GPS analysis is temporarily paused for maintenance.',
+    })
+  }
+
   const { userId } = req.query
 
   if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -1026,10 +1070,112 @@ export const getReport = async (req, res) => {
       })
     }
 
-    return res.status(200).json(user.aiReport)
+    const settings = await getGlobalSettings().catch(() => ({ teaserModeEnabled: false }))
+    return res.status(200).json({
+      ...user.aiReport,
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      reportUnlocked: Boolean(user.reportUnlocked),
+      callBookingUrl: settings.callBookingUrl || '',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+    })
   } catch (error) {
     console.error('Error in getReport controller:', error)
     return res.status(500).json({ message: 'Failed to retrieve report.' })
+  }
+}
+
+export const getTeaserConfig = async (req, res) => {
+  try {
+    const settings = await getGlobalSettings()
+    const userId = req.query?.userId
+    let reportUnlocked = false
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      const user = await User.findById(userId).select('reportUnlocked').lean()
+      reportUnlocked = Boolean(user?.reportUnlocked)
+    }
+    return res.status(200).json({
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      reportUnlocked,
+      callBookingUrl: settings.callBookingUrl || '',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+    })
+  } catch (err) {
+    console.error('Error in getTeaserConfig:', err)
+    return res.status(200).json({ teaserModeEnabled: false, reportUnlocked: false })
+  }
+}
+
+/**
+ * GET /api/report/:id
+ * Public shareable report endpoint (zero extra DB storage; reads directly from User/Assessment record).
+ */
+export const getPublicReportById = async (req, res) => {
+  const { id } = req.params
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: 'Report not found or invalid ID.' })
+  }
+
+  try {
+    const [user, settings] = await Promise.all([
+      User.findById(id)
+        .select('name targetRole answers aiReport reportUnlocked resumeJson')
+        .lean(),
+      getGlobalSettings().catch(() => ({ teaserModeEnabled: false, teaserVisiblePercent: 50 })),
+    ])
+
+    if (!user || !user.aiReport) {
+      return res.status(404).json({ success: false, message: 'Report not found or expired.' })
+    }
+
+    const candidateName =
+      user.name ||
+      user.answers?.name ||
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      ''
+    const targetRole =
+      user.targetRole ||
+      user.answers?.targetRole ||
+      user.aiReport?.target_role ||
+      ''
+    const yoe =
+      user.answers?.yoe ??
+      user.answers?.experienceYears ??
+      user.aiReport?.yoe ??
+      null
+
+    const assessment = {
+      ...user.aiReport,
+      userId: String(user._id),
+      candidateName: user.aiReport?.candidateName || candidateName,
+      targetRole: user.aiReport?.targetRole || targetRole,
+      yoe: user.aiReport?.yoe ?? yoe,
+      resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+    }
+
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const teaserSettings = {
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      teaserVisiblePercent: Number(settings.teaserVisiblePercent ?? 50),
+      bookingUrl:
+        settings.callBookingUrl ||
+        'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappNumber: settings.whatsappCtaNumber || '',
+      ctaHeadline:
+        settings.ctaHeadline ||
+        '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaButtonLabel: settings.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
+    }
+
+    return res.status(200).json({
+      success: true,
+      assessment,
+      reportUnlocked,
+      teaserSettings,
+    })
+  } catch (error) {
+    console.error('[getPublicReportById] Error:', error)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve report.' })
   }
 }
 

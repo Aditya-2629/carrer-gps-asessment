@@ -22,7 +22,7 @@ const jobMarketVersionSchema = new mongoose.Schema(
         title: { type: String, required: true },
         company: { type: String, default: 'Not Disclosed' },
         location: { type: String, default: 'Not Disclosed' },
-        description: { type: String, required: true },
+        description: { type: String, default: '' },
         normalizedDescription: { type: String, default: '' },
         skills: [{ type: String }],
         responsibilities: [{ type: String }],

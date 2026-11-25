@@ -1,5 +1,9 @@
+import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
 import User from '../models/User.js'
+import VisitorSession from '../models/VisitorSession.js'
+import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
+import JobMarketBucket from '../models/JobMarketBucket.js'
 import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
@@ -437,6 +441,270 @@ export async function getSelfLearningInsights(req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] Failed to load learning insights:', err)
     return res.status(500).json({ success: false, message: 'Failed to load self-learning insights.' })
+  }
+}
+
+/**
+ * GET /api/admin/telemetry/openrouter-balance
+ * Queries OpenRouter /api/v1/auth/key for live credit usage/remaining and aggregates daily spend from AgentRun.
+ */
+function computeRunUsd(run) {
+  if (typeof run?.cost?.estimatedUsd === 'number' && run.cost.estimatedUsd > 0) {
+    return run.cost.estimatedUsd
+  }
+  const inTok = Number(run?.cost?.inputTokens || 0)
+  const outTok = Number(run?.cost?.outputTokens || 0)
+  if (inTok <= 0 && outTok <= 0) return 0
+  const modelKey = String(run?.model || '').toLowerCase().trim()
+  const rates = DEFAULT_PRICING.models[modelKey] || DEFAULT_PRICING.models.default
+  return (inTok * rates.input + outTok * rates.output) / 1_000_000
+}
+
+export async function getOpenRouterBalance(req, res) {
+  try {
+    const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
+    let openrouter = {
+      configured: Boolean(apiKey),
+      totalCredits: null,
+      totalUsage: null,
+      remainingUsd: null,
+      remainingInr: null,
+      usage: null,
+      limit: null,
+      limitRemaining: null,
+      isFreeTier: null,
+      error: null,
+    }
+
+    if (apiKey) {
+      const [creditsRes, keyRes] = await Promise.allSettled([
+        fetch('https://openrouter.ai/api/v1/credits', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(8000),
+        }),
+        fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          signal: AbortSignal.timeout(8000),
+        }),
+      ])
+
+      if (creditsRes.status === 'fulfilled' && creditsRes.value.ok) {
+        const cJson = await creditsRes.value.json().catch(() => ({}))
+        const cd = cJson?.data || cJson || {}
+        const totalCredits = Number(cd.total_credits ?? 0)
+        const totalUsage = Number(cd.total_usage ?? 0)
+        const remainingUsd = Math.max(0, Number((totalCredits - totalUsage).toFixed(4)))
+        openrouter.totalCredits = totalCredits
+        openrouter.totalUsage = totalUsage
+        openrouter.remainingUsd = remainingUsd
+        openrouter.remainingInr = Number((remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+        openrouter.limit = totalCredits
+        openrouter.usage = totalUsage
+        openrouter.limitRemaining = remainingUsd
+      } else if (creditsRes.status === 'fulfilled') {
+        openrouter.error = `Credits HTTP ${creditsRes.value.status}`
+      } else if (creditsRes.status === 'rejected') {
+        openrouter.error = creditsRes.reason?.message || 'Credits fetch failed'
+      }
+
+      if (keyRes.status === 'fulfilled' && keyRes.value.ok) {
+        const kJson = await keyRes.value.json().catch(() => ({}))
+        const kd = kJson?.data || kJson || {}
+        openrouter.keyUsage = kd.usage ?? null
+        openrouter.keyLimit = kd.limit ?? null
+        openrouter.keyLimitRemaining = kd.limit_remaining ?? null
+        openrouter.isFreeTier = kd.is_free_tier ?? null
+        if (openrouter.remainingUsd === null && kd.limit_remaining != null) {
+          openrouter.remainingUsd = Number(kd.limit_remaining)
+          openrouter.remainingInr = Number((openrouter.remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+          openrouter.limitRemaining = openrouter.remainingUsd
+        }
+      }
+    }
+
+    const now = new Date()
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const sevenDaysAgo = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000)
+
+    const recentRuns = await AgentRun.find({ createdAt: { $gte: sevenDaysAgo } })
+      .select('createdAt cost model')
+      .lean()
+
+    let todayUsd = 0
+    let runsToday = 0
+    let inputTokensToday = 0
+    let outputTokensToday = 0
+    const byDate = new Map()
+
+    for (const r of recentRuns) {
+      const usd = computeRunUsd(r)
+      const dateKey = new Date(r.createdAt).toISOString().slice(0, 10)
+      const dayEntry = byDate.get(dateKey) || { date: dateKey, spendUsd: 0, runs: 0 }
+      dayEntry.spendUsd += usd
+      dayEntry.runs += 1
+      byDate.set(dateKey, dayEntry)
+
+      if (new Date(r.createdAt) >= startOfToday) {
+        todayUsd += usd
+        runsToday += 1
+        inputTokensToday += Number(r?.cost?.inputTokens || 0)
+        outputTokensToday += Number(r?.cost?.outputTokens || 0)
+      }
+    }
+
+    const last7Days = Array.from(byDate.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((d) => ({
+        date: d.date,
+        spendUsd: Number(d.spendUsd.toFixed(5)),
+        runs: d.runs,
+      }))
+
+    return res.status(200).json({
+      success: true,
+      ...openrouter,
+      dailySpend: {
+        todayUsd: Number(todayUsd.toFixed(5)),
+        todayInr: Number((todayUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        runsToday,
+        inputTokensToday,
+        outputTokensToday,
+        last7Days,
+      },
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getOpenRouterBalance error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve OpenRouter balance.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/overview
+ * Returns live active count (last 5 min), 14-step drop-off funnel counts, device breakdown, and abandoned leads.
+ */
+export async function getAnalyticsOverview(req, res) {
+  try {
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads, dailyHistory] = await Promise.all([
+      VisitorSession.countDocuments({ lastHeartbeatAt: { $gte: fiveMinsAgo } }),
+      VisitorSession.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$currentStep', count: { $sum: 1 } } },
+      ]),
+      VisitorSession.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: '$device', count: { $sum: 1 } } },
+      ]),
+      VisitorSession.find({
+        currentPhase: { $ne: 'report' },
+        $or: [
+          { 'abandonedDraft.email': { $ne: '' } },
+          { 'abandonedDraft.phone': { $ne: '' } },
+          { 'abandonedDraft.linkedin': { $ne: '' } },
+          { 'abandonedDraft.resumeFilename': { $ne: '' } },
+        ],
+      })
+        .sort({ lastHeartbeatAt: -1 })
+        .limit(50)
+        .lean(),
+      DailyAnalyticsSummary.find({})
+        .sort({ date: -1 })
+        .limit(90)
+        .lean(),
+    ])
+
+    const stepFunnel = {}
+    stepFunnelAgg.forEach((row) => {
+      if (row._id) stepFunnel[row._id] = row.count
+    })
+
+    const deviceBreakdown = {}
+    deviceAgg.forEach((row) => {
+      if (row._id) deviceBreakdown[row._id] = row.count
+    })
+
+    return res.status(200).json({
+      success: true,
+      liveActiveCount,
+      stepFunnel,
+      deviceBreakdown,
+      dailyHistory: dailyHistory.reverse(),
+      abandonedLeads: abandonedLeads.map((s) => ({
+        sessionId: s.sessionId,
+        currentPhase: s.currentPhase,
+        currentStep: s.currentStep,
+        lastHeartbeatAt: s.lastHeartbeatAt,
+        device: s.device,
+        city: s.city,
+        referrer: s.referrer,
+        abandonedDraft: s.abandonedDraft || {},
+      })),
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getAnalyticsOverview error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve analytics overview.' })
+  }
+}
+
+/**
+ * GET /api/admin/system/storage
+ * Returns MongoDB storage usage against 512MB free-tier limit plus collection document counts.
+ */
+export async function getSystemStorage(_req, res) {
+  try {
+    const dbStats = await mongoose.connection.db.stats()
+    const limitMb = 512
+    const dataSizeMb = Number(((dbStats.dataSize || 0) / (1024 * 1024)).toFixed(2))
+    const storageSizeMb = Number(((dbStats.storageSize || 0) / (1024 * 1024)).toFixed(2))
+    const percentUsed = Number(((storageSizeMb / limitMb) * 100).toFixed(2))
+
+    const [users, visitorSessions, agentRuns, marketBuckets, dailyAnalytics] = await Promise.all([
+      User.countDocuments({}),
+      VisitorSession.countDocuments({}),
+      AgentRun.countDocuments({}),
+      JobMarketBucket.countDocuments({}),
+      DailyAnalyticsSummary.countDocuments({}),
+    ])
+
+    return res.status(200).json({
+      success: true,
+      dataSizeMb,
+      storageSizeMb,
+      limitMb,
+      percentUsed,
+      collections: {
+        users,
+        visitorSessions,
+        agentRuns,
+        marketBuckets,
+        dailyAnalytics,
+      },
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getSystemStorage error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve storage stats.' })
+  }
+}
+
+/**
+ * POST /api/admin/system/cleanup-sessions
+ * Purges expired/stale VisitorSession records older than 7 days.
+ */
+export async function cleanupStaleSessions(_req, res) {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const result = await VisitorSession.deleteMany({
+      lastHeartbeatAt: { $lt: sevenDaysAgo },
+    })
+    return res.status(200).json({
+      success: true,
+      deletedCount: result.deletedCount || 0,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] cleanupStaleSessions error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to clean up stale sessions.' })
   }
 }
 

@@ -6,6 +6,7 @@ import { api } from '../../lib/api'
 import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { fastScanResumeFile } from '../../lib/fastResumeScanner'
+import { trackAnalytics } from '../../lib/analytics'
 
 export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [dragOver, setDragOver] = useState(false)
@@ -133,6 +134,19 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
           if (Object.keys(bulkUpdates).length > 0) {
             useAppStore.getState().setBulkFormData(bulkUpdates)
           }
+
+          trackAnalytics({
+            currentPhase: 'assessment',
+            currentStep: '1',
+            abandonedDraft: {
+              resumeFilename: file.name,
+              name: detectedName || '',
+              email: detectedEmail || '',
+              phone: bulkUpdates.phone || '',
+              linkedin: detectedLinkedin || '',
+              targetRole: bulkUpdates.targetRole || mostRecentRole || '',
+            },
+          })
 
           try {
             sessionStorage.setItem(

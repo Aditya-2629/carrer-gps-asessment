@@ -20,7 +20,7 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function FinalNextAction({ coachData, reportData, onBookCall }) {
+export default function FinalNextAction({ coachData, reportData, onBookCall, isTeaserLocked = false }) {
   const rawTargetRole =
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
@@ -43,7 +43,16 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
     reportData?.user_answers?.name ||
     'Candidate'
 
+  const bottleneckTitle = String(
+    reportData?.primary_bottleneck?.title ||
+    reportData?.primaryBottleneck?.title ||
+    ''
+  )
+  const parsedBottleneckPhase = bottleneckTitle.match(/Phase\s*(\d+)/i)?.[1]
   const phaseId = Number(
+    reportData?.primary_bottleneck?.phaseId ||
+    reportData?.primary_bottleneck?.stageId ||
+    parsedBottleneckPhase ||
     reportData?.funnel_stages?.bottleneckStageId ||
     reportData?.funnel_stages?.stateMachine?.stageNum ||
     reportData?.current_phase_id ||
@@ -53,18 +62,15 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
   )
   const currentPhase = reportData?.phase || reportData?.career_journey?.current_phase || {}
   const phaseShort =
+    (phaseId === 3 ? 'Technical Rounds' :
+     phaseId === 4 ? 'Final Loops' :
+     phaseId === 5 ? 'Offer Closing' :
+     phaseId === 2 ? 'Recruiter Screens' :
+     phaseId === 1 ? 'Pre-Screen Applications' : null) ||
     reportData?.funnel_stages?.stateMachine?.shortName ||
     currentPhase.shortName ||
     currentPhase.name ||
-    (phaseId === 1
-      ? 'Pre-Screen Applications'
-      : phaseId === 2
-      ? 'Recruiter Screens'
-      : phaseId === 3
-      ? 'Technical Panels'
-      : phaseId === 4
-      ? 'Final Loops'
-      : 'Offer Closing')
+    'Positioning'
 
   const summaryCopy = phaseId >= 3
     ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`
@@ -154,22 +160,24 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                 <ArrowRight size={14} weight="bold" />
               </a>
 
-              <button
-                type="button"
-                disabled={isDownloading}
-                onClick={async () => {
-                  setIsDownloading(true)
-                  try {
-                    await downloadFullVisualReport(reportData, candidateName)
-                  } finally {
-                    setIsDownloading(false)
-                  }
-                }}
-                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-              >
-                <DownloadSimple size={18} weight="bold" />
-                <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
-              </button>
+              {!isTeaserLocked && (
+                <button
+                  type="button"
+                  disabled={isDownloading}
+                  onClick={async () => {
+                    setIsDownloading(true)
+                    try {
+                      await downloadFullVisualReport(reportData, candidateName)
+                    } finally {
+                      setIsDownloading(false)
+                    }
+                  }}
+                  className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                >
+                  <DownloadSimple size={18} weight="bold" />
+                  <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
+                </button>
+              )}
             </div>
           </div>
 

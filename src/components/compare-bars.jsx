@@ -190,6 +190,7 @@ export function CompareBars({
   React.useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
+    const fallbackTimer = setTimeout(() => setVisible(true), 350);
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -197,10 +198,13 @@ export function CompareBars({
           observer.disconnect();
         }
       },
-      { rootMargin: "0px 0px -10% 0px" },
+      { threshold: 0.01, rootMargin: "50px 0px 50px 0px" },
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(fallbackTimer);
+      observer.disconnect();
+    };
   }, []);
 
   const toggle = () => {

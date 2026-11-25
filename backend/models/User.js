@@ -21,6 +21,39 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    reportUnlocked: {
+      type: Boolean,
+      default: false,
+    },
+    unlockedAt: {
+      type: Date,
+      default: null,
+    },
+    callBooked: {
+      type: Boolean,
+      default: false,
+    },
+    callBookedAt: {
+      type: Date,
+      default: null,
+    },
+    pipelineStage: {
+      type: String,
+      enum: ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed'],
+      default: 'new',
+    },
+    adminNotes: {
+      type: String,
+      default: '',
+    },
+    followUpDate: {
+      type: Date,
+      default: null,
+    },
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
     answers: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -38,6 +71,10 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     resumeName: {
+      type: String,
+      default: null,
+    },
+    resumeR2Key: {
       type: String,
       default: null,
     },

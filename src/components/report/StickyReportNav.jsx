@@ -11,6 +11,7 @@ export default function StickyReportNav({
   targetRole = '',
   healthScore = 72,
   reportData,
+  isTeaserLocked = false,
 }) {
   const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
@@ -56,18 +57,20 @@ export default function StickyReportNav({
           </div>
 
           {/* Action button on mobile/tablet */}
-          <div className="flex lg:hidden items-center shrink-0">
-            <button
-              type="button"
-              disabled={isDownloading}
-              onClick={handleDownloadPdf}
-              className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
-              title="Download Full Visual Report (PDF)"
-            >
-              <DownloadSimple size={12} weight="bold" />
-              <span>{isDownloading ? '...' : 'PDF'}</span>
-            </button>
-          </div>
+          {!isTeaserLocked && (
+            <div className="flex lg:hidden items-center shrink-0">
+              <button
+                type="button"
+                disabled={isDownloading}
+                onClick={handleDownloadPdf}
+                className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
+                title="Download Full Visual Report (PDF)"
+              >
+                <DownloadSimple size={12} weight="bold" />
+                <span>{isDownloading ? '...' : 'PDF'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Center: Sleek 5-Tab Segmented Pill Bar with Overflow Protection */}
@@ -106,18 +109,20 @@ export default function StickyReportNav({
         </div>
 
         {/* Right: Desktop Action (Download Full Report PDF) */}
-        <div className="hidden lg:flex items-center shrink-0">
-          <button
-            type="button"
-            disabled={isDownloading}
-            onClick={handleDownloadPdf}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
-            title="Download Full Visual Report (PDF)"
-          >
-            <DownloadSimple size={13} weight="bold" />
-            <span>{isDownloading ? 'Generating...' : 'Full Report'}</span>
-          </button>
-        </div>
+        {!isTeaserLocked && (
+          <div className="hidden lg:flex items-center shrink-0">
+            <button
+              type="button"
+              disabled={isDownloading}
+              onClick={handleDownloadPdf}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="Download Full Visual Report (PDF)"
+            >
+              <DownloadSimple size={13} weight="bold" />
+              <span>{isDownloading ? 'Generating...' : 'Full Report'}</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

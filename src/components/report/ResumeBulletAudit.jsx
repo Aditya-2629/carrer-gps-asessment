@@ -446,13 +446,13 @@ export default function ResumeBulletAudit({
                 </div>
 
                 {/* 5-Part Compact Anatomy Indicators */}
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   {FIVE_PARTS.map(({ key, label }) => {
                     const active = Boolean(item.fivePartFlags?.[key])
                     return (
                       <span
                         key={key}
-                        className={`text-xs font-semibold px-2 py-0.5 rounded border transition-colors ${
+                        className={`text-[10px] sm:text-xs font-semibold px-1.5 sm:px-2 py-0.5 rounded border transition-colors ${
                           active
                             ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50 font-mono'
                             : 'bg-[var(--surface-sunken)] text-[var(--text-muted)] border-[var(--border-default)] font-mono'

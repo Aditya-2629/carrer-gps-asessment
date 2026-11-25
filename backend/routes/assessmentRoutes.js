@@ -1,6 +1,6 @@
 import express from 'express'
 import multer from 'multer'
-import { saveAnswers, generateReport, generateReportStream, bookCall, chatResume, getReport, downloadAtsResumeDocx } from '../controllers/assessmentController.js'
+import { saveAnswers, generateReport, generateReportStream, bookCall, chatResume, getReport, getTeaserConfig, downloadAtsResumeDocx } from '../controllers/assessmentController.js'
 import { handleChatStream, handleChatMessage } from '../controllers/chatController.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 
@@ -31,8 +31,9 @@ const upload = multer({
   },
 })
 
-// Public booking endpoint
+// Public booking & teaser config endpoints
 router.post('/book-call', bookCall)
+router.get('/teaser-config', getTeaserConfig)
 
 // Protect all remaining assessment, report generation, and AI chat endpoints
 router.use(userSessionGuard)
