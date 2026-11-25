@@ -135,8 +135,8 @@ export function buildDeterministicThoughtLeadership(
       },
       {
         format: 'The Architecture Deep-Dive / Counter-Intuitive Lesson',
-        hook: `Traditional DCF models often fail to capture sudden working capital volatility. Here is how we restructured our 5-year rolling variance forecasting using ${skill1} to cut forecast drift by 40%:`,
-        bodyOutline: `1. The forecasting discrepancy identified during month-end close\n2. The sensitivity drivers that standard templates ignore\n3. Restructuring the dynamic model logic\n4. The resulting 40% reduction in quarterly forecast drift`,
+        hook: `Traditional DCF models often fail to capture sudden working capital volatility. Here is how we restructured our 5-year rolling variance forecasting using ${skill1} to stabilize quarterly forecast accuracy:`,
+        bodyOutline: `1. The forecasting discrepancy identified during month-end close\n2. The sensitivity drivers that standard templates ignore\n3. Restructuring the dynamic model logic\n4. Measurable stabilization in quarterly forecast variance`,
         callToAction: `How frequently do your corporate finance teams stress-test rolling cash-flow assumptions?`,
         targetHashtags: ['#CorporateFinance', '#FinancialModeling', '#CFOStrategy'],
         recommendedMedia: 'High-level dynamic scenario waterfall chart',

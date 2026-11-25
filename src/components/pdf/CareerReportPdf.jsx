@@ -22,7 +22,7 @@ import {
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
 import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
-import { getCareerHealthAxes } from '../../lib/reportMetrics'
+import { getCareerHealthAxes, resolveFourPillars } from '../../lib/reportMetrics'
 
 // Disable automatic hyphenation across the entire document to avoid awkward "En-gineer" splits
 Font.registerHyphenationCallback((word) => [word])
@@ -488,17 +488,17 @@ export default function CareerReportPdf({ reportData = {} }) {
 
   // 1. Overall & Pillar Scores via Canonical Metric Resolver
   const healthMetrics = getCareerHealthAxes(reportData)
-  const overallScore = healthMetrics.overallScore
+  const { resume25, linkedin25, outbound25, interview25, overallScore } = resolveFourPillars(reportData)
   const radarAxes = healthMetrics.axes
   const radarScores = radarAxes.map((a) => a.current)
   const targetScores = radarAxes.map((a) => a.target)
 
   const scoreLabel = overallScore >= 75 ? 'Strong' : overallScore >= 50 ? 'Developing' : 'Emerging'
 
-  const pResume = Math.round(reportData?.score_breakdown?.resume?.score ?? 18)
-  const pLinkedin = Math.round(reportData?.score_breakdown?.linkedin?.score ?? 17)
-  const pOutbound = Math.round(reportData?.score_breakdown?.outbound?.score ?? 14)
-  const pInterview = Math.round(reportData?.score_breakdown?.interview?.score ?? 16)
+  const pResume = resume25
+  const pLinkedin = linkedin25
+  const pOutbound = outbound25
+  const pInterview = interview25
 
   // 2. Monthly Funnel Metrics
   const answers = reportData?.user_answers || reportData?.answers || {}
@@ -520,20 +520,28 @@ export default function CareerReportPdf({ reportData = {} }) {
   const finalPassRate = techs > 0 ? ((finals / techs) * 100).toFixed(1) : '0.0'
   const offerRate = finals > 0 ? ((offers / finals) * 100).toFixed(1) : '0.0'
 
-  // Primary Bottleneck & Phase Identification
-  const phase = reportData?.phase || {
-    shortName: 'Top of Funnel',
-    name: 'Application -> Screening Velocity',
-    metricGoal: 'Achieve >= 5.0% application-to-screen conversion.',
-  }
-  const bottleneck = reportData?.primary_bottleneck || {
-    title: reportData?.critical_issues?.[0]?.title || 'Application Filtering & Low Screen Velocity',
-    whyItMatters: 'Recruiters scan resumes in under 10 seconds. Missing target keywords and unquantified achievements cause automated ATS drop-off.',
-    evidence: 'High application volume yielding below-benchmark recruiter callbacks.',
-  }
+  const numScreenRate = Number(screenRate) || 0
+  const numTechPassRate = Number(techPassRate) || 0
+  const numTechFinalRate = Number(finalPassRate) || 0
 
-  // Active Phase for 6-Phase Hiring Journey (1 to 6)
-  const currentPhaseId = Number(reportData?.current_phase_id || (Number(screenRate) < 5 ? 2 : Number(techPassRate) < 40 ? 3 : offers === 0 ? 5 : 2))
+  // Deterministic Bottleneck State Machine matching backend
+  const isPhase2Healthy = numScreenRate >= 5.0
+  const resolvedPhaseId = Number(
+    reportData?.bottleneckStageId ||
+    reportData?.funnel_stages?.bottleneckStageId ||
+    reportData?.phase?.id ||
+    (offers >= 1
+      ? 6
+      : finals >= 1 && offers === 0
+      ? 5
+      : isPhase2Healthy && numTechPassRate >= 40 && numTechFinalRate < 35 && techs >= 1
+      ? 4
+      : isPhase2Healthy && numTechPassRate < 40
+      ? 3
+      : 2)
+  )
+
+  const currentPhaseId = resolvedPhaseId
   const currentPhaseShort = currentPhaseId === 1
     ? 'Resume Foundation'
     : currentPhaseId === 2
@@ -544,9 +552,29 @@ export default function CareerReportPdf({ reportData = {} }) {
     ? 'Final Rounds'
     : currentPhaseId === 5
     ? 'Offer Acquisition'
-    : 'Joining & Transition'
+    : 'Onboarding & BGV'
 
   const currentPhaseName = `Phase ${currentPhaseId}: ${currentPhaseShort}`
+
+  // Dynamic targets calculated relative to candidate's actual numbers
+  const targetCallbackRate = Math.min(25, Math.max(5, Math.ceil(numScreenRate * 1.35)))
+  const targetScreenToTech = Math.min(85, Math.max(40, Math.ceil(numTechPassRate * 1.25)))
+
+  // Primary Bottleneck & Phase Identification
+  const phase = reportData?.phase || {
+    shortName: currentPhaseShort,
+    name: currentPhaseName,
+    metricGoal: isPhase2Healthy ? `Target technical pass rate >= ${targetScreenToTech}%.` : `Achieve >= ${targetCallbackRate}% application-to-screen conversion.`,
+  }
+  const bottleneck = reportData?.primary_bottleneck || {
+    title: reportData?.critical_issues?.[0]?.title || (isPhase2Healthy ? 'Recruiter Screen to Technical Handoff Friction' : 'Application Filtering & Low Screen Velocity'),
+    whyItMatters: isPhase2Healthy
+      ? 'Resume is clearing ATS filters, but conversation drops before live technical rounds.'
+      : 'Recruiters scan resumes in under 10 seconds. Missing target keywords and unquantified achievements cause automated ATS drop-off.',
+    evidence: isPhase2Healthy
+      ? `Technical pass rate is ${techPassRate}% despite healthy ${screenRate}% screening callback rate.`
+      : 'High application volume yielding below-benchmark recruiter callbacks.',
+  }
 
   const bookingUrl = reportData?.strategy_call_url || reportData?.booking_url || 'https://crafture.io/strategy-call'
 
@@ -578,7 +606,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         { day: 4, title: 'LinkedIn Headline & About Rewrite', action: 'Deploy 15-20 word hook-first headline and 4-pillar narrative about section.', deliverable: 'Updated LinkedIn profile', metricTarget: '3x profile view velocity' },
         { day: 5, title: 'Recruiter Outreach Sourcing List', action: 'Build list of 25 decision-makers and recruiters at target high-growth companies.', deliverable: '25-Lead Outbound Tracker', metricTarget: 'Send 10 personalized notes' },
         { day: 6, title: 'Technical Defense Blueprint', action: 'Document architecture, deliverables, and operational trade-offs for your flagship project.', deliverable: '1-Page Project Blueprint', metricTarget: 'Ready for 3-minute pitch' },
-        { day: 7, title: 'Weekly Funnel Audit & Calibration', action: 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: 'Callback rate >= 5.0%' },
+        { day: 7, title: 'Weekly Funnel Audit & Calibration', action: isPhase2Healthy ? 'Review technical round feedback and calibrate coding and system design mock sessions.' : 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Callback rate >= ${targetCallbackRate}%` },
       ]
 
   const milestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
@@ -590,8 +618,8 @@ export default function CareerReportPdf({ reportData = {} }) {
     : (Array.isArray(reportData?.strategicRoadmap) && reportData.strategicRoadmap.length > 0)
     ? reportData.strategicRoadmap.slice(0, 3)
     : [
-        { period: '30 Days', stage: 'Asset Calibration & Outbound Engine', goal: `Overcome ATS drop-offs and generate consistent recruiter screen calls for ${targetRole}.`, deliverable: 'ATS Resume + 30 Target Account Tracker', successSignal: 'Callback rate >= 5.0%' },
-        { period: '60 Days', stage: 'Screening Mastery & Technical Loops', goal: 'Convert recruiter screens into technical rounds and advance through panel assessments.', deliverable: '3+ Concurrent Technical Interview Loops', successSignal: 'Screen-to-tech conversion >= 40%' },
+        { period: '30 Days', stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Asset Calibration & Outbound Engine', goal: isPhase2Healthy ? `Maintain healthy ${screenRate}% screening callback while advancing into live technical rounds.` : `Overcome ATS drop-offs and elevate callback rate to >= ${targetCallbackRate}%.`, deliverable: 'ATS Resume + 30 Target Account Tracker', successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Callback rate >= ${targetCallbackRate}%` },
+        { period: '60 Days', stage: 'Technical Panel Defense & Architectural Velocity', goal: `Convert recruiter screens into technical rounds and advance through panel assessments at >= ${targetScreenToTech}%.`, deliverable: '3+ Concurrent Technical Interview Loops', successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%` },
         { period: '90 Days', stage: 'Final Rounds, Offers & Negotiation', goal: 'Advance through onsite interview loops and secure a competitive, written job offer.', deliverable: 'Signed competitive offer letter', successSignal: 'Offer-to-joining acceptance' },
       ]
 
@@ -814,13 +842,13 @@ export default function CareerReportPdf({ reportData = {} }) {
     coverBannerPrompt: `Design a high-converting LinkedIn Cover Banner (1584x396 px) for a ${targetRole}. Features: 1) Authority Headline: "${targetRole} | Enterprise Systems & Scalable Impact", 2) Core Value Pillars: ${pinnedSkills.join(' * ')}, 3) High-contrast executive layout with dark navy/slate base, keeping lower-left 30% clear for circular avatar photo.`,
   }
 
-  // Crafture OutFox Networking Recommendation
+  // Crafture Network Recommendation
   const networkingRec = linkedinAgent.networkingRecommendation ||
     linkedinAgent.optimizations?.networkingRecommendation ||
     linkedinAgent.activitySignals?.networkingRecommendation || {
       isRecommended: true,
       bottleneck: 'Low posting, commenting, and connection activity is limiting your inbound visibility to hiring managers.',
-      recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate OutFox -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
+      recommendation: 'To maximize visibility without spending hours daily on manual outreach, connect with the Crafture team to activate Crafture Network -- our automated LinkedIn networking agent that manages daily connection requests and engagement limits safely.',
     }
 
   // Stepper 6 Phases
@@ -1039,7 +1067,9 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={{ backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 4, padding: 5, marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 6 }} wrap={false}>
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
             <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
-              Pipeline conversion stalls at {currentPhaseName} ({screenRate}% actual callback vs 5.0% industry target). {safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}
+              {isPhase2Healthy
+                ? `Screening callback velocity is healthy at ${screenRate}% (exceeding 5.0% benchmark). Pipeline conversion stalls at ${currentPhaseName} (${techPassRate}% technical pass rate vs 40% target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Advancing to onsite panels requires sharper technical storytelling and system design trade-off articulation.')}`
+                : `Pipeline conversion stalls at ${currentPhaseName} (${screenRate}% actual callback vs 5.0% industry target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}`}
             </Text>
           </View>
         </View>
@@ -1048,17 +1078,19 @@ export default function CareerReportPdf({ reportData = {} }) {
         <View style={styles.cardHighlighted} wrap={false}>
           <View style={[styles.rowBetween, { marginBottom: 2 }]}>
             <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#DC2626', textTransform: 'uppercase' }}>
-              RECOVERY TARGET • {safeStr(phase.shortName, 'Top of Funnel')}
+              RECOVERY TARGET • {safeStr(currentPhaseShort, 'Screening')}
             </Text>
             <Text style={styles.tagCritical}>ACTION REQUIRED</Text>
           </View>
           <Text style={{ fontSize: 8.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-            {safeStr(bottleneck.title, 'Application Filtering & Low Callback Velocity')}
+            {safeStr(bottleneck.title, 'Pipeline Conversion Optimization')}
           </Text>
           <Text style={{ fontSize: 7.2, color: '#475569', lineHeight: 1.3 }}>
             {safeStr(
-              bottleneck.recommendedPivot || bottleneck.recoveryTarget,
-              'Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity to >= 5.0%.'
+              bottleneck.recoveryTarget || bottleneck.recommendedPivot,
+              isPhase2Healthy
+                ? `Maintain screening callback velocity while optimizing technical interview conversion from ${techPassRate}% to >= ${targetScreenToTech}%.`
+                : `Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity from ${screenRate}% to >= ${targetCallbackRate}%.`
             )}
           </Text>
         </View>
@@ -1511,7 +1543,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
-                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>VERIFIED IN ROLES</Text>
+                <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>DEMONSTRATED IN WORK EXPERIENCE</Text>
                 <Text style={styles.tagPass}>{verifiedKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
@@ -1529,7 +1561,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
-                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#D97706' }}>SKILLS ONLY (UNPROVEN)</Text>
+                <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#D97706' }}>LISTED IN SKILLS ONLY (NOT DEMONSTRATED)</Text>
                 <Text style={styles.tagWarn}>{skillsOnlyKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
@@ -1547,7 +1579,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={styles.col3}>
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
-                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>CRITICAL MISSING</Text>
+                <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>MISSING TARGET KEYWORDS (UNPROVEN)</Text>
                 <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
@@ -1796,7 +1828,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* Visual Identity & Crafture OutFox Networking Card */}
+        {/* Visual Identity & Crafture Network Card */}
         <View style={styles.grid2} wrap={false}>
           <View style={styles.col2}>
             <View style={styles.card}>
@@ -1812,7 +1844,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View style={styles.cardHighlighted}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
-                  CRAFTURE OUTFOX NETWORKING AGENT
+                  CRAFTURE NETWORK
                 </Text>
                 <Text style={styles.tagPass}>RECOMMENDED</Text>
               </View>

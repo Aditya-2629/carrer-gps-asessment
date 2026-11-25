@@ -367,7 +367,7 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
 
   const hasActiveDiscussions = substantiveDiscussionsCount >= 2
 
-  // 6. Networking & OutFox Recommendation
+  // 6. Networking & Crafture Network Recommendation
   const isActivityWeak = Boolean(
     isGhostProfile ||
     daysSinceLastPost === null ||
@@ -382,7 +382,7 @@ export function extractLinkedInActivitySignals(activityData, targetRole = '', co
         isRecommended: true,
         bottleneck: 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.',
         recommendation:
-          'If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to OutFox — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.',
+          'If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to Crafture Network — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.',
         flags: {
           isDormant: Boolean(isGhostProfile || daysSinceLastPost === null || daysSinceLastPost > 60 || postsAnalyzedCount === 0),
           lowCadence: Boolean(weeklyPostingCadence < 0.3),

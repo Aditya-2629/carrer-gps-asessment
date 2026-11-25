@@ -61,7 +61,7 @@ export default function StickyReportNav({
               type="button"
               disabled={isDownloading}
               onClick={handleDownloadPdf}
-              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
+              className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
               title="Download Full Visual Report (PDF)"
             >
               <DownloadSimple size={12} weight="bold" />
@@ -84,7 +84,7 @@ export default function StickyReportNav({
                   key={tab.id}
                   type="button"
                   onClick={() => onTabChange && onTabChange(tab.id)}
-                  className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 md:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
+                  className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 min-h-[40px] px-2.5 sm:px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
                     isActive
                       ? 'active text-teal-600 dark:text-teal-300 font-bold'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-card)]/60'

@@ -240,6 +240,7 @@ Ground all suggestions strictly in the candidate's targetRole and verified resum
 - Lead with domain intelligence, measurable business outcomes, stakeholder decision velocity, and cross-functional impact appropriate to their exact targetRole.
 
 COPYWRITING GUARDRAILS & BANNED PATTERNS:
+- STRICT BAN ON UNGROUNDED PERCENTAGE CLAIMS: Never output unsupported percentage benchmarks or claims (e.g. "reducing reach by up to 40%"). Use only factual, observable diagnostics (e.g. 0 recent posts in the last 30 days limits feed visibility and passive recruiter discovery).
 - STRICTLY BANNED WORDS & PHRASING:
   Strictly forbid "powerhouse", "synergistic", "cutting-edge", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "seamlessly", "leveraging", "passionate", "guru", "ninja", "dynamic", "hard-working", "seeking opportunities", "actively looking". Use authentic plain action verbs like built, cut, scaled, automated, using.
 - STRICTLY FORBID INTERNAL IDs:

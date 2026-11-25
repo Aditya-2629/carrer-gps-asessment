@@ -823,6 +823,7 @@ function ReportDashboardContent() {
   )
 
   const [isRecovering, setIsRecovering] = useState(false)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
   const hasAttemptedRecovery = useRef(false)
 
   useEffect(() => {
@@ -1098,7 +1099,6 @@ function ReportDashboardContent() {
     72
 
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true)
@@ -1110,7 +1110,7 @@ function ReportDashboardContent() {
   }
 
   return (
-    <div className="bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150">
+    <div className="bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors duration-150 overflow-x-clip">
       {/* ─── Top Brand Header ─── */}
       <header
         role="banner"
@@ -1137,7 +1137,7 @@ function ReportDashboardContent() {
             <button
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+              className="min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
               title="Download full diagnostic report as PDF"
             >
               <DownloadSimple size={14} weight="bold" />
@@ -1158,7 +1158,7 @@ function ReportDashboardContent() {
 
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-colors cursor-pointer"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] transition-colors cursor-pointer"
               title={theme === 'dark' ? 'Switch to Light mode' : 'Switch to Dark mode'}
               aria-label="Toggle theme"
             >

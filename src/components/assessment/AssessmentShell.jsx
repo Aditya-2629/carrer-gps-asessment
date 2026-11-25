@@ -94,7 +94,7 @@ export default function AssessmentShell() {
             {/* Theme Switcher Button */}
             <button
               onClick={toggleTheme}
-              className="p-1.5 rounded-md border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer"
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-strong)] transition-all cursor-pointer"
               title={theme === 'dark' ? 'Switch to Light Quiz mode' : 'Switch to Dark mode'}
               aria-label="Toggle theme"
             >
@@ -186,7 +186,7 @@ export default function AssessmentShell() {
       {/* Step content */}
       <main
         id="main-content"
-        className="flex-1 flex flex-col items-center justify-center px-4 py-10 overflow-hidden"
+        className="flex-1 flex flex-col items-center justify-center px-3 sm:px-4 pt-6 pb-32 sm:py-10 overflow-x-clip"
       >
         <div className="w-full max-w-xl relative">
           <AnimatePresence mode="wait" custom={direction}>

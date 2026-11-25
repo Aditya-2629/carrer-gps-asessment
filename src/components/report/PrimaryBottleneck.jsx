@@ -46,11 +46,26 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
     confidence: 'High',
   }
 
-  let primaryBottleneck = reportData?.primary_bottleneck ?? {
-    title: reportData?.critical_issues?.[0]?.title || 'Top-of-Page ATS Filtering & Lack of Quantified Impact',
-    whyItMatters: reportData?.critical_issues?.[0]?.whyItMatters || 'Recruiters scan applications in under 10 seconds. Generic task bullets without hard numbers trigger automated filtering.',
-    evidence: reportData?.critical_issues?.[0]?.diagnosis || 'Achievement bullets lack hard numbers and Google XYZ outcome structure.',
-  }
+  const isPhase2Healthy = Boolean(
+    reportData?.funnel_stages?.isPhase2Healthy ||
+    reportData?.funnel_stages?.stateMachine?.isPhase2Healthy ||
+    Number(phase?.id || reportData?.phase?.id) >= 3 ||
+    /technical|final|offer/i.test(phase?.name || phase?.shortName || reportData?.phase?.name || '')
+  )
+
+  let primaryBottleneck = reportData?.primary_bottleneck ?? (
+    isPhase2Healthy
+      ? {
+          title: 'System Architecture & Technical Panel Conversion',
+          whyItMatters: 'Resume passes initial screening filters, but conversion drops during deeper architectural design, failure mode defense, and live panel questioning.',
+          evidence: 'Screening callback rate is healthy (>= 5.0%), but technical-to-final conversion drops below benchmark targets.',
+        }
+      : {
+          title: reportData?.critical_issues?.[0]?.title || 'Top-of-Page ATS Filtering & Lack of Quantified Impact',
+          whyItMatters: reportData?.critical_issues?.[0]?.whyItMatters || 'Recruiters scan applications in under 10 seconds. Generic task bullets without hard numbers trigger automated filtering.',
+          evidence: reportData?.critical_issues?.[0]?.diagnosis || 'Achievement bullets lack hard numbers and Google XYZ outcome structure.',
+        }
+  )
 
   const answers = reportData?.user_answers || reportData?.answers || {}
   const hasValidLinkedin = Boolean(
@@ -91,7 +106,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
   const effectiveWhyItMatters =
     whyItMattersText && whyItMattersText !== phaseStuckText
       ? whyItMattersText
-      : (primaryBottleneck.diagnosis || 'Achievement bullets describe passive duties rather than quantified outcomes, triggering automated ATS filtering.')
+      : (primaryBottleneck.diagnosis || (isPhase2Healthy ? 'Technical rounds require structured architecture walkthroughs and tradeoff defense.' : 'Achievement bullets describe passive duties rather than quantified outcomes, triggering automated ATS filtering.'))
 
   const secondaryProblem = reportData?.secondary_problem ?? {
     title: 'Over-Reliance on Public Job Boards & Low Outreach Velocity',
@@ -101,35 +116,66 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
   // Top 3 Prioritized Actions
   const topActions = Array.isArray(reportData?.top_actions) && reportData.top_actions.length > 0
     ? reportData.top_actions.slice(0, 3)
-    : [
-        {
-          title: 'Quantify Top 5 Resume Bullets',
-          category: 'Resume Optimization',
-          whyItMatters: 'Recruiters screen for business ROI and verifiable scale metrics within 6 seconds.',
-          whatToDo: 'Rewrite your 5 most recent role bullets using Google XYZ formula (Accomplished [X], as measured by [Y], by doing [Z]).',
-          resourceTool: 'Crafture STAR Bullet Rewriter',
-          duration: '3–5 hours',
-          successMetric: '100% of top role bullets contain verified hard numbers',
-        },
-        {
-          title: 'Direct Hiring Manager & Referral Pipeline',
-          category: 'Networking Velocity',
-          whyItMatters: 'Employee referrals and direct messages convert to interviews at 4x the rate of cold portals.',
-          whatToDo: 'Identify 5 engineering hiring managers or alumni at target companies weekly and send personalized 50-word notes.',
-          resourceTool: 'LinkedIn InMail Framework',
-          duration: '45 mins / day',
-          successMetric: 'At least 2 warm replies received per week',
-        },
-        {
-          title: 'Targeted Role & Boolean Keyword Alignment',
-          category: 'ATS Safety',
-          whyItMatters: 'ATS parsers and recruiters filter by exact role title and cloud tech stack keywords.',
-          whatToDo: 'Align top 3 skills and headline with the exact target role titles matching your experience band.',
-          resourceTool: 'Crafture Keyword Density Scanner',
-          duration: '2 hours',
-          successMetric: 'Target role appears in top 1/3 of resume and LinkedIn headline',
-        },
-      ]
+    : (isPhase2Healthy
+        ? [
+            {
+              title: 'System Design & Tradeoff Deep-Dives',
+              category: 'Technical Interview Mastery',
+              whyItMatters: 'Later-stage rounds evaluate scalable architecture, failure mode defense, and trade-off justification.',
+              whatToDo: 'Prepare end-to-end architectural walkthroughs highlighting failure modes, caching strategies, and data consistency tradeoffs.',
+              resourceTool: 'Crafture Technical Deep-Dive Framework',
+              duration: '4–6 hours',
+              successMetric: 'Pass rate on system design and technical rounds >= 40%',
+            },
+            {
+              title: 'Behavioral Impact & STAR Alignment',
+              category: 'Panel Communication',
+              whyItMatters: 'Hiring managers evaluate engineering maturity, ambiguity resolution, and cross-functional leadership.',
+              whatToDo: 'Structure 5 comprehensive STAR stories emphasizing technical complexity, tradeoff ownership, and verified business outcomes.',
+              resourceTool: 'STAR Interview Coach',
+              duration: '2–3 hours',
+              successMetric: 'Consistent positive signals in panel debriefs',
+            },
+            {
+              title: 'Live Technical Execution Rehearsal',
+              category: 'Technical Execution',
+              whyItMatters: 'Communicating architectural decisions out loud prevents cognitive overload during live coding.',
+              whatToDo: 'Practice walking through algorithm trade-offs and edge cases out loud before writing production-grade code.',
+              resourceTool: 'Live Technical Simulator',
+              duration: '45 mins / day',
+              successMetric: 'Zero friction in live technical problem-solving sessions',
+            },
+          ]
+        : [
+            {
+              title: 'Quantify Top 5 Resume Bullets',
+              category: 'Resume Optimization',
+              whyItMatters: 'Recruiters screen for business ROI and verifiable scale metrics within 6 seconds.',
+              whatToDo: 'Rewrite your 5 most recent role bullets using Google XYZ formula (Accomplished [X], as measured by [Y], by doing [Z]).',
+              resourceTool: 'Crafture STAR Bullet Rewriter',
+              duration: '3–5 hours',
+              successMetric: '100% of top role bullets contain verified hard numbers',
+            },
+            {
+              title: 'Direct Hiring Manager & Referral Pipeline',
+              category: 'Networking Velocity',
+              whyItMatters: 'Employee referrals and direct messages convert to interviews at 4x the rate of cold portals.',
+              whatToDo: 'Identify 5 engineering hiring managers or alumni at target companies weekly and send personalized 50-word notes.',
+              resourceTool: 'LinkedIn InMail Framework',
+              duration: '45 mins / day',
+              successMetric: '5 targeted outreach messages sent weekly with >= 15% response rate',
+            },
+            {
+              title: 'Target JD Keyword Alignment',
+              category: 'ATS Optimization',
+              whyItMatters: 'ATS parsers check for keyword frequency and density matching job descriptions.',
+              whatToDo: 'Incorporate core technical stack keywords evidenced in your actual work experience into bullet descriptions.',
+              resourceTool: 'Crafture JD Skill Matcher',
+              duration: '1–2 hours',
+              successMetric: 'Match score >= 75% on target job descriptions',
+            },
+          ]
+      )
 
   return (
     <section id="bottleneck" className="space-y-6">

@@ -27,10 +27,11 @@ export function extractCleanPhoneNumber(text) {
   if (!text || typeof text !== 'string') return null
 
   // 1. Explicit labels or tel: URI links
-  const explicitMatch = text.match(/(?:tel:|phone(?: number)?\s*:?|mobile\s*:?|cell\s*:?|contact\s*:?)\s*([+\d()\s.-]{10,25})/i)
+  const explicitMatch = text.match(/(?:tel:|phone(?: number)?\s*:?|mobile\s*:?|cell\s*:?|contact\s*:?)\s*([+\d()\s.-]{10,35})/i)
   if (explicitMatch) {
     let raw = explicitMatch[1].replace(/[.,;:)\]\s]+$/, '').replace(/^[.,;:\s]+/, '').trim()
     if (raw.endsWith(')') && !raw.includes('(')) raw = raw.slice(0, -1).trim()
+    raw = raw.replace(/\s+/g, ' ')
     const digits = raw.replace(/\D/g, '')
     if (digits.length >= 10 && digits.length <= 15) {
       return raw.replace(/[^\d+()\s.-]/g, '').trim()
@@ -138,37 +139,57 @@ export async function extractDocxFastInfo(arrayBuffer) {
       cur += 46 + nameLen + extraLen + commentLen
     }
 
-    let aggregatedText = ''
-    for (const file of targetFiles) {
-      try {
-        if (file.method === 0) {
-          aggregatedText += ' ' + new TextDecoder('utf-8').decode(file.data)
-        } else if (file.method === 8) {
-          const text = await decompressDeflateRaw(file.data)
-          aggregatedText += ' ' + text
-        }
-      } catch (_e) {}
-    }
+    const decompressedFiles = await Promise.all(
+      targetFiles.map(async (file) => {
+        try {
+          if (file.method === 0) {
+            return new TextDecoder('utf-8').decode(file.data)
+          } else if (file.method === 8) {
+            return await decompressDeflateRaw(file.data)
+          }
+        } catch (_e) {}
+        return ''
+      })
+    )
+    const rawAggregatedXml = decompressedFiles.join(' \n ')
 
-    // Extract LinkedIn
+    // 1. Check relationships and attributes in raw XML before tags are stripped
     let linkedin = ''
-    const relsMatch = aggregatedText.match(/Target="([^"]*linkedin\.com\/in\/[^"]*)"/i)
-    const plainMatch = aggregatedText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
-    const rawLi = relsMatch?.[1] || plainMatch?.[0] || ''
-    if (rawLi) {
-      linkedin = normalizeLinkedInUrl(rawLi)
+    const relsMatch = rawAggregatedXml.match(/(?:Target|href)="([^"]*linkedin\.com\/in\/[^"]*)"/i)
+    if (relsMatch?.[1]) {
+      linkedin = normalizeLinkedInUrl(relsMatch[1])
     }
 
-    // Extract Phone
     let phone = ''
-    const telMatch = aggregatedText.match(/(?:tel:|Target="tel:)\s*([+\d()\s.-]{10,25})/i)
+    const telMatch = rawAggregatedXml.match(/(?:tel:|Target="tel:)\s*([+\d()\s.-]{10,25})/i)
     if (telMatch) {
       const p = extractCleanPhoneNumber(telMatch[0])
       if (p) phone = p
     }
+
+    // 2. Normalize XML:
+    // (a) Replace block boundaries with whitespace/newlines
+    let normalizedText = rawAggregatedXml.replace(/<\/w:p>|<\/w:tr>|<\/w:tc>|<w:br[^>]*>|<w:cr[^>]*>|<w:tab[^>]*>/gi, ' \n ')
+    // (b) Strip all remaining XML tags with '' (empty string) so split <w:r><w:t> runs join back seamlessly
+    normalizedText = normalizedText.replace(/<[^>]+>/g, '')
+    // (c) Decode basic XML entities
+    normalizedText = normalizedText
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+
+    // 3. Fallback scan on normalized text
+    if (!linkedin) {
+      const plainMatch = normalizedText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_%-]+/i)
+      if (plainMatch?.[0]) {
+        linkedin = normalizeLinkedInUrl(plainMatch[0])
+      }
+    }
+
     if (!phone) {
-      const cleanXml = aggregatedText.replace(/<[^>]+>/g, ' ')
-      phone = extractCleanPhoneNumber(cleanXml) || ''
+      phone = extractCleanPhoneNumber(normalizedText) || ''
     }
 
     return { linkedin, phone }

@@ -1,67 +1,72 @@
 /**
- * Crafture Brand Person 3D SDF Mascot for Wobnimo
+ * Crafture Brand Executive 3D SDF Mascot for Wobnimo
  *
- * Silhouette: Tailored executive diagnostic guide in dark tailored blazer,
- * crisp white V-collar shirt, electric indigo tie, and signature ascending career bar.
+ * Proportion: 5.5-head tailored executive figure matching the exact proportions,
+ * height, and color palette of Mascot Presenting Growing Analytics:
+ * - Head & Hands: Matte charcoal (#2B2D30) smooth finish, clean featureless sphere (no robot eyes)
+ * - Blazer: Forest Green (#1B4D3E) with emerald accent (#15803D)
+ * - Shirt & Cuffs: Crisp white (#FFFFFF) V-collar and sleeve cuffs
+ * - Tie: Forest/Emerald Green (#15803D)
+ * - Trousers: Elongated dark charcoal (#1F2421)
+ * - Shoes: Matte black (#141414)
  */
 
 export const crafturePerson = {
   id: 'crafture-person',
   name: 'Crafture Guide',
-  tagline: 'Tailored executive career guide in dark blazer and indigo tie',
-  accent: '#6366F1',
-  frame: { target: 0.46, radius: 0.65 },
-  bound: { y: 0.44, radius: 0.68 },
+  tagline: 'Tailored executive career guide in forest green blazer and matte charcoal finish',
+  accent: '#1B4D3E',
+  frame: { target: 0.36, radius: 0.58 },
+  bound: { y: 0.35, radius: 0.60 },
   motion: { hop: 0.14, squash: 1.15, snap: 1.05, talkSquash: 0.6 },
 
   materials: {
     figure: {
-      color: '#141720',
-      f0: 0.06,
-      spec: 0.9,
-      shininess: 90,
-      rim: 0.85,
-      gloss: 0.65,
+      color: '#2B2D30',
+      f0: 0.04,
+      spec: 0.35,
+      shininess: 35,
+      rim: 0.35,
+      gloss: 0.25,
     },
     blazer: {
-      color: '#1E293B',
+      color: '#1B4D3E',
       f0: 0.04,
-      spec: 0.5,
-      shininess: 45,
-      rim: 0.65,
-      sheen: 0.35,
+      spec: 0.45,
+      shininess: 40,
+      rim: 0.5,
+      sheen: 0.3,
+      accent: '#15803D',
     },
     collar: {
-      color: '#F8FAFC',
+      color: '#FFFFFF',
       f0: 0.03,
-      spec: 0.4,
+      spec: 0.35,
       shininess: 30,
-      rim: 0.5,
+      rim: 0.4,
     },
     tie: {
-      color: '#6366F1',
-      f0: 0.05,
-      spec: 0.9,
-      shininess: 85,
-      rim: 0.7,
-      gloss: 0.5,
+      color: '#15803D',
+      f0: 0.04,
+      spec: 0.5,
+      shininess: 50,
+      rim: 0.5,
+      gloss: 0.4,
     },
-    barAccent: {
-      color: '#10B981',
-      f0: 0.05,
-      spec: 0.8,
-      shininess: 70,
-      rim: 0.6,
-      emit: '#10B981',
-      emitStrength: 0.2,
+    trousers: {
+      color: '#1F2421',
+      f0: 0.04,
+      spec: 0.35,
+      shininess: 35,
+      rim: 0.35,
     },
     shoes: {
-      color: '#090D16',
-      f0: 0.08,
-      spec: 1.1,
-      shininess: 120,
-      rim: 0.4,
-      gloss: 0.8,
+      color: '#141414',
+      f0: 0.06,
+      spec: 0.5,
+      shininess: 60,
+      rim: 0.3,
+      gloss: 0.4,
     },
   },
 
@@ -74,197 +79,157 @@ export const crafturePerson = {
     {
       name: 'head',
       parent: 'body',
-      pivot: [0, 0.42, 0],
+      pivot: [0, 0.48, 0],
       drive: { rx: [['pitch', -0.75]], ry: [['yaw', 0.7]], rz: [['roll', 0.6]] },
     },
     {
       name: 'armL',
       parent: 'body',
-      pivot: [-0.22, 0.36, 0],
+      pivot: [-0.17, 0.42, 0],
       drive: { rz: [['flap', -0.6]] },
     },
     {
       name: 'armR',
       parent: 'body',
-      pivot: [0.22, 0.36, 0],
+      pivot: [0.17, 0.42, 0],
       drive: { rz: [['flap', 0.6]] },
-    },
-    {
-      name: 'badge',
-      parent: 'body',
-      pivot: [0.12, 0.32, 0.16],
-      jiggle: { axis: [0, 1, 0], length: 0.08, freq: 3.2, damping: 0.2 },
     },
   ],
 
   parts: [
-    /* 1. Body & Tailored Blazer */
+    /* 1. Tailored Forest Green Blazer (Slim 5.5-Head Executive Cut) */
     {
       bone: 'body',
       shape: 'roundBox',
-      at: [0, 0.24, 0],
-      half: [0.2, 0.17, 0.15],
-      round: 0.12,
+      at: [0, 0.30, 0],
+      half: [0.16, 0.19, 0.12],
+      round: 0.08,
       material: 'blazer',
     },
-    /* Crisp White Shirt V-Placket */
+    /* Crisp White V-Placket Collar */
     {
       bone: 'body',
       shape: 'plate',
-      at: [0, 0.31, 0.155],
-      half: [0.065, 0.08],
+      at: [0, 0.38, 0.122],
+      half: [0.052, 0.065],
       corner: 0.02,
       depth: 0.008,
       material: 'collar',
     },
-    /* Electric Indigo Tie */
+    /* Emerald/Forest Green Tie */
     {
       bone: 'body',
       shape: 'capsule',
-      from: [0, 0.34, 0.165],
-      to: [0, 0.2, 0.16],
-      radius: 0.022,
+      from: [0, 0.41, 0.13],
+      to: [0, 0.23, 0.125],
+      radius: 0.018,
       material: 'tie',
     },
-    /* Signature Ascending Career Bar Accent on Lapel */
+
+    /* 2. Elongated Dark Charcoal Trousers (5.5-Head Proportions) */
     {
-      bone: 'badge',
-      shape: 'roundBox',
-      at: [-0.02, 0, 0],
-      half: [0.006, 0.018, 0.006],
-      round: 0.004,
-      material: 'barAccent',
+      bone: 'body',
+      shape: 'capsule',
+      from: [-0.07, 0.14, 0],
+      to: [-0.07, -0.06, 0],
+      radius: 0.038,
+      material: 'trousers',
     },
     {
-      bone: 'badge',
-      shape: 'roundBox',
-      at: [0, 0.006, 0],
-      half: [0.006, 0.026, 0.006],
-      round: 0.004,
-      material: 'barAccent',
-    },
-    {
-      bone: 'badge',
-      shape: 'roundBox',
-      at: [0.02, 0.014, 0],
-      half: [0.006, 0.034, 0.006],
-      round: 0.004,
-      material: 'barAccent',
+      bone: 'body',
+      shape: 'capsule',
+      from: [0.07, 0.14, 0],
+      to: [0.07, -0.06, 0],
+      radius: 0.038,
+      material: 'trousers',
     },
 
-    /* 2. Arms & Hands */
-    {
-      bone: 'armL',
-      shape: 'capsule',
-      from: [0, 0, 0],
-      to: [-0.04, -0.16, 0.04],
-      radius: 0.042,
-      material: 'blazer',
-    },
-    {
-      bone: 'armL',
-      shape: 'sphere',
-      at: [-0.05, -0.2, 0.05],
-      radius: 0.038,
-      material: 'figure',
-    },
-    {
-      bone: 'armR',
-      shape: 'capsule',
-      from: [0, 0, 0],
-      to: [0.04, -0.16, 0.04],
-      radius: 0.042,
-      material: 'blazer',
-    },
-    {
-      bone: 'armR',
-      shape: 'sphere',
-      at: [0.05, -0.2, 0.05],
-      radius: 0.038,
-      material: 'figure',
-    },
-
-    /* 3. Dress Shoes */
+    /* 3. Matte Black Dress Shoes */
     {
       bone: 'body',
       shape: 'roundBox',
-      at: [-0.1, 0.035, 0.04],
-      half: [0.055, 0.035, 0.09],
-      round: 0.03,
+      at: [-0.07, -0.095, 0.02],
+      half: [0.042, 0.025, 0.07],
+      round: 0.02,
       material: 'shoes',
     },
     {
       bone: 'body',
       shape: 'roundBox',
-      at: [0.1, 0.035, 0.04],
-      half: [0.055, 0.035, 0.09],
-      round: 0.03,
+      at: [0.07, -0.095, 0.02],
+      half: [0.042, 0.025, 0.07],
+      round: 0.02,
       material: 'shoes',
     },
 
-    /* 4. Sleek Executive Head */
+    /* 4. Arms, White Shirt Cuffs & Matte Charcoal Hands */
+    {
+      bone: 'armL',
+      shape: 'capsule',
+      from: [0, 0, 0],
+      to: [-0.035, -0.18, 0.025],
+      radius: 0.034,
+      material: 'blazer',
+    },
+    /* Left White Shirt Cuff */
+    {
+      bone: 'armL',
+      shape: 'capsule',
+      from: [-0.035, -0.18, 0.025],
+      to: [-0.042, -0.21, 0.03],
+      radius: 0.032,
+      material: 'collar',
+    },
+    /* Left Hand (Matte Charcoal) */
+    {
+      bone: 'armL',
+      shape: 'sphere',
+      at: [-0.048, -0.24, 0.035],
+      radius: 0.030,
+      material: 'figure',
+    },
+
+    {
+      bone: 'armR',
+      shape: 'capsule',
+      from: [0, 0, 0],
+      to: [0.035, -0.18, 0.025],
+      radius: 0.034,
+      material: 'blazer',
+    },
+    /* Right White Shirt Cuff */
+    {
+      bone: 'armR',
+      shape: 'capsule',
+      from: [0.035, -0.18, 0.025],
+      to: [0.042, -0.21, 0.03],
+      radius: 0.032,
+      material: 'collar',
+    },
+    /* Right Hand (Matte Charcoal) */
+    {
+      bone: 'armR',
+      shape: 'sphere',
+      at: [0.048, -0.24, 0.035],
+      radius: 0.030,
+      material: 'figure',
+    },
+
+    /* 5. Clean Featureless Matte Charcoal Sphere Head (NO robot eyes) */
     {
       bone: 'head',
       shape: 'ellipsoid',
-      at: [0, 0.17, 0],
-      radii: [0.22, 0.22, 0.21],
+      at: [0, 0.16, 0],
+      radii: [0.165, 0.175, 0.155],
       material: 'figure',
     },
   ],
 
-  paints: [
-    /* Soft ambient blush / cheek reflex */
-    {
-      bone: 'head',
-      on: ['figure'],
-      kind: 'sphere',
-      at: [-0.14, 0.11, 0.17],
-      radius: 0.04,
-      color: '#6366F1',
-      soft: 0.5,
-      opacity: 0.35,
-    },
-    {
-      bone: 'head',
-      on: ['figure'],
-      kind: 'sphere',
-      at: [0.14, 0.11, 0.17],
-      radius: 0.04,
-      color: '#6366F1',
-      soft: 0.5,
-      opacity: 0.35,
-    },
-  ],
-
-  eyes: {
-    kind: 'ball',
-    bone: 'head',
-    at: [
-      [-0.08, 0.18, 0.18],
-      [0.08, 0.18, 0.18],
-    ],
-    radius: 0.048,
-    iris: '#6366F1',
-    irisSize: 0.85,
-    pupilSize: 0.52,
-    lid: 'figure',
-  },
-
-  face: {
-    kind: 'mouth',
-    bone: 'head',
-    on: ['figure'],
-    at: [0, 0.08, 0.21],
-    width: 0.04,
-    color: '#1A0C14',
-    tongue: '#F43F5E',
-  },
-
   anchors: {
-    top: { bone: 'head', at: [0, 0.4, 0.02] },
-    mouth: { bone: 'head', at: [0, 0.06, 0.22] },
-    ear: { bone: 'head', at: [-0.22, 0.17, 0] },
-    feet: { bone: 'root', at: [0, 0.02, 0.05] },
+    top: { bone: 'head', at: [0, 0.36, 0.02] },
+    mouth: { bone: 'head', at: [0, 0.06, 0.18] },
+    ear: { bone: 'head', at: [-0.18, 0.16, 0] },
+    feet: { bone: 'body', at: [0, -0.09, 0.02] },
   },
 
   acting: {

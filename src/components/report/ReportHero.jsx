@@ -12,6 +12,7 @@ import { ArrowUpRight } from '@phosphor-icons/react'
 import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { getCareerHealthAxes } from '../../lib/reportMetrics'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 export default function ReportHero({ reportData, user }) {
   const { triggerGuide } = useReportGuideStore()
@@ -188,9 +189,17 @@ export default function ReportHero({ reportData, user }) {
             </p>
           </div>
 
-          {/* Overall Index Score Dial */}
-          <div className="flex items-center gap-4 bg-[var(--surface-sunken)] p-4 rounded-xl border border-[var(--border-default)] shrink-0">
-            <div className="relative w-20 h-20 flex items-center justify-center">
+          {/* Overall Index Score Dial + Mascot Welcome */}
+          <div className="flex items-center gap-3 sm:gap-4 bg-[var(--surface-sunken)] p-3 sm:p-4 rounded-xl border border-[var(--border-default)] shrink-0">
+            <CrafturePoseMascot
+              pose="wave"
+              size={76}
+              animation="float"
+              showShadow={false}
+              className="hidden sm:inline-flex shrink-0"
+              alt="Crafture Welcome Guide"
+            />
+            <div className="relative w-20 h-20 flex items-center justify-center shrink-0">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 <circle
                   cx="50"
@@ -237,13 +246,13 @@ export default function ReportHero({ reportData, user }) {
 
         {/* ── 6-Axis Career Health Radar Visualizer ── */}
         <div className="pt-6 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-          <div className="md:col-span-7 h-[220px] sm:h-[260px] w-full">
+          <div className="md:col-span-7 h-[230px] sm:h-[260px] w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData} outerRadius="75%">
+              <RadarChart data={radarData} outerRadius="62%" margin={{ top: 10, right: 26, bottom: 10, left: 26 }}>
                 <PolarGrid stroke="var(--border-default, #E2E8F0)" />
                 <PolarAngleAxis
                   dataKey="subject"
-                  tick={{ fill: 'var(--text-secondary, #475569)', fontSize: 11, fontWeight: 600 }}
+                  tick={{ fill: 'var(--text-secondary, #475569)', fontSize: 10, fontWeight: 600 }}
                 />
                 <PolarRadiusAxis
                   angle={30}

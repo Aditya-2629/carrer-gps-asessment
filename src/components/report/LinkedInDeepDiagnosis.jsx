@@ -33,6 +33,7 @@ import {
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import FeedbackThumbs from './FeedbackThumbs.jsx'
 import useAppStore from '../../store/useAppStore'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 const severityChip = {
   high: 'bg-red-500/10 text-red-600 border border-red-500/20',
@@ -214,7 +215,16 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
     [profileData.firstName, profileData.lastName].filter(Boolean).join(' ') ||
     'LinkedIn Member'
   const headline = (profileData.headline || '').trim()
-  const pictureUrl = profileData.pictureUrl || profileData.avatar || profileData.photoUrl || profileData.profilePicture || ''
+  const pictureUrl =
+    profileData.pictureUrl ||
+    profileData.profilePic ||
+    profileData.profilePicHighQuality ||
+    profileData.profilePicture ||
+    profileData.avatar ||
+    profileData.photoUrl ||
+    profileData.displayPictureUrl ||
+    profileData.img ||
+    ''
   const url = profileData.url || profileData.linkedinUrl || ''
   const connections = profileData.connectionsCount || profileData.connections || '500+'
   const location = typeof profileData.location === 'string'
@@ -240,11 +250,20 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
               <img
                 src={pictureUrl}
                 alt={fullName}
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                  if (e.currentTarget.parentElement) {
-                    e.currentTarget.parentElement.innerText = initials
+                  const currentSrc = e.currentTarget.getAttribute('src') || ''
+                  const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+                  const targetProxy = `${apiBase}/linkedin-agent/avatar-proxy?url=${encodeURIComponent(pictureUrl)}`
+                  if (!currentSrc.includes('/api/linkedin-agent/avatar-proxy') && !currentSrc.includes('avatar-proxy?url=')) {
+                    e.currentTarget.src = targetProxy
+                  } else {
+                    e.currentTarget.style.display = 'none'
+                    if (e.currentTarget.parentElement) {
+                      e.currentTarget.parentElement.innerText = initials
+                    }
                   }
                 }}
               />
@@ -252,7 +271,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
               <span className="font-bold text-[#0a66c2] text-lg">{initials}</span>
             )}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">{fullName}</h3>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -804,7 +823,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     }
   }, [visualPrompts, targetRole, coreSkillList])
 
-  const showOutFox = Boolean(
+  const showCraftureNetwork = Boolean(
     networkingRecommendation?.isRecommended ||
     effectiveSectionAudit?.activityAndNetworking?.score10 <= 6 ||
     linkedinAgent?.activitySignals?.isGhostProfile
@@ -1190,14 +1209,24 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
   return (
     <section id="linkedin-ai" className="space-y-8 scroll-mt-28">
       {/* ── Section Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 mb-1">
-        <span className="text-[#0a66c2] flex items-center">
-          <LinkedinLogo size={26} weight="fill" />
-        </span>
-        <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
-          Executive LinkedIn Diagnostic & Optimization Studio
-        </h2>
-        <span className="flex-1 h-px bg-[var(--border-default)]" />
+      <div className="flex items-center gap-3.5 mb-1">
+        <CrafturePoseMascot
+          pose="laptop"
+          size={68}
+          animation="float"
+          showShadow={false}
+          className="shrink-0 hidden sm:inline-flex"
+          alt="LinkedIn Optimization Mascot"
+        />
+        <div className="flex items-center gap-3 flex-1">
+          <span className="text-[#0a66c2] flex items-center">
+            <LinkedinLogo size={26} weight="fill" />
+          </span>
+          <h2 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
+            Executive LinkedIn Diagnostic & Optimization Studio
+          </h2>
+          <span className="flex-1 h-px bg-[var(--border-default)]" />
+        </div>
       </div>
 
       {/* Amber alert if blank/unlinked profile */}
@@ -1321,12 +1350,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         </div>
       </div>
 
-      {/* ── 1C. Gentle Crafture OutFox Recommendation (When Activity Is Hurting) ── */}
-      {showOutFox && (
+      {/* ── 1C. Gentle Crafture Network Recommendation (When Activity Is Hurting) ── */}
+      {showCraftureNetwork && (
         <div
-          id="linkedin-outfox"
+          id="linkedin-crafture-network"
           className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-3.5 shadow-xs"
-          data-mascot-cue="Automate daily connection limits safely with Crafture OutFox to boost visibility without manual outreach exhaustion."
+          data-mascot-cue="Automate daily connection limits safely with Crafture Network to boost visibility without manual outreach exhaustion."
           data-mascot-chip="Networking Velocity"
           data-mascot-emotion="speaking"
         >
@@ -1337,7 +1366,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               </span>
               <div>
                 <h4 className="text-sm font-bold text-[var(--text-primary)]">
-                  Automate Your LinkedIn Reach With Crafture OutFox
+                  Automate Your LinkedIn Reach With Crafture Network
                 </h4>
                 <p className="text-xs text-[var(--text-secondary)]">
                   Safe, executive-grade networking automation to stay visible to hiring managers daily.
@@ -1355,16 +1384,16 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               {networkingRecommendation?.bottleneck || 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.'}
             </p>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">OutFox</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
+              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">Crafture Network</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
             </p>
 
             <div className="pt-1">
               <a
-                href="mailto:aditya@crafture.in?subject=OutFox%20Access%20Inquiry%20-%20Career%20GPS"
+                href="mailto:aditya@crafture.in?subject=Crafture%20Network%20Access%20Inquiry%20-%20Career%20GPS"
                 className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 transition-all shadow-xs cursor-pointer"
               >
                 <EnvelopeSimple size={14} weight="bold" />
-                Inquire About OutFox Access
+                Inquire About Crafture Network Access
               </a>
             </div>
           </div>

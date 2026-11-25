@@ -257,16 +257,16 @@ export const INITIAL_SECTION_INSIGHTS = {
     emotion: 'thinking',
     chatPrompt: 'What are the best 3 skills to pin on my LinkedIn profile?',
   },
-  'linkedin-outfox': {
-    id: 'linkedin-outfox',
-    name: 'OutFox Automation',
-    chip: 'OutFox Velocity',
+  'linkedin-crafture-network': {
+    id: 'linkedin-crafture-network',
+    name: 'Crafture Network',
+    chip: 'Crafture Network',
     category: 'proud',
     problem: 'Dormant activity decay reduces profile impressions to hiring managers by up to 75%.',
-    solution: 'Activate Crafture OutFox to safely automate daily connection and networking limits.',
-    thought: 'Crafture OutFox automated networking: stay active on recruiter feeds without manual burnout.',
+    solution: 'Activate Crafture Network to safely automate daily connection and networking limits.',
+    thought: 'Crafture Network automated networking: stay active on recruiter feeds without manual burnout.',
     emotion: 'coach',
-    chatPrompt: 'How does OutFox safely automate my LinkedIn networking?',
+    chatPrompt: 'How does Crafture Network safely automate my LinkedIn networking?',
   },
 }
 

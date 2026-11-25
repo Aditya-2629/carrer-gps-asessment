@@ -10,6 +10,7 @@ import {
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 function safeText(val, fallback = '') {
   if (!val) return fallback
@@ -42,9 +43,17 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
     reportData?.user_answers?.name ||
     'Candidate'
 
+  const phaseId = Number(
+    reportData?.funnel_stages?.bottleneckStageId ||
+    reportData?.funnel_stages?.stateMachine?.stageNum ||
+    reportData?.current_phase_id ||
+    reportData?.phase?.id ||
+    reportData?.career_journey?.current_phase_id ||
+    1
+  )
   const currentPhase = reportData?.phase || reportData?.career_journey?.current_phase || {}
-  const phaseId = Number(reportData?.phase?.id || reportData?.career_journey?.current_phase_id || 1)
   const phaseShort =
+    reportData?.funnel_stages?.stateMachine?.shortName ||
     currentPhase.shortName ||
     currentPhase.name ||
     (phaseId === 1
@@ -56,6 +65,10 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
       : phaseId === 4
       ? 'Final Loops'
       : 'Offer Closing')
+
+  const summaryCopy = phaseId >= 3
+    ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`
+    : `Work directly with an executive technical recruiter to calibrate your ${targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.`
 
   const [isDownloading, setIsDownloading] = useState(false)
 
@@ -87,7 +100,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
 
               {/* Concise 2-line summary */}
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium leading-relaxed">
-                Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.
+                {summaryCopy}
               </p>
             </div>
 
@@ -134,7 +147,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onBookCall}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
               >
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
@@ -152,7 +165,7 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
                     setIsDownloading(false)
                   }
                 }}
-                className="print:hidden inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
               >
                 <DownloadSimple size={18} weight="bold" />
                 <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
@@ -160,9 +173,17 @@ export default function FinalNextAction({ coachData, reportData, onBookCall }) {
             </div>
           </div>
 
-          {/* Right Column (lg:col-span-5) - Seamless borderless illustration blend */}
-          <div className="lg:col-span-5 flex items-end justify-end">
-            <div className="relative w-full max-w-md dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
+          {/* Right Column (lg:col-span-5) - Seamless illustration with Mascot Celebration */}
+          <div className="lg:col-span-5 flex flex-col sm:flex-row items-center justify-end gap-4">
+            <CrafturePoseMascot
+              pose="thumbsup"
+              size={120}
+              animation="bounce"
+              showShadow={true}
+              className="shrink-0"
+              alt="Celebration Mascot"
+            />
+            <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
               <img
                 src={strategySessionImg}
                 alt="1-on-1 Strategy Session"

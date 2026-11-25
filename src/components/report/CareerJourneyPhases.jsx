@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { CheckCircle, MapPin, Binoculars, Target, Trophy, ChatCircleDots } from '@phosphor-icons/react'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 export default function CareerJourneyPhases({ data }) {
   const currentPhaseId = data?.current_phase_id || 2
@@ -31,8 +32,8 @@ export default function CareerJourneyPhases({ data }) {
 
   return (
     <div className="quiz-card p-6 md:p-8 border border-[var(--border-default)] space-y-6">
-      {/* Executive Section Header */}
-      <div className="flex items-center justify-between">
+      {/* Executive Section Header with Journey Mascot */}
+      <div className="flex items-center justify-between gap-4">
         <div className="space-y-1.5">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-muted)] border border-[var(--border-default)] shadow-2xs">
             <span>Career Journey Architecture</span>
@@ -44,6 +45,14 @@ export default function CareerJourneyPhases({ data }) {
             Every job search has distinct phases. <span className="text-[var(--primary)] font-semibold">You are currently in Positioning.</span>
           </p>
         </div>
+        <CrafturePoseMascot
+          pose="roadmap"
+          size={84}
+          animation="float"
+          showShadow={false}
+          className="shrink-0 hidden sm:inline-flex"
+          alt="Career Journey Mascot"
+        />
       </div>
 
       {/* Visual Pipeline Trail */}

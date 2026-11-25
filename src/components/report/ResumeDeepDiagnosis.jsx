@@ -29,6 +29,7 @@ import useAppStore, { showToast } from '../../store/useAppStore'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import { getCompanySponsorStatus } from '../../lib/sponsorIntelligence.js'
+import CrafturePoseMascot from '../common/CrafturePoseMascot.jsx'
 
 /**
  * ResumeDeepDiagnosis — the Resume Specialist Agent's section inside the MAIN
@@ -86,11 +87,21 @@ const severityChip = {
 function SectionHeader({ icon, title, accent }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-[var(--border-default)] pb-4">
-      <div className="flex items-center gap-3">
-        <span className={accent}>{icon}</span>
+      <div className="flex items-center gap-3.5">
+        <CrafturePoseMascot
+          pose="reading"
+          size={68}
+          animation="float"
+          showShadow={false}
+          className="shrink-0 hidden sm:inline-flex"
+          alt="Resume Audit Mascot"
+        />
         <div>
-          <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{title}</h2>
-          <p className="text-xs text-[var(--text-muted)]">
+          <div className="flex items-center gap-2">
+            <span className={accent}>{icon}</span>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">{title}</h2>
+          </div>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">
             AI recruiter audit of your resume structure, impact metrics, and ATS compatibility.
           </p>
         </div>
@@ -100,22 +111,22 @@ function SectionHeader({ icon, title, accent }) {
 }
 
 export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData }) {
+  const [toastMsg, setToastMsg] = useState('')
+  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
+  const [copiedSummary, setCopiedSummary] = useState(false)
+
   const theme = useAppStore((s) => s.theme)
   const storeReportData = useAppStore((s) => s.reportData)
   const reportData = propReportData || storeReportData || {}
 
-  if (!resumeAgent?.dashboard && !resumeAgent?.issues?.length) return null
-
-  const dashboard = resumeAgent.dashboard
-  const issues = (resumeAgent.issues || []).filter(Boolean)
-  const priorityActions = (resumeAgent.priorityActions || []).filter(Boolean)
-  const strengths = (resumeAgent.strengths || []).filter(Boolean)
-  const snapshot = resumeAgent.candidateSnapshot || {}
+  const dashboard = resumeAgent?.dashboard || {}
+  const issues = (resumeAgent?.issues || []).filter(Boolean)
+  const priorityActions = (resumeAgent?.priorityActions || []).filter(Boolean)
+  const strengths = (resumeAgent?.strengths || []).filter(Boolean)
+  const snapshot = resumeAgent?.candidateSnapshot || {}
   const firstName = (snapshot.name || '').split(' ')[0]
   const variant = theme === 'dark' ? 'dark' : 'light'
 
-  const [toastMsg, setToastMsg] = useState('')
-  const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const wovenList =
     resumeAgent?.interviewLedger ||
     resumeAgent?.wovenKeywords ||
@@ -289,8 +300,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
     }
     return cleanAudit
   }, [rawSectionAudit, dashboard, resolvedBullets])
-
-  const [copiedSummary, setCopiedSummary] = useState(false)
 
   const handleCopySummary = () => {
     if (!summaryOptimization?.rewrittenSummary) return
@@ -526,6 +535,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       return true
     })
   }, [issues, resolvedBullets])
+
+  if (!resumeAgent?.dashboard && !resumeAgent?.issues?.length) return null
 
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">

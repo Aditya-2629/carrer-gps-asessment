@@ -84,7 +84,7 @@ function CopyableSnippetCard({ snippet }) {
           )}
         </button>
       </div>
-      <div className="p-3.5 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap select-all bg-[var(--surface-base)]">
+      <div className="p-3.5 text-[11px] font-mono leading-relaxed text-[var(--text-primary)] whitespace-pre-wrap break-words min-w-0 select-all bg-[var(--surface-base)]">
         {trimmed}
       </div>
     </div>
@@ -232,21 +232,115 @@ function renderMarkdownTable(tableLines, key) {
 }
 
 /**
+ * Guardrail: Converts any accidental LLM raw JSON responses into clean conversational Markdown.
+ */
+export function formatJsonChatResponse(text) {
+  if (!text || typeof text !== 'string') return ''
+  const trimmed = text.trim()
+
+  const isJsonCandidate =
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (/^```(?:json)?\s*\{[\s\S]*\}\s*```$/i.test(trimmed))
+
+  if (!isJsonCandidate) return text
+
+  try {
+    const rawJson = trimmed.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim()
+    const parsed = JSON.parse(rawJson)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return text
+
+    const parts = []
+
+    // 1. Primary commentary / conversational text
+    const mainText =
+      parsed.coach ||
+      parsed.coach_response ||
+      parsed.response ||
+      parsed.message ||
+      parsed.answer ||
+      parsed.reply ||
+      parsed.summary ||
+      parsed.overview ||
+      ''
+    if (mainText && typeof mainText === 'string') {
+      parts.push(mainText.trim())
+    }
+
+    // 2. Actionable feedback / critique / analysis
+    const feedback =
+      parsed.actionable_feedback ||
+      parsed.feedback ||
+      parsed.critique ||
+      parsed.analysis ||
+      parsed.assessment ||
+      ''
+    if (feedback && typeof feedback === 'string' && feedback.trim() !== mainText.trim()) {
+      parts.push(`### Actionable Feedback\n${feedback.trim()}`)
+    }
+
+    // 3. Bullet fix / example / copy block
+    const bulletExample =
+      parsed.bullet_fix_example ||
+      parsed.bullet_example ||
+      parsed.copy_block ||
+      parsed.rewrite ||
+      parsed.example ||
+      parsed.sample ||
+      ''
+    if (bulletExample && typeof bulletExample === 'string') {
+      const cleanSnippet = bulletExample.replace(/^```(?:text)?\s*|\s*```$/gi, '').trim()
+      parts.push(`### Recommended Bullet Fix\n\`\`\`text\n${cleanSnippet}\n\`\`\``)
+    }
+
+    // 4. Tactical next step / recommendation
+    const nextStep =
+      parsed.tactical_next_step ||
+      parsed.next_step ||
+      parsed.recommendation ||
+      parsed.action_item ||
+      ''
+    if (nextStep && typeof nextStep === 'string') {
+      parts.push(`**Tactical Next Step**: ${nextStep.trim()}`)
+    }
+
+    // Fallback: If no recognized keys, format any string key-values nicely
+    if (parts.length === 0) {
+      const stringValues = Object.entries(parsed)
+        .filter(([_, v]) => typeof v === 'string' && v.trim().length > 0)
+        .map(([k, v]) => {
+          const title = k.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+          return `**${title}**:\n${v.trim()}`
+        })
+      if (stringValues.length > 0) {
+        return stringValues.join('\n\n')
+      }
+    } else {
+      return parts.join('\n\n')
+    }
+  } catch (_) {
+    // Return original text if parsing fails
+  }
+
+  return text
+}
+
+/**
  * Parses markdown text chunks into paragraphs, bullet lists, styled executive blockquotes,
  * tables, diff snippet cards, and copyable snippets.
  */
 function renderMessageContent(text, options = {}) {
-  if (!text) return null
+  const formattedText = formatJsonChatResponse(text)
+  if (!formattedText) return null
   const { onBookCall } = options
 
   // 1. Detect Bullet Diff
-  const diffData = tryParseBulletDiff(text)
+  const diffData = tryParseBulletDiff(formattedText)
 
   // 2. Detect Program Pricing Trigger
-  const showProgramsCard = hasProgramPricingTrigger(text)
+  const showProgramsCard = hasProgramPricingTrigger(formattedText)
 
   // Clean custom tags from text before parsing
-  let cleanText = text
+  let cleanText = formattedText
   if (diffData?.fullMatch) {
     cleanText = cleanText.replace(diffData.fullMatch, '').trim()
   }
@@ -782,16 +876,17 @@ export default function ReportChatbot({ hideLauncher = false }) {
           })
 
           let rawAnswer = String(res.data?.answer || res.data?.reply || '').trim()
-          accumulatedText = rawAnswer
+          accumulatedText = formatJsonChatResponse(rawAnswer)
         } catch (_jsonErr) {
           accumulatedText = 'Atlas is momentarily reviewing candidate files. Please try again in a moment or book your 1-on-1 strategy call below!'
           showToast(getFriendlyErrorMessage(_jsonErr, 'Chatbot assistant encountered a connection issue.'), 'warning')
         }
       } finally {
         // Finalize agent message
+        const finalAnswer = formatJsonChatResponse(accumulatedText) || 'Sorry — I could not generate an answer. Please try again.'
         const shouldSuggestCall =
           /(\b(call|strategy session|book|coach|coaching|referral|mock|interview prep|negotiate|offer)\b)/i.test(
-            question + ' ' + accumulatedText
+            question + ' ' + finalAnswer
           )
 
         setMessages((prev) => {
@@ -801,7 +896,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               ...prev.slice(0, -1),
               {
                 role: 'agent',
-                text: accumulatedText || 'Sorry — I could not generate an answer. Please try again.',
+                text: finalAnswer,
                 isStreaming: false,
                 suggestCall: shouldSuggestCall,
               },
@@ -896,7 +991,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-base)] cursor-pointer transition-colors"
                 aria-label="Close chat"
               >
                 <X size={18} />
@@ -917,7 +1012,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               return (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`text-xs leading-relaxed ${
+                    className={`text-xs leading-relaxed min-w-0 break-words ${
                       m.role === 'user'
                         ? 'max-w-[85%] bg-[var(--primary)] text-white px-4 py-2.5 rounded-2xl rounded-br-xs shadow-sm whitespace-pre-wrap'
                         : isExpanded
@@ -1025,7 +1120,7 @@ export default function ReportChatbot({ hideLauncher = false }) {
               type="button"
               onClick={() => send()}
               disabled={loading || !input.trim()}
-              className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0 mb-0.5"
+              className="min-w-[44px] min-h-[44px] bg-[var(--primary)] hover:bg-[var(--primary-hover)] disabled:opacity-40 text-white rounded-xl p-2.5 cursor-pointer transition-all shadow-xs active:scale-95 flex items-center justify-center shrink-0 mb-0.5"
               aria-label="Send message"
             >
               <PaperPlaneRight size={16} weight="fill" />

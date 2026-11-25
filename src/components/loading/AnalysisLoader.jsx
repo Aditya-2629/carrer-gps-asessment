@@ -19,6 +19,7 @@ import useAppStore, { PHASES } from '../../store/useAppStore'
 import { api, normalizeReportData } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
+import CraftureAnimatedMascot from '../common/CraftureAnimatedMascot'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -233,7 +234,7 @@ export default function AnalysisLoader() {
 
   // ── Start job + subscribe ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!userId) return
+    if (!userId || window.location.search.includes('preview=true') || window.location.search.includes('mock=true')) return
 
     let pollTimer = null
     let active = true
@@ -359,7 +360,7 @@ export default function AnalysisLoader() {
   }, [userId])
 
   // ── Error panel ───────────────────────────────────────────────────────────
-  if (errorMessage) {
+  if (errorMessage && !window.location.search.includes('preview=true') && !window.location.search.includes('mock=true')) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[var(--surface-base)] text-[var(--text-primary)]">
         <motion.div
@@ -425,6 +426,21 @@ export default function AnalysisLoader() {
             Crafture <span className="text-[var(--primary)]">Career GPS</span>
           </span>
         </div>
+      </motion.div>
+
+      {/* ── Official Crafture Copilot Mascot (Live Synthesis State) ── */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="mb-3 flex flex-col items-center justify-center"
+      >
+        <CraftureAnimatedMascot
+          pose={displayProgress >= 100 ? 'thumbsup' : displayProgress > 45 ? 'working' : 'laptop'}
+          size={132}
+          showShadow={true}
+          interactive={true}
+        />
       </motion.div>
 
       {/* Title */}

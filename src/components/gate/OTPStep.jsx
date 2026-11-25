@@ -144,7 +144,7 @@ export default function OTPStep() {
         </h2>
         <p className="text-[var(--text-secondary)] text-sm" style={{ fontFamily: 'var(--font-body)' }}>
           Enter the 6-digit code sent to{' '}
-          <span className="text-[var(--primary)] font-semibold">{email}</span>
+          <span className="text-[var(--primary)] font-semibold break-all">{email}</span>
         </p>
       </div>
 
@@ -197,7 +197,7 @@ export default function OTPStep() {
             type="button"
             onClick={handleResendOtp}
             disabled={resendCooldown > 0 || isResending}
-            className={`text-xs font-medium transition-colors cursor-pointer bg-transparent border-0 ${
+            className={`min-h-[44px] px-3 text-xs font-medium transition-colors cursor-pointer bg-transparent border-0 ${
               resendCooldown > 0
                 ? 'text-[var(--text-tertiary)] cursor-not-allowed opacity-70'
                 : 'text-[var(--primary)] hover:underline hover:text-indigo-400'
@@ -237,7 +237,7 @@ export default function OTPStep() {
         <button
           id="verify-otp-btn"
           onClick={handleVerify}
-          className="btn-primary w-full"
+          className="btn-primary w-full min-h-[44px]"
           disabled={!canVerify}
         >
           {mutation.isPending ? (
@@ -257,7 +257,7 @@ export default function OTPStep() {
       <div className="mt-5 text-center">
         <button
           onClick={() => setGateStep(GATE_STEPS.EMAIL)}
-          className="text-sm inline-flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-0"
+          className="min-h-[44px] px-3 text-sm inline-flex items-center gap-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer bg-transparent border-0"
         >
           <ArrowLeft size={14} />
           <span>Use a different email</span>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, Trophy } from '@phosphor-icons/react'
 import { classifyRoleArchetype } from '../../../backend/agents/core/roleArchetypeClassifier.js'
+import CrafturePoseMascot from '../common/CrafturePoseMascot'
 
 function extractTopSkills(reportData, fallback = 'Core Tech Stack') {
   const resumeAgent = reportData?.resume_agent
@@ -49,7 +50,11 @@ const DEFAULT_DAY_TAGS = [
   'Funnel Calibration',
 ]
 
-function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
+function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId, funnelRates = {}) {
+  const currentCallback = Number(funnelRates.appToScreenRate) || 0
+  const currentScreenToTech = Number(funnelRates.screenToTechRate) || 0
+  const targetCallbackRate = Math.min(25, Math.max(5, Math.ceil(currentCallback * 1.35)))
+  const targetScreenToTech = Math.min(85, Math.max(40, Math.ceil(currentScreenToTech * 1.25)))
   if (effectivePhaseId === 1) {
     return [
       {
@@ -106,7 +111,7 @@ function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
         tag: 'Funnel Calibration',
         action: 'Analyze Week 1 response rates, log profile views, and prepare follow-up touches for submitted applications.',
         deliverable: 'Weekly conversion report & 7-day outbound follow-up calendar.',
-        metricTarget: 'Screen callback rate target >= 5.0%',
+        metricTarget: `Screen callback rate target >= ${targetCallbackRate}%`,
       },
     ]
   } else if (effectivePhaseId === 2) {
@@ -224,7 +229,7 @@ function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId) {
         tag: 'Panel Readiness',
         action: 'Synthesize all technical mock feedback into a final pre-interview checklist for upcoming loops.',
         deliverable: 'Pre-interview technical readiness checklist.',
-        metricTarget: 'Technical round pass rate target >= 40%',
+        metricTarget: `Technical round pass rate target >= ${targetScreenToTech}%`,
       },
     ]
   }
@@ -252,7 +257,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       ? reportData.sevenDayQuickPlan
       : (Array.isArray(reportData?.action_plan?.sevenDayQuickPlan) && reportData.action_plan.sevenDayQuickPlan.length > 0)
       ? reportData.action_plan.sevenDayQuickPlan
-      : getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId)
+      : getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId, reportData?.funnel_stages?.rates || {})
 
   // -------------------------------------------------------------
   // Dynamic 30-60-90 Day Milestone Pathway
@@ -432,19 +437,29 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     >
       {/* Section Header with Segmented View Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--border-default)] pb-4">
-        <div>
-          <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
-            Action roadmap &amp; milestones
-          </span>
-          <h2
-            className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
-            style={{ fontFamily: 'var(--font-head)' }}
-          >
-            Action Plan &amp; Milestone Pathway
-          </h2>
-          <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
-            Calibrated to {targetRole} hiring expectations and conversion bottlenecks
-          </p>
+        <div className="flex items-center gap-3.5">
+          <CrafturePoseMascot
+            pose={activeView === '7day' ? 'clipboard' : 'roadmap'}
+            size={74}
+            animation="float"
+            showShadow={false}
+            className="shrink-0 hidden sm:inline-flex"
+            alt={activeView === '7day' ? 'Action Plan Mascot' : 'Roadmap Mascot'}
+          />
+          <div>
+            <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
+              Action roadmap &amp; milestones
+            </span>
+            <h2
+              className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight"
+              style={{ fontFamily: 'var(--font-head)' }}
+            >
+              Action Plan &amp; Milestone Pathway
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
+              Calibrated to {targetRole} hiring expectations and conversion bottlenecks
+            </p>
+          </div>
         </div>
 
         {/* Clean Segmented Switcher (Screen View) */}

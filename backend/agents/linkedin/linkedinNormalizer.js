@@ -344,7 +344,15 @@ export function normalizeLinkedInProfile(rawProfile = {}) {
 
   // Visual Branding
   const pictureUrl = extractImageUrl(
-    rawProfile.pictureUrl || rawProfile.profilePicture || rawProfile.avatar || rawProfile.photoUrl || rawProfile.displayPictureUrl || ''
+    rawProfile.pictureUrl ||
+      rawProfile.profilePic ||
+      rawProfile.profilePicHighQuality ||
+      rawProfile.profilePicture ||
+      rawProfile.avatar ||
+      rawProfile.photoUrl ||
+      rawProfile.displayPictureUrl ||
+      rawProfile.img ||
+      ''
   )
   const isGhostPicture = !pictureUrl || /ghost_person|ghost-person|default-avatar|no-photo|camera\.png/i.test(pictureUrl)
   const hasPicture = typeof rawProfile.hasPicture === 'boolean'
