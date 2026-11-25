@@ -80,6 +80,8 @@ router.get('/leads', listLeads)
 router.get('/leads/:id/dossier', getCandidateDossier)
 router.patch('/leads/:id', updateLeadStage)
 router.patch('/leads/:id/unlock', toggleLeadUnlock)
+router.post('/leads/:id/unlock', toggleLeadUnlock)
+router.post('/leads/:id/deliver', deliverFullReport)
 router.post('/leads/:id/deliver-full', deliverFullReport)
 router.post('/leads/:id/override-bullet', overrideBulletRewrite)
 

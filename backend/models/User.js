@@ -25,6 +25,18 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    unlockedAt: {
+      type: Date,
+      default: null,
+    },
+    callBooked: {
+      type: Boolean,
+      default: false,
+    },
+    deliveredAt: {
+      type: Date,
+      default: null,
+    },
     answers: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

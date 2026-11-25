@@ -644,15 +644,17 @@ export async function toggleLeadUnlock(req, res) {
 
     const nextUnlocked = typeof req.body?.reportUnlocked === 'boolean'
       ? req.body.reportUnlocked
-      : !Boolean(user.reportUnlocked)
+      : (req.method === 'POST' ? true : !Boolean(user.reportUnlocked))
 
     user.reportUnlocked = nextUnlocked
+    user.unlockedAt = nextUnlocked ? (user.unlockedAt || new Date()) : null
     await user.save()
 
     return res.status(200).json({
       success: true,
       userId: user._id,
       reportUnlocked: user.reportUnlocked,
+      unlockedAt: user.unlockedAt,
     })
   } catch (err) {
     console.error('[AdminLeadController] toggleLeadUnlock error:', err)
@@ -670,8 +672,11 @@ export async function deliverFullReport(req, res) {
       return res.status(404).json({ success: false, message: 'Candidate not found.' })
     }
 
-    // 1. Unlock report immediately
+    // 1. Unlock report immediately & stamp timestamps
+    const now = new Date()
     user.reportUnlocked = true
+    user.unlockedAt = user.unlockedAt || now
+    user.deliveredAt = now
     await user.save()
 
     const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '')
@@ -697,10 +702,50 @@ export async function deliverFullReport(req, res) {
       console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
     }
 
-    // 3. Send email with full report link & attached .docx if SMTP configured
+    // 3. Send email with full report link & attached .docx (Resend first if configured, else SMTP)
     let emailSent = false
     let emailError = null
-    if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
+        <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
+        <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
+        <p style="margin: 24px 0;">
+          <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            Open Full Career GPS Report
+          </a>
+        </p>
+        ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
+        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
+      </div>
+    `
+    if (process.env.RESEND_API_KEY && user.email) {
+      try {
+        const resendRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <onboarding@resend.dev>',
+            to: [user.email],
+            subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
+            html: htmlBody,
+            attachments: docxBuffer
+              ? [{ filename: docxFilename, content: docxBuffer.toString('base64') }]
+              : [],
+          }),
+          signal: AbortSignal.timeout(10000),
+        })
+        if (resendRes.ok) {
+          emailSent = true
+        } else {
+          emailError = `Resend HTTP ${resendRes.status}`
+        }
+      } catch (resendErr) {
+        emailError = resendErr.message
+      }
+    } else if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -708,26 +753,13 @@ export async function deliverFullReport(req, res) {
           secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
           auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
         })
-        const mailOptions = {
+        await transporter.sendMail({
           from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
           to: user.email,
           subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
-              <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
-              <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
-              <p style="margin: 24px 0;">
-                <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                  Open Full Career GPS Report
-                </a>
-              </p>
-              ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
-              <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
-            </div>
-          `,
+          html: htmlBody,
           attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
-        }
-        await transporter.sendMail(mailOptions)
+        })
         emailSent = true
       } catch (mailErr) {
         emailError = mailErr.message
@@ -744,8 +776,11 @@ export async function deliverFullReport(req, res) {
 
     return res.status(200).json({
       success: true,
+      delivered: true,
       userId: user._id,
       reportUnlocked: true,
+      unlockedAt: user.unlockedAt,
+      deliveredAt: user.deliveredAt,
       reportUrl,
       docxAttached: Boolean(docxBuffer),
       emailSent,

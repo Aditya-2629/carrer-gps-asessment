@@ -1141,15 +1141,16 @@ function ReportDashboardContent() {
 
   const bookingUrl = teaserConfig.callBookingUrl || reportData?.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
   const cleanWhatsappNum = String(teaserConfig.whatsappCtaNumber || reportData?.whatsappCtaNumber || '').replace(/\D/g, '')
+  const waText = `Hi Crafture team, I'm ${candidateName || 'a candidate'} targeting ${targetRole || 'my next role'} and would like to unlock my complete Career GPS Report & Updated ATS Resume.`
   const whatsappUnlockUrl = cleanWhatsappNum
-    ? `https://wa.me/${cleanWhatsappNum}?text=${encodeURIComponent(`Hi Crafture team, I'd like to unlock my full Career GPS Report (${candidateName || email || ''}).`)}`
-    : `https://wa.me/?text=${encodeURIComponent(`Hi Crafture team, I'd like to unlock my full Career GPS Report.`)}`
+    ? `https://wa.me/${cleanWhatsappNum}?text=${encodeURIComponent(waText)}`
+    : `https://wa.me/?text=${encodeURIComponent(waText)}`
 
   const TeaserBlurGate = ({ children, heightClass = 'max-h-[480px]' }) => {
     if (!isTeaserLocked) return children
     return (
       <div className={`relative ${heightClass} overflow-hidden rounded-2xl`}>
-        <div className="pointer-events-none select-none blur-[6px] opacity-65">
+        <div className="pointer-events-none select-none blur-md opacity-65">
           {children}
         </div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--surface-base)]/80 to-[var(--surface-base)]/95 flex items-center justify-center p-4 sm:p-6">
@@ -1162,10 +1163,10 @@ function ReportDashboardContent() {
                 50% Preview Mode
               </span>
               <h3 className="text-lg sm:text-xl font-bold text-[var(--text-primary)]">
-                Unlock Your Complete Career GPS Diagnosis
+                50% Preview — Unlock Your Complete Career GPS Report &amp; Updated ATS Resume
               </h3>
               <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                Book your free 1-on-1 strategy session or message our team on WhatsApp to unlock all line-by-line bullet rewrites, LinkedIn SEO prompts, and your full downloadable ATS report.
+                Book your free 1-on-1 strategy session or connect on WhatsApp to unlock all line-by-line bullet rewrites, LinkedIn SEO prompts, and your updated ATS resume.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
@@ -1177,7 +1178,7 @@ function ReportDashboardContent() {
                 className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
               >
                 <CalendarBlank size={16} weight="bold" />
-                <span>Book Free 1-on-1 Strategy Call</span>
+                <span>Book Free 1:1 Strategy Call</span>
               </a>
               <a
                 href={whatsappUnlockUrl}
@@ -1186,7 +1187,7 @@ function ReportDashboardContent() {
                 className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
               >
                 <WhatsappLogo size={17} weight="fill" />
-                <span>Unlock via WhatsApp</span>
+                <span>Connect on WhatsApp</span>
               </a>
             </div>
           </div>
