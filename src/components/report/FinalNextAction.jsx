@@ -6,6 +6,7 @@ import {
   ShieldCheck,
   Briefcase,
   CheckCircle,
+  WhatsappLogo,
 } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
@@ -20,7 +21,15 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function FinalNextAction({ coachData, reportData, onBookCall, isTeaserLocked = false }) {
+export default function FinalNextAction({
+  coachData,
+  reportData,
+  onBookCall,
+  isTeaserLocked = false,
+  bookingUrl = '',
+  whatsappNumber = '',
+  healthScore = null,
+}) {
   const rawTargetRole =
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
@@ -149,35 +158,69 @@ export default function FinalNextAction({ coachData, reportData, onBookCall, isT
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <a
-                href="https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe"
+                href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
               >
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
                 <ArrowRight size={14} weight="bold" />
               </a>
 
-              {!isTeaserLocked && (
-                <button
-                  type="button"
-                  disabled={isDownloading}
-                  onClick={async () => {
-                    setIsDownloading(true)
-                    try {
-                      await downloadFullVisualReport(reportData, candidateName)
-                    } finally {
-                      setIsDownloading(false)
-                    }
-                  }}
-                  className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-                >
-                  <DownloadSimple size={18} weight="bold" />
-                  <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
-                </button>
-              )}
+              {(() => {
+                const rawScore =
+                  healthScore ??
+                  reportData?.career_health_score ??
+                  reportData?.overallScore ??
+                  72
+                const cleanWa = String(
+                  whatsappNumber || reportData?.whatsappCtaNumber || ''
+                ).replace(/\D/g, '')
+                const waMessage = `Hi Crafture team, I'm ${candidateName} targeting ${targetRole} (Career Health Score: ${rawScore}/100) and would like to unlock my complete Career GPS Report.`
+                const waHref = cleanWa
+                  ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMessage)}`
+                  : `https://wa.me/?text=${encodeURIComponent(waMessage)}`
+                return (
+                  <a
+                    href={waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-colors duration-150 no-underline cursor-pointer"
+                  >
+                    <WhatsappLogo size={18} weight="fill" />
+                    <span>Connect on WhatsApp</span>
+                  </a>
+                )
+              })()}
+
+              <button
+                type="button"
+                disabled={isDownloading}
+                onClick={async () => {
+                  setIsDownloading(true)
+                  try {
+                    const pdfPayload =
+                      isTeaserLocked && !reportData?.__teaserRedacted
+                        ? { ...reportData, __teaserRedacted: true }
+                        : reportData
+                    await downloadFullVisualReport(pdfPayload, candidateName)
+                  } finally {
+                    setIsDownloading(false)
+                  }
+                }}
+                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <DownloadSimple size={18} weight="bold" />
+                <span>
+                  {isDownloading
+                    ? 'Generating PDF...'
+                    : isTeaserLocked
+                    ? 'Download Preview Report (PDF)'
+                    : 'Download Full Report (PDF)'}
+                </span>
+              </button>
             </div>
           </div>
 

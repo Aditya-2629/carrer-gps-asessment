@@ -598,33 +598,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               <ShieldCheck size={12} weight="fill" />
               Recruiter-Verified
             </span>
-
-            {/* Prominent Tailored .docx Download Button */}
-            <button
-              type="button"
-              onClick={() => {
-                if (isTeaserLocked) {
-                  document.getElementById('next-action')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  setToastMsg('Unlock your tailored ATS .docx resume in your free 15-min strategy call.')
-                  return
-                }
-                handleDownloadDocx()
-              }}
-              disabled={isDownloadingDocx}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60 ${
-                isTeaserLocked
-                  ? 'bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)] hover:border-[var(--primary)]'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-              }`}
-            >
-              {isTeaserLocked ? <LockKey size={13} weight="bold" className="text-[var(--primary)]" /> : <DownloadSimple size={13} weight="bold" />}
-              <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
-              {isTeaserLocked && (
-                <span className="px-1.5 py-0.5 rounded bg-[var(--surface-card)] border border-[var(--border-default)] text-xs font-medium text-[var(--text-muted)]">
-                  Call
-                </span>
-              )}
-            </button>
           </div>
         </div>
       )}

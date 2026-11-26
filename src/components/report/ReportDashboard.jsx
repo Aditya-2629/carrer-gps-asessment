@@ -1219,13 +1219,13 @@ function ReportDashboardContent({ sharedReportId = null }) {
   }
 
   const handleDownloadPdf = async () => {
-    if (isTeaserLocked) {
-      showToast('Unlock your full report via strategy call or WhatsApp to download the complete PDF.', 'info')
-      return
-    }
     setIsDownloadingPdf(true)
     try {
-      await downloadFullVisualReport(reportData, candidateName)
+      const pdfPayload =
+        isTeaserLocked && !reportData?.__teaserRedacted
+          ? { ...reportData, __teaserRedacted: true }
+          : reportData
+      await downloadFullVisualReport(pdfPayload, candidateName)
     } finally {
       setIsDownloadingPdf(false)
     }
@@ -1256,29 +1256,27 @@ function ReportDashboardContent({ sharedReportId = null }) {
           </div>
 
           <div className="flex items-center gap-2">
-            {!isTeaserLocked && (
-              <button
-                onClick={handleDownloadPdf}
-                disabled={isDownloadingPdf}
-                className="min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
-                title="Download full diagnostic report as PDF"
-              >
-                <DownloadSimple size={14} weight="bold" />
-                <span>
-                  {isDownloadingPdf ? (
-                    <>
-                      <span className="sm:hidden">PDF...</span>
-                      <span className="hidden sm:inline">Generating PDF...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="sm:hidden">PDF</span>
-                      <span className="hidden sm:inline">Download Full Report</span>
-                    </>
-                  )}
-                </span>
-              </button>
-            )}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-xs transition-opacity flex items-center gap-1.5 cursor-pointer"
+              title={isTeaserLocked ? 'Download preview diagnostic report as PDF' : 'Download full diagnostic report as PDF'}
+            >
+              <DownloadSimple size={14} weight="bold" />
+              <span>
+                {isDownloadingPdf ? (
+                  <>
+                    <span className="sm:hidden">PDF...</span>
+                    <span className="hidden sm:inline">Generating PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="sm:hidden">PDF</span>
+                    <span className="hidden sm:inline">{isTeaserLocked ? 'Download Preview PDF' : 'Download Full Report'}</span>
+                  </>
+                )}
+              </span>
+            </button>
 
             <button
               onClick={toggleTheme}
@@ -1403,6 +1401,9 @@ function ReportDashboardContent({ sharedReportId = null }) {
             reportData={reportData}
             onBookCall={handleBookCall}
             isTeaserLocked={isTeaserLocked}
+            bookingUrl={bookingUrl}
+            whatsappNumber={teaserConfig.whatsappCtaNumber}
+            healthScore={healthScore}
           />
 
           {/* Interactive Bottom Section Navigation Controls */}

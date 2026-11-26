@@ -16,7 +16,7 @@ import feedbackRoutes from './routes/feedbackRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
 import { getGlobalSettings } from './models/AppSettings.js'
 import User from './models/User.js'
-import { getPublicReportById } from './controllers/assessmentController.js'
+import { getPublicReportById, getPublicReportPdfById } from './controllers/assessmentController.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
@@ -180,6 +180,7 @@ app.get('/api/settings/public', async (_req, res) => {
 
 // Public Shareable Report Route (zero extra DB storage; reads from existing User/Assessment record)
 app.get('/api/report/:id', getPublicReportById)
+app.get('/api/report/:id/pdf', getPublicReportPdfById)
 
 // Booking Webhook Auto-Sync (SuperProfile / Calendly)
 app.post('/api/webhooks/booking', async (req, res) => {

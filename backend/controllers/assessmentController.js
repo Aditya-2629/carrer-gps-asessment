@@ -1222,6 +1222,64 @@ export const getPublicReportById = async (req, res) => {
   }
 }
 
+/**
+ * GET /api/report/:id/pdf
+ * Public candidate PDF download — mirrors teaser lock state (redacted unless unlocked or teaser off).
+ */
+export const getPublicReportPdfById = async (req, res) => {
+  const { id } = req.params
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: 'Report not found or invalid ID.' })
+  }
+
+  try {
+    const [user, settings] = await Promise.all([
+      User.findById(id)
+        .select('name targetRole answers aiReport reportUnlocked resumeJson')
+        .lean(),
+      getGlobalSettings().catch(() => ({ teaserModeEnabled: false })),
+    ])
+
+    if (!user || !user.aiReport) {
+      return res.status(404).json({ success: false, message: 'Report not found or expired.' })
+    }
+
+    const candidateName =
+      user.name ||
+      user.answers?.name ||
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      'Candidate'
+
+    const assessment = {
+      ...user.aiReport,
+      userId: String(user._id),
+      candidateName: user.aiReport?.candidateName || candidateName,
+      targetRole: user.aiReport?.targetRole || user.targetRole || user.answers?.targetRole || '',
+      resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+    }
+
+    const safeAssessment = redactReportForTeaser(assessment, {
+      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
+      reportUnlocked: Boolean(user.reportUnlocked),
+    })
+
+    const { renderCareerReportPdfBuffer } = await import('../utils/renderCareerReportPdf.js')
+    const pdfBuffer = await renderCareerReportPdfBuffer(safeAssessment)
+    if (!pdfBuffer) {
+      return res.status(500).json({ success: false, message: 'Failed to render PDF report.' })
+    }
+
+    const safeName = String(candidateName).trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '') || 'Candidate'
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="Career_GPS_Report_${safeName}.pdf"`)
+    return res.status(200).send(pdfBuffer)
+  } catch (error) {
+    console.error('[getPublicReportPdfById] Error:', error)
+    return res.status(500).json({ success: false, message: 'Failed to generate PDF report.' })
+  }
+}
+
 export const downloadAtsResumeDocx = async (req, res) => {
   try {
     const rawUserId = req.params?.userId || req.query?.userId || req.body?.userId

@@ -725,13 +725,22 @@ export default function CareerReportPdf({ reportData = {} }) {
   )
   const verifiedKeywords = rawVerified.slice(0, 24).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
 
+  const isTeaserRedacted = Boolean(reportData?.__teaserRedacted)
+
   const rawSkillsOnly = (
     (Array.isArray(kwData.skillsOnlyUnverified) && kwData.skillsOnlyUnverified.length > 0 && kwData.skillsOnlyUnverified) ||
     (Array.isArray(kwData.skillsOnly) && kwData.skillsOnly.length > 0 && kwData.skillsOnly) ||
     (Array.isArray(reportData?.skills_only) && reportData.skills_only.length > 0 && reportData.skills_only) ||
     []
   )
-  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
+  const lockedSkillsOnlyCount =
+    rawSkillsOnly.filter((k) => k && typeof k === 'object' && k.locked).length ||
+    Number(kwData.lockedSkillsOnlyCount || 0)
+  const skillsOnlyKeywords = rawSkillsOnly
+    .filter((k) => !(k && typeof k === 'object' && k.locked))
+    .slice(0, 20)
+    .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
+    .filter(Boolean)
 
   const rawMissing = (
     (Array.isArray(kwData.missingFromResume) && kwData.missingFromResume.length > 0 && kwData.missingFromResume) ||
@@ -742,7 +751,14 @@ export default function CareerReportPdf({ reportData = {} }) {
     (Array.isArray(resumeAgent?.missingTargetKeywords) && resumeAgent.missingTargetKeywords.length > 0 && resumeAgent.missingTargetKeywords) ||
     []
   )
-  const missingKeywords = rawMissing.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
+  const lockedMissingCount =
+    rawMissing.filter((k) => k && typeof k === 'object' && k.locked).length ||
+    Number(kwData.lockedMissingCount || 0)
+  const missingKeywords = rawMissing
+    .filter((k) => !(k && typeof k === 'object' && k.locked))
+    .slice(0, 20)
+    .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
+    .filter(Boolean)
 
   // Bullet Rewrites: Un-capped dynamic aggregation across all sources (Zero Hardcoded Dummy Arrays)
   const candidateBulletSources = [
@@ -791,6 +807,10 @@ export default function CareerReportPdf({ reportData = {} }) {
       })
     }
   }
+
+  const lockedBulletsCount = Array.isArray(resumeDashboard?.bulletAudit)
+    ? resumeDashboard.bulletAudit.filter((b) => b?.locked).length
+    : candidateBulletSources.filter((b) => b?.locked).length
 
   const bulletRewrites = Array.from(bulletMap.values())
 
@@ -1357,12 +1377,20 @@ export default function CareerReportPdf({ reportData = {} }) {
                   </Text>
                   <Text style={styles.tagNeutral}>PHASE 1</Text>
                 </View>
-                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-                  {safeStr(pa.title)}
-                </Text>
-                <Text style={{ fontSize: 7, color: '#334155', lineHeight: 1.25 }}>
-                  {safeStr(pa.action || pa.description)}
-                </Text>
+                {pa?.locked ? (
+                  <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                    Locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                      {safeStr(pa.title)}
+                    </Text>
+                    <Text style={{ fontSize: 7, color: '#334155', lineHeight: 1.25 }}>
+                      {safeStr(pa.action || pa.description)}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
           ))}
@@ -1375,7 +1403,17 @@ export default function CareerReportPdf({ reportData = {} }) {
 
         {/* 7-Day Quick-Win Plan */}
         <View style={{ marginBottom: 6 }}>
-          {sevenDayTasks.map((t, idx) => (
+          {(isTeaserRedacted || sevenDayTasks.some((t) => t?.locked)) ? (
+            <View style={styles.card} wrap={false}>
+              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                Locked - Book Free 1:1 Strategy Call to Unlock
+              </Text>
+              <Text style={{ fontSize: 7, color: '#64748B' }}>
+                Your personalized 7-day sprint checklist and 30/60/90-day milestone roadmap unlock after your strategy call.
+              </Text>
+            </View>
+          ) : (
+            sevenDayTasks.map((t, idx) => (
             <View key={idx} style={styles.dayCard} wrap={false}>
               <View style={styles.rowBetween}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, paddingRight: 6 }}>
@@ -1402,7 +1440,8 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </Text>
               )}
             </View>
-          ))}
+          ))
+          )}
         </View>
 
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
@@ -1572,6 +1611,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                 ) : (
                   <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>None listed exclusively in skills section.</Text>
                 )}
+                {lockedSkillsOnlyCount > 0 && (
+                  <Text style={{ fontSize: 6.2, color: '#64748B', fontStyle: 'italic' }}>
+                    +{lockedSkillsOnlyCount} more locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
+                )}
               </View>
             </View>
           </View>
@@ -1580,7 +1624,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
                 <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>MISSING TARGET KEYWORDS (UNPROVEN)</Text>
-                <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
+                <Text style={styles.tagCritical}>{missingKeywords.length + lockedMissingCount}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
                 {missingKeywords.length > 0 ? (
@@ -1589,6 +1633,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                   ))
                 ) : (
                   <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No missing critical skills detected.</Text>
+                )}
+                {lockedMissingCount > 0 && (
+                  <Text style={{ fontSize: 6.2, color: '#64748B', fontStyle: 'italic' }}>
+                    +{lockedMissingCount} more locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
                 )}
               </View>
             </View>
@@ -1613,7 +1662,8 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {bulletRewrites.length > 0 ? (
-          bulletRewrites.map((b, idx) => (
+          <>
+            {bulletRewrites.map((b, idx) => (
             <View key={idx} style={styles.bulletBentoCard} wrap={false}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
                 <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
@@ -1669,7 +1719,18 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </View>
               )}
             </View>
-          ))
+            ))}
+            {lockedBulletsCount > 0 && (
+              <View style={styles.card} wrap={false}>
+                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                  Locked - Book Free 1:1 Strategy Call to Unlock ({lockedBulletsCount} more bullet audits &amp; rewrites)
+                </Text>
+                <Text style={{ fontSize: 7, color: '#64748B' }}>
+                  Remaining hurting bullet diagnostics and Google XYZ rewrites unlock after your 1-on-1 strategy session.
+                </Text>
+              </View>
+            )}
+          </>
         ) : (
           <View style={[styles.card, { padding: 12, alignItems: 'center' }]} wrap={false}>
             <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
@@ -1727,6 +1788,18 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {linkedinHeadlines.map((h, idx) => {
+          if (h?.locked) {
+            return (
+              <View key={idx} style={styles.card} wrap={false}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
+                  Option 0{idx + 1} • Locked
+                </Text>
+                <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                  Locked - Book Free 1:1 Strategy Call to Unlock
+                </Text>
+              </View>
+            )
+          }
           const headlineStr = safeStr(h.headline)
           return (
             <View key={idx} style={styles.card} wrap={false}>
@@ -1767,25 +1840,36 @@ export default function CareerReportPdf({ reportData = {} }) {
             <Text style={styles.aboutPillarText}>{journeyText}</Text>
           </View>
 
-          {/* Legacy Audience block if present in older saved report */}
-          {Boolean(legacyAudienceText) && (
-            <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
-              <Text style={styles.aboutPillarLabel}>TARGET AUDIENCE & PROBLEM</Text>
-              <Text style={styles.aboutPillarText}>{legacyAudienceText}</Text>
+          {(aboutRewrite?.locked || linkedinAgent.optimizations?.aboutRewriteLocked) ? (
+            <View style={styles.aboutPillar}>
+              <Text style={styles.aboutPillarLabel}>2 & 3. SPECIALIZATION, PROOF & CTA</Text>
+              <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                Locked - Book Free 1:1 Strategy Call to Unlock the remaining About rewrite & Experience upgrades
+              </Text>
             </View>
+          ) : (
+            <>
+              {/* Legacy Audience block if present in older saved report */}
+              {Boolean(legacyAudienceText) && (
+                <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+                  <Text style={styles.aboutPillarLabel}>TARGET AUDIENCE & PROBLEM</Text>
+                  <Text style={styles.aboutPillarText}>{legacyAudienceText}</Text>
+                </View>
+              )}
+
+              {/* Paragraph 2 */}
+              <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+                <Text style={styles.aboutPillarLabel}>2. SPECIALIZATION & CONCRETE PROOF</Text>
+                <Text style={styles.aboutPillarText}>{specializationText}</Text>
+              </View>
+
+              {/* Paragraph 3 */}
+              <View style={[styles.aboutPillar, { marginBottom: aboutKeywords.length > 0 ? 3 : 0 }]}>
+                <Text style={styles.aboutPillarLabel}>3. EDUCATION, DIRECTION & NETWORKING CTA</Text>
+                <Text style={styles.aboutPillarText}>{networkingText}</Text>
+              </View>
+            </>
           )}
-
-          {/* Paragraph 2 */}
-          <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
-            <Text style={styles.aboutPillarLabel}>2. SPECIALIZATION & CONCRETE PROOF</Text>
-            <Text style={styles.aboutPillarText}>{specializationText}</Text>
-          </View>
-
-          {/* Paragraph 3 */}
-          <View style={[styles.aboutPillar, { marginBottom: aboutKeywords.length > 0 ? 3 : 0 }]}>
-            <Text style={styles.aboutPillarLabel}>3. EDUCATION, DIRECTION & NETWORKING CTA</Text>
-            <Text style={styles.aboutPillarText}>{networkingText}</Text>
-          </View>
 
           {/* Keywords Weaved Footer if present */}
           {aboutKeywords.length > 0 && (

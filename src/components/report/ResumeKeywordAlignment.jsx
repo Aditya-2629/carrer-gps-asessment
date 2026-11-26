@@ -491,55 +491,6 @@ export default function ResumeKeywordAlignment({
           </div>
         </div>
       )}
-
-      {/* ── Section 4: Single Unified Resume Download Card (Always Visible) ── */}
-      <div className="p-5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-card)] border border-[var(--border-default)]">
-              Ready-to-Apply Asset
-            </span>
-            <span className="text-xs font-semibold text-slate-900 dark:text-white">
-              {selectedSkills.size > 0
-                ? `${selectedSkills.size} Selected Target Skills Woven into Experience`
-                : 'Harvard-ATS Single-Column Format (.docx)'}
-            </span>
-          </div>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-            {selectedSkills.size > 0
-              ? `Estimated ATS Match Lift: +${liftPercent}% (from ${currentMatchRate}% ➔ ${projectedPercent}%) [${projectedCount}/${calculatedTotal} verified]`
-              : 'Formatted with woven missing keywords to pass Workday, Taleo, and Greenhouse ATS algorithms.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (isTeaserLocked) {
-              document.getElementById('next-action')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              if (typeof onToast === 'function') {
-                onToast('Unlock your tailored ATS .docx resume in your free 15-min strategy call.')
-              }
-              return
-            }
-            handleDownloadTailoredResume()
-          }}
-          disabled={isDownloading}
-          className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60 ${
-            isTeaserLocked
-              ? 'bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)] hover:border-[var(--primary)]'
-              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-          }`}
-        >
-          {isTeaserLocked ? <LockKey size={15} weight="bold" className="text-[var(--primary)]" /> : <DownloadSimple size={15} weight="bold" />}
-          <span>{isDownloading ? 'Building Tailored Resume...' : 'Download Tailored ATS Resume (.docx)'}</span>
-          {isTeaserLocked && (
-            <span className="px-1.5 py-0.5 rounded bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs font-medium text-[var(--text-muted)]">
-              Call
-            </span>
-          )}
-        </button>
-      </div>
     </div>
   )
 }
