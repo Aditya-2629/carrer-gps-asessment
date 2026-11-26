@@ -166,6 +166,13 @@ app.get('/api/settings/public', async (_req, res) => {
       ctaHeadline: s.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
       ctaSubtext: s.ctaSubtext || 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: s.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
+      communityUrl: s.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: s.socialLinks?.linkedin || 'https://www.linkedin.com/company/crafture',
+        instagram: s.socialLinks?.instagram || 'https://www.instagram.com/crafture.ai',
+        youtube: s.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
+        website: s.socialLinks?.website || 'https://crafture.in',
+      },
     })
   } catch {
     return res.status(200).json({
@@ -176,6 +183,13 @@ app.get('/api/settings/public', async (_req, res) => {
       ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
       ctaSubtext: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: 'Book Free 1:1 Strategy Call',
+      communityUrl: 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: 'https://www.linkedin.com/company/crafture',
+        instagram: 'https://www.instagram.com/crafture.ai',
+        youtube: 'https://www.youtube.com/@crafture',
+        website: 'https://crafture.in',
+      },
     })
   }
 })

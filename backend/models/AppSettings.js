@@ -64,6 +64,16 @@ const appSettingsSchema = new mongoose.Schema(
       type: String,
       default: 'Book Free 1:1 Strategy Call',
     },
+    communityUrl: {
+      type: String,
+      default: 'https://www.linkedin.com/company/crafture',
+    },
+    socialLinks: {
+      linkedin: { type: String, default: 'https://www.linkedin.com/company/crafture' },
+      instagram: { type: String, default: 'https://www.instagram.com/crafture.ai' },
+      youtube: { type: String, default: 'https://www.youtube.com/@crafture' },
+      website: { type: String, default: 'https://crafture.in' },
+    },
     aiPaused: {
       type: Boolean,
       default: false,

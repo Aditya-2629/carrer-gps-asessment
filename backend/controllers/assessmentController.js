@@ -1191,6 +1191,13 @@ export const getPublicReportById = async (req, res) => {
       resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
       callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      communityUrl: settings.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: settings.socialLinks?.linkedin || 'https://www.linkedin.com/company/crafture',
+        instagram: settings.socialLinks?.instagram || 'https://www.instagram.com/crafture.ai',
+        youtube: settings.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
+        website: settings.socialLinks?.website || 'https://crafture.in',
+      },
     }
 
     const reportUnlocked = Boolean(user.reportUnlocked)
@@ -1201,6 +1208,8 @@ export const getPublicReportById = async (req, res) => {
         settings.callBookingUrl ||
         'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: settings.whatsappCtaNumber || '',
+      communityUrl: settings.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: assessment.socialLinks,
       ctaHeadline:
         settings.ctaHeadline ||
         '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',

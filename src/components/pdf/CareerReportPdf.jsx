@@ -20,6 +20,7 @@ import {
 
 // Import Verified Brand & Scene Assets
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
+import craftureMascot from '../../assets/images/crafture-mascot.png'
 import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 import { getCareerHealthAxes, resolveFourPillars } from '../../lib/reportMetrics'
@@ -590,6 +591,46 @@ export default function CareerReportPdf({ reportData = {} }) {
     ? `https://wa.me/${cleanWaNum}?text=${encodeURIComponent(waMsg)}`
     : `https://wa.me/?text=${encodeURIComponent(waMsg)}`
 
+  const isReportUnlocked = Boolean(reportData?.reportUnlocked) && !Boolean(reportData?.__teaserRedacted)
+  const communityUrl =
+    reportData?.communityUrl ||
+    reportData?.teaserSettings?.communityUrl ||
+    'https://www.linkedin.com/company/crafture'
+  const socialLinks = {
+    linkedin: reportData?.socialLinks?.linkedin || reportData?.teaserSettings?.socialLinks?.linkedin || 'https://www.linkedin.com/company/crafture',
+    instagram: reportData?.socialLinks?.instagram || reportData?.teaserSettings?.socialLinks?.instagram || 'https://www.instagram.com/crafture.ai',
+    youtube: reportData?.socialLinks?.youtube || reportData?.teaserSettings?.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
+    website: reportData?.socialLinks?.website || reportData?.teaserSettings?.socialLinks?.website || 'https://crafture.in',
+  }
+  const rawPhotoCandidate =
+    reportData?.resolvedLinkedinPhotoDataUri ||
+    reportData?.linkedin_agent?.profilePic ||
+    reportData?.linkedin_agent?.avatarUrl ||
+    reportData?.linkedinActivityData?.profilePic ||
+    reportData?.linkedinActivityData?.avatarUrl ||
+    null
+  const safeLinkedinPhoto =
+    typeof rawPhotoCandidate === 'string' &&
+    (/^data:image\/(png|jpeg|jpg);base64,/i.test(rawPhotoCandidate) ||
+      /^https?:\/\/.+\.(png|jpe?g)(\?.*)?$/i.test(rawPhotoCandidate))
+      ? rawPhotoCandidate
+      : null
+  const linkedinProfileUrl =
+    reportData?.linkedin_agent?.profileUrl ||
+    reportData?.user_answers?.linkedin ||
+    reportData?.linkedinUrl ||
+    ''
+  const linkedinScoreVal =
+    reportData?.linkedin_agent?.score ??
+    reportData?.linkedin_score ??
+    null
+  const candidateInitials = String(candidateName || 'C')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || 'C'
+
   // Top 3 Prioritized Actions
   const priorityActions = Array.isArray(reportData?.top_priorities) && reportData.top_priorities.length > 0
     ? reportData.top_priorities.slice(0, 3)
@@ -997,64 +1038,73 @@ export default function CareerReportPdf({ reportData = {} }) {
             ───────────────────────────────────────────────────────────── */}
         {/* Unified Editorial Hero Banner */}
         <EditorialBanner imageSrc={pdfHeroBanner}>
-          {/* Top Brand Strip */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
-            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-              CRAFTURE CAREER GPS • EXECUTIVE REPORT
-            </Text>
-          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              {/* Top Brand Strip */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
+                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                  CRAFTURE CAREER GPS • EXECUTIVE REPORT
+                </Text>
+              </View>
 
-          {/* Candidate Name */}
-          <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 2 }}>
-            {candidateName}
-          </Text>
-
-          {/* Target Role & Meta */}
-          <Text style={{ fontSize: 7.8, color: '#475569' }}>
-            {targetRole} • Senior Engineering • {reportDate}
-          </Text>
-
-          {/* 1-Line Diagnostic Summary */}
-          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3 }}>
-            Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
-          </Text>
-
-          {/* Fixed Non-Wrapping Health Index Pill */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 9,
-              alignSelf: 'flex-start',
-              backgroundColor: '#F8FAFC',
-              borderWidth: 1,
-              borderColor: '#E2E8F0',
-              borderRadius: 7,
-              paddingVertical: 5,
-              paddingHorizontal: 10,
-              marginTop: 4,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12.5,
-                fontFamily: 'Helvetica-Bold',
-                color: '#0F172A',
-                flexShrink: 0,
-              }}
-            >
-              {overallScore}/100
-            </Text>
-            <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
-            <View style={{ flexDirection: 'column' }}>
-              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
-                HEALTH INDEX
+              {/* Candidate Name */}
+              <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 2 }}>
+                {candidateName}
               </Text>
-              <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
-                {scoreLabel} Stage
+
+              {/* Target Role & Meta */}
+              <Text style={{ fontSize: 7.8, color: '#475569' }}>
+                {targetRole} • Senior Engineering • {reportDate}
               </Text>
+
+              {/* 1-Line Diagnostic Summary */}
+              <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3 }}>
+                Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
+              </Text>
+
+              {/* Fixed Non-Wrapping Health Index Pill */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 9,
+                  alignSelf: 'flex-start',
+                  backgroundColor: '#F8FAFC',
+                  borderWidth: 1,
+                  borderColor: '#E2E8F0',
+                  borderRadius: 7,
+                  paddingVertical: 5,
+                  paddingHorizontal: 10,
+                  marginTop: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12.5,
+                    fontFamily: 'Helvetica-Bold',
+                    color: '#0F172A',
+                    flexShrink: 0,
+                  }}
+                >
+                  {overallScore}/100
+                </Text>
+                <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
+                <View style={{ flexDirection: 'column' }}>
+                  <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
+                    HEALTH INDEX
+                  </Text>
+                  <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
+                    {scoreLabel} Stage
+                  </Text>
+                </View>
+              </View>
             </View>
+
+            <Image
+              src={craftureMascot}
+              style={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
+            />
           </View>
         </EditorialBanner>
 
@@ -1848,6 +1898,54 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
         </View>
 
+        {/* Candidate LinkedIn Identity & Score Header */}
+        <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }]} wrap={false}>
+          {safeLinkedinPhoto ? (
+            <Image
+              src={safeLinkedinPhoto}
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#E2E8F0', objectFit: 'cover' }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: '#EEF2FF',
+                borderWidth: 1,
+                borderColor: '#C7D2FE',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                {candidateInitials}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={styles.rowBetween}>
+              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                {candidateName}
+              </Text>
+              {linkedinScoreVal != null && (
+                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                  LinkedIn Score: {Math.round(Number(linkedinScoreVal))}/100
+                </Text>
+              )}
+            </View>
+            {linkedinProfileUrl ? (
+              <Link src={linkedinProfileUrl} style={{ textDecoration: 'none', marginTop: 2 }}>
+                <Text style={{ fontSize: 7, color: '#6366F1' }}>{safeStr(linkedinProfileUrl)}</Text>
+              </Link>
+            ) : (
+              <Text style={{ fontSize: 7, color: '#64748B', marginTop: 2 }}>
+                Target Positioning: {targetRole}
+              </Text>
+            )}
+          </View>
+        </View>
+
         <View style={styles.card}>
           {Object.entries(linkedinAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
@@ -2051,57 +2149,142 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 7. Final Page 1-on-1 Strategy Call CTA Banner */}
-        <EditorialBanner
-          imageSrc={pdfCtaBanner}
-          style={{ marginTop: 8 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-              NEXT STEP • LIVE EXECUTION BRIDGE
+        {/* 7. Dedicated Final Conversion, Community & Socials Page */}
+        <View break style={{ paddingTop: 10 }}>
+          <EditorialBanner imageSrc={pdfCtaBanner}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
+                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                    {isReportUnlocked ? 'FULL REPORT UNLOCKED • NEXT STEPS' : 'EXECUTIVE PREVIEW • UNLOCK FULL ROADMAP'}
+                  </Text>
+                </View>
+
+                <Text style={{ fontSize: 13.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 4 }}>
+                  {isReportUnlocked
+                    ? `Ready to Execute Your ${targetRole} Transition Live?`
+                    : `Unlock Your Complete Career GPS Report & Updated ATS Resume`}
+                </Text>
+
+                <Text style={{ fontSize: 8, color: '#334155', lineHeight: 1.38, marginTop: 5 }}>
+                  {isReportUnlocked
+                    ? `Your full Career GPS diagnostic is unlocked. Book your complimentary 1:1 strategy session to implement your 30/60/90 roadmap live, access free career tools, and connect with our tech community.`
+                    : `This is a short executive preview. To unlock your complete bottleneck breakdown, full 7-day & 30/60/90 roadmap, rewritten resume bullets, free career tools & personalized guidance — book your free 1:1 strategy call.`}
+                </Text>
+              </View>
+
+              <Image
+                src={craftureMascot}
+                style={{ width: 72, height: 72, objectFit: 'contain', flexShrink: 0 }}
+              />
+            </View>
+
+            {/* Primary Action Row */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <Link
+                src={bookingUrl}
+                style={{
+                  backgroundColor: '#6366F1',
+                  borderRadius: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 11,
+                  textDecoration: 'none',
+                }}
+              >
+                <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                  Book Free 1-on-1 Strategy Call {'->'}
+                </Text>
+              </Link>
+
+              <Link
+                src={whatsappUrl}
+                style={{
+                  backgroundColor: '#059669',
+                  borderRadius: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 11,
+                  textDecoration: 'none',
+                }}
+              >
+                <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                  Connect on WhatsApp
+                </Text>
+              </Link>
+
+              <Link
+                src={communityUrl}
+                style={{
+                  backgroundColor: '#0F172A',
+                  borderRadius: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 11,
+                  textDecoration: 'none',
+                }}
+              >
+                <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                  Join Our Community {'->'}
+                </Text>
+              </Link>
+            </View>
+          </EditorialBanner>
+
+          {/* Free Career Resources & Community Card */}
+          <View style={[styles.card, { marginTop: 12, padding: 10 }]} wrap={false}>
+            <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 4 }}>
+              What You Get on Your Free 1:1 Strategy Session & Community Access
+            </Text>
+            <Text style={{ fontSize: 7.4, color: '#475569', lineHeight: 1.4 }}>
+              • Full line-by-line ATS bullet rewrites &amp; recruiter keyword calibration for {targetRole}{'\n'}
+              • Complete 7-Day Rapid Triage &amp; 30/60/90-Day Milestone Execution Roadmap{'\n'}
+              • Free career tools, interview prep frameworks &amp; peer network of tech professionals
             </Text>
           </View>
 
-          <Text style={{ fontSize: 12, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 2 }}>
-            Stuck at Phase {currentPhaseId} ({currentPhaseShort})? Fix It Live in a 1-on-1 Strategy Call
-          </Text>
-
-          <Text style={{ fontSize: 7.3, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
-            Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
-          </Text>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <Link
-              src={bookingUrl}
-              style={{
-                backgroundColor: '#6366F1',
-                borderRadius: 6,
-                paddingVertical: 6,
-                paddingHorizontal: 9,
-                textDecoration: 'none',
-              }}
-            >
-              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
-                Book Free 1-on-1 Strategy Call {'->'}
+          {/* Company Social Media Footer */}
+          <View
+            style={{
+              marginTop: 14,
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: '#E2E8F0',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+            wrap={false}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Image src={craftureLogo} style={{ width: 14, height: 14, borderRadius: 3 }} />
+              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#334155' }}>
+                Crafture Career GPS
               </Text>
-            </Link>
+            </View>
 
-            <Link
-              src={whatsappUrl}
-              style={{
-                backgroundColor: '#059669',
-                borderRadius: 6,
-                paddingVertical: 6,
-                paddingHorizontal: 9,
-                textDecoration: 'none',
-              }}
-            >
-              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
-                Connect on WhatsApp
-              </Text>
-            </Link>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Link src={socialLinks.linkedin} style={{ textDecoration: 'none' }}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#0A66C2' }}>
+                  in LinkedIn
+                </Text>
+              </Link>
+              <Link src={socialLinks.instagram} style={{ textDecoration: 'none' }}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#E1306C' }}>
+                  IG Instagram
+                </Text>
+              </Link>
+              <Link src={socialLinks.youtube} style={{ textDecoration: 'none' }}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>
+                  YT YouTube
+                </Text>
+              </Link>
+              <Link src={socialLinks.website} style={{ textDecoration: 'none' }}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                  Website
+                </Text>
+              </Link>
+            </View>
           </View>
-        </EditorialBanner>
+        </View>
       </Page>
     </Document>
   )
