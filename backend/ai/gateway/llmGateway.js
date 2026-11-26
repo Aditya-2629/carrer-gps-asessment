@@ -484,6 +484,8 @@ export class LLMGateway {
             promptTokens: result.tokens?.prompt || 0,
             completionTokens: result.tokens?.completion || 0,
             directCost: result.tokens?.cost ?? result.usage?.cost ?? null,
+            costSource: result.costSource ?? null,
+            costError: result.costError ?? null,
           })
         } catch (_costErr) {
           // Graceful handling: never break generation

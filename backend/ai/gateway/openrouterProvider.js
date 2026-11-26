@@ -130,6 +130,46 @@ export class OpenRouterProvider {
         const text = data.choices?.[0]?.message?.content || ''
         const finishReason = data.choices?.[0]?.finish_reason || 'stop'
 
+        let exactCost = data.usage?.cost != null ? Number(data.usage.cost) : null
+        let costSource = Number.isFinite(exactCost) && exactCost >= 0 ? 'openrouter_actual' : null
+        let costError = null
+
+        if (costSource === null && data?.id) {
+          await new Promise((resolve) => setTimeout(resolve, 250))
+          try {
+            const genRes = await fetch(`https://openrouter.ai/api/v1/generation?id=${encodeURIComponent(data.id)}`, {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${keyInUse}` },
+              signal: AbortSignal.timeout(4000),
+            })
+            if (genRes.ok) {
+              const genJson = await genRes.json().catch(() => ({}))
+              const totalCost = genJson?.data?.total_cost
+              if (totalCost != null && Number.isFinite(Number(totalCost)) && Number(totalCost) >= 0) {
+                exactCost = Number(totalCost)
+                costSource = 'openrouter_generation_api'
+              } else {
+                costSource = 'openrouter_cost_error'
+                costError = 'total_cost missing in OpenRouter /generation response'
+              }
+            } else {
+              costSource = 'openrouter_cost_error'
+              costError = `OpenRouter /generation returned HTTP ${genRes.status}`
+            }
+          } catch (genErr) {
+            costSource = 'openrouter_cost_error'
+            costError = `OpenRouter /generation lookup failed: ${genErr.message}`
+          }
+        } else if (costSource === null) {
+          costSource = 'openrouter_cost_error'
+          costError = 'usage.cost missing and no generation id returned'
+        }
+
+        if (costSource === 'openrouter_cost_error') {
+          exactCost = null
+          console.warn(`[OpenRouterProvider] ${costError} (model=${data?.model || targetModel}, id=${data?.id || 'none'})`)
+        }
+
         return {
           text: text.trim(),
           actualModel: data?.model || targetModel,
@@ -138,11 +178,13 @@ export class OpenRouterProvider {
           requestId: data?.id || requestId,
           latencyMs,
           usage: data.usage || {},
+          costSource,
+          costError,
           tokens: {
             prompt: data.usage?.prompt_tokens ?? null,
             completion: data.usage?.completion_tokens ?? null,
             total: data.usage?.total_tokens ?? null,
-            cost: data.usage?.cost ?? null,
+            cost: exactCost,
           },
           rawResponse: data,
         }

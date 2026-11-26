@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    costBreakdown: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     attribution: {
       source: { type: String, default: 'direct', index: true },
       medium: { type: String, default: '' },

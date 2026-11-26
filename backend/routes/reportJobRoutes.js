@@ -94,7 +94,7 @@ router.post('/', async (req, res) => {
       ],
     })
     const jobId = job._id.toString()
-    costTracker.setActiveRunId(jobId)
+    costTracker.setActiveRunId(jobId, userId)
     // Fire-and-forget worker — the client is streaming, not waiting on this
     processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
 
@@ -111,7 +111,7 @@ const running = (globalThis.__reportJobRunning ||= new Set())
 async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
-  costTracker.setActiveRunId(jobId)
+  costTracker.setActiveRunId(jobId, userId)
   try {
     const job = await ReportJob.findById(jobId)
     if (!job) return
@@ -140,16 +140,7 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
 
-    // Persist total run cost directly on User & mark VisitorSession completed
-    const runSummary = costTracker.getRunSummary(jobId)
-    if (runSummary && runSummary.totalCostUsd > 0) {
-      await User.findByIdAndUpdate(userId, {
-        $set: {
-          totalCostUsd: Number(runSummary.totalCostUsd.toFixed(5)),
-          totalCostInr: Number((runSummary.totalCostUsd * 94).toFixed(2)),
-        },
-      }).catch(() => {})
-    }
+    // Mark VisitorSession completed (User.totalCostUsd is atomically $inc'd per call in costTracker)
     await VisitorSession.updateMany(
       { userId },
       { $set: { completed: true, currentPhase: 'report', currentStep: 'report', maxStepReached: 4 } }

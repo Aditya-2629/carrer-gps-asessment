@@ -13,6 +13,7 @@
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
+import LlmCallLog from '../models/LlmCallLog.js'
 import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
@@ -32,16 +33,36 @@ function computeRunUsd(run) {
 }
 
 async function aggregateCostByUserIds(userIds = []) {
-  const map = new Map()
-  if (!userIds.length) return map
-  const runs = await AgentRun.find({ userId: { $in: userIds } })
-    .select('userId cost model')
-    .lean()
+  const totalMap = new Map()
+  const breakdownMap = new Map()
+  if (!userIds.length) return { totalMap, breakdownMap }
+
+  const [logs, runs] = await Promise.all([
+    LlmCallLog.find({ userId: { $in: userIds } })
+      .select('userId stage costUsd')
+      .lean(),
+    AgentRun.find({ userId: { $in: userIds } })
+      .select('userId cost model')
+      .lean(),
+  ])
+
+  for (const log of logs) {
+    const key = String(log.userId)
+    const usd = Number(log.costUsd || 0)
+    totalMap.set(key, (totalMap.get(key) || 0) + usd)
+    const stageKey = String(log.stage || 'LLM_GENERATION').toUpperCase()
+    const bd = breakdownMap.get(key) || {}
+    bd[stageKey] = Number(((bd[stageKey] || 0) + usd).toFixed(5))
+    breakdownMap.set(key, bd)
+  }
+
   for (const run of runs) {
     const key = String(run.userId)
-    map.set(key, (map.get(key) || 0) + computeRunUsd(run))
+    if (!totalMap.has(key)) {
+      totalMap.set(key, (totalMap.get(key) || 0) + computeRunUsd(run))
+    }
   }
-  return map
+  return { totalMap, breakdownMap }
 }
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
@@ -262,10 +283,11 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate totalCostUsd totalCostInr')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate totalCostUsd totalCostInr costBreakdown')
       .lean()
 
     const userCostMap = new Map(allMatchingUsers.map((u) => [String(u._id), Number(u.totalCostUsd || 0)]))
+    const userBreakdownMap = new Map(allMatchingUsers.map((u) => [String(u._id), u.costBreakdown || {}]))
 
     // Transform and calculate metrics
     let computedLeads = allMatchingUsers.map(calculateLeadMetrics)
@@ -295,16 +317,22 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
-    const costMap = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
+    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
     const leadsWithCost = paginatedLeads.map((l) => {
       const aggCost = costMap.get(l.id) || 0
       const savedCost = userCostMap.get(l.id) || 0
       const costUsd = Number(Math.max(aggCost, savedCost).toFixed(5))
+      const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+      const savedBd = userBreakdownMap.get(l.id) || {}
+      const aggBd = breakdownMap.get(l.id) || {}
+      const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
       return {
         ...l,
         costUsd,
         aiCostUsd: costUsd,
-        costInr: Number((costUsd * INR_PER_USD).toFixed(2)),
+        costInr,
+        aiCostInr: costInr,
+        costBreakdown,
       }
     })
 
@@ -645,10 +673,13 @@ export async function getCandidateDossier(req, res) {
       { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
     ]
 
-    const costMap = await aggregateCostByUserIds([user._id])
+    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds([user._id])
     const costUsd = Number(Math.max(costMap.get(String(user._id)) || 0, Number(user.totalCostUsd || 0)).toFixed(5))
     const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
-    const leadWithCost = { ...leadInfo, costUsd, aiCostUsd: costUsd, costInr }
+    const savedBd = user.costBreakdown || {}
+    const aggBd = breakdownMap.get(String(user._id)) || {}
+    const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
+    const leadWithCost = { ...leadInfo, costUsd, aiCostUsd: costUsd, costInr, aiCostInr: costInr, costBreakdown }
 
     // Repeat-candidate score history matching same normalized email or last-10-digit phone
     const historyFilters = []
@@ -691,6 +722,8 @@ export async function getCandidateDossier(req, res) {
       costUsd,
       aiCostUsd: costUsd,
       costInr,
+      aiCostInr: costInr,
+      costBreakdown,
       scoreHistory,
       phases,
       resumeProfile,

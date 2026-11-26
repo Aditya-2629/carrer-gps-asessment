@@ -969,7 +969,7 @@ RULES:
     ]
 
     const chatReqId = `chat_${userId || 'anon'}_${Date.now()}`
-    costTracker.setActiveRunId(chatReqId)
+    costTracker.setActiveRunId(chatReqId, userId)
 
     let replyText = ''
     try {

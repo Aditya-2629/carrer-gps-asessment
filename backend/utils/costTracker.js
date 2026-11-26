@@ -8,6 +8,10 @@
  * - Formats a clean console table at the end of each run via `console.table`.
  */
 
+import mongoose from 'mongoose'
+import LlmCallLog from '../models/LlmCallLog.js'
+import User from '../models/User.js'
+
 export const DEFAULT_PRICING = {
   // Rates per 1M tokens in USD ($)
   models: {
@@ -46,6 +50,7 @@ export class CostTracker {
   constructor(pricingConfig = DEFAULT_PRICING, maxRuns = 200) {
     this.pricing = { ...DEFAULT_PRICING, ...pricingConfig }
     this.runs = new Map() // reqId -> Array<Record>
+    this.runUserMap = new Map() // runId -> userId
     this.activeRunId = null
     this.maxRuns = maxRuns
   }
@@ -61,6 +66,7 @@ export class CostTracker {
         const oldestKey = this.runs.keys().next().value
         if (oldestKey) {
           this.runs.delete(oldestKey)
+          this.runUserMap.delete(oldestKey)
         }
       }
       this.runs.set(reqId, [])
@@ -70,10 +76,75 @@ export class CostTracker {
   /**
    * Sets the active request or run ID context for the current pipeline.
    * @param {string} runId
+   * @param {string} [userId]
    */
-  setActiveRunId(runId) {
+  setActiveRunId(runId, userId = null) {
     if (runId && typeof runId === 'string') {
       this.activeRunId = runId
+      if (userId && mongoose.Types.ObjectId.isValid(String(userId))) {
+        this.runUserMap.set(runId, String(userId))
+      }
+    }
+  }
+
+  _resolveUserId(explicitUserId, resolvedReqId) {
+    if (explicitUserId && mongoose.Types.ObjectId.isValid(String(explicitUserId))) {
+      return String(explicitUserId)
+    }
+    if (resolvedReqId && this.runUserMap.has(resolvedReqId)) {
+      return this.runUserMap.get(resolvedReqId)
+    }
+    if (resolvedReqId && mongoose.Types.ObjectId.isValid(String(resolvedReqId))) {
+      return String(resolvedReqId)
+    }
+    const chatMatch = String(resolvedReqId || '').match(/^chat_([a-f0-9]{24})_/i)
+    return chatMatch ? chatMatch[1] : null
+  }
+
+  _persistCost({
+    userId,
+    runId,
+    stage,
+    provider,
+    model,
+    promptTokens = 0,
+    completionTokens = 0,
+    totalTokens = 0,
+    costUsd = 0,
+    costInr = 0,
+    costSource = 'unknown',
+    costError = null,
+  }) {
+    if (mongoose.connection?.readyState !== 1) return
+    const resolvedUserId = this._resolveUserId(userId, runId)
+    LlmCallLog.create({
+      userId: resolvedUserId || null,
+      runId: runId || null,
+      stage,
+      provider,
+      model,
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      costUsd,
+      costInr,
+      costSource,
+      costError,
+    }).catch((err) => {
+      console.warn('[CostTracker] Failed to write LlmCallLog:', err.message)
+    })
+
+    if (resolvedUserId) {
+      const stageKey = String(stage || 'LLM_GENERATION').toUpperCase().replace(/[^A-Z0-9_]/g, '_')
+      User.findByIdAndUpdate(resolvedUserId, {
+        $inc: {
+          totalCostUsd: Number(costUsd) || 0,
+          totalCostInr: Number(costInr) || 0,
+          [`costBreakdown.${stageKey}`]: Number(costUsd) || 0,
+        },
+      }).catch((err) => {
+        console.warn('[CostTracker] Failed to $inc User cost:', err.message)
+      })
     }
   }
 
@@ -135,12 +206,15 @@ export class CostTracker {
   trackLLM({
     reqId = null,
     runId = null,
+    userId = null,
     stage = 'LLM_GENERATION',
     provider = 'unknown',
     model = 'unknown',
     promptTokens = 0,
     completionTokens = 0,
     directCost = null,
+    costSource = null,
+    costError = null,
   } = {}) {
     try {
       const explicitRunId = runId || (reqId && !String(reqId).startsWith('span_') ? reqId : null)
@@ -148,12 +222,21 @@ export class CostTracker {
       const pTokens = Math.max(0, parseInt(promptTokens, 10) || 0)
       const cTokens = Math.max(0, parseInt(completionTokens, 10) || 0)
       const totalTokens = pTokens + cTokens
+      const normalizedProvider = String(provider || 'unknown').toLowerCase()
 
       let costUsd = 0
       let source = 'estimated'
-      if (typeof directCost === 'number' && directCost >= 0) {
+      if (normalizedProvider === 'openrouter') {
+        if (typeof directCost === 'number' && Number.isFinite(directCost) && directCost >= 0 && costSource !== 'openrouter_cost_error') {
+          costUsd = directCost
+          source = costSource || 'openrouter_actual'
+        } else {
+          costUsd = 0
+          source = 'openrouter_cost_error'
+        }
+      } else if (typeof directCost === 'number' && Number.isFinite(directCost) && directCost >= 0) {
         costUsd = directCost
-        source = provider === 'openrouter' ? 'openrouter_actual' : 'actual'
+        source = costSource || 'actual'
       } else {
         const rates = this.getModelPricing(model)
         costUsd = (pTokens * rates.input + cTokens * rates.output) / 1_000_000
@@ -173,16 +256,33 @@ export class CostTracker {
         costUsd,
         costInr,
         source,
+        costError: costError || null,
         timestamp: new Date().toISOString(),
       }
 
       this._ensureRunCapacity(resolvedReqId)
       this.runs.get(resolvedReqId).push(record)
+      this._persistCost({
+        userId,
+        runId: resolvedReqId,
+        stage: record.stage,
+        provider: record.provider,
+        model: record.model,
+        promptTokens: pTokens,
+        completionTokens: cTokens,
+        totalTokens,
+        costUsd,
+        costInr,
+        costSource: source,
+        costError: costError || null,
+      })
 
       return {
         reqId: resolvedReqId,
         costUsd,
         costInr,
+        costSource: source,
+        costError: costError || null,
         promptTokens: pTokens,
         completionTokens: cTokens,
         totalTokens,
@@ -214,7 +314,8 @@ export class CostTracker {
   trackApify({
     reqId = null,
     runId = null,
-    stage = 'FAST_CATCH_JD_SCRAPE',
+    userId = null,
+    stage = 'APIFY_SCRAPE',
     itemsScraped = 0,
     durationMs = 0,
     costUsd = null,
@@ -246,6 +347,19 @@ export class CostTracker {
 
       this._ensureRunCapacity(resolvedReqId)
       this.runs.get(resolvedReqId).push(record)
+      this._persistCost({
+        userId,
+        runId: resolvedReqId,
+        stage: record.stage,
+        provider: 'apify',
+        model: 'linkedin-jobs-scraper',
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        costUsd: finalCostUsd,
+        costInr,
+        costSource: 'apify_fixed',
+      })
 
       return {
         reqId: resolvedReqId,

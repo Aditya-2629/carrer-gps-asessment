@@ -513,6 +513,9 @@ export async function getOpenRouterBalance(req, res) {
         const kJson = await keyRes.value.json().catch(() => ({}))
         const kd = kJson?.data || kJson || {}
         openrouter.keyUsage = kd.usage ?? null
+        openrouter.usageDaily = kd.usage_daily != null ? Number(kd.usage_daily) : null
+        openrouter.usageWeekly = kd.usage_weekly != null ? Number(kd.usage_weekly) : null
+        openrouter.usageMonthly = kd.usage_monthly != null ? Number(kd.usage_monthly) : null
         openrouter.keyLimit = kd.limit ?? null
         openrouter.keyLimitRemaining = kd.limit_remaining ?? null
         openrouter.isFreeTier = kd.is_free_tier ?? null
@@ -562,12 +565,18 @@ export async function getOpenRouterBalance(req, res) {
         runs: d.runs,
       }))
 
+    const liveTodayUsd = openrouter.usageDaily != null ? openrouter.usageDaily : todayUsd
+    const rateInr = DEFAULT_PRICING.usd_to_inr || 94
     return res.status(200).json({
       success: true,
       ...openrouter,
+      rateInr,
       dailySpend: {
-        todayUsd: Number(todayUsd.toFixed(5)),
-        todayInr: Number((todayUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        todayUsd: Number(liveTodayUsd.toFixed(5)),
+        weeklyUsd: openrouter.usageWeekly != null ? Number(openrouter.usageWeekly.toFixed(5)) : null,
+        monthlyUsd: openrouter.usageMonthly != null ? Number(openrouter.usageMonthly.toFixed(5)) : null,
+        todayInr: Number((liveTodayUsd * rateInr).toFixed(2)),
+        source: openrouter.usageDaily != null ? 'openrouter_live' : 'db_runs',
         runsToday,
         inputTokensToday,
         outputTokensToday,
