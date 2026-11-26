@@ -1578,11 +1578,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>
                   AFTER: ROLE-ALIGNED EXECUTIVE REWRITE
                 </Text>
-                <Text style={resumeAgent?.summaryOptimization?.summaryRewriteLocked ? styles.tagNeutral : styles.tagPass}>
-                  {resumeAgent?.summaryOptimization?.summaryRewriteLocked ? 'LOCKED' : 'OPTIMIZED'}
+                <Text style={summaryOpt?.summaryRewriteLocked ? styles.tagNeutral : styles.tagPass}>
+                  {summaryOpt?.summaryRewriteLocked ? 'LOCKED' : 'OPTIMIZED'}
                 </Text>
               </View>
-              {resumeAgent?.summaryOptimization?.summaryRewriteLocked ? (
+              {summaryOpt?.summaryRewriteLocked ? (
                 <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
                   Locked - Book Free 1:1 Call to Unlock
                 </Text>

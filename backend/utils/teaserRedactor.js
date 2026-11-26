@@ -244,6 +244,19 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
   if (cloned.keyword_alignment) {
     cloned.keyword_alignment = redactKeywordAlignment(cloned.keyword_alignment)
   }
+  if (cloned.summary_rewrite) {
+    cloned.summary_rewrite = undefined
+  }
+  if (cloned.summary_optimization && typeof cloned.summary_optimization === 'object') {
+    cloned.summary_optimization = {
+      ...cloned.summary_optimization,
+      rewrittenSummary: undefined,
+      executiveSummaryRewrite: undefined,
+      rewritten: undefined,
+      after: undefined,
+      summaryRewriteLocked: true,
+    }
+  }
   if (Array.isArray(cloned.missing_skills)) {
     cloned.missing_skills = redactKeywordArray(cloned.missing_skills, 0.5).items
   }

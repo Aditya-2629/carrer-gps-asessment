@@ -1266,9 +1266,16 @@ export const getPublicReportPdfById = async (req, res) => {
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
     }
 
+    const teaserModeEnabled = Boolean(settings.teaserModeEnabled)
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const isLocked = Boolean(teaserModeEnabled && !reportUnlocked)
+    console.log(
+      `[PDF-TEASER-CHECK] assessmentId=${id} teaserModeEnabled=${teaserModeEnabled} reportUnlocked=${reportUnlocked} isLocked=${isLocked}`
+    )
+
     const safeAssessment = redactReportForTeaser(assessment, {
-      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
-      reportUnlocked: Boolean(user.reportUnlocked),
+      teaserModeEnabled,
+      reportUnlocked,
     })
 
     const { renderCareerReportPdfBuffer } = await import('../utils/renderCareerReportPdf.js')
