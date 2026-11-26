@@ -59,6 +59,16 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
     }
     if (payload.referrer) updateFields.referrer = String(payload.referrer).slice(0, 256)
 
+    const attr = payload.attribution && typeof payload.attribution === 'object' ? payload.attribution : {}
+    const attrSource = String(attr.source || payload.utm_source || '').trim().slice(0, 100)
+    const attrMedium = String(attr.medium || payload.utm_medium || '').trim().slice(0, 100)
+    const attrCampaign = String(attr.campaign || payload.utm_campaign || '').trim().slice(0, 128)
+    const attrReferrer = String(attr.referrer || payload.referrer || '').trim().slice(0, 256)
+    if (attrSource) updateFields['attribution.source'] = attrSource
+    if (attrMedium) updateFields['attribution.medium'] = attrMedium
+    if (attrCampaign) updateFields['attribution.campaign'] = attrCampaign
+    if (attrReferrer) updateFields['attribution.referrer'] = attrReferrer
+
     const city =
       payload.city ||
       req.headers['x-vercel-ip-city'] ||

@@ -708,4 +708,170 @@ export async function cleanupStaleSessions(_req, res) {
   }
 }
 
+/**
+ * GET /api/admin/analytics/attribution
+ * Aggregates VisitorSession visits and User submissions/bookings/scores by attribution.source.
+ */
+export async function getAttributionAnalytics(_req, res) {
+  try {
+    const [visitAgg, userAgg] = await Promise.all([
+      VisitorSession.aggregate([
+        {
+          $group: {
+            _id: { $ifNull: ['$attribution.source', 'direct'] },
+            visits: { $sum: 1 },
+          },
+        },
+      ]),
+      User.aggregate([
+        {
+          $project: {
+            source: { $ifNull: ['$attribution.source', 'direct'] },
+            hasSubmission: {
+              $cond: [
+                { $or: [{ $ne: ['$aiReport', null] }, { $eq: ['$isVerified', true] }] },
+                1,
+                0,
+              ],
+            },
+            isCallBooked: {
+              $cond: [{ $eq: ['$callBooked', true] }, 1, 0],
+            },
+            score: {
+              $convert: {
+                input: {
+                  $cond: [
+                    { $eq: [{ $type: '$aiReport.career_health_score' }, 'object'] },
+                    '$aiReport.career_health_score.overall',
+                    '$aiReport.career_health_score',
+                  ],
+                },
+                to: 'double',
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$source',
+            submissions: { $sum: '$hasSubmission' },
+            callsBooked: { $sum: '$isCallBooked' },
+            avgScore: { $avg: '$score' },
+          },
+        },
+      ]),
+    ])
+
+    const bySource = new Map()
+    for (const row of visitAgg) {
+      const src = String(row._id || 'direct').trim() || 'direct'
+      bySource.set(src, {
+        source: src,
+        visits: row.visits || 0,
+        submissions: 0,
+        callsBooked: 0,
+        avgScore: null,
+      })
+    }
+    for (const row of userAgg) {
+      const src = String(row._id || 'direct').trim() || 'direct'
+      const cur = bySource.get(src) || {
+        source: src,
+        visits: 0,
+        submissions: 0,
+        callsBooked: 0,
+        avgScore: null,
+      }
+      cur.submissions += row.submissions || 0
+      cur.callsBooked += row.callsBooked || 0
+      if (typeof row.avgScore === 'number' && Number.isFinite(row.avgScore)) {
+        cur.avgScore = Number(row.avgScore.toFixed(1))
+      }
+      bySource.set(src, cur)
+    }
+
+    const attribution = Array.from(bySource.values())
+      .map((item) => ({
+        ...item,
+        conversionRate:
+          item.visits > 0
+            ? Number(((item.submissions / item.visits) * 100).toFixed(1))
+            : 0,
+      }))
+      .sort((a, b) => b.submissions - a.submissions || b.visits - a.visits)
+
+    return res.status(200).json({
+      success: true,
+      attribution,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getAttributionAnalytics error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve attribution analytics.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/skill-gaps?targetRole=...
+ * Aggregates top 15 most frequent missing skills across completed assessments.
+ */
+export async function getSkillGapHeatmap(req, res) {
+  try {
+    const targetRole = String(req.query?.targetRole || '').trim()
+    const query = { aiReport: { $ne: null } }
+    if (targetRole && targetRole !== 'ALL') {
+      const escaped = targetRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const rx = new RegExp(escaped, 'i')
+      query.$or = [
+        { 'answers.targetRole': rx },
+        { 'resumeJson.target_role': rx },
+        { 'aiReport.resume_json.target_role': rx },
+      ]
+    }
+
+    const users = await User.find(query)
+      .select('aiReport.resume_agent.keywordAlignment aiReport.resume_agent.dashboard.missingKeywords')
+      .lean()
+
+    const counts = new Map()
+    for (const u of users) {
+      const ra = u.aiReport?.resume_agent || {}
+      const raw =
+        ra.keywordAlignment?.missingKeywords ||
+        ra.keywordAlignment?.missingSkills ||
+        ra.dashboard?.missingKeywords ||
+        []
+      const uniqueForCandidate = new Set()
+      for (const entry of Array.isArray(raw) ? raw : []) {
+        const name = (typeof entry === 'string' ? entry : entry?.keyword || entry?.name || '').trim()
+        if (name.length >= 2) uniqueForCandidate.add(name)
+      }
+      for (const skill of uniqueForCandidate) {
+        counts.set(skill, (counts.get(skill) || 0) + 1)
+      }
+    }
+
+    const totalCandidates = users.length
+    const skills = Array.from(counts.entries())
+      .map(([skill, count]) => ({
+        skill,
+        count,
+        percentOfCandidates: totalCandidates > 0 ? Number(((count / totalCandidates) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15)
+
+    return res.status(200).json({
+      success: true,
+      totalCandidates,
+      targetRole: targetRole || 'ALL',
+      skills,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getSkillGapHeatmap error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve skill gap heatmap.' })
+  }
+}
+
 

@@ -8,6 +8,12 @@ const visitorSessionSchema = new mongoose.Schema(
     lastHeartbeatAt: { type: Date, default: Date.now, index: true },
     device: { type: String, default: 'desktop' },
     referrer: { type: String, default: '' },
+    attribution: {
+      source: { type: String, default: 'direct', index: true },
+      medium: { type: String, default: '' },
+      campaign: { type: String, default: '' },
+      referrer: { type: String, default: '' },
+    },
     city: { type: String, default: '' },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     abandonedDraft: {

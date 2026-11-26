@@ -411,6 +411,25 @@ export const saveAnswers = async (req, res) => {
       user.semanticProfile = semanticProfile
     }
 
+    let rawAttr = req.body?.attribution
+    if (typeof rawAttr === 'string') {
+      try {
+        rawAttr = JSON.parse(rawAttr)
+      } catch {
+        rawAttr = null
+      }
+    }
+    if (rawAttr && typeof rawAttr === 'object') {
+      user.attribution = {
+        source: String(rawAttr.source || 'direct').trim().slice(0, 100) || 'direct',
+        medium: String(rawAttr.medium || '').trim().slice(0, 100),
+        campaign: String(rawAttr.campaign || '').trim().slice(0, 128),
+        referrer: String(rawAttr.referrer || '').trim().slice(0, 256),
+      }
+    } else if (!user.attribution?.source) {
+      user.attribution = { source: 'direct', medium: '', campaign: '', referrer: '' }
+    }
+
     // Check if linkedinData was already pre-scraped from Step 11 (strip bloated raw Apify fields)
     if (answers.linkedinData) {
       try {

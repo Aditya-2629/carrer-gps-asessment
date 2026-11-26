@@ -1,5 +1,47 @@
 import mongoose from 'mongoose'
 
+export const DEFAULT_MESSAGE_TEMPLATES = [
+  {
+    key: 'ghost_nudge',
+    label: 'Ghost Drop-off Nudge',
+    channel: 'whatsapp',
+    subject: '',
+    body: 'Hi {{name}}, saw you started your Career GPS check for {{role}}. Need a hand finishing your ATS diagnosis? Takes 60 seconds and unlocks your gap breakdown.',
+  },
+  {
+    key: 'call_reminder',
+    label: 'Strategy Call Reminder',
+    channel: 'whatsapp',
+    subject: '',
+    body: 'Hi {{name}}, looking forward to our 1:1 Career GPS strategy call for {{role}}! Feel free to review your preview before we hop on: {{reportUrl}}',
+  },
+  {
+    key: 'unlocked_delivery',
+    label: 'Unlocked Report & ATS Resume Delivery',
+    channel: 'email',
+    subject: 'Your Unlocked Career GPS Report & Updated ATS Resume ({{role}})',
+    body: 'Hi {{name}},\n\nYour full Career GPS Report (Score: {{score}}/100) for {{role}} is now unlocked! View your interactive roadmap here: {{reportUrl}}\n\nWe have also attached your updated ATS-optimized .docx resume.',
+  },
+  {
+    key: 'post_call_followup',
+    label: 'Post-Call Follow-up',
+    channel: 'whatsapp',
+    subject: '',
+    body: 'Hi {{name}}, great speaking with you today! Here is your unlocked Career GPS report ({{score}}/100) for {{role}}: {{reportUrl}} — let me know once you review the action plan.',
+  },
+]
+
+const messageTemplateSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, trim: true },
+    label: { type: String, required: true, trim: true },
+    channel: { type: String, enum: ['whatsapp', 'email'], default: 'whatsapp' },
+    subject: { type: String, default: '' },
+    body: { type: String, default: '' },
+  },
+  { _id: false }
+)
+
 const appSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, default: 'global', unique: true },
@@ -25,6 +67,10 @@ const appSettingsSchema = new mongoose.Schema(
     maintenanceMessage: {
       type: String,
       default: 'AI Career GPS analysis is temporarily paused for maintenance. Please check back shortly.',
+    },
+    messageTemplates: {
+      type: [messageTemplateSchema],
+      default: () => DEFAULT_MESSAGE_TEMPLATES,
     },
   },
   { timestamps: true }

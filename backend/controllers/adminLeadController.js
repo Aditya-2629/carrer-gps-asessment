@@ -13,7 +13,7 @@
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
-import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
@@ -614,12 +614,47 @@ export async function getCandidateDossier(req, res) {
     const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
     const leadWithCost = { ...leadInfo, costUsd, costInr }
 
+    // Repeat-candidate score history matching same normalized email or last-10-digit phone
+    const historyFilters = []
+    if (user.email) {
+      historyFilters.push({ email: String(user.email).trim().toLowerCase() })
+    }
+    const rawPhone = String(leadInfo.phone || '').replace(/\D/g, '')
+    if (rawPhone.length >= 10) {
+      const last10 = rawPhone.slice(-10)
+      historyFilters.push({ 'answers.phone': new RegExp(`${last10}$`) })
+      historyFilters.push({ 'resumeJson.candidate.phone': new RegExp(`${last10}$`) })
+    }
+    const priorDocs = historyFilters.length
+      ? await User.find({ $or: historyFilters })
+          .select('_id answers.targetRole resumeJson.target_role aiReport.career_health_score createdAt')
+          .sort({ createdAt: 1 })
+          .lean()
+      : []
+
+    const scoreHistory = priorDocs.map((doc) => {
+      const rawScore = doc.aiReport?.career_health_score
+      const overallScore =
+        typeof rawScore === 'object' && rawScore !== null
+          ? Number(rawScore.overall ?? null)
+          : typeof rawScore === 'number'
+            ? rawScore
+            : null
+      return {
+        _id: String(doc._id),
+        targetRole: doc.answers?.targetRole || doc.resumeJson?.target_role || 'General',
+        overallScore: Number.isFinite(overallScore) ? overallScore : null,
+        createdAt: doc.createdAt,
+      }
+    })
+
     return res.status(200).json({
       success: true,
       lead: leadWithCost,
       candidate: leadWithCost,
       costUsd,
       costInr,
+      scoreHistory,
       phases,
       resumeProfile,
       linkedinProfile,
@@ -731,6 +766,10 @@ export async function getAppSettings(req, res) {
         fomoCtaLabel: settings.ctaButtonLabel || '',
         aiPaused: Boolean(settings.aiPaused),
         maintenanceMessage: settings.maintenanceMessage || '',
+        messageTemplates:
+          Array.isArray(settings.messageTemplates) && settings.messageTemplates.length > 0
+            ? settings.messageTemplates
+            : DEFAULT_MESSAGE_TEMPLATES,
       },
     })
   } catch (err) {
@@ -755,6 +794,7 @@ export async function updateAppSettings(req, res) {
       fomoCtaLabel,
       aiPaused,
       maintenanceMessage,
+      messageTemplates,
     } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
@@ -770,6 +810,17 @@ export async function updateAppSettings(req, res) {
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
     if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
     if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
+    if (Array.isArray(messageTemplates)) {
+      update.messageTemplates = messageTemplates
+        .filter((t) => t && typeof t.key === 'string' && t.key.trim())
+        .map((t) => ({
+          key: t.key.trim(),
+          label: String(t.label || t.key).trim(),
+          channel: t.channel === 'email' ? 'email' : 'whatsapp',
+          subject: String(t.subject || ''),
+          body: String(t.body || ''),
+        }))
+    }
 
     const updated = await AppSettings.findOneAndUpdate(
       { key: 'global' },
@@ -791,6 +842,10 @@ export async function updateAppSettings(req, res) {
         fomoCtaLabel: updated.ctaButtonLabel || '',
         aiPaused: Boolean(updated.aiPaused),
         maintenanceMessage: updated.maintenanceMessage || '',
+        messageTemplates:
+          Array.isArray(updated.messageTemplates) && updated.messageTemplates.length > 0
+            ? updated.messageTemplates
+            : DEFAULT_MESSAGE_TEMPLATES,
       },
     })
   } catch (err) {
