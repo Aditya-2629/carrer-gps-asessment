@@ -1240,7 +1240,12 @@ function ReportDashboardContent({ sharedReportId = null }) {
     try {
       const resolvedSocialConfig = teaserConfig.socialLinksConfig || reportData?.socialLinksConfig || null
       await downloadFullVisualReport(
-        resolvedSocialConfig ? { ...reportData, socialLinksConfig: resolvedSocialConfig } : reportData,
+        {
+          ...reportData,
+          whatsappCtaNumber: teaserConfig.whatsappCtaNumber || reportData?.whatsappCtaNumber || '',
+          callBookingUrl: bookingUrl || reportData?.callBookingUrl || '',
+          ...(resolvedSocialConfig ? { socialLinksConfig: resolvedSocialConfig } : {}),
+        },
         candidateName,
         { isTeaserLocked }
       )
@@ -1317,6 +1322,11 @@ function ReportDashboardContent({ sharedReportId = null }) {
         healthScore={healthScore}
         reportData={reportData}
         isTeaserLocked={isTeaserLocked}
+        pdfExtras={{
+          whatsappCtaNumber: teaserConfig.whatsappCtaNumber || reportData?.whatsappCtaNumber || '',
+          callBookingUrl: bookingUrl || reportData?.callBookingUrl || '',
+          socialLinksConfig: teaserConfig.socialLinksConfig || reportData?.socialLinksConfig || null,
+        }}
       />
 
       {/* ─── Main Story-Driven Content Container (Max Width 1280px) ─── */}

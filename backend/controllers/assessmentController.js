@@ -1278,6 +1278,7 @@ export const getPublicReportPdfById = async (req, res) => {
       resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
       callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
     }
 
     const teaserModeEnabled = Boolean(settings.teaserModeEnabled)

@@ -1,12 +1,16 @@
 import React, { useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   CalendarBlank,
   ArrowRight,
+  ArrowUpRight,
   DownloadSimple,
   ShieldCheck,
   Briefcase,
   CheckCircle,
   WhatsappLogo,
+  Globe,
+  UsersThree,
 } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { trackEvent } from '../../lib/posthog'
@@ -207,7 +211,12 @@ export default function FinalNextAction({
                   try {
                     const resolvedSocial = socialLinksConfig || reportData?.socialLinksConfig || null
                     await downloadFullVisualReport(
-                      resolvedSocial ? { ...reportData, socialLinksConfig: resolvedSocial } : reportData,
+                      {
+                        ...reportData,
+                        whatsappCtaNumber: whatsappNumber || reportData?.whatsappCtaNumber || '',
+                        callBookingUrl: bookingUrl || reportData?.callBookingUrl || '',
+                        ...(resolvedSocial ? { socialLinksConfig: resolvedSocial } : {}),
+                      },
                       candidateName,
                       { isTeaserLocked }
                     )
@@ -226,47 +235,57 @@ export default function FinalNextAction({
                     : 'Download Full Report (PDF)'}
                 </span>
               </button>
-
-              {(() => {
-                const cfg = socialLinksConfig || reportData?.socialLinksConfig
-                if (!cfg?.enabled || !cfg?.communityEnabled || !String(cfg?.communityUrl || '').trim()) return null
-                return (
-                  <a
-                    href={cfg.communityUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-xs sm:text-sm font-semibold shadow-sm transition-opacity no-underline cursor-pointer"
-                  >
-                    <span>{cfg.communityLabel || 'Join Our Community'}</span>
-                    <ArrowRight size={16} weight="bold" />
-                  </a>
-                )
-              })()}
             </div>
 
             {(() => {
               const cfg = socialLinksConfig || reportData?.socialLinksConfig
               if (!cfg?.enabled) return null
+              const showCommunity = Boolean(cfg.communityEnabled && String(cfg.communityUrl || '').trim())
               const activeItems = Array.isArray(cfg.items)
                 ? cfg.items.filter((i) => i?.enabled && String(i?.url || '').trim())
                 : []
-              if (activeItems.length === 0) return null
+              if (!showCommunity && activeItems.length === 0) return null
               return (
-                <div className="pt-3 flex flex-wrap items-center gap-3">
-                  {activeItems.map((item) => (
-                    <a
-                      key={item.key || item.label}
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] underline-offset-4 hover:underline"
-                    >
-                      {item.customLogoUrl && (
-                        <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
-                      )}
-                      <span>{item.label}</span>
-                    </a>
-                  ))}
+                <div className="pt-4 mt-2 border-t border-[var(--border-default)]/70 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Community &amp; Follow Crafture
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {showCommunity && (
+                      <motion.a
+                        href={cfg.communityUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ y: -2 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        className="min-h-[40px] inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold shadow-xs transition-colors no-underline cursor-pointer"
+                      >
+                        <UsersThree size={15} weight="fill" />
+                        <span>{cfg.communityLabel || 'Join Our Community'}</span>
+                        <ArrowRight size={13} weight="bold" />
+                      </motion.a>
+                    )}
+
+                    {activeItems.map((item) => (
+                      <motion.a
+                        key={item.key || item.label}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ y: -2 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
+                      >
+                        {item.customLogoUrl ? (
+                          <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
+                        ) : (
+                          <Globe size={14} weight="bold" className="text-indigo-500" />
+                        )}
+                        <span>{item.label}</span>
+                        <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
+                      </motion.a>
+                    ))}
+                  </div>
                 </div>
               )
             })()}

@@ -21,7 +21,6 @@ import {
 
 // Import Verified Brand & Scene Assets
 import craftureLogo from '../../assets/images/crafture-logo.jpg'
-import craftureMascot from '../../assets/images/crafture-mascot.png'
 import pdfHeroBanner from '../../assets/images/pdf-hero-banner.png'
 import pdfCtaBanner from '../../assets/images/pdf-cta-banner.jpg'
 import { getCareerHealthAxes, resolveFourPillars } from '../../lib/reportMetrics'
@@ -584,9 +583,15 @@ export default function CareerReportPdf({ reportData = {} }) {
     reportData?.strategy_call_url ||
     reportData?.booking_url ||
     'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
-  const cleanWaNum = String(
+  const rawWaStr = String(
     reportData?.whatsappCtaNumber || reportData?.teaserSettings?.whatsappNumber || ''
-  ).replace(/\D/g, '')
+  ).trim()
+  let cleanWaNum = rawWaStr.replace(/\D/g, '')
+  if (rawWaStr.startsWith('00')) {
+    cleanWaNum = cleanWaNum.slice(2)
+  } else if (!rawWaStr.startsWith('+') && cleanWaNum.length === 10) {
+    cleanWaNum = /^[6-9]/.test(cleanWaNum) ? `91${cleanWaNum}` : `1${cleanWaNum}`
+  }
   const waMsg = `Hi Crafture team, I'm ${candidateName} targeting ${targetRole} (Career Health Score: ${overallScore}/100) and would like to unlock my complete Career GPS Report.`
   const whatsappUrl = cleanWaNum
     ? `https://wa.me/${cleanWaNum}?text=${encodeURIComponent(waMsg)}`
@@ -1042,73 +1047,64 @@ export default function CareerReportPdf({ reportData = {} }) {
             ───────────────────────────────────────────────────────────── */}
         {/* Unified Editorial Hero Banner */}
         <EditorialBanner imageSrc={pdfHeroBanner}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              {/* Top Brand Strip */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
-                <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-                  CRAFTURE CAREER GPS • EXECUTIVE REPORT
-                </Text>
-              </View>
+          {/* Top Brand Strip */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
+            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              CRAFTURE CAREER GPS • EXECUTIVE REPORT
+            </Text>
+          </View>
 
-              {/* Candidate Name */}
-              <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 2 }}>
-                {candidateName}
+          {/* Candidate Name */}
+          <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, lineHeight: 1.22, marginTop: 2, marginBottom: 6 }}>
+            {candidateName}
+          </Text>
+
+          {/* Target Role & Meta */}
+          <Text style={{ fontSize: 7.8, color: '#475569', lineHeight: 1.28, marginTop: 2, marginBottom: 6 }}>
+            {targetRole} • Senior Engineering • {reportDate}
+          </Text>
+
+          {/* 1-Line Diagnostic Summary */}
+          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.32 }}>
+            Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
+          </Text>
+
+          {/* Fixed Non-Wrapping Health Index Pill */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 9,
+              alignSelf: 'flex-start',
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 7,
+              paddingVertical: 5,
+              paddingHorizontal: 10,
+              marginTop: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12.5,
+                fontFamily: 'Helvetica-Bold',
+                color: '#0F172A',
+                flexShrink: 0,
+              }}
+            >
+              {overallScore}/100
+            </Text>
+            <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
+            <View style={{ flexDirection: 'column' }}>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
+                HEALTH INDEX
               </Text>
-
-              {/* Target Role & Meta */}
-              <Text style={{ fontSize: 7.8, color: '#475569' }}>
-                {targetRole} • Senior Engineering • {reportDate}
+              <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
+                {scoreLabel} Stage
               </Text>
-
-              {/* 1-Line Diagnostic Summary */}
-              <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3 }}>
-                Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
-              </Text>
-
-              {/* Fixed Non-Wrapping Health Index Pill */}
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 9,
-                  alignSelf: 'flex-start',
-                  backgroundColor: '#F8FAFC',
-                  borderWidth: 1,
-                  borderColor: '#E2E8F0',
-                  borderRadius: 7,
-                  paddingVertical: 5,
-                  paddingHorizontal: 10,
-                  marginTop: 4,
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 12.5,
-                    fontFamily: 'Helvetica-Bold',
-                    color: '#0F172A',
-                    flexShrink: 0,
-                  }}
-                >
-                  {overallScore}/100
-                </Text>
-                <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
-                <View style={{ flexDirection: 'column' }}>
-                  <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
-                    HEALTH INDEX
-                  </Text>
-                  <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
-                    {scoreLabel} Stage
-                  </Text>
-                </View>
-              </View>
             </View>
-
-            <Image
-              src={craftureMascot}
-              style={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }}
-            />
           </View>
         </EditorialBanner>
 
@@ -2156,36 +2152,27 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* 7. Dedicated Final Conversion, Community & Socials Page */}
         <View break style={{ paddingTop: 10 }}>
           <EditorialBanner imageSrc={pdfCtaBanner}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
-                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-                    {isReportUnlocked ? 'FULL REPORT UNLOCKED • NEXT STEPS' : 'EXECUTIVE PREVIEW • UNLOCK FULL ROADMAP'}
-                  </Text>
-                </View>
-
-                <Text style={{ fontSize: 13.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 4 }}>
-                  {isReportUnlocked
-                    ? `Ready to Execute Your ${targetRole} Transition Live?`
-                    : `Unlock Your Complete Career GPS Report & Updated ATS Resume`}
-                </Text>
-
-                <Text style={{ fontSize: 8, color: '#334155', lineHeight: 1.38, marginTop: 5 }}>
-                  {isReportUnlocked
-                    ? `Your full Career GPS diagnostic is unlocked. Book your complimentary 1:1 strategy session to implement your 30/60/90 roadmap live, access free career tools, and connect with our tech community.`
-                    : `This is a short executive preview. To unlock your complete bottleneck breakdown, full 7-day & 30/60/90 roadmap, rewritten resume bullets, free career tools & personalized guidance — book your free 1:1 strategy call.`}
-                </Text>
-              </View>
-
-              <Image
-                src={craftureMascot}
-                style={{ width: 72, height: 72, objectFit: 'contain', flexShrink: 0 }}
-              />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
+              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                {isReportUnlocked ? 'FULL REPORT UNLOCKED • NEXT STEPS' : 'EXECUTIVE PREVIEW • UNLOCK FULL ROADMAP'}
+              </Text>
             </View>
 
+            <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 4 }}>
+              {isReportUnlocked
+                ? `Ready to Execute Your ${targetRole} Transition Live?`
+                : `Unlock Your Complete Career GPS Report & Updated ATS Resume`}
+            </Text>
+
+            <Text style={{ fontSize: 7.8, color: '#334155', lineHeight: 1.38, marginTop: 4 }}>
+              {isReportUnlocked
+                ? `Your full Career GPS diagnostic is unlocked. Book your complimentary 1:1 strategy session to implement your 30/60/90 roadmap live, access free career tools, and connect with our tech community.`
+                : `This is a short executive preview. To unlock your complete bottleneck breakdown, full 7-day & 30/60/90 roadmap, rewritten resume bullets, free career tools & personalized guidance — book your free 1:1 strategy call.`}
+            </Text>
+
             {/* Primary Action Row */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 }}>
               <Link
                 src={bookingUrl}
                 style={{

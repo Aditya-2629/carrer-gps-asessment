@@ -12,6 +12,7 @@ export default function StickyReportNav({
   healthScore = 72,
   reportData,
   isTeaserLocked = false,
+  pdfExtras = {},
 }) {
   const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
@@ -20,7 +21,8 @@ export default function StickyReportNav({
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
     try {
-      await downloadFullVisualReport(reportData, safeName, { isTeaserLocked })
+      const mergedPayload = { ...(reportData || {}), ...(pdfExtras || {}) }
+      await downloadFullVisualReport(mergedPayload, safeName, { isTeaserLocked })
     } finally {
       setIsDownloading(false)
     }
