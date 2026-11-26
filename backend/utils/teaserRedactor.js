@@ -6,6 +6,8 @@
  * NEVER apply this to `/api/admin/*` routes.
  */
 
+const LOCKED_REASON = 'Locked — Book Free 1:1 Call to Unlock'
+
 function isCleanHelpingBullet(item) {
   if (!item || typeof item !== 'object' || item.locked) return false
   const verdictStr = item.verdict ? String(item.verdict).toLowerCase() : ''
@@ -64,7 +66,7 @@ function redactBulletList(list, redactedBulletIds) {
     }
     const bId = item?.bulletId || item?.id || `b_${idx}`
     if (item?.bulletId || item?.id) redactedBulletIds.add(String(bId))
-    return { id: String(bId), verdict: 'hurting', locked: true }
+    return { id: String(bId), verdict: 'hurting', locked: true, lockedReason: LOCKED_REASON }
   })
 }
 
@@ -74,7 +76,9 @@ function redactKeywordArray(arr, ratio = 0.5) {
   }
   const keepCount = Math.max(1, Math.ceil(arr.length * ratio))
   const lockedCount = Math.max(0, arr.length - keepCount)
-  const items = arr.map((item, idx) => (idx < keepCount ? item : { locked: true }))
+  const items = arr.map((item, idx) =>
+    idx < keepCount ? item : { locked: true, lockedReason: LOCKED_REASON }
+  )
   return { items, lockedCount }
 }
 
@@ -109,7 +113,9 @@ function redactLinkedInOptimizations(opt) {
   const next = { ...opt }
 
   if (Array.isArray(next.headlines) && next.headlines.length > 1) {
-    next.headlines = next.headlines.map((h, idx) => (idx === 0 ? h : { locked: true }))
+    next.headlines = next.headlines.map((h, idx) =>
+      idx === 0 ? h : { locked: true, lockedReason: LOCKED_REASON }
+    )
   }
 
   if (typeof next.aboutRewrite === 'string') {
@@ -127,27 +133,28 @@ function redactLinkedInOptimizations(opt) {
       professionalJourney: hookText,
       hook: hookText,
       locked: true,
+      lockedReason: LOCKED_REASON,
     }
     next.aboutRewriteLocked = true
   }
 
   if (Array.isArray(next.experienceUpgrades) && next.experienceUpgrades.length > 0) {
-    next.experienceUpgrades = next.experienceUpgrades.map(() => ({ locked: true }))
+    next.experienceUpgrades = next.experienceUpgrades.map(() => ({ locked: true, lockedReason: LOCKED_REASON }))
   }
 
   if (Array.isArray(next.recommendedSkillsToAdd) && next.recommendedSkillsToAdd.length > 0) {
-    next.recommendedSkillsToAdd = next.recommendedSkillsToAdd.map(() => ({ locked: true }))
+    next.recommendedSkillsToAdd = next.recommendedSkillsToAdd.map(() => ({ locked: true, lockedReason: LOCKED_REASON }))
     next.recommendedSkillsLocked = true
   }
 
   if (next.visualPrompts) {
-    next.visualPrompts = { locked: true }
+    next.visualPrompts = { locked: true, lockedReason: LOCKED_REASON }
     next.visualPromptsLocked = true
   }
 
-  if (next.postingStrategy) next.postingStrategy = { locked: true }
-  if (next.postingPlan) next.postingPlan = { locked: true }
-  if (next.contentStrategy) next.contentStrategy = { locked: true }
+  if (next.postingStrategy) next.postingStrategy = { locked: true, lockedReason: LOCKED_REASON }
+  if (next.postingPlan) next.postingPlan = { locked: true, lockedReason: LOCKED_REASON }
+  if (next.contentStrategy) next.contentStrategy = { locked: true, lockedReason: LOCKED_REASON }
 
   return next
 }
@@ -265,24 +272,35 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
 
   // 3. Overview: Action #3, 7-Day Plan, and 60/90-Day Milestones (keep 30-Day Phase 1 visible)
   if (Array.isArray(cloned.top_actions) && cloned.top_actions.length > 2) {
-    cloned.top_actions = cloned.top_actions.map((act, idx) => (idx < 2 ? act : { locked: true }))
+    cloned.top_actions = cloned.top_actions.map((act, idx) =>
+      idx < 2 ? act : { locked: true, lockedReason: LOCKED_REASON }
+    )
   }
 
   if (Array.isArray(cloned.roadmap) && cloned.roadmap.length > 0) {
-    cloned.roadmap = cloned.roadmap.map((m, idx) => (idx === 0 ? m : { locked: true }))
+    cloned.roadmap = cloned.roadmap.map((m, idx) =>
+      idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
+    )
   }
   if (Array.isArray(cloned.milestonePathway) && cloned.milestonePathway.length > 0) {
-    cloned.milestonePathway = cloned.milestonePathway.map((m, idx) => (idx === 0 ? m : { locked: true }))
+    cloned.milestonePathway = cloned.milestonePathway.map((m, idx) =>
+      idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
+    )
   }
   if (Array.isArray(cloned.seven_day_plan) && cloned.seven_day_plan.length > 0) {
-    cloned.seven_day_plan = cloned.seven_day_plan.map(() => ({ locked: true }))
+    cloned.seven_day_plan = cloned.seven_day_plan.map(() => ({ locked: true, lockedReason: LOCKED_REASON }))
   }
   if (cloned.action_plan && typeof cloned.action_plan === 'object') {
     if (Array.isArray(cloned.action_plan.milestonePathway)) {
-      cloned.action_plan.milestonePathway = cloned.action_plan.milestonePathway.map((m, idx) => (idx === 0 ? m : { locked: true }))
+      cloned.action_plan.milestonePathway = cloned.action_plan.milestonePathway.map((m, idx) =>
+        idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
+      )
     }
     if (Array.isArray(cloned.action_plan.sevenDayPlan)) {
-      cloned.action_plan.sevenDayPlan = cloned.action_plan.sevenDayPlan.map(() => ({ locked: true }))
+      cloned.action_plan.sevenDayPlan = cloned.action_plan.sevenDayPlan.map(() => ({
+        locked: true,
+        lockedReason: LOCKED_REASON,
+      }))
     }
   }
 

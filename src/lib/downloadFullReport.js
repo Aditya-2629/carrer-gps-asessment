@@ -42,13 +42,19 @@ export async function downloadFullVisualReport(reportDataOrName, candidateNamePa
       .replace(/[^a-zA-Z0-9_-]/g, '')
     const fileName = `Career_GPS_Report_${safeName || 'Candidate'}.pdf`
 
-    // Dynamically load @react-pdf/renderer and CareerReportPdf so initial page load remains instant
-    const [{ pdf }, { default: CareerReportPdf }] = await Promise.all([
+    // Dynamically load @react-pdf/renderer, CareerReportPdf, and the single-source-of-truth redactor
+    const [{ pdf }, { default: CareerReportPdf }, { redactReportForTeaser }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('../components/pdf/CareerReportPdf.jsx'),
+      import('../../backend/utils/teaserRedactor.js'),
     ])
 
-    const element = React.createElement(CareerReportPdf, { reportData })
+    // If caller flagged __teaserRedacted (e.g. mock preview) without server redaction, normalize via redactReportForTeaser
+    const finalReportData = reportData?.__teaserRedacted
+      ? redactReportForTeaser(reportData, { teaserModeEnabled: true, reportUnlocked: false })
+      : reportData
+
+    const element = React.createElement(CareerReportPdf, { reportData: finalReportData })
     const blob = await pdf(element).toBlob()
 
     // Trigger instant browser download

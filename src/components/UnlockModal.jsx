@@ -122,10 +122,7 @@ export default function UnlockModal({
         >
           {/* Top Bar: Preview Badge + X Close */}
           <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 text-xs font-semibold">
-              <LockKeyOpen size={13} weight="bold" />
-              <span>50% Preview • Free Full Unlock</span>
-            </span>
+           
 
             <button
               type="button"
