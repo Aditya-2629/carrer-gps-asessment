@@ -6,37 +6,65 @@
  * NEVER apply this to `/api/admin/*` routes.
  */
 
-function isHelpingBullet(item) {
-  if (!item || typeof item !== 'object') return false
-  if (item.verdict) return String(item.verdict).toLowerCase() === 'helping'
-  return (
-    item.status === 'pass' ||
-    item.severity === 'PASS' ||
-    (typeof item.impactScore === 'number' && item.impactScore >= 75)
-  )
+function isCleanHelpingBullet(item) {
+  if (!item || typeof item !== 'object' || item.locked) return false
+  const verdictStr = item.verdict ? String(item.verdict).toLowerCase() : ''
+  const isPass =
+    verdictStr === 'helping' ||
+    (!verdictStr &&
+      (item.status === 'pass' ||
+        item.severity === 'PASS' ||
+        (typeof item.impactScore === 'number' && item.impactScore >= 75)))
+  if (!isPass) return false
+
+  const orig = String(item.original || item.originalText || item.text || item.bullet || '').trim()
+  const rew = String(
+    item.correctedText ||
+      item.rewrittenText ||
+      item.rewritten ||
+      item.rewrite ||
+      item.improved ||
+      item.upgrade ||
+      item.readyToUseRewrite ||
+      ''
+  ).trim()
+  const hasRephrase = Boolean(rew && orig && rew.toLowerCase() !== orig.toLowerCase())
+  const hasIssues =
+    (Array.isArray(item.issues) && item.issues.length > 0) ||
+    (Array.isArray(item.missingParts) && item.missingParts.length > 0)
+
+  return !hasRephrase && !hasIssues
 }
 
 function redactBulletList(list, redactedBulletIds) {
   if (!Array.isArray(list) || list.length === 0) return list
 
-  const hurtingIndices = []
-  list.forEach((item, idx) => {
-    if (!isHelpingBullet(item)) hurtingIndices.push(idx)
+  const normalized = list.map((item) => {
+    if (!item || typeof item !== 'object') return item
+    if (isCleanHelpingBullet(item)) {
+      return { ...item, verdict: 'helping' }
+    }
+    return { ...item, verdict: 'hurting' }
   })
 
-  // Keep 100% of Helping bullets + first 40% (at least 1) of Hurting bullets
+  const hurtingIndices = []
+  normalized.forEach((item, idx) => {
+    if (!isCleanHelpingBullet(item)) hurtingIndices.push(idx)
+  })
+
+  // Keep 100% of genuinely clean Helping bullets + first 40% (at least 1) of Hurting bullets
   const visibleHurtingCount = hurtingIndices.length > 0
     ? Math.max(1, Math.ceil(hurtingIndices.length * 0.4))
     : 0
   const visibleHurtingSet = new Set(hurtingIndices.slice(0, visibleHurtingCount))
 
-  return list.map((item, idx) => {
-    if (isHelpingBullet(item) || visibleHurtingSet.has(idx)) {
+  return normalized.map((item, idx) => {
+    if (isCleanHelpingBullet(item) || visibleHurtingSet.has(idx)) {
       return item
     }
-    const bId = item?.bulletId || item?.id
-    if (bId) redactedBulletIds.add(String(bId))
-    return { locked: true, verdict: 'hurting' }
+    const bId = item?.bulletId || item?.id || `b_${idx}`
+    if (item?.bulletId || item?.id) redactedBulletIds.add(String(bId))
+    return { id: String(bId), verdict: 'hurting', locked: true }
   })
 }
 
@@ -119,20 +147,34 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
   const cloned = JSON.parse(JSON.stringify(reportData))
   const redactedBulletIds = new Set()
 
-  // 1. Resume Bullet Audits & Keyword Alignment
+  // 1. Resume Bullet Audits & Keyword Alignment across all known array paths
+  const redactBulletFieldsOnObj = (obj) => {
+    if (!obj || typeof obj !== 'object') return
+    for (const key of [
+      'bulletAudit',
+      'bulletAudits',
+      'bulletRewrites',
+      'bullet_rewrites',
+      'bulletUpgrades',
+      'hurtingBullets',
+    ]) {
+      if (Array.isArray(obj[key])) {
+        obj[key] = redactBulletList(obj[key], redactedBulletIds)
+      }
+    }
+    if (obj.resumeAudit && Array.isArray(obj.resumeAudit.bullets)) {
+      obj.resumeAudit.bullets = redactBulletList(obj.resumeAudit.bullets, redactedBulletIds)
+    }
+  }
+
   if (cloned.resume_agent && typeof cloned.resume_agent === 'object') {
     if (cloned.resume_agent.dashboard && typeof cloned.resume_agent.dashboard === 'object') {
-      cloned.resume_agent.dashboard.bulletAudit = redactBulletList(
-        cloned.resume_agent.dashboard.bulletAudit,
-        redactedBulletIds
-      )
+      redactBulletFieldsOnObj(cloned.resume_agent.dashboard)
       cloned.resume_agent.dashboard.keywordAlignment = redactKeywordAlignment(
         cloned.resume_agent.dashboard.keywordAlignment
       )
     }
-    cloned.resume_agent.bulletAudit = redactBulletList(cloned.resume_agent.bulletAudit, redactedBulletIds)
-    cloned.resume_agent.bulletRewrites = redactBulletList(cloned.resume_agent.bulletRewrites, redactedBulletIds)
-    cloned.resume_agent.bullet_rewrites = redactBulletList(cloned.resume_agent.bullet_rewrites, redactedBulletIds)
+    redactBulletFieldsOnObj(cloned.resume_agent)
     cloned.resume_agent.keywordAlignment = redactKeywordAlignment(cloned.resume_agent.keywordAlignment)
 
     if (Array.isArray(cloned.resume_agent.issues)) {
@@ -148,8 +190,7 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
     }
   }
 
-  cloned.bulletRewrites = redactBulletList(cloned.bulletRewrites, redactedBulletIds)
-  cloned.bullet_rewrites = redactBulletList(cloned.bullet_rewrites, redactedBulletIds)
+  redactBulletFieldsOnObj(cloned)
   cloned.keywordAlignment = redactKeywordAlignment(cloned.keywordAlignment)
 
   // 2. LinkedIn Studio

@@ -143,7 +143,7 @@ export default function ResumeBulletAudit({
       ]
     }
 
-    return rawBullets.map((item, index) => {
+    const mapped = rawBullets.map((item, index) => {
       if (item?.locked) {
         return {
           locked: true,
@@ -161,40 +161,9 @@ export default function ResumeBulletAudit({
         item.status === 'warn' ||
         item.severity === 'WARN' ||
         (typeof item.impactScore === 'number' && item.impactScore >= 50 && item.impactScore < 75)
-      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
-      const verdict = item.verdict
-        ? String(item.verdict).toLowerCase()
-        : isPass
-        ? 'helping'
-        : 'hurting'
-      const fivePartFlags =
-        item.fivePartFlags && typeof item.fivePartFlags === 'object'
-          ? item.fivePartFlags
-          : {
-              actionVerb: item.hasActionVerb ?? isPass,
-              hardSkill: (item.technologyCount ?? 0) > 0 || true,
-              collaboration: false,
-              metric: item.hasQuantifier ?? isPass,
-              outcome: item.hasOutcomeVerb ?? isPass,
-            }
-      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
 
       const bId = item.bulletId || item.id || `b_${index}`
       const override = bulletOverrides[bId]
-
-      if (item.original && item.severity && item.recruiterAttention) {
-        return {
-          ...item,
-          bulletId: bId,
-          rewritten: override?.rewritten || cleanRewriteText(item.rewritten || item.rewrite || item.original),
-          evidenceStatus: override?.evidenceStatus || item.evidenceStatus || null,
-          confirmedMetric: override?.confirmedMetric || item.confirmedMetric || null,
-          whyItWorks: override?.whyItWorks || item.whyItWorks || '',
-          verdict,
-          fivePartFlags,
-          isResponsibilityOnly,
-        }
-      }
 
       // Merge linked issue if present
       const linkedIssue = issues.find(
@@ -209,34 +178,78 @@ export default function ResumeBulletAudit({
           )
       )
 
-      const finalRewritten =
+      const origText = String(item.original || item.originalText || item.text || item.bullet || '').trim()
+      const rawRewritten =
         override?.rewritten ||
         linkedIssue?.correctedText ||
+        item.correctedText ||
+        item.rewrittenText ||
         item.rewritten ||
         item.rewrite ||
         item.improved ||
+        item.upgrade ||
         item.readyToUseRewrite ||
-        item.original ||
-        item.text ||
-        ''
+        origText
+      const cleanedRewritten = cleanRewriteText(rawRewritten)
+
+      const hasRephrase = Boolean(cleanedRewritten && origText && cleanedRewritten.toLowerCase() !== origText.toLowerCase())
+      const hasBulletIssues =
+        (Array.isArray(item.issues) && item.issues.length > 0) ||
+        (Array.isArray(item.missingParts) && item.missingParts.length > 0)
+
+      // A bullet is Helping ONLY if its verdict/pass is helping AND it has NO rephrase/upgrade/issues
+      const rawVerdictHelping = item.verdict ? String(item.verdict).toLowerCase() === 'helping' : isPass
+      const verdict = rawVerdictHelping && !hasRephrase && !hasBulletIssues ? 'helping' : 'hurting'
+      const severity = verdict === 'helping' ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+
+      const fivePartFlags =
+        item.fivePartFlags && typeof item.fivePartFlags === 'object'
+          ? item.fivePartFlags
+          : {
+              actionVerb: item.hasActionVerb ?? (verdict === 'helping'),
+              hardSkill: (item.technologyCount ?? 0) > 0 || true,
+              collaboration: false,
+              metric: item.hasQuantifier ?? (verdict === 'helping'),
+              outcome: item.hasOutcomeVerb ?? (verdict === 'helping'),
+            }
+      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
+
       let rawCritique =
         linkedIssue?.diagnosis ||
         item.critique ||
+        item.diagnosis ||
         item.reason ||
-        (isPass
+        (Array.isArray(item.issues) && item.issues.length > 0 ? item.issues.join(' ') : '') ||
+        (verdict === 'helping'
           ? 'High impact technical achievement bullet with clear operational outcome.'
           : 'Lacks quantified metrics or active ownership.')
 
-      if (!isPass && /no defects found|clear,\s*specific/i.test(rawCritique)) {
+      if (verdict === 'hurting' && /no defects found|clear,\s*specific/i.test(rawCritique)) {
         rawCritique = 'Lacks quantified business outcome and measurable impact — reads as a routine task rather than a distinctive achievement.'
       }
-      const finalCritique = rawCritique
+
+      if (item.original && item.severity && item.recruiterAttention) {
+        return {
+          ...item,
+          bulletId: bId,
+          original: origText,
+          rewritten: cleanedRewritten,
+          critique: rawCritique,
+          evidenceStatus: override?.evidenceStatus || item.evidenceStatus || null,
+          confirmedMetric: override?.confirmedMetric || item.confirmedMetric || null,
+          whyItWorks: override?.whyItWorks || item.whyItWorks || '',
+          severity,
+          verdict,
+          fivePartFlags,
+          isResponsibilityOnly,
+        }
+      }
 
       return {
         bulletId: bId,
-        original: item.original || item.text || '',
-        rewritten: cleanRewriteText(finalRewritten),
-        critique: finalCritique,
+        original: origText,
+        rewritten: cleanedRewritten,
+        critique: rawCritique,
         severity,
         verdict,
         fivePartFlags,
@@ -251,7 +264,7 @@ export default function ResumeBulletAudit({
             : Array.isArray(linkedIssue?.metricOpportunities)
             ? linkedIssue.metricOpportunities
             : [],
-        recruiterAttention: isPass
+        recruiterAttention: verdict === 'helping'
           ? 'HOOKED (3.0s scan)'
           : isWarn
           ? 'SKIPPED (0.7s scan)'
@@ -259,14 +272,37 @@ export default function ResumeBulletAudit({
         score:
           typeof item.impactScore === 'number'
             ? item.impactScore
-            : isPass
+            : verdict === 'helping'
             ? 94
             : isWarn
             ? 65
             : 30,
       }
     })
-  }, [rawBullets, issues, bulletOverrides])
+
+    // Enforce 40% visible / 60% locked split on Hurting bullets if teaser is locked and server didn't already redact
+    const alreadyHasServerLocks = mapped.some((b) => b.locked)
+    if (isTeaserLocked && !alreadyHasServerLocks) {
+      const hurtingIndices = []
+      mapped.forEach((b, i) => {
+        if (b.verdict === 'hurting') hurtingIndices.push(i)
+      })
+      const visibleCount = hurtingIndices.length > 0 ? Math.max(1, Math.ceil(hurtingIndices.length * 0.4)) : 0
+      const visibleSet = new Set(hurtingIndices.slice(0, visibleCount))
+      return mapped.map((b, i) => {
+        if (b.verdict === 'helping' || visibleSet.has(i)) return b
+        return {
+          locked: true,
+          bulletId: b.bulletId || `locked_${i}`,
+          verdict: 'hurting',
+          severity: 'CRITICAL',
+          fivePartFlags: {},
+        }
+      })
+    }
+
+    return mapped
+  }, [rawBullets, issues, bulletOverrides, isTeaserLocked])
 
   // Ensure first hurting bullet is expanded when bullets change or on initial load
   useEffect(() => {
