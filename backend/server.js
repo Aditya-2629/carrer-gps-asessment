@@ -14,9 +14,9 @@ import adminRoutes from './routes/adminRoutes.js'
 import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
-import { getGlobalSettings } from './models/AppSettings.js'
+import { getGlobalSettings, DEFAULT_SOCIAL_LINKS_CONFIG, normalizeSocialLinksConfig } from './models/AppSettings.js'
 import User from './models/User.js'
-import { getPublicReportById } from './controllers/assessmentController.js'
+import { getPublicReportById, getPublicReportPdfById } from './controllers/assessmentController.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
 
 // Load environment variables
@@ -63,19 +63,29 @@ app.use((req, _res, next) => {
   next()
 })
 
-// Parse optional admin frontend URLs (comma-separated support for ADMIN_ORIGIN, ADMIN_APP_URL & ADMIN_FRONTEND_URL)
-const adminOrigins = [process.env.ADMIN_ORIGIN || '', process.env.ADMIN_APP_URL || '', process.env.ADMIN_FRONTEND_URL || '']
-  .join(',')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
+// Parse comma-separated frontend & admin origins with trailing-slash normalization
+const parseOriginList = (raw) =>
+  String(raw || '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+
+const adminOrigins = [
+  ...parseOriginList(process.env.ADMIN_ORIGIN),
+  ...parseOriginList(process.env.ADMIN_APP_URL),
+  ...parseOriginList(process.env.ADMIN_FRONTEND_URL),
+]
+const frontendOrigins = [
+  ...parseOriginList(process.env.FRONTEND_URL),
+  ...parseOriginList(process.env.CLIENT_URL),
+]
 
 // CORS — public web, external admin panels, and localhost
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:4173',
-  process.env.FRONTEND_URL,
+  ...frontendOrigins,
   ...adminOrigins,
 ].filter(Boolean)
 
@@ -154,7 +164,16 @@ app.get('/api/settings/public', async (_req, res) => {
       bookingUrl: s.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: s.whatsappCtaNumber || '',
       ctaHeadline: s.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaSubtext: s.ctaSubtext || 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: s.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
+      communityUrl: s.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: s.socialLinks?.linkedin || 'https://www.linkedin.com/company/crafture',
+        instagram: s.socialLinks?.instagram || 'https://www.instagram.com/crafture.ai',
+        youtube: s.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
+        website: s.socialLinks?.website || 'https://crafture.in',
+      },
+      socialLinksConfig: normalizeSocialLinksConfig(s.socialLinksConfig),
     })
   } catch {
     return res.status(200).json({
@@ -163,13 +182,23 @@ app.get('/api/settings/public', async (_req, res) => {
       bookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: '',
       ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaSubtext: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: 'Book Free 1:1 Strategy Call',
+      communityUrl: 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: 'https://www.linkedin.com/company/crafture',
+        instagram: 'https://www.instagram.com/crafture.ai',
+        youtube: 'https://www.youtube.com/@crafture',
+        website: 'https://crafture.in',
+      },
+      socialLinksConfig: DEFAULT_SOCIAL_LINKS_CONFIG,
     })
   }
 })
 
 // Public Shareable Report Route (zero extra DB storage; reads from existing User/Assessment record)
 app.get('/api/report/:id', getPublicReportById)
+app.get('/api/report/:id/pdf', getPublicReportPdfById)
 
 // Booking Webhook Auto-Sync (SuperProfile / Calendly)
 app.post('/api/webhooks/booking', async (req, res) => {

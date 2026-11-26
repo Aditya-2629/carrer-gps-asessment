@@ -700,10 +700,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ─── OpenResume-Grade Pixel-Perfect PDF Print Engine ──────────────────────── */
 @media print {
-  /* Set A4 page format with crisp margins */
+  /* Set A4 page format with clean 14mm/12mm margins */
   @page {
     size: A4 portrait;
-    margin: 12mm 10mm 12mm 10mm;
+    margin: 14mm 12mm;
   }
 
   /* Force background colors and gradients to print accurately */
@@ -736,16 +736,17 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 
-  /* Prevent cards from breaking awkwardly across page splits */
-  .bg-white,
-  .rounded-3xl,
-  .rounded-2xl,
-  .border,
-  article,
-  section {
+  /* Prevent individual atomic cards from breaking awkwardly across page splits (never lock whole multi-card sections) */
+  .pdf-card,
+  .print-card,
+  .metric-card,
+  .bullet-card,
+  .priority-card,
+  .headline-card,
+  .cta-card {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    margin-bottom: 12px !important;
+    margin-bottom: 10px !important;
     box-shadow: none !important;
   }
 
@@ -790,4 +791,15 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0;
     }
   }
+}
+
+/* Native <dialog> modal scroll containment (modern-web-guidance: prevent-page-scroll-under-modal-dialog) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
 }

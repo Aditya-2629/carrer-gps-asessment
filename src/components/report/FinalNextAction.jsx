@@ -1,13 +1,19 @@
 import React, { useState } from 'react'
+import { motion } from 'framer-motion'
 import {
   CalendarBlank,
   ArrowRight,
+  ArrowUpRight,
   DownloadSimple,
   ShieldCheck,
   Briefcase,
   CheckCircle,
+  WhatsappLogo,
+  Globe,
+  UsersThree,
 } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
+import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
@@ -20,7 +26,16 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function FinalNextAction({ coachData, reportData, onBookCall, isTeaserLocked = false }) {
+export default function FinalNextAction({
+  coachData,
+  reportData,
+  onBookCall,
+  isTeaserLocked = false,
+  bookingUrl = '',
+  whatsappNumber = '',
+  socialLinksConfig = null,
+  healthScore = null,
+}) {
   const rawTargetRole =
     reportData?.assessment_agent?.candidateProfile?.targetRole ||
     reportData?.user_answers?.targetRole ||
@@ -149,36 +164,131 @@ export default function FinalNextAction({ coachData, reportData, onBookCall, isT
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <a
-                href="https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe"
+                href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all no-underline cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
               >
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
                 <ArrowRight size={14} weight="bold" />
               </a>
 
-              {!isTeaserLocked && (
-                <button
-                  type="button"
-                  disabled={isDownloading}
-                  onClick={async () => {
-                    setIsDownloading(true)
-                    try {
-                      await downloadFullVisualReport(reportData, candidateName)
-                    } finally {
-                      setIsDownloading(false)
-                    }
-                  }}
-                  className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-                >
-                  <DownloadSimple size={18} weight="bold" />
-                  <span>{isDownloading ? 'Generating PDF...' : 'Download Full Report (PDF)'}</span>
-                </button>
-              )}
+              {(() => {
+                const rawScore =
+                  healthScore ??
+                  reportData?.career_health_score ??
+                  reportData?.overallScore ??
+                  72
+                const cleanWa = String(
+                  whatsappNumber || reportData?.whatsappCtaNumber || ''
+                ).replace(/\D/g, '')
+                const waMessage = `Hi Crafture team, I'm ${candidateName} targeting ${targetRole} (Career Health Score: ${rawScore}/100) and would like to unlock my complete Career GPS Report.`
+                const waHref = cleanWa
+                  ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMessage)}`
+                  : `https://wa.me/?text=${encodeURIComponent(waMessage)}`
+                return (
+                  <a
+                    href={waHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackEvent('whatsapp_cta_clicked', { source: 'final_next_action', targetRole })}
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-colors duration-150 no-underline cursor-pointer"
+                  >
+                    <WhatsappLogo size={18} weight="fill" />
+                    <span>Connect on WhatsApp</span>
+                  </a>
+                )
+              })()}
+
+              <button
+                type="button"
+                disabled={isDownloading}
+                onClick={async () => {
+                  trackEvent('pdf_downloaded', { source: 'final_next_action', isTeaserLocked, candidateName })
+                  setIsDownloading(true)
+                  try {
+                    const resolvedSocial = socialLinksConfig || reportData?.socialLinksConfig || null
+                    await downloadFullVisualReport(
+                      {
+                        ...reportData,
+                        whatsappCtaNumber: whatsappNumber || reportData?.whatsappCtaNumber || '',
+                        callBookingUrl: bookingUrl || reportData?.callBookingUrl || '',
+                        ...(resolvedSocial ? { socialLinksConfig: resolvedSocial } : {}),
+                      },
+                      candidateName,
+                      { isTeaserLocked }
+                    )
+                  } finally {
+                    setIsDownloading(false)
+                  }
+                }}
+                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <DownloadSimple size={18} weight="bold" />
+                <span>
+                  {isDownloading
+                    ? 'Generating PDF...'
+                    : isTeaserLocked
+                    ? 'Download Preview Report (PDF)'
+                    : 'Download Full Report (PDF)'}
+                </span>
+              </button>
             </div>
+
+            {(() => {
+              const cfg = socialLinksConfig || reportData?.socialLinksConfig
+              if (!cfg?.enabled) return null
+              const showCommunity = Boolean(cfg.communityEnabled && String(cfg.communityUrl || '').trim())
+              const activeItems = Array.isArray(cfg.items)
+                ? cfg.items.filter((i) => i?.enabled && String(i?.url || '').trim())
+                : []
+              if (!showCommunity && activeItems.length === 0) return null
+              return (
+                <div className="pt-4 mt-2 border-t border-[var(--border-default)]/70 space-y-2.5">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                    Community &amp; Follow Crafture
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {showCommunity && (
+                      <motion.a
+                        href={cfg.communityUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ y: -2 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        className="min-h-[40px] inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs font-semibold shadow-xs transition-colors no-underline cursor-pointer"
+                      >
+                        <UsersThree size={15} weight="fill" />
+                        <span>{cfg.communityLabel || 'Join Our Community'}</span>
+                        <ArrowRight size={13} weight="bold" />
+                      </motion.a>
+                    )}
+
+                    {activeItems.map((item) => (
+                      <motion.a
+                        key={item.key || item.label}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        whileHover={{ y: -2 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
+                      >
+                        {item.customLogoUrl ? (
+                          <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
+                        ) : (
+                          <Globe size={14} weight="bold" className="text-indigo-500" />
+                        )}
+                        <span>{item.label}</span>
+                        <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
+                      </motion.a>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Right Column (lg:col-span-5) - Seamless illustration with Mascot Celebration */}

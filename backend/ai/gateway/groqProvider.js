@@ -6,6 +6,7 @@
 
 import { aiConfig } from '../config/aiConfig.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
+import { keyPools } from './roundRobinKeyManager.js'
 
 /**
  * Extracts Retry-After or rate limit reset duration from Groq response headers or error message.
@@ -57,6 +58,8 @@ export class GroqProvider {
    * @returns {string[]}
    */
   getKeys() {
+    const rrKeys = keyPools.groq.acquireOrderedKeys()
+    if (rrKeys.length > 0) return rrKeys
     if (this.config.apiKeys && Array.isArray(this.config.apiKeys) && this.config.apiKeys.length > 0) {
       return this.config.apiKeys
     }
@@ -288,6 +291,7 @@ export class GroqProvider {
           }
 
           const safeMessage = data?.error?.message || response.statusText || 'Groq API request failed'
+          keyPools.groq.recordFailure(apiKey, status, safeMessage)
           const providerErr = new ProviderError({
             code: errorCode,
             message: `[Groq ${status}] ${safeMessage}`,
@@ -340,6 +344,8 @@ export class GroqProvider {
 
           throw emptyError
         }
+
+        keyPools.groq.recordSuccess(apiKey)
 
         return {
           text: text.trim(),

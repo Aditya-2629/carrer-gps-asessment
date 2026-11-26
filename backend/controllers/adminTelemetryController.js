@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
+import LlmCallLog from '../models/LlmCallLog.js'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
 import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
@@ -8,6 +9,7 @@ import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
+import { purgeAllKeyCooldowns } from '../ai/gateway/roundRobinKeyManager.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 /**
@@ -145,10 +147,31 @@ export async function getFallbackAndErrorAnalytics(req, res) {
       },
     ]
 
+    const byModelAgg = await LlmCallLog.aggregate([
+      {
+        $group: {
+          _id: { model: '$model', provider: '$provider' },
+          costUsd: { $sum: { $ifNull: ['$costUsd', 0] } },
+          calls: { $sum: 1 },
+          tokens: { $sum: { $ifNull: ['$totalTokens', 0] } },
+        },
+      },
+      { $sort: { costUsd: -1 } },
+    ])
+    const byModel = byModelAgg.map((m) => ({
+      model: m._id?.model || 'unknown',
+      provider: m._id?.provider || 'unknown',
+      costUsd: Number((m.costUsd || 0).toFixed(5)),
+      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      calls: m.calls || 0,
+      tokens: m.tokens || 0,
+    }))
+
     return res.status(200).json({
       success: true,
       fallbackTriggers,
       topFailingEndpoints,
+      byModel,
       errorBreakdown: Object.entries(errorCounts)
         .map(([error, count]) => ({ error, count }))
         .sort((a, b) => b.count - a.count),
@@ -248,6 +271,26 @@ export async function getLlmCallsAndQuotas(req, res) {
       }
     })
 
+    const byModelAgg = await LlmCallLog.aggregate([
+      {
+        $group: {
+          _id: { model: '$model', provider: '$provider' },
+          costUsd: { $sum: { $ifNull: ['$costUsd', 0] } },
+          calls: { $sum: 1 },
+          tokens: { $sum: { $ifNull: ['$totalTokens', 0] } },
+        },
+      },
+      { $sort: { costUsd: -1 } },
+    ])
+    const byModel = byModelAgg.map((m) => ({
+      model: m._id?.model || 'unknown',
+      provider: m._id?.provider || 'unknown',
+      costUsd: Number((m.costUsd || 0).toFixed(5)),
+      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      calls: m.calls || 0,
+      tokens: m.tokens || 0,
+    }))
+
     return res.status(200).json({
       success: true,
       summary: {
@@ -262,13 +305,25 @@ export async function getLlmCallsAndQuotas(req, res) {
         p50LatencySec: `${p50Latency}s`,
         p95LatencySec: `${p95Latency}s`,
       },
-      costByModel: Object.entries(costByModel).map(([model, usd]) => ({
-        model,
-        usd: Number(usd.toFixed(4)),
-        inr: Number((usd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
-        tokens: tokensByModel[model] || 0,
-        percentageOfSpend: totalSpendUsd > 0 ? Math.round((usd / totalSpendUsd) * 100) : 0,
-      })),
+      byModel,
+      costByModel: byModel.length > 0
+        ? byModel.map((m) => ({
+            model: m.model,
+            provider: m.provider,
+            calls: m.calls,
+            usd: m.costUsd,
+            costUsd: m.costUsd,
+            inr: m.costInr,
+            tokens: m.tokens,
+            percentageOfSpend: totalSpendUsd > 0 ? Math.round((m.costUsd / totalSpendUsd) * 100) : 0,
+          }))
+        : Object.entries(costByModel).map(([model, usd]) => ({
+            model,
+            usd: Number(usd.toFixed(4)),
+            inr: Number((usd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+            tokens: tokensByModel[model] || 0,
+            percentageOfSpend: totalSpendUsd > 0 ? Math.round((usd / totalSpendUsd) * 100) : 0,
+          })),
       detailedCalls,
       keyPools: {
         apify: {
@@ -302,7 +357,8 @@ export async function purgeKeyCooldowns(req, res) {
   try {
     const apifyCount = apifyKeyPool.purgeCooldowns()
     const geminiCount = geminiKeyPool.purgeCooldowns()
-    const totalPurged = apifyCount + geminiCount
+    const rrCount = purgeAllKeyCooldowns()
+    const totalPurged = Math.max(apifyCount + geminiCount, rrCount)
 
     return res.status(200).json({
       success: true,
@@ -511,6 +567,9 @@ export async function getOpenRouterBalance(req, res) {
         const kJson = await keyRes.value.json().catch(() => ({}))
         const kd = kJson?.data || kJson || {}
         openrouter.keyUsage = kd.usage ?? null
+        openrouter.usageDaily = kd.usage_daily != null ? Number(kd.usage_daily) : null
+        openrouter.usageWeekly = kd.usage_weekly != null ? Number(kd.usage_weekly) : null
+        openrouter.usageMonthly = kd.usage_monthly != null ? Number(kd.usage_monthly) : null
         openrouter.keyLimit = kd.limit ?? null
         openrouter.keyLimitRemaining = kd.limit_remaining ?? null
         openrouter.isFreeTier = kd.is_free_tier ?? null
@@ -560,12 +619,18 @@ export async function getOpenRouterBalance(req, res) {
         runs: d.runs,
       }))
 
+    const liveTodayUsd = openrouter.usageDaily != null ? openrouter.usageDaily : todayUsd
+    const rateInr = DEFAULT_PRICING.usd_to_inr || 94
     return res.status(200).json({
       success: true,
       ...openrouter,
+      rateInr,
       dailySpend: {
-        todayUsd: Number(todayUsd.toFixed(5)),
-        todayInr: Number((todayUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        todayUsd: Number(liveTodayUsd.toFixed(5)),
+        weeklyUsd: openrouter.usageWeekly != null ? Number(openrouter.usageWeekly.toFixed(5)) : null,
+        monthlyUsd: openrouter.usageMonthly != null ? Number(openrouter.usageMonthly.toFixed(5)) : null,
+        todayInr: Number((liveTodayUsd * rateInr).toFixed(2)),
+        source: openrouter.usageDaily != null ? 'openrouter_live' : 'db_runs',
         runsToday,
         inputTokensToday,
         outputTokensToday,
@@ -587,7 +652,21 @@ export async function getAnalyticsOverview(req, res) {
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads, dailyHistory] = await Promise.all([
+    const [
+      liveActiveCount,
+      stepFunnelAgg,
+      deviceAgg,
+      abandonedLeads,
+      dailyHistory,
+      totalSessions,
+      sessionsStep1Plus,
+      sessionsStep2Plus,
+      sessionsStep3Plus,
+      sessionsReport,
+      usersWithReport,
+      usersCallBooked,
+      usersUnlocked,
+    ] = await Promise.all([
       VisitorSession.countDocuments({ lastHeartbeatAt: { $gte: fiveMinsAgo } }),
       VisitorSession.aggregate([
         { $match: { createdAt: { $gte: thirtyDaysAgo } } },
@@ -598,11 +677,15 @@ export async function getAnalyticsOverview(req, res) {
         { $group: { _id: '$device', count: { $sum: 1 } } },
       ]),
       VisitorSession.find({
+        completed: { $ne: true },
+        maxStepReached: { $lt: 4 },
         currentPhase: { $ne: 'report' },
         $or: [
+          { 'abandonedDraft.name': { $ne: '' } },
           { 'abandonedDraft.email': { $ne: '' } },
           { 'abandonedDraft.phone': { $ne: '' } },
           { 'abandonedDraft.linkedin': { $ne: '' } },
+          { 'abandonedDraft.targetRole': { $ne: '' } },
           { 'abandonedDraft.resumeFilename': { $ne: '' } },
         ],
       })
@@ -613,7 +696,34 @@ export async function getAnalyticsOverview(req, res) {
         .sort({ date: -1 })
         .limit(90)
         .lean(),
+      VisitorSession.countDocuments({}),
+      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 1 } }, { currentPhase: { $in: ['assessment', 'otp', 'loading', 'report'] } }] }),
+      VisitorSession.countDocuments({ maxStepReached: { $gte: 2 } }),
+      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 3 } }, { currentPhase: { $in: ['otp', 'loading', 'report'] } }] }),
+      VisitorSession.countDocuments({ $or: [{ completed: true }, { maxStepReached: { $gte: 4 } }, { currentPhase: 'report' }] }),
+      User.countDocuments({ aiReport: { $ne: null } }),
+      User.countDocuments({ callBooked: true }),
+      User.countDocuments({ reportUnlocked: true }),
     ])
+
+    const funnelUnlocked = usersUnlocked
+    const funnelCallBooked = Math.max(usersCallBooked, funnelUnlocked)
+    const funnelReport = Math.max(sessionsReport, usersWithReport, funnelCallBooked)
+    const funnelStep3 = Math.max(sessionsStep3Plus, funnelReport)
+    const funnelStep2 = Math.max(sessionsStep2Plus, funnelStep3)
+    const funnelStep1 = Math.max(sessionsStep1Plus, funnelStep2)
+    const funnelLanding = Math.max(totalSessions, funnelStep1)
+
+    const funnel = {
+      landing: funnelLanding,
+      visitors: funnelLanding,
+      step1: funnelStep1,
+      step2: funnelStep2,
+      step3: funnelStep3,
+      report: funnelReport,
+      callBooked: funnelCallBooked,
+      unlocked: funnelUnlocked,
+    }
 
     const stepFunnel = {}
     stepFunnelAgg.forEach((row) => {
@@ -628,6 +738,7 @@ export async function getAnalyticsOverview(req, res) {
     return res.status(200).json({
       success: true,
       liveActiveCount,
+      funnel,
       stepFunnel,
       deviceBreakdown,
       dailyHistory: dailyHistory.reverse(),
@@ -645,6 +756,114 @@ export async function getAnalyticsOverview(req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] getAnalyticsOverview error:', err)
     return res.status(500).json({ success: false, message: 'Failed to retrieve analytics overview.' })
+  }
+}
+
+const GHOST_LEAD_FILTER = {
+  completed: { $ne: true },
+  maxStepReached: { $lt: 4 },
+  currentPhase: { $ne: 'report' },
+  $or: [
+    { 'abandonedDraft.name': { $ne: '' } },
+    { 'abandonedDraft.email': { $ne: '' } },
+    { 'abandonedDraft.phone': { $ne: '' } },
+    { 'abandonedDraft.linkedin': { $ne: '' } },
+    { 'abandonedDraft.targetRole': { $ne: '' } },
+    { 'abandonedDraft.resumeFilename': { $ne: '' } },
+  ],
+}
+
+/**
+ * DELETE /api/admin/analytics/ghosts/:sessionId
+ */
+export async function deleteGhostLead(req, res) {
+  try {
+    const sessionId = String(req.params?.sessionId || '').trim()
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: 'sessionId is required.' })
+    }
+    const deleted = await VisitorSession.findOneAndDelete({ sessionId })
+    return res.status(200).json({ success: true, deletedCount: deleted ? 1 : 0, sessionId })
+  } catch (err) {
+    console.error('[AdminTelemetry] deleteGhostLead error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete ghost lead.' })
+  }
+}
+
+/**
+ * DELETE /api/admin/analytics/ghosts
+ */
+export async function bulkDeleteGhostLeads(req, res) {
+  try {
+    const sessionIds = Array.isArray(req.body?.sessionIds) ? req.body.sessionIds.filter(Boolean) : []
+    const filter = sessionIds.length > 0 ? { sessionId: { $in: sessionIds } } : GHOST_LEAD_FILTER
+    const result = await VisitorSession.deleteMany(filter)
+    return res.status(200).json({ success: true, deletedCount: result.deletedCount || 0 })
+  } catch (err) {
+    console.error('[AdminTelemetry] bulkDeleteGhostLeads error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to clear ghost leads.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/ghosts/export.csv
+ */
+export async function exportGhostLeadsCsv(_req, res) {
+  try {
+    const ghosts = await VisitorSession.find(GHOST_LEAD_FILTER)
+      .sort({ lastHeartbeatAt: -1 })
+      .limit(1000)
+      .lean()
+
+    const esc = (v) => {
+      const s = v == null ? '' : String(v)
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    const header = [
+      'Session ID',
+      'Name',
+      'Email',
+      'Phone',
+      'Target Role',
+      'LinkedIn',
+      'Resume File',
+      'Phase',
+      'Step',
+      'Device',
+      'City',
+      'Referrer',
+      'Last Active',
+    ].join(',')
+
+    const rows = ghosts.map((s) => {
+      const d = s.abandonedDraft || {}
+      return [
+        s.sessionId,
+        d.name || '',
+        d.email || '',
+        d.phone || '',
+        d.targetRole || '',
+        d.linkedin || '',
+        d.resumeFilename || '',
+        s.currentPhase || '',
+        s.currentStep || '',
+        s.device || '',
+        s.city || '',
+        s.referrer || '',
+        s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).toISOString() : '',
+      ]
+        .map(esc)
+        .join(',')
+    })
+
+    const csv = [header, ...rows].join('\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="ghost-leads.csv"')
+    return res.status(200).send(csv)
+  } catch (err) {
+    console.error('[AdminTelemetry] exportGhostLeadsCsv error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to export ghost leads.' })
   }
 }
 
@@ -705,6 +924,362 @@ export async function cleanupStaleSessions(_req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] cleanupStaleSessions error:', err)
     return res.status(500).json({ success: false, message: 'Failed to clean up stale sessions.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/attribution
+ * Aggregates VisitorSession visits and User submissions/bookings/scores by attribution.source.
+ */
+export async function getAttributionAnalytics(_req, res) {
+  try {
+    const [visitAgg, userAgg] = await Promise.all([
+      VisitorSession.aggregate([
+        {
+          $group: {
+            _id: { $ifNull: ['$attribution.source', 'direct'] },
+            visits: { $sum: 1 },
+          },
+        },
+      ]),
+      User.aggregate([
+        {
+          $project: {
+            source: { $ifNull: ['$attribution.source', 'direct'] },
+            hasSubmission: {
+              $cond: [
+                { $or: [{ $ne: ['$aiReport', null] }, { $eq: ['$isVerified', true] }] },
+                1,
+                0,
+              ],
+            },
+            isCallBooked: {
+              $cond: [{ $eq: ['$callBooked', true] }, 1, 0],
+            },
+            score: {
+              $convert: {
+                input: {
+                  $cond: [
+                    { $eq: [{ $type: '$aiReport.career_health_score' }, 'object'] },
+                    '$aiReport.career_health_score.overall',
+                    '$aiReport.career_health_score',
+                  ],
+                },
+                to: 'double',
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: '$source',
+            submissions: { $sum: '$hasSubmission' },
+            callsBooked: { $sum: '$isCallBooked' },
+            avgScore: { $avg: '$score' },
+          },
+        },
+      ]),
+    ])
+
+    const bySource = new Map()
+    for (const row of visitAgg) {
+      const src = String(row._id || 'direct').trim() || 'direct'
+      bySource.set(src, {
+        source: src,
+        visits: row.visits || 0,
+        submissions: 0,
+        callsBooked: 0,
+        avgScore: null,
+      })
+    }
+    for (const row of userAgg) {
+      const src = String(row._id || 'direct').trim() || 'direct'
+      const cur = bySource.get(src) || {
+        source: src,
+        visits: 0,
+        submissions: 0,
+        callsBooked: 0,
+        avgScore: null,
+      }
+      cur.submissions += row.submissions || 0
+      cur.callsBooked += row.callsBooked || 0
+      if (typeof row.avgScore === 'number' && Number.isFinite(row.avgScore)) {
+        cur.avgScore = Number(row.avgScore.toFixed(1))
+      }
+      bySource.set(src, cur)
+    }
+
+    const attribution = Array.from(bySource.values())
+      .map((item) => ({
+        ...item,
+        conversionRate:
+          item.visits > 0
+            ? Number(((item.submissions / item.visits) * 100).toFixed(1))
+            : 0,
+      }))
+      .sort((a, b) => b.submissions - a.submissions || b.visits - a.visits)
+
+    return res.status(200).json({
+      success: true,
+      attribution,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getAttributionAnalytics error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve attribution analytics.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/skill-gaps?targetRole=...
+ * Aggregates top 15 most frequent missing skills across completed assessments.
+ */
+export async function getSkillGapHeatmap(req, res) {
+  try {
+    const targetRole = String(req.query?.targetRole || '').trim()
+    const query = { aiReport: { $ne: null } }
+    if (targetRole && targetRole !== 'ALL') {
+      const escaped = targetRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const rx = new RegExp(escaped, 'i')
+      query.$or = [
+        { 'answers.targetRole': rx },
+        { 'resumeJson.target_role': rx },
+        { 'aiReport.resume_json.target_role': rx },
+      ]
+    }
+
+    const users = await User.find(query)
+      .select('aiReport.resume_agent aiReport.missing_skills aiReport.missingSkills')
+      .lean()
+
+    const counts = new Map()
+    for (const u of users) {
+      const ra = u.aiReport?.resume_agent || {}
+      const ka = ra.keywordAlignment || {}
+      const dash = ra.dashboard || {}
+      const lists = [
+        ka.missingFromResume,
+        ka.missingMarketSkillsRanked,
+        ka.criticalMissing,
+        ka.missingKeywords,
+        ka.missingSkills,
+        ra.missingFromResume,
+        ra.missingMarketSkillsRanked,
+        ra.criticalMissing,
+        ra.missingKeywords,
+        dash.missingKeywords,
+        u.aiReport?.missing_skills,
+        u.aiReport?.missingSkills,
+      ]
+      const uniqueForCandidate = new Set()
+      for (const list of lists) {
+        if (!Array.isArray(list)) continue
+        for (const entry of list) {
+          const name = (typeof entry === 'string' ? entry : entry?.keyword || entry?.skill || entry?.name || '').trim()
+          if (name.length >= 2) uniqueForCandidate.add(name)
+        }
+      }
+      for (const skill of uniqueForCandidate) {
+        counts.set(skill, (counts.get(skill) || 0) + 1)
+      }
+    }
+
+    const totalCandidates = users.length
+    const skills = Array.from(counts.entries())
+      .map(([skill, count]) => ({
+        skill,
+        count,
+        percentOfCandidates: totalCandidates > 0 ? Number(((count / totalCandidates) * 100).toFixed(1)) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15)
+
+    return res.status(200).json({
+      success: true,
+      totalCandidates,
+      targetRole: targetRole || 'ALL',
+      skills,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getSkillGapHeatmap error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve skill gap heatmap.' })
+  }
+}
+
+const OPENROUTER_MODELS_TTL_MS = 6 * 60 * 60 * 1000
+let _openRouterModelsCache = { fetchedAt: 0, models: [] }
+
+/**
+ * GET /api/admin/telemetry/openrouter-models
+ * Fetches https://openrouter.ai/api/v1/models (6h in-memory cache) and merges configured native/Groq rates.
+ */
+export async function getOpenRouterModels(_req, res) {
+  try {
+    const now = Date.now()
+    if (_openRouterModelsCache.models.length > 0 && now - _openRouterModelsCache.fetchedAt < OPENROUTER_MODELS_TTL_MS) {
+      return res.status(200).json({
+        success: true,
+        cached: true,
+        fetchedAt: new Date(_openRouterModelsCache.fetchedAt).toISOString(),
+        count: _openRouterModelsCache.models.length,
+        models: _openRouterModelsCache.models,
+      })
+    }
+
+    const headers = {}
+    const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+    let fetchedModels = []
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      })
+      if (response.ok) {
+        const json = await response.json().catch(() => ({}))
+        const list = Array.isArray(json?.data) ? json.data : []
+        fetchedModels = list.map((m) => {
+          const fallbackRate = DEFAULT_PRICING.models?.[m.id]
+          const promptRaw = parseFloat(m.pricing?.prompt || 0) * 1_000_000
+          const compRaw = parseFloat(m.pricing?.completion || 0) * 1_000_000
+          return {
+            id: m.id,
+            name: m.name || m.id,
+            contextLength: m.context_length ?? null,
+            promptPricePer1M: Number((promptRaw > 0 ? promptRaw : (fallbackRate?.input ?? 0)).toFixed(4)),
+            completionPricePer1M: Number((compRaw > 0 ? compRaw : (fallbackRate?.output ?? 0)).toFixed(4)),
+          }
+        })
+      }
+    } catch (fetchErr) {
+      console.warn('[AdminTelemetry] OpenRouter models fetch failed, falling back to DEFAULT_PRICING:', fetchErr.message)
+    }
+
+    const seen = new Set(fetchedModels.map((m) => m.id))
+    for (const [id, rates] of Object.entries(DEFAULT_PRICING.models || {})) {
+      if (id === 'default' || seen.has(id)) continue
+      fetchedModels.push({
+        id,
+        name: id,
+        contextLength: 128000,
+        promptPricePer1M: Number(rates.input || 0),
+        completionPricePer1M: Number(rates.output || 0),
+      })
+      seen.add(id)
+    }
+
+    _openRouterModelsCache = { fetchedAt: now, models: fetchedModels }
+
+    return res.status(200).json({
+      success: true,
+      cached: false,
+      fetchedAt: new Date(now).toISOString(),
+      count: fetchedModels.length,
+      models: fetchedModels,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getOpenRouterModels error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve OpenRouter models.' })
+  }
+}
+
+const POSTHOG_CACHE_TTL_MS = 60 * 1000
+let _posthogCache = { fetchedAt: 0, payload: null }
+
+async function runPostHogHogql(host, projectId, apiKey, query) {
+  const res = await fetch(`${host}/api/projects/${encodeURIComponent(projectId)}/query/`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) {
+    throw new Error(`PostHog query HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * GET /api/admin/analytics/posthog
+ * Queries PostHog HogQL API for 24h unique visitors, active sessions, and 7d funnel event counts (60s cache).
+ */
+export async function getPostHogAnalytics(_req, res) {
+  try {
+    const apiKey = (process.env.POSTHOG_PERSONAL_API_KEY || '').trim()
+    const projectId = (process.env.POSTHOG_PROJECT_ID || '').trim()
+    const host = (process.env.POSTHOG_HOST || 'https://us.posthog.com').trim().replace(/\/+$/, '')
+
+    if (!apiKey || !projectId) {
+      return res.status(200).json({ success: true, configured: false })
+    }
+
+    const now = Date.now()
+    if (_posthogCache.payload && now - _posthogCache.fetchedAt < POSTHOG_CACHE_TTL_MS) {
+      return res.status(200).json({ ..._posthogCache.payload, cached: true })
+    }
+
+    const [visitorsJson, funnelJson] = await Promise.all([
+      runPostHogHogql(
+        host,
+        projectId,
+        apiKey,
+        "SELECT count(DISTINCT person_id) AS unique_persons, count(DISTINCT properties.$session_id) AS unique_sessions FROM events WHERE event = '$pageview' AND timestamp >= now() - interval 1 day"
+      ),
+      runPostHogHogql(
+        host,
+        projectId,
+        apiKey,
+        "SELECT event, count(DISTINCT person_id) AS persons FROM events WHERE event IN ('landing_viewed','step1_resume_uploaded','step2_linkedin_entered','step3_context_submitted','assessment_submitted','report_viewed','call_booking_clicked','whatsapp_cta_clicked','pdf_downloaded') AND timestamp >= now() - interval 7 day GROUP BY event"
+      ),
+    ])
+
+    const vRow = Array.isArray(visitorsJson?.results) && visitorsJson.results[0] ? visitorsJson.results[0] : [0, 0]
+    const uniqueVisitorsToday = Number(vRow[0] || 0)
+    const activeSessionsToday = Number(vRow[1] || 0)
+
+    const funnel = {
+      landing_viewed: 0,
+      step1_resume_uploaded: 0,
+      step2_linkedin_entered: 0,
+      step3_context_submitted: 0,
+      assessment_submitted: 0,
+      report_viewed: 0,
+      call_booking_clicked: 0,
+      whatsapp_cta_clicked: 0,
+      pdf_downloaded: 0,
+    }
+    for (const row of Array.isArray(funnelJson?.results) ? funnelJson.results : []) {
+      const evName = row?.[0]
+      if (evName && Object.prototype.hasOwnProperty.call(funnel, evName)) {
+        funnel[evName] = Number(row[1] || 0)
+      }
+    }
+
+    const payload = {
+      success: true,
+      configured: true,
+      cached: false,
+      projectUrl: `${host}/project/${projectId}`,
+      uniqueVisitorsToday,
+      activeSessionsToday,
+      funnel,
+    }
+    _posthogCache = { fetchedAt: now, payload }
+
+    return res.status(200).json(payload)
+  } catch (err) {
+    console.error('[AdminTelemetry] getPostHogAnalytics error:', err.message)
+    return res.status(200).json({
+      success: false,
+      configured: true,
+      error: err.message,
+      funnel: {},
+    })
   }
 }
 

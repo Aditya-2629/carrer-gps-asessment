@@ -12,6 +12,7 @@ export default function StickyReportNav({
   healthScore = 72,
   reportData,
   isTeaserLocked = false,
+  pdfExtras = {},
 }) {
   const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
@@ -20,7 +21,8 @@ export default function StickyReportNav({
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
     try {
-      await downloadFullVisualReport(reportData, safeName)
+      const mergedPayload = { ...(reportData || {}), ...(pdfExtras || {}) }
+      await downloadFullVisualReport(mergedPayload, safeName, { isTeaserLocked })
     } finally {
       setIsDownloading(false)
     }
@@ -57,20 +59,18 @@ export default function StickyReportNav({
           </div>
 
           {/* Action button on mobile/tablet */}
-          {!isTeaserLocked && (
-            <div className="flex lg:hidden items-center shrink-0">
-              <button
-                type="button"
-                disabled={isDownloading}
-                onClick={handleDownloadPdf}
-                className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
-                title="Download Full Visual Report (PDF)"
-              >
-                <DownloadSimple size={12} weight="bold" />
-                <span>{isDownloading ? '...' : 'PDF'}</span>
-              </button>
-            </div>
-          )}
+          <div className="flex lg:hidden items-center shrink-0">
+            <button
+              type="button"
+              disabled={isDownloading}
+              onClick={handleDownloadPdf}
+              className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1 cursor-pointer shrink-0"
+              title={isTeaserLocked ? 'Download Preview Report (PDF)' : 'Download Full Visual Report (PDF)'}
+            >
+              <DownloadSimple size={12} weight="bold" />
+              <span>{isDownloading ? '...' : 'PDF'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Center: Sleek 5-Tab Segmented Pill Bar with Overflow Protection */}
@@ -108,21 +108,19 @@ export default function StickyReportNav({
           </nav>
         </div>
 
-        {/* Right: Desktop Action (Download Full Report PDF) */}
-        {!isTeaserLocked && (
-          <div className="hidden lg:flex items-center shrink-0">
-            <button
-              type="button"
-              disabled={isDownloading}
-              onClick={handleDownloadPdf}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
-              title="Download Full Visual Report (PDF)"
-            >
-              <DownloadSimple size={13} weight="bold" />
-              <span>{isDownloading ? 'Generating...' : 'Full Report'}</span>
-            </button>
-          </div>
-        )}
+        {/* Right: Desktop Action (Download Report PDF) */}
+        <div className="hidden lg:flex items-center shrink-0">
+          <button
+            type="button"
+            disabled={isDownloading}
+            onClick={handleDownloadPdf}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] hover:opacity-90 disabled:opacity-60 text-white shadow-2xs transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
+            title={isTeaserLocked ? 'Download Preview Report (PDF)' : 'Download Full Visual Report (PDF)'}
+          >
+            <DownloadSimple size={13} weight="bold" />
+            <span>{isDownloading ? 'Generating...' : isTeaserLocked ? 'Preview PDF' : 'Full Report'}</span>
+          </button>
+        </div>
       </div>
     </div>
   )

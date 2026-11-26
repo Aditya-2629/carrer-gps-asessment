@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RocketLaunch, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import useAppStore from '../../store/useAppStore'
 import { api } from '../../lib/api'
+import { trackAnalytics } from '../../lib/analytics'
 import PhoneInput from '../ui/PhoneInput'
 import RadioGroup from '../ui/RadioGroup'
 import CheckboxGroup from '../ui/CheckboxGroup'
@@ -87,6 +88,24 @@ export default function StepRenderer({ step, onNext, onBack, isFirst, isLast }) 
 
       if (step.reaction?.[value]) {
         setActiveReaction(step.reaction[value])
+      }
+
+      if (['name', 'fullName', 'email', 'phone', 'linkedin', 'targetRole'].includes(step.name)) {
+        if (window.__craftureDraftPingTimer) clearTimeout(window.__craftureDraftPingTimer)
+        window.__craftureDraftPingTimer = setTimeout(() => {
+          const fd = useAppStore.getState().formData || {}
+          trackAnalytics({
+            currentPhase: 'assessment',
+            currentStep: String(step.id || ''),
+            abandonedDraft: {
+              name: fd.name || fd.fullName || '',
+              email: fd.email || '',
+              phone: fd.phone || '',
+              linkedin: fd.linkedin || '',
+              targetRole: fd.targetRole || '',
+            },
+          })
+        }, 600)
       }
     },
     [step, setFormData]

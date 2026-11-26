@@ -1,8 +1,9 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
-import { getGlobalSettings } from '../models/AppSettings.js'
+import VisitorSession from '../models/VisitorSession.js'
+import { getGlobalSettings, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
-import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
+import { sendAdminReportEmail, sendBookCallNotification, sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
@@ -24,6 +25,7 @@ import { DOCXParser } from '../services/documentParser/docxParser.js'
 import { PDFParser } from '../services/documentParser/pdfParser.js'
 import { analyzeTimeline } from '../agents/resume/signals/timelineAnalyzer.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { redactReportForTeaser } from '../utils/teaserRedactor.js'
 
 function compactLinkedinData(raw) {
   if (!raw || typeof raw !== 'object') return null
@@ -411,6 +413,25 @@ export const saveAnswers = async (req, res) => {
       user.semanticProfile = semanticProfile
     }
 
+    let rawAttr = req.body?.attribution
+    if (typeof rawAttr === 'string') {
+      try {
+        rawAttr = JSON.parse(rawAttr)
+      } catch {
+        rawAttr = null
+      }
+    }
+    if (rawAttr && typeof rawAttr === 'object') {
+      user.attribution = {
+        source: String(rawAttr.source || 'direct').trim().slice(0, 100) || 'direct',
+        medium: String(rawAttr.medium || '').trim().slice(0, 100),
+        campaign: String(rawAttr.campaign || '').trim().slice(0, 128),
+        referrer: String(rawAttr.referrer || '').trim().slice(0, 256),
+      }
+    } else if (!user.attribution?.source) {
+      user.attribution = { source: 'direct', medium: '', campaign: '', referrer: '' }
+    }
+
     // Check if linkedinData was already pre-scraped from Step 11 (strip bloated raw Apify fields)
     if (answers.linkedinData) {
       try {
@@ -636,6 +657,16 @@ export const saveAnswers = async (req, res) => {
 
     await user.save()
 
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {})
+
     return res.status(200).json({
       message: 'Answers, resume, and LinkedIn data processed successfully.',
       resumeJson: user.resumeJson,
@@ -697,10 +728,17 @@ export const generateReport = async (req, res) => {
     console.log(`[AssessmentController] Report successfully finalized and saved to MongoDB in ${totalElapsed}ms.`)
     costTracker.printRunSummary(reportRunId)
 
-    const responsePayload = {
+    const rawPayload = {
       ...aiReport,
       linkedinActivityData: user?.linkedinActivityData || aiReport?.linkedin_activity_data || null,
       linkedinActivitySignals: user?.linkedinActivitySignals || aiReport?.linkedin_activity_signals || null,
+    }
+    const responsePayload = redactReportForTeaser(rawPayload, {
+      teaserModeEnabled: Boolean(settings?.teaserModeEnabled),
+      reportUnlocked: Boolean(user?.reportUnlocked),
+    })
+    if (settings?.teaserModeEnabled && !user?.reportUnlocked) {
+      sendCandidatePreviewEmail({ user, aiReport, settings }).catch(() => {})
     }
     return res.status(200).json(responsePayload)
   } catch (error) {
@@ -934,7 +972,7 @@ RULES:
     ]
 
     const chatReqId = `chat_${userId || 'anon'}_${Date.now()}`
-    costTracker.setActiveRunId(chatReqId)
+    costTracker.setActiveRunId(chatReqId, userId)
 
     let replyText = ''
     try {
@@ -1071,10 +1109,13 @@ export const getReport = async (req, res) => {
     }
 
     const settings = await getGlobalSettings().catch(() => ({ teaserModeEnabled: false }))
+    const teaserModeEnabled = Boolean(settings.teaserModeEnabled)
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const safeReport = redactReportForTeaser(user.aiReport, { teaserModeEnabled, reportUnlocked })
     return res.status(200).json({
-      ...user.aiReport,
-      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
-      reportUnlocked: Boolean(user.reportUnlocked),
+      ...safeReport,
+      teaserModeEnabled,
+      reportUnlocked,
       callBookingUrl: settings.callBookingUrl || '',
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
     })
@@ -1151,6 +1192,16 @@ export const getPublicReportById = async (req, res) => {
       targetRole: user.aiReport?.targetRole || targetRole,
       yoe: user.aiReport?.yoe ?? yoe,
       resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+      callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      communityUrl: settings.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: {
+        linkedin: settings.socialLinks?.linkedin || 'https://www.linkedin.com/company/crafture',
+        instagram: settings.socialLinks?.instagram || 'https://www.instagram.com/crafture.ai',
+        youtube: settings.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
+        website: settings.socialLinks?.website || 'https://crafture.in',
+      },
+      socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
     }
 
     const reportUnlocked = Boolean(user.reportUnlocked)
@@ -1161,21 +1212,100 @@ export const getPublicReportById = async (req, res) => {
         settings.callBookingUrl ||
         'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: settings.whatsappCtaNumber || '',
+      communityUrl: settings.communityUrl || 'https://www.linkedin.com/company/crafture',
+      socialLinks: assessment.socialLinks,
+      socialLinksConfig: assessment.socialLinksConfig,
       ctaHeadline:
         settings.ctaHeadline ||
         '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaSubtext:
+        settings.ctaSubtext ||
+        'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: settings.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
     }
 
+    const safeAssessment = redactReportForTeaser(assessment, {
+      teaserModeEnabled: teaserSettings.teaserModeEnabled,
+      reportUnlocked,
+    })
+
     return res.status(200).json({
       success: true,
-      assessment,
+      assessment: safeAssessment,
       reportUnlocked,
       teaserSettings,
     })
   } catch (error) {
     console.error('[getPublicReportById] Error:', error)
     return res.status(500).json({ success: false, message: 'Failed to retrieve report.' })
+  }
+}
+
+/**
+ * GET /api/report/:id/pdf
+ * Public candidate PDF download — mirrors teaser lock state (redacted unless unlocked or teaser off).
+ */
+export const getPublicReportPdfById = async (req, res) => {
+  const { id } = req.params
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(404).json({ success: false, message: 'Report not found or invalid ID.' })
+  }
+
+  try {
+    const [user, settings] = await Promise.all([
+      User.findById(id)
+        .select('name targetRole answers aiReport reportUnlocked resumeJson')
+        .lean(),
+      getGlobalSettings().catch(() => ({ teaserModeEnabled: false })),
+    ])
+
+    if (!user || !user.aiReport) {
+      return res.status(404).json({ success: false, message: 'Report not found or expired.' })
+    }
+
+    const candidateName =
+      user.name ||
+      user.answers?.name ||
+      user.resumeJson?.candidate?.name ||
+      user.resumeJson?.candidate_name ||
+      'Candidate'
+
+    const assessment = {
+      ...user.aiReport,
+      userId: String(user._id),
+      candidateName: user.aiReport?.candidateName || candidateName,
+      targetRole: user.aiReport?.targetRole || user.targetRole || user.answers?.targetRole || '',
+      resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+      callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
+    }
+
+    const teaserModeEnabled = Boolean(settings.teaserModeEnabled)
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const isLocked = Boolean(teaserModeEnabled && !reportUnlocked)
+    console.log(
+      `[PDF-TEASER-CHECK] assessmentId=${id} teaserModeEnabled=${teaserModeEnabled} reportUnlocked=${reportUnlocked} isLocked=${isLocked}`
+    )
+
+    const safeAssessment = redactReportForTeaser(assessment, {
+      teaserModeEnabled,
+      reportUnlocked,
+    })
+
+    const { renderCareerReportPdfBuffer } = await import('../utils/renderCareerReportPdf.js')
+    const pdfBuffer = await renderCareerReportPdfBuffer(safeAssessment)
+    if (!pdfBuffer) {
+      return res.status(500).json({ success: false, message: 'Failed to render PDF report.' })
+    }
+
+    const safeName = String(candidateName).trim().replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '') || 'Candidate'
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="Career_GPS_Report_${safeName}.pdf"`)
+    return res.status(200).send(pdfBuffer)
+  } catch (error) {
+    console.error('[getPublicReportPdfById] Error:', error)
+    return res.status(500).json({ success: false, message: 'Failed to generate PDF report.' })
   }
 }
 
@@ -1387,7 +1517,17 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
       user.markModified?.('aiReport')
       if (typeof user.save === 'function') {
-        await user.save().catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
+        await user.save()
+
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {}).catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
       }
     }
 
@@ -1436,7 +1576,17 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
       if (typeof user.save === 'function') {
         try {
-          await user.save().catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
+          await user.save()
+
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {}).catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
         } catch (_saveErr) {
           console.warn('Could not save user report with interview ledger:', _saveErr.message)
         }

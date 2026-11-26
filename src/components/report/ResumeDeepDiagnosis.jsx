@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import TeaserLockBlock from '../TeaserLockBlock'
 import {
   ListChecks,
   WarningCircle,
@@ -17,6 +18,7 @@ import {
   ArrowsLeftRight,
   Target,
   ChartBar,
+  LockKey,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -110,7 +112,7 @@ function SectionHeader({ icon, title, accent }) {
   )
 }
 
-export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData }) {
+export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData, isTeaserLocked = false, teaserLockProps = {} }) {
   const [toastMsg, setToastMsg] = useState('')
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const [copiedSummary, setCopiedSummary] = useState(false)
@@ -596,17 +598,6 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
               <ShieldCheck size={12} weight="fill" />
               Recruiter-Verified
             </span>
-
-            {/* Prominent Tailored .docx Download Button */}
-            <button
-              type="button"
-              onClick={() => handleDownloadDocx()}
-              disabled={isDownloadingDocx}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60"
-            >
-              <DownloadSimple size={13} weight="bold" />
-              <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
-            </button>
           </div>
         </div>
       )}
@@ -738,6 +729,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             onRebuildResume={handleDownloadDocx}
             reportData={reportData}
             onToast={(msg) => setToastMsg(msg)}
+            isTeaserLocked={isTeaserLocked}
+            bookingUrl={teaserLockProps?.bookingUrl}
+            onOpenUnlockModal={teaserLockProps?.onUnlock}
           />
         </div>
       )}
@@ -900,7 +894,15 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
       <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-        <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
+        <ResumeBulletAudit
+          bulletAudit={resolvedBullets}
+          bulletData={reportData}
+          issues={issues}
+          variant={variant}
+          isTeaserLocked={isTeaserLocked}
+          bookingUrl={teaserLockProps?.bookingUrl}
+          onOpenUnlockModal={teaserLockProps?.onUnlock}
+        />
       </div>
 
       {/* What to Cut (Fluff & 1-Page Discipline) */}

@@ -53,11 +53,22 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       device: detectDevice(req.headers['user-agent'], payload.device),
     }
 
+    if (payload.visitorId) updateFields.visitorId = String(payload.visitorId).trim().slice(0, 128)
     if (payload.currentPhase) updateFields.currentPhase = String(payload.currentPhase).slice(0, 32)
     if (payload.currentStep !== undefined && payload.currentStep !== null) {
       updateFields.currentStep = String(payload.currentStep).slice(0, 32)
     }
     if (payload.referrer) updateFields.referrer = String(payload.referrer).slice(0, 256)
+
+    const attr = payload.attribution && typeof payload.attribution === 'object' ? payload.attribution : {}
+    const attrSource = String(attr.source || payload.utm_source || '').trim().slice(0, 100)
+    const attrMedium = String(attr.medium || payload.utm_medium || '').trim().slice(0, 100)
+    const attrCampaign = String(attr.campaign || payload.utm_campaign || '').trim().slice(0, 128)
+    const attrReferrer = String(attr.referrer || payload.referrer || '').trim().slice(0, 256)
+    if (attrSource) updateFields['attribution.source'] = attrSource
+    if (attrMedium) updateFields['attribution.medium'] = attrMedium
+    if (attrCampaign) updateFields['attribution.campaign'] = attrCampaign
+    if (attrReferrer) updateFields['attribution.referrer'] = attrReferrer
 
     const city =
       payload.city ||
@@ -81,19 +92,46 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       }
     }
 
-    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep').lean()
+    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep maxStepReached completed').lean()
 
-    await VisitorSession.findOneAndUpdate(
+    // Map phase/step to monotonic step rank: 0=landing, 1=step1(1-3), 2=step2(4-7), 3=step3(8+/otp/loading), 4=report
+    let stepRank = 0
+    const phaseLower = String(updateFields.currentPhase || '').toLowerCase()
+    const stepStr = String(updateFields.currentStep || '').toLowerCase()
+    const stepNum = parseInt(stepStr, 10)
+    if (phaseLower === 'report' || stepStr === 'report') {
+      stepRank = 4
+      updateFields.completed = true
+    } else if (
+      phaseLower === 'loading' ||
+      phaseLower === 'otp' ||
+      stepStr === 'step3_context' ||
+      stepStr === 'email' ||
+      stepStr === 'otp' ||
+      (!isNaN(stepNum) && stepNum >= 8)
+    ) {
+      stepRank = 3
+    } else if (stepStr === 'step2_linkedin' || (!isNaN(stepNum) && stepNum >= 4)) {
+      stepRank = 2
+    } else if (stepStr === 'step1_resume' || phaseLower === 'assessment' || (!isNaN(stepNum) && stepNum >= 1)) {
+      stepRank = 1
+    }
+
+    const upsertRes = await VisitorSession.updateOne(
       { sessionId },
-      { $set: updateFields, $setOnInsert: { sessionId } },
-      { upsert: true, new: false }
+      {
+        $set: updateFields,
+        $max: { maxStepReached: stepRank },
+        $setOnInsert: { sessionId },
+      },
+      { upsert: true }
     )
 
-    // Roll up lightweight daily counts (~500 bytes/day) for lifetime Admin charts
+    // Roll up lightweight daily counts (~500 bytes/day) — increment totalVisitors ONLY on brand-new VisitorSession insert
     const todayKey = new Date().toISOString().slice(0, 10)
     const inc = {}
-    if (!existing) inc.totalVisitors = 1
-    if (updateFields.currentPhase === 'report' && existing?.currentPhase !== 'report') {
+    if ((upsertRes?.upsertedCount || 0) > 0) inc.totalVisitors = 1
+    if (stepRank === 4 && !existing?.completed && existing?.currentPhase !== 'report') {
       inc.completedReports = 1
     }
     if (updateFields.currentStep && updateFields.currentStep !== existing?.currentStep) {

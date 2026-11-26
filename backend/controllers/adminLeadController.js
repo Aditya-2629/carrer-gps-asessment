@@ -13,9 +13,11 @@
 import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
-import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import LlmCallLog from '../models/LlmCallLog.js'
+import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { sendResendEmail, sendCandidateUnlockedEmail } from '../utils/adminEmails.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 const INR_PER_USD = 94
@@ -32,16 +34,36 @@ function computeRunUsd(run) {
 }
 
 async function aggregateCostByUserIds(userIds = []) {
-  const map = new Map()
-  if (!userIds.length) return map
-  const runs = await AgentRun.find({ userId: { $in: userIds } })
-    .select('userId cost model')
-    .lean()
+  const totalMap = new Map()
+  const breakdownMap = new Map()
+  if (!userIds.length) return { totalMap, breakdownMap }
+
+  const [logs, runs] = await Promise.all([
+    LlmCallLog.find({ userId: { $in: userIds } })
+      .select('userId stage costUsd')
+      .lean(),
+    AgentRun.find({ userId: { $in: userIds } })
+      .select('userId cost model')
+      .lean(),
+  ])
+
+  for (const log of logs) {
+    const key = String(log.userId)
+    const usd = Number(log.costUsd || 0)
+    totalMap.set(key, (totalMap.get(key) || 0) + usd)
+    const stageKey = String(log.stage || 'LLM_GENERATION').toUpperCase()
+    const bd = breakdownMap.get(key) || {}
+    bd[stageKey] = Number(((bd[stageKey] || 0) + usd).toFixed(5))
+    breakdownMap.set(key, bd)
+  }
+
   for (const run of runs) {
     const key = String(run.userId)
-    map.set(key, (map.get(key) || 0) + computeRunUsd(run))
+    if (!totalMap.has(key)) {
+      totalMap.set(key, (totalMap.get(key) || 0) + computeRunUsd(run))
+    }
   }
-  return map
+  return { totalMap, breakdownMap }
 }
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
@@ -262,8 +284,11 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate totalCostUsd totalCostInr costBreakdown')
       .lean()
+
+    const userCostMap = new Map(allMatchingUsers.map((u) => [String(u._id), Number(u.totalCostUsd || 0)]))
+    const userBreakdownMap = new Map(allMatchingUsers.map((u) => [String(u._id), u.costBreakdown || {}]))
 
     // Transform and calculate metrics
     let computedLeads = allMatchingUsers.map(calculateLeadMetrics)
@@ -293,13 +318,22 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
-    const costMap = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
+    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
     const leadsWithCost = paginatedLeads.map((l) => {
-      const costUsd = Number((costMap.get(l.id) || 0).toFixed(5))
+      const aggCost = costMap.get(l.id) || 0
+      const savedCost = userCostMap.get(l.id) || 0
+      const costUsd = Number(Math.max(aggCost, savedCost).toFixed(5))
+      const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+      const savedBd = userBreakdownMap.get(l.id) || {}
+      const aggBd = breakdownMap.get(l.id) || {}
+      const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
       return {
         ...l,
         costUsd,
-        costInr: Number((costUsd * INR_PER_USD).toFixed(2)),
+        aiCostUsd: costUsd,
+        costInr,
+        aiCostInr: costInr,
+        costBreakdown,
       }
     })
 
@@ -376,7 +410,7 @@ export async function getLeadStats(_req, res) {
 export async function updateLeadStage(req, res) {
   try {
     const { id } = req.params
-    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked } = req.body || {}
+    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked, name, email, phone, targetRole } = req.body || {}
     const nextStage = pipelineStage ?? stage
 
     const validStages = ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed']
@@ -387,6 +421,23 @@ export async function updateLeadStage(req, res) {
     const user = await User.findById(id)
     if (!user) {
       return res.status(404).json({ success: false, message: 'Candidate user not found.' })
+    }
+
+    user.answers = user.answers || {}
+
+    if (typeof name === 'string' && name.trim()) {
+      user.name = name.trim()
+      user.answers.name = name.trim()
+    }
+    if (typeof email === 'string' && email.trim()) {
+      user.email = email.trim().toLowerCase()
+    }
+    if (typeof phone === 'string') {
+      user.answers.phone = phone.trim()
+    }
+    if (typeof targetRole === 'string' && targetRole.trim()) {
+      user.targetRole = targetRole.trim()
+      user.answers.targetRole = targetRole.trim()
     }
 
     if (nextStage) user.pipelineStage = nextStage
@@ -403,7 +454,6 @@ export async function updateLeadStage(req, res) {
       if (!user.callBookedAt) user.callBookedAt = new Date()
     }
 
-    user.answers = user.answers || {}
     const existingPipeline = user.answers.leadPipeline || {}
 
     user.answers.leadPipeline = {
@@ -429,6 +479,21 @@ export async function updateLeadStage(req, res) {
   } catch (err) {
     console.error('[AdminLeadController] updateLeadStage error:', err)
     return res.status(500).json({ success: false, message: 'Failed to update lead pipeline.' })
+  }
+}
+
+export async function deleteLead(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findByIdAndDelete(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+    await AgentRun.deleteMany({ userId: id }).catch(() => {})
+    return res.status(200).json({ success: true, deletedId: id })
+  } catch (err) {
+    console.error('[AdminLeadController] deleteLead error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete candidate.' })
   }
 }
 
@@ -609,17 +674,58 @@ export async function getCandidateDossier(req, res) {
       { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
     ]
 
-    const costMap = await aggregateCostByUserIds([user._id])
-    const costUsd = Number((costMap.get(String(user._id)) || 0).toFixed(5))
+    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds([user._id])
+    const costUsd = Number(Math.max(costMap.get(String(user._id)) || 0, Number(user.totalCostUsd || 0)).toFixed(5))
     const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
-    const leadWithCost = { ...leadInfo, costUsd, costInr }
+    const savedBd = user.costBreakdown || {}
+    const aggBd = breakdownMap.get(String(user._id)) || {}
+    const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
+    const leadWithCost = { ...leadInfo, costUsd, aiCostUsd: costUsd, costInr, aiCostInr: costInr, costBreakdown }
+
+    // Repeat-candidate score history matching same normalized email or last-10-digit phone
+    const historyFilters = []
+    if (user.email) {
+      historyFilters.push({ email: String(user.email).trim().toLowerCase() })
+    }
+    const rawPhone = String(leadInfo.phone || '').replace(/\D/g, '')
+    if (rawPhone.length >= 10) {
+      const last10 = rawPhone.slice(-10)
+      historyFilters.push({ 'answers.phone': new RegExp(`${last10}$`) })
+      historyFilters.push({ 'resumeJson.candidate.phone': new RegExp(`${last10}$`) })
+    }
+    const priorDocs = historyFilters.length
+      ? await User.find({ $or: historyFilters })
+          .select('_id answers.targetRole resumeJson.target_role aiReport.career_health_score createdAt')
+          .sort({ createdAt: 1 })
+          .lean()
+      : []
+
+    const scoreHistory = priorDocs.map((doc) => {
+      const rawScore = doc.aiReport?.career_health_score
+      const overallScore =
+        typeof rawScore === 'object' && rawScore !== null
+          ? Number(rawScore.overall ?? null)
+          : typeof rawScore === 'number'
+            ? rawScore
+            : null
+      return {
+        _id: String(doc._id),
+        targetRole: doc.answers?.targetRole || doc.resumeJson?.target_role || 'General',
+        overallScore: Number.isFinite(overallScore) ? overallScore : null,
+        createdAt: doc.createdAt,
+      }
+    })
 
     return res.status(200).json({
       success: true,
       lead: leadWithCost,
       candidate: leadWithCost,
       costUsd,
+      aiCostUsd: costUsd,
       costInr,
+      aiCostInr: costInr,
+      costBreakdown,
+      scoreHistory,
       phases,
       resumeProfile,
       linkedinProfile,
@@ -712,6 +818,38 @@ export async function overrideBulletRewrite(req, res) {
   }
 }
 
+function normalizeTemplatesArray(rawList) {
+  const byKey = new Map()
+  for (const def of DEFAULT_MESSAGE_TEMPLATES) {
+    byKey.set(def.key, { ...def })
+  }
+  if (Array.isArray(rawList)) {
+    for (const t of rawList) {
+      if (!t || typeof t.key !== 'string' || !t.key.trim()) continue
+      const k = t.key.trim()
+      byKey.set(k, {
+        key: k,
+        label: String(t.label || k).trim(),
+        channel: t.channel === 'email' ? 'email' : 'whatsapp',
+        subject: String(t.subject || ''),
+        body: String(t.body || ''),
+      })
+    }
+  } else if (rawList && typeof rawList === 'object') {
+    for (const [k, t] of Object.entries(rawList)) {
+      if (!k || !t) continue
+      byKey.set(k.trim(), {
+        key: k.trim(),
+        label: String(t.label || k).trim(),
+        channel: t.channel === 'email' ? 'email' : 'whatsapp',
+        subject: String(t.subject || ''),
+        body: String(t.body || ''),
+      })
+    }
+  }
+  return Array.from(byKey.values())
+}
+
 // ─── GET /api/admin/settings ────────────────────────────────────────────────
 
 export async function getAppSettings(req, res) {
@@ -727,10 +865,13 @@ export async function getAppSettings(req, res) {
         whatsappCtaNumber: settings.whatsappCtaNumber || '',
         ctaHeadline: settings.ctaHeadline || '',
         fomoHeadline: settings.ctaHeadline || '',
+        ctaSubtext: settings.ctaSubtext || '',
         ctaButtonLabel: settings.ctaButtonLabel || '',
         fomoCtaLabel: settings.ctaButtonLabel || '',
         aiPaused: Boolean(settings.aiPaused),
         maintenanceMessage: settings.maintenanceMessage || '',
+        messageTemplates: normalizeTemplatesArray(settings.messageTemplates),
+        socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
       },
     })
   } catch (err) {
@@ -751,10 +892,14 @@ export async function updateAppSettings(req, res) {
       whatsappCtaNumber,
       ctaHeadline,
       fomoHeadline,
+      ctaSubtext,
+      fomoSubtext,
       ctaButtonLabel,
       fomoCtaLabel,
       aiPaused,
       maintenanceMessage,
+      messageTemplates,
+      socialLinksConfig,
     } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
@@ -766,16 +911,32 @@ export async function updateAppSettings(req, res) {
     if (typeof whatsappCtaNumber === 'string') update.whatsappCtaNumber = whatsappCtaNumber.trim()
     const headline = ctaHeadline ?? fomoHeadline
     if (typeof headline === 'string') update.ctaHeadline = headline.trim()
+    const subtext = ctaSubtext ?? fomoSubtext
+    if (typeof subtext === 'string') update.ctaSubtext = subtext.trim()
     const btnLabel = ctaButtonLabel ?? fomoCtaLabel
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
     if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
     if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
+    if (messageTemplates !== undefined) {
+      update.messageTemplates = normalizeTemplatesArray(messageTemplates)
+    }
+    if (socialLinksConfig !== undefined) {
+      update.socialLinksConfig = normalizeSocialLinksConfig(socialLinksConfig)
+    }
 
-    const updated = await AppSettings.findOneAndUpdate(
-      { key: 'global' },
-      { $set: update, $setOnInsert: { key: 'global' } },
-      { upsert: true, new: true }
-    ).lean()
+    let doc = await AppSettings.findOne({ key: 'global' })
+    if (!doc) {
+      doc = new AppSettings({ key: 'global' })
+    }
+    Object.assign(doc, update)
+    if (socialLinksConfig !== undefined) {
+      doc.markModified('socialLinksConfig')
+    }
+    if (messageTemplates !== undefined) {
+      doc.markModified('messageTemplates')
+    }
+    const saved = await doc.save()
+    const updated = saved.toObject()
 
     return res.status(200).json({
       success: true,
@@ -787,10 +948,13 @@ export async function updateAppSettings(req, res) {
         whatsappCtaNumber: updated.whatsappCtaNumber || '',
         ctaHeadline: updated.ctaHeadline || '',
         fomoHeadline: updated.ctaHeadline || '',
+        ctaSubtext: updated.ctaSubtext || '',
         ctaButtonLabel: updated.ctaButtonLabel || '',
         fomoCtaLabel: updated.ctaButtonLabel || '',
         aiPaused: Boolean(updated.aiPaused),
         maintenanceMessage: updated.maintenanceMessage || '',
+        messageTemplates: normalizeTemplatesArray(updated.messageTemplates),
+        socialLinksConfig: normalizeSocialLinksConfig(updated.socialLinksConfig),
       },
     })
   } catch (err) {
@@ -869,76 +1033,40 @@ export async function deliverFullReport(req, res) {
       console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
     }
 
-    // 3. Send email with full report link & attached .docx (Resend first if configured, else SMTP)
-    let emailSent = false
-    let emailError = null
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
-        <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
-        <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
-        <p style="margin: 24px 0;">
-          <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-            Open Full Career GPS Report
-          </a>
-        </p>
-        ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
-        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
-      </div>
-    `
-    if (process.env.RESEND_API_KEY && user.email) {
-      try {
-        const resendRes = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <onboarding@resend.dev>',
-            to: [user.email],
-            subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-            html: htmlBody,
-            attachments: docxBuffer
-              ? [{ filename: docxFilename, content: docxBuffer.toString('base64') }]
-              : [],
-          }),
-          signal: AbortSignal.timeout(10000),
-        })
-        if (resendRes.ok) {
-          emailSent = true
-        } else {
-          emailError = `Resend HTTP ${resendRes.status}`
-        }
-      } catch (resendErr) {
-        emailError = resendErr.message
-      }
-    } else if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '465', 10),
-          secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        })
-        await transporter.sendMail({
-          from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
-          to: user.email,
-          subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-          html: htmlBody,
-          attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
-        })
-        emailSent = true
-      } catch (mailErr) {
-        emailError = mailErr.message
-        console.warn('[AdminLeadController] deliverFullReport email error:', mailErr.message)
+    // 3. Send Forest-Green Unlocked Email with full unredacted PDF + updated .docx resume
+    const settings = await getGlobalSettings().catch(() => ({}))
+    const unlockMailRes = await sendCandidateUnlockedEmail({
+      user,
+      aiReport: user.aiReport,
+      settings,
+      docxBuffer,
+      docxFilename,
+    })
+    const emailSent = Boolean(unlockMailRes.ok)
+    const emailId = unlockMailRes.emailId || null
+    const emailError = unlockMailRes.ok ? null : (unlockMailRes.error || 'Email delivery failed')
+    const pdfAttached = Boolean(unlockMailRes.pdfAttached)
+
+    // 4. Construct pre-filled WhatsApp delivery URL preserving international country codes
+    const rawPhoneStr = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').trim()
+    const locHint = String(user.answers?.location || user.resumeJson?.candidate?.location || '')
+    let waDigits = rawPhoneStr.replace(/\D/g, '')
+    if (rawPhoneStr.startsWith('00')) {
+      waDigits = waDigits.slice(2)
+    } else if (!rawPhoneStr.startsWith('+') && waDigits.length === 10) {
+      const isUs =
+        /^\(\d{3}\)/.test(rawPhoneStr) ||
+        /\b(US|USA|United States|Canada)\b/i.test(locHint) ||
+        /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/.test(locHint)
+      if (isUs) {
+        waDigits = `1${waDigits}`
+      } else if (/^[6-9]/.test(waDigits)) {
+        waDigits = `91${waDigits}`
       }
     }
-
-    // 4. Construct pre-filled WhatsApp delivery URL
-    const rawPhone = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').replace(/\D/g, '')
     const whatsappMessage = `Hi ${candidateName}, your full Crafture Career GPS Report is now unlocked! View it here: ${reportUrl}`
-    const whatsappUrl = rawPhone
-      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(whatsappMessage)}`
+    const whatsappUrl = waDigits
+      ? `https://wa.me/${waDigits}?text=${encodeURIComponent(whatsappMessage)}`
       : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
 
     return res.status(200).json({
@@ -949,14 +1077,74 @@ export async function deliverFullReport(req, res) {
       unlockedAt: user.unlockedAt,
       deliveredAt: user.deliveredAt,
       reportUrl,
+      pdfAttached,
       docxAttached: Boolean(docxBuffer),
       emailSent,
+      emailId,
       emailError,
       whatsappUrl,
     })
   } catch (err) {
     console.error('[AdminLeadController] deliverFullReport error:', err)
     return res.status(500).json({ success: false, message: 'Failed to deliver full report.' })
+  }
+}
+
+/**
+ * POST /api/admin/settings/test-email
+ * Sends a verification email via Resend so Admin can test mail.crafture.space DNS & delivery anytime.
+ */
+export async function testResendEmail(req, res) {
+  try {
+    const to = String(req.body?.to || process.env.RESEND_REPLY_TO || 'adityacrafture@gmail.com').trim()
+    if (!to || !to.includes('@')) {
+      return res.status(400).json({ success: false, emailSent: false, message: 'Valid recipient email "to" is required.' })
+    }
+    const fromEmail = (process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <reports@mail.crafture.space>').trim()
+    const replyTo = (process.env.RESEND_REPLY_TO || 'adityacrafture@gmail.com').trim()
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; color: #0f172a;">
+        <div style="background: #4f46e5; color: #ffffff; padding: 14px 18px; border-radius: 8px; font-weight: 700; font-size: 15px;">
+          Crafture Career GPS • Resend Verification
+        </div>
+        <p style="margin: 16px 0 8px; font-size: 14px;">Your Resend transactional email configuration is working cleanly.</p>
+        <p style="margin: 0; font-size: 12px; color: #64748b;">
+          From: ${fromEmail}<br/>
+          Reply-To: ${replyTo}<br/>
+          Timestamp: ${new Date().toISOString()}
+        </p>
+      </div>
+    `
+    const text = `Crafture Career GPS — Resend Verification\n\nYour Resend transactional email configuration is working cleanly.\nFrom: ${fromEmail}\nReply-To: ${replyTo}\nTimestamp: ${new Date().toISOString()}`
+
+    const result = await sendResendEmail({
+      to,
+      subject: 'Crafture Career GPS — Resend Domain Verification Test',
+      html,
+      text,
+      from: fromEmail,
+      replyTo,
+    })
+
+    if (!result.ok) {
+      return res.status(400).json({
+        success: false,
+        emailSent: false,
+        error: result.error,
+        message: result.error,
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      emailSent: true,
+      emailId: result.emailId,
+      to,
+      from: fromEmail,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] testResendEmail error:', err)
+    return res.status(500).json({ success: false, emailSent: false, message: err.message })
   }
 }
 

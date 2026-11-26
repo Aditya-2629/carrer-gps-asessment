@@ -10,7 +10,35 @@ import { getFriendlyErrorMessage } from './errorMessages'
 
 let isCurrentlyGenerating = false
 
-export async function downloadFullVisualReport(reportDataOrName, candidateNameParam) {
+async function resolveSafeAvatarDataUri(url) {
+  if (!url || typeof url !== 'string') return null
+  if (/^data:image\/(png|jpeg|jpg);base64,/i.test(url)) return url
+  if (!/^https?:\/\//i.test(url)) return null
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 2500)
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    const bitmap = await createImageBitmap(blob)
+    const canvas = document.createElement('canvas')
+    canvas.width = 96
+    canvas.height = 96
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+    ctx.drawImage(bitmap, 0, 0, 96, 96)
+    return canvas.toDataURL('image/png')
+  } catch {
+    return null
+  }
+}
+
+export async function downloadFullVisualReport(
+  reportDataOrName,
+  candidateNameParam,
+  { isTeaserLocked = false } = {}
+) {
   if (typeof window === 'undefined') return false
   if (isCurrentlyGenerating) return false
 
@@ -42,13 +70,36 @@ export async function downloadFullVisualReport(reportDataOrName, candidateNamePa
       .replace(/[^a-zA-Z0-9_-]/g, '')
     const fileName = `Career_GPS_Report_${safeName || 'Candidate'}.pdf`
 
-    // Dynamically load @react-pdf/renderer and CareerReportPdf so initial page load remains instant
-    const [{ pdf }, { default: CareerReportPdf }] = await Promise.all([
+    // Dynamically load @react-pdf/renderer, CareerReportPdf, and the single-source-of-truth redactor
+    const [{ pdf }, { default: CareerReportPdf }, { redactReportForTeaser }] = await Promise.all([
       import('@react-pdf/renderer'),
       import('../components/pdf/CareerReportPdf.jsx'),
+      import('../../backend/utils/teaserRedactor.js'),
     ])
 
-    const element = React.createElement(CareerReportPdf, { reportData })
+    // Single-pass redaction: if already server-redacted (__teaserRedacted === true), use as-is;
+    // otherwise if isTeaserLocked is true, redact ONCE here.
+    const baseReportData = reportData?.__teaserRedacted === true
+      ? reportData
+      : isTeaserLocked
+      ? redactReportForTeaser(reportData, { teaserModeEnabled: true, reportUnlocked: false })
+      : reportData
+
+    const rawAvatarUrl =
+      baseReportData?.linkedin_agent?.profilePic ||
+      baseReportData?.linkedin_agent?.avatarUrl ||
+      baseReportData?.linkedinActivityData?.profilePic ||
+      baseReportData?.linkedinActivityData?.avatarUrl ||
+      baseReportData?.linkedin_activity_data?.profilePic ||
+      baseReportData?.linkedin_activity_data?.avatarUrl ||
+      null
+    const resolvedLinkedinPhotoDataUri = await resolveSafeAvatarDataUri(rawAvatarUrl)
+
+    const finalReportData = resolvedLinkedinPhotoDataUri
+      ? { ...baseReportData, resolvedLinkedinPhotoDataUri }
+      : baseReportData
+
+    const element = React.createElement(CareerReportPdf, { reportData: finalReportData })
     const blob = await pdf(element).toBlob()
 
     // Trigger instant browser download

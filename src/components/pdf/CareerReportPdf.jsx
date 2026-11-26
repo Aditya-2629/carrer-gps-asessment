@@ -12,6 +12,7 @@ import {
   Circle,
   Line,
   Polygon,
+  Path,
   Image,
   Link,
   StyleSheet,
@@ -141,7 +142,7 @@ function EditorialBanner({
       {imageSrc && (
         <View
           style={{
-            width: '48%',
+            width: '46%',
             alignItems: 'flex-end',
             justifyContent: 'center',
           }}
@@ -576,7 +577,68 @@ export default function CareerReportPdf({ reportData = {} }) {
       : 'High application volume yielding below-benchmark recruiter callbacks.',
   }
 
-  const bookingUrl = reportData?.strategy_call_url || reportData?.booking_url || 'https://crafture.io/strategy-call'
+  const bookingUrl =
+    reportData?.callBookingUrl ||
+    reportData?.teaserSettings?.bookingUrl ||
+    reportData?.strategy_call_url ||
+    reportData?.booking_url ||
+    'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
+  const rawWaStr = String(
+    reportData?.whatsappCtaNumber || reportData?.teaserSettings?.whatsappNumber || ''
+  ).trim()
+  let cleanWaNum = rawWaStr.replace(/\D/g, '')
+  if (rawWaStr.startsWith('00')) {
+    cleanWaNum = cleanWaNum.slice(2)
+  } else if (!rawWaStr.startsWith('+') && cleanWaNum.length === 10) {
+    cleanWaNum = /^[6-9]/.test(cleanWaNum) ? `91${cleanWaNum}` : `1${cleanWaNum}`
+  }
+  const waMsg = `Hi Crafture team, I'm ${candidateName} targeting ${targetRole} (Career Health Score: ${overallScore}/100) and would like to unlock my complete Career GPS Report.`
+  const whatsappUrl = cleanWaNum
+    ? `https://wa.me/${cleanWaNum}?text=${encodeURIComponent(waMsg)}`
+    : `https://wa.me/?text=${encodeURIComponent(waMsg)}`
+
+  const isReportUnlocked = Boolean(reportData?.reportUnlocked) && !Boolean(reportData?.__teaserRedacted)
+  const socialLinksConfig = reportData?.socialLinksConfig || reportData?.teaserSettings?.socialLinksConfig || null
+  const socialMasterEnabled = Boolean(socialLinksConfig?.enabled)
+  const showCommunityCta =
+    socialMasterEnabled &&
+    Boolean(socialLinksConfig?.communityEnabled) &&
+    Boolean(String(socialLinksConfig?.communityUrl || '').trim())
+  const communityLabel = String(socialLinksConfig?.communityLabel || 'Join Our Community').trim() || 'Join Our Community'
+  const communityUrl = String(socialLinksConfig?.communityUrl || '').trim()
+  const activeSocialItems = socialMasterEnabled
+    ? (Array.isArray(socialLinksConfig?.items)
+        ? socialLinksConfig.items.filter((i) => i?.enabled && String(i?.url || '').trim())
+        : [])
+    : []
+  const rawPhotoCandidate =
+    reportData?.resolvedLinkedinPhotoDataUri ||
+    reportData?.linkedin_agent?.profilePic ||
+    reportData?.linkedin_agent?.avatarUrl ||
+    reportData?.linkedinActivityData?.profilePic ||
+    reportData?.linkedinActivityData?.avatarUrl ||
+    null
+  const safeLinkedinPhoto =
+    typeof rawPhotoCandidate === 'string' &&
+    (/^data:image\/(png|jpeg|jpg);base64,/i.test(rawPhotoCandidate) ||
+      /^https?:\/\/.+\.(png|jpe?g)(\?.*)?$/i.test(rawPhotoCandidate))
+      ? rawPhotoCandidate
+      : null
+  const linkedinProfileUrl =
+    reportData?.linkedin_agent?.profileUrl ||
+    reportData?.user_answers?.linkedin ||
+    reportData?.linkedinUrl ||
+    ''
+  const linkedinScoreVal =
+    reportData?.linkedin_agent?.score ??
+    reportData?.linkedin_score ??
+    null
+  const candidateInitials = String(candidateName || 'C')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() || '')
+    .join('') || 'C'
 
   // Top 3 Prioritized Actions
   const priorityActions = Array.isArray(reportData?.top_priorities) && reportData.top_priorities.length > 0
@@ -594,22 +656,69 @@ export default function CareerReportPdf({ reportData = {} }) {
       ]
 
   // Dynamic Action Plan (7-Day & 30/60/90)
+  const isRedacted = Boolean(reportData?.__teaserRedacted)
   const actionPlan = reportData?.dynamic_action_plan || reportData?.action_plan || {}
   const sevenDayTasks = (Array.isArray(actionPlan.sevenDayQuickPlan) && actionPlan.sevenDayQuickPlan.length > 0)
     ? actionPlan.sevenDayQuickPlan.slice(0, 7)
     : (Array.isArray(reportData?.sevenDayQuickPlan) && reportData.sevenDayQuickPlan.length > 0)
     ? reportData.sevenDayQuickPlan.slice(0, 7)
+    : isRedacted
+    ? [{ locked: true, lockedReason: 'Locked - Book Free 1:1 Call to Unlock' }]
     : [
-        { day: 1, title: 'Keyword & Competency Alignment', action: 'Audit resume against top target job descriptions to identify missing domain keywords.', deliverable: 'JD Keyword Matrix', metricTarget: 'Add 5+ verified keywords' },
-        { day: 2, title: 'Google XYZ Bullet Overhaul', action: 'Restructure achievement bullets to format: Accomplished [X] measured by [Y] by doing [Z].', deliverable: 'Restructured achievement bullets', metricTarget: '100% bullets with metrics' },
-        { day: 3, title: 'Single-Column ATS Calibration', action: 'Reformat document to single-column layout without tables or multi-column grids for parsing safety.', deliverable: 'ATS-Compliant Document', metricTarget: '100% clean plain-text parse' },
-        { day: 4, title: 'LinkedIn Headline & About Rewrite', action: 'Deploy 15-20 word hook-first headline and 4-pillar narrative about section.', deliverable: 'Updated LinkedIn profile', metricTarget: '3x profile view velocity' },
-        { day: 5, title: 'Recruiter Outreach Sourcing List', action: 'Build list of 25 decision-makers and recruiters at target high-growth companies.', deliverable: '25-Lead Outbound Tracker', metricTarget: 'Send 10 personalized notes' },
-        { day: 6, title: 'Technical Defense Blueprint', action: 'Document architecture, deliverables, and operational trade-offs for your flagship project.', deliverable: '1-Page Project Blueprint', metricTarget: 'Ready for 3-minute pitch' },
-        { day: 7, title: 'Weekly Funnel Audit & Calibration', action: isPhase2Healthy ? 'Review technical round feedback and calibrate coding and system design mock sessions.' : 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Callback rate >= ${targetCallbackRate}%` },
+        {
+          day: 1,
+          title: 'Target Keyword & Skills-Only Evidence Audit',
+          action: 'Audit your experience bullets against top target job descriptions to weave missing high-demand tools (TypeScript, Spring Boot, Kafka, Kubernetes) directly into production bullet context. Move unverified skills from your bottom skills list into measurable project outcomes.',
+          deliverable: 'Keyword-Mapped Experience Matrix',
+          metricTarget: '5+ missing skills evidenced in bullets',
+        },
+        {
+          day: 2,
+          title: 'Google XYZ Bullet Overhaul (Phase 2 Recovery)',
+          action: 'Rewrite your weakest unquantified work bullets using Accomplished [X] as measured by [Y] by doing [Z] syntax. Anchor every Spring Boot and TypeScript deliverable with latency reductions, throughput gains, or user-scale metrics to lift Phase 2 callback above 5.0%.',
+          deliverable: 'Quantified Core Experience Bullets',
+          metricTarget: '100% rewritten bullets with hard KPIs',
+        },
+        {
+          day: 3,
+          title: 'Executive Summary & Single-Column ATS Calibration',
+          action: 'Replace your generic top summary with a role-aligned positioning pitch highlighting TypeScript, Spring Boot, Kafka, and Kubernetes scale. Strip multi-column grids or merged contact headers so Greenhouse and Workday parsers index 100% of your timeline cleanly.',
+          deliverable: 'ATS-Safe Single-Column Resume',
+          metricTarget: '0 parser errors / 100% field extraction',
+        },
+        {
+          day: 4,
+          title: 'LinkedIn Headline SEO & About Hook Rewrite',
+          action: 'Deploy your recruiter-searchable Option 01 headline leading with your target title and core stack (TypeScript, Spring Boot, Kafka, Kubernetes). Publish Paragraph 1-3 of your story-driven About section and pin your top 3 core skills to rank in Boolean recruiter searches.',
+          deliverable: 'SEO-Indexed Headline & About Narrative',
+          metricTarget: '3x recruiter search appearance lift',
+        },
+        {
+          day: 5,
+          title: 'LinkedIn Featured Section & Skills Bank Expansion',
+          action: 'Populate your empty LinkedIn Featured section with 2 flagship architecture case studies or live repos demonstrating Kafka event pipelines and Kubernetes deployments. Expand your Skills Bank from 30/50 toward 50/50 role-indexed skills for full All-Star search weighting.',
+          deliverable: '2 Featured Case Studies + 50/50 Skills',
+          metricTarget: 'Featured populated + 50/50 skills',
+        },
+        {
+          day: 6,
+          title: 'Targeted Hiring Manager Outbound Sprint',
+          action: 'Run the LinkedIn Boolean query to build a focused list of 25 Engineering Managers and Staff Recruiters hiring for TypeScript and Spring Boot teams. Send concise, achievement-led connection notes referencing your Kafka and Kubernetes production wins instead of cold Easy Apply.',
+          deliverable: '25-Lead Hiring Manager Tracker',
+          metricTarget: '15+ direct manager outreach DMs sent',
+        },
+        {
+          day: 7,
+          title: 'Phase 2 Funnel Audit & Technical Defense Prep',
+          action: isPhase2Healthy
+            ? 'Review technical round feedback across TypeScript, Spring Boot, and distributed Kafka architecture trade-offs. Document failure-mode recovery stories and latency benchmarks for each flagship system so live panel rounds convert consistently.'
+            : 'Audit your Phase 2 conversion funnel (moving from 0.1% callback toward >= 5.0% target) across your first 20 tailored applications. Double down on direct referral channels and refine weak bullet hooks where recruiter screens lag.',
+          deliverable: '7-Day Funnel & Defense Calibration Log',
+          metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Phase 2 callback >= ${targetCallbackRate}%`,
+        },
       ]
 
-  const milestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
+  const rawMilestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
     ? actionPlan.milestonePathway.slice(0, 3)
     : (Array.isArray(reportData?.milestonePathway) && reportData.milestonePathway.length > 0)
     ? reportData.milestonePathway.slice(0, 3)
@@ -618,10 +727,35 @@ export default function CareerReportPdf({ reportData = {} }) {
     : (Array.isArray(reportData?.strategicRoadmap) && reportData.strategicRoadmap.length > 0)
     ? reportData.strategicRoadmap.slice(0, 3)
     : [
-        { period: '30 Days', stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Asset Calibration & Outbound Engine', goal: isPhase2Healthy ? `Maintain healthy ${screenRate}% screening callback while advancing into live technical rounds.` : `Overcome ATS drop-offs and elevate callback rate to >= ${targetCallbackRate}%.`, deliverable: 'ATS Resume + 30 Target Account Tracker', successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Callback rate >= ${targetCallbackRate}%` },
-        { period: '60 Days', stage: 'Technical Panel Defense & Architectural Velocity', goal: `Convert recruiter screens into technical rounds and advance through panel assessments at >= ${targetScreenToTech}%.`, deliverable: '3+ Concurrent Technical Interview Loops', successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%` },
-        { period: '90 Days', stage: 'Final Rounds, Offers & Negotiation', goal: 'Advance through onsite interview loops and secure a competitive, written job offer.', deliverable: 'Signed competitive offer letter', successSignal: 'Offer-to-joining acceptance' },
+        {
+          period: '30 Days',
+          stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Phase 2 Callback Recovery (0.1% -> 5%+)',
+          goal: isPhase2Healthy
+            ? `Sustain your ${screenRate}% screening callback while weaving TypeScript, Spring Boot, Kafka, and Kubernetes proof into live technical architecture walkthroughs and daily manager outreach.`
+            : `Eliminate Phase 2 ATS drop-offs (0.1% -> 5%+ callback) by quantizing weak bullets, adding TypeScript, Spring Boot, Kafka, and Kubernetes evidence, populating LinkedIn Featured, and running 25/week direct manager outreach.`,
+          deliverable: 'Quantified ATS Resume + Featured LinkedIn + 60 Manager DMs',
+          successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Phase 2 callback >= 5.0%`,
+        },
+        {
+          period: '60 Days',
+          stage: 'Technical Panel Defense & Multi-Loop Velocity',
+          goal: `Convert >= ${targetScreenToTech}% of recruiter screens into technical panels by rehearsing distributed Kafka throughput, Kubernetes scaling trade-offs, and 5 STAR ownership stories across 3+ concurrent interview pipelines.`,
+          deliverable: 'System Design Blueprints + 3+ Active Technical Loops',
+          successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%`,
+        },
+        {
+          period: '90 Days',
+          stage: 'Final Onsite Closing & Compensation Leverage',
+          goal: 'Advance through final director and architecture rounds across parallel opportunities, benchmark total compensation bands, and negotiate base, equity, and sign-on terms from a position of multi-offer leverage.',
+          deliverable: 'Written Competitive Offer & Total Comp Benchmark',
+          successSignal: 'Accepted offer at target compensation band',
+        },
       ]
+  const milestonePathway = isRedacted
+    ? rawMilestonePathway.map((m, idx) =>
+        idx === 0 ? m : { locked: true, lockedReason: m?.lockedReason || 'Locked - Book Free 1:1 Call to Unlock' }
+      )
+    : rawMilestonePathway
 
   // 4. Resume Deep Diagnosis Data
   const resumeAgent = reportData?.resume_agent || {}
@@ -731,7 +865,14 @@ export default function CareerReportPdf({ reportData = {} }) {
     (Array.isArray(reportData?.skills_only) && reportData.skills_only.length > 0 && reportData.skills_only) ||
     []
   )
-  const skillsOnlyKeywords = rawSkillsOnly.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
+  const lockedSkillsOnlyCount =
+    rawSkillsOnly.filter((k) => k && typeof k === 'object' && k.locked).length ||
+    Number(kwData.lockedSkillsOnlyCount || 0)
+  const skillsOnlyKeywords = rawSkillsOnly
+    .filter((k) => !(k && typeof k === 'object' && k.locked))
+    .slice(0, 20)
+    .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
+    .filter(Boolean)
 
   const rawMissing = (
     (Array.isArray(kwData.missingFromResume) && kwData.missingFromResume.length > 0 && kwData.missingFromResume) ||
@@ -742,7 +883,14 @@ export default function CareerReportPdf({ reportData = {} }) {
     (Array.isArray(resumeAgent?.missingTargetKeywords) && resumeAgent.missingTargetKeywords.length > 0 && resumeAgent.missingTargetKeywords) ||
     []
   )
-  const missingKeywords = rawMissing.slice(0, 20).map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill)).filter(Boolean)
+  const lockedMissingCount =
+    rawMissing.filter((k) => k && typeof k === 'object' && k.locked).length ||
+    Number(kwData.lockedMissingCount || 0)
+  const missingKeywords = rawMissing
+    .filter((k) => !(k && typeof k === 'object' && k.locked))
+    .slice(0, 20)
+    .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
+    .filter(Boolean)
 
   // Bullet Rewrites: Un-capped dynamic aggregation across all sources (Zero Hardcoded Dummy Arrays)
   const candidateBulletSources = [
@@ -791,6 +939,10 @@ export default function CareerReportPdf({ reportData = {} }) {
       })
     }
   }
+
+  const effectiveLockedBulletsCount = Array.isArray(resumeDashboard?.bulletAudit)
+    ? resumeDashboard.bulletAudit.filter((b) => b?.locked).length
+    : candidateBulletSources.filter((b) => b?.locked).length
 
   const bulletRewrites = Array.from(bulletMap.values())
 
@@ -904,17 +1056,17 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
 
           {/* Candidate Name */}
-          <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, marginTop: 2, marginBottom: 2 }}>
+          <Text style={{ fontSize: 18, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.3, lineHeight: 1.22, marginTop: 2, marginBottom: 6 }}>
             {candidateName}
           </Text>
 
           {/* Target Role & Meta */}
-          <Text style={{ fontSize: 7.8, color: '#475569' }}>
+          <Text style={{ fontSize: 7.8, color: '#475569', lineHeight: 1.28, marginTop: 2, marginBottom: 6 }}>
             {targetRole} • Senior Engineering • {reportDate}
           </Text>
 
           {/* 1-Line Diagnostic Summary */}
-          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.3 }}>
+          <Text style={{ fontSize: 7.2, color: '#334155', lineHeight: 1.32 }}>
             Comprehensive multi-agent career diagnostic auditing resume ATS readability, market keyword alignment, and LinkedIn inbound discovery.
           </Text>
 
@@ -1357,12 +1509,20 @@ export default function CareerReportPdf({ reportData = {} }) {
                   </Text>
                   <Text style={styles.tagNeutral}>PHASE 1</Text>
                 </View>
-                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-                  {safeStr(pa.title)}
-                </Text>
-                <Text style={{ fontSize: 7, color: '#334155', lineHeight: 1.25 }}>
-                  {safeStr(pa.action || pa.description)}
-                </Text>
+                {pa?.locked ? (
+                  <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                    Locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
+                      {safeStr(pa.title)}
+                    </Text>
+                    <Text style={{ fontSize: 7, color: '#334155', lineHeight: 1.25 }}>
+                      {safeStr(pa.action || pa.description)}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
           ))}
@@ -1375,7 +1535,14 @@ export default function CareerReportPdf({ reportData = {} }) {
 
         {/* 7-Day Quick-Win Plan */}
         <View style={{ marginBottom: 6 }}>
-          {sevenDayTasks.map((t, idx) => (
+          {sevenDayTasks.some((t) => t?.locked) ? (
+            <View style={[styles.card, { padding: 5 }]} wrap={false}>
+              <Text style={{ fontSize: 7.2, color: '#64748B', fontStyle: 'italic' }}>
+                Locked - Book Free 1:1 Call to Unlock
+              </Text>
+            </View>
+          ) : (
+            sevenDayTasks.map((t, idx) => (
             <View key={idx} style={styles.dayCard} wrap={false}>
               <View style={styles.rowBetween}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, paddingRight: 6 }}>
@@ -1402,7 +1569,8 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </Text>
               )}
             </View>
-          ))}
+          ))
+          )}
         </View>
 
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
@@ -1431,18 +1599,26 @@ export default function CareerReportPdf({ reportData = {} }) {
             {milestonePathway.map((p, idx) => (
               <View key={idx} style={styles.col3}>
                 <View style={styles.milestoneCard}>
-                  <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
-                    {safeStr(p.stage)}
-                  </Text>
-                  <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
-                    {safeStr(p.goal)}
-                  </Text>
-                  <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 2 }}>
-                    <Text style={{ fontSize: 6.5, color: '#64748B' }}>
-                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
-                      {safeStr(p.successSignal || p.deliverable)}
+                  {p?.locked ? (
+                    <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                      {safeStr(p.lockedReason, 'Locked - Book Free 1:1 Call to Unlock')}
                     </Text>
-                  </View>
+                  ) : (
+                    <>
+                      <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                        {safeStr(p.stage)}
+                      </Text>
+                      <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
+                        {safeStr(p.goal)}
+                      </Text>
+                      <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 2 }}>
+                        <Text style={{ fontSize: 6.5, color: '#64748B' }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
+                          {safeStr(p.successSignal || p.deliverable)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             ))}
@@ -1457,7 +1633,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>5-POINT RUBRIC</Text>
         </View>
 
-        <View style={styles.card} wrap={false}>
+        <View style={styles.card}>
           {Object.entries(resumeSectionAudit)
             .filter(([secKey]) => secKey !== 'header' || !resumeSectionAudit.headerAndContact)
             .map(([secKey, secVal]) => {
@@ -1466,7 +1642,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             const isWarn = score >= 6 && score < 8
             const title = secVal?.name || secKey.replace(/([A-Z])/g, ' $1')
             return (
-              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2.5 }}>
+              <View key={secKey} wrap={false} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2.5 }}>
                 <View style={styles.rowBetween}>
                   <Text style={{ fontSize: 7.6, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
                     {title}
@@ -1524,11 +1700,19 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>
                   AFTER: ROLE-ALIGNED EXECUTIVE REWRITE
                 </Text>
-                <Text style={styles.tagPass}>OPTIMIZED</Text>
+                <Text style={summaryOpt?.summaryRewriteLocked || isRedacted ? styles.tagNeutral : styles.tagPass}>
+                  {summaryOpt?.summaryRewriteLocked || isRedacted ? 'LOCKED' : 'OPTIMIZED'}
+                </Text>
               </View>
-              <Text style={styles.monoBold}>
-                {rewrittenSummary}
-              </Text>
+              {summaryOpt?.summaryRewriteLocked || isRedacted ? (
+                <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                  Locked - Book Free 1:1 Call to Unlock
+                </Text>
+              ) : (
+                <Text style={styles.monoBold}>
+                  {rewrittenSummary}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -1572,6 +1756,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                 ) : (
                   <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>None listed exclusively in skills section.</Text>
                 )}
+                {lockedSkillsOnlyCount > 0 && (
+                  <Text style={{ fontSize: 6.2, color: '#64748B', fontStyle: 'italic' }}>
+                    +{lockedSkillsOnlyCount} more locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
+                )}
               </View>
             </View>
           </View>
@@ -1580,7 +1769,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View style={styles.card}>
               <View style={[styles.rowBetween, { marginBottom: 3 }]}>
                 <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>MISSING TARGET KEYWORDS (UNPROVEN)</Text>
-                <Text style={styles.tagCritical}>{missingKeywords.length}</Text>
+                <Text style={styles.tagCritical}>{missingKeywords.length + lockedMissingCount}</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
                 {missingKeywords.length > 0 ? (
@@ -1589,6 +1778,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                   ))
                 ) : (
                   <Text style={{ fontSize: 6.5, color: '#64748B', fontStyle: 'italic' }}>No missing critical skills detected.</Text>
+                )}
+                {lockedMissingCount > 0 && (
+                  <Text style={{ fontSize: 6.2, color: '#64748B', fontStyle: 'italic' }}>
+                    +{lockedMissingCount} more locked - Book Free 1:1 Strategy Call to Unlock
+                  </Text>
                 )}
               </View>
             </View>
@@ -1613,7 +1807,8 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {bulletRewrites.length > 0 ? (
-          bulletRewrites.map((b, idx) => (
+          <>
+            {bulletRewrites.map((b, idx) => (
             <View key={idx} style={styles.bulletBentoCard} wrap={false}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
                 <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
@@ -1669,7 +1864,21 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </View>
               )}
             </View>
-          ))
+            ))}
+            {effectiveLockedBulletsCount > 0 &&
+              Array.from({ length: effectiveLockedBulletsCount }).map((_, lIdx) => (
+                <View key={`locked_b_${lIdx}`} style={[styles.card, { padding: 5, marginBottom: 4 }]} wrap={false}>
+                  <View style={styles.rowBetween}>
+                    <Text style={{ fontSize: 7.4, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                      Bullet Rewrite #{bulletRewrites.length + lIdx + 1}
+                    </Text>
+                    <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                      Locked - Book Free 1:1 Call to Unlock
+                    </Text>
+                  </View>
+                </View>
+              ))}
+          </>
         ) : (
           <View style={[styles.card, { padding: 12, alignItems: 'center' }]} wrap={false}>
             <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#16A34A', marginBottom: 2 }}>
@@ -1689,14 +1898,62 @@ export default function CareerReportPdf({ reportData = {} }) {
           <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
         </View>
 
-        <View style={styles.card} wrap={false}>
+        {/* Candidate LinkedIn Identity & Score Header */}
+        <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }]} wrap={false}>
+          {safeLinkedinPhoto ? (
+            <Image
+              src={safeLinkedinPhoto}
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: '#E2E8F0', objectFit: 'cover' }}
+            />
+          ) : (
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: '#EEF2FF',
+                borderWidth: 1,
+                borderColor: '#C7D2FE',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                {candidateInitials}
+              </Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <View style={styles.rowBetween}>
+              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                {candidateName}
+              </Text>
+              {linkedinScoreVal != null && (
+                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                  LinkedIn Score: {Math.round(Number(linkedinScoreVal))}/100
+                </Text>
+              )}
+            </View>
+            {linkedinProfileUrl ? (
+              <Link src={linkedinProfileUrl} style={{ textDecoration: 'none', marginTop: 2 }}>
+                <Text style={{ fontSize: 7, color: '#6366F1' }}>{safeStr(linkedinProfileUrl)}</Text>
+              </Link>
+            ) : (
+              <Text style={{ fontSize: 7, color: '#64748B', marginTop: 2 }}>
+                Target Positioning: {targetRole}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.card}>
           {Object.entries(linkedinAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
             const isCrit = score < 6
             const isWarn = score >= 6 && score < 8
             const title = secVal?.name || secKey.replace(/([A-Z])/g, ' $1')
             return (
-              <View key={secKey} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2 }}>
+              <View key={secKey} wrap={false} style={{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 2 }}>
                 <View style={styles.rowBetween}>
                   <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', textTransform: 'capitalize' }}>
                     {title}
@@ -1727,6 +1984,20 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         {linkedinHeadlines.map((h, idx) => {
+          if (h?.locked) {
+            return (
+              <View key={idx} style={[styles.card, { padding: 5, marginBottom: 4 }]} wrap={false}>
+                <View style={styles.rowBetween}>
+                  <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                    Option 0{idx + 1}
+                  </Text>
+                  <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                    {safeStr(h.lockedReason, 'Locked - Book Free 1:1 Call to Unlock')}
+                  </Text>
+                </View>
+              </View>
+            )
+          }
           const headlineStr = safeStr(h.headline)
           return (
             <View key={idx} style={styles.card} wrap={false}>
@@ -1767,28 +2038,39 @@ export default function CareerReportPdf({ reportData = {} }) {
             <Text style={styles.aboutPillarText}>{journeyText}</Text>
           </View>
 
-          {/* Legacy Audience block if present in older saved report */}
-          {Boolean(legacyAudienceText) && (
-            <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
-              <Text style={styles.aboutPillarLabel}>TARGET AUDIENCE & PROBLEM</Text>
-              <Text style={styles.aboutPillarText}>{legacyAudienceText}</Text>
+          {(aboutRewrite?.locked || linkedinAgent.optimizations?.aboutRewriteLocked) ? (
+            <View style={styles.aboutPillar}>
+              <Text style={styles.aboutPillarLabel}>2 & 3. SPECIALIZATION, PROOF & CTA</Text>
+              <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                Locked - Book Free 1:1 Strategy Call to Unlock the remaining About rewrite & Experience upgrades
+              </Text>
             </View>
+          ) : (
+            <>
+              {/* Legacy Audience block if present in older saved report */}
+              {Boolean(legacyAudienceText) && (
+                <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+                  <Text style={styles.aboutPillarLabel}>TARGET AUDIENCE & PROBLEM</Text>
+                  <Text style={styles.aboutPillarText}>{legacyAudienceText}</Text>
+                </View>
+              )}
+
+              {/* Paragraph 2 */}
+              <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
+                <Text style={styles.aboutPillarLabel}>2. SPECIALIZATION & CONCRETE PROOF</Text>
+                <Text style={styles.aboutPillarText}>{specializationText}</Text>
+              </View>
+
+              {/* Paragraph 3 */}
+              <View style={[styles.aboutPillar, { marginBottom: aboutKeywords.length > 0 ? 3 : 0 }]}>
+                <Text style={styles.aboutPillarLabel}>3. EDUCATION, DIRECTION & NETWORKING CTA</Text>
+                <Text style={styles.aboutPillarText}>{networkingText}</Text>
+              </View>
+            </>
           )}
 
-          {/* Paragraph 2 */}
-          <View style={[styles.aboutPillar, { marginBottom: 3 }]}>
-            <Text style={styles.aboutPillarLabel}>2. SPECIALIZATION & CONCRETE PROOF</Text>
-            <Text style={styles.aboutPillarText}>{specializationText}</Text>
-          </View>
-
-          {/* Paragraph 3 */}
-          <View style={[styles.aboutPillar, { marginBottom: aboutKeywords.length > 0 ? 3 : 0 }]}>
-            <Text style={styles.aboutPillarLabel}>3. EDUCATION, DIRECTION & NETWORKING CTA</Text>
-            <Text style={styles.aboutPillarText}>{networkingText}</Text>
-          </View>
-
-          {/* Keywords Weaved Footer if present */}
-          {aboutKeywords.length > 0 && (
+          {/* Keywords Weaved Footer if present & unlocked */}
+          {!aboutRewrite?.locked && !linkedinAgent.optimizations?.aboutRewriteLocked && aboutKeywords.length > 0 && (
             <View style={[styles.rowBetween, { marginTop: 2, paddingTop: 3, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }]}>
               <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
                 INDEXED KEYWORDS WEAVED:
@@ -1819,11 +2101,17 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#475569', marginBottom: 2 }}>
                 HIGH-DEMAND SKILLS TO ADD
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {recommendedSkills.map((sk, idx) => (
-                  <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(sk)}</Text>
-                ))}
-              </View>
+              {(linkedinAgent?.optimizations?.recommendedSkillsLocked || recommendedSkills.some((sk) => sk?.locked)) ? (
+                <Text style={{ fontSize: 6.8, color: '#64748B', fontStyle: 'italic' }}>
+                  Locked - Book Free 1:1 Call to Unlock
+                </Text>
+              ) : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                  {recommendedSkills.map((sk, idx) => (
+                    <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(sk)}</Text>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -1835,9 +2123,15 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
                 PROFILE PHOTO AI STUDIO PROMPT
               </Text>
-              <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
-                {safeStr(visualPrompts.profilePicturePrompt || visualPrompts.profilePhotoPrompt)}
-              </Text>
+              {(linkedinAgent?.optimizations?.visualPromptsLocked || visualPrompts?.locked) ? (
+                <Text style={{ fontSize: 6.8, color: '#64748B', fontStyle: 'italic', lineHeight: 1.25 }}>
+                  Locked - Book Free 1:1 Call to Unlock
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
+                  {safeStr(visualPrompts.profilePicturePrompt || visualPrompts.profilePhotoPrompt)}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.col2}>
@@ -1855,42 +2149,158 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 7. Final Page 1-on-1 Strategy Call CTA Banner */}
-        <EditorialBanner
-          imageSrc={pdfCtaBanner}
-          style={{ marginTop: 8 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
-              NEXT STEP • LIVE EXECUTION BRIDGE
+        {/* 7. Final Conversion, Community & Socials Section (flows naturally without orphan half-empty pages) */}
+        <View style={{ marginTop: 10 }}>
+          <EditorialBanner imageSrc={pdfCtaBanner}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
+              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                {isReportUnlocked ? 'FULL REPORT UNLOCKED • NEXT STEPS' : 'EXECUTIVE PREVIEW • UNLOCK FULL ROADMAP'}
+              </Text>
+            </View>
+
+            <Text style={{ fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 4 }}>
+              {isReportUnlocked
+                ? `Ready to Execute Your ${targetRole} Transition Live?`
+                : `Unlock Your Complete Career GPS Report & Updated ATS Resume`}
+            </Text>
+
+            <Text style={{ fontSize: 7.8, color: '#334155', lineHeight: 1.38, marginTop: 4 }}>
+              {isReportUnlocked
+                ? `Your full Career GPS diagnostic is unlocked. Book your complimentary 1:1 strategy session to implement your 30/60/90 roadmap live, access free career tools, and connect with our tech community.`
+                : `This is a short executive preview. To unlock your complete bottleneck breakdown, full 7-day & 30/60/90 roadmap, rewritten resume bullets, free career tools & personalized guidance — book your free 1:1 strategy call.`}
+            </Text>
+
+            {/* Primary Action Row */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <Link
+                src={bookingUrl}
+                style={{
+                  backgroundColor: '#6366F1',
+                  borderRadius: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 11,
+                  textDecoration: 'none',
+                }}
+              >
+                <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                  Book Free 1-on-1 Strategy Call {'->'}
+                </Text>
+              </Link>
+
+              <Link
+                src={whatsappUrl}
+                style={{
+                  backgroundColor: '#059669',
+                  borderRadius: 6,
+                  paddingVertical: 7,
+                  paddingHorizontal: 11,
+                  textDecoration: 'none',
+                }}
+              >
+                <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                  Connect on WhatsApp
+                </Text>
+              </Link>
+
+              {showCommunityCta && (
+                <Link
+                  src={communityUrl}
+                  style={{
+                    backgroundColor: '#0F172A',
+                    borderRadius: 6,
+                    paddingVertical: 7,
+                    paddingHorizontal: 11,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <Text style={{ fontSize: 7.5, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                    {communityLabel} {'->'}
+                  </Text>
+                </Link>
+              )}
+            </View>
+          </EditorialBanner>
+
+          {/* Free Career Resources & Community Card */}
+          <View style={[styles.card, { marginTop: 12, padding: 10 }]} wrap={false}>
+            <Text style={{ fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 4 }}>
+              What You Get on Your Free 1:1 Strategy Session
+            </Text>
+            <Text style={{ fontSize: 7.4, color: '#475569', lineHeight: 1.4 }}>
+              • Full line-by-line ATS bullet rewrites &amp; recruiter keyword calibration for {targetRole}{'\n'}
+              • Complete 7-Day Rapid Triage &amp; 30/60/90-Day Milestone Execution Roadmap{'\n'}
+              • Free career tools, interview prep frameworks &amp; personalized guidance
             </Text>
           </View>
 
-          <Text style={{ fontSize: 12, fontFamily: 'Helvetica-Bold', color: '#0F172A', letterSpacing: -0.2, lineHeight: 1.25, marginTop: 2 }}>
-            Stuck at Phase {currentPhaseId} ({currentPhaseShort})? Fix It Live in a 1-on-1 Strategy Call
-          </Text>
+          {/* Company Social Media Footer (Strictly gated by Admin socialLinksConfig.enabled) */}
+          {socialMasterEnabled && activeSocialItems.length > 0 && (
+            <View
+              style={{
+                marginTop: 14,
+                paddingTop: 10,
+                borderTopWidth: 1,
+                borderTopColor: '#E2E8F0',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+              wrap={false}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Image src={craftureLogo} style={{ width: 14, height: 14, borderRadius: 3 }} />
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#334155' }}>
+                  Crafture Career GPS
+                </Text>
+              </View>
 
-          <Text style={{ fontSize: 7.3, color: '#334155', lineHeight: 1.3, marginTop: 2 }}>
-            Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
-          </Text>
-
-          <Link
-            src={bookingUrl}
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: '#6366F1',
-              borderRadius: 6,
-              paddingVertical: 7,
-              paddingHorizontal: 14,
-              marginTop: 4,
-              textDecoration: 'none',
-            }}
-          >
-            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
-              Book Free 1-on-1 Strategy Call {'->'}
-            </Text>
-          </Link>
-        </EditorialBanner>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                {activeSocialItems.map((item) => {
+                  const hasValidCustomLogo =
+                    typeof item.customLogoUrl === 'string' &&
+                    (/^data:image\/(png|jpeg|jpg);base64,/i.test(item.customLogoUrl) ||
+                      /^https?:\/\/.+\.(png|jpe?g)(\?.*)?$/i.test(item.customLogoUrl))
+                  const iconColor =
+                    item.iconType === 'linkedin'
+                      ? '#0A66C2'
+                      : item.iconType === 'instagram'
+                        ? '#E1306C'
+                        : item.iconType === 'youtube'
+                          ? '#DC2626'
+                          : item.iconType === 'x'
+                            ? '#0F172A'
+                            : '#4F46E5'
+                  return (
+                    <Link key={item.key || item.label} src={item.url} style={{ textDecoration: 'none', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      {hasValidCustomLogo ? (
+                        <Image src={item.customLogoUrl} style={{ width: 11, height: 11, borderRadius: 2, objectFit: 'contain' }} />
+                      ) : (
+                        <Svg width={10} height={10} viewBox="0 0 24 24">
+                          {item.iconType === 'linkedin' && (
+                            <Path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" fill={iconColor} />
+                          )}
+                          {item.iconType === 'instagram' && (
+                            <Path d="M7.8 2h8.4C19.4 2 22 4.6 22 7.8v8.4a5.8 5.8 0 0 1-5.8 5.8H7.8C4.6 22 2 19.4 2 16.2V7.8A5.8 5.8 0 0 1 7.8 2m-.2 2A3.6 3.6 0 0 0 4 7.6v8.8C4 18.39 5.61 20 7.6 20h8.8a3.6 3.6 0 0 0 3.6-3.6V7.6C20 5.61 18.39 4 16.4 4H7.6m9.65 1.5a1.25 1.25 0 0 1 1.25 1.25A1.25 1.25 0 0 1 17.25 8 1.25 1.25 0 0 1 16 6.75a1.25 1.25 0 0 1 1.25-1.25M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3z" fill={iconColor} />
+                          )}
+                          {item.iconType === 'youtube' && (
+                            <Path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z" fill={iconColor} />
+                          )}
+                          {(item.iconType === 'website' || item.iconType === 'x' || item.iconType === 'custom') && (
+                            <Path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.93 8M12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96M4.26 14A8.1 8.1 0 0 1 4 12c0-.69.09-1.36.26-2h3.38a16.52 16.52 0 0 0-.14 2c0 .68.05 1.35.14 2H4.26m.81 2h2.95a15.65 15.65 0 0 0 1.38 3.56A8.03 8.03 0 0 1 5.07 16m2.95-8H5.07a8.03 8.03 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.02 8M12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96M14.34 14H9.66a14.7 14.7 0 0 1-.16-2c0-.68.06-1.35.16-2h4.68c.1.65.16 1.32.16 2 0 .68-.06 1.35-.16 2m.26 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56M16.36 14c.09-.65.14-1.32.14-2 0-.68-.05-1.35-.14-2h3.38c.17.64.26 1.31.26 2 0 .69-.09 1.36-.26 2h-3.38z" fill={iconColor} />
+                          )}
+                        </Svg>
+                      )}
+                      <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: iconColor }}>
+                        {item.label}
+                      </Text>
+                    </Link>
+                  )
+                })}
+              </View>
+            </View>
+          )}
+        </View>
       </Page>
     </Document>
   )

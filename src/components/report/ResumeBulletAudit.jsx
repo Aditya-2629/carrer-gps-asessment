@@ -7,11 +7,13 @@ import {
   CheckCircle,
   WarningCircle,
   ArrowsClockwise,
+  LockKey,
 } from '@phosphor-icons/react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { DiffReview } from '../diff-review'
 import { CopyButton } from '../copy-button'
+import TeaserLockBlock from '../TeaserLockBlock'
 
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
@@ -38,8 +40,11 @@ export default function ResumeBulletAudit({
   bulletAudit,
   issues = [],
   variant = 'light',
+  isTeaserLocked = false,
+  bookingUrl = '',
+  onOpenUnlockModal,
 }) {
-  const { triggerGuide } = useReportGuideStore()
+  const { triggerGuide, setBulletFilter } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
   const [filterVerdict, setFilterVerdict] = useState('ALL') // 'ALL' | 'HURTING' | 'HELPING'
   const [userHasToggled, setUserHasToggled] = useState(false)
@@ -49,10 +54,15 @@ export default function ResumeBulletAudit({
   const [lockedId, setLockedId] = useState(null)
 
   useEffect(() => {
+    setBulletFilter(filterVerdict)
+  }, [filterVerdict, setBulletFilter])
+
+  useEffect(() => {
     return () => {
+      setBulletFilter('ALL')
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
     }
-  }, [])
+  }, [setBulletFilter])
 
   // Bullets triage data: prioritize resolved bulletAudit array first
   const rawBullets =
@@ -139,7 +149,16 @@ export default function ResumeBulletAudit({
       ]
     }
 
-    return rawBullets.map((item, index) => {
+    const mapped = rawBullets.map((item, index) => {
+      if (item?.locked) {
+        return {
+          locked: true,
+          bulletId: item.bulletId || item.id || `locked_${index}`,
+          verdict: 'hurting',
+          severity: 'CRITICAL',
+          fivePartFlags: {},
+        }
+      }
       const isPass =
         item.status === 'pass' ||
         item.severity === 'PASS' ||
@@ -148,40 +167,9 @@ export default function ResumeBulletAudit({
         item.status === 'warn' ||
         item.severity === 'WARN' ||
         (typeof item.impactScore === 'number' && item.impactScore >= 50 && item.impactScore < 75)
-      const severity = isPass ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
-      const verdict = item.verdict
-        ? String(item.verdict).toLowerCase()
-        : isPass
-        ? 'helping'
-        : 'hurting'
-      const fivePartFlags =
-        item.fivePartFlags && typeof item.fivePartFlags === 'object'
-          ? item.fivePartFlags
-          : {
-              actionVerb: item.hasActionVerb ?? isPass,
-              hardSkill: (item.technologyCount ?? 0) > 0 || true,
-              collaboration: false,
-              metric: item.hasQuantifier ?? isPass,
-              outcome: item.hasOutcomeVerb ?? isPass,
-            }
-      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
 
       const bId = item.bulletId || item.id || `b_${index}`
       const override = bulletOverrides[bId]
-
-      if (item.original && item.severity && item.recruiterAttention) {
-        return {
-          ...item,
-          bulletId: bId,
-          rewritten: override?.rewritten || cleanRewriteText(item.rewritten || item.rewrite || item.original),
-          evidenceStatus: override?.evidenceStatus || item.evidenceStatus || null,
-          confirmedMetric: override?.confirmedMetric || item.confirmedMetric || null,
-          whyItWorks: override?.whyItWorks || item.whyItWorks || '',
-          verdict,
-          fivePartFlags,
-          isResponsibilityOnly,
-        }
-      }
 
       // Merge linked issue if present
       const linkedIssue = issues.find(
@@ -196,34 +184,78 @@ export default function ResumeBulletAudit({
           )
       )
 
-      const finalRewritten =
+      const origText = String(item.original || item.originalText || item.text || item.bullet || '').trim()
+      const rawRewritten =
         override?.rewritten ||
         linkedIssue?.correctedText ||
+        item.correctedText ||
+        item.rewrittenText ||
         item.rewritten ||
         item.rewrite ||
         item.improved ||
+        item.upgrade ||
         item.readyToUseRewrite ||
-        item.original ||
-        item.text ||
-        ''
+        origText
+      const cleanedRewritten = cleanRewriteText(rawRewritten)
+
+      const hasRephrase = Boolean(cleanedRewritten && origText && cleanedRewritten.toLowerCase() !== origText.toLowerCase())
+      const hasBulletIssues =
+        (Array.isArray(item.issues) && item.issues.length > 0) ||
+        (Array.isArray(item.missingParts) && item.missingParts.length > 0)
+
+      // A bullet is Helping ONLY if its verdict/pass is helping AND it has NO rephrase/upgrade/issues
+      const rawVerdictHelping = item.verdict ? String(item.verdict).toLowerCase() === 'helping' : isPass
+      const verdict = rawVerdictHelping && !hasRephrase && !hasBulletIssues ? 'helping' : 'hurting'
+      const severity = verdict === 'helping' ? 'PASS' : isWarn ? 'WARN' : 'CRITICAL'
+
+      const fivePartFlags =
+        item.fivePartFlags && typeof item.fivePartFlags === 'object'
+          ? item.fivePartFlags
+          : {
+              actionVerb: item.hasActionVerb ?? (verdict === 'helping'),
+              hardSkill: (item.technologyCount ?? 0) > 0 || true,
+              collaboration: false,
+              metric: item.hasQuantifier ?? (verdict === 'helping'),
+              outcome: item.hasOutcomeVerb ?? (verdict === 'helping'),
+            }
+      const isResponsibilityOnly = Boolean(item.isResponsibilityOnly)
+
       let rawCritique =
         linkedIssue?.diagnosis ||
         item.critique ||
+        item.diagnosis ||
         item.reason ||
-        (isPass
+        (Array.isArray(item.issues) && item.issues.length > 0 ? item.issues.join(' ') : '') ||
+        (verdict === 'helping'
           ? 'High impact technical achievement bullet with clear operational outcome.'
           : 'Lacks quantified metrics or active ownership.')
 
-      if (!isPass && /no defects found|clear,\s*specific/i.test(rawCritique)) {
+      if (verdict === 'hurting' && /no defects found|clear,\s*specific/i.test(rawCritique)) {
         rawCritique = 'Lacks quantified business outcome and measurable impact — reads as a routine task rather than a distinctive achievement.'
       }
-      const finalCritique = rawCritique
+
+      if (item.original && item.severity && item.recruiterAttention) {
+        return {
+          ...item,
+          bulletId: bId,
+          original: origText,
+          rewritten: cleanedRewritten,
+          critique: rawCritique,
+          evidenceStatus: override?.evidenceStatus || item.evidenceStatus || null,
+          confirmedMetric: override?.confirmedMetric || item.confirmedMetric || null,
+          whyItWorks: override?.whyItWorks || item.whyItWorks || '',
+          severity,
+          verdict,
+          fivePartFlags,
+          isResponsibilityOnly,
+        }
+      }
 
       return {
         bulletId: bId,
-        original: item.original || item.text || '',
-        rewritten: cleanRewriteText(finalRewritten),
-        critique: finalCritique,
+        original: origText,
+        rewritten: cleanedRewritten,
+        critique: rawCritique,
         severity,
         verdict,
         fivePartFlags,
@@ -238,7 +270,7 @@ export default function ResumeBulletAudit({
             : Array.isArray(linkedIssue?.metricOpportunities)
             ? linkedIssue.metricOpportunities
             : [],
-        recruiterAttention: isPass
+        recruiterAttention: verdict === 'helping'
           ? 'HOOKED (3.0s scan)'
           : isWarn
           ? 'SKIPPED (0.7s scan)'
@@ -246,14 +278,37 @@ export default function ResumeBulletAudit({
         score:
           typeof item.impactScore === 'number'
             ? item.impactScore
-            : isPass
+            : verdict === 'helping'
             ? 94
             : isWarn
             ? 65
             : 30,
       }
     })
-  }, [rawBullets, issues, bulletOverrides])
+
+    // Enforce 40% visible / 60% locked split on Hurting bullets if teaser is locked and server didn't already redact
+    const alreadyHasServerLocks = mapped.some((b) => b.locked)
+    if (isTeaserLocked && !alreadyHasServerLocks) {
+      const hurtingIndices = []
+      mapped.forEach((b, i) => {
+        if (b.verdict === 'hurting') hurtingIndices.push(i)
+      })
+      const visibleCount = hurtingIndices.length > 0 ? Math.max(1, Math.ceil(hurtingIndices.length * 0.4)) : 0
+      const visibleSet = new Set(hurtingIndices.slice(0, visibleCount))
+      return mapped.map((b, i) => {
+        if (b.verdict === 'helping' || visibleSet.has(i)) return b
+        return {
+          locked: true,
+          bulletId: b.bulletId || `locked_${i}`,
+          verdict: 'hurting',
+          severity: 'CRITICAL',
+          fivePartFlags: {},
+        }
+      })
+    }
+
+    return mapped
+  }, [rawBullets, issues, bulletOverrides, isTeaserLocked])
 
   // Ensure first hurting bullet is expanded when bullets change or on initial load
   useEffect(() => {
@@ -405,7 +460,9 @@ export default function ResumeBulletAudit({
           <span>Click any line to inspect diff</span>
         </div>
 
-        {filteredBullets.map((item, idx) => {
+        {filteredBullets
+          .filter((item) => !item.locked)
+          .map((item, idx) => {
           const isExpanded = expandedId === (item.bulletId || idx)
           const isHelping = item.verdict === 'helping'
 
@@ -502,76 +559,86 @@ export default function ResumeBulletAudit({
                         </div>
                       )}
 
-                      {/* Why This Rewrite Works (What was upgraded) */}
-                      {(item.whyItWorks || item.why) && (
-                        <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5">
-                          <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-semibold">
-                            <CheckCircle size={13} weight="bold" /> Why This Rewrite Works:
-                          </span>
-                          <p className="leading-relaxed font-medium">
-                            {item.whyItWorks || item.why}
-                          </p>
-                        </div>
-                      )}
+                      {/* Why This Rewrite Works & Strategic Recruiter Diff (Locked from Bullet #3 onwards when teaser is active) */}
+                      <TeaserLockBlock
+                        variant="inline-pill"
+                        isLocked={isTeaserLocked && idx >= 2 && Boolean(item.rewritten && item.original !== item.rewritten)}
+                        label="Unlock rewrite"
+                        bookingUrl={bookingUrl}
+                        onUnlock={onOpenUnlockModal}
+                        contextLabel="Bullet Rewrite"
+                      >
+                        {/* Why This Rewrite Works (What was upgraded) */}
+                        {(item.whyItWorks || item.why) && (
+                          <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5 mb-3">
+                            <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+                              <CheckCircle size={13} weight="bold" /> Why This Rewrite Works:
+                            </span>
+                            <p className="leading-relaxed font-medium">
+                              {item.whyItWorks || item.why}
+                            </p>
+                          </div>
+                        )}
 
-                      {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
-                      {item.rewritten && item.original !== item.rewritten ? (
-                        <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
-                                <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
-                              </span>
-                              {item.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
-                                  <CheckCircle size={10} weight="fill" /> Candidate Confirmed: {item.confirmedMetric}
+                        {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
+                        {item.rewritten && item.original !== item.rewritten ? (
+                          <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
+                                  <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                                 </span>
-                              )}
-                              {item.evidenceStatus === 'CALCULATED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
-                                  <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
-                                </span>
-                              )}
-                              {item.metricSource === 'ai_calibrated' && item.evidenceStatus !== 'CANDIDATE_CONFIRMED' && item.evidenceStatus !== 'CALCULATED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title="Verify this calibrated benchmark before your interview">
-                                  Suggested benchmark — verify before interview
-                                </span>
-                              )}
+                                {item.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                                    <CheckCircle size={10} weight="fill" /> Candidate Confirmed: {item.confirmedMetric}
+                                  </span>
+                                )}
+                                {item.evidenceStatus === 'CALCULATED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
+                                    <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
+                                  </span>
+                                )}
+                                {item.metricSource === 'ai_calibrated' && item.evidenceStatus !== 'CANDIDATE_CONFIRMED' && item.evidenceStatus !== 'CALCULATED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title="Verify this calibrated benchmark before your interview">
+                                    Suggested benchmark — verify before interview
+                                  </span>
+                                )}
+                              </div>
+                              <CopyButton
+                                text={item.rewritten}
+                                label="Copy Rewrite"
+                                copiedLabel="Copied"
+                                size="sm"
+                              />
                             </div>
+                            <DiffReview
+                              changes={[
+                                {
+                                  id: item.bulletId || String(idx),
+                                  label: 'Bullet Rewrite',
+                                  before: item.original,
+                                  after: item.rewritten,
+                                },
+                              ]}
+                              mode="words"
+                              readOnly={true}
+                              title="Before → After Word Diff"
+                            />
+                          </div>
+                        ) : !isHelping ? (
+                          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
+                            <span className="font-mono text-xs text-[var(--text-muted)]">
+                              Formula recommendation: Lead with an active ownership verb and quantified scale.
+                            </span>
                             <CopyButton
-                              text={item.rewritten}
-                              label="Copy Rewrite"
+                              text={item.original}
+                              label="Copy Original"
                               copiedLabel="Copied"
                               size="sm"
                             />
                           </div>
-                          <DiffReview
-                            changes={[
-                              {
-                                id: item.bulletId || String(idx),
-                                label: 'Bullet Rewrite',
-                                before: item.original,
-                                after: item.rewritten,
-                              },
-                            ]}
-                            mode="words"
-                            readOnly={true}
-                            title="Before → After Word Diff"
-                          />
-                        </div>
-                      ) : !isHelping ? (
-                        <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
-                          <span className="font-mono text-xs text-[var(--text-muted)]">
-                            Formula recommendation: Lead with an active ownership verb and quantified scale.
-                          </span>
-                          <CopyButton
-                            text={item.original}
-                            label="Copy Original"
-                            copiedLabel="Copied"
-                            size="sm"
-                          />
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </TeaserLockBlock>
                     </div>
                   </motion.div>
                 )}
@@ -579,6 +646,53 @@ export default function ResumeBulletAudit({
             </div>
           )
         })}
+
+        {(() => {
+          const lockedHurting = filteredBullets.filter((b) => b.locked)
+          if (lockedHurting.length === 0) return null
+          return (
+            <div className="pt-4 mt-2 relative">
+              <div className="space-y-3 pointer-events-none select-none" aria-hidden="true">
+                {lockedHurting.slice(0, 3).map((_, sIdx) => (
+                  <div
+                    key={sIdx}
+                    className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)]/60 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="flex gap-1.5">
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof onOpenUnlockModal === 'function') {
+                      onOpenUnlockModal(`${lockedHurting.length} Hurting Bullet Audits & Rewrites`)
+                      return
+                    }
+                    const el = document.getElementById('next-action')
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    else if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-sm transition-colors duration-150 cursor-pointer"
+                >
+                  <LockKey size={13} weight="bold" className="text-[var(--primary)]" />
+                  <span>
+                    Unlock remaining {lockedHurting.length} hurting bullet audit{lockedHurting.length === 1 ? '' : 's'} &amp; rewrites →
+                  </span>
+                </button>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

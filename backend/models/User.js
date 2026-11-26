@@ -54,6 +54,24 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    totalCostUsd: {
+      type: Number,
+      default: 0,
+    },
+    totalCostInr: {
+      type: Number,
+      default: 0,
+    },
+    costBreakdown: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    attribution: {
+      source: { type: String, default: 'direct', index: true },
+      medium: { type: String, default: '' },
+      campaign: { type: String, default: '' },
+      referrer: { type: String, default: '' },
+    },
     answers: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

@@ -7,6 +7,7 @@
 
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
+import LlmCallLog from '../models/LlmCallLog.js'
 import FindingFeedback from '../models/FindingFeedback.js'
 import ReportJob from '../models/ReportJob.js'
 import { adminLogin } from '../utils/adminAuth.js'
@@ -254,7 +255,12 @@ export const getStats = async (_req, res) => {
       },
     })
 
-    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns, allRuns] = await Promise.all([
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000
+    const istNow = new Date(Date.now() + IST_OFFSET_MS)
+    istNow.setUTCHours(0, 0, 0, 0)
+    const startOfTodayIst = new Date(istNow.getTime() - IST_OFFSET_MS)
+
+    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns, allRuns, todayUsersCost, totalUsersCostAgg, todayLogAgg, completedCostAgg] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ $or: [{ resumeData: { $type: 'binData' } }, { resumeJson: { $ne: null } }, { resumeName: { $ne: null } }] }),
@@ -286,6 +292,13 @@ export const getStats = async (_req, res) => {
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
       AgentRun.find({ createdAt: { $gte: startOfToday } }).select('cost model').lean(),
       AgentRun.find({}).select('cost model').lean(),
+      User.find({ createdAt: { $gte: startOfToday }, totalCostUsd: { $gt: 0 } }).select('totalCostUsd').lean(),
+      User.aggregate([{ $match: { totalCostUsd: { $gt: 0 } } }, { $group: { _id: null, sum: { $sum: '$totalCostUsd' } } }]),
+      LlmCallLog.aggregate([{ $match: { createdAt: { $gte: startOfTodayIst } } }, { $group: { _id: null, sum: { $sum: '$costUsd' } } }]),
+      User.aggregate([
+        { $match: { 'aiReport.career_health_score': { $exists: true }, totalCostUsd: { $gt: 0 } } },
+        { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: '$totalCostUsd' } } },
+      ]),
     ])
 
     const calcUsd = (runs) => {
@@ -305,10 +318,19 @@ export const getStats = async (_req, res) => {
       return sum
     }
 
-    const todayLlmSpendUsd = calcUsd(todayRuns)
-    const totalLlmSpendUsd = calcUsd(allRuns)
-    const leadDenom = withReport > 0 ? withReport : totalUsers
-    const avgCostPerLeadUsd = leadDenom > 0 ? Number((totalLlmSpendUsd / leadDenom).toFixed(5)) : 0
+    const todayAgentUsd = calcUsd(todayRuns)
+    const todayUserUsd = (todayUsersCost || []).reduce((acc, u) => acc + Number(u.totalCostUsd || 0), 0)
+    const todayLogUsd = Number(todayLogAgg?.[0]?.sum || 0)
+    const todayLlmSpendUsd = todayLogUsd > 0 ? todayLogUsd : Math.max(todayAgentUsd, todayUserUsd)
+
+    const completedCount = Number(completedCostAgg?.[0]?.count || 0)
+    const completedCostSum = Number(completedCostAgg?.[0]?.sumCost || 0)
+    const allAgentUsd = calcUsd(allRuns)
+    const allUserUsd = Number(totalUsersCostAgg?.[0]?.sum || 0)
+    const totalLlmSpendUsd = Math.max(allAgentUsd, allUserUsd)
+    const avgCostPerLeadUsd = completedCount > 0
+      ? Number((completedCostSum / completedCount).toFixed(5))
+      : (totalUsers > 0 ? Number((totalLlmSpendUsd / totalUsers).toFixed(5)) : 0)
 
     const agg = reportAgg[0] || {}
     const round1 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null)

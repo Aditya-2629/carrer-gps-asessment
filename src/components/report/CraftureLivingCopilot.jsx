@@ -91,7 +91,9 @@ const OBSERVED_SECTION_IDS = [
   'overview-bottleneck',
   'top-priorities',
   'funnel-leak',
+  'funnel-sankey',
   'sprint-roadmap',
+  'mission-board',
   'next-action',
 
   // Tab 2 (Resume Lab)
@@ -153,6 +155,8 @@ export default function CraftureLivingCopilot({
   context = 'report',
   currentStep = 0,
   step = null,
+  isUnlockModalOpen = false,
+  isReportUnlocked = false,
 }) {
   const {
     emotion,
@@ -161,6 +165,7 @@ export default function CraftureLivingCopilot({
     metricChip,
     activeNodeId,
     isChatOpen,
+    bulletFilter,
     setMode,
     openChat,
     setActiveSection,
@@ -275,21 +280,55 @@ export default function CraftureLivingCopilot({
       return 'wave'
     }
 
-    // ── 2. Report Mode Context Mapping ──
-    const overallScore = reportData?.overall_score ?? reportData?.career_health_score ?? null
-    const isCriticalLowScore = typeof overallScore === 'number' && overallScore < 50
+    // ── 2. Report Mode Context Mapping (14 WebP Poses) ──
+    if (isChatOpen || isUnlockModalOpen) return 'thinking'
+    if (isAsleep) return 'idle'
 
-    // Next Action / Strategy Call
+    const rawScore =
+      reportData?.overall_score ??
+      (typeof reportData?.career_health_score === 'object'
+        ? reportData?.career_health_score?.overall
+        : reportData?.career_health_score) ??
+      null
+    const overallScore = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : null
+    const isCriticalLowScore = overallScore !== null && overallScore < 55
+
+    const rawCallback =
+      reportData?.funnel_analysis?.callback_rate ??
+      reportData?.funnel?.callbackRate ??
+      reportData?.callback_rate ??
+      null
+    const callbackRate = rawCallback != null && Number.isFinite(Number(rawCallback)) ? Number(rawCallback) : null
+    const hasCriticalFunnelDrop = callbackRate !== null && callbackRate < 5
+
+    // Strategy Call CTA / Report Unlocked
     if (activeNodeId === 'next-action') {
-      return overallScore && overallScore >= 75 ? 'happy' : 'thumbsup'
+      if (isReportUnlocked || (overallScore !== null && overallScore >= 80)) return 'happy'
+      return 'thumbsup'
     }
 
-    // Critical low-score alert
-    if (isCriticalLowScore && (activeNodeId === 'overview-bottleneck' || currentEmotion === 'alert')) {
-      return 'sad'
+    // Bullet Filter / Hurting vs Helping
+    if (bulletFilter === 'HURTING' && (activeTab === 'resume' || activeNodeId === 'resume-bullets')) {
+      return 'angry'
+    }
+    if (bulletFilter === 'HELPING' && (activeTab === 'resume' || activeNodeId === 'resume-bullets')) {
+      return 'thumbsup'
     }
 
-    // Action Plan / Roadmap
+    // Bottleneck / Funnel Shock (Phase 2 callback < 5%)
+    if (activeNodeId === 'overview-bottleneck' || activeNodeId === 'funnel-leak') {
+      if (hasCriticalFunnelDrop || currentEmotion === 'surprised' || currentEmotion === 'alert') {
+        return 'shocked'
+      }
+      return 'chart'
+    }
+
+    // Radar / Monthly Funnel Charts
+    if (activeNodeId === 'funnel-sankey' || activeNodeId?.startsWith('funnel-')) {
+      return 'chart'
+    }
+
+    // Top Priorities / 7-Day / 30-60-90 Roadmap
     if (
       activeNodeId === 'sprint-roadmap' ||
       activeNodeId === 'top-priorities' ||
@@ -299,33 +338,40 @@ export default function CraftureLivingCopilot({
       return 'roadmap'
     }
 
-    // Resume Lab
+    // Resume Deep Diagnosis / Keywords / Bullets
     if (
-      activeTab === 'resume' ||
-      activeNodeId?.startsWith('resume-')
+      activeNodeId === 'resume-keywords' ||
+      activeNodeId === 'resume-summary' ||
+      activeNodeId === 'resume-defense'
     ) {
-      return 'clipboard'
+      return 'reading'
+    }
+    if (
+      activeNodeId === 'resume-scorecard' ||
+      activeNodeId === 'resume-audit' ||
+      activeNodeId === 'resume-bullets'
+    ) {
+      return currentEmotion === 'alert' ? 'angry' : 'clipboard'
     }
 
-    // LinkedIn Studio
-    if (
-      activeTab === 'linkedin' ||
-      activeNodeId?.startsWith('linkedin-')
-    ) {
+    // LinkedIn Studio / Headlines / About
+    if (activeNodeId === 'linkedin-headlines' || activeNodeId === 'linkedin-about') {
+      return 'laptop'
+    }
+    if (activeNodeId?.startsWith('linkedin-')) {
+      return 'working'
+    }
+
+    // Hero / Score Summary
+    if (activeNodeId === 'overview-pulse' || activeTab === 'overview') {
+      if (overallScore !== null && overallScore >= 80) return 'happy'
+      if (isCriticalLowScore) return 'sad'
       return 'wave'
     }
 
-    // Overview & Funnel
-    if (
-      activeTab === 'overview' ||
-      activeNodeId === 'overview-pulse' ||
-      activeNodeId === 'overview-bottleneck' ||
-      activeNodeId === 'funnel-leak' ||
-      activeNodeId === 'funnel-sankey' ||
-      activeNodeId?.startsWith('funnel-')
-    ) {
-      return 'chart'
-    }
+    // Tab fallbacks
+    if (activeTab === 'resume') return 'clipboard'
+    if (activeTab === 'linkedin') return 'laptop'
 
     // Emotion fallbacks
     if (currentEmotion === 'victory' || currentEmotion === 'celebrating') return 'happy'
@@ -333,13 +379,18 @@ export default function CraftureLivingCopilot({
     if (currentEmotion === 'surprised') return 'shocked'
     if (currentEmotion === 'sad') return 'sad'
     if (currentEmotion === 'thinking') return 'thinking'
-    if (currentEmotion === 'listening') return 'clipboard'
+    if (currentEmotion === 'listening') return 'reading'
     if (currentEmotion === 'speaking') return 'wave'
 
     return 'wave'
   }, [
     isCelebrating,
+    isChatOpen,
+    isUnlockModalOpen,
+    isAsleep,
     isAssessment,
+    isReportUnlocked,
+    bulletFilter,
     step?.name,
     currentStep,
     resumeAnalysis?.status,
@@ -711,8 +762,8 @@ export default function CraftureLivingCopilot({
     const timer = setTimeout(() => {
       observer = new IntersectionObserver(observerCallback, {
         root: null,
-        rootMargin: '-20% 0px -40% 0px',
-        threshold: [0.05, 0.1, 0.25],
+        rootMargin: '-12% 0px -30% 0px',
+        threshold: 0.15,
       })
 
       OBSERVED_SECTION_IDS.forEach((id) => {
@@ -888,11 +939,7 @@ export default function CraftureLivingCopilot({
 
     clickTimeoutRef.current = setTimeout(() => {
       clickTimeoutRef.current = null
-      if (isAssessment) {
-        setCloudMinimized((prev) => !prev)
-        return
-      }
-      // On /report (mobile & desktop), clicking the mascot directly opens Atlas Chatbot
+      // Direct click/tap opens Atlas Chatbot
       handleLaunchChat()
     }, 240)
   }
@@ -911,135 +958,6 @@ export default function CraftureLivingCopilot({
       className={`fixed ${isAssessment ? 'bottom-16 right-3 sm:bottom-6 sm:right-6' : 'bottom-16 right-3 sm:bottom-20 sm:right-6'} z-40 pointer-events-none select-none print:hidden flex flex-col items-end max-w-[calc(100vw-1.5rem)]`}
       aria-label="Crafture Living Copilot Companion"
     >
-      {/* ─── Animated Thinking Cloud (Desktop/tablet only; hidden on < 640px mobile) ─── */}
-      <AnimatePresence>
-        {!isChatOpen && !cloudMinimized && (
-          <motion.div
-            key={`thought-cloud-${activeThought?.text || activeNodeId}`}
-            initial={{ opacity: 0, scale: 0.92, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.92, y: 8, transition: { duration: 0.2 } }}
-            transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-            className="hidden sm:block mb-1 w-[calc(100vw-2rem)] max-w-[320px] sm:w-80 pointer-events-auto"
-          >
-            {/* Thought Bubbles / Rising Dots Trail (• -> ○ -> Cloud) */}
-            <div className="flex flex-col items-end mr-12 mb-1 space-y-1">
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: [0, 1.25, 1], opacity: 1 }}
-                transition={{ delay: 0.04, duration: 0.28 }}
-                className="w-2 h-2 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-2xs mr-3"
-              />
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: [0, 1.2, 1], opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.28 }}
-                className="w-3 h-3 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-xs mr-1"
-              />
-            </div>
-
-            {/* Main Thought Cloud Card */}
-            <div className="relative bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200/90 dark:border-slate-700/80 rounded-xl p-4 shadow-xl shadow-slate-900/10 dark:shadow-black/40 overflow-hidden group">
-              {/* Top Accent Line */}
-              <div
-                className="absolute top-0 left-0 right-0 h-1 transition-colors duration-300"
-                style={{ backgroundColor: accentColor }}
-              />
-
-              {/* Cloud Header: Chip + Micro-Toggle + Close */}
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: accentColor }}
-                  />
-                  <span className="text-[10px] font-mono tracking-normal text-slate-600 dark:text-slate-300">
-                    {currentChip}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {/* Problem / Solution Micro-Toggle (Report Mode Only) */}
-                  {!isAssessment && (
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={() => setMode('problem')}
-                        className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                          mode === 'problem'
-                            ? 'bg-rose-600 text-white shadow-2xs'
-                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        Issue
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMode('solution')}
-                        className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer ${
-                          mode === 'solution'
-                            ? 'bg-emerald-600 text-white shadow-2xs'
-                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                      >
-                        Fix
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Clean Collapse (✕): Collapses only the cloud, keeping 3D mascot visible */}
-                  <button
-                    type="button"
-                    onClick={() => setCloudMinimized(true)}
-                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                    aria-label="Collapse thought cloud"
-                    title="Collapse thought cloud"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Thought Body with Animated Transition */}
-              <div className="min-h-10 flex items-center mb-3">
-                {isThinking ? (
-                  <div className="flex items-center gap-1.5 py-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-80" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-60" />
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 opacity-40" />
-                    <span className="text-[11px] font-mono text-slate-400 ml-1">Calibrating...</span>
-                  </div>
-                ) : (
-                  <p className="text-xs font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
-                    {currentThoughtText}
-                  </p>
-                )}
-              </div>
-
-              {/* Action Trigger */}
-              {isAssessment ? (
-                <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                  <span>Step {currentStep + 1} of 14</span>
-                  <span>Click mascot to toggle</span>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleLaunchChat}
-                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors cursor-pointer shadow-2xs group/btn"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <MessageSquare size={13} className="text-indigo-500" />
-                    <span>Consult Atlas about this finding</span>
-                  </span>
-                  <ArrowRight size={13} className="group-hover/btn:translate-x-0.5 transition-transform" />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ─── Studio-Grade Forest Green Mascot (Locked 148px x 148px / mobile 112px x 112px) ─── */}
       <div className="relative pointer-events-auto flex flex-col items-center origin-bottom-right">
         {/* Mascot Click Area & Locked Stage */}
@@ -1050,13 +968,7 @@ export default function CraftureLivingCopilot({
           onMouseEnter={() => setIsStageHovered(true)}
           onMouseLeave={() => setIsStageHovered(false)}
           className="relative w-[112px] h-[112px] sm:w-[148px] sm:h-[148px] flex items-center justify-center cursor-pointer select-none group/mascot"
-          title={
-            cloudMinimized
-              ? 'Click to restore thought cloud'
-              : isAssessment
-              ? 'Click to toggle thought cloud'
-              : 'Click to toggle Issue/Fix mode • Double-click to celebrate'
-          }
+          title="Click to chat with Atlas"
         >
           {/* Tight radial-gradient elliptical floor shadow underneath */}
           <div
@@ -1091,7 +1003,7 @@ export default function CraftureLivingCopilot({
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
                 className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
                 loading="eager"
                 decoding="async"
@@ -1104,13 +1016,9 @@ export default function CraftureLivingCopilot({
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               whileHover={{ opacity: 1, y: 0 }}
-              className="absolute -bottom-1 right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none z-20"
+              className="absolute -bottom-1 right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 px-2.5 py-0.5 rounded-md bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs font-mono tracking-tight shadow-md whitespace-nowrap pointer-events-none z-20"
             >
-              {isAsleep
-                ? 'Paused — scroll or hover to wake'
-                : cloudMinimized
-                ? (isAssessment ? 'Show Tip' : 'Expand Guide')
-                : (isAssessment ? 'Hide Tip' : 'Consult Atlas')}
+              {isAsleep ? 'Paused — scroll or hover to wake' : 'Consult Atlas'}
             </motion.div>
           )}
         </div>

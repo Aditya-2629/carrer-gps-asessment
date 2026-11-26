@@ -16,10 +16,25 @@ import { EventEmitter } from 'node:events'
 import mongoose from 'mongoose'
 import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
+import VisitorSession from '../models/VisitorSession.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
+import { sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
+import { redactReportForTeaser } from '../utils/teaserRedactor.js'
+
+async function redactForRequest(report, userId, isAdmin) {
+  if (!report || isAdmin) return report
+  const [settings, user] = await Promise.all([
+    getGlobalSettings().catch(() => ({ teaserModeEnabled: false })),
+    userId ? User.findById(userId).select('reportUnlocked').lean().catch(() => null) : null,
+  ])
+  return redactReportForTeaser(report, {
+    teaserModeEnabled: Boolean(settings?.teaserModeEnabled),
+    reportUnlocked: Boolean(user?.reportUnlocked),
+  })
+}
 
 const router = Router()
 
@@ -80,7 +95,7 @@ router.post('/', async (req, res) => {
       ],
     })
     const jobId = job._id.toString()
-    costTracker.setActiveRunId(jobId)
+    costTracker.setActiveRunId(jobId, userId)
     // Fire-and-forget worker — the client is streaming, not waiting on this
     processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
 
@@ -97,7 +112,7 @@ const running = (globalThis.__reportJobRunning ||= new Set())
 async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
-  costTracker.setActiveRunId(jobId)
+  costTracker.setActiveRunId(jobId, userId)
   try {
     const job = await ReportJob.findById(jobId)
     if (!job) return
@@ -125,6 +140,22 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', agent: 'overall', report: cleanReport }
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
+
+    // Mark VisitorSession completed (User.totalCostUsd is atomically $inc'd per call in costTracker)
+    await VisitorSession.updateMany(
+      { userId },
+      { $set: { completed: true, currentPhase: 'report', currentStep: 'report', maxStepReached: 4 } }
+    ).catch(() => {})
+
+    // Fire-and-forget Forest-Green Preview Email with redacted PDF when teaserModeEnabled & !reportUnlocked
+    Promise.all([User.findById(userId).lean(), getGlobalSettings()])
+      .then(([u, settings]) => {
+        if (u && settings?.teaserModeEnabled && !u.reportUnlocked) {
+          return sendCandidatePreviewEmail({ user: u, aiReport: cleanReport, settings })
+        }
+      })
+      .catch(() => {})
+
     bus.emit(jobId, finalEvent)
   } catch (err) {
     console.error('[ReportJob] processing failed:', err.message)
@@ -170,6 +201,10 @@ router.get('/:id', async (req, res) => {
           job.aiReport = user.aiReport
         }
       } catch (_e) {}
+    }
+
+    if (job.aiReport) {
+      job.aiReport = await redactForRequest(job.aiReport, job.userId, req.isAdmin)
     }
 
     return res.status(200).json({ success: true, ...job })
@@ -224,7 +259,8 @@ router.get('/:id/stream', async (req, res) => {
   for (const event of job.events || []) send(event)
 
   if (job.status === 'done' && job.aiReport) {
-    send({ at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: job.aiReport })
+    const safeReport = await redactForRequest(job.aiReport, job.userId, req.isAdmin)
+    send({ at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: safeReport })
     return res.end()
   }
   if (job.status === 'failed') {
@@ -232,8 +268,13 @@ router.get('/:id/stream', async (req, res) => {
     return res.end()
   }
 
-  const onEvent = (event) => {
-    send(event)
+  const onEvent = async (event) => {
+    if (event.stage === 'report_ready' && event.report && !req.isAdmin) {
+      const safeReport = await redactForRequest(event.report, job.userId, req.isAdmin)
+      send({ ...event, report: safeReport })
+    } else {
+      send(event)
+    }
     if (event.stage === 'report_ready' || event.stage === 'job_failed') {
       cleanup()
       res.end()

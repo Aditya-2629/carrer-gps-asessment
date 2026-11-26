@@ -1004,7 +1004,15 @@ export async function generateReportBundle(params = {}, options = {}) {
       resumeJson,
       verifiedSkills: triage?.verifiedSkills || [],
       missingSkills: params.missingSkills || triage?.clustering?.missingSkills || triage?.missingSkills || [],
+      skillsOnlyUnverified:
+        params.resumeAgent?.dashboard?.keywordAlignment?.skillsOnlyUnverified ||
+        params.resumeAgent?.keywordAlignment?.skillsOnlyUnverified ||
+        triage?.skillsOnly ||
+        [],
       bulletAudit: params.bulletAudit || params.resumeAgent?.dashboard?.bulletAudit || [],
+      resumeSectionAudit: params.resumeAgent?.sectionAudit || params.resumeAgent?.dashboard?.sectionAudit || {},
+      linkedinAudit: liveLinkedinData?.sectionAudit || user?.linkedinData?.sectionAudit || {},
+      linkedinSignals: user?.linkedinActivitySignals || {},
       signals: params.signals || params.resumeAgent?.signals || {},
       bottleneck: triage?.deterministicScores || {},
       funnelStages,

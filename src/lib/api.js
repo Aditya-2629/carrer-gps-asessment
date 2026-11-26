@@ -1,5 +1,6 @@
 // ─── Live API Layer connected to Node.js Backend ───
 import axios from 'axios'
+import { getAttribution } from './analytics'
 import { buildSemanticAssessmentPayload } from './assessmentSteps'
 import { getResumeFileFromStorage } from './resumeStorage'
 import { sanitizeFormData } from '../store/useAppStore'
@@ -249,6 +250,7 @@ export const api = {
       bodyFormData.append('userId', userId)
       bodyFormData.append('answers', JSON.stringify(allAnswers))
       bodyFormData.append('semanticProfile', JSON.stringify(semanticProfile))
+      bodyFormData.append('attribution', JSON.stringify(getAttribution()))
       if (resumeFile) {
         bodyFormData.append('resume', resumeFile)
       }
@@ -324,6 +326,7 @@ export const api = {
       bodyFormData.append('userId', userId)
       bodyFormData.append('answers', JSON.stringify(allAnswers))
       bodyFormData.append('semanticProfile', JSON.stringify(semanticProfile))
+      bodyFormData.append('attribution', JSON.stringify(getAttribution()))
       if (resumeFile) {
         bodyFormData.append('resume', resumeFile)
       }

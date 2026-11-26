@@ -11,7 +11,21 @@
 
 import mongoose from 'mongoose'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import AgentRun from '../models/AgentRun.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
+import {
+  keyPools,
+  getAllKeyPoolStats,
+  toggleProviderKey,
+  applyDbApiKeys,
+  syncDbApiKeys,
+} from '../ai/gateway/roundRobinKeyManager.js'
+import {
+  TASK_MODEL_ROUTING,
+  TASK_METADATA,
+  setModelOverrides,
+} from '../ai/gateway/llmGateway.js'
 import {
   fetchFastCatchJds,
   runDetachedBackgroundScrape,
@@ -25,6 +39,14 @@ export const runtimeEngineConfig = {
   primaryModel: process.env.PRIMARY_MODEL || 'google/gemini-2.5-flash-lite',
   fallbackModel: process.env.FALLBACK_MODEL || 'openai/gpt-oss-120b',
   enableLinkedinPlaybook: process.env.ENABLE_LINKEDIN_PLAYBOOK !== 'false',
+  taskModels: {
+    resumeAudit: process.env.RESUME_MODEL || 'google/gemini-2.5-flash-lite',
+    linkedin: process.env.LINKEDIN_MODEL || 'google/gemini-2.5-flash-lite',
+    unifiedSynthesis: process.env.SYNTHESIS_MODEL || 'openai/gpt-oss-120b',
+    actionPlan: process.env.ACTION_PLAN_MODEL || 'google/gemini-2.5-flash-lite',
+    jdExtraction: process.env.JD_MODEL || 'google/gemini-2.5-flash-lite',
+    atlasChatbot: process.env.CHATBOT_MODEL || 'openai/gpt-oss-120b',
+  },
   lastUpdated: new Date(),
 }
 
@@ -35,10 +57,96 @@ function maskKey(key) {
   return trimmed.slice(0, 4) + '••••' + trimmed.slice(-4)
 }
 
-// ─── GET /api/admin/engine/config ───────────────────────────────────────────
+function inferProviderFromModel(modelId = '') {
+  const m = String(modelId).toLowerCase()
+  if (m.includes('gpt-oss') || m.startsWith('llama-')) return 'groq/openrouter'
+  if (m.startsWith('typesafe/')) return 'openrouter-decisions'
+  return 'openrouter'
+}
+
+async function buildTaskModelsPayload(overrides = {}) {
+  const recentRuns = await AgentRun.find({})
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .select('model cost')
+    .lean()
+    .catch(() => [])
+
+  const modelTokenAgg = new Map()
+  for (const r of recentRuns) {
+    const m = r.model
+    const inTok = Number(r?.cost?.inputTokens || 0)
+    const outTok = Number(r?.cost?.outputTokens || 0)
+    if (!m || (inTok <= 0 && outTok <= 0)) continue
+    const cur = modelTokenAgg.get(m) || { inSum: 0, outSum: 0, count: 0 }
+    cur.inSum += inTok
+    cur.outSum += outTok
+    cur.count += 1
+    modelTokenAgg.set(m, cur)
+  }
+
+  return Object.entries(TASK_MODEL_ROUTING).map(([taskKey, defaultModel]) => {
+    const meta = TASK_METADATA[taskKey] || {}
+    const override = overrides?.[taskKey]
+    const activeModel = typeof override === 'string' && override.trim() ? override.trim() : defaultModel
+    const obs = modelTokenAgg.get(activeModel) || modelTokenAgg.get(defaultModel)
+    const avgInputTokens = obs && obs.count > 0 ? Math.round(obs.inSum / obs.count) : (meta.avgInputTokens || 2000)
+    const avgOutputTokens = obs && obs.count > 0 ? Math.round(obs.outSum / obs.count) : (meta.avgOutputTokens || 700)
+
+    return {
+      taskKey,
+      label: meta.label || taskKey,
+      provider: inferProviderFromModel(activeModel),
+      activeModel,
+      defaultModel,
+      fallbackModel: meta.fallbackModel || 'google/gemini-3.5-flash-lite',
+      avgInputTokens,
+      avgOutputTokens,
+      isOverridden: Boolean(typeof override === 'string' && override.trim() && override.trim() !== defaultModel),
+    }
+  })
+}
+
+const UI_TASK_ALIASES = {
+  resumeAudit: 'resume_synthesis',
+  linkedin: 'linkedin_synthesis',
+  unifiedSynthesis: 'unified_synthesis',
+  actionPlan: 'action_plan_generation',
+  jdExtraction: 'jd_extraction',
+  atlasChatbot: 'career_chatbot',
+}
+
+async function buildTaskModelsSummary(overrides = {}) {
+  const details = await buildTaskModelsPayload(overrides)
+  const byKey = new Map(details.map((d) => [d.taskKey, d]))
+
+  const taskModels = {}
+  const avgTokens = {}
+  for (const [uiKey, backendKey] of Object.entries(UI_TASK_ALIASES)) {
+    const info = byKey.get(backendKey)
+    const directOverride = overrides?.[uiKey]
+    const activeModel =
+      (typeof directOverride === 'string' && directOverride.trim()) ||
+      info?.activeModel ||
+      TASK_MODEL_ROUTING[backendKey] ||
+      'google/gemini-3.5-flash-lite'
+    taskModels[uiKey] = activeModel
+    avgTokens[uiKey] = {
+      input: info?.avgInputTokens || 2000,
+      output: info?.avgOutputTokens || 700,
+    }
+  }
+  return { taskModels, avgTokens, taskDetails: details }
+}
 
 export async function getEngineConfig(_req, res) {
   try {
+    const settings = await getGlobalSettings().catch(() => ({ modelOverrides: {} }))
+    const modelOverrides = settings?.modelOverrides && typeof settings.modelOverrides === 'object'
+      ? settings.modelOverrides
+      : {}
+    setModelOverrides(modelOverrides)
+
     // 1. Scrape Targets
     const scrapeTargets = {
       fastCatchTargetJds: runtimeEngineConfig.fastCatchTargetJds,
@@ -96,9 +204,20 @@ export async function getEngineConfig(_req, res) {
       totalJds: buckets.reduce((acc, b) => acc + (b.jobCount || 0), 0),
     }
 
+    const { taskModels, avgTokens, taskDetails } = await buildTaskModelsSummary(modelOverrides)
+
     return res.status(200).json({
       success: true,
       scrapeTargets,
+      routing: {
+        primaryModel: runtimeEngineConfig.primaryModel,
+        fallbackModel: runtimeEngineConfig.fallbackModel,
+        enableLinkedinPlaybook: runtimeEngineConfig.enableLinkedinPlaybook,
+      },
+      modelOverrides,
+      taskModels,
+      avgTokens,
+      taskDetails,
       keyPools,
       bucketSummary,
     })
@@ -198,51 +317,141 @@ export async function updateScrapeSlider(req, res) {
 
 export async function injectDynamicKey(req, res) {
   try {
-    const { service, token } = req.body || {}
+    const provider = String(req.body?.provider || req.body?.service || '').toLowerCase().trim()
+    const cleanToken = String(req.body?.key || req.body?.token || '').trim()
 
-    if (!service || !token || !String(token).trim()) {
-      return res.status(400).json({ success: false, message: 'service and token are required.' })
+    if (!provider || !cleanToken) {
+      return res.status(400).json({ success: false, message: 'provider and key are required.' })
     }
 
-    const s = String(service).toLowerCase().trim()
-    const cleanToken = String(token).trim()
-
-    if (s === 'apify') {
-      apifyKeyPool.addKey(cleanToken, true)
-      return res.status(200).json({
-        success: true,
-        message: 'New Apify token successfully injected into SmartKeyPool with primary priority.',
-        service: 'apify',
-        activeKeyMasked: maskKey(apifyKeyPool.getActiveKey()),
-        totalKeys: apifyKeyPool.getKeyCount(),
-      })
+    if (!['openrouter', 'groq', 'gemini', 'apify'].includes(provider)) {
+      return res.status(400).json({ success: false, message: `Unknown provider "${provider}". Use openrouter, groq, gemini, or apify.` })
     }
 
-    if (s === 'gemini') {
-      geminiKeyPool.addKey(cleanToken, true)
-      return res.status(200).json({
-        success: true,
-        message: 'New Gemini key successfully injected into SmartKeyPool with primary priority.',
-        service: 'gemini',
-        activeKeyMasked: maskKey(geminiKeyPool.getActiveKey()),
-        totalKeys: geminiKeyPool.getKeyCount(),
-      })
-    }
+    // Persist into AppSettings.apiKeys[provider]
+    const settingsDoc = await AppSettings.findOne({ key: 'global' })
+    const currentKeys = settingsDoc?.apiKeys?.[provider] || []
+    const nextList = Array.from(new Set([...currentKeys, cleanToken]))
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: { [`apiKeys.${provider}`]: nextList }, $setOnInsert: { key: 'global' } },
+      { upsert: true, new: true }
+    ).lean()
 
-    if (s === 'openrouter') {
+    applyDbApiKeys(updated?.apiKeys || {})
+
+    if (provider === 'apify') apifyKeyPool.addKey(cleanToken, true)
+    if (provider === 'gemini') geminiKeyPool.addKey(cleanToken, true)
+    if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
       process.env.OPENROUTER_API_KEY = cleanToken
-      return res.status(200).json({
-        success: true,
-        message: 'OpenRouter API key updated live in process memory.',
-        service: 'openrouter',
-        activeKeyMasked: maskKey(cleanToken),
-      })
     }
 
-    return res.status(400).json({ success: false, message: `Unknown service "${service}". Use apify, gemini, or openrouter.` })
+    return res.status(200).json({
+      success: true,
+      message: `API key added to ${provider} Round-Robin pool.`,
+      provider,
+      pools: getAllKeyPoolStats(),
+    })
   } catch (err) {
     console.error('[AdminDynamicController] injectDynamicKey error:', err)
     return res.status(500).json({ success: false, message: 'Failed to inject key.' })
+  }
+}
+
+export async function deleteDynamicKey(req, res) {
+  try {
+    const provider = String(req.body?.provider || req.query?.provider || '').toLowerCase().trim()
+    const indexParam = req.body?.index ?? req.query?.index
+    const rawKey = String(req.body?.key || '').trim()
+
+    if (!['openrouter', 'groq', 'gemini', 'apify'].includes(provider)) {
+      return res.status(400).json({ success: false, message: 'Valid provider is required.' })
+    }
+
+    await syncDbApiKeys()
+    const pool = keyPools[provider]
+    let targetKey = rawKey
+    if (!targetKey && indexParam !== undefined && indexParam !== null && pool?.entries?.[Number(indexParam)]) {
+      const entry = pool.entries[Number(indexParam)]
+      if (entry.source === 'env') {
+        return res.status(400).json({ success: false, message: 'Cannot delete read-only .env key.' })
+      }
+      targetKey = entry.key
+    }
+
+    if (!targetKey) {
+      return res.status(404).json({ success: false, message: 'DB key entry not found.' })
+    }
+
+    const settingsDoc = await AppSettings.findOne({ key: 'global' }).lean()
+    const currentList = Array.isArray(settingsDoc?.apiKeys?.[provider]) ? settingsDoc.apiKeys[provider] : []
+    const nextList = currentList.filter((k) => k !== targetKey)
+
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: { [`apiKeys.${provider}`]: nextList } },
+      { new: true }
+    ).lean()
+
+    applyDbApiKeys(updated?.apiKeys || {})
+
+    return res.status(200).json({
+      success: true,
+      message: `Removed custom ${provider} key.`,
+      provider,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] deleteDynamicKey error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete key.' })
+  }
+}
+
+export async function testDynamicKey(req, res) {
+  try {
+    const provider = String(req.body?.provider || '').toLowerCase().trim()
+    const indexParam = req.body?.index
+    let testKey = String(req.body?.key || '').trim()
+
+    await syncDbApiKeys()
+    if (!testKey && indexParam !== undefined && indexParam !== null && keyPools[provider]?.entries?.[Number(indexParam)]) {
+      testKey = keyPools[provider].entries[Number(indexParam)].key
+    }
+
+    if (!provider || !testKey) {
+      return res.status(400).json({ success: false, message: 'provider and key (or index) are required.' })
+    }
+
+    let url = ''
+    const headers = {}
+    if (provider === 'openrouter') {
+      url = 'https://openrouter.ai/api/v1/auth/key'
+      headers.Authorization = `Bearer ${testKey}`
+    } else if (provider === 'groq') {
+      url = 'https://api.groq.com/openai/v1/models'
+      headers.Authorization = `Bearer ${testKey}`
+    } else if (provider === 'gemini') {
+      url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(testKey)}`
+    } else if (provider === 'apify') {
+      url = `https://api.apify.com/v2/users/me?token=${encodeURIComponent(testKey)}`
+    } else {
+      return res.status(400).json({ success: false, message: `Unsupported provider "${provider}".` })
+    }
+
+    const r = await fetch(url, { headers, signal: AbortSignal.timeout(8000) })
+    return res.status(200).json({
+      success: true,
+      valid: r.ok,
+      status: r.status,
+      message: r.ok ? `${provider} key verified (HTTP ${r.status}).` : `${provider} key failed (HTTP ${r.status}).`,
+    })
+  } catch (err) {
+    return res.status(200).json({
+      success: true,
+      valid: false,
+      status: 0,
+      message: err.message || 'Key verification request failed.',
+    })
   }
 }
 
@@ -317,6 +526,10 @@ export async function updateEngineConfig(req, res) {
       primaryModel,
       fallbackModel,
       enableLinkedinPlaybook,
+      taskModels,
+      modelOverrides,
+      taskKey,
+      modelId,
     } = req.body || {}
 
     if (fastCatchTargetJds !== undefined) {
@@ -341,15 +554,97 @@ export async function updateEngineConfig(req, res) {
       runtimeEngineConfig.enableLinkedinPlaybook = Boolean(enableLinkedinPlaybook)
     }
 
+    let persistedOverrides = null
+    if (
+      (taskModels && typeof taskModels === 'object' && !Array.isArray(taskModels)) ||
+      (modelOverrides && typeof modelOverrides === 'object') ||
+      (typeof taskKey === 'string' && taskKey.trim())
+    ) {
+      const current = await getGlobalSettings().catch(() => ({ modelOverrides: {} }))
+      const nextOverrides = { ...(current?.modelOverrides || {}) }
+
+      const applyMap = (src) => {
+        for (const [k, v] of Object.entries(src)) {
+          if (typeof v === 'string' && v.trim()) {
+            nextOverrides[k] = v.trim()
+            if (runtimeEngineConfig.taskModels) runtimeEngineConfig.taskModels[k] = v.trim()
+          } else {
+            delete nextOverrides[k]
+          }
+        }
+      }
+
+      if (taskModels && typeof taskModels === 'object' && !Array.isArray(taskModels)) applyMap(taskModels)
+      if (modelOverrides && typeof modelOverrides === 'object') applyMap(modelOverrides)
+      if (typeof taskKey === 'string' && taskKey.trim()) {
+        if (typeof modelId === 'string' && modelId.trim()) {
+          nextOverrides[taskKey.trim()] = modelId.trim()
+        } else {
+          delete nextOverrides[taskKey.trim()]
+        }
+      }
+
+      const updatedDoc = await AppSettings.findOneAndUpdate(
+        { key: 'global' },
+        { $set: { modelOverrides: nextOverrides }, $setOnInsert: { key: 'global' } },
+        { upsert: true, new: true }
+      ).lean()
+      persistedOverrides = updatedDoc?.modelOverrides || nextOverrides
+      setModelOverrides(persistedOverrides)
+    }
+
     runtimeEngineConfig.lastUpdated = new Date()
+
+    const activeOverrides = persistedOverrides ?? (await getGlobalSettings().catch(() => ({})))?.modelOverrides ?? {}
+    const { taskModels: nextTaskModels, avgTokens, taskDetails } = await buildTaskModelsSummary(activeOverrides)
 
     return res.status(200).json({
       success: true,
       message: 'Engine runtime configuration updated successfully.',
       runtimeEngineConfig,
+      modelOverrides: activeOverrides,
+      taskModels: nextTaskModels,
+      avgTokens,
+      taskDetails,
     })
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+// ─── GET /api/admin/engine/keys & POST /api/admin/engine/keys/toggle ────────
+
+export async function getEngineKeys(_req, res) {
+  try {
+    await syncDbApiKeys()
+    return res.status(200).json({
+      success: true,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] getEngineKeys error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve key pools.' })
+  }
+}
+
+export async function toggleEngineKey(req, res) {
+  try {
+    const { provider, index, enabled } = req.body || {}
+    if (!provider || index === undefined || index === null) {
+      return res.status(400).json({ success: false, message: 'provider and index are required.' })
+    }
+    const updated = toggleProviderKey(provider, index, enabled)
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Key entry not found.' })
+    }
+    return res.status(200).json({
+      success: true,
+      key: updated,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] toggleEngineKey error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to toggle key.' })
   }
 }
 
@@ -392,5 +687,6 @@ export async function getAdminHealth(_req, res) {
     return res.status(500).json({ success: false, message: err.message })
   }
 }
+
 
 
