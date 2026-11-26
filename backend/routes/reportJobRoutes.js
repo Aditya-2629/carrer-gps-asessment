@@ -18,6 +18,7 @@ import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
+import { sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
@@ -145,6 +146,15 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       { userId },
       { $set: { completed: true, currentPhase: 'report', currentStep: 'report', maxStepReached: 4 } }
     ).catch(() => {})
+
+    // Fire-and-forget Forest-Green Preview Email with redacted PDF when teaserModeEnabled & !reportUnlocked
+    Promise.all([User.findById(userId).lean(), getGlobalSettings()])
+      .then(([u, settings]) => {
+        if (u && settings?.teaserModeEnabled && !u.reportUnlocked) {
+          return sendCandidatePreviewEmail({ user: u, aiReport: cleanReport, settings })
+        }
+      })
+      .catch(() => {})
 
     bus.emit(jobId, finalEvent)
   } catch (err) {

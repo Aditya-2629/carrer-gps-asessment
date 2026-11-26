@@ -17,7 +17,7 @@ import LlmCallLog from '../models/LlmCallLog.js'
 import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
-import { sendResendEmail } from '../utils/adminEmails.js'
+import { sendResendEmail, sendCandidateUnlockedEmail } from '../utils/adminEmails.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 const INR_PER_USD = 94
@@ -1025,118 +1025,19 @@ export async function deliverFullReport(req, res) {
       console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
     }
 
-    // 3. Send email with full report link & attached .docx (Resend first if configured, else SMTP)
-    let emailSent = false
-    let emailId = null
-    let emailError = null
-    const rawHealth = user.aiReport?.career_health_score
-    const scoreVal =
-      typeof rawHealth === 'object' && rawHealth !== null
-        ? Math.round(Number(rawHealth.overall ?? 72))
-        : Number.isFinite(Number(rawHealth))
-          ? Math.round(Number(rawHealth))
-          : 72
-    const targetRole =
-      user.resumeJson?.target_role ||
-      user.aiReport?.resume_agent?.candidateSnapshot?.targetRole ||
-      user.answers?.targetRole ||
-      'your target role'
-
-    const htmlBody = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f8fafc; padding: 24px 12px; color: #0f172a;">
-        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;">
-          <div style="background: #4f46e5; padding: 22px 24px; color: #ffffff;">
-            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9;">
-              Crafture Career GPS
-            </div>
-            <h1 style="margin: 6px 0 0; font-size: 20px; line-height: 1.3; font-weight: 700; color: #ffffff;">
-              Your Full Career GPS Report Is Unlocked
-            </h1>
-          </div>
-          <div style="padding: 24px;">
-            <p style="margin: 0 0 12px; font-size: 15px; color: #0f172a;">Hi <strong>${candidateName}</strong>,</p>
-            <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
-              Your complete Career GPS diagnostic for <strong>${targetRole}</strong> has been unlocked and is ready to review.
-            </p>
-            <div style="display: inline-block; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; margin-bottom: 20px;">
-              <span style="font-size: 12px; font-weight: 700; color: #4f46e5;">CAREER HEALTH SCORE:</span>
-              <span style="font-size: 14px; font-weight: 800; color: #0f172a; margin-left: 6px;">${scoreVal}/100</span>
-            </div>
-            <div style="margin: 8px 0 22px;">
-              <a href="${reportUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 13px 24px; border-radius: 9px; text-decoration: none; font-weight: 700; font-size: 14px;">
-                View Full Unlocked Report -&gt;
-              </a>
-            </div>
-            ${
-              docxBuffer
-                ? '<p style="margin: 0 0 16px; font-size: 13px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">Attached: <strong>' +
-                  docxFilename +
-                  '</strong> — your updated ATS-optimized resume.</p>'
-                : ''
-            }
-            <p style="margin: 18px 0 0; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 14px;">
-              Direct link: <a href="${reportUrl}" style="color: #4f46e5;">${reportUrl}</a><br/>
-              Reply to this email anytime if you have questions — Crafture Career GPS Team.
-            </p>
-          </div>
-        </div>
-      </div>
-    `
-    const textBody = [
-      `Hi ${candidateName},`,
-      '',
-      `Your complete Crafture Career GPS Report for ${targetRole} (Career Health Score: ${scoreVal}/100) is now unlocked!`,
-      '',
-      `View Full Unlocked Report -> ${reportUrl}`,
-      docxBuffer ? `\nAttached: ${docxFilename} (your updated ATS-optimized resume).` : '',
-      '',
-      'Reply to this email anytime if you have questions.',
-      '— Crafture Career GPS Team',
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-    if (!user.email) {
-      emailError = 'Candidate has no email address on file.'
-    } else if (process.env.RESEND_API_KEY) {
-      const resendResult = await sendResendEmail({
-        to: user.email,
-        subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-        html: htmlBody,
-        text: textBody,
-        attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
-      })
-      if (resendResult.ok) {
-        emailSent = true
-        emailId = resendResult.emailId
-      } else {
-        emailError = resendResult.error
-      }
-    } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT || '465', 10),
-          secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-        })
-        const info = await transporter.sendMail({
-          from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
-          to: user.email,
-          subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-          html: htmlBody,
-          text: textBody,
-          attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
-        })
-        emailSent = true
-        emailId = info?.messageId || null
-      } catch (mailErr) {
-        emailError = mailErr.message
-        console.warn('[AdminLeadController] deliverFullReport email error:', mailErr.message)
-      }
-    } else {
-      emailError = 'RESEND_API_KEY is not configured.'
-    }
+    // 3. Send Forest-Green Unlocked Email with full unredacted PDF + updated .docx resume
+    const settings = await getGlobalSettings().catch(() => ({}))
+    const unlockMailRes = await sendCandidateUnlockedEmail({
+      user,
+      aiReport: user.aiReport,
+      settings,
+      docxBuffer,
+      docxFilename,
+    })
+    const emailSent = Boolean(unlockMailRes.ok)
+    const emailId = unlockMailRes.emailId || null
+    const emailError = unlockMailRes.ok ? null : (unlockMailRes.error || 'Email delivery failed')
+    const pdfAttached = Boolean(unlockMailRes.pdfAttached)
 
     // 4. Construct pre-filled WhatsApp delivery URL preserving international country codes
     const rawPhoneStr = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').trim()
@@ -1168,6 +1069,7 @@ export async function deliverFullReport(req, res) {
       unlockedAt: user.unlockedAt,
       deliveredAt: user.deliveredAt,
       reportUrl,
+      pdfAttached,
       docxAttached: Boolean(docxBuffer),
       emailSent,
       emailId,

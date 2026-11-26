@@ -3,7 +3,7 @@ import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
 import { getGlobalSettings, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
-import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
+import { sendAdminReportEmail, sendBookCallNotification, sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
@@ -737,6 +737,9 @@ export const generateReport = async (req, res) => {
       teaserModeEnabled: Boolean(settings?.teaserModeEnabled),
       reportUnlocked: Boolean(user?.reportUnlocked),
     })
+    if (settings?.teaserModeEnabled && !user?.reportUnlocked) {
+      sendCandidatePreviewEmail({ user, aiReport, settings }).catch(() => {})
+    }
     return res.status(200).json(responsePayload)
   } catch (error) {
     console.error('Error in generateReport controller:', error)

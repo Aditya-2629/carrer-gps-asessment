@@ -1,41 +1,8 @@
-import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import generateOTP from '../utils/generateOTP.js'
 import ReportJob from '../models/ReportJob.js'
 import { generateUserToken } from '../utils/userAuth.js'
-
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-  })
-}
-
-function getMailOptions(email, otp) {
-  return {
-    from: process.env.SMTP_FROM || '"Career GPS" <noreply@careergps.com>',
-    to: email.toLowerCase().trim(),
-    subject: 'Your Career GPS Verification Code',
-    html: `
-      <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
-        <h2 style="color: #10b981;">Career GPS</h2>
-        <p>Your Career GPS verification code is:</p>
-        <div style="background: #f3f4f6; padding: 12px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; color: #111827;">
-          ${otp}
-        </div>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 15px;">It expires in 10 minutes.</p>
-      </div>
-    `,
-  }
-}
+import { sendOtpEmail } from '../utils/adminEmails.js'
 
 // Send OTP (First-time or re-test)
 export const sendOtp = async (req, res) => {
@@ -69,24 +36,16 @@ export const sendOtp = async (req, res) => {
     // Clean up any stale in-flight or completed jobs for this user
     await ReportJob.deleteMany({ userId: user._id }).catch(() => {})
 
-    const transporter = createTransporter()
-    const mailOptions = getMailOptions(normalizedEmail, otp)
-
-    try {
-      await transporter.sendMail(mailOptions)
-      console.log(`[OTP] Sent verification code ${otp} to ${normalizedEmail}`)
-      return res.status(200).json({ success: true, message: 'Verification code sent to your email.' })
-    } catch (mailError) {
-      console.error('[OTP] SMTP send failed:', mailError.message)
-      const resPayload = {
-        success: true,
-        message: 'Verification code generated successfully.',
-      }
-      // if (process.env.NODE_ENV !== 'production') {
-        resPayload.dev_otp = otp
-      // }
-      return res.status(200).json(resPayload)
+    const mailResult = await sendOtpEmail(normalizedEmail, otp)
+    if (!mailResult.ok) {
+      console.error('[OTP] Email send failed:', mailResult.error)
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to send verification code. Please check your email and try again.',
+      })
     }
+
+    return res.status(200).json({ success: true, message: 'Verification code sent to your email.' })
   } catch (error) {
     console.error('Error in sendOtp controller:', error)
     return res.status(500).json({ success: false, message: 'Internal server error.' })
@@ -124,24 +83,16 @@ export const resendOtp = async (req, res) => {
 
     await ReportJob.deleteMany({ userId: user._id }).catch(() => {})
 
-    const transporter = createTransporter()
-    const mailOptions = getMailOptions(normalizedEmail, otp)
-
-    try {
-      await transporter.sendMail(mailOptions)
-      console.log(`[OTP] Resent verification code ${otp} to ${normalizedEmail}`)
-      return res.status(200).json({ success: true, message: 'Verification code resent to your email.' })
-    } catch (mailError) {
-      console.error('[OTP] SMTP resend failed:', mailError.message)
-      const resPayload = {
-        success: true,
-        message: 'Verification code regenerated successfully.',
-      }
-      if (process.env.NODE_ENV !== 'production') {
-        resPayload.dev_otp = otp
-      }
-      return res.status(200).json(resPayload)
+    const mailResult = await sendOtpEmail(normalizedEmail, otp)
+    if (!mailResult.ok) {
+      console.error('[OTP] Email resend failed:', mailResult.error)
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to resend verification code. Please try again.',
+      })
     }
+
+    return res.status(200).json({ success: true, message: 'Verification code resent to your email.' })
   } catch (error) {
     console.error('Error in resendOtp controller:', error)
     return res.status(500).json({ success: false, message: 'Failed to resend verification code.' })
