@@ -64,10 +64,40 @@ export async function getMarketBucketDetail(req, res) {
 
     const history = await getMarketVersionHistory(bucketKey, 10)
 
+    const rawSkills = activeVersion?.marketProfile?.skills || []
+    const skills = rawSkills.map((s) => {
+      const weight = typeof s.percentage === 'number' ? s.percentage : Math.round((s.frequencyRatio || 0.5) * 100)
+      const cat = s.category === 'core' || s.category === 'bonus'
+        ? s.category
+        : (s.isCore || s.priority === 'HIGH' || weight >= 50 ? 'core' : 'bonus')
+      return {
+        skill: s.name,
+        name: s.name,
+        weight,
+        percentage: weight,
+        count: s.count || s.frequency || 0,
+        category: cat,
+        priority: s.priority || (cat === 'core' ? 'HIGH' : 'LOW'),
+      }
+    })
+
+    const jds = (activeVersion?.jobs || []).map((j) => ({
+      _id: String(j._id),
+      title: j.title,
+      company: j.company || 'Not Disclosed',
+      location: j.location || 'Not Disclosed',
+      snippet: String(j.description || j.normalizedDescription || '').slice(0, 280),
+      scrapedAt: j.scrapedAt,
+      source: j.source || 'apify',
+      sourceUrl: j.sourceUrl || null,
+    }))
+
     return res.status(200).json({
       success: true,
       bucket,
       activeVersion,
+      skills,
+      jds,
       history,
     })
   } catch (err) {
@@ -569,6 +599,164 @@ export async function reSanitizeBucketTaxonomy(req, res) {
   }
 }
 
+export async function createMarketBucket(req, res) {
+  try {
+    const rawRole = req.body?.roleTitle || req.body?.roleName || ''
+    const exp = ['0-2', '3-5', '6-8', '8+'].includes(req.body?.experienceTier || req.body?.experienceBucket)
+      ? (req.body?.experienceTier || req.body?.experienceBucket)
+      : '3-5'
+    const spec = String(req.body?.specialization || 'general').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') || 'general'
+
+    if (!rawRole || String(rawRole).trim().length < 2) {
+      return res.status(400).json({ success: false, message: 'roleTitle is required.' })
+    }
+
+    const roleName = String(rawRole).trim()
+    const roleKey = roleName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const bucketKey = req.body?.bucketKey
+      ? String(req.body.bucketKey).trim()
+      : (spec !== 'general' ? `${roleKey}::${spec}::${exp}` : `${roleKey}::${exp}`)
+
+    let bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (bucket) {
+      return res.status(200).json({ success: true, bucket, message: 'Bucket already exists.' })
+    }
+
+    bucket = await JobMarketBucket.create({
+      bucketKey,
+      roleKey,
+      roleName,
+      specialization: spec,
+      experienceBucket: exp,
+      activeVersion: 0,
+      status: 'empty',
+      jobCount: 0,
+    })
+
+    return res.status(201).json({ success: true, bucket })
+  } catch (err) {
+    console.error('[AdminMarket] createMarketBucket error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+export async function updateBucketSkillsBulk(req, res) {
+  try {
+    const { bucketKey } = req.params
+    const bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (!bucket) {
+      return res.status(404).json({ success: false, message: 'Bucket not found.' })
+    }
+
+    let versionDoc = null
+    if (bucket.activeVersion > 0) {
+      versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion })
+    }
+    if (!versionDoc) {
+      bucket.activeVersion = 1
+      bucket.status = 'healthy'
+      await bucket.save()
+      versionDoc = await JobMarketVersion.create({
+        bucketKey,
+        version: 1,
+        jobs: [],
+        marketProfile: { bucketKey, sampleSize: 15, skills: [] },
+      })
+    }
+
+    if (!versionDoc.marketProfile) {
+      versionDoc.marketProfile = { bucketKey, sampleSize: 15, skills: [] }
+    }
+    const sampleSize = versionDoc.marketProfile.sampleSize || 15
+
+    if (Array.isArray(req.body?.skills)) {
+      versionDoc.marketProfile.skills = req.body.skills
+        .filter((s) => s && (s.skill || s.name))
+        .map((s) => {
+          const name = String(s.skill || s.name).trim()
+          const weight = Math.min(100, Math.max(1, Number(s.weight ?? s.percentage ?? 50)))
+          const cat = s.category === 'bonus' ? 'bonus' : 'core'
+          const count = Math.round((weight / 100) * sampleSize)
+          return {
+            name,
+            category: cat,
+            count,
+            frequency: count,
+            percentage: weight,
+            frequencyRatio: Math.round((weight / 100) * 100) / 100,
+            priority: cat === 'core' ? 'HIGH' : 'LOW',
+            isCore: cat === 'core',
+          }
+        })
+    } else {
+      const action = req.body?.action || 'edit'
+      const skillName = String(req.body?.skill || req.body?.name || '').trim()
+      if (!skillName) {
+        return res.status(400).json({ success: false, message: 'skills array or skill name required.' })
+      }
+      const cur = versionDoc.marketProfile.skills || []
+      if (action === 'delete') {
+        versionDoc.marketProfile.skills = cur.filter((s) => s.name?.toLowerCase() !== skillName.toLowerCase())
+      } else {
+        const weight = Math.min(100, Math.max(1, Number(req.body?.weight ?? req.body?.percentage ?? 50)))
+        const cat = req.body?.category === 'bonus' ? 'bonus' : 'core'
+        const count = Math.round((weight / 100) * sampleSize)
+        const entry = {
+          name: skillName,
+          category: cat,
+          count,
+          frequency: count,
+          percentage: weight,
+          frequencyRatio: Math.round((weight / 100) * 100) / 100,
+          priority: cat === 'core' ? 'HIGH' : 'LOW',
+          isCore: cat === 'core',
+        }
+        const idx = cur.findIndex((s) => s.name?.toLowerCase() === skillName.toLowerCase())
+        if (idx >= 0) cur[idx] = entry
+        else cur.push(entry)
+        versionDoc.marketProfile.skills = cur
+      }
+    }
+
+    versionDoc.markModified('marketProfile')
+    await versionDoc.save()
+
+    return res.status(200).json({
+      success: true,
+      skills: versionDoc.marketProfile.skills,
+    })
+  } catch (err) {
+    console.error('[AdminMarket] updateBucketSkillsBulk error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+export async function deleteBucketJd(req, res) {
+  try {
+    const { bucketKey, jdId } = req.params
+    const bucket = await JobMarketBucket.findOne({ bucketKey })
+    if (!bucket || bucket.activeVersion === 0) {
+      return res.status(404).json({ success: false, message: 'Active bucket not found.' })
+    }
+    const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion })
+    if (!versionDoc) {
+      return res.status(404).json({ success: false, message: 'Version snapshot not found.' })
+    }
+    const before = versionDoc.jobs?.length || 0
+    versionDoc.jobs = (versionDoc.jobs || []).filter((j) => String(j._id) !== String(jdId))
+    if (versionDoc.jobs.length === before) {
+      return res.status(404).json({ success: false, message: 'JD not found in active version.' })
+    }
+    await versionDoc.save()
+    bucket.jobCount = versionDoc.jobs.length
+    await bucket.save()
+    return res.status(200).json({ success: true, remainingJds: versionDoc.jobs.length })
+  } catch (err) {
+    console.error('[AdminMarket] deleteBucketJd error:', err)
+    return res.status(500).json({ success: false, message: err.message })
+  }
+}
+
 export default {
   listMarketBuckets,
   getMarketBucketDetail,
@@ -584,4 +772,7 @@ export default {
   scrapeAllActiveBuckets,
   createSpecializedBucket,
   reSanitizeBucketTaxonomy,
+  createMarketBucket,
+  updateBucketSkillsBulk,
+  deleteBucketJd,
 }

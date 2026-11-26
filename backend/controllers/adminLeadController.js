@@ -376,7 +376,7 @@ export async function getLeadStats(_req, res) {
 export async function updateLeadStage(req, res) {
   try {
     const { id } = req.params
-    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked } = req.body || {}
+    const { pipelineStage, stage, adminNotes, notes, followUpDate, callBooked, name, email, phone, targetRole } = req.body || {}
     const nextStage = pipelineStage ?? stage
 
     const validStages = ['new', 'call_booked', 'follow_up', 'unlocked', 'converted', 'lost', 'contacted', 'scheduled', 'placed']
@@ -387,6 +387,23 @@ export async function updateLeadStage(req, res) {
     const user = await User.findById(id)
     if (!user) {
       return res.status(404).json({ success: false, message: 'Candidate user not found.' })
+    }
+
+    user.answers = user.answers || {}
+
+    if (typeof name === 'string' && name.trim()) {
+      user.name = name.trim()
+      user.answers.name = name.trim()
+    }
+    if (typeof email === 'string' && email.trim()) {
+      user.email = email.trim().toLowerCase()
+    }
+    if (typeof phone === 'string') {
+      user.answers.phone = phone.trim()
+    }
+    if (typeof targetRole === 'string' && targetRole.trim()) {
+      user.targetRole = targetRole.trim()
+      user.answers.targetRole = targetRole.trim()
     }
 
     if (nextStage) user.pipelineStage = nextStage
@@ -403,7 +420,6 @@ export async function updateLeadStage(req, res) {
       if (!user.callBookedAt) user.callBookedAt = new Date()
     }
 
-    user.answers = user.answers || {}
     const existingPipeline = user.answers.leadPipeline || {}
 
     user.answers.leadPipeline = {
@@ -429,6 +445,21 @@ export async function updateLeadStage(req, res) {
   } catch (err) {
     console.error('[AdminLeadController] updateLeadStage error:', err)
     return res.status(500).json({ success: false, message: 'Failed to update lead pipeline.' })
+  }
+}
+
+export async function deleteLead(req, res) {
+  try {
+    const { id } = req.params
+    const user = await User.findByIdAndDelete(id)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Candidate not found.' })
+    }
+    await AgentRun.deleteMany({ userId: id }).catch(() => {})
+    return res.status(200).json({ success: true, deletedId: id })
+  } catch (err) {
+    console.error('[AdminLeadController] deleteLead error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete candidate.' })
   }
 }
 
@@ -747,6 +778,38 @@ export async function overrideBulletRewrite(req, res) {
   }
 }
 
+function normalizeTemplatesArray(rawList) {
+  const byKey = new Map()
+  for (const def of DEFAULT_MESSAGE_TEMPLATES) {
+    byKey.set(def.key, { ...def })
+  }
+  if (Array.isArray(rawList)) {
+    for (const t of rawList) {
+      if (!t || typeof t.key !== 'string' || !t.key.trim()) continue
+      const k = t.key.trim()
+      byKey.set(k, {
+        key: k,
+        label: String(t.label || k).trim(),
+        channel: t.channel === 'email' ? 'email' : 'whatsapp',
+        subject: String(t.subject || ''),
+        body: String(t.body || ''),
+      })
+    }
+  } else if (rawList && typeof rawList === 'object') {
+    for (const [k, t] of Object.entries(rawList)) {
+      if (!k || !t) continue
+      byKey.set(k.trim(), {
+        key: k.trim(),
+        label: String(t.label || k).trim(),
+        channel: t.channel === 'email' ? 'email' : 'whatsapp',
+        subject: String(t.subject || ''),
+        body: String(t.body || ''),
+      })
+    }
+  }
+  return Array.from(byKey.values())
+}
+
 // ─── GET /api/admin/settings ────────────────────────────────────────────────
 
 export async function getAppSettings(req, res) {
@@ -766,10 +829,7 @@ export async function getAppSettings(req, res) {
         fomoCtaLabel: settings.ctaButtonLabel || '',
         aiPaused: Boolean(settings.aiPaused),
         maintenanceMessage: settings.maintenanceMessage || '',
-        messageTemplates:
-          Array.isArray(settings.messageTemplates) && settings.messageTemplates.length > 0
-            ? settings.messageTemplates
-            : DEFAULT_MESSAGE_TEMPLATES,
+        messageTemplates: normalizeTemplatesArray(settings.messageTemplates),
       },
     })
   } catch (err) {
@@ -810,16 +870,8 @@ export async function updateAppSettings(req, res) {
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
     if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
     if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
-    if (Array.isArray(messageTemplates)) {
-      update.messageTemplates = messageTemplates
-        .filter((t) => t && typeof t.key === 'string' && t.key.trim())
-        .map((t) => ({
-          key: t.key.trim(),
-          label: String(t.label || t.key).trim(),
-          channel: t.channel === 'email' ? 'email' : 'whatsapp',
-          subject: String(t.subject || ''),
-          body: String(t.body || ''),
-        }))
+    if (messageTemplates !== undefined) {
+      update.messageTemplates = normalizeTemplatesArray(messageTemplates)
     }
 
     const updated = await AppSettings.findOneAndUpdate(
@@ -842,10 +894,7 @@ export async function updateAppSettings(req, res) {
         fomoCtaLabel: updated.ctaButtonLabel || '',
         aiPaused: Boolean(updated.aiPaused),
         maintenanceMessage: updated.maintenanceMessage || '',
-        messageTemplates:
-          Array.isArray(updated.messageTemplates) && updated.messageTemplates.length > 0
-            ? updated.messageTemplates
-            : DEFAULT_MESSAGE_TEMPLATES,
+        messageTemplates: normalizeTemplatesArray(updated.messageTemplates),
       },
     })
   } catch (err) {

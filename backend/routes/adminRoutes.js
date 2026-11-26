@@ -31,11 +31,15 @@ import {
   scrapeAllActiveBuckets,
   createSpecializedBucket,
   reSanitizeBucketTaxonomy,
+  createMarketBucket,
+  updateBucketSkillsBulk,
+  deleteBucketJd,
 } from '../controllers/adminMarketController.js'
 import {
   listLeads,
   getLeadStats,
   updateLeadStage,
+  deleteLead,
   exportLeadsCsv,
   getCandidateDossier,
   overrideBulletRewrite,
@@ -49,6 +53,8 @@ import {
   createDynamicRole,
   updateScrapeSlider,
   injectDynamicKey,
+  deleteDynamicKey,
+  testDynamicKey,
   getEngineKeys,
   toggleEngineKey,
   triggerLiveBucketScrape,
@@ -86,6 +92,7 @@ router.get('/leads/export.csv', exportLeadsCsv)
 router.get('/leads', listLeads)
 router.get('/leads/:id/dossier', getCandidateDossier)
 router.patch('/leads/:id', updateLeadStage)
+router.delete('/leads/:id', deleteLead)
 router.patch('/leads/:id/unlock', toggleLeadUnlock)
 router.post('/leads/:id/unlock', toggleLeadUnlock)
 router.post('/leads/:id/deliver', deliverFullReport)
@@ -104,6 +111,8 @@ router.post('/engine/roles', createDynamicRole)
 router.post('/engine/scrape-slider', updateScrapeSlider)
 router.get('/engine/keys', getEngineKeys)
 router.post('/engine/keys', injectDynamicKey)
+router.delete('/engine/keys', deleteDynamicKey)
+router.post('/engine/keys/test', testDynamicKey)
 router.post('/engine/keys/toggle', toggleEngineKey)
 router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 
@@ -137,15 +146,18 @@ router.delete('/users/:id', deleteUser)
 
 // ── Market Library Operations & Taxonomy CRUD ─────────────────────────────────
 router.get('/market-library', listMarketBuckets)
+router.post('/market-library', createMarketBucket)
 router.post('/market-library/bulk-delete', bulkDeleteBuckets)
 router.post('/market-library/refresh', refreshAllMarketBuckets)
 router.post('/market-library/scrape-all', scrapeAllActiveBuckets)
 router.post('/market-library/create-specialized', createSpecializedBucket)
 router.get('/market-library/refresh/:jobId', getMarketRefreshJobStatus)
 router.get('/market-library/:bucketKey/skills', getBucketSkillsTaxonomy)
+router.patch('/market-library/:bucketKey/skills', updateBucketSkillsBulk)
 router.post('/market-library/:bucketKey/re-sanitize', reSanitizeBucketTaxonomy)
 router.post('/market-library/:bucketKey/skills', upsertBucketSkill)
 router.delete('/market-library/:bucketKey/skills/:skillName', deleteBucketSkill)
+router.delete('/market-library/:bucketKey/jds/:jdId', deleteBucketJd)
 router.delete('/market-library/:bucketKey', deleteBucketCascade)
 router.get('/market-library/:bucketKey', getMarketBucketDetail)
 router.post('/market-library/refresh/:bucketKey', refreshSingleMarketBucket)

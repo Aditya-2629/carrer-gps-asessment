@@ -88,9 +88,25 @@ let _overridesLoadedAt = 0
 
 export function setModelOverrides(overrides = {}) {
   const clean = {}
+  const ALIAS_MAP = {
+    resumeAudit: ['resume_audit', 'resume_synthesis'],
+    linkedin: ['linkedin_synthesis'],
+    unifiedSynthesis: ['unified_synthesis', 'final_synthesis', 'report_generation'],
+    actionPlan: ['action_plan_generation', 'dynamic_action_plan'],
+    jdExtraction: ['jd_extraction', 'fast_catch'],
+    atlasChatbot: ['career_chatbot'],
+  }
   if (overrides && typeof overrides === 'object') {
     for (const [k, v] of Object.entries(overrides)) {
-      if (typeof v === 'string' && v.trim()) clean[k] = v.trim()
+      if (typeof v === 'string' && v.trim()) {
+        const val = v.trim()
+        clean[k] = val
+        if (ALIAS_MAP[k]) {
+          for (const targetKey of ALIAS_MAP[k]) {
+            clean[targetKey] = val
+          }
+        }
+      }
     }
   }
   _runtimeModelOverrides = clean

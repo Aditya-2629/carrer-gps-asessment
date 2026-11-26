@@ -76,6 +76,12 @@ const appSettingsSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    apiKeys: {
+      openrouter: { type: [String], default: [] },
+      groq: { type: [String], default: [] },
+      gemini: { type: [String], default: [] },
+      apify: { type: [String], default: [] },
+    },
   },
   { timestamps: true }
 )

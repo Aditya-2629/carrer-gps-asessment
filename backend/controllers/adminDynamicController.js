@@ -15,8 +15,11 @@ import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
 import AgentRun from '../models/AgentRun.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import {
+  keyPools,
   getAllKeyPoolStats,
   toggleProviderKey,
+  applyDbApiKeys,
+  syncDbApiKeys,
 } from '../ai/gateway/roundRobinKeyManager.js'
 import {
   TASK_MODEL_ROUTING,
@@ -104,7 +107,37 @@ async function buildTaskModelsPayload(overrides = {}) {
   })
 }
 
-// ─── GET /api/admin/engine/config ───────────────────────────────────────────
+const UI_TASK_ALIASES = {
+  resumeAudit: 'resume_synthesis',
+  linkedin: 'linkedin_synthesis',
+  unifiedSynthesis: 'unified_synthesis',
+  actionPlan: 'action_plan_generation',
+  jdExtraction: 'jd_extraction',
+  atlasChatbot: 'career_chatbot',
+}
+
+async function buildTaskModelsSummary(overrides = {}) {
+  const details = await buildTaskModelsPayload(overrides)
+  const byKey = new Map(details.map((d) => [d.taskKey, d]))
+
+  const taskModels = {}
+  const avgTokens = {}
+  for (const [uiKey, backendKey] of Object.entries(UI_TASK_ALIASES)) {
+    const info = byKey.get(backendKey)
+    const directOverride = overrides?.[uiKey]
+    const activeModel =
+      (typeof directOverride === 'string' && directOverride.trim()) ||
+      info?.activeModel ||
+      TASK_MODEL_ROUTING[backendKey] ||
+      'google/gemini-3.5-flash-lite'
+    taskModels[uiKey] = activeModel
+    avgTokens[uiKey] = {
+      input: info?.avgInputTokens || 2000,
+      output: info?.avgOutputTokens || 700,
+    }
+  }
+  return { taskModels, avgTokens, taskDetails: details }
+}
 
 export async function getEngineConfig(_req, res) {
   try {
@@ -171,7 +204,7 @@ export async function getEngineConfig(_req, res) {
       totalJds: buckets.reduce((acc, b) => acc + (b.jobCount || 0), 0),
     }
 
-    const taskModels = await buildTaskModelsPayload(modelOverrides)
+    const { taskModels, avgTokens, taskDetails } = await buildTaskModelsSummary(modelOverrides)
 
     return res.status(200).json({
       success: true,
@@ -183,6 +216,8 @@ export async function getEngineConfig(_req, res) {
       },
       modelOverrides,
       taskModels,
+      avgTokens,
+      taskDetails,
       keyPools,
       bucketSummary,
     })
@@ -282,51 +317,141 @@ export async function updateScrapeSlider(req, res) {
 
 export async function injectDynamicKey(req, res) {
   try {
-    const { service, token } = req.body || {}
+    const provider = String(req.body?.provider || req.body?.service || '').toLowerCase().trim()
+    const cleanToken = String(req.body?.key || req.body?.token || '').trim()
 
-    if (!service || !token || !String(token).trim()) {
-      return res.status(400).json({ success: false, message: 'service and token are required.' })
+    if (!provider || !cleanToken) {
+      return res.status(400).json({ success: false, message: 'provider and key are required.' })
     }
 
-    const s = String(service).toLowerCase().trim()
-    const cleanToken = String(token).trim()
-
-    if (s === 'apify') {
-      apifyKeyPool.addKey(cleanToken, true)
-      return res.status(200).json({
-        success: true,
-        message: 'New Apify token successfully injected into SmartKeyPool with primary priority.',
-        service: 'apify',
-        activeKeyMasked: maskKey(apifyKeyPool.getActiveKey()),
-        totalKeys: apifyKeyPool.getKeyCount(),
-      })
+    if (!['openrouter', 'groq', 'gemini', 'apify'].includes(provider)) {
+      return res.status(400).json({ success: false, message: `Unknown provider "${provider}". Use openrouter, groq, gemini, or apify.` })
     }
 
-    if (s === 'gemini') {
-      geminiKeyPool.addKey(cleanToken, true)
-      return res.status(200).json({
-        success: true,
-        message: 'New Gemini key successfully injected into SmartKeyPool with primary priority.',
-        service: 'gemini',
-        activeKeyMasked: maskKey(geminiKeyPool.getActiveKey()),
-        totalKeys: geminiKeyPool.getKeyCount(),
-      })
-    }
+    // Persist into AppSettings.apiKeys[provider]
+    const settingsDoc = await AppSettings.findOne({ key: 'global' })
+    const currentKeys = settingsDoc?.apiKeys?.[provider] || []
+    const nextList = Array.from(new Set([...currentKeys, cleanToken]))
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: { [`apiKeys.${provider}`]: nextList }, $setOnInsert: { key: 'global' } },
+      { upsert: true, new: true }
+    ).lean()
 
-    if (s === 'openrouter') {
+    applyDbApiKeys(updated?.apiKeys || {})
+
+    if (provider === 'apify') apifyKeyPool.addKey(cleanToken, true)
+    if (provider === 'gemini') geminiKeyPool.addKey(cleanToken, true)
+    if (provider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
       process.env.OPENROUTER_API_KEY = cleanToken
-      return res.status(200).json({
-        success: true,
-        message: 'OpenRouter API key updated live in process memory.',
-        service: 'openrouter',
-        activeKeyMasked: maskKey(cleanToken),
-      })
     }
 
-    return res.status(400).json({ success: false, message: `Unknown service "${service}". Use apify, gemini, or openrouter.` })
+    return res.status(200).json({
+      success: true,
+      message: `API key added to ${provider} Round-Robin pool.`,
+      provider,
+      pools: getAllKeyPoolStats(),
+    })
   } catch (err) {
     console.error('[AdminDynamicController] injectDynamicKey error:', err)
     return res.status(500).json({ success: false, message: 'Failed to inject key.' })
+  }
+}
+
+export async function deleteDynamicKey(req, res) {
+  try {
+    const provider = String(req.body?.provider || req.query?.provider || '').toLowerCase().trim()
+    const indexParam = req.body?.index ?? req.query?.index
+    const rawKey = String(req.body?.key || '').trim()
+
+    if (!['openrouter', 'groq', 'gemini', 'apify'].includes(provider)) {
+      return res.status(400).json({ success: false, message: 'Valid provider is required.' })
+    }
+
+    await syncDbApiKeys()
+    const pool = keyPools[provider]
+    let targetKey = rawKey
+    if (!targetKey && indexParam !== undefined && indexParam !== null && pool?.entries?.[Number(indexParam)]) {
+      const entry = pool.entries[Number(indexParam)]
+      if (entry.source === 'env') {
+        return res.status(400).json({ success: false, message: 'Cannot delete read-only .env key.' })
+      }
+      targetKey = entry.key
+    }
+
+    if (!targetKey) {
+      return res.status(404).json({ success: false, message: 'DB key entry not found.' })
+    }
+
+    const settingsDoc = await AppSettings.findOne({ key: 'global' }).lean()
+    const currentList = Array.isArray(settingsDoc?.apiKeys?.[provider]) ? settingsDoc.apiKeys[provider] : []
+    const nextList = currentList.filter((k) => k !== targetKey)
+
+    const updated = await AppSettings.findOneAndUpdate(
+      { key: 'global' },
+      { $set: { [`apiKeys.${provider}`]: nextList } },
+      { new: true }
+    ).lean()
+
+    applyDbApiKeys(updated?.apiKeys || {})
+
+    return res.status(200).json({
+      success: true,
+      message: `Removed custom ${provider} key.`,
+      provider,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] deleteDynamicKey error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete key.' })
+  }
+}
+
+export async function testDynamicKey(req, res) {
+  try {
+    const provider = String(req.body?.provider || '').toLowerCase().trim()
+    const indexParam = req.body?.index
+    let testKey = String(req.body?.key || '').trim()
+
+    await syncDbApiKeys()
+    if (!testKey && indexParam !== undefined && indexParam !== null && keyPools[provider]?.entries?.[Number(indexParam)]) {
+      testKey = keyPools[provider].entries[Number(indexParam)].key
+    }
+
+    if (!provider || !testKey) {
+      return res.status(400).json({ success: false, message: 'provider and key (or index) are required.' })
+    }
+
+    let url = ''
+    const headers = {}
+    if (provider === 'openrouter') {
+      url = 'https://openrouter.ai/api/v1/auth/key'
+      headers.Authorization = `Bearer ${testKey}`
+    } else if (provider === 'groq') {
+      url = 'https://api.groq.com/openai/v1/models'
+      headers.Authorization = `Bearer ${testKey}`
+    } else if (provider === 'gemini') {
+      url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(testKey)}`
+    } else if (provider === 'apify') {
+      url = `https://api.apify.com/v2/users/me?token=${encodeURIComponent(testKey)}`
+    } else {
+      return res.status(400).json({ success: false, message: `Unsupported provider "${provider}".` })
+    }
+
+    const r = await fetch(url, { headers, signal: AbortSignal.timeout(8000) })
+    return res.status(200).json({
+      success: true,
+      valid: r.ok,
+      status: r.status,
+      message: r.ok ? `${provider} key verified (HTTP ${r.status}).` : `${provider} key failed (HTTP ${r.status}).`,
+    })
+  } catch (err) {
+    return res.status(200).json({
+      success: true,
+      valid: false,
+      status: 0,
+      message: err.message || 'Key verification request failed.',
+    })
   }
 }
 
@@ -471,14 +596,16 @@ export async function updateEngineConfig(req, res) {
     runtimeEngineConfig.lastUpdated = new Date()
 
     const activeOverrides = persistedOverrides ?? (await getGlobalSettings().catch(() => ({})))?.modelOverrides ?? {}
-    const enrichedTaskModels = await buildTaskModelsPayload(activeOverrides)
+    const { taskModels: nextTaskModels, avgTokens, taskDetails } = await buildTaskModelsSummary(activeOverrides)
 
     return res.status(200).json({
       success: true,
       message: 'Engine runtime configuration updated successfully.',
       runtimeEngineConfig,
       modelOverrides: activeOverrides,
-      taskModels: enrichedTaskModels,
+      taskModels: nextTaskModels,
+      avgTokens,
+      taskDetails,
     })
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message })
@@ -489,6 +616,7 @@ export async function updateEngineConfig(req, res) {
 
 export async function getEngineKeys(_req, res) {
   try {
+    await syncDbApiKeys()
     return res.status(200).json({
       success: true,
       pools: getAllKeyPoolStats(),

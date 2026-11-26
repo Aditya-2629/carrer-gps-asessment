@@ -909,13 +909,18 @@ export async function getOpenRouterModels(_req, res) {
       if (response.ok) {
         const json = await response.json().catch(() => ({}))
         const list = Array.isArray(json?.data) ? json.data : []
-        fetchedModels = list.map((m) => ({
-          id: m.id,
-          name: m.name || m.id,
-          contextLength: m.context_length ?? null,
-          promptPricePer1M: Number((parseFloat(m.pricing?.prompt || 0) * 1_000_000).toFixed(4)),
-          completionPricePer1M: Number((parseFloat(m.pricing?.completion || 0) * 1_000_000).toFixed(4)),
-        }))
+        fetchedModels = list.map((m) => {
+          const fallbackRate = DEFAULT_PRICING.models?.[m.id]
+          const promptRaw = parseFloat(m.pricing?.prompt || 0) * 1_000_000
+          const compRaw = parseFloat(m.pricing?.completion || 0) * 1_000_000
+          return {
+            id: m.id,
+            name: m.name || m.id,
+            contextLength: m.context_length ?? null,
+            promptPricePer1M: Number((promptRaw > 0 ? promptRaw : (fallbackRate?.input ?? 0)).toFixed(4)),
+            completionPricePer1M: Number((compRaw > 0 ? compRaw : (fallbackRate?.output ?? 0)).toFixed(4)),
+          }
+        })
       }
     } catch (fetchErr) {
       console.warn('[AdminTelemetry] OpenRouter models fetch failed, falling back to DEFAULT_PRICING:', fetchErr.message)

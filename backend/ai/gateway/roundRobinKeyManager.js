@@ -22,42 +22,56 @@ export class RoundRobinKeyPool {
     this.providerName = providerName
     this.envConfig = envConfig
     this.cursor = -1
-    this.entries = [] // Array<{ key, maskedKey, requestsServed, failures, cooldownUntil, exhaustedUntil, disabled, lastUsedAt, lastError }>
+    this.dbKeys = []
+    this.entries = [] // Array<{ key, maskedKey, source, requestsServed, failures, cooldownUntil, exhaustedUntil, disabled, lastUsedAt, lastError }>
+    this.reloadKeys()
+  }
+
+  setDbKeys(keys = []) {
+    this.dbKeys = Array.isArray(keys)
+      ? Array.from(new Set(keys.map((k) => String(k || '').trim()).filter(Boolean)))
+      : []
     this.reloadKeys()
   }
 
   reloadKeys() {
-    const rawKeys = []
+    const rawEnvKeys = []
     const { listEnvs = [], singleEnvs = [], prefixes = [] } = this.envConfig
 
     for (const envName of listEnvs) {
       if (process.env[envName]) {
-        rawKeys.push(...process.env[envName].split(/[,;]/).map((k) => k.trim()))
+        rawEnvKeys.push(...process.env[envName].split(/[,;]/).map((k) => k.trim()))
       }
     }
     for (const envName of singleEnvs) {
       if (process.env[envName]) {
-        rawKeys.push(process.env[envName].trim())
+        rawEnvKeys.push(process.env[envName].trim())
       }
     }
     for (const prefix of prefixes) {
       for (let i = 1; i <= 20; i++) {
         const val = process.env[`${prefix}${i}`]
-        if (val && val.trim()) rawKeys.push(val.trim())
+        if (val && val.trim()) rawEnvKeys.push(val.trim())
       }
-      if (process.env[`${prefix}FALLBACK`]) rawKeys.push(process.env[`${prefix}FALLBACK`].trim())
-      if (process.env[`${prefix}BACKUP`]) rawKeys.push(process.env[`${prefix}BACKUP`].trim())
+      if (process.env[`${prefix}FALLBACK`]) rawEnvKeys.push(process.env[`${prefix}FALLBACK`].trim())
+      if (process.env[`${prefix}BACKUP`]) rawEnvKeys.push(process.env[`${prefix}BACKUP`].trim())
     }
 
-    const deduped = Array.from(new Set(rawKeys.filter(Boolean)))
+    const envSet = new Set(rawEnvKeys.filter(Boolean))
+    const merged = Array.from(new Set([...envSet, ...(this.dbKeys || [])]))
     const existingByKey = new Map(this.entries.map((e) => [e.key, e]))
 
-    this.entries = deduped.map((key) => {
+    this.entries = merged.map((key) => {
+      const source = envSet.has(key) ? 'env' : 'db'
       const prev = existingByKey.get(key)
-      if (prev) return prev
+      if (prev) {
+        prev.source = source
+        return prev
+      }
       return {
         key,
         maskedKey: maskApiKey(key),
+        source,
         requestsServed: 0,
         failures: 0,
         cooldownUntil: 0,
@@ -188,6 +202,7 @@ export class RoundRobinKeyPool {
         index,
         provider: this.providerName,
         maskedKey: e.maskedKey,
+        source: e.source || 'env',
         status,
         requestsServed: e.requestsServed,
         failures: e.failures,
@@ -275,4 +290,23 @@ export function purgeAllKeyCooldowns() {
     total += pool.purgeCooldowns()
   }
   return total
+}
+
+export function applyDbApiKeys(apiKeys = {}) {
+  for (const [provider, pool] of Object.entries(keyPools)) {
+    const list = Array.isArray(apiKeys?.[provider]) ? apiKeys[provider] : []
+    pool.setDbKeys(list)
+  }
+}
+
+export async function syncDbApiKeys() {
+  try {
+    const { default: AppSettings } = await import('../../models/AppSettings.js')
+    const doc = await AppSettings.findOne({ key: 'global' }).select('apiKeys').lean()
+    if (doc?.apiKeys) {
+      applyDbApiKeys(doc.apiKeys)
+    }
+  } catch {
+    // Non-fatal if DB not yet connected
+  }
 }
