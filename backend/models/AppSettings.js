@@ -42,6 +42,57 @@ const messageTemplateSchema = new mongoose.Schema(
   { _id: false }
 )
 
+const socialLinkItemSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, trim: true },
+    label: { type: String, required: true, trim: true },
+    url: { type: String, default: '', trim: true },
+    iconType: {
+      type: String,
+      enum: ['linkedin', 'instagram', 'youtube', 'website', 'x', 'custom'],
+      default: 'website',
+    },
+    customLogoUrl: { type: String, default: '', trim: true },
+    enabled: { type: Boolean, default: false },
+  },
+  { _id: false }
+)
+
+export const DEFAULT_SOCIAL_LINKS_CONFIG = {
+  enabled: false,
+  communityEnabled: false,
+  communityLabel: 'Join Our Community',
+  communityUrl: '',
+  items: [
+    { key: 'linkedin', label: 'LinkedIn', url: '', iconType: 'linkedin', customLogoUrl: '', enabled: false },
+    { key: 'instagram', label: 'Instagram', url: '', iconType: 'instagram', customLogoUrl: '', enabled: false },
+    { key: 'youtube', label: 'YouTube', url: '', iconType: 'youtube', customLogoUrl: '', enabled: false },
+    { key: 'website', label: 'Website', url: '', iconType: 'website', customLogoUrl: '', enabled: false },
+  ],
+}
+
+export function normalizeSocialLinksConfig(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {}
+  const rawItems = Array.isArray(src.items) && src.items.length > 0 ? src.items : DEFAULT_SOCIAL_LINKS_CONFIG.items
+  const items = rawItems.map((item, idx) => ({
+    key: String(item?.key || `social_${idx}`).trim().slice(0, 40),
+    label: String(item?.label || 'Link').trim().slice(0, 60),
+    url: String(item?.url || '').trim().slice(0, 500),
+    iconType: ['linkedin', 'instagram', 'youtube', 'website', 'x', 'custom'].includes(item?.iconType)
+      ? item.iconType
+      : 'website',
+    customLogoUrl: String(item?.customLogoUrl || '').trim().slice(0, 2000),
+    enabled: Boolean(item?.enabled),
+  }))
+  return {
+    enabled: Boolean(src.enabled),
+    communityEnabled: Boolean(src.communityEnabled),
+    communityLabel: String(src.communityLabel || 'Join Our Community').trim().slice(0, 80) || 'Join Our Community',
+    communityUrl: String(src.communityUrl || '').trim().slice(0, 500),
+    items,
+  }
+}
+
 const appSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, default: 'global', unique: true },
@@ -73,6 +124,16 @@ const appSettingsSchema = new mongoose.Schema(
       instagram: { type: String, default: 'https://www.instagram.com/crafture.ai' },
       youtube: { type: String, default: 'https://www.youtube.com/@crafture' },
       website: { type: String, default: 'https://crafture.in' },
+    },
+    socialLinksConfig: {
+      enabled: { type: Boolean, default: false },
+      communityEnabled: { type: Boolean, default: false },
+      communityLabel: { type: String, default: 'Join Our Community' },
+      communityUrl: { type: String, default: '' },
+      items: {
+        type: [socialLinkItemSchema],
+        default: () => DEFAULT_SOCIAL_LINKS_CONFIG.items,
+      },
     },
     aiPaused: {
       type: Boolean,

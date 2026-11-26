@@ -29,6 +29,7 @@ export default function FinalNextAction({
   isTeaserLocked = false,
   bookingUrl = '',
   whatsappNumber = '',
+  socialLinksConfig = null,
   healthScore = null,
 }) {
   const rawTargetRole =
@@ -204,7 +205,12 @@ export default function FinalNextAction({
                   trackEvent('pdf_downloaded', { source: 'final_next_action', isTeaserLocked, candidateName })
                   setIsDownloading(true)
                   try {
-                    await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })
+                    const resolvedSocial = socialLinksConfig || reportData?.socialLinksConfig || null
+                    await downloadFullVisualReport(
+                      resolvedSocial ? { ...reportData, socialLinksConfig: resolvedSocial } : reportData,
+                      candidateName,
+                      { isTeaserLocked }
+                    )
                   } finally {
                     setIsDownloading(false)
                   }
@@ -220,7 +226,50 @@ export default function FinalNextAction({
                     : 'Download Full Report (PDF)'}
                 </span>
               </button>
+
+              {(() => {
+                const cfg = socialLinksConfig || reportData?.socialLinksConfig
+                if (!cfg?.enabled || !cfg?.communityEnabled || !String(cfg?.communityUrl || '').trim()) return null
+                return (
+                  <a
+                    href={cfg.communityUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-xs sm:text-sm font-semibold shadow-sm transition-opacity no-underline cursor-pointer"
+                  >
+                    <span>{cfg.communityLabel || 'Join Our Community'}</span>
+                    <ArrowRight size={16} weight="bold" />
+                  </a>
+                )
+              })()}
             </div>
+
+            {(() => {
+              const cfg = socialLinksConfig || reportData?.socialLinksConfig
+              if (!cfg?.enabled) return null
+              const activeItems = Array.isArray(cfg.items)
+                ? cfg.items.filter((i) => i?.enabled && String(i?.url || '').trim())
+                : []
+              if (activeItems.length === 0) return null
+              return (
+                <div className="pt-3 flex flex-wrap items-center gap-3">
+                  {activeItems.map((item) => (
+                    <a
+                      key={item.key || item.label}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] underline-offset-4 hover:underline"
+                    >
+                      {item.customLogoUrl && (
+                        <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
+                      )}
+                      <span>{item.label}</span>
+                    </a>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Right Column (lg:col-span-5) - Seamless illustration with Mascot Celebration */}

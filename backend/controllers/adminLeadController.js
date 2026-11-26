@@ -14,7 +14,7 @@ import nodemailer from 'nodemailer'
 import User from '../models/User.js'
 import AgentRun from '../models/AgentRun.js'
 import LlmCallLog from '../models/LlmCallLog.js'
-import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES } from '../models/AppSettings.js'
+import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
@@ -870,6 +870,7 @@ export async function getAppSettings(req, res) {
         aiPaused: Boolean(settings.aiPaused),
         maintenanceMessage: settings.maintenanceMessage || '',
         messageTemplates: normalizeTemplatesArray(settings.messageTemplates),
+        socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
       },
     })
   } catch (err) {
@@ -897,6 +898,7 @@ export async function updateAppSettings(req, res) {
       aiPaused,
       maintenanceMessage,
       messageTemplates,
+      socialLinksConfig,
     } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
@@ -916,6 +918,9 @@ export async function updateAppSettings(req, res) {
     if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
     if (messageTemplates !== undefined) {
       update.messageTemplates = normalizeTemplatesArray(messageTemplates)
+    }
+    if (socialLinksConfig !== undefined) {
+      update.socialLinksConfig = normalizeSocialLinksConfig(socialLinksConfig)
     }
 
     const updated = await AppSettings.findOneAndUpdate(
@@ -940,6 +945,7 @@ export async function updateAppSettings(req, res) {
         aiPaused: Boolean(updated.aiPaused),
         maintenanceMessage: updated.maintenanceMessage || '',
         messageTemplates: normalizeTemplatesArray(updated.messageTemplates),
+        socialLinksConfig: normalizeSocialLinksConfig(updated.socialLinksConfig),
       },
     })
   } catch (err) {

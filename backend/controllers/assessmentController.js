@@ -1,7 +1,7 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
-import { getGlobalSettings } from '../models/AppSettings.js'
+import { getGlobalSettings, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
@@ -1198,6 +1198,7 @@ export const getPublicReportById = async (req, res) => {
         youtube: settings.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
         website: settings.socialLinks?.website || 'https://crafture.in',
       },
+      socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
     }
 
     const reportUnlocked = Boolean(user.reportUnlocked)
@@ -1210,6 +1211,7 @@ export const getPublicReportById = async (req, res) => {
       whatsappNumber: settings.whatsappCtaNumber || '',
       communityUrl: settings.communityUrl || 'https://www.linkedin.com/company/crafture',
       socialLinks: assessment.socialLinks,
+      socialLinksConfig: assessment.socialLinksConfig,
       ctaHeadline:
         settings.ctaHeadline ||
         '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',

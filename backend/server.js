@@ -14,7 +14,7 @@ import adminRoutes from './routes/adminRoutes.js'
 import reportJobRoutes from './routes/reportJobRoutes.js'
 import feedbackRoutes from './routes/feedbackRoutes.js'
 import analyticsRoutes from './routes/analyticsRoutes.js'
-import { getGlobalSettings } from './models/AppSettings.js'
+import { getGlobalSettings, DEFAULT_SOCIAL_LINKS_CONFIG, normalizeSocialLinksConfig } from './models/AppSettings.js'
 import User from './models/User.js'
 import { getPublicReportById, getPublicReportPdfById } from './controllers/assessmentController.js'
 import { initMarketAutoScheduler } from './jobs/marketJd/marketAutoScheduler.js'
@@ -173,6 +173,7 @@ app.get('/api/settings/public', async (_req, res) => {
         youtube: s.socialLinks?.youtube || 'https://www.youtube.com/@crafture',
         website: s.socialLinks?.website || 'https://crafture.in',
       },
+      socialLinksConfig: normalizeSocialLinksConfig(s.socialLinksConfig),
     })
   } catch {
     return res.status(200).json({
@@ -190,6 +191,7 @@ app.get('/api/settings/public', async (_req, res) => {
         youtube: 'https://www.youtube.com/@crafture',
         website: 'https://crafture.in',
       },
+      socialLinksConfig: DEFAULT_SOCIAL_LINKS_CONFIG,
     })
   }
 })

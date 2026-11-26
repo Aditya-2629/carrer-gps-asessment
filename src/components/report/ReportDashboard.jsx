@@ -873,6 +873,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
             ctaHeadline: ts.ctaHeadline || prev.ctaHeadline,
             ctaSubtext: ts.ctaSubtext || prev.ctaSubtext,
             ctaButtonLabel: ts.ctaButtonLabel || prev.ctaButtonLabel,
+            socialLinksConfig: ts.socialLinksConfig || prev.socialLinksConfig || null,
           }))
         } else {
           setSharedReportError(true)
@@ -920,6 +921,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
           ctaHeadline: pub?.ctaHeadline || prev.ctaHeadline,
           ctaSubtext: pub?.ctaSubtext || prev.ctaSubtext,
           ctaButtonLabel: pub?.ctaButtonLabel || prev.ctaButtonLabel,
+          socialLinksConfig: pub?.socialLinksConfig || prev.socialLinksConfig || null,
         }))
       }
     })
@@ -1236,7 +1238,12 @@ function ReportDashboardContent({ sharedReportId = null }) {
     trackFunnelEvent('pdf_downloaded', { source: 'sticky_nav', isTeaserLocked, candidateName })
     setIsDownloadingPdf(true)
     try {
-      await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })
+      const resolvedSocialConfig = teaserConfig.socialLinksConfig || reportData?.socialLinksConfig || null
+      await downloadFullVisualReport(
+        resolvedSocialConfig ? { ...reportData, socialLinksConfig: resolvedSocialConfig } : reportData,
+        candidateName,
+        { isTeaserLocked }
+      )
     } finally {
       setIsDownloadingPdf(false)
     }
@@ -1417,6 +1424,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
             isTeaserLocked={isTeaserLocked}
             bookingUrl={bookingUrl}
             whatsappNumber={teaserConfig.whatsappCtaNumber}
+            socialLinksConfig={teaserConfig.socialLinksConfig || reportData?.socialLinksConfig}
             healthScore={healthScore}
           />
 
