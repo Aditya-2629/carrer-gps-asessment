@@ -42,6 +42,7 @@ export default function ResumeBulletAudit({
   variant = 'light',
   isTeaserLocked = false,
   bookingUrl = '',
+  onOpenUnlockModal,
 }) {
   const { triggerGuide } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
@@ -559,6 +560,8 @@ export default function ResumeBulletAudit({
                         isLocked={isTeaserLocked && idx >= 2 && Boolean(item.rewritten && item.original !== item.rewritten)}
                         label="Unlock rewrite"
                         bookingUrl={bookingUrl}
+                        onUnlock={onOpenUnlockModal}
+                        contextLabel="Bullet Rewrite"
                       >
                         {/* Why This Rewrite Works (What was upgraded) */}
                         {(item.whyItWorks || item.why) && (
@@ -666,6 +669,10 @@ export default function ResumeBulletAudit({
                 <button
                   type="button"
                   onClick={() => {
+                    if (typeof onOpenUnlockModal === 'function') {
+                      onOpenUnlockModal(`${lockedHurting.length} Hurting Bullet Audits & Rewrites`)
+                      return
+                    }
                     const el = document.getElementById('next-action')
                     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
                     else if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')

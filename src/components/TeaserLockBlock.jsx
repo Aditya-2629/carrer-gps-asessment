@@ -27,11 +27,21 @@ export default function TeaserLockBlock({
   label,
   lockedCount = 0,
   bookingUrl = '',
+  onUnlock,
+  contextLabel = '',
   heightClass = 'max-h-[340px]',
   className = '',
   children,
 }) {
   if (!isLocked) return children
+
+  const handleUnlockClick = () => {
+    if (typeof onUnlock === 'function') {
+      onUnlock(contextLabel || label || '')
+      return
+    }
+    scrollToStrategyCall(bookingUrl)
+  }
 
   if (variant === 'inline-pill') {
     return (
@@ -47,7 +57,7 @@ export default function TeaserLockBlock({
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              scrollToStrategyCall(bookingUrl)
+              handleUnlockClick()
             }}
             className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-card)]/95 backdrop-blur-sm border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-xs transition-colors duration-150 cursor-pointer"
           >
@@ -73,7 +83,7 @@ export default function TeaserLockBlock({
           <div className="mt-2 flex items-center justify-start">
             <button
               type="button"
-              onClick={() => scrollToStrategyCall(bookingUrl)}
+              onClick={handleUnlockClick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-colors duration-150 cursor-pointer"
             >
               <LockKey size={12} weight="bold" className="text-[var(--primary)]" />
@@ -103,7 +113,7 @@ export default function TeaserLockBlock({
       <div className="-mt-6 relative z-10 flex justify-center pb-1">
         <button
           type="button"
-          onClick={() => scrollToStrategyCall(bookingUrl)}
+          onClick={handleUnlockClick}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface-card)]/90 backdrop-blur-md border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-sm transition-colors duration-150 cursor-pointer"
         >
           <LockKey size={14} weight="bold" className="text-[var(--primary)]" />

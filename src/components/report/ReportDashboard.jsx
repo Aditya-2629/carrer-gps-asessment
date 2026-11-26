@@ -8,6 +8,7 @@ import {
   DownloadSimple,
 } from '@phosphor-icons/react'
 import TeaserLockBlock from '../TeaserLockBlock'
+import UnlockModal from '../UnlockModal'
 import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { trackAnalytics } from '../../lib/analytics'
@@ -834,8 +835,11 @@ function ReportDashboardContent({ sharedReportId = null }) {
     callBookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
     whatsappCtaNumber: '',
     ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+    ctaSubtext: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
     ctaButtonLabel: 'Book Free 1:1 Strategy Call',
   })
+  const [unlockModalState, setUnlockModalState] = useState({ open: false, contextLabel: '' })
+  const openUnlockModal = (contextLabel = '') => setUnlockModalState({ open: true, contextLabel })
   const hasAttemptedRecovery = useRef(false)
 
   // Public Shareable Report Hydration (/report/:id)
@@ -864,6 +868,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
             callBookingUrl: ts.bookingUrl || prev.callBookingUrl,
             whatsappCtaNumber: ts.whatsappNumber || prev.whatsappCtaNumber,
             ctaHeadline: ts.ctaHeadline || prev.ctaHeadline,
+            ctaSubtext: ts.ctaSubtext || prev.ctaSubtext,
             ctaButtonLabel: ts.ctaButtonLabel || prev.ctaButtonLabel,
           }))
         } else {
@@ -910,6 +915,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
           callBookingUrl: pub?.bookingUrl || usr?.callBookingUrl || prev.callBookingUrl,
           whatsappCtaNumber: pub?.whatsappNumber || usr?.whatsappCtaNumber || prev.whatsappCtaNumber,
           ctaHeadline: pub?.ctaHeadline || prev.ctaHeadline,
+          ctaSubtext: pub?.ctaSubtext || prev.ctaSubtext,
           ctaButtonLabel: pub?.ctaButtonLabel || prev.ctaButtonLabel,
         }))
       }
@@ -1216,6 +1222,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
     whatsappUrl: whatsappUnlockUrl,
     ctaHeadline: teaserConfig.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
     ctaButtonLabel: teaserConfig.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
+    onUnlock: openUnlockModal,
   }
 
   const handleDownloadPdf = async () => {
@@ -1334,6 +1341,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
                   onNavigateSection={handleNavigateSection}
                   isTeaserLocked={isTeaserLocked}
                   bookingUrl={bookingUrl}
+                  onOpenUnlockModal={openUnlockModal}
                 />
               </div>
               <div id="funnel-leak">
@@ -1359,6 +1367,8 @@ function ReportDashboardContent({ sharedReportId = null }) {
                 variant="fade"
                 isLocked={isTeaserLocked}
                 bookingUrl={bookingUrl}
+                onUnlock={openUnlockModal}
+                contextLabel="30-Day Execution Roadmap"
                 label="Unlock full 30-day execution roadmap in your free 15-min call →"
                 heightClass="max-h-[360px]"
               >
@@ -1431,6 +1441,18 @@ function ReportDashboardContent({ sharedReportId = null }) {
 
       {/* Atlas Expandable Chat Drawer (Static pill launcher hidden in favor of living copilot) */}
       <ReportChatbot hideLauncher={true} />
+
+      {/* Interactive Teaser Unlock Modal */}
+      <UnlockModal
+        isOpen={unlockModalState.open}
+        onClose={() => setUnlockModalState({ open: false, contextLabel: '' })}
+        contextLabel={unlockModalState.contextLabel}
+        teaserSettings={teaserConfig}
+        candidateName={candidateName}
+        targetRole={targetRole}
+        healthScore={healthScore}
+        onBookCall={handleBookCall}
+      />
     </div>
   )
 }

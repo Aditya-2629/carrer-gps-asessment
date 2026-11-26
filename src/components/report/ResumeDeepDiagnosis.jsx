@@ -731,6 +731,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             onToast={(msg) => setToastMsg(msg)}
             isTeaserLocked={isTeaserLocked}
             bookingUrl={teaserLockProps?.bookingUrl}
+            onOpenUnlockModal={teaserLockProps?.onUnlock}
           />
         </div>
       )}
@@ -900,6 +901,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           variant={variant}
           isTeaserLocked={isTeaserLocked}
           bookingUrl={teaserLockProps?.bookingUrl}
+          onOpenUnlockModal={teaserLockProps?.onUnlock}
         />
       </div>
 

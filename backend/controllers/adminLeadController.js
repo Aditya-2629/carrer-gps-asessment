@@ -831,6 +831,7 @@ export async function getAppSettings(req, res) {
         whatsappCtaNumber: settings.whatsappCtaNumber || '',
         ctaHeadline: settings.ctaHeadline || '',
         fomoHeadline: settings.ctaHeadline || '',
+        ctaSubtext: settings.ctaSubtext || '',
         ctaButtonLabel: settings.ctaButtonLabel || '',
         fomoCtaLabel: settings.ctaButtonLabel || '',
         aiPaused: Boolean(settings.aiPaused),
@@ -856,6 +857,8 @@ export async function updateAppSettings(req, res) {
       whatsappCtaNumber,
       ctaHeadline,
       fomoHeadline,
+      ctaSubtext,
+      fomoSubtext,
       ctaButtonLabel,
       fomoCtaLabel,
       aiPaused,
@@ -872,6 +875,8 @@ export async function updateAppSettings(req, res) {
     if (typeof whatsappCtaNumber === 'string') update.whatsappCtaNumber = whatsappCtaNumber.trim()
     const headline = ctaHeadline ?? fomoHeadline
     if (typeof headline === 'string') update.ctaHeadline = headline.trim()
+    const subtext = ctaSubtext ?? fomoSubtext
+    if (typeof subtext === 'string') update.ctaSubtext = subtext.trim()
     const btnLabel = ctaButtonLabel ?? fomoCtaLabel
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
     if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
@@ -896,6 +901,7 @@ export async function updateAppSettings(req, res) {
         whatsappCtaNumber: updated.whatsappCtaNumber || '',
         ctaHeadline: updated.ctaHeadline || '',
         fomoHeadline: updated.ctaHeadline || '',
+        ctaSubtext: updated.ctaSubtext || '',
         ctaButtonLabel: updated.ctaButtonLabel || '',
         fomoCtaLabel: updated.ctaButtonLabel || '',
         aiPaused: Boolean(updated.aiPaused),

@@ -56,6 +56,10 @@ const appSettingsSchema = new mongoose.Schema(
       type: String,
       default: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
     },
+    ctaSubtext: {
+      type: String,
+      default: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
+    },
     ctaButtonLabel: {
       type: String,
       default: 'Book Free 1:1 Strategy Call',

@@ -37,7 +37,7 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function PrimaryBottleneck({ reportData, onNavigateSection, isTeaserLocked = false, bookingUrl = '' }) {
+export default function PrimaryBottleneck({ reportData, onNavigateSection, isTeaserLocked = false, bookingUrl = '', onOpenUnlockModal }) {
   const phase = reportData?.phase ?? {
     id: 1,
     name: 'Resume → Screening Call',
@@ -344,6 +344,8 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                   variant="fade"
                   isLocked={true}
                   bookingUrl={bookingUrl}
+                  onUnlock={onOpenUnlockModal}
+                  contextLabel="Priority Action #3"
                   label="Unlock Action #3 in your free 15-min call →"
                   heightClass="max-h-[240px]"
                 >
@@ -445,6 +447,8 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                   variant="fade"
                   isLocked={true}
                   bookingUrl={bookingUrl}
+                  onUnlock={onOpenUnlockModal}
+                  contextLabel="Priority Action #3"
                   label="Unlock Action #3 in your free 15-min call →"
                   heightClass="max-h-[240px]"
                 >

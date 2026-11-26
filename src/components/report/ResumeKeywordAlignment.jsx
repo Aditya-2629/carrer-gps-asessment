@@ -18,6 +18,7 @@ export default function ResumeKeywordAlignment({
   onToast = null,
   isTeaserLocked = false,
   bookingUrl = '',
+  onOpenUnlockModal,
 }) {
   const alignment =
     keywordAlignment ||
@@ -398,6 +399,8 @@ export default function ResumeKeywordAlignment({
               isLocked={true}
               lockedCount={lockedMissingCount}
               bookingUrl={bookingUrl}
+              onUnlock={onOpenUnlockModal}
+              contextLabel="Missing ATS Keywords"
             >
               <div className="flex flex-wrap gap-2" aria-hidden="true">
                 {Array.from({ length: Math.min(5, lockedMissingCount) }).map((_, i) => (
@@ -476,6 +479,10 @@ export default function ResumeKeywordAlignment({
                   <button
                     type="button"
                     onClick={() => {
+                      if (typeof onOpenUnlockModal === 'function') {
+                        onOpenUnlockModal('Skills-Only Keywords')
+                        return
+                      }
                       const el = document.getElementById('next-action')
                       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
                       else if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')

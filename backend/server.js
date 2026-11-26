@@ -164,6 +164,7 @@ app.get('/api/settings/public', async (_req, res) => {
       bookingUrl: s.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: s.whatsappCtaNumber || '',
       ctaHeadline: s.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaSubtext: s.ctaSubtext || 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: s.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
     })
   } catch {
@@ -173,6 +174,7 @@ app.get('/api/settings/public', async (_req, res) => {
       bookingUrl: 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
       whatsappNumber: '',
       ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+      ctaSubtext: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
       ctaButtonLabel: 'Book Free 1:1 Strategy Call',
     })
   }

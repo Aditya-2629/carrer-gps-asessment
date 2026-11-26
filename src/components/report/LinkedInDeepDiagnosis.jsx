@@ -1865,6 +1865,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               variant="fade"
               isLocked={true}
               bookingUrl={teaserLockProps?.bookingUrl}
+              onUnlock={teaserLockProps?.onUnlock}
+              contextLabel="LinkedIn Headlines, About & Experience Upgrades"
               label="Unlock Headlines #2–#3, full About rewrite & Experience upgrades in your free 15-min call →"
               heightClass="max-h-[340px]"
             >
