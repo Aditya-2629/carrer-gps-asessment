@@ -13,6 +13,10 @@ import mongoose from 'mongoose'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import {
+  getAllKeyPoolStats,
+  toggleProviderKey,
+} from '../ai/gateway/roundRobinKeyManager.js'
+import {
   fetchFastCatchJds,
   runDetachedBackgroundScrape,
 } from '../jobs/marketJd/marketJdJobs.js'
@@ -353,6 +357,41 @@ export async function updateEngineConfig(req, res) {
   }
 }
 
+// ─── GET /api/admin/engine/keys & POST /api/admin/engine/keys/toggle ────────
+
+export async function getEngineKeys(_req, res) {
+  try {
+    return res.status(200).json({
+      success: true,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] getEngineKeys error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve key pools.' })
+  }
+}
+
+export async function toggleEngineKey(req, res) {
+  try {
+    const { provider, index, enabled } = req.body || {}
+    if (!provider || index === undefined || index === null) {
+      return res.status(400).json({ success: false, message: 'provider and index are required.' })
+    }
+    const updated = toggleProviderKey(provider, index, enabled)
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Key entry not found.' })
+    }
+    return res.status(200).json({
+      success: true,
+      key: updated,
+      pools: getAllKeyPoolStats(),
+    })
+  } catch (err) {
+    console.error('[AdminDynamicController] toggleEngineKey error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to toggle key.' })
+  }
+}
+
 // Add GET /api/admin/health
 export async function getAdminHealth(_req, res) {
   try {
@@ -392,5 +431,6 @@ export async function getAdminHealth(_req, res) {
     return res.status(500).json({ success: false, message: err.message })
   }
 }
+
 
 

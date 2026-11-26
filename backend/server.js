@@ -63,19 +63,29 @@ app.use((req, _res, next) => {
   next()
 })
 
-// Parse optional admin frontend URLs (comma-separated support for ADMIN_ORIGIN, ADMIN_APP_URL & ADMIN_FRONTEND_URL)
-const adminOrigins = [process.env.ADMIN_ORIGIN || '', process.env.ADMIN_APP_URL || '', process.env.ADMIN_FRONTEND_URL || '']
-  .join(',')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
+// Parse comma-separated frontend & admin origins with trailing-slash normalization
+const parseOriginList = (raw) =>
+  String(raw || '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+
+const adminOrigins = [
+  ...parseOriginList(process.env.ADMIN_ORIGIN),
+  ...parseOriginList(process.env.ADMIN_APP_URL),
+  ...parseOriginList(process.env.ADMIN_FRONTEND_URL),
+]
+const frontendOrigins = [
+  ...parseOriginList(process.env.FRONTEND_URL),
+  ...parseOriginList(process.env.CLIENT_URL),
+]
 
 // CORS — public web, external admin panels, and localhost
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:4173',
-  process.env.FRONTEND_URL,
+  ...frontendOrigins,
   ...adminOrigins,
 ].filter(Boolean)
 

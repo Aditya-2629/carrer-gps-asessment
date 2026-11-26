@@ -8,9 +8,12 @@
  * 4. On success: If a fallback key succeeded, it is PROMOTED to index 0 (Sticky Success) so all future tasks use it.
  */
 
+import { keyPools } from '../ai/gateway/roundRobinKeyManager.js'
+
 export class SmartKeyPool {
   constructor(serviceName, envVarConfigs = {}) {
     this.serviceName = serviceName
+    this.poolKey = String(serviceName || '').toLowerCase()
     this.primaryListEnv = envVarConfigs.listEnv // e.g. 'APIFY_API_KEYS' or ['APIFY_API_KEYS', 'APIFY_API_TOKENS']
     this.singleEnv = envVarConfigs.singleEnv // e.g. 'APIFY_API_TOKEN' or ['APIFY_API_TOKEN', 'APIFY_API_KEY']
     this.fallbackPrefixes = envVarConfigs.prefixes || [] // e.g. ['APIFY_API_TOKEN_', 'APIFY_API_KEY_']
@@ -72,6 +75,11 @@ export class SmartKeyPool {
   }
 
   getActiveKey() {
+    const rr = keyPools[this.poolKey]
+    if (rr) {
+      const ordered = rr.acquireOrderedKeys()
+      if (ordered.length > 0) return ordered[0]
+    }
     if (this.keys.length === 0) {
       this.reloadKeys()
     }
@@ -108,8 +116,10 @@ export class SmartKeyPool {
   /**
    * Penalizes a failed key by moving it to the back of the queue and setting a cooldown.
    */
-  reportFailure(failedKey, errorReason = 'Rate limit or Quota error') {
+  reportFailure(failedKey, errorReason = 'Rate limit or Quota error', statusCode = 429) {
     if (!failedKey) return
+    const rr = keyPools[this.poolKey]
+    if (rr) rr.recordFailure(failedKey, statusCode, errorReason)
     const keySuffix = failedKey.length > 4 ? failedKey.slice(-4) : failedKey
 
     // Set cooldown
@@ -130,7 +140,10 @@ export class SmartKeyPool {
    * Promotes a successful key to index 0 (Sticky Success) so next operations immediately use it.
    */
   reportSuccess(successfulKey) {
-    if (!successfulKey || this.keys.length <= 1) return
+    if (!successfulKey) return
+    const rr = keyPools[this.poolKey]
+    if (rr) rr.recordSuccess(successfulKey)
+    if (this.keys.length <= 1) return
 
     // Clear any previous cooldown for this key
     this.cooldowns.delete(successfulKey)

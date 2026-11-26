@@ -8,6 +8,7 @@ import LearningSignal from '../models/LearningSignal.js'
 import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
+import { purgeAllKeyCooldowns } from '../ai/gateway/roundRobinKeyManager.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 /**
@@ -302,7 +303,8 @@ export async function purgeKeyCooldowns(req, res) {
   try {
     const apifyCount = apifyKeyPool.purgeCooldowns()
     const geminiCount = geminiKeyPool.purgeCooldowns()
-    const totalPurged = apifyCount + geminiCount
+    const rrCount = purgeAllKeyCooldowns()
+    const totalPurged = Math.max(apifyCount + geminiCount, rrCount)
 
     return res.status(200).json({
       success: true,

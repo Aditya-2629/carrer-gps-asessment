@@ -6,6 +6,7 @@
 
 import { aiConfig } from '../config/aiConfig.js'
 import { ProviderError, PROVIDER_ERROR_CODES } from './providerErrors.js'
+import { keyPools } from './roundRobinKeyManager.js'
 
 export class OpenRouterProvider {
   constructor(config = {}) {
@@ -64,100 +65,125 @@ export class OpenRouterProvider {
     }
 
     const effectiveTimeoutMs = timeoutMs || this.config.timeoutMs || 60000
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs)
+    const orderedKeys = keyPools.openrouter.acquireOrderedKeys()
+    const keysToTry = orderedKeys.length > 0 ? orderedKeys : (activeApiKey ? [activeApiKey] : [])
+    let lastError = null
 
-    if (signal) {
-      if (signal.aborted) {
-        controller.abort()
-      } else {
-        signal.addEventListener('abort', () => controller.abort(), { once: true })
+    for (const keyInUse of keysToTry) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), effectiveTimeoutMs)
+
+      if (signal) {
+        if (signal.aborted) {
+          controller.abort()
+        } else {
+          signal.addEventListener('abort', () => controller.abort(), { once: true })
+        }
       }
-    }
 
-    const startTime = Date.now()
-    try {
-      const res = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${activeApiKey}`,
-          'HTTP-Referer': process.env.APP_URL || this.config.appUrl || 'http://localhost:5000',
-          'X-Title': 'Career GPS Executive AI',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      })
+      const startTime = Date.now()
+      try {
+        const res = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${keyInUse}`,
+            'HTTP-Referer': process.env.APP_URL || this.config.appUrl || 'http://localhost:5000',
+            'X-Title': 'Career GPS Executive AI',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
 
-      clearTimeout(timer)
-      const latencyMs = Date.now() - startTime
+        clearTimeout(timer)
+        const latencyMs = Date.now() - startTime
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '')
-        let errorCode = `OPENROUTER_HTTP_${res.status}`
-        if (res.status === 429) errorCode = PROVIDER_ERROR_CODES.RATE_LIMIT
-        else if (res.status === 401 || res.status === 403) errorCode = PROVIDER_ERROR_CODES.INVALID_AUTH
-        else if (res.status === 408 || res.status === 504) errorCode = PROVIDER_ERROR_CODES.TIMEOUT
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '')
+          let errorCode = `OPENROUTER_HTTP_${res.status}`
+          if (res.status === 429) errorCode = PROVIDER_ERROR_CODES.RATE_LIMIT
+          else if (res.status === 401 || res.status === 402 || res.status === 403) errorCode = PROVIDER_ERROR_CODES.INVALID_AUTH
+          else if (res.status === 408 || res.status === 504) errorCode = PROVIDER_ERROR_CODES.TIMEOUT
+
+          keyPools.openrouter.recordFailure(keyInUse, res.status, errText || res.statusText)
+
+          const pErr = new ProviderError(
+            errorCode,
+            `[OpenRouter ${res.status}] ${errText || res.statusText}`,
+            {
+              provider: 'openrouter',
+              statusCode: res.status,
+              model: targetModel,
+              details: errText,
+              isRetryable: res.status === 429 || res.status >= 500,
+            }
+          )
+          lastError = pErr
+          if (res.status === 429 || res.status === 401 || res.status === 402 || res.status === 403) {
+            continue // Instant roll-over to next Round-Robin key
+          }
+          throw pErr
+        }
+
+        keyPools.openrouter.recordSuccess(keyInUse)
+        const data = await res.json()
+        const text = data.choices?.[0]?.message?.content || ''
+        const finishReason = data.choices?.[0]?.finish_reason || 'stop'
+
+        return {
+          text: text.trim(),
+          actualModel: data?.model || targetModel,
+          provider: 'openrouter',
+          finishReason,
+          requestId: data?.id || requestId,
+          latencyMs,
+          usage: data.usage || {},
+          tokens: {
+            prompt: data.usage?.prompt_tokens ?? null,
+            completion: data.usage?.completion_tokens ?? null,
+            total: data.usage?.total_tokens ?? null,
+            cost: data.usage?.cost ?? null,
+          },
+          rawResponse: data,
+        }
+      } catch (err) {
+        clearTimeout(timer)
+        if (err instanceof ProviderError) {
+          lastError = err
+          if (err.statusCode === 429 || err.statusCode === 401 || err.statusCode === 402 || err.statusCode === 403) {
+            continue
+          }
+          throw err
+        }
+
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          throw new ProviderError('OPENROUTER_TIMEOUT', `OpenRouter request timed out after ${effectiveTimeoutMs}ms`, {
+            provider: 'openrouter',
+            code: PROVIDER_ERROR_CODES.TIMEOUT,
+            model: targetModel,
+            statusCode: 504,
+            isRetryable: true,
+          })
+        }
 
         throw new ProviderError(
-          errorCode,
-          `[OpenRouter ${res.status}] ${errText || res.statusText}`,
+          PROVIDER_ERROR_CODES.SERVER_ERROR,
+          err.message || 'Network error communicating with OpenRouter',
           {
             provider: 'openrouter',
-            statusCode: res.status,
             model: targetModel,
-            details: errText,
-            isRetryable: res.status === 429 || res.status >= 500,
+            statusCode: 500,
+            details: err.stack,
+            isRetryable: true,
           }
         )
       }
-
-      const data = await res.json()
-      const text = data.choices?.[0]?.message?.content || ''
-      const finishReason = data.choices?.[0]?.finish_reason || 'stop'
-
-      return {
-        text: text.trim(),
-        actualModel: data?.model || targetModel,
-        provider: 'openrouter',
-        finishReason,
-        requestId: data?.id || requestId,
-        latencyMs,
-        usage: data.usage || {},
-        tokens: {
-          prompt: data.usage?.prompt_tokens ?? null,
-          completion: data.usage?.completion_tokens ?? null,
-          total: data.usage?.total_tokens ?? null,
-          cost: data.usage?.cost ?? null,
-        },
-        rawResponse: data,
-      }
-    } catch (err) {
-      clearTimeout(timer)
-      if (err instanceof ProviderError) throw err
-
-      if (err.name === 'AbortError' || controller.signal.aborted) {
-        throw new ProviderError('OPENROUTER_TIMEOUT', `OpenRouter request timed out after ${effectiveTimeoutMs}ms`, {
-          provider: 'openrouter',
-          code: PROVIDER_ERROR_CODES.TIMEOUT,
-          model: targetModel,
-          statusCode: 504,
-          isRetryable: true,
-        })
-      }
-
-      throw new ProviderError(
-        PROVIDER_ERROR_CODES.SERVER_ERROR,
-        err.message || 'Network error communicating with OpenRouter',
-        {
-          provider: 'openrouter',
-          model: targetModel,
-          statusCode: 500,
-          details: err.stack,
-          isRetryable: true,
-        }
-      )
     }
+
+    throw lastError || new ProviderError(PROVIDER_ERROR_CODES.RATE_LIMIT, 'All OpenRouter keys failed.', {
+      provider: 'openrouter',
+      statusCode: 429,
+    })
   }
 }
 

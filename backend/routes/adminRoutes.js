@@ -49,6 +49,8 @@ import {
   createDynamicRole,
   updateScrapeSlider,
   injectDynamicKey,
+  getEngineKeys,
+  toggleEngineKey,
   triggerLiveBucketScrape,
   updateEngineConfig,
   getAdminHealth,
@@ -99,7 +101,9 @@ router.get('/engine/config', getEngineConfig)
 router.patch('/engine/config', updateEngineConfig)
 router.post('/engine/roles', createDynamicRole)
 router.post('/engine/scrape-slider', updateScrapeSlider)
+router.get('/engine/keys', getEngineKeys)
 router.post('/engine/keys', injectDynamicKey)
+router.post('/engine/keys/toggle', toggleEngineKey)
 router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 
 // ── Observability Hub, LLM Telemetry & Fallback Analytics ────────────────────
