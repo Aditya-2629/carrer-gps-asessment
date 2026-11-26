@@ -42,3 +42,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Runtime esbuild PDF bundle cache
+backend/.cache/
+

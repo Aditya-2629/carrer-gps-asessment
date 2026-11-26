@@ -271,6 +271,11 @@ export async function sendCandidatePreviewEmail({ user, aiReport, settings = {} 
     const { renderCareerReportPdfBuffer } = await import('./renderCareerReportPdf.js')
     const rawPayload = {
       ...(aiReport || {}),
+      user_answers: aiReport?.user_answers || user.answers || undefined,
+      resume_json: aiReport?.resume_json || user.resumeJson || undefined,
+      linkedinActivityData: user.linkedinActivityData || aiReport?.linkedin_activity_data || undefined,
+      candidateName: meta.candidateName,
+      targetRole: meta.targetRole,
       callBookingUrl: meta.bookingUrl,
       whatsappCtaNumber: settings?.whatsappCtaNumber || '',
       socialLinksConfig: settings?.socialLinksConfig || undefined,
@@ -364,6 +369,11 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
     const { renderCareerReportPdfBuffer } = await import('./renderCareerReportPdf.js')
     const fullPayload = {
       ...(aiReport || {}),
+      user_answers: aiReport?.user_answers || user.answers || undefined,
+      resume_json: aiReport?.resume_json || user.resumeJson || undefined,
+      linkedinActivityData: user.linkedinActivityData || aiReport?.linkedin_activity_data || undefined,
+      candidateName: meta.candidateName,
+      targetRole: meta.targetRole,
       reportUnlocked: true,
       callBookingUrl: meta.bookingUrl,
       whatsappCtaNumber: settings?.whatsappCtaNumber || '',
