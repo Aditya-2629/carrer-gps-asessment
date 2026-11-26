@@ -10,6 +10,24 @@ const DEFAULT_RESEND_FROM = 'Crafture Career GPS <reports@mail.crafture.space>'
 const DEFAULT_RESEND_OTP_FROM = 'Crafture <otp@mail.crafture.space>'
 const DEFAULT_RESEND_REPLY_TO = 'adityacrafture@gmail.com'
 const _mascotCache = new Map()
+let _logoAttachmentCache = undefined
+
+function getCraftureLogoCidAttachment() {
+  if (_logoAttachmentCache !== undefined) return _logoAttachmentCache
+  try {
+    const logoPath = path.resolve(__dirname, '../../src/assets/images/crafture-logo.jpg')
+    const b64 = fs.readFileSync(logoPath).toString('base64')
+    _logoAttachmentCache = {
+      filename: 'crafture-logo.jpg',
+      content: b64,
+      content_id: 'crafture-logo',
+    }
+    return _logoAttachmentCache
+  } catch {
+    _logoAttachmentCache = null
+    return null
+  }
+}
 
 function getMascotCidAttachment(pose = 'wave') {
   if (_mascotCache.has(pose)) return _mascotCache.get(pose)
@@ -133,7 +151,7 @@ function extractReportMeta(user, aiReport, settings = {}) {
   return { frontendBase, reportUrl, candidateName, safeName, targetRole, scoreVal, bottleneckHeadline, bookingUrl, whatsappUrl }
 }
 
-function buildForestGreenShell({ badge, title, hasMascot, bodyHtml, footerNote }) {
+function buildForestGreenShell({ badge, title, hasMascot, hasLogo = false, bodyHtml, footerNote }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
@@ -147,6 +165,11 @@ function buildForestGreenShell({ badge, title, hasMascot, bodyHtml, footerNote }
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
                   <td valign="middle">
+                    ${
+                      hasLogo
+                        ? '<img src="cid:crafture-logo" alt="Crafture Career GPS" width="132" style="display:block;height:auto;border:0;border-radius:6px;margin-bottom:8px;" />'
+                        : ''
+                    }
                     <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#DCFCE7;">${badge}</div>
                     <h1 style="margin:6px 0 0;font-size:20px;line-height:1.3;font-weight:700;color:#FFFFFF;">${title}</h1>
                   </td>
@@ -183,10 +206,12 @@ function buildForestGreenShell({ badge, title, hasMascot, bodyHtml, footerNote }
 export async function sendOtpEmail(email, otp) {
   const cleanEmail = String(email || '').toLowerCase().trim()
   const mascotAtt = getMascotCidAttachment('wave')
+  const logoAtt = getCraftureLogoCidAttachment()
   const html = buildForestGreenShell({
     badge: 'CRAFTURE CAREER GPS • VERIFICATION',
     title: 'Your Verification Code',
     hasMascot: Boolean(mascotAtt),
+    hasLogo: Boolean(logoAtt),
     bodyHtml: `
       <p style="margin:0 0 14px;font-size:15px;line-height:1.5;color:#0F172A;">Enter the 6-digit code below to verify your email and launch your Career GPS diagnostic:</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:18px 0;">
@@ -209,7 +234,7 @@ export async function sendOtpEmail(email, otp) {
       subject: `${otp} is your Crafture Career GPS verification code`,
       html,
       text,
-      attachments: mascotAtt ? [mascotAtt] : [],
+      attachments: [mascotAtt, logoAtt].filter(Boolean),
     })
   }
 
@@ -239,6 +264,7 @@ export async function sendCandidatePreviewEmail({ user, aiReport, settings = {} 
   if (!user?.email) return { ok: false, error: 'Missing candidate email' }
   const meta = extractReportMeta(user, aiReport, settings)
   const mascotAtt = getMascotCidAttachment('clipboard')
+  const logoAtt = getCraftureLogoCidAttachment()
 
   let previewPdfBuffer = null
   try {
@@ -259,6 +285,7 @@ export async function sendCandidatePreviewEmail({ user, aiReport, settings = {} 
     badge: 'CAREER GPS • EXECUTIVE PREVIEW READY',
     title: `Your Career GPS Preview Is Ready, ${meta.candidateName}`,
     hasMascot: Boolean(mascotAtt),
+    hasLogo: Boolean(logoAtt),
     bodyHtml: `
       <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#0F172A;">
         We have completed your multi-agent diagnostic for <strong>${meta.targetRole}</strong>.
@@ -308,6 +335,7 @@ export async function sendCandidatePreviewEmail({ user, aiReport, settings = {} 
 
   const attachments = []
   if (mascotAtt) attachments.push(mascotAtt)
+  if (logoAtt) attachments.push(logoAtt)
   if (previewPdfBuffer) {
     attachments.push({ filename: `Career_GPS_Preview_${meta.safeName}.pdf`, content: previewPdfBuffer })
   }
@@ -329,6 +357,7 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
   if (!user?.email) return { ok: false, error: 'Candidate has no email address on file.' }
   const meta = extractReportMeta(user, aiReport, settings)
   const mascotAtt = getMascotCidAttachment('thumbsup')
+  const logoAtt = getCraftureLogoCidAttachment()
 
   let fullPdfBuffer = null
   try {
@@ -349,6 +378,7 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
     badge: 'CRAFTURE CAREER GPS • FULL REPORT UNLOCKED',
     title: `Your Full Career GPS Report Is Unlocked, ${meta.candidateName}!`,
     hasMascot: Boolean(mascotAtt),
+    hasLogo: Boolean(logoAtt),
     bodyHtml: `
       <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#0F172A;">
         Great news — your complete Career GPS diagnostic for <strong>${meta.targetRole}</strong> is now 100% unlocked.
@@ -391,6 +421,7 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
 
   const attachments = []
   if (mascotAtt) attachments.push(mascotAtt)
+  if (logoAtt) attachments.push(logoAtt)
   if (fullPdfBuffer) {
     attachments.push({ filename: `Career_GPS_Report_${meta.safeName}.pdf`, content: fullPdfBuffer })
   }
