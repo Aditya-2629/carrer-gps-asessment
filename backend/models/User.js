@@ -54,6 +54,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    totalCostUsd: {
+      type: Number,
+      default: 0,
+    },
+    totalCostInr: {
+      type: Number,
+      default: 0,
+    },
     attribution: {
       source: { type: String, default: 'direct', index: true },
       medium: { type: String, default: '' },

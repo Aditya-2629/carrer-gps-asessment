@@ -262,8 +262,10 @@ export async function listLeads(req, res) {
 
     // Fetch matching users
     const allMatchingUsers = await User.find(query)
-      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate')
+      .select('email isVerified createdAt resumeName resumeData linkedinUrl answers aiReport resumeJson reportUnlocked unlockedAt deliveredAt callBooked callBookedAt pipelineStage adminNotes followUpDate totalCostUsd totalCostInr')
       .lean()
+
+    const userCostMap = new Map(allMatchingUsers.map((u) => [String(u._id), Number(u.totalCostUsd || 0)]))
 
     // Transform and calculate metrics
     let computedLeads = allMatchingUsers.map(calculateLeadMetrics)
@@ -295,10 +297,13 @@ export async function listLeads(req, res) {
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
     const costMap = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
     const leadsWithCost = paginatedLeads.map((l) => {
-      const costUsd = Number((costMap.get(l.id) || 0).toFixed(5))
+      const aggCost = costMap.get(l.id) || 0
+      const savedCost = userCostMap.get(l.id) || 0
+      const costUsd = Number(Math.max(aggCost, savedCost).toFixed(5))
       return {
         ...l,
         costUsd,
+        aiCostUsd: costUsd,
         costInr: Number((costUsd * INR_PER_USD).toFixed(2)),
       }
     })
@@ -641,9 +646,9 @@ export async function getCandidateDossier(req, res) {
     ]
 
     const costMap = await aggregateCostByUserIds([user._id])
-    const costUsd = Number((costMap.get(String(user._id)) || 0).toFixed(5))
+    const costUsd = Number(Math.max(costMap.get(String(user._id)) || 0, Number(user.totalCostUsd || 0)).toFixed(5))
     const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
-    const leadWithCost = { ...leadInfo, costUsd, costInr }
+    const leadWithCost = { ...leadInfo, costUsd, aiCostUsd: costUsd, costInr }
 
     // Repeat-candidate score history matching same normalized email or last-10-digit phone
     const historyFilters = []
@@ -684,6 +689,7 @@ export async function getCandidateDossier(req, res) {
       lead: leadWithCost,
       candidate: leadWithCost,
       costUsd,
+      aiCostUsd: costUsd,
       costInr,
       scoreHistory,
       phases,

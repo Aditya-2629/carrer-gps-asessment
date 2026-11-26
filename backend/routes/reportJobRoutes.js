@@ -125,6 +125,18 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     const finalEvent = { at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', agent: 'overall', report: cleanReport }
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
+
+    // Persist total run cost directly on User so CRM & stats always reflect real spend
+    const runSummary = costTracker.getRunSummary(jobId)
+    if (runSummary && runSummary.totalCostUsd > 0) {
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          totalCostUsd: Number(runSummary.totalCostUsd.toFixed(5)),
+          totalCostInr: Number((runSummary.totalCostUsd * 94).toFixed(2)),
+        },
+      }).catch(() => {})
+    }
+
     bus.emit(jobId, finalEvent)
   } catch (err) {
     console.error('[ReportJob] processing failed:', err.message)

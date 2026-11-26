@@ -91,11 +91,30 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       }
     }
 
-    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep').lean()
+    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep maxStepReached').lean()
+
+    // Map phase/step to monotonic step rank: 0=landing, 1=step1(1-3), 2=step2(4-7), 3=step3(8+/otp/loading), 4=report
+    let stepRank = 0
+    const phaseLower = String(updateFields.currentPhase || '').toLowerCase()
+    const stepStr = String(updateFields.currentStep || '').toLowerCase()
+    const stepNum = parseInt(stepStr, 10)
+    if (phaseLower === 'report' || stepStr === 'report') {
+      stepRank = 4
+    } else if (phaseLower === 'loading' || phaseLower === 'otp' || stepStr === 'email' || stepStr === 'otp' || (!isNaN(stepNum) && stepNum >= 8)) {
+      stepRank = 3
+    } else if (!isNaN(stepNum) && stepNum >= 4) {
+      stepRank = 2
+    } else if (phaseLower === 'assessment' || (!isNaN(stepNum) && stepNum >= 1)) {
+      stepRank = 1
+    }
 
     await VisitorSession.findOneAndUpdate(
       { sessionId },
-      { $set: updateFields, $setOnInsert: { sessionId } },
+      {
+        $set: updateFields,
+        $max: { maxStepReached: stepRank },
+        $setOnInsert: { sessionId },
+      },
       { upsert: true, new: false }
     )
 

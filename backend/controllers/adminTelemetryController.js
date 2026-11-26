@@ -589,7 +589,21 @@ export async function getAnalyticsOverview(req, res) {
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    const [liveActiveCount, stepFunnelAgg, deviceAgg, abandonedLeads, dailyHistory] = await Promise.all([
+    const [
+      liveActiveCount,
+      stepFunnelAgg,
+      deviceAgg,
+      abandonedLeads,
+      dailyHistory,
+      totalSessions,
+      sessionsStep1Plus,
+      sessionsStep2Plus,
+      sessionsStep3Plus,
+      sessionsReport,
+      usersWithReport,
+      usersCallBooked,
+      usersUnlocked,
+    ] = await Promise.all([
       VisitorSession.countDocuments({ lastHeartbeatAt: { $gte: fiveMinsAgo } }),
       VisitorSession.aggregate([
         { $match: { createdAt: { $gte: thirtyDaysAgo } } },
@@ -615,7 +629,31 @@ export async function getAnalyticsOverview(req, res) {
         .sort({ date: -1 })
         .limit(90)
         .lean(),
+      VisitorSession.countDocuments({}),
+      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 1 } }, { currentPhase: { $in: ['assessment', 'otp', 'loading', 'report'] } }] }),
+      VisitorSession.countDocuments({ maxStepReached: { $gte: 2 } }),
+      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 3 } }, { currentPhase: { $in: ['otp', 'loading', 'report'] } }] }),
+      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 4 } }, { currentPhase: 'report' }] }),
+      User.countDocuments({ aiReport: { $ne: null } }),
+      User.countDocuments({ callBooked: true }),
+      User.countDocuments({ reportUnlocked: true }),
     ])
+
+    const funnelReport = Math.max(sessionsReport, usersWithReport)
+    const funnelStep3 = Math.max(sessionsStep3Plus, funnelReport)
+    const funnelStep2 = Math.max(sessionsStep2Plus, funnelStep3)
+    const funnelStep1 = Math.max(sessionsStep1Plus, funnelStep2)
+    const funnelLanding = Math.max(totalSessions, funnelStep1)
+
+    const funnel = {
+      landing: funnelLanding,
+      step1: funnelStep1,
+      step2: funnelStep2,
+      step3: funnelStep3,
+      report: funnelReport,
+      callBooked: usersCallBooked,
+      unlocked: usersUnlocked,
+    }
 
     const stepFunnel = {}
     stepFunnelAgg.forEach((row) => {
@@ -630,6 +668,7 @@ export async function getAnalyticsOverview(req, res) {
     return res.status(200).json({
       success: true,
       liveActiveCount,
+      funnel,
       stepFunnel,
       deviceBreakdown,
       dailyHistory: dailyHistory.reverse(),

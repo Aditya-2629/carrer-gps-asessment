@@ -5,6 +5,7 @@ const visitorSessionSchema = new mongoose.Schema(
     sessionId: { type: String, required: true, unique: true, index: true },
     currentPhase: { type: String, default: 'assessment' },
     currentStep: { type: String, default: '1' },
+    maxStepReached: { type: Number, default: 0, index: true },
     lastHeartbeatAt: { type: Date, default: Date.now, index: true },
     device: { type: String, default: 'desktop' },
     referrer: { type: String, default: '' },

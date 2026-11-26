@@ -64,22 +64,56 @@ export async function getMarketBucketDetail(req, res) {
 
     const history = await getMarketVersionHistory(bucketKey, 10)
 
-    const rawSkills = activeVersion?.marketProfile?.skills || []
-    const skills = rawSkills.map((s) => {
-      const weight = typeof s.percentage === 'number' ? s.percentage : Math.round((s.frequencyRatio || 0.5) * 100)
-      const cat = s.category === 'core' || s.category === 'bonus'
-        ? s.category
-        : (s.isCore || s.priority === 'HIGH' || weight >= 50 ? 'core' : 'bonus')
-      return {
-        skill: s.name,
-        name: s.name,
-        weight,
-        percentage: weight,
-        count: s.count || s.frequency || 0,
-        category: cat,
-        priority: s.priority || (cat === 'core' ? 'HIGH' : 'LOW'),
-      }
+    const jobs = activeVersion?.jobs || []
+    const totalJds = jobs.length
+    const jobTextCache = jobs.map((j) => {
+      const skillSet = new Set((j.skills || []).map((sk) => String(sk || '').toLowerCase().trim()))
+      const text = `${j.title || ''} ${j.normalizedDescription || j.description || ''}`.toLowerCase()
+      return { skillSet, text }
     })
+
+    const rawSkills = activeVersion?.marketProfile?.skills || []
+    const skills = rawSkills
+      .map((s) => {
+        const skillName = String(s.name || '').trim()
+        const needle = skillName.toLowerCase()
+        let jdMatchCount = 0
+        if (needle && totalJds > 0) {
+          for (const jc of jobTextCache) {
+            if (jc.skillSet.has(needle) || jc.text.includes(needle)) {
+              jdMatchCount += 1
+            }
+          }
+        } else {
+          jdMatchCount = s.count || s.frequency || 0
+        }
+
+        const isOverridden = Boolean(s.isCustomWeight || s.isPinned)
+        const computedWeight = totalJds > 0
+          ? Math.min(100, Math.round((jdMatchCount / totalJds) * 100))
+          : (typeof s.percentage === 'number' ? s.percentage : 0)
+        const weight = isOverridden
+          ? Math.min(100, Math.max(0, Number(s.percentage ?? computedWeight)))
+          : computedWeight
+
+        const cat = s.category === 'core' || s.category === 'bonus'
+          ? s.category
+          : (s.isCore || s.priority === 'HIGH' || weight >= 50 ? 'core' : 'bonus')
+
+        return {
+          skill: skillName,
+          name: skillName,
+          category: cat,
+          jdMatchCount,
+          totalJds,
+          weight,
+          percentage: weight,
+          count: jdMatchCount,
+          isCustomWeight: isOverridden,
+          priority: s.priority || (cat === 'core' ? 'HIGH' : 'LOW'),
+        }
+      })
+      .sort((a, b) => b.weight - a.weight || b.jdMatchCount - a.jdMatchCount)
 
     const jds = (activeVersion?.jobs || []).map((j) => ({
       _id: String(j._id),
@@ -686,6 +720,7 @@ export async function updateBucketSkillsBulk(req, res) {
             frequencyRatio: Math.round((weight / 100) * 100) / 100,
             priority: cat === 'core' ? 'HIGH' : 'LOW',
             isCore: cat === 'core',
+            isCustomWeight: true,
           }
         })
     } else {
