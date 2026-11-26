@@ -404,6 +404,9 @@ export const useReportGuideStore = create((set, get) => ({
     set({ emotion, palette })
   },
 
+  bulletFilter: 'ALL',
+  setBulletFilter: (bulletFilter) => set({ bulletFilter }),
+
   setActiveSection: (sectionId) => {
     const section = get().insights[sectionId] || SECTION_INSIGHTS[sectionId]
     if (!section) return

@@ -1436,7 +1436,11 @@ function ReportDashboardContent({ sharedReportId = null }) {
       </main>
 
       {/* ─── Living Copilot 1+3 Combo: Transparent Floating 3D Mascot + Scroll-Along Thinking Cloud ─── */}
-      <CraftureLivingCopilot activeTab={activeTab} />
+      <CraftureLivingCopilot
+        activeTab={activeTab}
+        isUnlockModalOpen={unlockModalState.open}
+        isReportUnlocked={!isTeaserLocked}
+      />
 
       {/* Atlas Expandable Chat Drawer (Static pill launcher hidden in favor of living copilot) */}
       <ReportChatbot hideLauncher={true} />

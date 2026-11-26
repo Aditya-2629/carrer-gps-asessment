@@ -30,7 +30,7 @@ export {
   mascotWorking,
 }
 
-export const MASCOT_ASSETS = {
+export const MASCOT_POSES = {
   wave: mascotWave,
   thinking: mascotThinking,
   reading: mascotReading,
@@ -45,6 +45,10 @@ export const MASCOT_ASSETS = {
   shocked: mascotShocked,
   idle: mascotIdle,
   working: mascotWorking,
+}
+
+export const MASCOT_ASSETS = {
+  ...MASCOT_POSES,
 
   // Semantic aliases for seamless backwards/forwards compatibility:
   welcome: mascotWave,

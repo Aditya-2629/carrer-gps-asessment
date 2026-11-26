@@ -91,7 +91,9 @@ const OBSERVED_SECTION_IDS = [
   'overview-bottleneck',
   'top-priorities',
   'funnel-leak',
+  'funnel-sankey',
   'sprint-roadmap',
+  'mission-board',
   'next-action',
 
   // Tab 2 (Resume Lab)
@@ -153,6 +155,8 @@ export default function CraftureLivingCopilot({
   context = 'report',
   currentStep = 0,
   step = null,
+  isUnlockModalOpen = false,
+  isReportUnlocked = false,
 }) {
   const {
     emotion,
@@ -161,6 +165,7 @@ export default function CraftureLivingCopilot({
     metricChip,
     activeNodeId,
     isChatOpen,
+    bulletFilter,
     setMode,
     openChat,
     setActiveSection,
@@ -275,21 +280,55 @@ export default function CraftureLivingCopilot({
       return 'wave'
     }
 
-    // ── 2. Report Mode Context Mapping ──
-    const overallScore = reportData?.overall_score ?? reportData?.career_health_score ?? null
-    const isCriticalLowScore = typeof overallScore === 'number' && overallScore < 50
+    // ── 2. Report Mode Context Mapping (14 WebP Poses) ──
+    if (isChatOpen || isUnlockModalOpen) return 'thinking'
+    if (isAsleep) return 'idle'
 
-    // Next Action / Strategy Call
+    const rawScore =
+      reportData?.overall_score ??
+      (typeof reportData?.career_health_score === 'object'
+        ? reportData?.career_health_score?.overall
+        : reportData?.career_health_score) ??
+      null
+    const overallScore = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : null
+    const isCriticalLowScore = overallScore !== null && overallScore < 55
+
+    const rawCallback =
+      reportData?.funnel_analysis?.callback_rate ??
+      reportData?.funnel?.callbackRate ??
+      reportData?.callback_rate ??
+      null
+    const callbackRate = rawCallback != null && Number.isFinite(Number(rawCallback)) ? Number(rawCallback) : null
+    const hasCriticalFunnelDrop = callbackRate !== null && callbackRate < 5
+
+    // Strategy Call CTA / Report Unlocked
     if (activeNodeId === 'next-action') {
-      return overallScore && overallScore >= 75 ? 'happy' : 'thumbsup'
+      if (isReportUnlocked || (overallScore !== null && overallScore >= 80)) return 'happy'
+      return 'thumbsup'
     }
 
-    // Critical low-score alert
-    if (isCriticalLowScore && (activeNodeId === 'overview-bottleneck' || currentEmotion === 'alert')) {
-      return 'sad'
+    // Bullet Filter / Hurting vs Helping
+    if (bulletFilter === 'HURTING' && (activeTab === 'resume' || activeNodeId === 'resume-bullets')) {
+      return 'angry'
+    }
+    if (bulletFilter === 'HELPING' && (activeTab === 'resume' || activeNodeId === 'resume-bullets')) {
+      return 'thumbsup'
     }
 
-    // Action Plan / Roadmap
+    // Bottleneck / Funnel Shock (Phase 2 callback < 5%)
+    if (activeNodeId === 'overview-bottleneck' || activeNodeId === 'funnel-leak') {
+      if (hasCriticalFunnelDrop || currentEmotion === 'surprised' || currentEmotion === 'alert') {
+        return 'shocked'
+      }
+      return 'chart'
+    }
+
+    // Radar / Monthly Funnel Charts
+    if (activeNodeId === 'funnel-sankey' || activeNodeId?.startsWith('funnel-')) {
+      return 'chart'
+    }
+
+    // Top Priorities / 7-Day / 30-60-90 Roadmap
     if (
       activeNodeId === 'sprint-roadmap' ||
       activeNodeId === 'top-priorities' ||
@@ -299,33 +338,40 @@ export default function CraftureLivingCopilot({
       return 'roadmap'
     }
 
-    // Resume Lab
+    // Resume Deep Diagnosis / Keywords / Bullets
     if (
-      activeTab === 'resume' ||
-      activeNodeId?.startsWith('resume-')
+      activeNodeId === 'resume-keywords' ||
+      activeNodeId === 'resume-summary' ||
+      activeNodeId === 'resume-defense'
     ) {
-      return 'clipboard'
+      return 'reading'
+    }
+    if (
+      activeNodeId === 'resume-scorecard' ||
+      activeNodeId === 'resume-audit' ||
+      activeNodeId === 'resume-bullets'
+    ) {
+      return currentEmotion === 'alert' ? 'angry' : 'clipboard'
     }
 
-    // LinkedIn Studio
-    if (
-      activeTab === 'linkedin' ||
-      activeNodeId?.startsWith('linkedin-')
-    ) {
+    // LinkedIn Studio / Headlines / About
+    if (activeNodeId === 'linkedin-headlines' || activeNodeId === 'linkedin-about') {
+      return 'laptop'
+    }
+    if (activeNodeId?.startsWith('linkedin-')) {
+      return 'working'
+    }
+
+    // Hero / Score Summary
+    if (activeNodeId === 'overview-pulse' || activeTab === 'overview') {
+      if (overallScore !== null && overallScore >= 80) return 'happy'
+      if (isCriticalLowScore) return 'sad'
       return 'wave'
     }
 
-    // Overview & Funnel
-    if (
-      activeTab === 'overview' ||
-      activeNodeId === 'overview-pulse' ||
-      activeNodeId === 'overview-bottleneck' ||
-      activeNodeId === 'funnel-leak' ||
-      activeNodeId === 'funnel-sankey' ||
-      activeNodeId?.startsWith('funnel-')
-    ) {
-      return 'chart'
-    }
+    // Tab fallbacks
+    if (activeTab === 'resume') return 'clipboard'
+    if (activeTab === 'linkedin') return 'laptop'
 
     // Emotion fallbacks
     if (currentEmotion === 'victory' || currentEmotion === 'celebrating') return 'happy'
@@ -333,13 +379,18 @@ export default function CraftureLivingCopilot({
     if (currentEmotion === 'surprised') return 'shocked'
     if (currentEmotion === 'sad') return 'sad'
     if (currentEmotion === 'thinking') return 'thinking'
-    if (currentEmotion === 'listening') return 'clipboard'
+    if (currentEmotion === 'listening') return 'reading'
     if (currentEmotion === 'speaking') return 'wave'
 
     return 'wave'
   }, [
     isCelebrating,
+    isChatOpen,
+    isUnlockModalOpen,
+    isAsleep,
     isAssessment,
+    isReportUnlocked,
+    bulletFilter,
     step?.name,
     currentStep,
     resumeAnalysis?.status,
@@ -711,8 +762,8 @@ export default function CraftureLivingCopilot({
     const timer = setTimeout(() => {
       observer = new IntersectionObserver(observerCallback, {
         root: null,
-        rootMargin: '-20% 0px -40% 0px',
-        threshold: [0.05, 0.1, 0.25],
+        rootMargin: '-12% 0px -30% 0px',
+        threshold: 0.15,
       })
 
       OBSERVED_SECTION_IDS.forEach((id) => {
@@ -952,7 +1003,7 @@ export default function CraftureLivingCopilot({
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
                 className="w-full h-full object-contain filter drop-shadow-sm select-none pointer-events-none"
                 loading="eager"
                 decoding="async"

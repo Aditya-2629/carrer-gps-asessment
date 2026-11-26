@@ -44,7 +44,7 @@ export default function ResumeBulletAudit({
   bookingUrl = '',
   onOpenUnlockModal,
 }) {
-  const { triggerGuide } = useReportGuideStore()
+  const { triggerGuide, setBulletFilter } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
   const [filterVerdict, setFilterVerdict] = useState('ALL') // 'ALL' | 'HURTING' | 'HELPING'
   const [userHasToggled, setUserHasToggled] = useState(false)
@@ -54,10 +54,15 @@ export default function ResumeBulletAudit({
   const [lockedId, setLockedId] = useState(null)
 
   useEffect(() => {
+    setBulletFilter(filterVerdict)
+  }, [filterVerdict, setBulletFilter])
+
+  useEffect(() => {
     return () => {
+      setBulletFilter('ALL')
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
     }
-  }, [])
+  }, [setBulletFilter])
 
   // Bullets triage data: prioritize resolved bulletAudit array first
   const rawBullets =
