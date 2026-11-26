@@ -1185,4 +1185,102 @@ export async function getOpenRouterModels(_req, res) {
   }
 }
 
+const POSTHOG_CACHE_TTL_MS = 60 * 1000
+let _posthogCache = { fetchedAt: 0, payload: null }
+
+async function runPostHogHogql(host, projectId, apiKey, query) {
+  const res = await fetch(`${host}/api/projects/${encodeURIComponent(projectId)}/query/`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) {
+    throw new Error(`PostHog query HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
+ * GET /api/admin/analytics/posthog
+ * Queries PostHog HogQL API for 24h unique visitors, active sessions, and 7d funnel event counts (60s cache).
+ */
+export async function getPostHogAnalytics(_req, res) {
+  try {
+    const apiKey = (process.env.POSTHOG_PERSONAL_API_KEY || '').trim()
+    const projectId = (process.env.POSTHOG_PROJECT_ID || '').trim()
+    const host = (process.env.POSTHOG_HOST || 'https://us.posthog.com').trim().replace(/\/+$/, '')
+
+    if (!apiKey || !projectId) {
+      return res.status(200).json({ success: true, configured: false })
+    }
+
+    const now = Date.now()
+    if (_posthogCache.payload && now - _posthogCache.fetchedAt < POSTHOG_CACHE_TTL_MS) {
+      return res.status(200).json({ ..._posthogCache.payload, cached: true })
+    }
+
+    const [visitorsJson, funnelJson] = await Promise.all([
+      runPostHogHogql(
+        host,
+        projectId,
+        apiKey,
+        "SELECT count(DISTINCT person_id) AS unique_persons, count(DISTINCT properties.$session_id) AS unique_sessions FROM events WHERE event = '$pageview' AND timestamp >= now() - interval 1 day"
+      ),
+      runPostHogHogql(
+        host,
+        projectId,
+        apiKey,
+        "SELECT event, count(DISTINCT person_id) AS persons FROM events WHERE event IN ('landing_viewed','step1_resume_uploaded','step2_linkedin_entered','step3_context_submitted','assessment_submitted','report_viewed','call_booking_clicked','whatsapp_cta_clicked','pdf_downloaded') AND timestamp >= now() - interval 7 day GROUP BY event"
+      ),
+    ])
+
+    const vRow = Array.isArray(visitorsJson?.results) && visitorsJson.results[0] ? visitorsJson.results[0] : [0, 0]
+    const uniqueVisitorsToday = Number(vRow[0] || 0)
+    const activeSessionsToday = Number(vRow[1] || 0)
+
+    const funnel = {
+      landing_viewed: 0,
+      step1_resume_uploaded: 0,
+      step2_linkedin_entered: 0,
+      step3_context_submitted: 0,
+      assessment_submitted: 0,
+      report_viewed: 0,
+      call_booking_clicked: 0,
+      whatsapp_cta_clicked: 0,
+      pdf_downloaded: 0,
+    }
+    for (const row of Array.isArray(funnelJson?.results) ? funnelJson.results : []) {
+      const evName = row?.[0]
+      if (evName && Object.prototype.hasOwnProperty.call(funnel, evName)) {
+        funnel[evName] = Number(row[1] || 0)
+      }
+    }
+
+    const payload = {
+      success: true,
+      configured: true,
+      cached: false,
+      projectUrl: `${host}/project/${projectId}`,
+      uniqueVisitorsToday,
+      activeSessionsToday,
+      funnel,
+    }
+    _posthogCache = { fetchedAt: now, payload }
+
+    return res.status(200).json(payload)
+  } catch (err) {
+    console.error('[AdminTelemetry] getPostHogAnalytics error:', err.message)
+    return res.status(200).json({
+      success: false,
+      configured: true,
+      error: err.message,
+      funnel: {},
+    })
+  }
+}
+
 

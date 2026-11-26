@@ -839,7 +839,10 @@ function ReportDashboardContent({ sharedReportId = null }) {
     ctaButtonLabel: 'Book Free 1:1 Strategy Call',
   })
   const [unlockModalState, setUnlockModalState] = useState({ open: false, contextLabel: '' })
-  const openUnlockModal = (contextLabel = '') => setUnlockModalState({ open: true, contextLabel })
+  const openUnlockModal = (contextLabel = '') => {
+    trackFunnelEvent('teaser_unlock_modal_opened', { contextLabel })
+    setUnlockModalState({ open: true, contextLabel })
+  }
   const hasAttemptedRecovery = useRef(false)
 
   // Public Shareable Report Hydration (/report/:id)
@@ -1145,7 +1148,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
 
 
   const handleBookCall = async () => {
-    trackFunnelEvent('call_cta_clicked', { email, userId })
+    trackFunnelEvent('call_booking_clicked', { email, userId })
     if (email) {
       try {
         await api.bookCall({ email })
@@ -1230,6 +1233,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
   }
 
   const handleDownloadPdf = async () => {
+    trackFunnelEvent('pdf_downloaded', { source: 'sticky_nav', isTeaserLocked, candidateName })
     setIsDownloadingPdf(true)
     try {
       await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })

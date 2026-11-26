@@ -9,6 +9,7 @@ import {
   WhatsappLogo,
 } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
+import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
@@ -187,6 +188,7 @@ export default function FinalNextAction({
                     href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackEvent('whatsapp_cta_clicked', { source: 'final_next_action', targetRole })}
                     className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-colors duration-150 no-underline cursor-pointer"
                   >
                     <WhatsappLogo size={18} weight="fill" />
@@ -199,6 +201,7 @@ export default function FinalNextAction({
                 type="button"
                 disabled={isDownloading}
                 onClick={async () => {
+                  trackEvent('pdf_downloaded', { source: 'final_next_action', isTeaserLocked, candidateName })
                   setIsDownloading(true)
                   try {
                     await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })

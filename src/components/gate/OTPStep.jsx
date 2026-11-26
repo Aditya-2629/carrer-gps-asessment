@@ -7,6 +7,7 @@ import { api } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { trackAnalytics } from '../../lib/analytics'
+import { trackEvent, identifyCandidate } from '../../lib/posthog'
 
 const OTP_LENGTH = 6
 
@@ -52,6 +53,8 @@ export default function OTPStep() {
   const mutation = useMutation({
     mutationFn: api.verifyOtp,
     onSuccess: (data) => {
+      identifyCandidate(email)
+      trackEvent('assessment_submitted', { userId: data.userId, email })
       setUserId(data.userId)
       if (data.sessionToken) {
         setSessionToken(data.sessionToken)

@@ -9,6 +9,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from '@phosphor-icons/react'
+import { trackEvent } from '../lib/posthog'
 
 const DEFAULT_HEADLINE = '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume'
 const DEFAULT_SUBTEXT =
@@ -190,6 +191,7 @@ export default function UnlockModal({
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackEvent('whatsapp_cta_clicked', { source: 'unlock_modal', targetRole })}
               className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors duration-150 no-underline cursor-pointer"
             >
               <WhatsappLogo size={17} weight="fill" />

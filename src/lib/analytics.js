@@ -1,48 +1,18 @@
+import { trackEvent, identifyCandidate } from './posthog'
+
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '')
 const ATTRIBUTION_KEY = 'crafture_attribution'
 const VISITOR_ID_KEY = 'crafture_visitor_id'
 
-let _posthogPromise = null
 const _sentFunnelEvents = new Set()
-
-function getPostHog() {
-  if (typeof window === 'undefined') return null
-  const key = import.meta.env.VITE_POSTHOG_KEY
-  if (!key) return null
-  if (!_posthogPromise) {
-    _posthogPromise = import('posthog-js')
-      .then((mod) => {
-        const ph = mod.default || mod
-        if (ph && typeof ph.init === 'function' && !ph.__loaded) {
-          ph.init(key, {
-            api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
-            person_profiles: 'identified_only',
-            capture_pageview: false,
-          })
-          ph.__loaded = true
-        }
-        return ph
-      })
-      .catch(() => null)
-  }
-  return _posthogPromise
-}
 
 export function trackFunnelEvent(eventName, props = {}) {
   if (typeof window === 'undefined' || !eventName) return
-  const phPromise = getPostHog()
-  if (!phPromise) return
-  phPromise
-    .then((ph) => {
-      if (ph && typeof ph.capture === 'function') {
-        ph.capture(eventName, {
-          sessionId: getVisitorSessionId(),
-          visitorId: getVisitorId(),
-          ...props,
-        })
-      }
-    })
-    .catch(() => {})
+  trackEvent(eventName, {
+    sessionId: getVisitorSessionId(),
+    visitorId: getVisitorId(),
+    ...props,
+  })
 }
 
 export function getVisitorId() {
@@ -131,6 +101,14 @@ export function trackAnalytics({ currentPhase, currentStep, abandonedDraft, user
       abandonedDraft: abandonedDraft || undefined,
     }
 
+    if (abandonedDraft?.email) {
+      identifyCandidate(abandonedDraft.email, {
+        name: abandonedDraft.name,
+        phone: abandonedDraft.phone,
+        targetRole: abandonedDraft.targetRole,
+      })
+    }
+
     // Mirror key funnel events to PostHog when VITE_POSTHOG_KEY is configured
     const phaseLower = String(currentPhase || '').toLowerCase()
     const stepLower = String(currentStep || '').toLowerCase()
@@ -138,17 +116,17 @@ export function trackAnalytics({ currentPhase, currentStep, abandonedDraft, user
       _sentFunnelEvents.add('landing_viewed')
       trackFunnelEvent('landing_viewed')
     }
-    if (abandonedDraft?.resumeFilename && !_sentFunnelEvents.has('resume_uploaded')) {
-      _sentFunnelEvents.add('resume_uploaded')
-      trackFunnelEvent('resume_uploaded', { filename: abandonedDraft.resumeFilename })
+    if (abandonedDraft?.resumeFilename && !_sentFunnelEvents.has('step1_resume_uploaded')) {
+      _sentFunnelEvents.add('step1_resume_uploaded')
+      trackFunnelEvent('step1_resume_uploaded', { filename: abandonedDraft.resumeFilename })
     }
-    if (abandonedDraft?.linkedin && !_sentFunnelEvents.has('linkedin_entered')) {
-      _sentFunnelEvents.add('linkedin_entered')
-      trackFunnelEvent('linkedin_entered')
+    if (abandonedDraft?.linkedin && !_sentFunnelEvents.has('step2_linkedin_entered')) {
+      _sentFunnelEvents.add('step2_linkedin_entered')
+      trackFunnelEvent('step2_linkedin_entered')
     }
-    if ((stepLower === 'email' || stepLower === 'otp' || stepLower === 'step3_context') && !_sentFunnelEvents.has('context_submitted')) {
-      _sentFunnelEvents.add('context_submitted')
-      trackFunnelEvent('context_submitted')
+    if ((stepLower === 'email' || stepLower === 'otp' || stepLower === 'step3_context') && !_sentFunnelEvents.has('step3_context_submitted')) {
+      _sentFunnelEvents.add('step3_context_submitted')
+      trackFunnelEvent('step3_context_submitted')
     }
     if ((phaseLower === 'report' || stepLower === 'report') && !_sentFunnelEvents.has('report_viewed')) {
       _sentFunnelEvents.add('report_viewed')
