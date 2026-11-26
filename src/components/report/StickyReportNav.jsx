@@ -20,11 +20,7 @@ export default function StickyReportNav({
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
     try {
-      const pdfPayload =
-        isTeaserLocked && !reportData?.__teaserRedacted
-          ? { ...reportData, __teaserRedacted: true }
-          : reportData
-      await downloadFullVisualReport(pdfPayload, safeName)
+      await downloadFullVisualReport(reportData, safeName, { isTeaserLocked })
     } finally {
       setIsDownloading(false)
     }

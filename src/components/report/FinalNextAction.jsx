@@ -201,11 +201,7 @@ export default function FinalNextAction({
                 onClick={async () => {
                   setIsDownloading(true)
                   try {
-                    const pdfPayload =
-                      isTeaserLocked && !reportData?.__teaserRedacted
-                        ? { ...reportData, __teaserRedacted: true }
-                        : reportData
-                    await downloadFullVisualReport(pdfPayload, candidateName)
+                    await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })
                   } finally {
                     setIsDownloading(false)
                   }

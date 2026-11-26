@@ -1205,9 +1205,12 @@ function ReportDashboardContent({ sharedReportId = null }) {
   const healthScore = Math.min(100, Math.max(0, Number(rawHealthScore) || 72))
 
   const forceTeaserPreview = typeof window !== 'undefined' && window.location.search.includes('teaser=true')
+  const forceUnlockPreview = typeof window !== 'undefined' && window.location.search.includes('teaser=false')
   const effectiveTeaserEnabled = teaserConfig.teaserModeEnabled || Boolean(reportData?.teaserModeEnabled)
   const effectiveReportUnlocked = teaserConfig.reportUnlocked || Boolean(reportData?.reportUnlocked)
-  const isTeaserLocked = Boolean((effectiveTeaserEnabled && !effectiveReportUnlocked && !isMockPreview) || forceTeaserPreview)
+  const isTeaserLocked = Boolean(
+    ((effectiveTeaserEnabled && !effectiveReportUnlocked) || forceTeaserPreview) && !forceUnlockPreview
+  )
 
   const bookingUrl = teaserConfig.callBookingUrl || reportData?.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
   const cleanWhatsappNum = String(teaserConfig.whatsappCtaNumber || reportData?.whatsappCtaNumber || '').replace(/\D/g, '')
@@ -1228,11 +1231,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true)
     try {
-      const pdfPayload =
-        isTeaserLocked && !reportData?.__teaserRedacted
-          ? { ...reportData, __teaserRedacted: true }
-          : reportData
-      await downloadFullVisualReport(pdfPayload, candidateName)
+      await downloadFullVisualReport(reportData, candidateName, { isTeaserLocked })
     } finally {
       setIsDownloadingPdf(false)
     }

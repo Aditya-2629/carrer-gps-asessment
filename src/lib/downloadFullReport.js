@@ -10,7 +10,11 @@ import { getFriendlyErrorMessage } from './errorMessages'
 
 let isCurrentlyGenerating = false
 
-export async function downloadFullVisualReport(reportDataOrName, candidateNameParam) {
+export async function downloadFullVisualReport(
+  reportDataOrName,
+  candidateNameParam,
+  { isTeaserLocked = false } = {}
+) {
   if (typeof window === 'undefined') return false
   if (isCurrentlyGenerating) return false
 
@@ -49,8 +53,11 @@ export async function downloadFullVisualReport(reportDataOrName, candidateNamePa
       import('../../backend/utils/teaserRedactor.js'),
     ])
 
-    // If caller flagged __teaserRedacted (e.g. mock preview) without server redaction, normalize via redactReportForTeaser
-    const finalReportData = reportData?.__teaserRedacted
+    // Single-pass redaction: if already server-redacted (__teaserRedacted === true), use as-is;
+    // otherwise if isTeaserLocked is true, redact ONCE here.
+    const finalReportData = reportData?.__teaserRedacted === true
+      ? reportData
+      : isTeaserLocked
       ? redactReportForTeaser(reportData, { teaserModeEnabled: true, reportUnlocked: false })
       : reportData
 
