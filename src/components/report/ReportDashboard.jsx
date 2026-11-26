@@ -6,10 +6,8 @@ import {
   ArrowRight,
   SpinnerGap,
   DownloadSimple,
-  LockKey,
-  CalendarBlank,
-  WhatsappLogo,
 } from '@phosphor-icons/react'
+import TeaserLockBlock from '../TeaserLockBlock'
 import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { trackAnalytics } from '../../lib/analytics'
@@ -1212,54 +1210,12 @@ function ReportDashboardContent({ sharedReportId = null }) {
     ? `https://wa.me/${cleanWhatsappNum}?text=${encodeURIComponent(waText)}`
     : `https://wa.me/?text=${encodeURIComponent(waText)}`
 
-  const TeaserBlurGate = ({ children, heightClass = 'max-h-[480px]' }) => {
-    if (!isTeaserLocked) return children
-    return (
-      <div className={`relative ${heightClass} overflow-hidden rounded-2xl`}>
-        <div className="pointer-events-none select-none blur-md opacity-65">
-          {children}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--surface-base)]/80 to-[var(--surface-base)]/95 flex items-center justify-center p-4 sm:p-6">
-          <div className="w-full max-w-lg rounded-2xl bg-[var(--surface-card)]/95 backdrop-blur-xl border border-[var(--border-default)] p-6 sm:p-8 text-center shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-[var(--primary)] flex items-center justify-center mx-auto">
-              <LockKey size={24} weight="fill" />
-            </div>
-            <div className="space-y-1.5">
-              <span className="inline-block text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold">
-                {teaserConfig.teaserVisiblePercent || 50}% Preview Mode
-              </span>
-              <h3 className="text-lg sm:text-xl font-bold text-[var(--text-primary)]">
-                {teaserConfig.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume'}
-              </h3>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-                Book your free 1-on-1 strategy session or connect on WhatsApp to unlock all line-by-line bullet rewrites, LinkedIn SEO prompts, and your updated ATS resume.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
-              <a
-                href={bookingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={handleBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
-              >
-                <CalendarBlank size={16} weight="bold" />
-                <span>{teaserConfig.ctaButtonLabel || 'Book Free 1:1 Strategy Call'}</span>
-              </a>
-              <a
-                href={whatsappUnlockUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold shadow-md transition-all no-underline cursor-pointer"
-              >
-                <WhatsappLogo size={17} weight="fill" />
-                <span>Connect on WhatsApp</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+  // TeaserLockBlock is imported from ../TeaserLockBlock — shared teaser props below
+  const teaserLockProps = {
+    bookingUrl,
+    whatsappUrl: whatsappUnlockUrl,
+    ctaHeadline: teaserConfig.ctaHeadline || '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
+    ctaButtonLabel: teaserConfig.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
   }
 
   const handleDownloadPdf = async () => {
@@ -1380,7 +1336,12 @@ function ReportDashboardContent({ sharedReportId = null }) {
                   onNavigateSection={handleNavigateSection}
                 />
               </div>
-              <TeaserBlurGate heightClass="max-h-[540px]">
+              <TeaserLockBlock
+                {...teaserLockProps}
+                isLocked={isTeaserLocked}
+                label="Funnel Analysis, Risk Matrix & 30-Day Roadmap Locked"
+                heightClass="max-h-[540px]"
+              >
                 <div id="funnel-leak">
                   <FunnelAndConversionSection
                     funnelData={reportData.funnel_stages}
@@ -1407,61 +1368,29 @@ function ReportDashboardContent({ sharedReportId = null }) {
                     reportData={reportData}
                   />
                 </div>
-              </TeaserBlurGate>
+              </TeaserLockBlock>
             </div>
           )}
 
           {activeTab === 'resume' && (
             <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
-              {isTeaserLocked ? (
-                <div className="relative">
-                  <ResumeDeepDiagnosis
-                    resumeAgent={reportData.resume_agent}
-                    reportData={reportData}
-                  />
-                  <div className="mt-6">
-                    <TeaserBlurGate heightClass="max-h-[360px]">
-                      <div className="h-64 bg-[var(--surface-card)] rounded-2xl border border-[var(--border-default)] p-6 space-y-4">
-                        <div className="h-6 w-1/3 bg-[var(--surface-sunken)] rounded" />
-                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
-                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
-                      </div>
-                    </TeaserBlurGate>
-                  </div>
-                </div>
-              ) : (
-                <ResumeDeepDiagnosis
-                  resumeAgent={reportData.resume_agent}
-                  reportData={reportData}
-                />
-              )}
+              <ResumeDeepDiagnosis
+                resumeAgent={reportData.resume_agent}
+                reportData={reportData}
+                isTeaserLocked={isTeaserLocked}
+                teaserLockProps={teaserLockProps}
+              />
             </div>
           )}
 
           {activeTab === 'linkedin' && (
             <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
-              {isTeaserLocked ? (
-                <div className="relative">
-                  <LinkedInDeepDiagnosis
-                    linkedinAgent={reportData.linkedin_agent}
-                    reportData={reportData}
-                  />
-                  <div className="mt-6">
-                    <TeaserBlurGate heightClass="max-h-[360px]">
-                      <div className="h-64 bg-[var(--surface-card)] rounded-2xl border border-[var(--border-default)] p-6 space-y-4">
-                        <div className="h-6 w-1/3 bg-[var(--surface-sunken)] rounded" />
-                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
-                        <div className="h-24 w-full bg-[var(--surface-sunken)] rounded" />
-                      </div>
-                    </TeaserBlurGate>
-                  </div>
-                </div>
-              ) : (
-                <LinkedInDeepDiagnosis
-                  linkedinAgent={reportData.linkedin_agent}
-                  reportData={reportData}
-                />
-              )}
+              <LinkedInDeepDiagnosis
+                linkedinAgent={reportData.linkedin_agent}
+                reportData={reportData}
+                isTeaserLocked={isTeaserLocked}
+                teaserLockProps={teaserLockProps}
+              />
             </div>
           )}
 

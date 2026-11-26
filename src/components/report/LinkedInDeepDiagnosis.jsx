@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import TeaserLockBlock from '../TeaserLockBlock'
 import {
   LinkedinLogo,
   WarningCircle,
@@ -375,7 +376,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
   )
 }
 
-export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propReportData }) {
+export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propReportData, isTeaserLocked = false, teaserLockProps = {} }) {
   const theme = useAppStore((s) => s.theme)
   const resumeAnalysis = useAppStore((s) => s.resumeAnalysis)
   const storeReportData = useAppStore((s) => s.reportData)
@@ -1684,17 +1685,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {optimizations.headlines.map((item, idx) => {
+              {/* Render headline cards: idx 0 always visible, idx 1-2 behind TeaserLockBlock */}
+              {(() => {
+                const renderHeadlineCard = (item, idx) => {
                   const copyKey = `headline_${idx}`
                   const isCopied = copiedId === copyKey
                   const headlineText = typeof item === 'string' ? item : safeText(item?.headline || item?.text)
                   const whyItWorks = safeText(item?.whyItWorks)
-                  const label =
-                    HEADLINE_FORMULA_LABELS[idx] ||
-                    safeText(item?.formula) ||
-                    `Option ${idx + 1}`
-
+                  const label = HEADLINE_FORMULA_LABELS[idx] || safeText(item?.formula) || `Option ${idx + 1}`
                   return (
                     <div
                       key={idx}
@@ -1702,59 +1700,74 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
-                            {label}
-                          </span>
-                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">
-                            {headlineText.length}/220 chars
-                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
+                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">{headlineText.length}/220 chars</span>
                         </div>
-                        <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">
-                          {headlineText}
-                        </p>
+                        <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
                         {whyItWorks && (
                           <p className="text-xs text-[var(--text-secondary)] leading-relaxed pt-1 border-t border-[var(--border-default)]">
-                            <span className="font-medium text-[var(--text-primary)]">Why recruiters click: </span>
-                            {whyItWorks}
+                            <span className="font-medium text-[var(--text-primary)]">Why recruiters click: </span>{whyItWorks}
                           </p>
                         )}
                       </div>
-
                       <button
                         type="button"
                         onClick={() => handleCopy(headlineText, copyKey)}
-                        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          isCopied
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'
-                        }`}
+                        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${isCopied ? 'bg-emerald-600 text-white shadow-xs' : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'}`}
                       >
-                        {isCopied ? (
-                          <>
-                            <Check size={14} weight="bold" /> Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={14} /> Copy Headline
-                          </>
-                        )}
+                        {isCopied ? <><Check size={14} weight="bold" /> Copied</> : <><Copy size={14} /> Copy Headline</>}
                       </button>
                     </div>
                   )
-                })}
-              </div>
+                }
+
+                const firstHeadline = optimizations.headlines[0]
+                const restHeadlines = optimizations.headlines.slice(1)
+
+                return (
+                  <>
+                    {/* Always-visible: Headline #1 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {firstHeadline && renderHeadlineCard(firstHeadline, 0)}
+                      {/* Headlines #2-3: locked */}
+                      {restHeadlines.length > 0 && (
+                        <div className="md:col-span-2">
+                          <TeaserLockBlock
+                            isLocked={isTeaserLocked}
+                            label="Headline Options #2 & #3 Locked"
+                            ctaHeadline="Unlock 2 more recruiter-SEO optimized LinkedIn headlines."
+                            heightClass="max-h-[260px]"
+                            {...teaserLockProps}
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
+                              {restHeadlines.map((item, i) => renderHeadlineCard(item, i + 1))}
+                            </div>
+                          </TeaserLockBlock>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )}
 
           {/* Story-Driven About Section Card */}
           {rawAbout && (
-            <div
-              id="linkedin-about"
-              data-mascot-cue="Story-driven 3-paragraph About section: hook decision-makers in ~1,000 characters."
-              data-mascot-chip="Story Narrative"
-              data-mascot-emotion="speaking"
-              className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs"
+            <TeaserLockBlock
+              isLocked={isTeaserLocked}
+              label="Full About Section Rewrite Locked"
+              ctaHeadline="Unlock your complete 3-paragraph story-driven About section with weaved keywords."
+              heightClass="max-h-[320px]"
+              {...teaserLockProps}
             >
+              <div
+                id="linkedin-about"
+                data-mascot-cue="Story-driven 3-paragraph About section: hook decision-makers in ~1,000 characters."
+                data-mascot-chip="Story Narrative"
+                data-mascot-emotion="speaking"
+              className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs"
+              >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1860,10 +1873,18 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 )}
               </div>
             </div>
+            </TeaserLockBlock>
           )}
 
           {/* ── Experience Bullet Upgrades (Outcome & Metrics Driven) ──────────── */}
           {experienceUpgrades.length > 0 && (
+            <TeaserLockBlock
+              isLocked={isTeaserLocked}
+              label="Experience Bullet Rewrites Locked"
+              ctaHeadline="Unlock pre-engineered outcome-driven bullet rewrites for every role."
+              heightClass="max-h-[320px]"
+              {...teaserLockProps}
+            >
             <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
                 <div className="space-y-0.5">
@@ -2017,6 +2038,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 })()}
               </div>
             </div>
+            </TeaserLockBlock>
           )}
 
           {/* ── Unified: Skills & Recruiter SEO Bank (50+ Target) ── */}

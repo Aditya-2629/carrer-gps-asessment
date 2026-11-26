@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import TeaserLockBlock from '../TeaserLockBlock'
 import {
   ListChecks,
   WarningCircle,
@@ -110,7 +111,7 @@ function SectionHeader({ icon, title, accent }) {
   )
 }
 
-export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData }) {
+export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propReportData, isTeaserLocked = false, teaserLockProps = {} }) {
   const [toastMsg, setToastMsg] = useState('')
   const [isDownloadingDocx, setIsDownloadingDocx] = useState(false)
   const [copiedSummary, setCopiedSummary] = useState(false)
@@ -899,9 +900,17 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
-      <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-        <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
-      </div>
+      <TeaserLockBlock
+        isLocked={isTeaserLocked}
+        label="Full Bullet Rewrites, ATS Keywords & Interview Defense Locked"
+        ctaHeadline="See every line-by-line rewrite, ATS keyword swap, and interview defense guide."
+        heightClass="max-h-[380px]"
+        {...teaserLockProps}
+      >
+        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
+          <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
+        </div>
+      </TeaserLockBlock>
 
       {/* What to Cut (Fluff & 1-Page Discipline) */}
       {cutList.length > 0 && (
