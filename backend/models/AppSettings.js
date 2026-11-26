@@ -72,6 +72,10 @@ const appSettingsSchema = new mongoose.Schema(
       type: [messageTemplateSchema],
       default: () => DEFAULT_MESSAGE_TEMPLATES,
     },
+    modelOverrides: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { timestamps: true }
 )

@@ -63,6 +63,7 @@ import {
   pingJevDecisions,
   getSelfLearningInsights,
   getOpenRouterBalance,
+  getOpenRouterModels,
   getAnalyticsOverview,
   getSystemStorage,
   cleanupStaleSessions,
@@ -110,6 +111,7 @@ router.post('/engine/scrape/:bucketKey', triggerLiveBucketScrape)
 router.get('/telemetry/fallbacks-and-errors', getFallbackAndErrorAnalytics)
 router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
 router.get('/telemetry/openrouter-balance', getOpenRouterBalance)
+router.get('/telemetry/openrouter-models', getOpenRouterModels)
 router.get('/analytics/overview', getAnalyticsOverview)
 router.get('/analytics/attribution', getAttributionAnalytics)
 router.get('/analytics/skill-gaps', getSkillGapHeatmap)

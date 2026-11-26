@@ -11,11 +11,18 @@
 
 import mongoose from 'mongoose'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+import AgentRun from '../models/AgentRun.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import {
   getAllKeyPoolStats,
   toggleProviderKey,
 } from '../ai/gateway/roundRobinKeyManager.js'
+import {
+  TASK_MODEL_ROUTING,
+  TASK_METADATA,
+  setModelOverrides,
+} from '../ai/gateway/llmGateway.js'
 import {
   fetchFastCatchJds,
   runDetachedBackgroundScrape,
@@ -29,6 +36,14 @@ export const runtimeEngineConfig = {
   primaryModel: process.env.PRIMARY_MODEL || 'google/gemini-2.5-flash-lite',
   fallbackModel: process.env.FALLBACK_MODEL || 'openai/gpt-oss-120b',
   enableLinkedinPlaybook: process.env.ENABLE_LINKEDIN_PLAYBOOK !== 'false',
+  taskModels: {
+    resumeAudit: process.env.RESUME_MODEL || 'google/gemini-2.5-flash-lite',
+    linkedin: process.env.LINKEDIN_MODEL || 'google/gemini-2.5-flash-lite',
+    unifiedSynthesis: process.env.SYNTHESIS_MODEL || 'openai/gpt-oss-120b',
+    actionPlan: process.env.ACTION_PLAN_MODEL || 'google/gemini-2.5-flash-lite',
+    jdExtraction: process.env.JD_MODEL || 'google/gemini-2.5-flash-lite',
+    atlasChatbot: process.env.CHATBOT_MODEL || 'openai/gpt-oss-120b',
+  },
   lastUpdated: new Date(),
 }
 
@@ -39,10 +54,66 @@ function maskKey(key) {
   return trimmed.slice(0, 4) + '••••' + trimmed.slice(-4)
 }
 
+function inferProviderFromModel(modelId = '') {
+  const m = String(modelId).toLowerCase()
+  if (m.includes('gpt-oss') || m.startsWith('llama-')) return 'groq/openrouter'
+  if (m.startsWith('typesafe/')) return 'openrouter-decisions'
+  return 'openrouter'
+}
+
+async function buildTaskModelsPayload(overrides = {}) {
+  const recentRuns = await AgentRun.find({})
+    .sort({ createdAt: -1 })
+    .limit(500)
+    .select('model cost')
+    .lean()
+    .catch(() => [])
+
+  const modelTokenAgg = new Map()
+  for (const r of recentRuns) {
+    const m = r.model
+    const inTok = Number(r?.cost?.inputTokens || 0)
+    const outTok = Number(r?.cost?.outputTokens || 0)
+    if (!m || (inTok <= 0 && outTok <= 0)) continue
+    const cur = modelTokenAgg.get(m) || { inSum: 0, outSum: 0, count: 0 }
+    cur.inSum += inTok
+    cur.outSum += outTok
+    cur.count += 1
+    modelTokenAgg.set(m, cur)
+  }
+
+  return Object.entries(TASK_MODEL_ROUTING).map(([taskKey, defaultModel]) => {
+    const meta = TASK_METADATA[taskKey] || {}
+    const override = overrides?.[taskKey]
+    const activeModel = typeof override === 'string' && override.trim() ? override.trim() : defaultModel
+    const obs = modelTokenAgg.get(activeModel) || modelTokenAgg.get(defaultModel)
+    const avgInputTokens = obs && obs.count > 0 ? Math.round(obs.inSum / obs.count) : (meta.avgInputTokens || 2000)
+    const avgOutputTokens = obs && obs.count > 0 ? Math.round(obs.outSum / obs.count) : (meta.avgOutputTokens || 700)
+
+    return {
+      taskKey,
+      label: meta.label || taskKey,
+      provider: inferProviderFromModel(activeModel),
+      activeModel,
+      defaultModel,
+      fallbackModel: meta.fallbackModel || 'google/gemini-3.5-flash-lite',
+      avgInputTokens,
+      avgOutputTokens,
+      isOverridden: Boolean(typeof override === 'string' && override.trim() && override.trim() !== defaultModel),
+    }
+  })
+}
+
 // ─── GET /api/admin/engine/config ───────────────────────────────────────────
 
 export async function getEngineConfig(_req, res) {
   try {
+    const settings = await getGlobalSettings().catch(() => ({ modelOverrides: {} }))
+    const modelOverrides = settings?.modelOverrides && typeof settings.modelOverrides === 'object'
+      ? settings.modelOverrides
+      : {}
+    setModelOverrides(modelOverrides)
+
     // 1. Scrape Targets
     const scrapeTargets = {
       fastCatchTargetJds: runtimeEngineConfig.fastCatchTargetJds,
@@ -100,9 +171,18 @@ export async function getEngineConfig(_req, res) {
       totalJds: buckets.reduce((acc, b) => acc + (b.jobCount || 0), 0),
     }
 
+    const taskModels = await buildTaskModelsPayload(modelOverrides)
+
     return res.status(200).json({
       success: true,
       scrapeTargets,
+      routing: {
+        primaryModel: runtimeEngineConfig.primaryModel,
+        fallbackModel: runtimeEngineConfig.fallbackModel,
+        enableLinkedinPlaybook: runtimeEngineConfig.enableLinkedinPlaybook,
+      },
+      modelOverrides,
+      taskModels,
       keyPools,
       bucketSummary,
     })
@@ -321,6 +401,10 @@ export async function updateEngineConfig(req, res) {
       primaryModel,
       fallbackModel,
       enableLinkedinPlaybook,
+      taskModels,
+      modelOverrides,
+      taskKey,
+      modelId,
     } = req.body || {}
 
     if (fastCatchTargetJds !== undefined) {
@@ -345,12 +429,56 @@ export async function updateEngineConfig(req, res) {
       runtimeEngineConfig.enableLinkedinPlaybook = Boolean(enableLinkedinPlaybook)
     }
 
+    let persistedOverrides = null
+    if (
+      (taskModels && typeof taskModels === 'object' && !Array.isArray(taskModels)) ||
+      (modelOverrides && typeof modelOverrides === 'object') ||
+      (typeof taskKey === 'string' && taskKey.trim())
+    ) {
+      const current = await getGlobalSettings().catch(() => ({ modelOverrides: {} }))
+      const nextOverrides = { ...(current?.modelOverrides || {}) }
+
+      const applyMap = (src) => {
+        for (const [k, v] of Object.entries(src)) {
+          if (typeof v === 'string' && v.trim()) {
+            nextOverrides[k] = v.trim()
+            if (runtimeEngineConfig.taskModels) runtimeEngineConfig.taskModels[k] = v.trim()
+          } else {
+            delete nextOverrides[k]
+          }
+        }
+      }
+
+      if (taskModels && typeof taskModels === 'object' && !Array.isArray(taskModels)) applyMap(taskModels)
+      if (modelOverrides && typeof modelOverrides === 'object') applyMap(modelOverrides)
+      if (typeof taskKey === 'string' && taskKey.trim()) {
+        if (typeof modelId === 'string' && modelId.trim()) {
+          nextOverrides[taskKey.trim()] = modelId.trim()
+        } else {
+          delete nextOverrides[taskKey.trim()]
+        }
+      }
+
+      const updatedDoc = await AppSettings.findOneAndUpdate(
+        { key: 'global' },
+        { $set: { modelOverrides: nextOverrides }, $setOnInsert: { key: 'global' } },
+        { upsert: true, new: true }
+      ).lean()
+      persistedOverrides = updatedDoc?.modelOverrides || nextOverrides
+      setModelOverrides(persistedOverrides)
+    }
+
     runtimeEngineConfig.lastUpdated = new Date()
+
+    const activeOverrides = persistedOverrides ?? (await getGlobalSettings().catch(() => ({})))?.modelOverrides ?? {}
+    const enrichedTaskModels = await buildTaskModelsPayload(activeOverrides)
 
     return res.status(200).json({
       success: true,
       message: 'Engine runtime configuration updated successfully.',
       runtimeEngineConfig,
+      modelOverrides: activeOverrides,
+      taskModels: enrichedTaskModels,
     })
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message })

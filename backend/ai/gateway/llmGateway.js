@@ -54,6 +54,65 @@ export const TASK_MODEL_ROUTING = {
   skill_validation_decision: 'typesafe/jev-1.14',
   bullet_triage_decision: 'typesafe/jev-1.14',
   title_drift_decision: 'typesafe/jev-1.14',
+  career_chatbot: 'google/gemini-3.5-flash-lite',
+  resume_audit: 'google/gemini-3.5-flash',
+  final_synthesis: 'google/gemini-3.5-flash-lite',
+}
+
+export const TASK_METADATA = {
+  jd_extraction: { label: 'JD Skill Extraction', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 1800, avgOutputTokens: 450 },
+  fast_catch: { label: 'Fast-Catch Market Scrape', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2200, avgOutputTokens: 600 },
+  resume_synthesis: { label: 'Resume Synthesis & Audit', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 4200, avgOutputTokens: 1600 },
+  resume_audit: { label: 'Resume Audit (Parallel)', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 3800, avgOutputTokens: 1400 },
+  bullet_rewrites: { label: 'Bullet Rewrites', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2600, avgOutputTokens: 900 },
+  bullet_batch_rewrite: { label: 'Bullet Batch Rewrite', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2400, avgOutputTokens: 850 },
+  bullet_repetition_repair: { label: 'Bullet Repetition Repair', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 1500, avgOutputTokens: 500 },
+  bullet_batch_weave: { label: 'Keyword Batch Weave', fallbackModel: 'openai/gpt-oss-120b', avgInputTokens: 2100, avgOutputTokens: 700 },
+  linkedin_synthesis: { label: 'LinkedIn Audit & Synthesis', fallbackModel: 'openai/gpt-oss-120b', avgInputTokens: 3400, avgOutputTokens: 1300 },
+  thought_leadership: { label: 'LinkedIn Thought Leadership', fallbackModel: 'google/gemini-2.5-flash-lite', avgInputTokens: 1600, avgOutputTokens: 550 },
+  report_generation: { label: 'Report Generation', fallbackModel: 'openai/gpt-oss-120b', avgInputTokens: 4500, avgOutputTokens: 1800 },
+  judge_gate: { label: 'Synthesis Quality Judge Gate', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2800, avgOutputTokens: 400 },
+  unified_synthesis: { label: 'Unified Career Synthesis', fallbackModel: 'openai/gpt-oss-120b', avgInputTokens: 5200, avgOutputTokens: 2000 },
+  final_synthesis: { label: 'Final Synthesis (Mode A)', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 4800, avgOutputTokens: 1900 },
+  action_plan_generation: { label: 'Action Plan Generation', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2900, avgOutputTokens: 1200 },
+  dynamic_action_plan: { label: 'Dynamic Action Plan', fallbackModel: 'google/gemini-3.5-flash-lite', avgInputTokens: 2900, avgOutputTokens: 1200 },
+  career_chatbot: { label: 'Atlas Career Chatbot', fallbackModel: 'openai/gpt-oss-120b', avgInputTokens: 2200, avgOutputTokens: 450 },
+  jev_decision: { label: 'Jev Intent Decision', fallbackModel: 'google/gemini-2.5-flash-lite', avgInputTokens: 600, avgOutputTokens: 120 },
+  skill_validation_decision: { label: 'Skill Validation Decision', fallbackModel: 'google/gemini-2.5-flash-lite', avgInputTokens: 650, avgOutputTokens: 140 },
+  bullet_triage_decision: { label: 'Bullet Triage Decision', fallbackModel: 'google/gemini-2.5-flash-lite', avgInputTokens: 700, avgOutputTokens: 150 },
+  title_drift_decision: { label: 'Title Drift Decision', fallbackModel: 'google/gemini-2.5-flash-lite', avgInputTokens: 550, avgOutputTokens: 100 },
+}
+
+let _runtimeModelOverrides = {}
+let _overridesLoadedAt = 0
+
+export function setModelOverrides(overrides = {}) {
+  const clean = {}
+  if (overrides && typeof overrides === 'object') {
+    for (const [k, v] of Object.entries(overrides)) {
+      if (typeof v === 'string' && v.trim()) clean[k] = v.trim()
+    }
+  }
+  _runtimeModelOverrides = clean
+  _overridesLoadedAt = Date.now()
+}
+
+export function getModelOverrides() {
+  return { ..._runtimeModelOverrides }
+}
+
+async function ensureModelOverridesLoaded() {
+  if (Date.now() - _overridesLoadedAt < 60_000) return
+  _overridesLoadedAt = Date.now()
+  try {
+    const { default: AppSettings } = await import('../../models/AppSettings.js')
+    const doc = await AppSettings.findOne({ key: 'global' }).select('modelOverrides').lean()
+    if (doc?.modelOverrides && typeof doc.modelOverrides === 'object') {
+      setModelOverrides(doc.modelOverrides)
+    }
+  } catch {
+    // Non-fatal if DB not yet connected
+  }
 }
 
 export const PROVIDER_MODEL_FALLBACKS = {
@@ -131,8 +190,13 @@ export class LLMGateway {
       (purpose === 'bullet_batch_weave' ? 30000 : (this.config.totalDeadlineMs || 60000))
     const requestStartTime = Date.now()
 
+    await ensureModelOverridesLoaded()
+
     let requestedModelId = model
     const routingTask = task || purpose
+    if (!requestedModelId && routingTask && _runtimeModelOverrides[routingTask]) {
+      requestedModelId = _runtimeModelOverrides[routingTask]
+    }
     if (!requestedModelId && routingTask && TASK_MODEL_ROUTING[routingTask]) {
       requestedModelId = TASK_MODEL_ROUTING[routingTask]
     }

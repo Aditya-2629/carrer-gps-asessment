@@ -876,4 +876,77 @@ export async function getSkillGapHeatmap(req, res) {
   }
 }
 
+const OPENROUTER_MODELS_TTL_MS = 6 * 60 * 60 * 1000
+let _openRouterModelsCache = { fetchedAt: 0, models: [] }
+
+/**
+ * GET /api/admin/telemetry/openrouter-models
+ * Fetches https://openrouter.ai/api/v1/models (6h in-memory cache) and merges configured native/Groq rates.
+ */
+export async function getOpenRouterModels(_req, res) {
+  try {
+    const now = Date.now()
+    if (_openRouterModelsCache.models.length > 0 && now - _openRouterModelsCache.fetchedAt < OPENROUTER_MODELS_TTL_MS) {
+      return res.status(200).json({
+        success: true,
+        cached: true,
+        fetchedAt: new Date(_openRouterModelsCache.fetchedAt).toISOString(),
+        count: _openRouterModelsCache.models.length,
+        models: _openRouterModelsCache.models,
+      })
+    }
+
+    const headers = {}
+    const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+
+    let fetchedModels = []
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers,
+        signal: AbortSignal.timeout(10000),
+      })
+      if (response.ok) {
+        const json = await response.json().catch(() => ({}))
+        const list = Array.isArray(json?.data) ? json.data : []
+        fetchedModels = list.map((m) => ({
+          id: m.id,
+          name: m.name || m.id,
+          contextLength: m.context_length ?? null,
+          promptPricePer1M: Number((parseFloat(m.pricing?.prompt || 0) * 1_000_000).toFixed(4)),
+          completionPricePer1M: Number((parseFloat(m.pricing?.completion || 0) * 1_000_000).toFixed(4)),
+        }))
+      }
+    } catch (fetchErr) {
+      console.warn('[AdminTelemetry] OpenRouter models fetch failed, falling back to DEFAULT_PRICING:', fetchErr.message)
+    }
+
+    const seen = new Set(fetchedModels.map((m) => m.id))
+    for (const [id, rates] of Object.entries(DEFAULT_PRICING.models || {})) {
+      if (id === 'default' || seen.has(id)) continue
+      fetchedModels.push({
+        id,
+        name: id,
+        contextLength: 128000,
+        promptPricePer1M: Number(rates.input || 0),
+        completionPricePer1M: Number(rates.output || 0),
+      })
+      seen.add(id)
+    }
+
+    _openRouterModelsCache = { fetchedAt: now, models: fetchedModels }
+
+    return res.status(200).json({
+      success: true,
+      cached: false,
+      fetchedAt: new Date(now).toISOString(),
+      count: fetchedModels.length,
+      models: fetchedModels,
+    })
+  } catch (err) {
+    console.error('[AdminTelemetry] getOpenRouterModels error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to retrieve OpenRouter models.' })
+  }
+}
+
 
