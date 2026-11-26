@@ -924,11 +924,19 @@ export async function updateAppSettings(req, res) {
       update.socialLinksConfig = normalizeSocialLinksConfig(socialLinksConfig)
     }
 
-    const updated = await AppSettings.findOneAndUpdate(
-      { key: 'global' },
-      { $set: update, $setOnInsert: { key: 'global' } },
-      { upsert: true, new: true }
-    ).lean()
+    let doc = await AppSettings.findOne({ key: 'global' })
+    if (!doc) {
+      doc = new AppSettings({ key: 'global' })
+    }
+    Object.assign(doc, update)
+    if (socialLinksConfig !== undefined) {
+      doc.markModified('socialLinksConfig')
+    }
+    if (messageTemplates !== undefined) {
+      doc.markModified('messageTemplates')
+    }
+    const saved = await doc.save()
+    const updated = saved.toObject()
 
     return res.status(200).json({
       success: true,

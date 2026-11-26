@@ -81,7 +81,7 @@ export function normalizeSocialLinksConfig(raw) {
     iconType: ['linkedin', 'instagram', 'youtube', 'website', 'x', 'custom'].includes(item?.iconType)
       ? item.iconType
       : 'website',
-    customLogoUrl: String(item?.customLogoUrl || '').trim().slice(0, 2000),
+    customLogoUrl: String(item?.customLogoUrl || '').trim().slice(0, 250000),
     enabled: Boolean(item?.enabled),
   }))
   return {
