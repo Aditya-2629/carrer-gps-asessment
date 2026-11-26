@@ -1,5 +1,70 @@
 import nodemailer from 'nodemailer'
 
+const DEFAULT_RESEND_FROM = 'Crafture Career GPS <reports@mail.crafture.space>'
+const DEFAULT_RESEND_REPLY_TO = 'adityacrafture@gmail.com'
+
+/**
+ * Send a transactional email via Resend REST API with HTML + plain-text fallback.
+ * Returns { ok: true, emailId } or { ok: false, error } without ever faking success.
+ */
+export async function sendResendEmail({
+  to,
+  subject,
+  html,
+  text,
+  attachments = [],
+  from,
+  replyTo,
+} = {}) {
+  const apiKey = (process.env.RESEND_API_KEY || '').trim()
+  if (!apiKey) {
+    return { ok: false, error: 'RESEND_API_KEY is not configured.' }
+  }
+  const recipients = Array.isArray(to) ? to.filter(Boolean) : [to].filter(Boolean)
+  if (recipients.length === 0) {
+    return { ok: false, error: 'Recipient email address is required.' }
+  }
+
+  const normalizedAttachments = (Array.isArray(attachments) ? attachments : [])
+    .filter((a) => a && a.filename && a.content)
+    .map((a) => ({
+      filename: a.filename,
+      content: Buffer.isBuffer(a.content) ? a.content.toString('base64') : String(a.content),
+    }))
+
+  const payload = {
+    from: (from || process.env.RESEND_FROM_EMAIL || DEFAULT_RESEND_FROM).trim(),
+    reply_to: (replyTo || process.env.RESEND_REPLY_TO || DEFAULT_RESEND_REPLY_TO).trim(),
+    to: recipients,
+    subject: String(subject || 'Crafture Career GPS'),
+    html: String(html || ''),
+    text: String(text || ''),
+  }
+  if (normalizedAttachments.length > 0) {
+    payload.attachments = normalizedAttachments
+  }
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const msg = data?.message || data?.error?.message || `Resend HTTP ${res.status}`
+      return { ok: false, error: msg }
+    }
+    return { ok: true, emailId: data?.id || null }
+  } catch (err) {
+    return { ok: false, error: err.message || 'Resend request failed' }
+  }
+}
+
 const getTransporter = () => {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return null

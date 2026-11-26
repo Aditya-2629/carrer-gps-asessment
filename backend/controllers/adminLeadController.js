@@ -17,6 +17,7 @@ import LlmCallLog from '../models/LlmCallLog.js'
 import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES, normalizeSocialLinksConfig } from '../models/AppSettings.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { sendResendEmail } from '../utils/adminEmails.js'
 import { DEFAULT_PRICING } from '../utils/costTracker.js'
 
 const INR_PER_USD = 94
@@ -1026,48 +1027,92 @@ export async function deliverFullReport(req, res) {
 
     // 3. Send email with full report link & attached .docx (Resend first if configured, else SMTP)
     let emailSent = false
+    let emailId = null
     let emailError = null
+    const rawHealth = user.aiReport?.career_health_score
+    const scoreVal =
+      typeof rawHealth === 'object' && rawHealth !== null
+        ? Math.round(Number(rawHealth.overall ?? 72))
+        : Number.isFinite(Number(rawHealth))
+          ? Math.round(Number(rawHealth))
+          : 72
+    const targetRole =
+      user.resumeJson?.target_role ||
+      user.aiReport?.resume_agent?.candidateSnapshot?.targetRole ||
+      user.answers?.targetRole ||
+      'your target role'
+
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #0f172a;">
-        <h2 style="color: #4f46e5;">Hi ${candidateName},</h2>
-        <p>Your complete <strong>Crafture Career GPS Diagnostic Report</strong> has been unlocked and is ready to view.</p>
-        <p style="margin: 24px 0;">
-          <a href="${reportUrl}" style="background: #4f46e5; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-            Open Full Career GPS Report
-          </a>
-        </p>
-        ${docxBuffer ? '<p>We have also attached your updated <strong>ATS-Tailored Resume (.docx)</strong> directly to this email.</p>' : ''}
-        <p style="color: #64748b; font-size: 12px; margin-top: 24px;">Direct link: ${reportUrl}</p>
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: #f8fafc; padding: 24px 12px; color: #0f172a;">
+        <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;">
+          <div style="background: #4f46e5; padding: 22px 24px; color: #ffffff;">
+            <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9;">
+              Crafture Career GPS
+            </div>
+            <h1 style="margin: 6px 0 0; font-size: 20px; line-height: 1.3; font-weight: 700; color: #ffffff;">
+              Your Full Career GPS Report Is Unlocked
+            </h1>
+          </div>
+          <div style="padding: 24px;">
+            <p style="margin: 0 0 12px; font-size: 15px; color: #0f172a;">Hi <strong>${candidateName}</strong>,</p>
+            <p style="margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #334155;">
+              Your complete Career GPS diagnostic for <strong>${targetRole}</strong> has been unlocked and is ready to review.
+            </p>
+            <div style="display: inline-block; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 8px 14px; margin-bottom: 20px;">
+              <span style="font-size: 12px; font-weight: 700; color: #4f46e5;">CAREER HEALTH SCORE:</span>
+              <span style="font-size: 14px; font-weight: 800; color: #0f172a; margin-left: 6px;">${scoreVal}/100</span>
+            </div>
+            <div style="margin: 8px 0 22px;">
+              <a href="${reportUrl}" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 13px 24px; border-radius: 9px; text-decoration: none; font-weight: 700; font-size: 14px;">
+                View Full Unlocked Report -&gt;
+              </a>
+            </div>
+            ${
+              docxBuffer
+                ? '<p style="margin: 0 0 16px; font-size: 13px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">Attached: <strong>' +
+                  docxFilename +
+                  '</strong> — your updated ATS-optimized resume.</p>'
+                : ''
+            }
+            <p style="margin: 18px 0 0; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 14px;">
+              Direct link: <a href="${reportUrl}" style="color: #4f46e5;">${reportUrl}</a><br/>
+              Reply to this email anytime if you have questions — Crafture Career GPS Team.
+            </p>
+          </div>
+        </div>
       </div>
     `
-    if (process.env.RESEND_API_KEY && user.email) {
-      try {
-        const resendRes = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.RESEND_API_KEY.trim()}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <onboarding@resend.dev>',
-            to: [user.email],
-            subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
-            html: htmlBody,
-            attachments: docxBuffer
-              ? [{ filename: docxFilename, content: docxBuffer.toString('base64') }]
-              : [],
-          }),
-          signal: AbortSignal.timeout(10000),
-        })
-        if (resendRes.ok) {
-          emailSent = true
-        } else {
-          emailError = `Resend HTTP ${resendRes.status}`
-        }
-      } catch (resendErr) {
-        emailError = resendErr.message
+    const textBody = [
+      `Hi ${candidateName},`,
+      '',
+      `Your complete Crafture Career GPS Report for ${targetRole} (Career Health Score: ${scoreVal}/100) is now unlocked!`,
+      '',
+      `View Full Unlocked Report -> ${reportUrl}`,
+      docxBuffer ? `\nAttached: ${docxFilename} (your updated ATS-optimized resume).` : '',
+      '',
+      'Reply to this email anytime if you have questions.',
+      '— Crafture Career GPS Team',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    if (!user.email) {
+      emailError = 'Candidate has no email address on file.'
+    } else if (process.env.RESEND_API_KEY) {
+      const resendResult = await sendResendEmail({
+        to: user.email,
+        subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
+        html: htmlBody,
+        text: textBody,
+        attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
+      })
+      if (resendResult.ok) {
+        emailSent = true
+        emailId = resendResult.emailId
+      } else {
+        emailError = resendResult.error
       }
-    } else if (process.env.SMTP_USER && process.env.SMTP_PASS && user.email) {
+    } else if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
         const transporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -1075,18 +1120,22 @@ export async function deliverFullReport(req, res) {
           secure: process.env.SMTP_SECURE === 'true' || process.env.SMTP_SECURE === true,
           auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
         })
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
           from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
           to: user.email,
           subject: 'Your Full Career GPS Report & Tailored ATS Resume Are Ready',
           html: htmlBody,
+          text: textBody,
           attachments: docxBuffer ? [{ filename: docxFilename, content: docxBuffer }] : [],
         })
         emailSent = true
+        emailId = info?.messageId || null
       } catch (mailErr) {
         emailError = mailErr.message
         console.warn('[AdminLeadController] deliverFullReport email error:', mailErr.message)
       }
+    } else {
+      emailError = 'RESEND_API_KEY is not configured.'
     }
 
     // 4. Construct pre-filled WhatsApp delivery URL preserving international country codes
@@ -1121,12 +1170,71 @@ export async function deliverFullReport(req, res) {
       reportUrl,
       docxAttached: Boolean(docxBuffer),
       emailSent,
+      emailId,
       emailError,
       whatsappUrl,
     })
   } catch (err) {
     console.error('[AdminLeadController] deliverFullReport error:', err)
     return res.status(500).json({ success: false, message: 'Failed to deliver full report.' })
+  }
+}
+
+/**
+ * POST /api/admin/settings/test-email
+ * Sends a verification email via Resend so Admin can test mail.crafture.space DNS & delivery anytime.
+ */
+export async function testResendEmail(req, res) {
+  try {
+    const to = String(req.body?.to || process.env.RESEND_REPLY_TO || 'adityacrafture@gmail.com').trim()
+    if (!to || !to.includes('@')) {
+      return res.status(400).json({ success: false, emailSent: false, message: 'Valid recipient email "to" is required.' })
+    }
+    const fromEmail = (process.env.RESEND_FROM_EMAIL || 'Crafture Career GPS <reports@mail.crafture.space>').trim()
+    const replyTo = (process.env.RESEND_REPLY_TO || 'adityacrafture@gmail.com').trim()
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; color: #0f172a;">
+        <div style="background: #4f46e5; color: #ffffff; padding: 14px 18px; border-radius: 8px; font-weight: 700; font-size: 15px;">
+          Crafture Career GPS • Resend Verification
+        </div>
+        <p style="margin: 16px 0 8px; font-size: 14px;">Your Resend transactional email configuration is working cleanly.</p>
+        <p style="margin: 0; font-size: 12px; color: #64748b;">
+          From: ${fromEmail}<br/>
+          Reply-To: ${replyTo}<br/>
+          Timestamp: ${new Date().toISOString()}
+        </p>
+      </div>
+    `
+    const text = `Crafture Career GPS — Resend Verification\n\nYour Resend transactional email configuration is working cleanly.\nFrom: ${fromEmail}\nReply-To: ${replyTo}\nTimestamp: ${new Date().toISOString()}`
+
+    const result = await sendResendEmail({
+      to,
+      subject: 'Crafture Career GPS — Resend Domain Verification Test',
+      html,
+      text,
+      from: fromEmail,
+      replyTo,
+    })
+
+    if (!result.ok) {
+      return res.status(400).json({
+        success: false,
+        emailSent: false,
+        error: result.error,
+        message: result.error,
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      emailSent: true,
+      emailId: result.emailId,
+      to,
+      from: fromEmail,
+    })
+  } catch (err) {
+    console.error('[AdminLeadController] testResendEmail error:', err)
+    return res.status(500).json({ success: false, emailSent: false, message: err.message })
   }
 }
 

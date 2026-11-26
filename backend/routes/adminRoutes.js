@@ -45,6 +45,7 @@ import {
   overrideBulletRewrite,
   getAppSettings,
   updateAppSettings,
+  testResendEmail,
   toggleLeadUnlock,
   deliverFullReport,
 } from '../controllers/adminLeadController.js'
@@ -106,6 +107,7 @@ router.post('/leads/:id/override-bullet', overrideBulletRewrite)
 // ── Global App Settings (50% Teaser Mode & CTAs) ─────────────────────────────
 router.get('/settings', getAppSettings)
 router.patch('/settings', updateAppSettings)
+router.post('/settings/test-email', testResendEmail)
 
 // ── Zero-Restart Dynamic Engine & SmartKeyPool ──────────────────────────────
 router.get('/health', getAdminHealth)
