@@ -1189,6 +1189,8 @@ export const getPublicReportById = async (req, res) => {
       targetRole: user.aiReport?.targetRole || targetRole,
       yoe: user.aiReport?.yoe ?? yoe,
       resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+      callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
     }
 
     const reportUnlocked = Boolean(user.reportUnlocked)
@@ -1260,6 +1262,8 @@ export const getPublicReportPdfById = async (req, res) => {
       candidateName: user.aiReport?.candidateName || candidateName,
       targetRole: user.aiReport?.targetRole || user.targetRole || user.answers?.targetRole || '',
       resume_json: user.aiReport?.resume_json || user.resumeJson || undefined,
+      callBookingUrl: settings.callBookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe',
+      whatsappCtaNumber: settings.whatsappCtaNumber || '',
     }
 
     const safeAssessment = redactReportForTeaser(assessment, {

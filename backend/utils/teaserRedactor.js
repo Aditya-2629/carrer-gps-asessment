@@ -81,8 +81,9 @@ function redactKeywordArray(arr, ratio = 0.5) {
 function redactKeywordAlignment(ka) {
   if (!ka || typeof ka !== 'object') return ka
 
-  const ranked = redactKeywordArray(ka.missingMarketSkillsRanked, 0.5)
-  const missing = redactKeywordArray(ka.missingFromResume, 0.5)
+  // Keep 40% of Missing Target Keywords (lock 60%) and 50% of Skills-Only
+  const ranked = redactKeywordArray(ka.missingMarketSkillsRanked, 0.4)
+  const missing = redactKeywordArray(ka.missingFromResume, 0.4)
   const skillsOnly = redactKeywordArray(ka.skillsOnlyUnverified, 0.5)
 
   return {
@@ -125,6 +126,16 @@ function redactLinkedInOptimizations(opt) {
 
   if (Array.isArray(next.experienceUpgrades) && next.experienceUpgrades.length > 0) {
     next.experienceUpgrades = next.experienceUpgrades.map(() => ({ locked: true }))
+  }
+
+  if (Array.isArray(next.recommendedSkillsToAdd) && next.recommendedSkillsToAdd.length > 0) {
+    next.recommendedSkillsToAdd = next.recommendedSkillsToAdd.map(() => ({ locked: true }))
+    next.recommendedSkillsLocked = true
+  }
+
+  if (next.visualPrompts) {
+    next.visualPrompts = { locked: true }
+    next.visualPromptsLocked = true
   }
 
   if (next.postingStrategy) next.postingStrategy = { locked: true }
@@ -177,6 +188,26 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
     redactBulletFieldsOnObj(cloned.resume_agent)
     cloned.resume_agent.keywordAlignment = redactKeywordAlignment(cloned.resume_agent.keywordAlignment)
 
+    // Strip Summary Rewrite (keep original/before intact)
+    if (cloned.resume_agent.summaryOptimization && typeof cloned.resume_agent.summaryOptimization === 'object') {
+      cloned.resume_agent.summaryOptimization = {
+        ...cloned.resume_agent.summaryOptimization,
+        rewrittenSummary: undefined,
+        rewritten: undefined,
+        after: undefined,
+        summaryRewriteLocked: true,
+      }
+    }
+    if (cloned.resume_agent.dashboard?.summaryOptimization && typeof cloned.resume_agent.dashboard.summaryOptimization === 'object') {
+      cloned.resume_agent.dashboard.summaryOptimization = {
+        ...cloned.resume_agent.dashboard.summaryOptimization,
+        rewrittenSummary: undefined,
+        rewritten: undefined,
+        after: undefined,
+        summaryRewriteLocked: true,
+      }
+    }
+
     if (Array.isArray(cloned.resume_agent.issues)) {
       cloned.resume_agent.issues = cloned.resume_agent.issues.map((iss) => {
         const evList = Array.isArray(iss?.evidence) ? iss.evidence : []
@@ -207,25 +238,28 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
     if (cloned.linkedin_agent.postingPlan) {
       cloned.linkedin_agent.postingPlan = { locked: true }
     }
+    if (cloned.linkedin_agent.visualPrompts) {
+      cloned.linkedin_agent.visualPrompts = { locked: true }
+    }
   }
 
-  // 3. Overview: Action #3 & 30-Day Roadmap
+  // 3. Overview: Action #3, 7-Day Plan, and 60/90-Day Milestones (keep 30-Day Phase 1 visible)
   if (Array.isArray(cloned.top_actions) && cloned.top_actions.length > 2) {
     cloned.top_actions = cloned.top_actions.map((act, idx) => (idx < 2 ? act : { locked: true }))
   }
 
   if (Array.isArray(cloned.roadmap) && cloned.roadmap.length > 0) {
-    cloned.roadmap = cloned.roadmap.map(() => ({ locked: true }))
+    cloned.roadmap = cloned.roadmap.map((m, idx) => (idx === 0 ? m : { locked: true }))
   }
   if (Array.isArray(cloned.milestonePathway) && cloned.milestonePathway.length > 0) {
-    cloned.milestonePathway = cloned.milestonePathway.map(() => ({ locked: true }))
+    cloned.milestonePathway = cloned.milestonePathway.map((m, idx) => (idx === 0 ? m : { locked: true }))
   }
   if (Array.isArray(cloned.seven_day_plan) && cloned.seven_day_plan.length > 0) {
     cloned.seven_day_plan = cloned.seven_day_plan.map(() => ({ locked: true }))
   }
   if (cloned.action_plan && typeof cloned.action_plan === 'object') {
     if (Array.isArray(cloned.action_plan.milestonePathway)) {
-      cloned.action_plan.milestonePathway = cloned.action_plan.milestonePathway.map(() => ({ locked: true }))
+      cloned.action_plan.milestonePathway = cloned.action_plan.milestonePathway.map((m, idx) => (idx === 0 ? m : { locked: true }))
     }
     if (Array.isArray(cloned.action_plan.sevenDayPlan)) {
       cloned.action_plan.sevenDayPlan = cloned.action_plan.sevenDayPlan.map(() => ({ locked: true }))

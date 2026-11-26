@@ -576,7 +576,19 @@ export default function CareerReportPdf({ reportData = {} }) {
       : 'High application volume yielding below-benchmark recruiter callbacks.',
   }
 
-  const bookingUrl = reportData?.strategy_call_url || reportData?.booking_url || 'https://crafture.io/strategy-call'
+  const bookingUrl =
+    reportData?.callBookingUrl ||
+    reportData?.teaserSettings?.bookingUrl ||
+    reportData?.strategy_call_url ||
+    reportData?.booking_url ||
+    'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'
+  const cleanWaNum = String(
+    reportData?.whatsappCtaNumber || reportData?.teaserSettings?.whatsappNumber || ''
+  ).replace(/\D/g, '')
+  const waMsg = `Hi Crafture team, I'm ${candidateName} targeting ${targetRole} (Career Health Score: ${overallScore}/100) and would like to unlock my complete Career GPS Report.`
+  const whatsappUrl = cleanWaNum
+    ? `https://wa.me/${cleanWaNum}?text=${encodeURIComponent(waMsg)}`
+    : `https://wa.me/?text=${encodeURIComponent(waMsg)}`
 
   // Top 3 Prioritized Actions
   const priorityActions = Array.isArray(reportData?.top_priorities) && reportData.top_priorities.length > 0
@@ -1470,18 +1482,31 @@ export default function CareerReportPdf({ reportData = {} }) {
             {milestonePathway.map((p, idx) => (
               <View key={idx} style={styles.col3}>
                 <View style={styles.milestoneCard}>
-                  <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
-                    {safeStr(p.stage)}
-                  </Text>
-                  <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
-                    {safeStr(p.goal)}
-                  </Text>
-                  <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 2 }}>
-                    <Text style={{ fontSize: 6.5, color: '#64748B' }}>
-                      <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
-                      {safeStr(p.successSignal || p.deliverable)}
-                    </Text>
-                  </View>
+                  {(idx >= 1 && (isTeaserRedacted || p?.locked)) ? (
+                    <>
+                      <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                        {idx === 1 ? '60-Day Milestone' : '90-Day Milestone'} • Locked
+                      </Text>
+                      <Text style={{ fontSize: 6.8, color: '#64748B', fontStyle: 'italic', lineHeight: 1.25 }}>
+                        Locked - Book Free 1:1 Strategy Call to Unlock
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                        {safeStr(p.stage)}
+                      </Text>
+                      <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
+                        {safeStr(p.goal)}
+                      </Text>
+                      <View style={{ borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 2 }}>
+                        <Text style={{ fontSize: 6.5, color: '#64748B' }}>
+                          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Target: </Text>
+                          {safeStr(p.successSignal || p.deliverable)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
             ))}
@@ -1563,11 +1588,19 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>
                   AFTER: ROLE-ALIGNED EXECUTIVE REWRITE
                 </Text>
-                <Text style={styles.tagPass}>OPTIMIZED</Text>
+                <Text style={isTeaserRedacted || resumeAgent?.summaryOptimization?.summaryRewriteLocked ? styles.tagNeutral : styles.tagPass}>
+                  {isTeaserRedacted || resumeAgent?.summaryOptimization?.summaryRewriteLocked ? 'LOCKED' : 'OPTIMIZED'}
+                </Text>
               </View>
-              <Text style={styles.monoBold}>
-                {rewrittenSummary}
-              </Text>
+              {isTeaserRedacted || resumeAgent?.summaryOptimization?.summaryRewriteLocked ? (
+                <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                  Locked - Book Free 1:1 Strategy Call to Unlock your role-aligned executive summary rewrite.
+                </Text>
+              ) : (
+                <Text style={styles.monoBold}>
+                  {rewrittenSummary}
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -1871,8 +1904,8 @@ export default function CareerReportPdf({ reportData = {} }) {
             </>
           )}
 
-          {/* Keywords Weaved Footer if present */}
-          {aboutKeywords.length > 0 && (
+          {/* Keywords Weaved Footer if present & unlocked */}
+          {!isTeaserRedacted && !aboutRewrite?.locked && !linkedinAgent.optimizations?.aboutRewriteLocked && aboutKeywords.length > 0 && (
             <View style={[styles.rowBetween, { marginTop: 2, paddingTop: 3, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }]}>
               <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
                 INDEXED KEYWORDS WEAVED:
@@ -1903,11 +1936,17 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#475569', marginBottom: 2 }}>
                 HIGH-DEMAND SKILLS TO ADD
               </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
-                {recommendedSkills.map((sk, idx) => (
-                  <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(sk)}</Text>
-                ))}
-              </View>
+              {(isTeaserRedacted || linkedinAgent?.optimizations?.recommendedSkillsLocked || recommendedSkills.some((sk) => sk?.locked)) ? (
+                <Text style={{ fontSize: 6.8, color: '#64748B', fontStyle: 'italic' }}>
+                  Locked - Book Free 1:1 Strategy Call to Unlock
+                </Text>
+              ) : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
+                  {recommendedSkills.map((sk, idx) => (
+                    <Text key={idx} style={styles.chipSkillsOnly}>{safeStr(sk)}</Text>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -1919,9 +1958,15 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
                 PROFILE PHOTO AI STUDIO PROMPT
               </Text>
-              <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
-                {safeStr(visualPrompts.profilePicturePrompt || visualPrompts.profilePhotoPrompt)}
-              </Text>
+              {(isTeaserRedacted || linkedinAgent?.optimizations?.visualPromptsLocked || visualPrompts?.locked) ? (
+                <Text style={{ fontSize: 6.8, color: '#64748B', fontStyle: 'italic', lineHeight: 1.25 }}>
+                  Locked - Book Free 1:1 Strategy Call to Unlock
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 6.8, color: '#475569', lineHeight: 1.25 }}>
+                  {safeStr(visualPrompts.profilePicturePrompt || visualPrompts.profilePhotoPrompt)}
+                </Text>
+              )}
             </View>
           </View>
           <View style={styles.col2}>
@@ -1958,22 +2003,37 @@ export default function CareerReportPdf({ reportData = {} }) {
             Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
           </Text>
 
-          <Link
-            src={bookingUrl}
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: '#6366F1',
-              borderRadius: 6,
-              paddingVertical: 7,
-              paddingHorizontal: 14,
-              marginTop: 4,
-              textDecoration: 'none',
-            }}
-          >
-            <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
-              Book Free 1-on-1 Strategy Call {'->'}
-            </Text>
-          </Link>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            <Link
+              src={bookingUrl}
+              style={{
+                backgroundColor: '#6366F1',
+                borderRadius: 6,
+                paddingVertical: 7,
+                paddingHorizontal: 12,
+                textDecoration: 'none',
+              }}
+            >
+              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                Book Free 1-on-1 Strategy Call {'->'}
+              </Text>
+            </Link>
+
+            <Link
+              src={whatsappUrl}
+              style={{
+                backgroundColor: '#059669',
+                borderRadius: 6,
+                paddingVertical: 7,
+                paddingHorizontal: 12,
+                textDecoration: 'none',
+              }}
+            >
+              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+                Connect on WhatsApp
+              </Text>
+            </Link>
+          </View>
         </EditorialBanner>
       </Page>
     </Document>
