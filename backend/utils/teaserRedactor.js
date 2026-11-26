@@ -206,20 +206,20 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
       cloned.resume_agent.missingTargetKeywords = redactKeywordArray(cloned.resume_agent.missingTargetKeywords, 0.5).items
     }
 
-    // Strip Summary Rewrite (keep original/before intact)
-    if (cloned.resume_agent.summaryOptimization && typeof cloned.resume_agent.summaryOptimization === 'object') {
-      cloned.resume_agent.summaryOptimization = {
-        ...cloned.resume_agent.summaryOptimization,
-        rewrittenSummary: undefined,
-        rewritten: undefined,
-        after: undefined,
-        summaryRewriteLocked: true,
-      }
+    // Always flag summaryRewriteLocked even if summaryOptimization did not exist on input
+    cloned.resume_agent.summaryOptimization = {
+      ...(cloned.resume_agent.summaryOptimization || {}),
+      rewrittenSummary: undefined,
+      executiveSummaryRewrite: undefined,
+      rewritten: undefined,
+      after: undefined,
+      summaryRewriteLocked: true,
     }
-    if (cloned.resume_agent.dashboard?.summaryOptimization && typeof cloned.resume_agent.dashboard.summaryOptimization === 'object') {
+    if (cloned.resume_agent.dashboard && typeof cloned.resume_agent.dashboard === 'object') {
       cloned.resume_agent.dashboard.summaryOptimization = {
-        ...cloned.resume_agent.dashboard.summaryOptimization,
+        ...(cloned.resume_agent.dashboard.summaryOptimization || {}),
         rewrittenSummary: undefined,
+        executiveSummaryRewrite: undefined,
         rewritten: undefined,
         after: undefined,
         summaryRewriteLocked: true,
@@ -247,15 +247,13 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
   if (cloned.summary_rewrite) {
     cloned.summary_rewrite = undefined
   }
-  if (cloned.summary_optimization && typeof cloned.summary_optimization === 'object') {
-    cloned.summary_optimization = {
-      ...cloned.summary_optimization,
-      rewrittenSummary: undefined,
-      executiveSummaryRewrite: undefined,
-      rewritten: undefined,
-      after: undefined,
-      summaryRewriteLocked: true,
-    }
+  cloned.summary_optimization = {
+    ...(cloned.summary_optimization || {}),
+    rewrittenSummary: undefined,
+    executiveSummaryRewrite: undefined,
+    rewritten: undefined,
+    after: undefined,
+    summaryRewriteLocked: true,
   }
   if (Array.isArray(cloned.missing_skills)) {
     cloned.missing_skills = redactKeywordArray(cloned.missing_skills, 0.5).items
@@ -284,36 +282,58 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
   }
 
   // 3. Overview: Action #3, 7-Day Plan, and 60/90-Day Milestones (keep 30-Day Phase 1 visible)
-  if (Array.isArray(cloned.top_actions) && cloned.top_actions.length > 2) {
-    cloned.top_actions = cloned.top_actions.map((act, idx) =>
-      idx < 2 ? act : { locked: true, lockedReason: LOCKED_REASON }
-    )
-  }
+  const redactActionList = (arr) =>
+    Array.isArray(arr) && arr.length > 2
+      ? arr.map((act, idx) => (idx < 2 ? act : { locked: true, lockedReason: LOCKED_REASON }))
+      : arr
+
+  cloned.top_actions = redactActionList(cloned.top_actions)
+  cloned.top_priorities = redactActionList(cloned.top_priorities)
+  cloned.priority_actions = redactActionList(cloned.priority_actions)
+
+  const redactMilestones = (arr) =>
+    Array.isArray(arr) && arr.length > 0
+      ? arr.map((m, idx) => (idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }))
+      : [{ locked: true, lockedReason: LOCKED_REASON }]
+
+  const redactSevenDay = (arr) =>
+    Array.isArray(arr) && arr.length > 0
+      ? arr.map(() => ({ locked: true, lockedReason: LOCKED_REASON }))
+      : [{ locked: true, lockedReason: LOCKED_REASON }]
 
   if (Array.isArray(cloned.roadmap) && cloned.roadmap.length > 0) {
-    cloned.roadmap = cloned.roadmap.map((m, idx) =>
-      idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
-    )
+    cloned.roadmap = redactMilestones(cloned.roadmap)
   }
   if (Array.isArray(cloned.milestonePathway) && cloned.milestonePathway.length > 0) {
-    cloned.milestonePathway = cloned.milestonePathway.map((m, idx) =>
-      idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
-    )
+    cloned.milestonePathway = redactMilestones(cloned.milestonePathway)
   }
+  if (Array.isArray(cloned.strategicRoadmap) && cloned.strategicRoadmap.length > 0) {
+    cloned.strategicRoadmap = redactMilestones(cloned.strategicRoadmap)
+  }
+  cloned.sevenDayQuickPlan = redactSevenDay(cloned.sevenDayQuickPlan)
   if (Array.isArray(cloned.seven_day_plan) && cloned.seven_day_plan.length > 0) {
-    cloned.seven_day_plan = cloned.seven_day_plan.map(() => ({ locked: true, lockedReason: LOCKED_REASON }))
+    cloned.seven_day_plan = redactSevenDay(cloned.seven_day_plan)
   }
-  if (cloned.action_plan && typeof cloned.action_plan === 'object') {
-    if (Array.isArray(cloned.action_plan.milestonePathway)) {
-      cloned.action_plan.milestonePathway = cloned.action_plan.milestonePathway.map((m, idx) =>
-        idx === 0 ? m : { locked: true, lockedReason: LOCKED_REASON }
-      )
-    }
-    if (Array.isArray(cloned.action_plan.sevenDayPlan)) {
-      cloned.action_plan.sevenDayPlan = cloned.action_plan.sevenDayPlan.map(() => ({
-        locked: true,
-        lockedReason: LOCKED_REASON,
-      }))
+
+  for (const planKey of ['action_plan', 'dynamic_action_plan']) {
+    if (cloned[planKey] && typeof cloned[planKey] === 'object') {
+      if (Array.isArray(cloned[planKey].priorityActions)) {
+        cloned[planKey].priorityActions = redactActionList(cloned[planKey].priorityActions)
+      }
+      if (Array.isArray(cloned[planKey].milestonePathway)) {
+        cloned[planKey].milestonePathway = redactMilestones(cloned[planKey].milestonePathway)
+      }
+      if (Array.isArray(cloned[planKey].pathway30_60_90)) {
+        cloned[planKey].pathway30_60_90 = redactMilestones(cloned[planKey].pathway30_60_90)
+      }
+      cloned[planKey].sevenDayQuickPlan = redactSevenDay(cloned[planKey].sevenDayQuickPlan)
+      if (Array.isArray(cloned[planKey].sevenDayPlan)) {
+        cloned[planKey].sevenDayPlan = redactSevenDay(cloned[planKey].sevenDayPlan)
+      }
+    } else if (planKey === 'dynamic_action_plan') {
+      cloned.dynamic_action_plan = {
+        sevenDayQuickPlan: [{ locked: true, lockedReason: LOCKED_REASON }],
+      }
     }
   }
 

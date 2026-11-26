@@ -606,11 +606,14 @@ export default function CareerReportPdf({ reportData = {} }) {
       ]
 
   // Dynamic Action Plan (7-Day & 30/60/90)
+  const isRedacted = Boolean(reportData?.__teaserRedacted)
   const actionPlan = reportData?.dynamic_action_plan || reportData?.action_plan || {}
   const sevenDayTasks = (Array.isArray(actionPlan.sevenDayQuickPlan) && actionPlan.sevenDayQuickPlan.length > 0)
     ? actionPlan.sevenDayQuickPlan.slice(0, 7)
     : (Array.isArray(reportData?.sevenDayQuickPlan) && reportData.sevenDayQuickPlan.length > 0)
     ? reportData.sevenDayQuickPlan.slice(0, 7)
+    : isRedacted
+    ? [{ locked: true, lockedReason: 'Locked - Book Free 1:1 Call to Unlock' }]
     : [
         { day: 1, title: 'Keyword & Competency Alignment', action: 'Audit resume against top target job descriptions to identify missing domain keywords.', deliverable: 'JD Keyword Matrix', metricTarget: 'Add 5+ verified keywords' },
         { day: 2, title: 'Google XYZ Bullet Overhaul', action: 'Restructure achievement bullets to format: Accomplished [X] measured by [Y] by doing [Z].', deliverable: 'Restructured achievement bullets', metricTarget: '100% bullets with metrics' },
@@ -621,7 +624,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         { day: 7, title: 'Weekly Funnel Audit & Calibration', action: isPhase2Healthy ? 'Review technical round feedback and calibrate coding and system design mock sessions.' : 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Callback rate >= ${targetCallbackRate}%` },
       ]
 
-  const milestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
+  const rawMilestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
     ? actionPlan.milestonePathway.slice(0, 3)
     : (Array.isArray(reportData?.milestonePathway) && reportData.milestonePathway.length > 0)
     ? reportData.milestonePathway.slice(0, 3)
@@ -634,6 +637,11 @@ export default function CareerReportPdf({ reportData = {} }) {
         { period: '60 Days', stage: 'Technical Panel Defense & Architectural Velocity', goal: `Convert recruiter screens into technical rounds and advance through panel assessments at >= ${targetScreenToTech}%.`, deliverable: '3+ Concurrent Technical Interview Loops', successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%` },
         { period: '90 Days', stage: 'Final Rounds, Offers & Negotiation', goal: 'Advance through onsite interview loops and secure a competitive, written job offer.', deliverable: 'Signed competitive offer letter', successSignal: 'Offer-to-joining acceptance' },
       ]
+  const milestonePathway = isRedacted
+    ? rawMilestonePathway.map((m, idx) =>
+        idx === 0 ? m : { locked: true, lockedReason: m?.lockedReason || 'Locked - Book Free 1:1 Call to Unlock' }
+      )
+    : rawMilestonePathway
 
   // 4. Resume Deep Diagnosis Data
   const resumeAgent = reportData?.resume_agent || {}
@@ -1578,11 +1586,11 @@ export default function CareerReportPdf({ reportData = {} }) {
                 <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#16A34A' }}>
                   AFTER: ROLE-ALIGNED EXECUTIVE REWRITE
                 </Text>
-                <Text style={summaryOpt?.summaryRewriteLocked ? styles.tagNeutral : styles.tagPass}>
-                  {summaryOpt?.summaryRewriteLocked ? 'LOCKED' : 'OPTIMIZED'}
+                <Text style={summaryOpt?.summaryRewriteLocked || isRedacted ? styles.tagNeutral : styles.tagPass}>
+                  {summaryOpt?.summaryRewriteLocked || isRedacted ? 'LOCKED' : 'OPTIMIZED'}
                 </Text>
               </View>
-              {summaryOpt?.summaryRewriteLocked ? (
+              {summaryOpt?.summaryRewriteLocked || isRedacted ? (
                 <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
                   Locked - Book Free 1:1 Call to Unlock
                 </Text>
