@@ -1334,33 +1334,36 @@ function ReportDashboardContent({ sharedReportId = null }) {
                 <PrimaryBottleneck
                   reportData={reportData}
                   onNavigateSection={handleNavigateSection}
+                  isTeaserLocked={isTeaserLocked}
+                  bookingUrl={bookingUrl}
                 />
               </div>
+              <div id="funnel-leak">
+                <FunnelAndConversionSection
+                  funnelData={reportData.funnel_stages}
+                  rejectionData={{
+                    factors: reportData.rejection_factors,
+                    insight: reportData.rejection_insight,
+                  }}
+                  riskData={reportData.risk_heatmap}
+                  reportData={reportData}
+                />
+              </div>
+              <div id="risk-matrix" className="space-y-6 mt-10">
+                {reportData.risk_heatmap && (
+                  <RiskHeatMap data={reportData.risk_heatmap} />
+                )}
+                {reportData.mission_board && (
+                  <MissionBoard data={reportData.mission_board} />
+                )}
+              </div>
               <TeaserLockBlock
-                {...teaserLockProps}
+                variant="fade"
                 isLocked={isTeaserLocked}
-                label="Funnel Analysis, Risk Matrix & 30-Day Roadmap Locked"
-                heightClass="max-h-[540px]"
+                bookingUrl={bookingUrl}
+                label="Unlock full 30-day execution roadmap in your free 15-min call →"
+                heightClass="max-h-[360px]"
               >
-                <div id="funnel-leak">
-                  <FunnelAndConversionSection
-                    funnelData={reportData.funnel_stages}
-                    rejectionData={{
-                      factors: reportData.rejection_factors,
-                      insight: reportData.rejection_insight,
-                    }}
-                    riskData={reportData.risk_heatmap}
-                    reportData={reportData}
-                  />
-                </div>
-                <div id="risk-matrix" className="space-y-6 mt-10">
-                  {reportData.risk_heatmap && (
-                    <RiskHeatMap data={reportData.risk_heatmap} />
-                  )}
-                  {reportData.mission_board && (
-                    <MissionBoard data={reportData.mission_board} />
-                  )}
-                </div>
                 <div id="sprint-roadmap" className="space-y-10 mt-10">
                   <RoadmapTimeline
                     roadmapData={reportData.roadmap}

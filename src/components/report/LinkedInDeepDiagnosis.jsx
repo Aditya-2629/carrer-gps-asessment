@@ -1685,7 +1685,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 </span>
               </div>
 
-              {/* Render headline cards: idx 0 always visible, idx 1-2 behind TeaserLockBlock */}
+              {/* Render headline cards: when unlocked show 3-col grid; when locked show Headline #1 cleanly here and put #2-#3 inside the single fade block below */}
               {(() => {
                 const renderHeadlineCard = (item, idx) => {
                   const copyKey = `headline_${idx}`
@@ -1696,12 +1696,12 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   return (
                     <div
                       key={idx}
-                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-all"
+                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-colors duration-150"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
-                          <span className="font-mono text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">{headlineText.length}/220 chars</span>
+                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
+                          <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">{headlineText.length}/220 chars</span>
                         </div>
                         <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
                         {whyItWorks && (
@@ -1713,7 +1713,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                       <button
                         type="button"
                         onClick={() => handleCopy(headlineText, copyKey)}
-                        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${isCopied ? 'bg-emerald-600 text-white shadow-xs' : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'}`}
+                        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 cursor-pointer ${isCopied ? 'bg-emerald-600 text-white shadow-xs' : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'}`}
                       >
                         {isCopied ? <><Check size={14} weight="bold" /> Copied</> : <><Copy size={14} /> Copy Headline</>}
                       </button>
@@ -1721,60 +1721,40 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   )
                 }
 
-                const firstHeadline = optimizations.headlines[0]
-                const restHeadlines = optimizations.headlines.slice(1)
-
-                return (
-                  <>
-                    {/* Always-visible: Headline #1 */}
+                if (!isTeaserLocked) {
+                  return (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {firstHeadline && renderHeadlineCard(firstHeadline, 0)}
-                      {/* Headlines #2-3: locked */}
-                      {restHeadlines.length > 0 && (
-                        <div className="md:col-span-2">
-                          <TeaserLockBlock
-                            isLocked={isTeaserLocked}
-                            label="Headline Options #2 & #3 Locked"
-                            ctaHeadline="Unlock 2 more recruiter-SEO optimized LinkedIn headlines."
-                            heightClass="max-h-[260px]"
-                            {...teaserLockProps}
-                          >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
-                              {restHeadlines.map((item, i) => renderHeadlineCard(item, i + 1))}
-                            </div>
-                          </TeaserLockBlock>
-                        </div>
-                      )}
+                      {optimizations.headlines.map((item, idx) => renderHeadlineCard(item, idx))}
                     </div>
-                  </>
+                  )
+                }
+
+                const firstHeadline = optimizations.headlines[0]
+                return (
+                  <div className="grid grid-cols-1 gap-4">
+                    {firstHeadline && renderHeadlineCard(firstHeadline, 0)}
+                  </div>
                 )
               })()}
             </div>
           )}
 
-          {/* Story-Driven About Section Card */}
+          {/* Story-Driven About Section Card (Top 50% visible when locked) */}
           {rawAbout && (
-            <TeaserLockBlock
-              isLocked={isTeaserLocked}
-              label="Full About Section Rewrite Locked"
-              ctaHeadline="Unlock your complete 3-paragraph story-driven About section with weaved keywords."
-              heightClass="max-h-[320px]"
-              {...teaserLockProps}
-            >
-              <div
-                id="linkedin-about"
-                data-mascot-cue="Story-driven 3-paragraph About section: hook decision-makers in ~1,000 characters."
-                data-mascot-chip="Story Narrative"
-                data-mascot-emotion="speaking"
+            <div
+              id="linkedin-about"
+              data-mascot-cue="Story-driven 3-paragraph About section: hook decision-makers in ~1,000 characters."
+              data-mascot-chip="Story Narrative"
+              data-mascot-emotion="speaking"
               className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] text-[var(--text-primary)] p-5 sm:p-6 space-y-4 shadow-xs"
-              >
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                       Story-Driven About Section Rewrite
                     </h4>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium tabular-nums">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium tabular-nums">
                       {aboutWordCount} words · {aboutCharCount} chars (target: ~1,000)
                     </span>
                   </div>
@@ -1783,35 +1763,39 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleCopy(fullAboutText, 'about_rewrite')}
-                  className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
-                    copiedId === 'about_rewrite'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-[#0a66c2] hover:bg-[#004182] text-white'
-                  }`}
-                >
-                  {copiedId === 'about_rewrite' ? (
-                    <>
-                      <Check size={14} weight="bold" /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} /> Copy Full About Section
-                    </>
-                  )}
-                </button>
+                {!isTeaserLocked && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(fullAboutText, 'about_rewrite')}
+                    className={`py-2 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                      copiedId === 'about_rewrite'
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-[#0a66c2] hover:bg-[#004182] text-white'
+                    }`}
+                  >
+                    {copiedId === 'about_rewrite' ? (
+                      <>
+                        <Check size={14} weight="bold" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} /> Copy Full About Section
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="space-y-4 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-5 text-xs text-[var(--text-secondary)] leading-relaxed">
                 {aboutIsString ? (
-                  <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">{rawAbout}</p>
+                  <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                    {isTeaserLocked ? rawAbout.slice(0, Math.ceil(rawAbout.length / 2)) : rawAbout}
+                  </p>
                 ) : (
                   <>
                     {(journeyText || richFallbackJourney) && (
                       <div className="space-y-1">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--primary)]">
+                        <span className="text-xs uppercase font-bold tracking-wider text-[var(--primary)]">
                           1. Professional Journey &amp; Credibility Hook
                         </span>
                         <p className="text-[var(--text-primary)] font-medium whitespace-pre-wrap leading-relaxed">
@@ -1819,9 +1803,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                         </p>
                       </div>
                     )}
-                    {legacyAudienceText && (
+                    {!isTeaserLocked && legacyAudienceText && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                        <span className="text-xs uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
                           Target Audience &amp; Core Problem Solved
                         </span>
                         <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
@@ -1829,9 +1813,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                         </p>
                       </div>
                     )}
-                    {(specializationText || richFallbackSpecialization) && (
+                    {!isTeaserLocked && (specializationText || richFallbackSpecialization) && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
+                        <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
                           2. Specialization &amp; Concrete Proof
                         </span>
                         <p className="text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
@@ -1839,9 +1823,9 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                         </p>
                       </div>
                     )}
-                    {(networkingText || richFallbackNetworking) && (
+                    {!isTeaserLocked && (networkingText || richFallbackNetworking) && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-sky-600 dark:text-sky-400">
+                        <span className="text-xs uppercase font-bold tracking-wider text-sky-600 dark:text-sky-400">
                           3. Education, Direction &amp; Networking CTA
                         </span>
                         <p className="text-[var(--text-primary)] italic whitespace-pre-wrap leading-relaxed">
@@ -1849,22 +1833,22 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                         </p>
                       </div>
                     )}
-                    {keywordsUsed.length > 0 && (
+                    {!isTeaserLocked && keywordsUsed.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 pt-3 border-t border-[var(--border-default)]">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mr-1">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mr-1">
                           Keywords Weaved:
                         </span>
                         {keywordsUsed.map((kw, i) => (
                           <span
                             key={i}
-                            className="text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-card)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium"
+                            className="text-xs px-2 py-0.5 rounded-md bg-[var(--surface-card)] text-[var(--text-secondary)] border border-[var(--border-default)] font-medium"
                           >
                             {kw}
                           </span>
                         ))}
                       </div>
                     )}
-                    {!journeyText && !specializationText && !networkingText && fallbackFullText && (
+                    {!isTeaserLocked && !journeyText && !specializationText && !networkingText && fallbackFullText && (
                       <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                         {fallbackFullText}
                       </p>
@@ -1873,18 +1857,64 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 )}
               </div>
             </div>
+          )}
+
+          {/* ── Single Editorial Fade Lock for Remaining Headlines (#2-#3) + Bottom Half of About + Experience Upgrades ── */}
+          {isTeaserLocked && (
+            <TeaserLockBlock
+              variant="fade"
+              isLocked={true}
+              bookingUrl={teaserLockProps?.bookingUrl}
+              label="Unlock Headlines #2–#3, full About rewrite & Experience upgrades in your free 15-min call →"
+              heightClass="max-h-[340px]"
+            >
+              <div className="space-y-6">
+                {Array.isArray(optimizations.headlines) && optimizations.headlines.length > 1 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {optimizations.headlines.slice(1).map((item, i) => {
+                      const headlineText = typeof item === 'string' ? item : safeText(item?.headline || item?.text)
+                      const whyItWorks = safeText(item?.whyItWorks)
+                      const label = HEADLINE_FORMULA_LABELS[i + 1] || safeText(item?.formula) || `Option ${i + 2}`
+                      return (
+                        <div key={i} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-2.5">
+                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
+                          <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
+                          {whyItWorks && <p className="text-xs text-[var(--text-secondary)]">{whyItWorks}</p>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {rawAbout && !aboutIsString && (specializationText || richFallbackSpecialization) && (
+                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 space-y-3 text-xs text-[var(--text-secondary)]">
+                    <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
+                      2. Specialization &amp; Concrete Proof
+                    </span>
+                    <p className="leading-relaxed">{specializationText || richFallbackSpecialization}</p>
+                    {(networkingText || richFallbackNetworking) && (
+                      <p className="italic leading-relaxed pt-2 border-t border-[var(--border-default)]">{networkingText || richFallbackNetworking}</p>
+                    )}
+                  </div>
+                )}
+
+                {experienceUpgrades.length > 0 && (
+                  <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
+                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
+                      <Briefcase size={15} className="text-[var(--primary)]" />
+                      High-Impact Experience Bullet Rewrites ({experienceUpgrades.length} Roles)
+                    </span>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Pre-engineered with hard metrics, action verbs, and verified technical scope from your resume.
+                    </p>
+                  </div>
+                )}
+              </div>
             </TeaserLockBlock>
           )}
 
-          {/* ── Experience Bullet Upgrades (Outcome & Metrics Driven) ──────────── */}
-          {experienceUpgrades.length > 0 && (
-            <TeaserLockBlock
-              isLocked={isTeaserLocked}
-              label="Experience Bullet Rewrites Locked"
-              ctaHeadline="Unlock pre-engineered outcome-driven bullet rewrites for every role."
-              heightClass="max-h-[320px]"
-              {...teaserLockProps}
-            >
+          {/* ── Experience Bullet Upgrades (Unlocked view) ──────────── */}
+          {!isTeaserLocked && experienceUpgrades.length > 0 && (
             <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-default)] pb-3">
                 <div className="space-y-0.5">
@@ -2038,7 +2068,6 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 })()}
               </div>
             </div>
-            </TeaserLockBlock>
           )}
 
           {/* ── Unified: Skills & Recruiter SEO Bank (50+ Target) ── */}

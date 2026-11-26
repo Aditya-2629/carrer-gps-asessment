@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { CheckCircle, Warning, XCircle, Target, DownloadSimple } from '@phosphor-icons/react'
+import { CheckCircle, Warning, XCircle, Target, DownloadSimple, LockKey } from '@phosphor-icons/react'
+import TeaserLockBlock from '../TeaserLockBlock'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import useAppStore, { showToast } from '../../store/useAppStore'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
@@ -15,6 +16,8 @@ export default function ResumeKeywordAlignment({
   reportData: propReportData = null,
   onSkillToggle = null,
   onToast = null,
+  isTeaserLocked = false,
+  bookingUrl = '',
 }) {
   const alignment =
     keywordAlignment ||
@@ -246,6 +249,9 @@ export default function ResumeKeywordAlignment({
 
   const targetMissingList = criticalMissing.length > 0 ? criticalMissing : uniqueMissing
   const displayedMissing = showAllMissing ? targetMissingList : targetMissingList.slice(0, 10)
+  const visibleCount = isTeaserLocked ? Math.max(1, Math.ceil(displayedMissing.length / 2)) : displayedMissing.length
+  const visibleMissing = displayedMissing.slice(0, visibleCount)
+  const lockedMissing = isTeaserLocked ? displayedMissing.slice(visibleCount) : []
   const itemsToRender = displayedMissing
 
   return (
@@ -343,7 +349,7 @@ export default function ResumeKeywordAlignment({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
-            {displayedMissing.map((item, i) => {
+            {visibleMissing.map((item, i) => {
               const isSelected = selectedSkills.has(item.keyword)
               return (
                 <div
@@ -374,26 +380,55 @@ export default function ResumeKeywordAlignment({
             })}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-            {targetMissingList.length > 10 && (
-              <button
-                type="button"
-                onClick={() => setShowAllMissing(!showAllMissing)}
-                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-              >
-                {showAllMissing ? 'Show top 10 missing skills' : `Show all (${targetMissingList.length}) missing skills`}
-              </button>
-            )}
-            {uniqueMissing.length > 5 && (
-              <button
-                type="button"
-                onClick={() => setShowAllTags(!showAllTags)}
-                className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:underline cursor-pointer ml-auto"
-              >
-                {showAllTags ? 'Hide full inventory' : 'Show full keyword inventory'}
-              </button>
-            )}
-          </div>
+          {isTeaserLocked && lockedMissing.length > 0 && (
+            <TeaserLockBlock
+              variant="chip-fade"
+              isLocked={true}
+              lockedCount={lockedMissing.length}
+              bookingUrl={bookingUrl}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {lockedMissing.map((item, i) => (
+                  <div
+                    key={i}
+                    className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
+                  >
+                    <div className="space-y-1 mb-2">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                        {item.keyword}
+                      </span>
+                      <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
+                        in {item.percentage || 35}% of JDs
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TeaserLockBlock>
+          )}
+
+          {!isTeaserLocked && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              {targetMissingList.length > 10 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllMissing(!showAllMissing)}
+                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  {showAllMissing ? 'Show top 10 missing skills' : `Show all (${targetMissingList.length}) missing skills`}
+                </button>
+              )}
+              {uniqueMissing.length > 5 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllTags(!showAllTags)}
+                  className="text-xs font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:underline cursor-pointer ml-auto"
+                >
+                  {showAllTags ? 'Hide full inventory' : 'Show full keyword inventory'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -444,12 +479,30 @@ export default function ResumeKeywordAlignment({
 
         <button
           type="button"
-          onClick={handleDownloadTailoredResume}
+          onClick={() => {
+            if (isTeaserLocked) {
+              document.getElementById('next-action')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              if (typeof onToast === 'function') {
+                onToast('Unlock your tailored ATS .docx resume in your free 15-min strategy call.')
+              }
+              return
+            }
+            handleDownloadTailoredResume()
+          }}
           disabled={isDownloading}
-          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 disabled:opacity-60 ${
+            isTeaserLocked
+              ? 'bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)] hover:border-[var(--primary)]'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+          }`}
         >
-          <DownloadSimple size={15} weight="bold" />
+          {isTeaserLocked ? <LockKey size={15} weight="bold" className="text-[var(--primary)]" /> : <DownloadSimple size={15} weight="bold" />}
           <span>{isDownloading ? 'Building Tailored Resume...' : 'Download Tailored ATS Resume (.docx)'}</span>
+          {isTeaserLocked && (
+            <span className="px-1.5 py-0.5 rounded bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs font-medium text-[var(--text-muted)]">
+              Call
+            </span>
+          )}
         </button>
       </div>
     </div>

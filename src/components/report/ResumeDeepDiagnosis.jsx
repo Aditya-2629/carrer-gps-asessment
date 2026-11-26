@@ -18,6 +18,7 @@ import {
   ArrowsLeftRight,
   Target,
   ChartBar,
+  LockKey,
 } from '@phosphor-icons/react'
 import ResumeScoreCard from './ResumeScoreCard.jsx'
 import ResumeKeywordAlignment from './ResumeKeywordAlignment.jsx'
@@ -601,12 +602,28 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             {/* Prominent Tailored .docx Download Button */}
             <button
               type="button"
-              onClick={() => handleDownloadDocx()}
+              onClick={() => {
+                if (isTeaserLocked) {
+                  document.getElementById('next-action')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  setToastMsg('Unlock your tailored ATS .docx resume in your free 15-min strategy call.')
+                  return
+                }
+                handleDownloadDocx()
+              }}
               disabled={isDownloadingDocx}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60"
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer ml-auto disabled:opacity-60 ${
+                isTeaserLocked
+                  ? 'bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)] hover:border-[var(--primary)]'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+              }`}
             >
-              <DownloadSimple size={13} weight="bold" />
+              {isTeaserLocked ? <LockKey size={13} weight="bold" className="text-[var(--primary)]" /> : <DownloadSimple size={13} weight="bold" />}
               <span>{isDownloadingDocx ? 'Generating .docx...' : 'Download Tailored ATS Resume (.docx)'}</span>
+              {isTeaserLocked && (
+                <span className="px-1.5 py-0.5 rounded bg-[var(--surface-card)] border border-[var(--border-default)] text-xs font-medium text-[var(--text-muted)]">
+                  Call
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -739,6 +756,8 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             onRebuildResume={handleDownloadDocx}
             reportData={reportData}
             onToast={(msg) => setToastMsg(msg)}
+            isTeaserLocked={isTeaserLocked}
+            bookingUrl={teaserLockProps?.bookingUrl}
           />
         </div>
       )}
@@ -900,17 +919,16 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
       )}
 
       {/* Line-by-line bullet audit with interactive experience dropdowns */}
-      <TeaserLockBlock
-        isLocked={isTeaserLocked}
-        label="Full Bullet Rewrites, ATS Keywords & Interview Defense Locked"
-        ctaHeadline="See every line-by-line rewrite, ATS keyword swap, and interview defense guide."
-        heightClass="max-h-[380px]"
-        {...teaserLockProps}
-      >
-        <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
-          <ResumeBulletAudit bulletAudit={resolvedBullets} bulletData={reportData} issues={issues} variant={variant} />
-        </div>
-      </TeaserLockBlock>
+      <div id="resume-bullets" className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6">
+        <ResumeBulletAudit
+          bulletAudit={resolvedBullets}
+          bulletData={reportData}
+          issues={issues}
+          variant={variant}
+          isTeaserLocked={isTeaserLocked}
+          bookingUrl={teaserLockProps?.bookingUrl}
+        />
+      </div>
 
       {/* What to Cut (Fluff & 1-Page Discipline) */}
       {cutList.length > 0 && (

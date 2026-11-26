@@ -12,6 +12,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { DiffReview } from '../diff-review'
 import { CopyButton } from '../copy-button'
+import TeaserLockBlock from '../TeaserLockBlock'
 
 export function cleanRewriteText(text) {
   if (!text || typeof text !== 'string') return text
@@ -38,6 +39,8 @@ export default function ResumeBulletAudit({
   bulletAudit,
   issues = [],
   variant = 'light',
+  isTeaserLocked = false,
+  bookingUrl = '',
 }) {
   const { triggerGuide } = useReportGuideStore()
   const [copiedIdx, setCopiedIdx] = useState(null)
@@ -502,76 +505,84 @@ export default function ResumeBulletAudit({
                         </div>
                       )}
 
-                      {/* Why This Rewrite Works (What was upgraded) */}
-                      {(item.whyItWorks || item.why) && (
-                        <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5">
-                          <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-semibold">
-                            <CheckCircle size={13} weight="bold" /> Why This Rewrite Works:
-                          </span>
-                          <p className="leading-relaxed font-medium">
-                            {item.whyItWorks || item.why}
-                          </p>
-                        </div>
-                      )}
+                      {/* Why This Rewrite Works & Strategic Recruiter Diff (Locked from Bullet #3 onwards when teaser is active) */}
+                      <TeaserLockBlock
+                        variant="inline-pill"
+                        isLocked={isTeaserLocked && idx >= 2 && Boolean(item.rewritten && item.original !== item.rewritten)}
+                        label="Unlock rewrite"
+                        bookingUrl={bookingUrl}
+                      >
+                        {/* Why This Rewrite Works (What was upgraded) */}
+                        {(item.whyItWorks || item.why) && (
+                          <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-900/50 text-xs text-emerald-900 dark:text-emerald-200 space-y-0.5 mb-3">
+                            <span className="text-[11px] font-mono text-emerald-700 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+                              <CheckCircle size={13} weight="bold" /> Why This Rewrite Works:
+                            </span>
+                            <p className="leading-relaxed font-medium">
+                              {item.whyItWorks || item.why}
+                            </p>
+                          </div>
+                        )}
 
-                      {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
-                      {item.rewritten && item.original !== item.rewritten ? (
-                        <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
-                                <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
-                              </span>
-                              {item.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
-                                  <CheckCircle size={10} weight="fill" /> Candidate Confirmed: {item.confirmedMetric}
+                        {/* Strategic Recruiter Rewrite with Clean Red-Cut -> Green-New Diff & CopyButton */}
+                        {item.rewritten && item.original !== item.rewritten ? (
+                          <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
+                                  <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                                 </span>
-                              )}
-                              {item.evidenceStatus === 'CALCULATED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
-                                  <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
-                                </span>
-                              )}
-                              {item.metricSource === 'ai_calibrated' && item.evidenceStatus !== 'CANDIDATE_CONFIRMED' && item.evidenceStatus !== 'CALCULATED' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title="Verify this calibrated benchmark before your interview">
-                                  Suggested benchmark — verify before interview
-                                </span>
-                              )}
+                                {item.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
+                                    <CheckCircle size={10} weight="fill" /> Candidate Confirmed: {item.confirmedMetric}
+                                  </span>
+                                )}
+                                {item.evidenceStatus === 'CALCULATED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
+                                    <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
+                                  </span>
+                                )}
+                                {item.metricSource === 'ai_calibrated' && item.evidenceStatus !== 'CANDIDATE_CONFIRMED' && item.evidenceStatus !== 'CALCULATED' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20" title="Verify this calibrated benchmark before your interview">
+                                    Suggested benchmark — verify before interview
+                                  </span>
+                                )}
+                              </div>
+                              <CopyButton
+                                text={item.rewritten}
+                                label="Copy Rewrite"
+                                copiedLabel="Copied"
+                                size="sm"
+                              />
                             </div>
+                            <DiffReview
+                              changes={[
+                                {
+                                  id: item.bulletId || String(idx),
+                                  label: 'Bullet Rewrite',
+                                  before: item.original,
+                                  after: item.rewritten,
+                                },
+                              ]}
+                              mode="words"
+                              readOnly={true}
+                              title="Before → After Word Diff"
+                            />
+                          </div>
+                        ) : !isHelping ? (
+                          <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
+                            <span className="font-mono text-xs text-[var(--text-muted)]">
+                              Formula recommendation: Lead with an active ownership verb and quantified scale.
+                            </span>
                             <CopyButton
-                              text={item.rewritten}
-                              label="Copy Rewrite"
+                              text={item.original}
+                              label="Copy Original"
                               copiedLabel="Copied"
                               size="sm"
                             />
                           </div>
-                          <DiffReview
-                            changes={[
-                              {
-                                id: item.bulletId || String(idx),
-                                label: 'Bullet Rewrite',
-                                before: item.original,
-                                after: item.rewritten,
-                              },
-                            ]}
-                            mode="words"
-                            readOnly={true}
-                            title="Before → After Word Diff"
-                          />
-                        </div>
-                      ) : !isHelping ? (
-                        <div className="p-3 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] text-xs text-[var(--text-secondary)] flex items-center justify-between">
-                          <span className="font-mono text-xs text-[var(--text-muted)]">
-                            Formula recommendation: Lead with an active ownership verb and quantified scale.
-                          </span>
-                          <CopyButton
-                            text={item.original}
-                            label="Copy Original"
-                            copiedLabel="Copied"
-                            size="sm"
-                          />
-                        </div>
-                      ) : null}
+                        ) : null}
+                      </TeaserLockBlock>
                     </div>
                   </motion.div>
                 )}

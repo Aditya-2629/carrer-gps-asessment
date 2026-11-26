@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import TeaserLockBlock from '../TeaserLockBlock'
 import {
   Warning,
   Lightbulb,
@@ -36,7 +37,7 @@ function safeText(val, fallback = '') {
   return fallback
 }
 
-export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
+export default function PrimaryBottleneck({ reportData, onNavigateSection, isTeaserLocked = false, bookingUrl = '' }) {
   const phase = reportData?.phase ?? {
     id: 1,
     name: 'Resume → Screening Call',
@@ -335,82 +336,101 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {topActions.map((action, idx) => (
-            <div
-              key={idx}
-              className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card"
-            >
-              <div className="space-y-3">
-                {/* Header: Priority Number + Category */}
-                <div className="flex items-center justify-between">
-                  <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
-                    #{idx + 1}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)]">
-                    {action.category || 'Strategic Fix'}
-                  </span>
+          {topActions.map((action, idx) => {
+            const actionCard = (
+              <div
+                key={idx}
+                className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card h-full"
+              >
+                <div className="space-y-3">
+                  {/* Header: Priority Number + Category */}
+                  <div className="flex items-center justify-between">
+                    <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
+                      #{idx + 1}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-[var(--surface-sunken)] border border-[var(--border-default)] text-[var(--text-muted)]">
+                      {action.category || 'Strategic Fix'}
+                    </span>
+                  </div>
+
+                  {/* Action Title */}
+                  <h4 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] leading-snug">
+                    {action.title}
+                  </h4>
+
+                  {/* Why It Matters */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono text-[var(--text-muted)] block">
+                      Why It Matters:
+                    </span>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                      {action.whyItMatters}
+                    </p>
+                  </div>
+
+                  {/* Concrete What To Do */}
+                  <div className="p-3 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-subtle)] space-y-1">
+                    <span className="text-[10px] font-mono text-[var(--text-muted)] block">
+                      What To Do:
+                    </span>
+                    <p className="text-xs font-medium text-[var(--text-primary)] leading-relaxed">
+                      {action.whatToDo}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Action Title */}
-                <h4 className="text-sm sm:text-base font-semibold text-[var(--text-primary)] leading-snug">
-                  {action.title}
-                </h4>
+                {/* Action Metadata: Resource, Duration, Metric */}
+                <div className="pt-3 border-t border-[var(--border-subtle)] space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between text-[var(--text-muted)]">
+                    <span className="flex items-center gap-1">
+                      <Wrench size={13} />
+                      Tool:
+                    </span>
+                    <span className="font-semibold text-[var(--text-secondary)] truncate max-w-[160px]">
+                      {action.resourceTool || 'Crafture Framework'}
+                    </span>
+                  </div>
 
-                {/* Why It Matters */}
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
-                    Why It Matters:
-                  </span>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    {action.whyItMatters}
-                  </p>
-                </div>
+                  <div className="flex items-center justify-between text-[var(--text-muted)]">
+                    <span className="flex items-center gap-1">
+                      <Clock size={13} />
+                      Effort:
+                    </span>
+                    <span className="font-semibold text-[var(--text-secondary)] font-mono">
+                      {action.duration || '2–4 hours'}
+                    </span>
+                  </div>
 
-                {/* Concrete What To Do */}
-                <div className="p-3 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-subtle)] space-y-1">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] block">
-                    What To Do:
-                  </span>
-                  <p className="text-xs font-medium text-[var(--text-primary)] leading-relaxed">
-                    {action.whatToDo}
-                  </p>
+                  <div className="flex items-center justify-between text-[var(--text-muted)]">
+                    <span className="flex items-center gap-1">
+                      <TrendUp size={13} />
+                      Metric:
+                    </span>
+                    <span className="font-semibold text-emerald-500 truncate max-w-[160px]">
+                      {action.successMetric || 'Measurable callback lift'}
+                    </span>
+                  </div>
                 </div>
               </div>
+            )
 
-              {/* Action Metadata: Resource, Duration, Metric */}
-              <div className="pt-3 border-t border-[var(--border-subtle)] space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between text-[var(--text-muted)]">
-                  <span className="flex items-center gap-1">
-                    <Wrench size={13} />
-                    Tool:
-                  </span>
-                  <span className="font-semibold text-[var(--text-secondary)] truncate max-w-[160px]">
-                    {action.resourceTool || 'Crafture Framework'}
-                  </span>
-                </div>
+            if (isTeaserLocked && idx === 2) {
+              return (
+                <TeaserLockBlock
+                  key={idx}
+                  variant="fade"
+                  isLocked={true}
+                  bookingUrl={bookingUrl}
+                  label="Unlock Action #3 in your free 15-min call →"
+                  heightClass="max-h-[240px]"
+                >
+                  {actionCard}
+                </TeaserLockBlock>
+              )
+            }
 
-                <div className="flex items-center justify-between text-[var(--text-muted)]">
-                  <span className="flex items-center gap-1">
-                    <Clock size={13} />
-                    Effort:
-                  </span>
-                  <span className="font-semibold text-[var(--text-secondary)] font-mono">
-                    {action.duration || '2–4 hours'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-[var(--text-muted)]">
-                  <span className="flex items-center gap-1">
-                    <TrendUp size={13} />
-                    Metric:
-                  </span>
-                  <span className="font-semibold text-emerald-500 truncate max-w-[160px]">
-                    {action.successMetric || 'Measurable callback lift'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
+            return actionCard
+          })}
         </div>
       </div>
     </section>

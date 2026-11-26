@@ -1,83 +1,114 @@
-import { LockKey, CalendarBlank, WhatsappLogo } from '@phosphor-icons/react'
+import { LockKey } from '@phosphor-icons/react'
+
+function scrollToStrategyCall(bookingUrl) {
+  const target = typeof document !== 'undefined' ? document.getElementById('next-action') : null
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
+  if (bookingUrl && typeof window !== 'undefined') {
+    window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+  }
+}
 
 /**
- * TeaserLockBlock — reusable section-level teaser lock gate.
+ * TeaserLockBlock — Editorial, high-curiosity 50% Teaser Gate.
  *
- * Props:
- *   isLocked        {boolean}  — when false, renders children with zero wrapper overhead
- *   label           {string}   — lock card heading (e.g. "Bullet Rewrites Locked")
- *   ctaHeadline     {string}   — optional sub-headline in the lock card
- *   ctaButtonLabel  {string}   — Book Call button label
- *   bookingUrl      {string}   — href for Book Call button
- *   whatsappUrl     {string}   — full wa.me href
- *   heightClass     {string}   — Tailwind max-h class applied to blurred child container
- *   children        {ReactNode}
+ * Variants:
+ *  - "fade" (default): Shows top ~50% clearly, masks bottom half with CSS linear-gradient
+ *    and places ONE minimal frosted-glass pill below the masked area.
+ *  - "inline-pill": Gently blurs ONLY the wrapped rewrite box (`blur-[4.5px]`) with a
+ *    subtle right-aligned `Unlock rewrite` chip, keeping diagnostics 100% readable.
+ *  - "chip-fade": Softly fades remaining items and appends a sleek `+N more unlocked on call` badge.
  */
 export default function TeaserLockBlock({
   isLocked,
+  variant = 'fade',
   label,
-  ctaHeadline,
-  ctaButtonLabel = 'Book Free 1:1 Strategy Call',
+  lockedCount = 0,
   bookingUrl = '',
-  whatsappUrl = '',
   heightClass = 'max-h-[340px]',
+  className = '',
   children,
 }) {
   if (!isLocked) return children
 
+  if (variant === 'inline-pill') {
+    return (
+      <div className={`relative rounded-xl ${className}`}>
+        <div
+          className="blur-[4.5px] select-none pointer-events-none opacity-80"
+          aria-hidden="true"
+        >
+          {children}
+        </div>
+        <div className="absolute inset-0 flex items-start justify-end p-2.5 pointer-events-none">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              scrollToStrategyCall(bookingUrl)
+            }}
+            className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-card)]/95 backdrop-blur-sm border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-xs transition-colors duration-150 cursor-pointer"
+          >
+            <LockKey size={12} weight="bold" className="text-[var(--primary)]" />
+            <span>{label || 'Unlock rewrite'}</span>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (variant === 'chip-fade') {
+    return (
+      <div className={`space-y-3 ${className}`}>
+        <div className="relative overflow-clip">
+          <div
+            className="opacity-45 blur-[2px] select-none pointer-events-none"
+            style={{ maskImage: 'linear-gradient(to top, transparent 0%, black 80%)' }}
+            aria-hidden="true"
+          >
+            {children}
+          </div>
+          <div className="mt-2 flex items-center justify-start">
+            <button
+              type="button"
+              onClick={() => scrollToStrategyCall(bookingUrl)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-colors duration-150 cursor-pointer"
+            >
+              <LockKey size={12} weight="bold" className="text-[var(--primary)]" />
+              <span>
+                {label || `+${lockedCount} more unlocked on call`}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Default: variant="fade"
   return (
-    <div className="relative overflow-hidden rounded-xl">
-      {/* Blurred preview of children */}
+    <div className={`relative ${className}`}>
       <div
-        className={`${heightClass} overflow-hidden blur-[6px] select-none pointer-events-none opacity-65`}
+        className={`${heightClass} overflow-clip pointer-events-none select-none`}
+        style={{
+          maskImage: 'linear-gradient(to top, transparent 0%, rgba(0, 0, 0, 0.22) 28%, black 68%)',
+        }}
         aria-hidden="true"
       >
         {children}
       </div>
 
-      {/* Lock overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--surface-base)]/70 to-[var(--surface-base)]/95 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-2xl bg-[var(--surface-card)]/95 backdrop-blur-xl border border-[var(--border-default)] p-5 sm:p-6 text-center shadow-2xl space-y-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-[var(--primary)] flex items-center justify-center mx-auto">
-            <LockKey size={22} weight="fill" />
-          </div>
-
-          <div className="space-y-1">
-            <h3 className="text-sm sm:text-base font-bold text-[var(--text-primary)] leading-snug">
-              {label || 'Unlock Your Full Report'}
-            </h3>
-            {ctaHeadline && (
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                {ctaHeadline}
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-0.5">
-            {bookingUrl && (
-              <a
-                href={bookingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-xs font-semibold shadow-md transition-all no-underline cursor-pointer"
-              >
-                <CalendarBlank size={15} weight="bold" />
-                <span>{ctaButtonLabel}</span>
-              </a>
-            )}
-            {whatsappUrl && (
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-md transition-all no-underline cursor-pointer"
-              >
-                <WhatsappLogo size={16} weight="fill" />
-                <span>Connect on WhatsApp</span>
-              </a>
-            )}
-          </div>
-        </div>
+      <div className="-mt-6 relative z-10 flex justify-center pb-1">
+        <button
+          type="button"
+          onClick={() => scrollToStrategyCall(bookingUrl)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface-card)]/90 backdrop-blur-md border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-sm transition-colors duration-150 cursor-pointer"
+        >
+          <LockKey size={14} weight="bold" className="text-[var(--primary)]" />
+          <span>{label || 'Unlock full rewrite in your free 15-min call →'}</span>
+        </button>
       </div>
     </div>
   )
