@@ -296,8 +296,8 @@ export const getStats = async (_req, res) => {
       User.aggregate([{ $match: { totalCostUsd: { $gt: 0 } } }, { $group: { _id: null, sum: { $sum: '$totalCostUsd' } } }]),
       LlmCallLog.aggregate([{ $match: { createdAt: { $gte: startOfTodayIst } } }, { $group: { _id: null, sum: { $sum: '$costUsd' } } }]),
       User.aggregate([
-        { $match: { 'aiReport.career_health_score': { $exists: true } } },
-        { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: { $ifNull: ['$totalCostUsd', 0] } } } },
+        { $match: { 'aiReport.career_health_score': { $exists: true }, totalCostUsd: { $gt: 0 } } },
+        { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: '$totalCostUsd' } } },
       ]),
     ])
 

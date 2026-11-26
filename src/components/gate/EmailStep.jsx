@@ -86,6 +86,12 @@ export default function EmailStep() {
                 type="email"
                 placeholder="you@example.com"
                 autoFocus
+                onBlur={(e) => {
+                  const val = e.target.value?.trim()
+                  if (val) {
+                    trackAnalytics({ currentPhase: 'gate', currentStep: 'email', abandonedDraft: { email: val } })
+                  }
+                }}
                 className={`premium-input ${errors.email ? 'error' : ''}`}
                 aria-invalid={!!errors.email}
                 aria-describedby={errors.email ? 'email-error' : undefined}

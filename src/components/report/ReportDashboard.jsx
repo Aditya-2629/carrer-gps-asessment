@@ -11,7 +11,7 @@ import TeaserLockBlock from '../TeaserLockBlock'
 import UnlockModal from '../UnlockModal'
 import useAppStore, { PHASES, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
-import { trackAnalytics } from '../../lib/analytics'
+import { trackAnalytics, trackFunnelEvent } from '../../lib/analytics'
 import { navigateTo } from '../../lib/navigation'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
@@ -1145,6 +1145,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
 
 
   const handleBookCall = async () => {
+    trackFunnelEvent('call_cta_clicked', { email, userId })
     if (email) {
       try {
         await api.bookCall({ email })

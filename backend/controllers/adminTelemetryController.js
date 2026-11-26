@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import AgentRun from '../models/AgentRun.js'
+import LlmCallLog from '../models/LlmCallLog.js'
 import User from '../models/User.js'
 import VisitorSession from '../models/VisitorSession.js'
 import DailyAnalyticsSummary from '../models/DailyAnalyticsSummary.js'
@@ -146,10 +147,31 @@ export async function getFallbackAndErrorAnalytics(req, res) {
       },
     ]
 
+    const byModelAgg = await LlmCallLog.aggregate([
+      {
+        $group: {
+          _id: { model: '$model', provider: '$provider' },
+          costUsd: { $sum: { $ifNull: ['$costUsd', 0] } },
+          calls: { $sum: 1 },
+          tokens: { $sum: { $ifNull: ['$totalTokens', 0] } },
+        },
+      },
+      { $sort: { costUsd: -1 } },
+    ])
+    const byModel = byModelAgg.map((m) => ({
+      model: m._id?.model || 'unknown',
+      provider: m._id?.provider || 'unknown',
+      costUsd: Number((m.costUsd || 0).toFixed(5)),
+      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      calls: m.calls || 0,
+      tokens: m.tokens || 0,
+    }))
+
     return res.status(200).json({
       success: true,
       fallbackTriggers,
       topFailingEndpoints,
+      byModel,
       errorBreakdown: Object.entries(errorCounts)
         .map(([error, count]) => ({ error, count }))
         .sort((a, b) => b.count - a.count),
@@ -249,6 +271,26 @@ export async function getLlmCallsAndQuotas(req, res) {
       }
     })
 
+    const byModelAgg = await LlmCallLog.aggregate([
+      {
+        $group: {
+          _id: { model: '$model', provider: '$provider' },
+          costUsd: { $sum: { $ifNull: ['$costUsd', 0] } },
+          calls: { $sum: 1 },
+          tokens: { $sum: { $ifNull: ['$totalTokens', 0] } },
+        },
+      },
+      { $sort: { costUsd: -1 } },
+    ])
+    const byModel = byModelAgg.map((m) => ({
+      model: m._id?.model || 'unknown',
+      provider: m._id?.provider || 'unknown',
+      costUsd: Number((m.costUsd || 0).toFixed(5)),
+      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      calls: m.calls || 0,
+      tokens: m.tokens || 0,
+    }))
+
     return res.status(200).json({
       success: true,
       summary: {
@@ -263,13 +305,25 @@ export async function getLlmCallsAndQuotas(req, res) {
         p50LatencySec: `${p50Latency}s`,
         p95LatencySec: `${p95Latency}s`,
       },
-      costByModel: Object.entries(costByModel).map(([model, usd]) => ({
-        model,
-        usd: Number(usd.toFixed(4)),
-        inr: Number((usd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
-        tokens: tokensByModel[model] || 0,
-        percentageOfSpend: totalSpendUsd > 0 ? Math.round((usd / totalSpendUsd) * 100) : 0,
-      })),
+      byModel,
+      costByModel: byModel.length > 0
+        ? byModel.map((m) => ({
+            model: m.model,
+            provider: m.provider,
+            calls: m.calls,
+            usd: m.costUsd,
+            costUsd: m.costUsd,
+            inr: m.costInr,
+            tokens: m.tokens,
+            percentageOfSpend: totalSpendUsd > 0 ? Math.round((m.costUsd / totalSpendUsd) * 100) : 0,
+          }))
+        : Object.entries(costByModel).map(([model, usd]) => ({
+            model,
+            usd: Number(usd.toFixed(4)),
+            inr: Number((usd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+            tokens: tokensByModel[model] || 0,
+            percentageOfSpend: totalSpendUsd > 0 ? Math.round((usd / totalSpendUsd) * 100) : 0,
+          })),
       detailedCalls,
       keyPools: {
         apify: {
@@ -624,11 +678,14 @@ export async function getAnalyticsOverview(req, res) {
       ]),
       VisitorSession.find({
         completed: { $ne: true },
+        maxStepReached: { $lt: 4 },
         currentPhase: { $ne: 'report' },
         $or: [
+          { 'abandonedDraft.name': { $ne: '' } },
           { 'abandonedDraft.email': { $ne: '' } },
           { 'abandonedDraft.phone': { $ne: '' } },
           { 'abandonedDraft.linkedin': { $ne: '' } },
+          { 'abandonedDraft.targetRole': { $ne: '' } },
           { 'abandonedDraft.resumeFilename': { $ne: '' } },
         ],
       })
@@ -643,13 +700,15 @@ export async function getAnalyticsOverview(req, res) {
       VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 1 } }, { currentPhase: { $in: ['assessment', 'otp', 'loading', 'report'] } }] }),
       VisitorSession.countDocuments({ maxStepReached: { $gte: 2 } }),
       VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 3 } }, { currentPhase: { $in: ['otp', 'loading', 'report'] } }] }),
-      VisitorSession.countDocuments({ $or: [{ maxStepReached: { $gte: 4 } }, { currentPhase: 'report' }] }),
+      VisitorSession.countDocuments({ $or: [{ completed: true }, { maxStepReached: { $gte: 4 } }, { currentPhase: 'report' }] }),
       User.countDocuments({ aiReport: { $ne: null } }),
       User.countDocuments({ callBooked: true }),
       User.countDocuments({ reportUnlocked: true }),
     ])
 
-    const funnelReport = Math.max(sessionsReport, usersWithReport)
+    const funnelUnlocked = usersUnlocked
+    const funnelCallBooked = Math.max(usersCallBooked, funnelUnlocked)
+    const funnelReport = Math.max(sessionsReport, usersWithReport, funnelCallBooked)
     const funnelStep3 = Math.max(sessionsStep3Plus, funnelReport)
     const funnelStep2 = Math.max(sessionsStep2Plus, funnelStep3)
     const funnelStep1 = Math.max(sessionsStep1Plus, funnelStep2)
@@ -657,12 +716,13 @@ export async function getAnalyticsOverview(req, res) {
 
     const funnel = {
       landing: funnelLanding,
+      visitors: funnelLanding,
       step1: funnelStep1,
       step2: funnelStep2,
       step3: funnelStep3,
       report: funnelReport,
-      callBooked: usersCallBooked,
-      unlocked: usersUnlocked,
+      callBooked: funnelCallBooked,
+      unlocked: funnelUnlocked,
     }
 
     const stepFunnel = {}
@@ -696,6 +756,114 @@ export async function getAnalyticsOverview(req, res) {
   } catch (err) {
     console.error('[AdminTelemetry] getAnalyticsOverview error:', err)
     return res.status(500).json({ success: false, message: 'Failed to retrieve analytics overview.' })
+  }
+}
+
+const GHOST_LEAD_FILTER = {
+  completed: { $ne: true },
+  maxStepReached: { $lt: 4 },
+  currentPhase: { $ne: 'report' },
+  $or: [
+    { 'abandonedDraft.name': { $ne: '' } },
+    { 'abandonedDraft.email': { $ne: '' } },
+    { 'abandonedDraft.phone': { $ne: '' } },
+    { 'abandonedDraft.linkedin': { $ne: '' } },
+    { 'abandonedDraft.targetRole': { $ne: '' } },
+    { 'abandonedDraft.resumeFilename': { $ne: '' } },
+  ],
+}
+
+/**
+ * DELETE /api/admin/analytics/ghosts/:sessionId
+ */
+export async function deleteGhostLead(req, res) {
+  try {
+    const sessionId = String(req.params?.sessionId || '').trim()
+    if (!sessionId) {
+      return res.status(400).json({ success: false, message: 'sessionId is required.' })
+    }
+    const deleted = await VisitorSession.findOneAndDelete({ sessionId })
+    return res.status(200).json({ success: true, deletedCount: deleted ? 1 : 0, sessionId })
+  } catch (err) {
+    console.error('[AdminTelemetry] deleteGhostLead error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to delete ghost lead.' })
+  }
+}
+
+/**
+ * DELETE /api/admin/analytics/ghosts
+ */
+export async function bulkDeleteGhostLeads(req, res) {
+  try {
+    const sessionIds = Array.isArray(req.body?.sessionIds) ? req.body.sessionIds.filter(Boolean) : []
+    const filter = sessionIds.length > 0 ? { sessionId: { $in: sessionIds } } : GHOST_LEAD_FILTER
+    const result = await VisitorSession.deleteMany(filter)
+    return res.status(200).json({ success: true, deletedCount: result.deletedCount || 0 })
+  } catch (err) {
+    console.error('[AdminTelemetry] bulkDeleteGhostLeads error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to clear ghost leads.' })
+  }
+}
+
+/**
+ * GET /api/admin/analytics/ghosts/export.csv
+ */
+export async function exportGhostLeadsCsv(_req, res) {
+  try {
+    const ghosts = await VisitorSession.find(GHOST_LEAD_FILTER)
+      .sort({ lastHeartbeatAt: -1 })
+      .limit(1000)
+      .lean()
+
+    const esc = (v) => {
+      const s = v == null ? '' : String(v)
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    }
+
+    const header = [
+      'Session ID',
+      'Name',
+      'Email',
+      'Phone',
+      'Target Role',
+      'LinkedIn',
+      'Resume File',
+      'Phase',
+      'Step',
+      'Device',
+      'City',
+      'Referrer',
+      'Last Active',
+    ].join(',')
+
+    const rows = ghosts.map((s) => {
+      const d = s.abandonedDraft || {}
+      return [
+        s.sessionId,
+        d.name || '',
+        d.email || '',
+        d.phone || '',
+        d.targetRole || '',
+        d.linkedin || '',
+        d.resumeFilename || '',
+        s.currentPhase || '',
+        s.currentStep || '',
+        s.device || '',
+        s.city || '',
+        s.referrer || '',
+        s.lastHeartbeatAt ? new Date(s.lastHeartbeatAt).toISOString() : '',
+      ]
+        .map(esc)
+        .join(',')
+    })
+
+    const csv = [header, ...rows].join('\n')
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="ghost-leads.csv"')
+    return res.status(200).send(csv)
+  } catch (err) {
+    console.error('[AdminTelemetry] exportGhostLeadsCsv error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to export ghost leads.' })
   }
 }
 
@@ -882,21 +1050,35 @@ export async function getSkillGapHeatmap(req, res) {
     }
 
     const users = await User.find(query)
-      .select('aiReport.resume_agent.keywordAlignment aiReport.resume_agent.dashboard.missingKeywords')
+      .select('aiReport.resume_agent aiReport.missing_skills aiReport.missingSkills')
       .lean()
 
     const counts = new Map()
     for (const u of users) {
       const ra = u.aiReport?.resume_agent || {}
-      const raw =
-        ra.keywordAlignment?.missingKeywords ||
-        ra.keywordAlignment?.missingSkills ||
-        ra.dashboard?.missingKeywords ||
-        []
+      const ka = ra.keywordAlignment || {}
+      const dash = ra.dashboard || {}
+      const lists = [
+        ka.missingFromResume,
+        ka.missingMarketSkillsRanked,
+        ka.criticalMissing,
+        ka.missingKeywords,
+        ka.missingSkills,
+        ra.missingFromResume,
+        ra.missingMarketSkillsRanked,
+        ra.criticalMissing,
+        ra.missingKeywords,
+        dash.missingKeywords,
+        u.aiReport?.missing_skills,
+        u.aiReport?.missingSkills,
+      ]
       const uniqueForCandidate = new Set()
-      for (const entry of Array.isArray(raw) ? raw : []) {
-        const name = (typeof entry === 'string' ? entry : entry?.keyword || entry?.name || '').trim()
-        if (name.length >= 2) uniqueForCandidate.add(name)
+      for (const list of lists) {
+        if (!Array.isArray(list)) continue
+        for (const entry of list) {
+          const name = (typeof entry === 'string' ? entry : entry?.keyword || entry?.skill || entry?.name || '').trim()
+          if (name.length >= 2) uniqueForCandidate.add(name)
+        }
       }
       for (const skill of uniqueForCandidate) {
         counts.set(skill, (counts.get(skill) || 0) + 1)

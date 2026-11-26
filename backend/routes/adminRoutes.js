@@ -71,6 +71,9 @@ import {
   getOpenRouterBalance,
   getOpenRouterModels,
   getAnalyticsOverview,
+  deleteGhostLead,
+  bulkDeleteGhostLeads,
+  exportGhostLeadsCsv,
   getSystemStorage,
   cleanupStaleSessions,
   getAttributionAnalytics,
@@ -122,6 +125,9 @@ router.get('/telemetry/llm-calls-and-quotas', getLlmCallsAndQuotas)
 router.get('/telemetry/openrouter-balance', getOpenRouterBalance)
 router.get('/telemetry/openrouter-models', getOpenRouterModels)
 router.get('/analytics/overview', getAnalyticsOverview)
+router.delete('/analytics/ghosts/:sessionId', deleteGhostLead)
+router.delete('/analytics/ghosts', bulkDeleteGhostLeads)
+router.get('/analytics/ghosts/export.csv', exportGhostLeadsCsv)
 router.get('/analytics/attribution', getAttributionAnalytics)
 router.get('/analytics/skill-gaps', getSkillGapHeatmap)
 router.get('/system/storage', getSystemStorage)

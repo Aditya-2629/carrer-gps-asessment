@@ -53,6 +53,7 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       device: detectDevice(req.headers['user-agent'], payload.device),
     }
 
+    if (payload.visitorId) updateFields.visitorId = String(payload.visitorId).trim().slice(0, 128)
     if (payload.currentPhase) updateFields.currentPhase = String(payload.currentPhase).slice(0, 32)
     if (payload.currentStep !== undefined && payload.currentStep !== null) {
       updateFields.currentStep = String(payload.currentStep).slice(0, 32)
@@ -91,7 +92,7 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
       }
     }
 
-    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep maxStepReached').lean()
+    const existing = await VisitorSession.findOne({ sessionId }).select('currentPhase currentStep maxStepReached completed').lean()
 
     // Map phase/step to monotonic step rank: 0=landing, 1=step1(1-3), 2=step2(4-7), 3=step3(8+/otp/loading), 4=report
     let stepRank = 0
@@ -101,29 +102,36 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
     if (phaseLower === 'report' || stepStr === 'report') {
       stepRank = 4
       updateFields.completed = true
-    } else if (phaseLower === 'loading' || phaseLower === 'otp' || stepStr === 'email' || stepStr === 'otp' || (!isNaN(stepNum) && stepNum >= 8)) {
+    } else if (
+      phaseLower === 'loading' ||
+      phaseLower === 'otp' ||
+      stepStr === 'step3_context' ||
+      stepStr === 'email' ||
+      stepStr === 'otp' ||
+      (!isNaN(stepNum) && stepNum >= 8)
+    ) {
       stepRank = 3
-    } else if (!isNaN(stepNum) && stepNum >= 4) {
+    } else if (stepStr === 'step2_linkedin' || (!isNaN(stepNum) && stepNum >= 4)) {
       stepRank = 2
-    } else if (phaseLower === 'assessment' || (!isNaN(stepNum) && stepNum >= 1)) {
+    } else if (stepStr === 'step1_resume' || phaseLower === 'assessment' || (!isNaN(stepNum) && stepNum >= 1)) {
       stepRank = 1
     }
 
-    await VisitorSession.findOneAndUpdate(
+    const upsertRes = await VisitorSession.updateOne(
       { sessionId },
       {
         $set: updateFields,
         $max: { maxStepReached: stepRank },
         $setOnInsert: { sessionId },
       },
-      { upsert: true, new: false }
+      { upsert: true }
     )
 
-    // Roll up lightweight daily counts (~500 bytes/day) for lifetime Admin charts
+    // Roll up lightweight daily counts (~500 bytes/day) — increment totalVisitors ONLY on brand-new VisitorSession insert
     const todayKey = new Date().toISOString().slice(0, 10)
     const inc = {}
-    if (!existing) inc.totalVisitors = 1
-    if (updateFields.currentPhase === 'report' && existing?.currentPhase !== 'report') {
+    if ((upsertRes?.upsertedCount || 0) > 0) inc.totalVisitors = 1
+    if (stepRank === 4 && !existing?.completed && existing?.currentPhase !== 'report') {
       inc.completedReports = 1
     }
     if (updateFields.currentStep && updateFields.currentStep !== existing?.currentStep) {
