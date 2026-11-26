@@ -547,16 +547,16 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                     {item.title}
                   </h4>
 
-                  <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed font-normal line-clamp-2">
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-normal">
                     {item.action}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--border-default)] text-xs font-mono">
                   {item.deliverable && (
-                    <div className="flex items-center gap-1.5 truncate max-w-[65%]">
-                      <span className="text-[var(--text-muted)] font-sans">Artifact:</span>
-                      <span className="text-[var(--text-secondary)] font-medium truncate">{item.deliverable}</span>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[var(--text-muted)] font-sans shrink-0">Artifact:</span>
+                      <span className="text-[var(--text-secondary)] font-medium">{item.deliverable}</span>
                     </div>
                   )}
                   {item.metricTarget && (

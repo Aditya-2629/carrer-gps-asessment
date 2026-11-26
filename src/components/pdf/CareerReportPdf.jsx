@@ -615,13 +615,57 @@ export default function CareerReportPdf({ reportData = {} }) {
     : isRedacted
     ? [{ locked: true, lockedReason: 'Locked - Book Free 1:1 Call to Unlock' }]
     : [
-        { day: 1, title: 'Keyword & Competency Alignment', action: 'Audit resume against top target job descriptions to identify missing domain keywords.', deliverable: 'JD Keyword Matrix', metricTarget: 'Add 5+ verified keywords' },
-        { day: 2, title: 'Google XYZ Bullet Overhaul', action: 'Restructure achievement bullets to format: Accomplished [X] measured by [Y] by doing [Z].', deliverable: 'Restructured achievement bullets', metricTarget: '100% bullets with metrics' },
-        { day: 3, title: 'Single-Column ATS Calibration', action: 'Reformat document to single-column layout without tables or multi-column grids for parsing safety.', deliverable: 'ATS-Compliant Document', metricTarget: '100% clean plain-text parse' },
-        { day: 4, title: 'LinkedIn Headline & About Rewrite', action: 'Deploy 15-20 word hook-first headline and 4-pillar narrative about section.', deliverable: 'Updated LinkedIn profile', metricTarget: '3x profile view velocity' },
-        { day: 5, title: 'Recruiter Outreach Sourcing List', action: 'Build list of 25 decision-makers and recruiters at target high-growth companies.', deliverable: '25-Lead Outbound Tracker', metricTarget: 'Send 10 personalized notes' },
-        { day: 6, title: 'Technical Defense Blueprint', action: 'Document architecture, deliverables, and operational trade-offs for your flagship project.', deliverable: '1-Page Project Blueprint', metricTarget: 'Ready for 3-minute pitch' },
-        { day: 7, title: 'Weekly Funnel Audit & Calibration', action: isPhase2Healthy ? 'Review technical round feedback and calibrate coding and system design mock sessions.' : 'Review callback conversions and adjust application targeting strategy.', deliverable: 'Funnel Progress Log', metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Callback rate >= ${targetCallbackRate}%` },
+        {
+          day: 1,
+          title: 'Target Keyword & Skills-Only Evidence Audit',
+          action: 'Audit your experience bullets against top target job descriptions to weave missing high-demand tools (TypeScript, Spring Boot, Kafka, Kubernetes) directly into production bullet context. Move unverified skills from your bottom skills list into measurable project outcomes.',
+          deliverable: 'Keyword-Mapped Experience Matrix',
+          metricTarget: '5+ missing skills evidenced in bullets',
+        },
+        {
+          day: 2,
+          title: 'Google XYZ Bullet Overhaul (Phase 2 Recovery)',
+          action: 'Rewrite your weakest unquantified work bullets using Accomplished [X] as measured by [Y] by doing [Z] syntax. Anchor every Spring Boot and TypeScript deliverable with latency reductions, throughput gains, or user-scale metrics to lift Phase 2 callback above 5.0%.',
+          deliverable: 'Quantified Core Experience Bullets',
+          metricTarget: '100% rewritten bullets with hard KPIs',
+        },
+        {
+          day: 3,
+          title: 'Executive Summary & Single-Column ATS Calibration',
+          action: 'Replace your generic top summary with a role-aligned positioning pitch highlighting TypeScript, Spring Boot, Kafka, and Kubernetes scale. Strip multi-column grids or merged contact headers so Greenhouse and Workday parsers index 100% of your timeline cleanly.',
+          deliverable: 'ATS-Safe Single-Column Resume',
+          metricTarget: '0 parser errors / 100% field extraction',
+        },
+        {
+          day: 4,
+          title: 'LinkedIn Headline SEO & About Hook Rewrite',
+          action: 'Deploy your recruiter-searchable Option 01 headline leading with your target title and core stack (TypeScript, Spring Boot, Kafka, Kubernetes). Publish Paragraph 1-3 of your story-driven About section and pin your top 3 core skills to rank in Boolean recruiter searches.',
+          deliverable: 'SEO-Indexed Headline & About Narrative',
+          metricTarget: '3x recruiter search appearance lift',
+        },
+        {
+          day: 5,
+          title: 'LinkedIn Featured Section & Skills Bank Expansion',
+          action: 'Populate your empty LinkedIn Featured section with 2 flagship architecture case studies or live repos demonstrating Kafka event pipelines and Kubernetes deployments. Expand your Skills Bank from 30/50 toward 50/50 role-indexed skills for full All-Star search weighting.',
+          deliverable: '2 Featured Case Studies + 50/50 Skills',
+          metricTarget: 'Featured populated + 50/50 skills',
+        },
+        {
+          day: 6,
+          title: 'Targeted Hiring Manager Outbound Sprint',
+          action: 'Run the LinkedIn Boolean query to build a focused list of 25 Engineering Managers and Staff Recruiters hiring for TypeScript and Spring Boot teams. Send concise, achievement-led connection notes referencing your Kafka and Kubernetes production wins instead of cold Easy Apply.',
+          deliverable: '25-Lead Hiring Manager Tracker',
+          metricTarget: '15+ direct manager outreach DMs sent',
+        },
+        {
+          day: 7,
+          title: 'Phase 2 Funnel Audit & Technical Defense Prep',
+          action: isPhase2Healthy
+            ? 'Review technical round feedback across TypeScript, Spring Boot, and distributed Kafka architecture trade-offs. Document failure-mode recovery stories and latency benchmarks for each flagship system so live panel rounds convert consistently.'
+            : 'Audit your Phase 2 conversion funnel (moving from 0.1% callback toward >= 5.0% target) across your first 20 tailored applications. Double down on direct referral channels and refine weak bullet hooks where recruiter screens lag.',
+          deliverable: '7-Day Funnel & Defense Calibration Log',
+          metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Phase 2 callback >= ${targetCallbackRate}%`,
+        },
       ]
 
   const rawMilestonePathway = (Array.isArray(actionPlan.milestonePathway) && actionPlan.milestonePathway.length > 0)
@@ -633,9 +677,29 @@ export default function CareerReportPdf({ reportData = {} }) {
     : (Array.isArray(reportData?.strategicRoadmap) && reportData.strategicRoadmap.length > 0)
     ? reportData.strategicRoadmap.slice(0, 3)
     : [
-        { period: '30 Days', stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Asset Calibration & Outbound Engine', goal: isPhase2Healthy ? `Maintain healthy ${screenRate}% screening callback while advancing into live technical rounds.` : `Overcome ATS drop-offs and elevate callback rate to >= ${targetCallbackRate}%.`, deliverable: 'ATS Resume + 30 Target Account Tracker', successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Callback rate >= ${targetCallbackRate}%` },
-        { period: '60 Days', stage: 'Technical Panel Defense & Architectural Velocity', goal: `Convert recruiter screens into technical rounds and advance through panel assessments at >= ${targetScreenToTech}%.`, deliverable: '3+ Concurrent Technical Interview Loops', successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%` },
-        { period: '90 Days', stage: 'Final Rounds, Offers & Negotiation', goal: 'Advance through onsite interview loops and secure a competitive, written job offer.', deliverable: 'Signed competitive offer letter', successSignal: 'Offer-to-joining acceptance' },
+        {
+          period: '30 Days',
+          stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Phase 2 Callback Recovery (0.1% -> 5%+)',
+          goal: isPhase2Healthy
+            ? `Sustain your ${screenRate}% screening callback while weaving TypeScript, Spring Boot, Kafka, and Kubernetes proof into live technical architecture walkthroughs and daily manager outreach.`
+            : `Eliminate Phase 2 ATS drop-offs (0.1% -> 5%+ callback) by quantizing weak bullets, adding TypeScript, Spring Boot, Kafka, and Kubernetes evidence, populating LinkedIn Featured, and running 25/week direct manager outreach.`,
+          deliverable: 'Quantified ATS Resume + Featured LinkedIn + 60 Manager DMs',
+          successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Phase 2 callback >= 5.0%`,
+        },
+        {
+          period: '60 Days',
+          stage: 'Technical Panel Defense & Multi-Loop Velocity',
+          goal: `Convert >= ${targetScreenToTech}% of recruiter screens into technical panels by rehearsing distributed Kafka throughput, Kubernetes scaling trade-offs, and 5 STAR ownership stories across 3+ concurrent interview pipelines.`,
+          deliverable: 'System Design Blueprints + 3+ Active Technical Loops',
+          successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%`,
+        },
+        {
+          period: '90 Days',
+          stage: 'Final Onsite Closing & Compensation Leverage',
+          goal: 'Advance through final director and architecture rounds across parallel opportunities, benchmark total compensation bands, and negotiate base, equity, and sign-on terms from a position of multi-offer leverage.',
+          deliverable: 'Written Competitive Offer & Total Comp Benchmark',
+          successSignal: 'Accepted offer at target compensation band',
+        },
       ]
   const milestonePathway = isRedacted
     ? rawMilestonePathway.map((m, idx) =>

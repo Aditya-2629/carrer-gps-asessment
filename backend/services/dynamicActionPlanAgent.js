@@ -378,7 +378,11 @@ export async function generateDynamicActionPlan({
   resumeJson = {},
   verifiedSkills = [],
   missingSkills = [],
+  skillsOnlyUnverified = [],
   bulletAudit = [],
+  resumeSectionAudit = {},
+  linkedinAudit = {},
+  linkedinSignals = {},
   signals = {},
   bottleneck = {},
   funnelStages = {},
@@ -387,10 +391,31 @@ export async function generateDynamicActionPlan({
   const startTime = Date.now()
   const presentCompany = options.presentCompany || resumeJson?.experience?.[0]?.company || resumeJson?.experiences?.[0]?.company || 'Recent Role'
   const apps30d = Number(answers.applicationsLast30Days || Math.round((funnelStages.applications90d || 0) / 3) || 0)
+  const apps90d = Number(funnelStages.applications90d || apps30d * 3 || 0)
   const screens = Number(funnelStages.recruiterScreens || funnelStages.screens || answers.recruiterScreens || 0)
+  const techs = Number(funnelStages.technicalRounds || 0)
+  const offers = Number(funnelStages.offers || 0)
+  const callbackRate = apps90d > 0 ? ((screens / apps90d) * 100).toFixed(1) : '0.0'
+  const bottleneckPhase = bottleneck.phaseId || (screens === 0 || Number(callbackRate) < 5 ? 2 : 3)
   const missingSkillsList = (Array.isArray(missingSkills) && missingSkills.length > 0 ? missingSkills : (Array.isArray(options.missingSkills) ? options.missingSkills : []))
     .map((s) => (typeof s === 'string' ? s : s?.skill || s?.name || ''))
     .filter(Boolean)
+  const skillsOnlyList = (Array.isArray(skillsOnlyUnverified) ? skillsOnlyUnverified : [])
+    .map((s) => (typeof s === 'string' ? s : s?.skill || s?.name || ''))
+    .filter(Boolean)
+
+  const weakResumeAreas = Object.entries(resumeSectionAudit || {})
+    .filter(([, v]) => v && (v.score10 < 8 || v.hurtingReason))
+    .map(([k, v]) => `${v.name || k} (${v.score10 ?? '?'}/10: ${v.hurtingReason || v.requiredImprovement || 'needs polish'})`)
+    .slice(0, 5)
+
+  const linkedinGapParts = Object.entries(linkedinAudit || {})
+    .filter(([, v]) => v && (v.score10 < 8 || v.hurtingReason))
+    .map(([k, v]) => `${v.name || k} (${v.score10 ?? '?'}/10: ${v.hurtingReason || 'needs optimization'})`)
+  if (linkedinSignals?.postsLast30Days === 0) linkedinGapParts.push('0 posts in 30d')
+  if (typeof linkedinSignals?.connectionsCount === 'number' && linkedinSignals.connectionsCount < 500) {
+    linkedinGapParts.push(`connections ${linkedinSignals.connectionsCount} (<500)`)
+  }
 
   const fallback = buildDeterministicActionPlan({
     targetRole,
@@ -414,25 +439,29 @@ CANDIDATE-SPECIFIC REQUIREMENTS:
 1. recruiterVerdict: Synthesize an executive 2-3 sentence recruiter diagnostic explaining why the candidate is getting screened out or stalled, directly addressing their funnel numbers and unquantified bullets.
 2. booleanSearchString: Provide an exact LinkedIn boolean query targeting relevant hiring managers for ${targetRole} combined with candidate core skills.
 3. coldOutreachScript: A ready-to-send 3-line outreach DM (under 45 words) tailored to candidate's targetRole, recent company, and top win.
-4. sevenDayQuickPlan: 7 days of concrete tasks referencing actual missing skills, weakest company/project context, and exact drop-off gate.
-5. milestonePathway: 30, 60, and 90-day connected milestones referencing real application volume and screen conversion math.
+4. sevenDayQuickPlan: 7 days of deep, problem-specific tasks. Each day's "action" MUST be 35-55 words (2-3 concrete sentences) naming the candidate's exact missing skills, unverified skills-only tools, weak resume bullets/summary gaps, or LinkedIn sections to fix, exact daily execution steps, a concrete "deliverable", and a measurable "metricTarget".
+5. milestonePathway: 30, 60, and 90-day connected milestones. Each milestone MUST be 45-70 words total across "goal" + 2-3 specific problem-calibrated "actions" tied directly to the candidate's bottleneck phase and funnel math, plus a clear "successSignal" KPI.
 Respond in STRICT JSON format matching the schema provided.`
 
-  const userPrompt = `CANDIDATE CONTEXT:
+  const userPrompt = `CANDIDATE DIAGNOSTIC CONTEXT:
 Target Role: ${targetRole}
 Recent Company Context: ${presentCompany}
-Identified Bottleneck: ${bottleneck.title || 'Screening & ATS Alignment'} (${bottleneck.diagnosis || 'Candidate applications experience drop-offs before recruiter phone screens.'})
+Bottleneck Phase & Funnel Rates: Phase ${bottleneckPhase} (${callbackRate}% callback vs 5.0% target; ${bottleneck.title || 'Screening & ATS Alignment'} — ${bottleneck.diagnosis || 'Applications drop before recruiter screens.'})
 Funnel Metrics:
 - 30-Day Application Volume: ${apps30d}
-- 90-Day Applications Submitted: ${funnelStages.applications90d || 0}
+- 90-Day Applications Submitted: ${apps90d}
 - Recruiter Screens: ${screens}
-- Technical Rounds: ${funnelStages.technicalRounds || 0}
+- Technical Rounds: ${techs}
 - Final Loops: ${funnelStages.finalRounds || 0}
-- Written Offers: ${funnelStages.offers || 0}
-Unquantified Resume Bullets: ${fallback.unquantifiedBulletsCount} of ${fallback.totalBulletsCount}
-Contact Merge Anomaly: ${Boolean(signals?.contactMerge?.isContactMerged)}
+- Written Offers: ${offers}
+Weak/Hurting Resume Areas & Summary Gaps:
+- Unquantified Resume Bullets: ${fallback.unquantifiedBulletsCount} of ${fallback.totalBulletsCount}
+- Section Audit Gaps: ${weakResumeAreas.join('; ') || 'Executive summary & quantified experience bullets need calibration'}
+- Contact Merge Anomaly: ${Boolean(signals?.contactMerge?.isContactMerged)}
 Verified Technical Skills: ${verifiedSkills.slice(0, 12).join(', ') || 'Core technical stack'}
-Key Missing/Gapped Skills: ${fallback.missingSkillsPriority.join(', ') || 'Priority stack tools'}
+Top Missing Market Skills (Must Weave): ${fallback.missingSkillsPriority.join(', ') || 'Priority stack tools'}
+Listed in Skills Only (Unverified in Bullets): ${skillsOnlyList.slice(0, 10).join(', ') || 'None flagged'}
+LinkedIn Audit Gaps: ${linkedinGapParts.join('; ') || 'Featured section empty, headline SEO, and outbound velocity'}
 
 OUTPUT JSON SCHEMA:
 {
@@ -443,7 +472,7 @@ OUTPUT JSON SCHEMA:
     {
       "day": 1,
       "title": "Short punchy day title (e.g. Target Keyword & Competency Audit)",
-      "action": "Concrete 1-2 sentence actionable task for today",
+      "action": "35-55 words (2-3 concrete sentences) naming exact skills, resume bullets, or LinkedIn sections to fix and exact execution steps",
       "deliverable": "Tangible artifact produced today",
       "metricTarget": "Measurable benchmark or quantifiable goal"
     },
@@ -453,11 +482,11 @@ OUTPUT JSON SCHEMA:
     {
       "period": "30 Days",
       "stage": "Stage Name",
-      "goal": "Core 30-day objective",
+      "goal": "Core 30-day objective calibrated to bottleneck phase (20-30 words)",
       "actions": [
-        "Concrete tactical action 1",
-        "Concrete tactical action 2",
-        "Concrete tactical action 3"
+        "Specific problem-calibrated tactic 1 naming exact skills/assets",
+        "Specific problem-calibrated tactic 2 with measurable volume",
+        "Specific problem-calibrated tactic 3"
       ],
       "deliverable": "Tangible 30-day deliverable",
       "successSignal": "Measurable threshold signal",
