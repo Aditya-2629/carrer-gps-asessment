@@ -142,7 +142,7 @@ function EditorialBanner({
       {imageSrc && (
         <View
           style={{
-            width: '48%',
+            width: '46%',
             alignItems: 'flex-end',
             justifyContent: 'center',
           }}
@@ -2149,8 +2149,8 @@ export default function CareerReportPdf({ reportData = {} }) {
           </View>
         </View>
 
-        {/* 7. Dedicated Final Conversion, Community & Socials Page */}
-        <View break style={{ paddingTop: 10 }}>
+        {/* 7. Final Conversion, Community & Socials Section (flows naturally without orphan half-empty pages) */}
+        <View style={{ marginTop: 10 }}>
           <EditorialBanner imageSrc={pdfCtaBanner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
@@ -2172,7 +2172,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
 
             {/* Primary Action Row */}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 }}>
               <Link
                 src={bookingUrl}
                 style={{
