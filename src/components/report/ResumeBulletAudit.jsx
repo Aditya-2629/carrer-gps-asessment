@@ -7,6 +7,7 @@ import {
   CheckCircle,
   WarningCircle,
   ArrowsClockwise,
+  LockKey,
 } from '@phosphor-icons/react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
@@ -143,6 +144,15 @@ export default function ResumeBulletAudit({
     }
 
     return rawBullets.map((item, index) => {
+      if (item?.locked) {
+        return {
+          locked: true,
+          bulletId: item.bulletId || item.id || `locked_${index}`,
+          verdict: 'hurting',
+          severity: 'CRITICAL',
+          fivePartFlags: {},
+        }
+      }
       const isPass =
         item.status === 'pass' ||
         item.severity === 'PASS' ||
@@ -408,7 +418,9 @@ export default function ResumeBulletAudit({
           <span>Click any line to inspect diff</span>
         </div>
 
-        {filteredBullets.map((item, idx) => {
+        {filteredBullets
+          .filter((item) => !item.locked)
+          .map((item, idx) => {
           const isExpanded = expandedId === (item.bulletId || idx)
           const isHelping = item.verdict === 'helping'
 
@@ -590,6 +602,49 @@ export default function ResumeBulletAudit({
             </div>
           )
         })}
+
+        {(() => {
+          const lockedHurting = filteredBullets.filter((b) => b.locked)
+          if (lockedHurting.length === 0) return null
+          return (
+            <div className="pt-4 mt-2 relative">
+              <div className="space-y-3 pointer-events-none select-none" aria-hidden="true">
+                {lockedHurting.slice(0, 3).map((_, sIdx) => (
+                  <div
+                    key={sIdx}
+                    className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)]/60 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="flex gap-1.5">
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      </div>
+                    </div>
+                    <div className="h-4 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById('next-action')
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    else if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-sm transition-colors duration-150 cursor-pointer"
+                >
+                  <LockKey size={13} weight="bold" className="text-[var(--primary)]" />
+                  <span>
+                    Unlock remaining {lockedHurting.length} hurting bullet audit{lockedHurting.length === 1 ? '' : 's'} &amp; rewrites →
+                  </span>
+                </button>
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

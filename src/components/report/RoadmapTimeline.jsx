@@ -505,6 +505,23 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {sevenDayPlan.map((item, idx) => {
+            if (item?.locked || reportData?.__teaserRedacted) {
+              return (
+                <div
+                  key={`skel_${idx}`}
+                  className={`p-3.5 sm:p-4 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-2.5 ${
+                    idx === 6 ? 'md:col-span-2' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="h-5 w-16 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  </div>
+                  <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                </div>
+              )
+            }
             const dayNum = item.day || idx + 1
             const dayTag = item.tag || item.skillOrChannel || DEFAULT_DAY_TAGS[idx] || 'Sprint Execution'
             const isFullWidthDay = idx === 6

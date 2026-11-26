@@ -21,6 +21,19 @@ import { generateReportBundle } from '../services/reportGeneration.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
+import { redactReportForTeaser } from '../utils/teaserRedactor.js'
+
+async function redactForRequest(report, userId, isAdmin) {
+  if (!report || isAdmin) return report
+  const [settings, user] = await Promise.all([
+    getGlobalSettings().catch(() => ({ teaserModeEnabled: false })),
+    userId ? User.findById(userId).select('reportUnlocked').lean().catch(() => null) : null,
+  ])
+  return redactReportForTeaser(report, {
+    teaserModeEnabled: Boolean(settings?.teaserModeEnabled),
+    reportUnlocked: Boolean(user?.reportUnlocked),
+  })
+}
 
 const router = Router()
 
@@ -189,6 +202,10 @@ router.get('/:id', async (req, res) => {
       } catch (_e) {}
     }
 
+    if (job.aiReport) {
+      job.aiReport = await redactForRequest(job.aiReport, job.userId, req.isAdmin)
+    }
+
     return res.status(200).json({ success: true, ...job })
   } catch (err) {
     return res.status(500).json({ success: false, message: 'Failed to load job.' })
@@ -241,7 +258,8 @@ router.get('/:id/stream', async (req, res) => {
   for (const event of job.events || []) send(event)
 
   if (job.status === 'done' && job.aiReport) {
-    send({ at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: job.aiReport })
+    const safeReport = await redactForRequest(job.aiReport, job.userId, req.isAdmin)
+    send({ at: new Date().toISOString(), stage: 'report_ready', message: 'Report ready.', report: safeReport })
     return res.end()
   }
   if (job.status === 'failed') {
@@ -249,8 +267,13 @@ router.get('/:id/stream', async (req, res) => {
     return res.end()
   }
 
-  const onEvent = (event) => {
-    send(event)
+  const onEvent = async (event) => {
+    if (event.stage === 'report_ready' && event.report && !req.isAdmin) {
+      const safeReport = await redactForRequest(event.report, job.userId, req.isAdmin)
+      send({ ...event, report: safeReport })
+    } else {
+      send(event)
+    }
     if (event.stage === 'report_ready' || event.stage === 'job_failed') {
       cleanup()
       res.end()

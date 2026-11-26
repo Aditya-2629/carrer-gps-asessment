@@ -337,6 +337,30 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {topActions.map((action, idx) => {
+            if (action?.locked) {
+              return (
+                <TeaserLockBlock
+                  key={idx}
+                  variant="fade"
+                  isLocked={true}
+                  bookingUrl={bookingUrl}
+                  label="Unlock Action #3 in your free 15-min call →"
+                  heightClass="max-h-[240px]"
+                >
+                  <div className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] space-y-4 h-full">
+                    <div className="flex items-center justify-between">
+                      <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
+                        #3
+                      </span>
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    </div>
+                    <div className="h-5 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-14 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-16 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  </div>
+                </TeaserLockBlock>
+              )
+            }
             const actionCard = (
               <div
                 key={idx}

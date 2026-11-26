@@ -25,6 +25,7 @@ import { DOCXParser } from '../services/documentParser/docxParser.js'
 import { PDFParser } from '../services/documentParser/pdfParser.js'
 import { analyzeTimeline } from '../agents/resume/signals/timelineAnalyzer.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
+import { redactReportForTeaser } from '../utils/teaserRedactor.js'
 
 function compactLinkedinData(raw) {
   if (!raw || typeof raw !== 'object') return null
@@ -727,11 +728,15 @@ export const generateReport = async (req, res) => {
     console.log(`[AssessmentController] Report successfully finalized and saved to MongoDB in ${totalElapsed}ms.`)
     costTracker.printRunSummary(reportRunId)
 
-    const responsePayload = {
+    const rawPayload = {
       ...aiReport,
       linkedinActivityData: user?.linkedinActivityData || aiReport?.linkedin_activity_data || null,
       linkedinActivitySignals: user?.linkedinActivitySignals || aiReport?.linkedin_activity_signals || null,
     }
+    const responsePayload = redactReportForTeaser(rawPayload, {
+      teaserModeEnabled: Boolean(settings?.teaserModeEnabled),
+      reportUnlocked: Boolean(user?.reportUnlocked),
+    })
     return res.status(200).json(responsePayload)
   } catch (error) {
     console.error('Error in generateReport controller:', error)
@@ -1101,10 +1106,13 @@ export const getReport = async (req, res) => {
     }
 
     const settings = await getGlobalSettings().catch(() => ({ teaserModeEnabled: false }))
+    const teaserModeEnabled = Boolean(settings.teaserModeEnabled)
+    const reportUnlocked = Boolean(user.reportUnlocked)
+    const safeReport = redactReportForTeaser(user.aiReport, { teaserModeEnabled, reportUnlocked })
     return res.status(200).json({
-      ...user.aiReport,
-      teaserModeEnabled: Boolean(settings.teaserModeEnabled),
-      reportUnlocked: Boolean(user.reportUnlocked),
+      ...safeReport,
+      teaserModeEnabled,
+      reportUnlocked,
       callBookingUrl: settings.callBookingUrl || '',
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
     })
@@ -1197,9 +1205,14 @@ export const getPublicReportById = async (req, res) => {
       ctaButtonLabel: settings.ctaButtonLabel || 'Book Free 1:1 Strategy Call',
     }
 
+    const safeAssessment = redactReportForTeaser(assessment, {
+      teaserModeEnabled: teaserSettings.teaserModeEnabled,
+      reportUnlocked,
+    })
+
     return res.status(200).json({
       success: true,
-      assessment,
+      assessment: safeAssessment,
       reportUnlocked,
       teaserSettings,
     })

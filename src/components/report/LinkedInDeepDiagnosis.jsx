@@ -1868,45 +1868,29 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               label="Unlock Headlines #2–#3, full About rewrite & Experience upgrades in your free 15-min call →"
               heightClass="max-h-[340px]"
             >
-              <div className="space-y-6">
-                {Array.isArray(optimizations.headlines) && optimizations.headlines.length > 1 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {optimizations.headlines.slice(1).map((item, i) => {
-                      const headlineText = typeof item === 'string' ? item : safeText(item?.headline || item?.text)
-                      const whyItWorks = safeText(item?.whyItWorks)
-                      const label = HEADLINE_FORMULA_LABELS[i + 1] || safeText(item?.formula) || `Option ${i + 2}`
-                      return (
-                        <div key={i} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-2.5">
-                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
-                          <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
-                          {whyItWorks && <p className="text-xs text-[var(--text-secondary)]">{whyItWorks}</p>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+              <div className="space-y-6" aria-hidden="true">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[0, 1].map((i) => (
+                    <div key={i} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
+                      <div className="h-5 w-32 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-4 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-4 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    </div>
+                  ))}
+                </div>
 
-                {rawAbout && !aboutIsString && (specializationText || richFallbackSpecialization) && (
-                  <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 space-y-3 text-xs text-[var(--text-secondary)]">
-                    <span className="text-xs uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400">
-                      2. Specialization &amp; Concrete Proof
-                    </span>
-                    <p className="leading-relaxed">{specializationText || richFallbackSpecialization}</p>
-                    {(networkingText || richFallbackNetworking) && (
-                      <p className="italic leading-relaxed pt-2 border-t border-[var(--border-default)]">{networkingText || richFallbackNetworking}</p>
-                    )}
-                  </div>
-                )}
+                <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 space-y-3">
+                  <div className="h-4 w-48 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-3.5 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-3.5 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                </div>
 
                 {experienceUpgrades.length > 0 && (
                   <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
-                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-                      <Briefcase size={15} className="text-[var(--primary)]" />
-                      High-Impact Experience Bullet Rewrites ({experienceUpgrades.length} Roles)
-                    </span>
-                    <p className="text-xs text-[var(--text-secondary)]">
-                      Pre-engineered with hard metrics, action verbs, and verified technical scope from your resume.
-                    </p>
+                    <div className="h-4 w-64 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-3.5 w-5/6 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
                   </div>
                 )}
               </div>

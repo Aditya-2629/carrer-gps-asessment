@@ -103,13 +103,18 @@ export default function ResumeKeywordAlignment({
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && s.length >= 2)
 
-  const cleanSkillsOnly = (rawSkillsOnly || [])
+  const cleanSkillsOnlyRaw = rawSkillsOnly || []
+  const redactedSkillsOnlyCount = cleanSkillsOnlyRaw.filter((s) => s && typeof s === 'object' && s.locked).length
+  const cleanSkillsOnly = cleanSkillsOnlyRaw
+    .filter((s) => !(s && typeof s === 'object' && s.locked))
     .map((s) => (typeof s === 'string' ? decodeHtmlEntities(s).trim() : (s?.keyword || s?.name || '')))
     .filter((s) => s && s.length >= 2)
 
   const missingMap = new Map()
   const rankedItems = Array.isArray(rawRanked) ? rawRanked : []
+  const redactedMissingCount = rankedItems.filter((item) => item && typeof item === 'object' && item.locked).length
   for (const item of rankedItems) {
+    if (item && typeof item === 'object' && item.locked) continue
     const rawName = typeof item === 'string' ? item : item?.keyword || item?.skill || item?.name || ''
     const cleanName = decodeHtmlEntities(rawName).trim()
     if (!cleanName || cleanName.length < 2) continue
@@ -249,9 +254,16 @@ export default function ResumeKeywordAlignment({
 
   const targetMissingList = criticalMissing.length > 0 ? criticalMissing : uniqueMissing
   const displayedMissing = showAllMissing ? targetMissingList : targetMissingList.slice(0, 10)
-  const visibleCount = isTeaserLocked ? Math.max(1, Math.ceil(displayedMissing.length / 2)) : displayedMissing.length
+  // If server already redacted items, all items in displayedMissing are the unredacted 40-50%;
+  // otherwise (e.g., mock preview) slice 50% on the client.
+  const hasServerRedactedMissing = redactedMissingCount > 0 || (alignment?.lockedMissingCount || 0) > 0
+  const visibleCount = !hasServerRedactedMissing && isTeaserLocked
+    ? Math.max(1, Math.ceil(displayedMissing.length / 2))
+    : displayedMissing.length
   const visibleMissing = displayedMissing.slice(0, visibleCount)
-  const lockedMissing = isTeaserLocked ? displayedMissing.slice(visibleCount) : []
+  const lockedMissingCount = hasServerRedactedMissing
+    ? (redactedMissingCount || alignment?.lockedMissingCount || 0)
+    : (isTeaserLocked ? Math.max(0, displayedMissing.length - visibleCount) : 0)
   const itemsToRender = displayedMissing
 
   return (
@@ -380,28 +392,19 @@ export default function ResumeKeywordAlignment({
             })}
           </div>
 
-          {isTeaserLocked && lockedMissing.length > 0 && (
+          {(isTeaserLocked || lockedMissingCount > 0) && lockedMissingCount > 0 && (
             <TeaserLockBlock
               variant="chip-fade"
               isLocked={true}
-              lockedCount={lockedMissing.length}
+              lockedCount={lockedMissingCount}
               bookingUrl={bookingUrl}
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                {lockedMissing.map((item, i) => (
+              <div className="flex flex-wrap gap-2" aria-hidden="true">
+                {Array.from({ length: Math.min(5, lockedMissingCount) }).map((_, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
-                  >
-                    <div className="space-y-1 mb-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                        {item.keyword}
-                      </span>
-                      <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
-                        in {item.percentage || 35}% of JDs
-                      </span>
-                    </div>
-                  </div>
+                    className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg"
+                  />
                 ))}
               </div>
             </TeaserLockBlock>
@@ -444,8 +447,11 @@ export default function ResumeKeywordAlignment({
           <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 leading-relaxed">
             ATS parsers give 0 impact weight to skills that are only listed in a bottom skills bank without evidence in work experience.
           </p>
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {cleanSkillsOnly.map((kw, i) => (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {(redactedSkillsOnlyCount > 0 || !isTeaserLocked
+              ? cleanSkillsOnly
+              : cleanSkillsOnly.slice(0, Math.max(1, Math.ceil(cleanSkillsOnly.length / 2)))
+            ).map((kw, i) => (
               <span
                 key={i}
                 className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 shadow-2xs"
@@ -453,6 +459,35 @@ export default function ResumeKeywordAlignment({
                 ⚠️ {kw}
               </span>
             ))}
+            {(() => {
+              const lockedSkillsCount = redactedSkillsOnlyCount > 0
+                ? redactedSkillsOnlyCount
+                : (isTeaserLocked ? Math.max(0, cleanSkillsOnly.length - Math.max(1, Math.ceil(cleanSkillsOnly.length / 2))) : 0)
+              if (lockedSkillsCount <= 0) return null
+              return (
+                <>
+                  {Array.from({ length: Math.min(4, lockedSkillsCount) }).map((_, i) => (
+                    <span
+                      key={`sk_${i}`}
+                      aria-hidden="true"
+                      className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg inline-block"
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('next-action')
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      else if (bookingUrl) window.open(bookingUrl, '_blank', 'noopener,noreferrer')
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--primary)] text-[var(--text-primary)] text-xs font-semibold shadow-2xs transition-colors duration-150 cursor-pointer"
+                  >
+                    <LockKey size={12} weight="bold" className="text-[var(--primary)]" />
+                    <span>+{lockedSkillsCount} more unlocked on call</span>
+                  </button>
+                </>
+              )
+            })()}
           </div>
         </div>
       )}
