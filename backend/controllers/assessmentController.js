@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import User from '../models/User.js'
+import VisitorSession from '../models/VisitorSession.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification } from '../utils/adminEmails.js'
@@ -654,6 +655,16 @@ export const saveAnswers = async (req, res) => {
     }
 
     await user.save()
+
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {})
 
     return res.status(200).json({
       message: 'Answers, resume, and LinkedIn data processed successfully.',
@@ -1406,7 +1417,17 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
       user.markModified?.('aiReport')
       if (typeof user.save === 'function') {
-        await user.save().catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
+        await user.save()
+
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {}).catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
       }
     }
 
@@ -1455,7 +1476,17 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
       if (typeof user.save === 'function') {
         try {
-          await user.save().catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
+          await user.save()
+
+    await VisitorSession.updateMany(
+      {
+        $or: [
+          { userId: user._id },
+          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
+        ],
+      },
+      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
+    ).catch(() => {}).catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
         } catch (_saveErr) {
           console.warn('Could not save user report with interview ledger:', _saveErr.message)
         }

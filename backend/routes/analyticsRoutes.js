@@ -100,6 +100,7 @@ router.post('/track', analyticsLimiter, express.text({ type: 'text/plain', limit
     const stepNum = parseInt(stepStr, 10)
     if (phaseLower === 'report' || stepStr === 'report') {
       stepRank = 4
+      updateFields.completed = true
     } else if (phaseLower === 'loading' || phaseLower === 'otp' || stepStr === 'email' || stepStr === 'otp' || (!isNaN(stepNum) && stepNum >= 8)) {
       stepRank = 3
     } else if (!isNaN(stepNum) && stepNum >= 4) {

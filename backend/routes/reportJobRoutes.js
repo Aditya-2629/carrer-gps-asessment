@@ -16,6 +16,7 @@ import { EventEmitter } from 'node:events'
 import mongoose from 'mongoose'
 import ReportJob from '../models/ReportJob.js'
 import User from '../models/User.js'
+import VisitorSession from '../models/VisitorSession.js'
 import { generateReportBundle } from '../services/reportGeneration.js'
 import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
@@ -126,7 +127,7 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
 
-    // Persist total run cost directly on User so CRM & stats always reflect real spend
+    // Persist total run cost directly on User & mark VisitorSession completed
     const runSummary = costTracker.getRunSummary(jobId)
     if (runSummary && runSummary.totalCostUsd > 0) {
       await User.findByIdAndUpdate(userId, {
@@ -136,6 +137,10 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
         },
       }).catch(() => {})
     }
+    await VisitorSession.updateMany(
+      { userId },
+      { $set: { completed: true, currentPhase: 'report', currentStep: 'report', maxStepReached: 4 } }
+    ).catch(() => {})
 
     bus.emit(jobId, finalEvent)
   } catch (err) {

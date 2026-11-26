@@ -614,6 +614,7 @@ export async function getAnalyticsOverview(req, res) {
         { $group: { _id: '$device', count: { $sum: 1 } } },
       ]),
       VisitorSession.find({
+        completed: { $ne: true },
         currentPhase: { $ne: 'report' },
         $or: [
           { 'abandonedDraft.email': { $ne: '' } },

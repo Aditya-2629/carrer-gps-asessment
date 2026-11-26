@@ -1044,11 +1044,26 @@ export async function deliverFullReport(req, res) {
       }
     }
 
-    // 4. Construct pre-filled WhatsApp delivery URL
-    const rawPhone = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').replace(/\D/g, '')
+    // 4. Construct pre-filled WhatsApp delivery URL preserving international country codes
+    const rawPhoneStr = String(user.answers?.phone || user.resumeJson?.candidate?.phone || '').trim()
+    const locHint = String(user.answers?.location || user.resumeJson?.candidate?.location || '')
+    let waDigits = rawPhoneStr.replace(/\D/g, '')
+    if (rawPhoneStr.startsWith('00')) {
+      waDigits = waDigits.slice(2)
+    } else if (!rawPhoneStr.startsWith('+') && waDigits.length === 10) {
+      const isUs =
+        /^\(\d{3}\)/.test(rawPhoneStr) ||
+        /\b(US|USA|United States|Canada)\b/i.test(locHint) ||
+        /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/.test(locHint)
+      if (isUs) {
+        waDigits = `1${waDigits}`
+      } else if (/^[6-9]/.test(waDigits)) {
+        waDigits = `91${waDigits}`
+      }
+    }
     const whatsappMessage = `Hi ${candidateName}, your full Crafture Career GPS Report is now unlocked! View it here: ${reportUrl}`
-    const whatsappUrl = rawPhone
-      ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(whatsappMessage)}`
+    const whatsappUrl = waDigits
+      ? `https://wa.me/${waDigits}?text=${encodeURIComponent(whatsappMessage)}`
       : `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`
 
     return res.status(200).json({

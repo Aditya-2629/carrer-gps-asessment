@@ -182,6 +182,47 @@ export const DATE_RANGE_REGEX = /((?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|
  * - Identifiers with >15 digits or <10 digits
  * - Numbers directly connected to month/date terms unless explicitly prefixed with '+' or 'tel:'
  */
+export function normalizePhoneWithCountryCode(rawPhone, locationHint = '') {
+  if (!rawPhone || typeof rawPhone !== 'string') return null
+  let cleaned = rawPhone.replace(/[^\d+()\s.-]/g, '').trim()
+  if (!cleaned || cleaned === 'N/A') return null
+
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.slice(2)
+  }
+
+  const digits = cleaned.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) return null
+
+  // Already has explicit '+' country code
+  if (cleaned.startsWith('+')) {
+    return cleaned
+  }
+
+  // 11 digits starting with 1 (US/CA without '+')
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${cleaned}`
+  }
+
+  // 10-digit domestic number: infer +1 for US/CA format or US location, else +91 for Indian mobile
+  if (digits.length === 10) {
+    const loc = String(locationHint || '')
+    const hasUsFormat = /^\(\d{3}\)/.test(cleaned)
+    const hasUsLocation =
+      /\b(US|USA|United States|Canada)\b/i.test(loc) ||
+      /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/.test(loc)
+    if (hasUsFormat || hasUsLocation) {
+      return `+1 ${cleaned}`
+    }
+    const hasIndiaLocation = /\b(India|Bengaluru|Bangalore|Mumbai|Delhi|NCR|Hyderabad|Pune|Chennai|Kolkata|Noida|Gurgaon|Gurugram)\b/i.test(loc)
+    if (hasIndiaLocation && /^[6-9]/.test(digits)) {
+      return `+91 ${cleaned}`
+    }
+  }
+
+  return cleaned
+}
+
 export function extractCleanPhoneNumber(text) {
   if (!text || typeof text !== 'string') return null
 
@@ -311,7 +352,13 @@ export class ResumeNormalizer {
         candidate.email = doc.candidate.email
       }
     }
-    candidate.phone = candidate.phone || (candidate.contact.phone && candidate.contact.phone !== 'N/A' ? candidate.contact.phone : null)
+    const locHint = candidate.location || candidate.contact?.location || doc.candidate?.location || ''
+    const rawPhoneCandidate = candidate.phone || (candidate.contact.phone && candidate.contact.phone !== 'N/A' ? candidate.contact.phone : null)
+    const normalizedPhone = normalizePhoneWithCountryCode(rawPhoneCandidate, locHint) || rawPhoneCandidate
+    candidate.phone = normalizedPhone
+    if (candidate.contact && normalizedPhone) {
+      candidate.contact.phone = normalizedPhone
+    }
     candidate.email = candidate.email || (candidate.contact.email && candidate.contact.email !== 'N/A' ? candidate.contact.email : null)
     const sections = this.segmentSections(lines)
 
