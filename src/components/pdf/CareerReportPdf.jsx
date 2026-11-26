@@ -745,14 +745,23 @@ export default function CareerReportPdf({ reportData = {} }) {
     (Array.isArray(reportData?.skills_only) && reportData.skills_only.length > 0 && reportData.skills_only) ||
     []
   )
-  const lockedSkillsOnlyCount =
+  const serverLockedSkillsOnlyCount =
     rawSkillsOnly.filter((k) => k && typeof k === 'object' && k.locked).length ||
     Number(kwData.lockedSkillsOnlyCount || 0)
-  const skillsOnlyKeywords = rawSkillsOnly
+  const unredactedSkillsOnly = rawSkillsOnly
     .filter((k) => !(k && typeof k === 'object' && k.locked))
     .slice(0, 20)
     .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
     .filter(Boolean)
+  const skillsOnlyVisibleCount =
+    isTeaserRedacted && serverLockedSkillsOnlyCount === 0 && unredactedSkillsOnly.length > 1
+      ? Math.max(1, Math.ceil(unredactedSkillsOnly.length * 0.5))
+      : unredactedSkillsOnly.length
+  const skillsOnlyKeywords = unredactedSkillsOnly.slice(0, skillsOnlyVisibleCount)
+  const lockedSkillsOnlyCount =
+    serverLockedSkillsOnlyCount > 0
+      ? serverLockedSkillsOnlyCount
+      : Math.max(0, unredactedSkillsOnly.length - skillsOnlyVisibleCount)
 
   const rawMissing = (
     (Array.isArray(kwData.missingFromResume) && kwData.missingFromResume.length > 0 && kwData.missingFromResume) ||
@@ -763,14 +772,23 @@ export default function CareerReportPdf({ reportData = {} }) {
     (Array.isArray(resumeAgent?.missingTargetKeywords) && resumeAgent.missingTargetKeywords.length > 0 && resumeAgent.missingTargetKeywords) ||
     []
   )
-  const lockedMissingCount =
+  const serverLockedMissingCount =
     rawMissing.filter((k) => k && typeof k === 'object' && k.locked).length ||
     Number(kwData.lockedMissingCount || 0)
-  const missingKeywords = rawMissing
+  const unredactedMissing = rawMissing
     .filter((k) => !(k && typeof k === 'object' && k.locked))
     .slice(0, 20)
     .map((k) => (typeof k === 'string' ? k : k?.keyword || k?.name || k?.skill))
     .filter(Boolean)
+  const missingVisibleCount =
+    isTeaserRedacted && serverLockedMissingCount === 0 && unredactedMissing.length > 1
+      ? Math.max(1, Math.ceil(unredactedMissing.length * 0.5))
+      : unredactedMissing.length
+  const missingKeywords = unredactedMissing.slice(0, missingVisibleCount)
+  const lockedMissingCount =
+    serverLockedMissingCount > 0
+      ? serverLockedMissingCount
+      : Math.max(0, unredactedMissing.length - missingVisibleCount)
 
   // Bullet Rewrites: Un-capped dynamic aggregation across all sources (Zero Hardcoded Dummy Arrays)
   const candidateBulletSources = [
@@ -824,7 +842,15 @@ export default function CareerReportPdf({ reportData = {} }) {
     ? resumeDashboard.bulletAudit.filter((b) => b?.locked).length
     : candidateBulletSources.filter((b) => b?.locked).length
 
-  const bulletRewrites = Array.from(bulletMap.values())
+  const rawBulletRewrites = Array.from(bulletMap.values())
+  const bulletRewrites =
+    isTeaserRedacted && lockedBulletsCount === 0 && rawBulletRewrites.length > 1
+      ? rawBulletRewrites.slice(0, Math.max(1, Math.ceil(rawBulletRewrites.length * 0.4)))
+      : rawBulletRewrites
+  const effectiveLockedBulletsCount =
+    lockedBulletsCount > 0
+      ? lockedBulletsCount
+      : Math.max(0, rawBulletRewrites.length - bulletRewrites.length)
 
   // 5. LinkedIn Studio Data
   const linkedinAgent = reportData?.linkedin_agent || {}
@@ -1516,12 +1542,13 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* ─────────────────────────────────────────────────────────────
             4. RESUME AUDIT & SIDE-BY-SIDE SUMMARY REWRITE
             ───────────────────────────────────────────────────────────── */}
-        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
-          <Text style={styles.sectionTitle}>Resume Deep Diagnosis & ATS Scoring</Text>
-          <Text style={styles.sectionTag}>5-POINT RUBRIC</Text>
-        </View>
+        <View wrap={false}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Resume Deep Diagnosis & ATS Scoring</Text>
+            <Text style={styles.sectionTag}>5-POINT RUBRIC</Text>
+          </View>
 
-        <View style={styles.card} wrap={false}>
+          <View style={styles.card}>
           {Object.entries(resumeSectionAudit)
             .filter(([secKey]) => secKey !== 'header' || !resumeSectionAudit.headerAndContact)
             .map(([secKey, secVal]) => {
@@ -1559,6 +1586,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               </View>
             )
           })}
+          </View>
         </View>
 
         {/* Side-by-Side Executive Summary Rewrite */}
@@ -1753,16 +1781,20 @@ export default function CareerReportPdf({ reportData = {} }) {
               )}
             </View>
             ))}
-            {lockedBulletsCount > 0 && (
-              <View style={styles.card} wrap={false}>
-                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A', marginBottom: 2 }}>
-                  Locked - Book Free 1:1 Strategy Call to Unlock ({lockedBulletsCount} more bullet audits &amp; rewrites)
-                </Text>
-                <Text style={{ fontSize: 7, color: '#64748B' }}>
-                  Remaining hurting bullet diagnostics and Google XYZ rewrites unlock after your 1-on-1 strategy session.
-                </Text>
-              </View>
-            )}
+            {effectiveLockedBulletsCount > 0 &&
+              Array.from({ length: effectiveLockedBulletsCount }).map((_, lIdx) => (
+                <View key={`locked_b_${lIdx}`} style={styles.card} wrap={false}>
+                  <View style={[styles.rowBetween, { marginBottom: 2 }]}>
+                    <Text style={{ fontSize: 7.8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
+                      Bullet Rewrite #{bulletRewrites.length + lIdx + 1} • Locked
+                    </Text>
+                    <Text style={styles.tagNeutral}>UNLOCK ON CALL</Text>
+                  </View>
+                  <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
+                    Locked Bullet Audit &amp; Google XYZ Rewrite - Unlock in 1:1 Call
+                  </Text>
+                </View>
+              ))}
           </>
         ) : (
           <View style={[styles.card, { padding: 12, alignItems: 'center' }]} wrap={false}>
@@ -1778,12 +1810,13 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* ─────────────────────────────────────────────────────────────
             6. LINKEDIN STUDIO, 2x2 BENTO ABOUT & STRATEGY CALL CTA
             ───────────────────────────────────────────────────────────── */}
-        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
-          <Text style={styles.sectionTitle}>LinkedIn Studio & Recruiter Search SEO</Text>
-          <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
-        </View>
+        <View wrap={false}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>LinkedIn Studio & Recruiter Search SEO</Text>
+            <Text style={styles.sectionTag}>PROFILE AUDIT</Text>
+          </View>
 
-        <View style={styles.card} wrap={false}>
+          <View style={styles.card}>
           {Object.entries(linkedinAudit).map(([secKey, secVal]) => {
             const score = secVal?.score10 ?? 7
             const isCrit = score < 6
@@ -1812,23 +1845,24 @@ export default function CareerReportPdf({ reportData = {} }) {
               </View>
             )
           })}
+          </View>
         </View>
 
         {/* 3 AI Recruiter Headlines */}
-        <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
+        <View style={styles.sectionTitleRow} minPresenceAhead={120} wrap={false}>
           <Text style={styles.sectionTitle}>Recruiter-Searchable Headline Options (Recruiter-SEO Optimized)</Text>
           <Text style={styles.sectionTag}>SEARCH INDEXED</Text>
         </View>
 
         {linkedinHeadlines.map((h, idx) => {
-          if (h?.locked) {
+          if ((isTeaserRedacted || h?.locked) && idx >= 1) {
             return (
               <View key={idx} style={styles.card} wrap={false}>
                 <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
                   Option 0{idx + 1} • Locked
                 </Text>
                 <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
-                  Locked - Book Free 1:1 Strategy Call to Unlock
+                  Locked - Unlock in 1:1 Call
                 </Text>
               </View>
             )
@@ -1873,7 +1907,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <Text style={styles.aboutPillarText}>{journeyText}</Text>
           </View>
 
-          {(aboutRewrite?.locked || linkedinAgent.optimizations?.aboutRewriteLocked) ? (
+          {(isTeaserRedacted || aboutRewrite?.locked || linkedinAgent.optimizations?.aboutRewriteLocked) ? (
             <View style={styles.aboutPillar}>
               <Text style={styles.aboutPillarLabel}>2 & 3. SPECIALIZATION, PROOF & CTA</Text>
               <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
@@ -2003,18 +2037,18 @@ export default function CareerReportPdf({ reportData = {} }) {
             Work directly with an executive technical recruiter to calibrate your {targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution plan live.
           </Text>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <Link
               src={bookingUrl}
               style={{
                 backgroundColor: '#6366F1',
                 borderRadius: 6,
-                paddingVertical: 7,
-                paddingHorizontal: 12,
+                paddingVertical: 6,
+                paddingHorizontal: 9,
                 textDecoration: 'none',
               }}
             >
-              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
                 Book Free 1-on-1 Strategy Call {'->'}
               </Text>
             </Link>
@@ -2024,12 +2058,12 @@ export default function CareerReportPdf({ reportData = {} }) {
               style={{
                 backgroundColor: '#059669',
                 borderRadius: 6,
-                paddingVertical: 7,
-                paddingHorizontal: 12,
+                paddingVertical: 6,
+                paddingHorizontal: 9,
                 textDecoration: 'none',
               }}
             >
-              <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#FFFFFF' }}>
                 Connect on WhatsApp
               </Text>
             </Link>

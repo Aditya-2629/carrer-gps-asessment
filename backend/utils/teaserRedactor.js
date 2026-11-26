@@ -81,18 +81,25 @@ function redactKeywordArray(arr, ratio = 0.5) {
 function redactKeywordAlignment(ka) {
   if (!ka || typeof ka !== 'object') return ka
 
-  // Keep 40% of Missing Target Keywords (lock 60%) and 50% of Skills-Only
-  const ranked = redactKeywordArray(ka.missingMarketSkillsRanked, 0.4)
-  const missing = redactKeywordArray(ka.missingFromResume, 0.4)
+  // Keep 50% of Missing Target Keywords and 50% of Skills-Only across all aliases
+  const ranked = redactKeywordArray(ka.missingMarketSkillsRanked, 0.5)
+  const missing = redactKeywordArray(ka.missingFromResume, 0.5)
+  const critical = redactKeywordArray(ka.criticalMissing, 0.5)
+  const missingKw = redactKeywordArray(ka.missingKeywords, 0.5)
   const skillsOnly = redactKeywordArray(ka.skillsOnlyUnverified, 0.5)
+  const skillsOnlyAlias = redactKeywordArray(ka.skillsOnly, 0.5)
 
   return {
     ...ka,
     missingMarketSkillsRanked: ranked.items,
     missingFromResume: missing.items,
+    criticalMissing: critical.items,
+    missingKeywords: missingKw.items,
     skillsOnlyUnverified: skillsOnly.items,
-    lockedMissingCount: ranked.lockedCount || missing.lockedCount,
-    lockedSkillsOnlyCount: skillsOnly.lockedCount,
+    skillsOnly: skillsOnlyAlias.items,
+    lockedMissingCount:
+      ranked.lockedCount || missing.lockedCount || critical.lockedCount || missingKw.lockedCount,
+    lockedSkillsOnlyCount: skillsOnly.lockedCount || skillsOnlyAlias.lockedCount,
   }
 }
 
@@ -167,6 +174,7 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
       'bulletRewrites',
       'bullet_rewrites',
       'bulletUpgrades',
+      'bulletSuggestions',
       'hurtingBullets',
     ]) {
       if (Array.isArray(obj[key])) {
@@ -187,6 +195,9 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
     }
     redactBulletFieldsOnObj(cloned.resume_agent)
     cloned.resume_agent.keywordAlignment = redactKeywordAlignment(cloned.resume_agent.keywordAlignment)
+    if (Array.isArray(cloned.resume_agent.missingTargetKeywords)) {
+      cloned.resume_agent.missingTargetKeywords = redactKeywordArray(cloned.resume_agent.missingTargetKeywords, 0.5).items
+    }
 
     // Strip Summary Rewrite (keep original/before intact)
     if (cloned.resume_agent.summaryOptimization && typeof cloned.resume_agent.summaryOptimization === 'object') {
@@ -223,6 +234,15 @@ export function redactReportForTeaser(reportData, { teaserModeEnabled = false, r
 
   redactBulletFieldsOnObj(cloned)
   cloned.keywordAlignment = redactKeywordAlignment(cloned.keywordAlignment)
+  if (cloned.keyword_alignment) {
+    cloned.keyword_alignment = redactKeywordAlignment(cloned.keyword_alignment)
+  }
+  if (Array.isArray(cloned.missing_skills)) {
+    cloned.missing_skills = redactKeywordArray(cloned.missing_skills, 0.5).items
+  }
+  if (Array.isArray(cloned.skills_only)) {
+    cloned.skills_only = redactKeywordArray(cloned.skills_only, 0.5).items
+  }
 
   // 2. LinkedIn Studio
   if (cloned.linkedin_agent && typeof cloned.linkedin_agent === 'object') {
