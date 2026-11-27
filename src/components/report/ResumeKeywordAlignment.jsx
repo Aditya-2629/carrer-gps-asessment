@@ -6,6 +6,7 @@ import useAppStore, { showToast } from '../../store/useAppStore'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { ShareBar } from '../share-bar'
 import { NumberRoll } from '../number-roll'
+import { CountUp } from '../motion'
 
 export default function ResumeKeywordAlignment({
   keywordAlignment,
@@ -39,6 +40,8 @@ export default function ResumeKeywordAlignment({
     matchPercent = 0,
     matchedCount = 0,
     totalTargetKeywords = 0,
+    totalJds = 0,
+    marketDataPending = false,
   } = alignment
 
   const [selectedSkills, setSelectedSkills] = useState(new Set())
@@ -267,19 +270,31 @@ export default function ResumeKeywordAlignment({
     : (isTeaserLocked ? Math.max(0, displayedMissing.length - visibleCount) : 0)
   const itemsToRender = displayedMissing
 
+  const isMarketPending = Boolean(marketDataPending || (totalJds === 0 && !alignment?.source?.includes('active_jd') && missingFromResume.length === 0))
+
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+    <div className="bg-white dark:bg-[#0B1711] border border-slate-200 dark:border-[#1B3326] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+      {/* ── Market Data Pending Notice (Zero Fake JD Percentages) ── */}
+      {isMarketPending && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
+          <Target size={18} weight="bold" className="text-[#15803D] dark:text-emerald-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium">
+            Market JD benchmark for <strong>{targetRole || 'your target role'}</strong> is queued for scraping — showing skills evidenced vs unverified from your own resume.
+          </p>
+        </div>
+      )}
+
       {/* ── ATS Header & Overall Match Rate ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-[#1B3326] pb-4">
         <div className="flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Target size={18} weight="bold" />
           </span>
           <div>
             <div className="text-xs font-mono text-[var(--text-muted)]">
               ATS Target Keyword Alignment
             </div>
-            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+            <div className="text-sm font-semibold text-slate-900 dark:text-[#F0FDF4]">
               {targetRole || 'Target Role Alignment'}
             </div>
           </div>
@@ -289,7 +304,7 @@ export default function ResumeKeywordAlignment({
           <span>Target Keyword Match:</span>
           <span className="font-mono text-sm font-semibold tabular-nums flex items-center">
             <span>{verifiedCount}/{calculatedTotal} (</span>
-            <NumberRoll value={currentMatchRate} duration={850} />
+            <CountUp to={currentMatchRate} duration={1.1} />
             <span>%)</span>
           </span>
         </div>
@@ -340,7 +355,7 @@ export default function ResumeKeywordAlignment({
           {cleanMatched.map((kw, i) => (
             <span
               key={i}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 shadow-2xs"
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-[#102118] text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 shadow-2xs"
             >
               ✓ {kw}
             </span>
@@ -367,15 +382,17 @@ export default function ResumeKeywordAlignment({
               return (
                 <div
                   key={i}
-                  className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
+                  className="p-3 rounded-xl bg-white dark:bg-[#102118] border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
                 >
                   <div className="space-y-1 mb-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate" title={item.keyword}>
+                    <span className="text-xs font-bold text-slate-900 dark:text-[#F0FDF4] block truncate" title={item.keyword}>
                       {item.keyword}
                     </span>
-                    <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
-                      in {item.percentage || 35}% of JDs
-                    </span>
+                    {item.percentage != null && (
+                      <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
+                        in {item.percentage}% of JDs
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -406,7 +423,7 @@ export default function ResumeKeywordAlignment({
                 {Array.from({ length: Math.min(5, lockedMissingCount) }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg"
+                    className="w-24 h-8 bg-slate-200/75 dark:bg-[#102118] animate-none rounded-lg"
                   />
                 ))}
               </div>
@@ -419,7 +436,7 @@ export default function ResumeKeywordAlignment({
                 <button
                   type="button"
                   onClick={() => setShowAllMissing(!showAllMissing)}
-                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#15803D] dark:text-emerald-400 hover:underline cursor-pointer"
                 >
                   {showAllMissing ? 'Show top 10 missing skills' : `Show all (${targetMissingList.length}) missing skills`}
                 </button>
@@ -457,7 +474,7 @@ export default function ResumeKeywordAlignment({
             ).map((kw, i) => (
               <span
                 key={i}
-                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 shadow-2xs"
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-[#102118] text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 shadow-2xs"
               >
                 ⚠️ {kw}
               </span>
@@ -473,7 +490,7 @@ export default function ResumeKeywordAlignment({
                     <span
                       key={`sk_${i}`}
                       aria-hidden="true"
-                      className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg inline-block"
+                      className="w-24 h-8 bg-slate-200/75 dark:bg-[#102118] animate-none rounded-lg inline-block"
                     />
                   ))}
                   <button

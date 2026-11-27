@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import TeaserLockBlock from '../TeaserLockBlock'
+import { SpotlightCard, ShinyText, MagnetButton } from '../motion'
 import {
   LinkedinLogo,
   WarningCircle,
@@ -296,7 +297,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
 
       {/* Sunken Headline Container */}
       {headline && (
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-default)] p-3.5 space-y-1">
+        <div className="rounded-xl bg-slate-50 dark:bg-[#102118] border border-[var(--border-default)] p-3.5 space-y-1">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-tertiary)]">
             Current Live Headline
           </div>
@@ -308,7 +309,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
 
       {/* 4-Column Metadata Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Users size={14} className="text-[#0a66c2]" />
             Connections
@@ -318,7 +319,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <MapPin size={14} className="text-[#0a66c2]" />
             Location
@@ -328,7 +329,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Briefcase size={14} className="text-[#0a66c2]" />
             Roles Scraped
@@ -338,7 +339,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Users size={14} className="text-[#0a66c2]" />
             Followers
@@ -807,7 +808,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       bannerShowcaseOptions: [
         {
           style: 'Minimalist Dark Slate',
-          colorPalette: 'Deep Charcoal (#111827), Electric Indigo (#6366F1), Crisp White typography',
+          colorPalette: 'Deep Pine (#0B1A13), Forest Green (#15803D), Crisp White typography',
           layout: 'Headline on the top-right, 3 value pill badges horizontally centered, clean negative space on the left for avatar.',
         },
         {
@@ -817,7 +818,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         },
         {
           style: 'Modern Technical Dossier',
-          colorPalette: 'Deep Onyx (#090D16), Cyber Teal / Indigo gradient hairline border, mono-spaced pill badges',
+          colorPalette: 'Deep Onyx (#090D16), Cyber Emerald / Forest Green gradient hairline border, mono-spaced pill badges',
           layout: 'Terminal-inspired crisp typography highlighting core skills and scale outcomes, optimized for maximum recruiter glance value.',
         },
       ],
@@ -1502,8 +1503,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-bold text-[var(--text-primary)]">{opt.style}</span>
                   </div>
-                  <p className="text-[11px] text-[var(--primary)] font-mono">{opt.colorPalette}</p>
-                  <p className="text-[11px] text-[var(--text-secondary)] leading-snug">{opt.layout}</p>
+                  <p className="text-[11px] text-[var(--primary)] dark:text-emerald-400 font-medium font-mono">{opt.colorPalette}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] dark:text-[#94B4A2] leading-snug">{opt.layout}</p>
                 </div>
               ))}
             </div>
@@ -1512,18 +1513,18 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       </div>
 
       {/* ── 1B. Recruiter SEO Scorecard ────────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-[#0B1711] border border-slate-200 dark:border-[#1B3326] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1B3326] pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
                 in
               </span>
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-[#F0FDF4]">
                 LinkedIn Recruiter Search Visibility
               </h4>
             </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-400 dark:text-[#94B4A2] mt-0.5">
               How easily corporate recruiters and hiring managers find your profile in inbound searches.
             </p>
           </div>
@@ -1694,13 +1695,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   const whyItWorks = safeText(item?.whyItWorks)
                   const label = HEADLINE_FORMULA_LABELS[idx] || safeText(item?.formula) || `Option ${idx + 1}`
                   return (
-                    <div
+                    <SpotlightCard
                       key={idx}
-                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-colors duration-150"
+                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-colors duration-150 relative overflow-hidden"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
+                            {idx === 0 ? <ShinyText>{label}</ShinyText> : label}
+                          </span>
                           <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">{headlineText.length}/220 chars</span>
                         </div>
                         <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
@@ -1710,14 +1713,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                           </p>
                         )}
                       </div>
-                      <button
+                      <MagnetButton
                         type="button"
                         onClick={() => handleCopy(headlineText, copyKey)}
                         className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 cursor-pointer ${isCopied ? 'bg-emerald-600 text-white shadow-xs' : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'}`}
                       >
                         {isCopied ? <><Check size={14} weight="bold" /> Copied</> : <><Copy size={14} /> Copy Headline</>}
-                      </button>
-                    </div>
+                      </MagnetButton>
+                    </SpotlightCard>
                   )
                 }
 
@@ -1805,7 +1808,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                     )}
                     {!isTeaserLocked && legacyAudienceText && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-xs uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                        <span className="text-xs uppercase font-bold tracking-wider text-[#15803D] dark:text-emerald-400">
                           Target Audience &amp; Core Problem Solved
                         </span>
                         <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
@@ -1874,25 +1877,25 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[0, 1].map((i) => (
                     <div key={i} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
-                      <div className="h-5 w-32 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                      <div className="h-4 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                      <div className="h-4 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-5 w-32 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                      <div className="h-4 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                      <div className="h-4 w-4/5 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                     </div>
                   ))}
                 </div>
 
                 <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 space-y-3">
-                  <div className="h-4 w-48 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-4 w-48 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-11/12 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-3/4 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                 </div>
 
                 {experienceUpgrades.length > 0 && (
                   <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
-                    <div className="h-4 w-64 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-3.5 w-5/6 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-4 w-64 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-3.5 w-5/6 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
                 )}
               </div>
@@ -2169,7 +2172,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               <div className="space-y-3 pt-3 border-t border-[var(--border-default)]">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                    <Tag size={14} className="text-indigo-600 dark:text-indigo-400" />
+                    <Tag size={14} className="text-[#15803D] dark:text-emerald-400" />
                     Categorized 50-Skill Recruiter Bank
                   </span>
                   <span className="text-[11px] font-mono text-[var(--text-muted)]">

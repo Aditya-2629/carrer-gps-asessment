@@ -20,6 +20,7 @@ import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
+import { SpotlightCard, MagnetButton, ShimmerButton, BorderBeam, ShinyText } from '../motion'
 
 function safeText(val, fallback = '') {
   if (!val) return fallback
@@ -98,18 +99,19 @@ export default function FinalNextAction({
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 break-inside-avoid page-break-inside-avoid">
-      <div
-        className="p-6 sm:p-8 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
+      <SpotlightCard
+        className="p-6 sm:p-8 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
         data-mascot-cue="Ready to break your pipeline deadlock? Work live 1-on-1 with an executive coach to overhaul your positioning."
         data-mascot-chip="Execution Bridge"
         data-mascot-emotion="coach"
       >
+        <BorderBeam size={180} duration={8} colorFrom="#22C55E" colorTo="#15803D" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Left Column (lg:col-span-7, left-aligned) */}
           <div className="lg:col-span-7 space-y-4 text-left">
             {/* Header Tag */}
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono tracking-normal text-[var(--text-muted)] border border-[var(--border-default)]">
-              <span>Next Step • Live Execution Bridge</span>
+              <ShinyText>Next Step • Live Execution Bridge</ShinyText>
             </div>
 
             {/* Core Headline */}
@@ -166,17 +168,23 @@ export default function FinalNextAction({
 
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
-              <a
-                href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
+              <MagnetButton
+                as="div"
+                className="w-full sm:w-auto"
               >
-                <CalendarBlank size={18} weight="bold" />
-                <span>Book Free 1-on-1 Strategy Call</span>
-                <ArrowRight size={14} weight="bold" />
-              </a>
+                <ShimmerButton
+                  as="a"
+                  href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onBookCall}
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-3 text-xs sm:text-sm no-underline"
+                >
+                  <CalendarBlank size={18} weight="bold" />
+                  <span>Book Free 1-on-1 Strategy Call</span>
+                  <ArrowRight size={14} weight="bold" />
+                </ShimmerButton>
+              </MagnetButton>
 
               {(() => {
                 const rawScore =
@@ -192,7 +200,8 @@ export default function FinalNextAction({
                   ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMessage)}`
                   : `https://wa.me/?text=${encodeURIComponent(waMessage)}`
                 return (
-                  <a
+                  <MagnetButton
+                    as="a"
                     href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -201,7 +210,7 @@ export default function FinalNextAction({
                   >
                     <WhatsappLogo size={18} weight="fill" />
                     <span>Connect on WhatsApp</span>
-                  </a>
+                  </MagnetButton>
                 )
               })()}
 
@@ -289,7 +298,7 @@ export default function FinalNextAction({
                           rel="noopener noreferrer"
                           whileHover={{ y: -2 }}
                           transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-                          className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
+                          className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-emerald-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
                         >
                           {item.customLogoUrl ? (
                             <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
@@ -300,10 +309,10 @@ export default function FinalNextAction({
                           ) : resolvedType === 'youtube' ? (
                             <YoutubeLogo size={15} weight="fill" className="text-[#DC2626]" />
                           ) : (
-                            <Globe size={14} weight="bold" className="text-indigo-500" />
+                            <Globe size={14} weight="bold" className="text-emerald-600" />
                           )}
                           <span>{item.label}</span>
-                          <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
+                          <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-emerald-600 transition-colors" />
                         </motion.a>
                       )
                     })}
@@ -323,7 +332,7 @@ export default function FinalNextAction({
               className="shrink-0"
               alt="Celebration Mascot"
             />
-            <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
+            <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-[#102118] border border-emerald-500/10 dark:border-[#1B3326] dark:p-3 dark:shadow-sm">
               <img
                 src={strategySessionImg}
                 alt="1-on-1 Strategy Session"
@@ -332,7 +341,7 @@ export default function FinalNextAction({
             </div>
           </div>
         </div>
-      </div>
+      </SpotlightCard>
     </section>
   )
 }

@@ -162,8 +162,8 @@ export function buildDeterministicThoughtLeadership(
       },
       {
         format: 'The Architecture Deep-Dive / Counter-Intuitive Lesson',
-        hook: `Running heavy transformation models directly in warehouse storage quickly balloons compute bills. Here is how we optimized our ${skill1} pipelines to cut query costs by 45%:`,
-        bodyOutline: `1. The compute spike (unpartitioned incremental scans)\n2. Analyzing query execution plans and scan volumes\n3. The architecture fix (clustering keys & incremental materializations)\n4. Benchmark results and monthly savings`,
+        hook: `Running heavy transformation models directly in warehouse storage quickly balloons compute bills. Here is how we optimized our ${skill1} pipelines to eliminate redundant partition scans and control cloud costs:`,
+        bodyOutline: `1. The compute spike (unpartitioned incremental scans)\n2. Analyzing query execution plans and scan volumes\n3. The architecture fix (clustering keys & incremental materializations)\n4. Measurable reduction in warehouse compute and runtime overhead`,
         callToAction: `How do you handle cost governance and query optimization in your modern data stack?`,
         targetHashtags: ['#DataEngineering', '#BigData', '#CloudCostOptimization'],
         recommendedMedia: 'Query execution before/after flamegraph or benchmark chart',
@@ -190,8 +190,8 @@ export function buildDeterministicThoughtLeadership(
       },
       {
         format: 'The Architecture Deep-Dive / Counter-Intuitive Lesson',
-        hook: `Most tutorials teach configuring ${skill1} with standard ${skill4} defaults and calling it a day. In ${projName}, our latency spiked 4x under concurrent queries until we restructured our architecture:`,
-        bodyOutline: `1. The bottleneck: thread pool starvation and unindexed joins\n2. Why horizontal scaling failed to resolve the root issue\n3. The fix: connection pooling and asynchronous non-blocking pipelines\n4. Concrete production benchmark before vs after (p99 reduced by 62%)`,
+        hook: `Most tutorials teach configuring ${skill1} with standard ${skill4} defaults and calling it a day. In ${projName}, our latency spiked under concurrent queries until we restructured our connection architecture:`,
+        bodyOutline: `1. The bottleneck: thread pool starvation and unindexed joins\n2. Why horizontal scaling failed to resolve the root issue\n3. The fix: connection pooling and asynchronous non-blocking pipelines\n4. Verified performance stabilization and tail latency reduction under peak load`,
         callToAction: `How is your team tackling p99 tail latency under sudden traffic spikes?`,
         targetHashtags: ['#BackendEngineering', '#SystemDesign', '#PerformanceOptimization'],
         recommendedMedia: 'System architecture diagram or terminal benchmark comparison screenshot',

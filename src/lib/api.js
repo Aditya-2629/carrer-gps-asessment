@@ -42,7 +42,11 @@ export const api = {
   patch: (url, data, config) => client.patch(url, data, config),
 
   // Background evaluation method called by FileUpload.jsx
-  analyzeResumeFile: async (file) => api.evaluateResume({ file }),
+  analyzeResumeFile: async (file, options) =>
+    api.evaluateResume({
+      file,
+      onProgress: typeof options === 'function' ? options : options?.onProgress,
+    }),
 
   // POST /api/otp/send-otp
   sendOtp: async ({ email }) => {
@@ -75,12 +79,20 @@ export const api = {
   },
 
   // POST /api/resume-agent/parse-deterministic (0 LLM calls, deterministic extraction)
-  parseResumeDeterministic: async (file) => {
+  parseResumeDeterministic: async (file, options = {}) => {
+    const onProgress = typeof options === 'function' ? options : options?.onProgress
     try {
       const form = new FormData()
       form.append('resume', file)
       const res = await client.post('/resume-agent/parse-deterministic', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (typeof onProgress === 'function' && progressEvent.total) {
+            const rawPercent = Math.min(100, Math.round((progressEvent.loaded * 100) / progressEvent.total))
+            const percent = Math.min(35, Math.round((rawPercent / 100) * 35))
+            onProgress({ percent, stage: 'uploading', rawPercent })
+          }
+        },
       })
       return res.data
     } catch (err) {
@@ -94,7 +106,15 @@ export const api = {
   },
 
   // Immediate background resume agent evaluation on upload (Step 5) or LinkedIn step advance (Step 11)
-  evaluateResume: async ({ file, resumeText = '', targetRole = '', targetJobDescription = '', linkedinUrl = '', signal }) => {
+  evaluateResume: async ({
+    file,
+    resumeText = '',
+    targetRole = '',
+    targetJobDescription = '',
+    linkedinUrl = '',
+    signal,
+    onProgress,
+  }) => {
     try {
       const form = new FormData()
       if (file) {
@@ -112,6 +132,13 @@ export const api = {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 180000,
         signal,
+        onUploadProgress: (progressEvent) => {
+          if (typeof onProgress === 'function' && progressEvent.total) {
+            const rawPercent = Math.min(100, Math.round((progressEvent.loaded * 100) / progressEvent.total))
+            const percent = Math.min(35, Math.round((rawPercent / 100) * 35))
+            onProgress({ percent, stage: 'uploading', rawPercent })
+          }
+        },
       })
       return res.data
     } catch (err) {
@@ -138,6 +165,22 @@ export const api = {
       .post('/linkedin-agent/scrape', { url, sessionId: getVisitorSessionId() })
       .then((r) => r.data)
       .catch(() => ({ success: false, profile: null }))
+  },
+
+  // POST /api/assessment/prefetch-market (Questionnaire-time Fast-Catch trigger)
+  prefetchMarket: async ({ targetRole, experienceYears, experience }) => {
+    if (!targetRole || targetRole.trim().length < 2) return null
+    return client
+      .post('/assessment/prefetch-market', {
+        targetRole: targetRole.trim(),
+        experienceYears,
+        experience,
+      })
+      .then((r) => r.data)
+      .catch((err) => {
+        console.warn('[prefetchMarket] Non-fatal prefetch notice:', err.message)
+        return null
+      })
   },
 
   // Phase C: async job flow — save answers, then create a report job and

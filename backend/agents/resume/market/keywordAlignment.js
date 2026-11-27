@@ -653,7 +653,7 @@ export function computeKeywordAlignment({
 
   const roleLower = roleName.toLowerCase()
   let packKey = 'general-professional'
-  if (/ai|ml|machine\s*learning|deep\s*learning|nlp/i.test(roleLower)) packKey = 'ai-ml-engineer'
+  if (/\b(?:ai|ml|machine\s*learning|deep\s*learning|nlp|llm|computer\s*vision)\b/i.test(roleLower)) packKey = 'ai-ml-engineer'
   else if (/data\s*(&|\+|and|\/)?\s*(business\s*)?analyst|business\s*analyst|analytics|bi\b/i.test(roleLower)) packKey = 'data-analyst'
   else if (/devops|sre|cloud|platform|infrastructure/i.test(roleLower)) packKey = 'devops-engineer'
   else if (/data\s*engineer|big\s*data|data\s*platform/i.test(roleLower)) packKey = 'data-engineer'
@@ -675,25 +675,30 @@ export function computeKeywordAlignment({
     targetKeywords = [...extractedJdSkills]
   }
 
+  const sampleSize = Number(marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 0)
+  if (!isJdProvided && sampleSize < 8) {
+    console.warn(`[DATA-INTEGRITY] Market bucket for "${roleName}" has ${sampleSize} JDs (< 8 threshold). Suppressing synthetic market percentages to prevent cross-role distortion.`)
+  }
+
   const hasRealMarketProfile = Boolean(
     marketProfile &&
     Array.isArray(marketProfile.skills) &&
-    marketProfile.skills.length > 0
+    marketProfile.skills.length > 0 &&
+    sampleSize >= 8
   )
 
   if (hasRealMarketProfile) {
-    // 100% REAL DATA ONLY: Bypass static fallback packs completely when real market intelligence is present
+    // 100% REAL DATA ONLY: Use market intelligence extracted from real scraped JDs
     targetKeywords = marketProfile.skills
       .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
       .filter(isGenuineTechnicalSkill)
-  } else if (!isJdProvided) {
-    // Priority 3: Fallback pack only if no market data is present
-    const fallbackPack = MARKET_ROLE_KEYWORD_PACKS[packKey] || MARKET_ROLE_KEYWORD_PACKS['general-professional'] || []
-    targetKeywords = Array.from(new Set([...targetKeywords, ...fallbackPack]))
   }
 
   // Deduplicate & filter genuine technical skills (Uncapped!)
   targetKeywords = Array.from(new Set(targetKeywords.filter(isGenuineTechnicalSkill)))
+
+  const totalRealJds = sampleSize
+  const marketDataPending = !isJdProvided && !hasRealMarketProfile
 
   // Build allMarketSkills mapping back to marketProfile metadata if present
   const marketSkillsMap = new Map()
@@ -706,15 +711,13 @@ export function computeKeywordAlignment({
     }
   }
 
-  const totalRealJds = marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 1
-
-  const allMarketSkills = targetKeywords.map((name, idx) => {
+  const allMarketSkills = targetKeywords.map((name, _idx) => {
     const existing = marketSkillsMap.get(name.toLowerCase())
     if (existing && typeof existing === 'object') {
       const realCount = existing.count || existing.frequency || 1
       const realPercentage = existing.percentage != null
         ? existing.percentage
-        : Math.min(100, Math.round((realCount / totalRealJds) * 100))
+        : (totalRealJds > 0 ? Math.min(100, Math.round((realCount / totalRealJds) * 100)) : null)
       return {
         ...existing,
         name,
@@ -728,21 +731,16 @@ export function computeKeywordAlignment({
       return {
         name,
         frequency: totalRealJds || 1,
+        totalJds: totalRealJds || 1,
         percentage: 100,
       }
     }
 
-    // Calibrated baseline market percentages (Tiered by seniority demand)
-    // Top 5 skills: 75%-60%, Next 5: 55%-40%, Remaining: 35%-20%
-    let percentage = 45
-    if (idx < 4) percentage = 75 - (idx * 5)
-    else if (idx < 8) percentage = 55 - ((idx - 4) * 4)
-    else percentage = Math.max(20, 38 - ((idx - 8) * 3))
-
     return {
       name,
-      frequency: Math.round((percentage / 100) * 100),
-      percentage,
+      frequency: 0,
+      totalJds: 0,
+      percentage: null,
     }
   })
 
@@ -809,18 +807,18 @@ export function computeKeywordAlignment({
       skillsOnlyUnverified.push(skillName)
     } else {
       // Genuinely missing from candidate's entire resume!
-      const count = typeof item === 'object' ? (item.frequency || item.count || 1) : 1
+      const count = typeof item === 'object' ? (item.frequency || item.count || 0) : 0
       const percentage = typeof item === 'object' && item.percentage != null
         ? item.percentage
-        : Math.min(100, Math.round((count / totalRealJds) * 100))
+        : (totalRealJds > 0 ? Math.min(100, Math.round((count / totalRealJds) * 100)) : null)
 
-      // Statistical Noise Filter: Low frequency outliers (<20% or count < 2 in sample > 5) are never high priority
+      // Only assign high/medium priority and JD badge if we have real JD percentage
       let priority = 'LOW'
       let priorityColor = 'grey'
-      if (percentage >= 35 && (count >= 2 || totalRealJds <= 2)) {
+      if (percentage != null && percentage >= 35 && (count >= 2 || totalRealJds <= 2)) {
         priority = 'HIGH'
         priorityColor = 'red'
-      } else if (percentage >= 20 && (count >= 2 || totalRealJds <= 2)) {
+      } else if (percentage != null && percentage >= 20 && (count >= 2 || totalRealJds <= 2)) {
         priority = 'MEDIUM'
         priorityColor = 'yellow'
       }
@@ -833,7 +831,7 @@ export function computeKeywordAlignment({
         priority,
         priorityColor,
         category: item.category || 'tools',
-        badge: `${percentage}% of JDs`,
+        badge: percentage != null ? `${percentage}% of JDs` : null,
         talkingScript: `Discuss how you can leverage ${skillName} in production workflows for ${roleName}.`,
       })
     }
@@ -874,10 +872,14 @@ export function computeKeywordAlignment({
   const competencyClusters = evaluateCandidateClusters(packKey, uniqueMatched, allMarketSkills)
 
   return {
-    source: isJdProvided ? 'active_jd' : 'market_intelligence',
-    sourceLabel: isJdProvided ? 'Active Job Description' : 'Market Intelligence (Top Target Keywords)',
+    source: isJdProvided ? 'active_jd' : (hasRealMarketProfile ? 'market_intelligence' : 'resume_analysis'),
+    sourceLabel: isJdProvided
+      ? 'Active Job Description'
+      : (hasRealMarketProfile ? 'Market Intelligence (Top Target Keywords)' : 'Resume Skills Inventory'),
     targetRole: roleName,
     targetKeywords,
+    totalJds: totalRealJds,
+    marketDataPending,
     matchedCount,
     totalTargetKeywords,
     matchPercent,

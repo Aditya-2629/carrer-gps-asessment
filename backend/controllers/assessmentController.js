@@ -5,8 +5,8 @@ import { getGlobalSettings, normalizeSocialLinksConfig } from '../models/AppSett
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification, sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
-import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { resolveMarketBucket, mapYearsToBucket, normalizeRoleTaxonomy } from '../agents/resume/market/marketBucketResolver.js'
+import { getMarketDataForBucket, triggerFastCatchForBucket, inFlightFastCatch, ensurePriorityMarketBucket } from '../agents/resume/market/marketJdRetriever.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
@@ -549,35 +549,14 @@ export const saveAnswers = async (req, res) => {
       if (user.resumeJson) {
         try {
           const targetRole = answers.targetRole || answers.role || user.resumeJson?.candidate?.targetRole || user.resumeJson?.targetRole || 'Professional'
-          const resolved = resolveMarketBucket({
-            targetRole,
+          ensurePriorityMarketBucket({
+            roleTitle: targetRole,
             canonicalResume: user.resumeJson,
+          }).catch((warmErr) => {
+            console.warn(`[AssessmentController] Priority market prefetch notice for "${targetRole}":`, warmErr.message)
           })
-
-          const bucketKey = resolved?.bucketKey
-          if (bucketKey) {
-            const bucketDoc = await JobMarketBucket.findOne({ bucketKey }).lean()
-            let isSufficient = false
-
-            if (bucketDoc?.activeVersion > 0) {
-              const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucketDoc.activeVersion }).lean()
-              const sampleCount = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || 0
-              if (sampleCount >= 35) {
-                isSufficient = true
-              }
-            }
-
-            if (!isSufficient) {
-              console.log(`[AssessmentController] Bucket ${bucketKey} is cold or under-sampled (<35 JDs). Warming bucket immediately...`)
-              getMarketDataForBucket(bucketKey, { targetCount: 35, autoRefresh: true }).catch((warmErr) => {
-                console.warn(`[AssessmentController] Upload-time bucket warming error for ${bucketKey}:`, warmErr.message)
-              })
-            } else {
-              console.log(`[AssessmentController] Bucket ${bucketKey} is already warm (>=35 JDs). Ready for 0ms report generation.`)
-            }
-          }
         } catch (warmupErr) {
-          console.warn('[AssessmentController] Upload-time market bucket warming non-fatal error:', warmupErr.message)
+          console.warn('[AssessmentController] Answer save market bucket warming non-fatal error:', warmupErr.message)
         }
       }
     }
@@ -1616,6 +1595,48 @@ export function persistAssessmentActivitySignals(user, assessmentResults = {}) {
   }
   return user
 }
+
+/**
+ * POST /api/assessment/prefetch-market
+ * Triggered at questionnaire time when user enters/selects targetRole and experience.
+ * Starts in-flight Fast-Catch (35 JDs) asynchronously if bucket has < 8 JDs.
+ */
+export async function prefetchMarket(req, res) {
+  try {
+    const targetRole = String(req.body?.targetRole || '').trim()
+    const rawExp = req.body?.experienceYears ?? req.body?.experience ?? null
+    if (!targetRole || targetRole.length < 2) {
+      return res.status(400).json({ success: false, message: 'Valid targetRole is required.' })
+    }
+
+    const prefetchRes = await ensurePriorityMarketBucket({
+      roleTitle: targetRole,
+      experienceYears: rawExp,
+    })
+
+    if (prefetchRes.ready) {
+      return res.status(200).json({
+        success: true,
+        ready: true,
+        bucketKey: prefetchRes.bucketKey,
+        totalJds: prefetchRes.totalJds,
+      })
+    }
+
+    return res.status(202).json({
+      success: true,
+      started: prefetchRes.started,
+      bucketKey: prefetchRes.bucketKey,
+      roleName: targetRole,
+      targetCount: 35,
+      inFlight: inFlightFastCatch.has(prefetchRes.bucketKey),
+    })
+  } catch (err) {
+    console.error('[prefetchMarket] error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to prefetch market data.' })
+  }
+}
+
 
 
 

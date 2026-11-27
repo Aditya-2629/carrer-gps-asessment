@@ -543,9 +543,9 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
   return (
     <section id="resume-ai" className="space-y-8 scroll-mt-28 print:space-y-6">
       <SectionHeader
-        icon={<Target size={22} weight="bold" className="text-indigo-600" />}
+        icon={<Target size={22} weight="bold" className="text-[#15803D]" />}
         title="Resume Diagnostic Lab & Bullet Rewrites"
-        accent="text-indigo-600"
+        accent="text-[#15803D]"
       />
 
       {/* Candidate Snapshot Meta Bar */}
@@ -811,7 +811,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         >
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-default)] pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-[#15803D]">
                 <FileText size={18} weight="bold" />
               </div>
               <div>
@@ -869,14 +869,14 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
           {summaryOptimization.rewrittenSummary && (
             <div className="bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 font-mono">
+                <span className="text-[11px] font-semibold text-[#15803D] dark:text-emerald-400 flex items-center gap-1.5 font-mono">
                   <Target size={14} weight="bold" /> Strategic Executive Summary Rewrite
                 </span>
 
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="print-keep px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#15803D] hover:bg-[#166534] text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   title="Click to copy executive summary"
                 >
                   {copiedSummary ? <Check size={13} weight="bold" /> : <Copy size={13} weight="bold" />}
@@ -962,7 +962,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
         <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 sm:p-6 space-y-4 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--border-default)] pb-4">
             <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+              <span className="p-2 rounded-xl bg-emerald-500/10 text-[#15803D] border border-emerald-500/20">
                 <ArrowsLeftRight size={20} weight="bold" />
               </span>
               <div>
@@ -970,7 +970,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
                   <h3 className="text-base font-bold text-[var(--text-primary)]">
                     Literal ATS Keyword Mirroring
                   </h3>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 tabular-nums">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-500/10 text-[#15803D] border border-emerald-500/20 tabular-nums">
                     {nearMissKeywords.length} Exact Keyword Swaps
                   </span>
                 </div>
@@ -985,7 +985,7 @@ export default function ResumeDeepDiagnosis({ resumeAgent, reportData: propRepor
             {nearMissKeywords.map((item, idx) => (
               <div
                 key={idx}
-                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-indigo-400/50 transition-colors"
+                className="p-4 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2 hover:border-emerald-400/50 transition-colors"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-wrap">

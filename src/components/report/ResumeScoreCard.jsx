@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react'
 import { NumberRoll } from '../number-roll'
+import { CountUp } from '../motion'
 import { CompareBars } from '../compare-bars'
 
 /**
@@ -43,7 +44,7 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
   return (
     <div className="relative w-40 h-40 shrink-0 print:break-inside-avoid">
       <svg viewBox="0 0 140 140" className="w-40 h-40 -rotate-90">
-        <circle cx="70" cy="70" r={R} fill="none" stroke={light ? '#e2e8f0' : '#1e293b'} strokeWidth="11" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke={light ? '#e2e8f0' : '#102118'} strokeWidth="11" />
         <circle
           cx="70"
           cy="70"
@@ -58,9 +59,9 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <NumberRoll
-          value={score}
-          duration={850}
+        <CountUp
+          to={score}
+          duration={1.2}
           className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-[var(--text-primary)]' : 'text-white'}`}
         />
         <div className={`text-lg font-semibold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
@@ -113,10 +114,10 @@ export default function ResumeScoreCard({
     return true
   })
 
-  const cardBg = light ? 'bg-[var(--surface-card)] border-[var(--border-default)]' : 'bg-[#0f172a] border-gray-800/90'
-  const headingText = light ? 'text-[var(--text-primary)]' : 'text-white'
-  const subText = light ? 'text-[var(--text-muted)]' : 'text-gray-400'
-  const labelColor = light ? 'text-[var(--text-muted)]' : 'text-gray-300'
+  const cardBg = light ? 'bg-[var(--surface-card)] border-[var(--border-default)]' : 'bg-[#0B1711] border-[#1B3326]'
+  const headingText = light ? 'text-[var(--text-primary)]' : 'text-[#F0FDF4]'
+  const subText = light ? 'text-[var(--text-muted)]' : 'text-[#94B4A2]'
+  const labelColor = light ? 'text-[var(--text-muted)]' : 'text-[#94B4A2]'
 
   return (
     <div id={id} className={`${cardBg} border rounded-2xl shadow-sm overflow-hidden print:shadow-none print:break-inside-avoid`} {...rest}>
@@ -130,7 +131,7 @@ export default function ResumeScoreCard({
             <div className={`text-lg font-semibold ${headingText}`}>
               {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
-                <NumberRoll value={score} duration={850} />/100
+                <CountUp to={score} duration={1.2} />/100
               </span>
             </div>
             <div className="flex items-center gap-1.5 pt-1">

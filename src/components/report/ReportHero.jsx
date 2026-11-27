@@ -13,6 +13,7 @@ import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { getCareerHealthAxes } from '../../lib/reportMetrics'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
+import { BlurText, CountUp } from '../motion'
 
 export default function ReportHero({ reportData, user }) {
   const { triggerGuide } = useReportGuideStore()
@@ -46,7 +47,7 @@ export default function ReportHero({ reportData, user }) {
 
   // Dynamic Ring Stroke Color
   const ringColor =
-    overall >= 80 ? 'text-emerald-500' : overall >= 60 ? 'text-indigo-600' : 'text-amber-500'
+    overall >= 80 ? 'text-emerald-500' : overall >= 60 ? 'text-[#15803D]' : 'text-amber-500'
   const strokeDashoffset = 283 - (283 * overall) / 100
 
   // Telemetry Strip Items
@@ -128,7 +129,7 @@ export default function ReportHero({ reportData, user }) {
       ),
       value: `${marketScore}%`,
       caption: 'JD Keyword Match',
-      color: 'text-indigo-600 dark:text-indigo-400',
+      color: 'text-[#15803D] dark:text-emerald-400',
       onClick: () => {
         setActiveMetric('market')
         triggerGuide({
@@ -180,7 +181,10 @@ export default function ReportHero({ reportData, user }) {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight leading-tight">
-              {candidateName ? `${candidateName}'s Career Health Report` : 'Career Health Diagnostic Report'}
+              <BlurText
+                text={candidateName ? `${candidateName}'s Career Health Report` : 'Career Health Diagnostic Report'}
+                delay={0.06}
+              />
             </h1>
 
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -222,9 +226,9 @@ export default function ReportHero({ reportData, user }) {
                 />
               </svg>
               <div className="absolute flex flex-col items-center">
-                <NumberRoll
-                  value={overall}
-                  duration={900}
+                <CountUp
+                  to={overall}
+                  duration={1.2}
                   className="text-xl font-semibold font-mono text-[var(--text-primary)] tabular-nums"
                 />
                 <span className="text-[9px] font-mono text-[var(--text-muted)]">
@@ -262,10 +266,13 @@ export default function ReportHero({ reportData, user }) {
                 <Radar
                   name="Current"
                   dataKey="current"
-                  stroke="#6366F1"
-                  fill="#6366F1"
+                  stroke="#15803D"
+                  fill="#15803D"
                   fillOpacity={0.25}
                   strokeWidth={2}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationEasing="ease-out"
                 />
                 <Radar
                   name="Post-Fix Potential"
@@ -275,6 +282,9 @@ export default function ReportHero({ reportData, user }) {
                   fillOpacity={0.12}
                   strokeWidth={2}
                   strokeDasharray="4 4"
+                  isAnimationActive={true}
+                  animationDuration={1300}
+                  animationEasing="ease-out"
                 />
                 <Tooltip
                   contentStyle={{
@@ -294,8 +304,8 @@ export default function ReportHero({ reportData, user }) {
             <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
               <span>6-Axis Health Breakdown</span>
               <div className="flex items-center gap-3 text-[10px] font-mono">
-                <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 inline-block" /> Current
+                <span className="flex items-center gap-1 text-[#15803D] dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-[#15803D] dark:bg-emerald-400 inline-block" /> Current
                 </span>
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-400 inline-block" /> Post-Fix
@@ -311,9 +321,13 @@ export default function ReportHero({ reportData, user }) {
                 >
                   <span className="font-medium text-[var(--text-secondary)]">{d.subject}</span>
                   <div className="flex items-center gap-2 font-mono">
-                    <span className="text-[var(--text-primary)] font-semibold">{d.current}%</span>
+                    <span className="text-[var(--text-primary)] font-semibold inline-flex items-center">
+                      <CountUp to={d.current} duration={1} />%
+                    </span>
                     <span className="text-[var(--text-muted)]">→</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">{d.target}%</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center">
+                      <CountUp to={d.target} duration={1.1} />%
+                    </span>
                   </div>
                 </div>
               ))}
@@ -341,7 +355,7 @@ export default function ReportHero({ reportData, user }) {
                 <span className="text-[10px] font-mono text-[var(--text-muted)] group-hover:text-[var(--text-primary)]">
                   {m.label}
                 </span>
-                <ArrowUpRight className="w-3 h-3 text-[var(--text-muted)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
+                <ArrowUpRight className="w-3 h-3 text-[var(--text-muted)] group-hover:text-[#15803D] dark:group-hover:text-emerald-400 transition-colors" />
               </div>
               <div className="font-mono text-xl sm:text-2xl font-semibold text-[var(--text-primary)] tracking-tight tabular-nums">
                 {m.valueNode || m.value}

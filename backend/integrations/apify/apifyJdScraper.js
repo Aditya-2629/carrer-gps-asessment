@@ -50,7 +50,9 @@ export function buildCalibratedSearchQuery(role = 'Data Analyst') {
 
   return {
     jobTitles: [cleanRole],
-    queryFilter: `"${cleanRole}"`,
+    queryFilter: cleanRole.includes(' ') && cleanRole.split(' ').length > 2
+      ? cleanRole
+      : `"${cleanRole}"`,
   }
 }
 

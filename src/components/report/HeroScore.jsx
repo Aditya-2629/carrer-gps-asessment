@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CountUp } from '../motion'
 
 const CIRCUMFERENCE = 2 * Math.PI * 54 // r=54
 
@@ -78,7 +79,7 @@ export default function HeroScore({ score, scoreLabel }) {
             className="text-4xl font-bold tabular-nums"
             style={{ fontFamily: 'var(--font-head)', color }}
           >
-            {displayed}
+            <CountUp to={score} duration={1.2} />
           </span>
           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>/ 100</span>
         </div>

@@ -212,9 +212,11 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
           {activePresets.map((p) => {
             const isSelected = String(rawVal) === String(p)
             return (
-              <button
+              <motion.button
                 key={p}
                 type="button"
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
                 onClick={() => handlePresetClick(p)}
                 className={`text-xs px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
                   isSelected
@@ -223,7 +225,7 @@ export default function QuantitativeInput({ value, onChange, error, step, onNext
                 }`}
               >
                 {p}
-              </button>
+              </motion.button>
             )
           })}
         </div>

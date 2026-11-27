@@ -23,6 +23,7 @@ import { ensureConfiguredBucketsExist } from '../jobs/marketJd/marketJdJobs.js'
 import { filterJdsByDomainRelevance } from '../integrations/apify/apifyJdScraper.js'
 import { normalizeCanonicalSkill } from '../agents/resume/market/llmJdSkillAnalyzer.js'
 import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } from '../agents/resume/market/dynamicSkillExtractor.js'
+import { getSchedulerTelemetry } from '../jobs/marketJd/marketAutoScheduler.js'
 
 /**
  * GET /api/admin/market-library
@@ -31,10 +32,32 @@ import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } fro
 export async function listMarketBuckets(req, res) {
   try {
     await ensureConfiguredBucketsExist()
-    const stats = await getMarketLibraryStats()
+    const [stats, liveScheduler] = await Promise.all([
+      getMarketLibraryStats(),
+      getSchedulerTelemetry().catch(() => null),
+    ])
+
+    const refreshingBucket = stats.buckets?.find((b) => b.status === 'refreshing')
+
+    const schedulerState = {
+      status: liveScheduler?.status || (refreshingBucket ? 'enriching' : 'idle'),
+      isDeferred: liveScheduler?.status === 'deferred_traffic_active',
+      deferredReason: liveScheduler?.deferredReason || null,
+      currentBucket: liveScheduler?.currentBucket || (refreshingBucket ? (refreshingBucket.bucketKey || refreshingBucket.roleName) : null),
+      staleCount: liveScheduler?.staleBucketsCount ?? (stats.needsRefresh || 0),
+      pendingCount: liveScheduler?.pendingEnrichmentCount ?? 0,
+      activeCount: liveScheduler?.isEnriching ? 1 : (refreshingBucket ? 1 : 0),
+      isEnriching: liveScheduler?.isEnriching || false,
+      lastFullRefresh: stats.lastFullRefresh || null,
+      lastRunAt: liveScheduler?.lastRunAt || null,
+      nextEligibleAt: liveScheduler?.nextEligibleAt || null,
+      cooldownRemainingMs: liveScheduler?.cooldownRemainingMs || 0,
+    }
+
     return res.status(200).json({
       success: true,
       ...stats,
+      schedulerState,
     })
   } catch (err) {
     console.error('[AdminMarket] listMarketBuckets error:', err)

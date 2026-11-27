@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import TeaserLockBlock from '../TeaserLockBlock'
+import { SpotlightCard, BorderBeam, ShinyText } from '../motion'
 import {
   Warning,
   Lightbulb,
@@ -36,6 +37,15 @@ function safeText(val, fallback = '') {
   }
   return fallback
 }
+
+const SIX_HIRING_PHASES = [
+  { id: 1, name: 'Resume & ATS Pre-Screen', shortName: '1. Resume/ATS' },
+  { id: 2, name: 'Recruiter Gatekeeper', shortName: '2. Screens' },
+  { id: 3, name: 'Technical Rounds', shortName: '3. Tech Defense' },
+  { id: 4, name: 'Final Loops', shortName: '4. Final Loops' },
+  { id: 5, name: 'Offer Closing', shortName: '5. Offer Close' },
+  { id: 6, name: 'Leveling & Comp', shortName: '6. Comp/Sign' },
+]
 
 export default function PrimaryBottleneck({ reportData, onNavigateSection, isTeaserLocked = false, bookingUrl = '', onOpenUnlockModal }) {
   const phase = reportData?.phase ?? {
@@ -198,10 +208,100 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
         </p>
       </div>
 
+      {/* 6-Phase Pipeline Stepper with Micro-Motion */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs">
+        <div className="flex items-center justify-between mb-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span className="font-semibold text-[var(--text-primary)]">6-Phase Hiring Pipeline Stepper</span>
+          </div>
+          <span className="text-[11px] font-mono text-[var(--text-muted)]">
+            Bottleneck identified at Phase {Number(phase.id || 1)}
+          </span>
+        </div>
+
+        <div className="relative flex items-center justify-between py-2 overflow-x-auto no-scrollbar">
+          {/* Background Connector Track */}
+          <div className="absolute top-5 left-6 right-6 h-1 bg-[var(--border-default)] -translate-y-1/2 -z-0 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-[#15803D] via-[#22C55E] to-rose-500 rounded-full"
+              initial={{ width: '0%' }}
+              animate={{ width: `${Math.min(100, Math.max(10, ((Number(phase.id || 1) - 1) / 5) * 100))}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+          </div>
+
+          {SIX_HIRING_PHASES.map((p) => {
+            const currentPhaseNum = Number(phase.id || 1)
+            const isCompleted = p.id < currentPhaseNum
+            const isCurrent = p.id === currentPhaseNum
+
+            return (
+              <div key={p.id} className="relative z-10 flex flex-col items-center px-1 sm:px-2 shrink-0">
+                <div className="relative flex items-center justify-center">
+                  {/* Active Bottleneck Pulsing Halo Ring */}
+                  {isCurrent && (
+                    <motion.span
+                      className="absolute -inset-1.5 rounded-full border-2 border-rose-500/50"
+                      animate={{ scale: [1, 1.28, 1], opacity: [0.75, 0, 0.75] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  )}
+
+                  {/* Node Circle */}
+                  <div
+                    className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center border-2 text-xs font-mono font-bold transition-all ${
+                      isCompleted
+                        ? 'bg-[#15803D] border-[#15803D] text-white shadow-xs'
+                        : isCurrent
+                        ? 'bg-rose-500 border-rose-500 text-white shadow-md'
+                        : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-muted)]'
+                    }`}
+                  >
+                    {isCompleted ? (
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <motion.path
+                          d="M3 8.5L6.5 12L13 4"
+                          stroke="#FFFFFF"
+                          strokeWidth="2.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 0.45, ease: 'easeOut', delay: p.id * 0.08 }}
+                        />
+                      </svg>
+                    ) : (
+                      <span>{p.id}</span>
+                    )}
+                  </div>
+                </div>
+
+                <span
+                  className={`mt-2 text-[10px] sm:text-[11px] font-semibold text-center whitespace-nowrap ${
+                    isCurrent
+                      ? 'text-rose-600 dark:text-rose-400 font-bold'
+                      : isCompleted
+                      ? 'text-[#15803D] dark:text-emerald-400 font-medium'
+                      : 'text-[var(--text-muted)]'
+                  }`}
+                >
+                  {p.shortName}
+                </span>
+
+                <span className="text-[9px] font-mono text-[var(--text-muted)]">
+                  {isCurrent ? '⚠️ Bottleneck' : isCompleted ? '✓ Cleared' : 'Pending'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
       {/* 2-Part Framework: WHERE YOU ARE STUCK vs WHY YOU ARE STUCK */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* WHERE YOU ARE STUCK (Current Phase) */}
-        <div className="lg:col-span-5 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
+        <SpotlightCard className="lg:col-span-5 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
@@ -246,15 +346,16 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
               Phase priority evaluated using deterministic 90-day funnel data.
             </span>
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* WHY YOU ARE STUCK (Primary & Secondary Root Cause) */}
-        <div
+        <SpotlightCard
           className="lg:col-span-7 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden"
           data-mascot-cue={`Critical root bottleneck detected: "${safeText(primaryBottleneck.title)}". Focus your immediate efforts here.`}
           data-mascot-chip="Bottleneck Focus"
           data-mascot-emotion="alert"
         >
+          <BorderBeam size={160} duration={8} colorFrom="#22C55E" colorTo="#15803D" />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
@@ -299,7 +400,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
           {/* Next Best Action Banner */}
           <div className="mt-4 p-3.5 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="text-[10px] text-emerald-700 font-mono block">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono block">
                 Immediate Next Best Action
               </span>
               <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
@@ -318,7 +419,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
               <ArrowRight size={13} weight="bold" />
             </button>
           </div>
-        </div>
+        </SpotlightCard>
       </div>
 
       {/* Top 3 Prioritized Actions Section */}
@@ -354,17 +455,17 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                       <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
                         #3
                       </span>
-                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                     </div>
-                    <div className="h-5 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-14 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-16 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-5 w-4/5 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-14 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-16 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
                 </TeaserLockBlock>
               )
             }
             const actionCard = (
-              <div
+              <SpotlightCard
                 key={idx}
                 className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card h-full"
               >
@@ -437,7 +538,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                     </span>
                   </div>
                 </div>
-              </div>
+              </SpotlightCard>
             )
 
             if (isTeaserLocked && idx === 2) {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sun,
   Moon,
@@ -1352,80 +1353,105 @@ function ReportDashboardContent({ sharedReportId = null }) {
 
         {/* Screen View (100% Full-Width Editorial Layout) */}
         <div className="print:hidden space-y-10 w-full">
-          {activeTab === 'overview' && (
-            <div className="space-y-10 animate-fadeIn">
-              <div id="overview-pulse">
-                <ReportHero reportData={reportData} />
-              </div>
-              <div id="overview-bottleneck">
-                <PrimaryBottleneck
-                  reportData={reportData}
-                  onNavigateSection={handleNavigateSection}
-                  isTeaserLocked={isTeaserLocked}
-                  bookingUrl={bookingUrl}
-                  onOpenUnlockModal={openUnlockModal}
-                />
-              </div>
-              <div id="funnel-leak">
-                <FunnelAndConversionSection
-                  funnelData={reportData.funnel_stages}
-                  rejectionData={{
-                    factors: reportData.rejection_factors,
-                    insight: reportData.rejection_insight,
-                  }}
-                  riskData={reportData.risk_heatmap}
-                  reportData={reportData}
-                />
-              </div>
-              <div id="risk-matrix" className="space-y-6 mt-10">
-                {reportData.risk_heatmap && (
-                  <RiskHeatMap data={reportData.risk_heatmap} />
-                )}
-                {reportData.mission_board && (
-                  <MissionBoard data={reportData.mission_board} />
-                )}
-              </div>
-              <TeaserLockBlock
-                variant="fade"
-                isLocked={isTeaserLocked}
-                bookingUrl={bookingUrl}
-                onUnlock={openUnlockModal}
-                contextLabel="30-Day Execution Roadmap"
-                label="Unlock full 30-day execution roadmap in your free 15-min call →"
-                heightClass="max-h-[360px]"
+          <AnimatePresence mode="wait">
+            {activeTab === 'overview' && (
+              <motion.div
+                key="overview"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-10"
               >
-                <div id="sprint-roadmap" className="space-y-10 mt-10">
-                  <RoadmapTimeline
-                    roadmapData={reportData.roadmap}
-                    currentPhaseId={reportData.career_journey?.current_phase_id}
+                <div id="overview-pulse">
+                  <ReportHero reportData={reportData} />
+                </div>
+                <div id="overview-bottleneck">
+                  <PrimaryBottleneck
+                    reportData={reportData}
+                    onNavigateSection={handleNavigateSection}
+                    isTeaserLocked={isTeaserLocked}
+                    bookingUrl={bookingUrl}
+                    onOpenUnlockModal={openUnlockModal}
+                  />
+                </div>
+                <div id="funnel-leak">
+                  <FunnelAndConversionSection
+                    funnelData={reportData.funnel_stages}
+                    rejectionData={{
+                      factors: reportData.rejection_factors,
+                      insight: reportData.rejection_insight,
+                    }}
+                    riskData={reportData.risk_heatmap}
                     reportData={reportData}
                   />
                 </div>
-              </TeaserLockBlock>
-            </div>
-          )}
+                <div id="risk-matrix" className="space-y-6 mt-10">
+                  {reportData.risk_heatmap && (
+                    <RiskHeatMap data={reportData.risk_heatmap} />
+                  )}
+                  {reportData.mission_board && (
+                    <MissionBoard data={reportData.mission_board} />
+                  )}
+                </div>
+                <TeaserLockBlock
+                  variant="fade"
+                  isLocked={isTeaserLocked}
+                  bookingUrl={bookingUrl}
+                  onUnlock={openUnlockModal}
+                  contextLabel="30-Day Execution Roadmap"
+                  label="Unlock full 30-day execution roadmap in your free 15-min call →"
+                  heightClass="max-h-[360px]"
+                >
+                  <div id="sprint-roadmap" className="space-y-10 mt-10">
+                    <RoadmapTimeline
+                      roadmapData={reportData.roadmap}
+                      currentPhaseId={reportData.career_journey?.current_phase_id}
+                      reportData={reportData}
+                    />
+                  </div>
+                </TeaserLockBlock>
+              </motion.div>
+            )}
 
-          {activeTab === 'resume' && (
-            <div className="space-y-10 animate-fadeIn" id="resume-scorecard">
-              <ResumeDeepDiagnosis
-                resumeAgent={reportData.resume_agent}
-                reportData={reportData}
-                isTeaserLocked={isTeaserLocked}
-                teaserLockProps={teaserLockProps}
-              />
-            </div>
-          )}
+            {activeTab === 'resume' && (
+              <motion.div
+                key="resume"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-10"
+                id="resume-scorecard"
+              >
+                <ResumeDeepDiagnosis
+                  resumeAgent={reportData.resume_agent}
+                  reportData={reportData}
+                  isTeaserLocked={isTeaserLocked}
+                  teaserLockProps={teaserLockProps}
+                />
+              </motion.div>
+            )}
 
-          {activeTab === 'linkedin' && (
-            <div className="space-y-10 animate-fadeIn" id="linkedin-studio">
-              <LinkedInDeepDiagnosis
-                linkedinAgent={reportData.linkedin_agent}
-                reportData={reportData}
-                isTeaserLocked={isTeaserLocked}
-                teaserLockProps={teaserLockProps}
-              />
-            </div>
-          )}
+            {activeTab === 'linkedin' && (
+              <motion.div
+                key="linkedin"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className="space-y-10"
+                id="linkedin-studio"
+              >
+                <LinkedInDeepDiagnosis
+                  linkedinAgent={reportData.linkedin_agent}
+                  reportData={reportData}
+                  isTeaserLocked={isTeaserLocked}
+                  teaserLockProps={teaserLockProps}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Execution Bridge CTA Session & PDF Download (Across All 3 Tabs) */}
           <FinalNextAction

@@ -447,7 +447,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
             alt={activeView === '7day' ? 'Action Plan Mascot' : 'Roadmap Mascot'}
           />
           <div>
-            <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
+            <span className="text-xs font-mono font-medium text-[#15803D] dark:text-emerald-400 block">
               Action roadmap &amp; milestones
             </span>
             <h2
@@ -469,7 +469,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
             onClick={() => setActiveView('7day')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
               activeView === '7day'
-                ? 'bg-[var(--surface-card)] text-indigo-700 dark:text-indigo-400 shadow-xs border border-indigo-200/60 dark:border-indigo-800/60'
+                ? 'bg-[var(--surface-card)] text-[#15803D] dark:text-emerald-400 shadow-xs border border-emerald-200/60 dark:border-emerald-800/60'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -493,12 +493,12 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       <div className={`space-y-4 ${activeView === '7day' ? 'block' : 'hidden print:block'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <span className="w-2 h-2 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             <span className="text-xs font-semibold text-[var(--text-primary)]">
               7-Day Tactical Sprints (Immediate Bottleneck Remediation)
             </span>
           </div>
-          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300">
+          <span className="text-[11px] font-mono font-medium px-2.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300">
             Sprint Phase: Days 1–7
           </span>
         </div>
@@ -514,11 +514,11 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="h-5 w-16 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-5 w-16 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-5 w-24 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
-                  <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                 </div>
               )
             }
@@ -535,7 +535,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
               >
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/50 text-indigo-800 dark:text-indigo-300 shrink-0">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300 shrink-0">
                       DAY 0{dayNum}
                     </span>
                     <span className="text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] px-2 py-0.5 rounded border border-[var(--border-default)] truncate max-w-[180px]">

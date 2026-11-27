@@ -49,6 +49,11 @@ const jobMarketBucketSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    needsFullEnrichment: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     lastSuccessfulRefreshAt: {
       type: Date,
       default: null,

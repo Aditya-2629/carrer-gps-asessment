@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChatCircleDots,
   X,
@@ -946,15 +947,20 @@ export default function ReportChatbot({ hideLauncher = false }) {
       )}
 
       {/* Expandable Executive Workspace Drawer */}
-      {open && (
-        <div
-          className={`fixed bottom-3 sm:bottom-6 right-3 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-colors duration-150 ease-in-out ${
-            isExpanded
-              ? 'w-[calc(100vw-1.5rem)] sm:w-[680px]'
-              : 'w-[calc(100vw-1.5rem)] sm:w-[440px]'
-          }`}
-          style={{ height: 'min(680px, 85dvh)' }}
-        >
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.85, y: 20 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+            className={`fixed bottom-3 sm:bottom-6 right-3 sm:right-6 z-50 bg-[var(--surface-card)] border border-[var(--border-default)] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-colors duration-150 ease-in-out origin-bottom-right ${
+              isExpanded
+                ? 'w-[calc(100vw-1.5rem)] sm:w-[680px]'
+                : 'w-[calc(100vw-1.5rem)] sm:w-[440px]'
+            }`}
+            style={{ height: 'min(680px, 85dvh)' }}
+          >
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-default)] bg-[var(--surface-card)]">
             <div className="flex items-center gap-3">
@@ -1010,7 +1016,13 @@ export default function ReportChatbot({ hideLauncher = false }) {
               const showCallCta = isAgent && m.suggestCall === true
 
               return (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.18 }}
+                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
                     className={`text-xs leading-relaxed min-w-0 break-words ${
                       m.role === 'user'
@@ -1061,19 +1073,37 @@ export default function ReportChatbot({ hideLauncher = false }) {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               )
             })}
 
             {loading && !messages.some((m) => m.isStreaming && m.text.length > 0) && (
-              <div className="flex justify-start">
-                <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl rounded-bl-xs px-3.5 py-2.5 flex items-center gap-2 shadow-xs">
-                  <SpinnerGap size={14} className="animate-spin text-emerald-500" />
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-start"
+              >
+                <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl rounded-bl-xs px-4 py-3 flex items-center gap-2.5 shadow-xs">
+                  <div className="flex items-center gap-1">
+                    {[0, 1, 2].map((dotIdx) => (
+                      <motion.span
+                        key={dotIdx}
+                        animate={{ y: [0, -5, 0] }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 0.6,
+                          ease: 'easeInOut',
+                          delay: dotIdx * 0.15,
+                        }}
+                        className="w-1.5 h-1.5 rounded-full bg-emerald-500"
+                      />
+                    ))}
+                  </div>
                   <span className="text-[11px] text-[var(--text-muted)] font-medium">
                     Atlas is formulating your strategy…
                   </span>
                 </div>
-              </div>
+              </motion.div>
             )}
           </div>
 
@@ -1126,8 +1156,9 @@ export default function ReportChatbot({ hideLauncher = false }) {
               <PaperPlaneRight size={16} weight="fill" />
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
+    </AnimatePresence>
     </>
   )
 }

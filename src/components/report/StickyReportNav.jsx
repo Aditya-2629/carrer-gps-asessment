@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useSpring } from 'framer-motion'
 import { DownloadSimple } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { COCKPIT_TABS } from './ReportDashboard'
+import { CountUp, MagnetButton } from '../motion'
 
 export default function StickyReportNav({
   activeTab = 'overview',
@@ -17,6 +18,13 @@ export default function StickyReportNav({
   const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
   const safeRole = typeof targetRole === 'string' ? targetRole.trim() : ''
+
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 30,
+    restDelta: 0.001,
+  })
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
@@ -42,8 +50,11 @@ export default function StickyReportNav({
           <div className="flex items-center gap-2 shrink-0">
             {/* Health Score Pill */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
-              <span className="font-mono tabular-nums">{healthScore}/100</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400" />
+              <span className="font-mono tabular-nums inline-flex items-center">
+                <CountUp to={healthScore} duration={0.9} />
+                <span>/100</span>
+              </span>
             </div>
 
             {safeName && (
@@ -89,15 +100,15 @@ export default function StickyReportNav({
                   onClick={() => onTabChange && onTabChange(tab.id)}
                   className={`cockpit-pill relative flex items-center gap-1 sm:gap-1.5 min-h-[40px] px-2.5 sm:px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-all duration-150 shrink-0 ${
                     isActive
-                      ? 'active text-teal-600 dark:text-teal-300 font-bold'
+                      ? 'active text-[#15803D] dark:text-emerald-300 font-bold'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-card)]/60'
                   }`}
                 >
                   {isActive && (
                     <motion.div
-                      layoutId="cockpit-active-tab"
-                      className="absolute inset-0 bg-[var(--surface-card)] rounded-lg shadow-xs border border-teal-500/20"
-                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                      layoutId="reportTabPill"
+                      className="absolute inset-0 bg-white dark:bg-[#0B1711] rounded-lg shadow-xs border border-[#15803D]/25 dark:border-emerald-500/35"
+                      transition={{ type: 'spring', stiffness: 480, damping: 34 }}
                     />
                   )}
                   <span className="relative z-10 text-xs">{tab.icon}</span>
@@ -110,7 +121,7 @@ export default function StickyReportNav({
 
         {/* Right: Desktop Action (Download Report PDF) */}
         <div className="hidden lg:flex items-center shrink-0">
-          <button
+          <MagnetButton
             type="button"
             disabled={isDownloading}
             onClick={handleDownloadPdf}
@@ -119,9 +130,15 @@ export default function StickyReportNav({
           >
             <DownloadSimple size={13} weight="bold" />
             <span>{isDownloading ? 'Generating...' : isTeaserLocked ? 'Preview PDF' : 'Full Report'}</span>
-          </button>
+          </MagnetButton>
         </div>
       </div>
+
+      {/* 2px Forest-Green Hairline Reading Progress Bar */}
+      <motion.div
+        className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#15803D] via-[#22C55E] to-[#10B981] origin-left pointer-events-none"
+        style={{ scaleX }}
+      />
     </div>
   )
 }
