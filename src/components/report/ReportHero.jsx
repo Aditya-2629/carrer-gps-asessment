@@ -13,6 +13,7 @@ import { NumberRoll } from '../number-roll'
 import { useReportGuideStore, GUIDE_EMOTIONS } from '../../store/useReportGuideStore'
 import { getCareerHealthAxes } from '../../lib/reportMetrics'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
+import { BlurText, CountUp } from '../motion'
 
 export default function ReportHero({ reportData, user }) {
   const { triggerGuide } = useReportGuideStore()
@@ -180,7 +181,10 @@ export default function ReportHero({ reportData, user }) {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight leading-tight">
-              {candidateName ? `${candidateName}'s Career Health Report` : 'Career Health Diagnostic Report'}
+              <BlurText
+                text={candidateName ? `${candidateName}'s Career Health Report` : 'Career Health Diagnostic Report'}
+                delay={0.06}
+              />
             </h1>
 
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
@@ -222,9 +226,9 @@ export default function ReportHero({ reportData, user }) {
                 />
               </svg>
               <div className="absolute flex flex-col items-center">
-                <NumberRoll
-                  value={overall}
-                  duration={900}
+                <CountUp
+                  to={overall}
+                  duration={1.2}
                   className="text-xl font-semibold font-mono text-[var(--text-primary)] tabular-nums"
                 />
                 <span className="text-[9px] font-mono text-[var(--text-muted)]">

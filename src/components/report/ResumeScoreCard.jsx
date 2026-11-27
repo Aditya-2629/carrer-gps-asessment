@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { CheckCircle, WarningCircle, XCircle } from '@phosphor-icons/react'
 import { NumberRoll } from '../number-roll'
+import { CountUp } from '../motion'
 import { CompareBars } from '../compare-bars'
 
 /**
@@ -58,9 +59,9 @@ function ScoreRing({ score, grade, gradeLabel, light }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <NumberRoll
-          value={score}
-          duration={850}
+        <CountUp
+          to={score}
+          duration={1.2}
           className={`text-4xl font-semibold tabular-nums leading-none ${light ? 'text-[var(--text-primary)]' : 'text-white'}`}
         />
         <div className={`text-lg font-semibold mt-1 ${(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}`}>{grade}</div>
@@ -130,7 +131,7 @@ export default function ResumeScoreCard({
             <div className={`text-lg font-semibold ${headingText}`}>
               {candidateName ? `${candidateName}, your ${scoreWord} scores ` : `Your ${scoreWord} scores `}
               <span className={(GRADE_COLORS[grade] || GRADE_COLORS.C)[light ? 'textLight' : 'text']}>
-                <NumberRoll value={score} duration={850} />/100
+                <CountUp to={score} duration={1.2} />/100
               </span>
             </div>
             <div className="flex items-center gap-1.5 pt-1">

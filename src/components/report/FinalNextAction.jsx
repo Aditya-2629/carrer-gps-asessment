@@ -20,6 +20,7 @@ import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
+import { SpotlightCard, MagnetButton } from '../motion'
 
 function safeText(val, fallback = '') {
   if (!val) return fallback
@@ -98,8 +99,8 @@ export default function FinalNextAction({
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 break-inside-avoid page-break-inside-avoid">
-      <div
-        className="p-6 sm:p-8 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
+      <SpotlightCard
+        className="p-6 sm:p-8 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
         data-mascot-cue="Ready to break your pipeline deadlock? Work live 1-on-1 with an executive coach to overhaul your positioning."
         data-mascot-chip="Execution Bridge"
         data-mascot-emotion="coach"
@@ -166,7 +167,8 @@ export default function FinalNextAction({
 
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
-              <a
+              <MagnetButton
+                as="a"
                 href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -176,7 +178,7 @@ export default function FinalNextAction({
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
                 <ArrowRight size={14} weight="bold" />
-              </a>
+              </MagnetButton>
 
               {(() => {
                 const rawScore =
@@ -192,7 +194,8 @@ export default function FinalNextAction({
                   ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMessage)}`
                   : `https://wa.me/?text=${encodeURIComponent(waMessage)}`
                 return (
-                  <a
+                  <MagnetButton
+                    as="a"
                     href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -201,7 +204,7 @@ export default function FinalNextAction({
                   >
                     <WhatsappLogo size={18} weight="fill" />
                     <span>Connect on WhatsApp</span>
-                  </a>
+                  </MagnetButton>
                 )
               })()}
 
@@ -332,7 +335,7 @@ export default function FinalNextAction({
             </div>
           </div>
         </div>
-      </div>
+      </SpotlightCard>
     </section>
   )
 }

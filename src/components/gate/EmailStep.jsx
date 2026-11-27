@@ -9,6 +9,7 @@ import useAppStore, { GATE_STEPS, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { trackAnalytics } from '../../lib/analytics'
+import { BlurText, MagnetButton } from '../motion'
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -59,7 +60,7 @@ export default function EmailStep() {
           className="text-2xl font-bold mb-1.5 text-[var(--text-primary)]"
           style={{ fontFamily: 'var(--font-head)' }}
         >
-          Your Career GPS is ready!
+          <BlurText text="Your Career GPS is ready!" delay={0.06} />
         </h2>
         <p className="text-[var(--text-secondary)] text-sm leading-relaxed" style={{ fontFamily: 'var(--font-body)' }}>
           Enter your email to unlock your personalized AI analysis.
@@ -129,7 +130,7 @@ export default function EmailStep() {
             </motion.div>
           )}
 
-          <button
+          <MagnetButton
             type="submit"
             id="send-otp-btn"
             className="btn-primary w-full"
@@ -146,7 +147,7 @@ export default function EmailStep() {
                 <ArrowRight size={16} weight="bold" />
               </>
             )}
-          </button>
+          </MagnetButton>
         </motion.div>
       </form>
     </div>

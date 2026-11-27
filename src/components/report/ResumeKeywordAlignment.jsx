@@ -6,6 +6,7 @@ import useAppStore, { showToast } from '../../store/useAppStore'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { ShareBar } from '../share-bar'
 import { NumberRoll } from '../number-roll'
+import { CountUp } from '../motion'
 
 export default function ResumeKeywordAlignment({
   keywordAlignment,
@@ -303,7 +304,7 @@ export default function ResumeKeywordAlignment({
           <span>Target Keyword Match:</span>
           <span className="font-mono text-sm font-semibold tabular-nums flex items-center">
             <span>{verifiedCount}/{calculatedTotal} (</span>
-            <NumberRoll value={currentMatchRate} duration={850} />
+            <CountUp to={currentMatchRate} duration={1.1} />
             <span>%)</span>
           </span>
         </div>

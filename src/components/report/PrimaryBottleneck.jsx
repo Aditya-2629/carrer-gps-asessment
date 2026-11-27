@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import TeaserLockBlock from '../TeaserLockBlock'
+import { SpotlightCard } from '../motion'
 import {
   Warning,
   Lightbulb,
@@ -364,7 +365,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
               )
             }
             const actionCard = (
-              <div
+              <SpotlightCard
                 key={idx}
                 className="p-5 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-[var(--border-hover)] transition-colors flex flex-col justify-between shadow-xs space-y-4 break-inside-avoid page-break-inside-avoid print-card h-full"
               >
@@ -437,7 +438,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                     </span>
                   </div>
                 </div>
-              </div>
+              </SpotlightCard>
             )
 
             if (isTeaserLocked && idx === 2) {

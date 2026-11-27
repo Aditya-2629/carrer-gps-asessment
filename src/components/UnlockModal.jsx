@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react'
 import { trackEvent } from '../lib/posthog'
+import { SpotlightCard, MagnetButton } from './motion'
 
 const DEFAULT_HEADLINE = '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume'
 const DEFAULT_SUBTEXT =
@@ -157,7 +158,7 @@ export default function UnlockModal({
           </div>
 
           {/* What You Unlock Mini-List */}
-          <div className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
+          <SpotlightCard className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] space-y-2">
             <div className="text-xs font-bold text-[var(--text-primary)]">
               What you unlock for {targetRole || 'your target role'}:
             </div>
@@ -169,11 +170,12 @@ export default function UnlockModal({
                 </li>
               ))}
             </ul>
-          </div>
+          </SpotlightCard>
 
           {/* Action Buttons */}
           <div className="space-y-2.5 pt-1">
-            <a
+            <MagnetButton
+              as="a"
               href={bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -185,9 +187,10 @@ export default function UnlockModal({
               <CalendarBlank size={17} weight="bold" />
               <span>{ctaButtonLabel}</span>
               <ArrowRight size={14} weight="bold" />
-            </a>
+            </MagnetButton>
 
-            <a
+            <MagnetButton
+              as="a"
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -196,7 +199,7 @@ export default function UnlockModal({
             >
               <WhatsappLogo size={17} weight="fill" />
               <span>Connect on WhatsApp</span>
-            </a>
+            </MagnetButton>
           </div>
 
           {/* Trust Footer */}

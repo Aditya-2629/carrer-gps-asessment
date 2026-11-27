@@ -8,6 +8,7 @@ import CraftureLivingCopilot from '../report/CraftureLivingCopilot'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import { api } from '../../lib/api'
 import { trackAnalytics } from '../../lib/analytics'
+import { AnimatedContent } from '../motion'
 
 const slideVariants = {
   enter: (dir) => ({
@@ -220,13 +221,15 @@ export default function AssessmentShell() {
               animate="center"
               exit="exit"
             >
-              <StepRenderer
-                step={step}
-                onNext={goNext}
-                onBack={goBack}
-                isFirst={currentStep === 0}
-                isLast={currentStep === totalSteps - 1}
-              />
+              <AnimatedContent distance={14} duration={0.35}>
+                <StepRenderer
+                  step={step}
+                  onNext={goNext}
+                  onBack={goBack}
+                  isFirst={currentStep === 0}
+                  isLast={currentStep === totalSteps - 1}
+                />
+              </AnimatedContent>
             </motion.div>
           </AnimatePresence>
         </div>
