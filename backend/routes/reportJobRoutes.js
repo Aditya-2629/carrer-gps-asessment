@@ -23,7 +23,7 @@ import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
 import { redactReportForTeaser } from '../utils/teaserRedactor.js'
-import { inFlightFastCatch, triggerFastCatchForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { inFlightFastCatch, triggerFastCatchForBucket, ensurePriorityMarketBucket } from '../agents/resume/market/marketJdRetriever.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
@@ -152,28 +152,15 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     }
 
     if (resolvedBucketKey) {
-      // Check if Fast-Catch is currently in flight or if bucket has < 8 real JDs
+      // Check if Fast-Catch is already in flight, or ensure bucket has >= 8 JDs
       let activeCatchPromise = inFlightFastCatch.get(resolvedBucketKey) || null
       if (!activeCatchPromise) {
-        const bucketDoc = await JobMarketBucket.findOne({ bucketKey: resolvedBucketKey }).lean()
-        let sampleSize = 0
-        if (bucketDoc?.activeVersion > 0) {
-          const vDoc = await JobMarketVersion.findOne({ bucketKey: resolvedBucketKey, version: bucketDoc.activeVersion }).lean()
-          sampleSize = vDoc?.jobs?.length || vDoc?.marketProfile?.sampleSize || bucketDoc.jobCount || 0
-        } else if (bucketDoc) {
-          sampleSize = bucketDoc.jobCount || 0
-        }
-
-        // ONLY skip Fast-Catch when sampleSize >= 8.
-        // If totalJds < 8 (e.g. 0 JDs, cold bucket), NEVER skip due to cooldown — ALWAYS trigger Fast-Catch (35 JDs).
-        if (sampleSize < 8) {
-          console.log(`[report-jobs] Wait Gate: Bucket "${resolvedBucketKey}" has ${sampleSize} JDs (< 8). Triggering Fast-Catch (35 JDs)...`)
-          activeCatchPromise = triggerFastCatchForBucket(resolvedBucketKey, {
-            targetCount: 35,
-            timeoutMs: 50000,
-            autoRefresh: true,
-            roleName: targetRole,
-          })
+        const prefetchRes = await ensurePriorityMarketBucket({
+          roleTitle: targetRole,
+          canonicalResume: semanticProfile?.canonicalResume || user.resumeJson || null,
+        })
+        if (prefetchRes.started && prefetchRes.promise) {
+          activeCatchPromise = prefetchRes.promise
         }
       }
 

@@ -16,7 +16,7 @@ import JobMarketBucket from '../../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
 import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText, deduplicateJds } from './llmJdSkillAnalyzer.js'
-import { CONTROLLED_ROLES } from './marketBucketResolver.js'
+import { CONTROLLED_ROLES, resolveMarketBucket, normalizeRoleTaxonomy, mapYearsToBucket } from './marketBucketResolver.js'
 
 export const MIN_SAMPLE_THRESHOLD = 8
 export const MIN_SKILLS_THRESHOLD = 4
@@ -164,6 +164,105 @@ export async function triggerFastCatchForBucket(bucketKey, options = {}) {
 
   inFlightFastCatch.set(bucketKey, fastCatchPromise)
   return fastCatchPromise
+}
+
+/**
+ * Ensures a priority Market JD bucket exists with at least MIN_SAMPLE_THRESHOLD (8) JDs.
+ * If sampleSize >= 8: returns immediately { ready: true, started: false, bucketKey, totalJds: sampleSize, inFlight: false }.
+ * If sampleSize < 8: immediately starts a Priority Fast-Sprint (25-35 JDs + LLM skill extraction)
+ * deduplicated via inFlightFastCatch so concurrent calls share the exact same Promise.
+ *
+ * @param {Object} params
+ * @param {string} params.roleTitle - Raw or normalized target role title
+ * @param {number|string} [params.experienceYears] - Candidate experience in years or string (e.g. 4, "3-5 yrs")
+ * @param {string} [params.experienceLevel] - e.g. "Senior / Lead / 8+ Yrs"
+ * @param {Object} [params.canonicalResume] - Optional parsed resume JSON
+ * @returns {Promise<{ ready: boolean, started: boolean, bucketKey: string, totalJds: number, inFlight: boolean, promise?: Promise }>}
+ */
+export async function ensurePriorityMarketBucket({
+  roleTitle = '',
+  experienceYears = null,
+  experienceLevel = '',
+  canonicalResume = null,
+} = {}) {
+  const cleanRole = String(
+    roleTitle ||
+    canonicalResume?.candidate?.targetRole ||
+    canonicalResume?.targetRole ||
+    ''
+  ).trim()
+
+  if (!cleanRole || cleanRole.length < 2) {
+    return { ready: false, started: false, bucketKey: null, totalJds: 0, inFlight: false }
+  }
+
+  // 1. Resolve experience bucket
+  let years = null
+  const rawExp = experienceYears ?? experienceLevel ?? canonicalResume?.candidate?.totalExperienceYears ?? canonicalResume?.totalExperienceYears
+  if (typeof rawExp === 'number') {
+    years = rawExp
+  } else if (typeof rawExp === 'string') {
+    const match = rawExp.match(/\d+/)
+    years = match ? parseInt(match[0], 10) : 4
+  } else if (canonicalResume?.experience?.length) {
+    years = Math.min(12, Math.max(1, canonicalResume.experience.length * 2))
+  }
+  const expBucket = mapYearsToBucket(years)
+
+  // 2. Resolve bucket key
+  const bucketRes = resolveMarketBucket({
+    targetRole: cleanRole,
+    canonicalResume,
+    experienceLevel: expBucket,
+  })
+  const bucketKey = bucketRes?.bucketKey || `${normalizeRoleTaxonomy(cleanRole).roleKey}::${expBucket}`
+
+  // 3. Check MongoDB for existing valid sample
+  let sampleSize = 0
+  try {
+    const bucketDoc = await JobMarketBucket.findOne({ bucketKey }).lean()
+    if (bucketDoc?.activeVersion > 0) {
+      const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucketDoc.activeVersion }).lean()
+      sampleSize = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || bucketDoc.jobCount || 0
+    } else if (bucketDoc) {
+      sampleSize = bucketDoc.jobCount || 0
+    }
+  } catch (_dbErr) {}
+
+  // 4. If bucket already has >= 8 JDs, return immediately
+  if (sampleSize >= MIN_SAMPLE_THRESHOLD) {
+    return {
+      ready: true,
+      started: false,
+      bucketKey,
+      totalJds: sampleSize,
+      inFlight: false,
+    }
+  }
+
+  // 5. If under-sampled (<8 JDs), immediately start or join Priority Fast-Sprint (25-35 JDs)
+  console.log(`[FastCatch] priority sprint started: Bucket "${bucketKey}" for role "${cleanRole}" has ${sampleSize} JDs (< 8). Starting Priority Fast-Sprint (35 JDs)...`)
+
+  const sprintPromise = triggerFastCatchForBucket(bucketKey, {
+    targetCount: 35,
+    timeoutMs: 50000,
+    autoRefresh: true,
+    roleName: cleanRole,
+  })
+
+  // Fire-and-forget catch handler so async errors don't crash unhandled
+  sprintPromise.catch((err) => {
+    console.warn(`[FastCatch] Priority sprint notice for ${bucketKey}:`, err.message)
+  })
+
+  return {
+    ready: false,
+    started: true,
+    bucketKey,
+    totalJds: sampleSize,
+    inFlight: true,
+    promise: sprintPromise,
+  }
 }
 
 /**

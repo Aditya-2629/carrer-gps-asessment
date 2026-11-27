@@ -29,6 +29,7 @@ import { CONTROLLED_ROLES } from '../../agents/resume/market/marketBucketResolve
 import { ApifyClient } from 'apify-client'
 import { apifyKeyPool } from '../../utils/smartKeyPool.js'
 import { costTracker } from '../../utils/costTracker.js'
+export { ensurePriorityMarketBucket } from '../../agents/resume/market/marketJdRetriever.js'
 
 export const MIN_SAMPLE_THRESHOLD = 15
 export const RETENTION_DAYS_MS = 60 * 24 * 60 * 60 * 1000 // 60 days retention

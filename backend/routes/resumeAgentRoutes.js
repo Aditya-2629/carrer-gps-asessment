@@ -7,6 +7,10 @@ import express from 'express'
 import multer from 'multer'
 import mongoose from 'mongoose'
 import { ResumeAgent } from '../agents/resume/index.js'
+import {
+  parseResumeDeterministic,
+  evaluateResume,
+} from '../controllers/resumeAgentController.js'
 import { listModelsForPurpose, getModel } from '../ai/config/modelRegistry.js'
 import { costTracker } from '../utils/costTracker.js'
 import { userSessionGuard } from '../utils/userAuth.js'
@@ -96,104 +100,14 @@ router.get('/market-context', async (req, res) => {
  * Extracts canonical resume JSON deterministically without triggering LLM synthesis.
  * Safe for pre-OTP file dropzone preview (0 LLM calls).
  */
-router.post('/parse-deterministic', upload.single('resume'), async (req, res) => {
-  try {
-    const canonicalCtx = await ResumeAgent.prepareCanonicalContext({
-      buffer: req.file?.buffer || null,
-      mimeType: req.file?.mimetype || '',
-      filename: req.file?.originalname || '',
-      resumeText: req.body?.resumeText || '',
-      targetRole: req.body?.targetRole || '',
-    })
-    return res.status(200).json({
-      success: true,
-      canonicalResume: canonicalCtx.canonicalResume,
-      targetRole: canonicalCtx.targetRole,
-    })
-  } catch (err) {
-    if (err.statusCode === 422 || err.code === 'NOT_A_RESUME' || err.code === 'SCANNED_OR_EMPTY_FILE') {
-      return res.status(422).json({
-        success: false,
-        code: err.code || 'NOT_A_RESUME',
-        message: err.message,
-        error: err.message,
-      })
-    }
-    return res.status(500).json({ success: false, error: err.message, message: err.message })
-  }
-})
+router.post('/parse-deterministic', upload.single('resume'), parseResumeDeterministic)
 
 /**
  * POST /api/resume-agent/evaluate
  * Evaluates candidate resume via either multipart file upload or direct JSON text.
  * Gated behind user session authentication or admin key.
  */
-router.post('/evaluate', userSessionGuard, upload.single('resume'), async (req, res) => {
-  const runId = `eval_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-  const sessionId = req.body?.sessionId || req.headers['x-session-id'] || null
-  const userId = req.body?.userId || req.user?._id || null
-  costTracker.setActiveRunId(runId, userId, sessionId)
-
-  try {
-    const targetRole = req.body?.targetRole || ''
-    const targetJobDescription = req.body?.targetJobDescription || req.body?.targetJd || ''
-    const experienceLevel = req.body?.experienceLevel || ''
-    const linkedinUrl = req.body?.linkedinUrl || req.body?.linkedin || ''
-    const model = req.body?.model || null
-    const isSynthetic = req.body?.isSynthetic === true || req.body?.isSynthetic === 'true'
-    const resumeText = req.body?.resumeText || ''
-
-    // Verify at least one input source is provided
-    if (!req.file && (!resumeText || !resumeText.trim())) {
-      return res.status(400).json({
-        success: false,
-        error: 'Please provide a resume file (multipart field "resume") or "resumeText" in JSON body.',
-      })
-    }
-
-    const evaluationResult = await ResumeAgent.evaluate({
-      buffer: req.file?.buffer || null,
-      mimeType: req.file?.mimetype || '',
-      filename: req.file?.originalname || '',
-      resumeText,
-      targetRole,
-      targetJobDescription,
-      experienceLevel,
-      linkedinUrl,
-      model,
-      isSynthetic,
-    })
-
-    if (!evaluationResult.success) {
-      return res.status(422).json({
-        success: false,
-        error: evaluationResult.error,
-        code: evaluationResult.code,
-        telemetry: evaluationResult.telemetry,
-      })
-    }
-
-    // Print end-to-end cost and token breakdown
-    costTracker.printRunSummary(runId)
-
-    // Return structured contract without internal prompts or secret keys
-    return res.status(200).json({
-      success: true,
-      analysis: evaluationResult.analysis,
-      marketContext: evaluationResult.marketContext,
-      canonicalResume: evaluationResult.canonicalResume,
-      document: evaluationResult.document,
-      warnings: evaluationResult.warnings,
-      telemetry: evaluationResult.telemetry,
-    })
-  } catch (err) {
-    console.error('[ResumeAgentRoute] Evaluation error:', err)
-    return res.status(500).json({
-      success: false,
-      error: err.message || 'Internal server error evaluating resume.',
-    })
-  }
-})
+router.post('/evaluate', userSessionGuard, upload.single('resume'), evaluateResume)
 
 /**
  * Deterministic metric calculation helper (Node.js math only — zero LLM hallucination).
