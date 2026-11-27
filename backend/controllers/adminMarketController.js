@@ -12,7 +12,6 @@
 
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
-import User from '../models/User.js'
 import {
   enqueueBucketRefresh,
   enqueueAllBucketsRefresh,
@@ -24,6 +23,7 @@ import { ensureConfiguredBucketsExist } from '../jobs/marketJd/marketJdJobs.js'
 import { filterJdsByDomainRelevance } from '../integrations/apify/apifyJdScraper.js'
 import { normalizeCanonicalSkill } from '../agents/resume/market/llmJdSkillAnalyzer.js'
 import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } from '../agents/resume/market/dynamicSkillExtractor.js'
+import { getSchedulerTelemetry } from '../jobs/marketJd/marketAutoScheduler.js'
 
 /**
  * GET /api/admin/market-library
@@ -32,32 +32,26 @@ import { isConcreteTechSkill, BANNED_CROSS_DOMAIN_JUNK, sanitizeSkillToken } fro
 export async function listMarketBuckets(req, res) {
   try {
     await ensureConfiguredBucketsExist()
-    const stats = await getMarketLibraryStats()
+    const [stats, liveScheduler] = await Promise.all([
+      getMarketLibraryStats(),
+      getSchedulerTelemetry().catch(() => null),
+    ])
 
     const refreshingBucket = stats.buckets?.find((b) => b.status === 'refreshing')
 
-    // Check recent active candidate traffic within last 5 minutes to defer background scraping
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    const recentTrafficCount = await User.countDocuments({
-      updatedAt: { $gte: fiveMinutesAgo },
-    }).catch(() => 0)
-
-    const isDeferred = recentTrafficCount >= 2 && !refreshingBucket
-    const status = refreshingBucket
-      ? 'enriching'
-      : isDeferred
-        ? 'deferred'
-        : 'ready'
-
     const schedulerState = {
-      status,
-      isDeferred,
-      deferredReason: isDeferred ? 'Live Traffic' : null,
-      currentBucket: refreshingBucket ? (refreshingBucket.bucketKey || refreshingBucket.roleName) : null,
-      staleCount: stats.needsRefresh || 0,
-      pendingCount: stats.refreshing || (refreshingBucket ? 1 : 0),
-      activeCount: refreshingBucket ? 1 : 0,
+      status: liveScheduler?.status || (refreshingBucket ? 'enriching' : 'idle'),
+      isDeferred: liveScheduler?.status === 'deferred_traffic_active',
+      deferredReason: liveScheduler?.deferredReason || null,
+      currentBucket: liveScheduler?.currentBucket || (refreshingBucket ? (refreshingBucket.bucketKey || refreshingBucket.roleName) : null),
+      staleCount: liveScheduler?.staleBucketsCount ?? (stats.needsRefresh || 0),
+      pendingCount: liveScheduler?.pendingEnrichmentCount ?? 0,
+      activeCount: liveScheduler?.isEnriching ? 1 : (refreshingBucket ? 1 : 0),
+      isEnriching: liveScheduler?.isEnriching || false,
       lastFullRefresh: stats.lastFullRefresh || null,
+      lastRunAt: liveScheduler?.lastRunAt || null,
+      nextEligibleAt: liveScheduler?.nextEligibleAt || null,
+      cooldownRemainingMs: liveScheduler?.cooldownRemainingMs || 0,
     }
 
     return res.status(200).json({
