@@ -837,6 +837,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
     ctaHeadline: '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume',
     ctaSubtext: 'Book your free 15-min strategy call or message us on WhatsApp to unlock all bullet rewrites, missing keywords, LinkedIn positioning & your updated ATS resume.',
     ctaButtonLabel: 'Book Free 1:1 Strategy Call',
+    socialLinksConfig: null,
   })
   const [unlockModalState, setUnlockModalState] = useState({ open: false, contextLabel: '' })
   const openUnlockModal = (contextLabel = '') => {
@@ -921,7 +922,7 @@ function ReportDashboardContent({ sharedReportId = null }) {
           ctaHeadline: pub?.ctaHeadline || prev.ctaHeadline,
           ctaSubtext: pub?.ctaSubtext || prev.ctaSubtext,
           ctaButtonLabel: pub?.ctaButtonLabel || prev.ctaButtonLabel,
-          socialLinksConfig: pub?.socialLinksConfig || prev.socialLinksConfig || null,
+          socialLinksConfig: pub?.socialLinksConfig || usr?.socialLinksConfig || prev.socialLinksConfig || null,
         }))
       }
     })

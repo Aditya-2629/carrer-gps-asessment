@@ -1141,6 +1141,7 @@ export const getTeaserConfig = async (req, res) => {
       reportUnlocked,
       callBookingUrl: settings.callBookingUrl || '',
       whatsappCtaNumber: settings.whatsappCtaNumber || '',
+      socialLinksConfig: normalizeSocialLinksConfig(settings.socialLinksConfig),
     })
   } catch (err) {
     console.error('Error in getTeaserConfig:', err)
