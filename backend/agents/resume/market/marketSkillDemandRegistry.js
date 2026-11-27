@@ -112,7 +112,10 @@ MARKET_SKILL_DEMAND['marketing'] = MARKET_SKILL_DEMAND['sales-marketing']
  */
 export function getMarketDemandedSkills(role = 'software-engineer', marketProfile = null) {
   const sampleSize = Number(marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 0)
-  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0 && sampleSize > 0) {
+  if (sampleSize < 8 && sampleSize > 0) {
+    console.warn(`[DATA-INTEGRITY] Market profile for "${typeof role === 'string' ? role : role?.name || 'role'}" has sampleSize=${sampleSize} (< 8 threshold). Suppressing market demand ranking.`)
+  }
+  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0 && sampleSize >= 8) {
     const totalJds = sampleSize
     return marketProfile.skills
       .map((s) => {

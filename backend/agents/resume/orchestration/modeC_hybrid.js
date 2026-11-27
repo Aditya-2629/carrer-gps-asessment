@@ -1957,16 +1957,17 @@ OUTPUT SCHEMA (STRICT JSON ONLY):
             if (!rewrittenBulletIds.has(b.bulletId)) {
               const orig = b.originalText || bulletMap.get(b.bulletId) || ''
               const ctx = bulletContextMap.get(b.bulletId) || bulletContextMap.get(orig.trim()) || { isCurrentRole: false }
-              const isData = /data|analyst|analytics|bi\b|sql|tableau/i.test(effectiveRole)
+              const cleanedOrig = orig.replace(/^[-•*▪]\s*/, '').trim()
               let synthRewrite = ''
-              if (ctx.isCurrentRole) {
-                synthRewrite = isData
-                  ? `Translate business inquiries into SQL queries and interactive executive dashboards to accelerate analytical reporting turnaround and stakeholder decision velocity.`
-                  : `Architect automated systems and core application services to streamline feature delivery velocity and improve production system reliability.`
+              if (cleanedOrig) {
+                // Ground rewrite strictly on candidate's original text — zero cross-role assumptions
+                synthRewrite = ctx.isCurrentRole
+                  ? `Execute ${cleanedOrig.replace(/\.$/, '')} to streamline operational deliverables and improve delivery reliability.`
+                  : `Executed ${cleanedOrig.replace(/\.$/, '')} to streamline operational deliverables and improve delivery reliability.`
               } else {
-                synthRewrite = isData
-                  ? `Translated business inquiries into SQL queries and interactive executive dashboards to accelerate analytical reporting turnaround and stakeholder decision velocity.`
-                  : `Architected automated systems and core application services to streamline feature delivery velocity and improve production system reliability.`
+                synthRewrite = ctx.isCurrentRole
+                  ? `Lead core technical deliverables and architectural execution to streamline operational workflows and support stakeholder objectives.`
+                  : `Delivered core technical deliverables and architectural execution to streamline operational workflows and support stakeholder objectives.`
               }
 
               const critiqueText = 'Lacks quantified outcomes and mechanism specificity required for senior recruiter scan'

@@ -676,11 +676,15 @@ export function computeKeywordAlignment({
   }
 
   const sampleSize = Number(marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 0)
+  if (!isJdProvided && sampleSize < 8) {
+    console.warn(`[DATA-INTEGRITY] Market bucket for "${roleName}" has ${sampleSize} JDs (< 8 threshold). Suppressing synthetic market percentages to prevent cross-role distortion.`)
+  }
+
   const hasRealMarketProfile = Boolean(
     marketProfile &&
     Array.isArray(marketProfile.skills) &&
     marketProfile.skills.length > 0 &&
-    sampleSize > 0
+    sampleSize >= 8
   )
 
   if (hasRealMarketProfile) {

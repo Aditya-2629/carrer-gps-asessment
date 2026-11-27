@@ -671,42 +671,44 @@ export default function CareerReportPdf({ reportData = {} }) {
         {
           day: 1,
           title: 'Target Keyword & Skills-Only Evidence Audit',
-          action: 'Audit your experience bullets against top target job descriptions to weave missing high-demand tools (TypeScript, Spring Boot, Kafka, Kubernetes) directly into production bullet context. Move unverified skills from your bottom skills list into measurable project outcomes.',
+          action: topCandidateStack
+            ? `Audit your experience bullets against target job descriptions for ${targetRole} to weave unevidenced skills (${topCandidateStack}) directly into bullet outcomes.`
+            : `Audit your experience bullets against target job descriptions for ${targetRole} to ensure all declared skills are evidenced with concrete deliverables.`,
           deliverable: 'Keyword-Mapped Experience Matrix',
-          metricTarget: '5+ missing skills evidenced in bullets',
+          metricTarget: 'Target skills evidenced in bullets',
         },
         {
           day: 2,
           title: 'Google XYZ Bullet Overhaul (Phase 2 Recovery)',
-          action: 'Rewrite your weakest unquantified work bullets using Accomplished [X] as measured by [Y] by doing [Z] syntax. Anchor every Spring Boot and TypeScript deliverable with latency reductions, throughput gains, or user-scale metrics to lift Phase 2 callback above 5.0%.',
+          action: `Rewrite your weakest unquantified work bullets using Accomplished [X] as measured by [Y] by doing [Z] syntax. Anchor each deliverable with scope, throughput, or operational metrics.`,
           deliverable: 'Quantified Core Experience Bullets',
-          metricTarget: '100% rewritten bullets with hard KPIs',
+          metricTarget: '100% rewritten bullets with verified KPIs',
         },
         {
           day: 3,
           title: 'Executive Summary & Single-Column ATS Calibration',
-          action: 'Replace your generic top summary with a role-aligned positioning pitch highlighting TypeScript, Spring Boot, Kafka, and Kubernetes scale. Strip multi-column grids or merged contact headers so Greenhouse and Workday parsers index 100% of your timeline cleanly.',
+          action: `Replace generic summary text with a role-aligned positioning pitch anchored on ${targetRole}. Strip multi-column grids or merged contact headers so ATS parsers index 100% cleanly.`,
           deliverable: 'ATS-Safe Single-Column Resume',
           metricTarget: '0 parser errors / 100% field extraction',
         },
         {
           day: 4,
           title: 'LinkedIn Headline SEO & About Hook Rewrite',
-          action: 'Deploy your recruiter-searchable Option 01 headline leading with your target title and core stack (TypeScript, Spring Boot, Kafka, Kubernetes). Publish Paragraph 1-3 of your story-driven About section and pin your top 3 core skills to rank in Boolean recruiter searches.',
+          action: `Deploy a recruiter-searchable headline leading with "${targetRole}" and core technical domain. Publish a story-driven About narrative with verified career milestones.`,
           deliverable: 'SEO-Indexed Headline & About Narrative',
-          metricTarget: '3x recruiter search appearance lift',
+          metricTarget: 'Recruiter search appearance lift',
         },
         {
           day: 5,
           title: 'LinkedIn Featured Section & Skills Bank Expansion',
-          action: 'Populate your empty LinkedIn Featured section with 2 flagship architecture case studies or live repos demonstrating Kafka event pipelines and Kubernetes deployments. Expand your Skills Bank from 30/50 toward 50/50 role-indexed skills for full All-Star search weighting.',
-          deliverable: '2 Featured Case Studies + 50/50 Skills',
-          metricTarget: 'Featured populated + 50/50 skills',
+          action: `Populate your LinkedIn Featured section with flagship architecture case studies, repositories, or project deliverables aligned with ${targetRole}.`,
+          deliverable: 'Featured Case Studies + Aligned Skills Bank',
+          metricTarget: 'Featured media & skills populated',
         },
         {
           day: 6,
           title: 'Targeted Hiring Manager Outbound Sprint',
-          action: 'Run the LinkedIn Boolean query to build a focused list of 25 Engineering Managers and Staff Recruiters hiring for TypeScript and Spring Boot teams. Send concise, achievement-led connection notes referencing your Kafka and Kubernetes production wins instead of cold Easy Apply.',
+          action: `Build a focused list of 25 engineering managers and recruiters hiring for ${targetRole}. Send concise, achievement-led connection notes referencing verified project wins.`,
           deliverable: '25-Lead Hiring Manager Tracker',
           metricTarget: '15+ direct manager outreach DMs sent',
         },
@@ -714,8 +716,8 @@ export default function CareerReportPdf({ reportData = {} }) {
           day: 7,
           title: 'Phase 2 Funnel Audit & Technical Defense Prep',
           action: isPhase2Healthy
-            ? 'Review technical round feedback across TypeScript, Spring Boot, and distributed Kafka architecture trade-offs. Document failure-mode recovery stories and latency benchmarks for each flagship system so live panel rounds convert consistently.'
-            : 'Audit your Phase 2 conversion funnel (moving from 0.1% callback toward >= 5.0% target) across your first 20 tailored applications. Double down on direct referral channels and refine weak bullet hooks where recruiter screens lag.',
+            ? `Review technical round feedback for ${targetRole}. Document failure-mode recovery stories and operational benchmarks so live panel rounds convert consistently.`
+            : `Audit your application conversion funnel across your first 20 tailored applications for ${targetRole}. Double down on direct referral channels and refine bullet hooks where screens lag.`,
           deliverable: '7-Day Funnel & Defense Calibration Log',
           metricTarget: isPhase2Healthy ? `Technical pass rate >= ${targetScreenToTech}%` : `Phase 2 callback >= ${targetCallbackRate}%`,
         },
@@ -734,15 +736,15 @@ export default function CareerReportPdf({ reportData = {} }) {
           period: '30 Days',
           stage: isPhase2Healthy ? 'Screening Retention & Technical Loop Launch' : 'Phase 2 Callback Recovery (0.1% -> 5%+)',
           goal: isPhase2Healthy
-            ? `Sustain your ${screenRate}% screening callback while weaving TypeScript, Spring Boot, Kafka, and Kubernetes proof into live technical architecture walkthroughs and daily manager outreach.`
-            : `Eliminate Phase 2 ATS drop-offs (0.1% -> 5%+ callback) by quantizing weak bullets, adding TypeScript, Spring Boot, Kafka, and Kubernetes evidence, populating LinkedIn Featured, and running 25/week direct manager outreach.`,
+            ? `Sustain your ${screenRate}% screening callback while preparing technical architecture walkthroughs and direct manager outreach for ${targetRole}.`
+            : `Eliminate Phase 2 ATS drop-offs by quantizing weak bullets, evidencing core ${targetRole} skills, populating LinkedIn Featured, and running direct manager outreach.`,
           deliverable: 'Quantified ATS Resume + Featured LinkedIn + 60 Manager DMs',
           successSignal: isPhase2Healthy ? `Screening maintained at ${screenRate}%+` : `Phase 2 callback >= 5.0%`,
         },
         {
           period: '60 Days',
           stage: 'Technical Panel Defense & Multi-Loop Velocity',
-          goal: `Convert >= ${targetScreenToTech}% of recruiter screens into technical panels by rehearsing distributed Kafka throughput, Kubernetes scaling trade-offs, and 5 STAR ownership stories across 3+ concurrent interview pipelines.`,
+          goal: `Convert >= ${targetScreenToTech}% of recruiter screens into technical panels by rehearsing architecture trade-offs and 5 STAR ownership stories across active interview pipelines.`,
           deliverable: 'System Design Blueprints + 3+ Active Technical Loops',
           successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%`,
         },
@@ -830,7 +832,7 @@ export default function CareerReportPdf({ reportData = {} }) {
   const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
     .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
     .filter(Boolean)
-  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ') || 'enterprise architecture and cloud technologies'
+  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ')
 
   const rawRewrittenSummary = summaryOpt.rewrittenSummary || summaryOpt.executiveSummaryRewrite || reportData?.summary_rewrite || ''
   const isGenericSummary = !rawRewrittenSummary ||
@@ -838,14 +840,16 @@ export default function CareerReportPdf({ reportData = {} }) {
     /proven expertise in engineering scalable architectures/i.test(rawRewrittenSummary)
 
   const rewrittenSummary = isGenericSummary
-    ? `Experienced ${targetRole} specializing in ${topCandidateStack}. Proven track record of delivering resilient, high-availability architecture, optimizing production workflows, and eliminating system bottlenecks.`
+    ? (topCandidateStack
+        ? `Experienced ${targetRole} with direct expertise in ${topCandidateStack}. Proven track record of delivering core deliverables, streamlining workflows, and advancing key initiatives.`
+        : (summaryOpt.currentSummary ? safeStr(summaryOpt.currentSummary) : 'Pending AI Summary Optimization'))
     : safeStr(rawRewrittenSummary)
 
   const originalSummary = safeStr(
     summaryOpt.currentSummary ||
     summaryOpt.originalSummary ||
     (typeof canonicalResume?.summary === 'string' ? canonicalResume.summary : canonicalResume?.summary?.text),
-    `Experienced ${targetRole} with background in technical execution, system delivery, and project leadership.`
+    'Not provided in original resume.'
   )
 
   // ATS Keyword Alignment — Robust Dynamic Multi-Alias Mapping (Zero Hardcoded Mock Arrays)
