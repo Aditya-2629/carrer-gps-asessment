@@ -260,7 +260,7 @@ export const getStats = async (_req, res) => {
     istNow.setUTCHours(0, 0, 0, 0)
     const startOfTodayIst = new Date(istNow.getTime() - IST_OFFSET_MS)
 
-    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns, allRuns, todayUsersCost, totalUsersCostAgg, todayLogAgg, completedCostAgg] = await Promise.all([
+    const [totalUsers, verifiedUsers, withResume, withReport, newThisWeek, reportAgg, newToday, todayRuns, allRuns, todayUsersCost, totalUsersCostAgg, todayLogAgg, completedCostAgg, openrouterLeadCostAgg] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ $or: [{ resumeData: { $type: 'binData' } }, { resumeJson: { $ne: null } }, { resumeName: { $ne: null } }] }),
@@ -300,6 +300,15 @@ export const getStats = async (_req, res) => {
           $group: {
             _id: null,
             sum: { $sum: '$costUsd' },
+            openrouterSum: {
+              $sum: {
+                $cond: [
+                  { $eq: ['$provider', 'openrouter'] },
+                  '$costUsd',
+                  0,
+                ],
+              },
+            },
             paidSum: {
               $sum: {
                 $cond: [
@@ -317,6 +326,11 @@ export const getStats = async (_req, res) => {
       User.aggregate([
         { $match: { 'aiReport.career_health_score': { $exists: true }, totalCostUsd: { $gt: 0 } } },
         { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: '$totalCostUsd' } } },
+      ]),
+      LlmCallLog.aggregate([
+        { $match: { provider: 'openrouter', userId: { $ne: null }, costUsd: { $gt: 0 } } },
+        { $group: { _id: '$userId', sumCost: { $sum: '$costUsd' } } },
+        { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: '$sumCost' } } },
       ]),
     ])
     const fx = await getEffectiveUsdToInrRate()
@@ -341,12 +355,18 @@ export const getStats = async (_req, res) => {
     const todayAgentUsd = calcUsd(todayRuns)
     const todayUserUsd = (todayUsersCost || []).reduce((acc, u) => acc + Number(u.totalCostUsd || 0), 0)
     const todayLogUsd = Number(todayLogAgg?.[0]?.sum || 0)
+    const todayOpenrouterSpendUsd = Number(Number(todayLogAgg?.[0]?.openrouterSum || 0).toFixed(5))
     const todayPaidSpendUsd = Number(todayLogAgg?.[0]?.paidSum || 0)
     const todayLlmSpendUsd = todayLogUsd > 0 ? todayLogUsd : Math.max(todayAgentUsd, todayUserUsd)
+    const todayTotalSpendUsd = Number(todayLlmSpendUsd.toFixed(5))
 
     const completedCount = Number(completedCostAgg?.[0]?.count || 0)
     const completedCostSum = Number(completedCostAgg?.[0]?.sumCost || 0)
     const avgCostPerLeadUsd = completedCount > 0 ? Number((completedCostSum / completedCount).toFixed(5)) : 0
+    const avgTotalCostPerLeadUsd = avgCostPerLeadUsd
+    const openrouterLeadCount = Number(openrouterLeadCostAgg?.[0]?.count || 0)
+    const openrouterLeadCostSum = Number(openrouterLeadCostAgg?.[0]?.sumCost || 0)
+    const avgOpenrouterCostPerLeadUsd = openrouterLeadCount > 0 ? Number((openrouterLeadCostSum / openrouterLeadCount).toFixed(5)) : 0
     const avgInputTokens = Math.round(todayLogAgg?.[0]?.avgIn || 0)
     const avgOutputTokens = Math.round(todayLogAgg?.[0]?.avgOut || 0)
 
@@ -364,11 +384,19 @@ export const getStats = async (_req, res) => {
         withReport: withReport ?? 0,
         newThisWeek: newThisWeek ?? 0,
         newToday: newToday ?? 0,
-        todayLlmSpendUsd: Number(todayLlmSpendUsd.toFixed(5)),
+        todayLlmSpendUsd: todayTotalSpendUsd,
+        todayTotalSpendUsd,
+        todayTotalSpendInr: Number((todayTotalSpendUsd * fx.rate).toFixed(2)),
+        todayOpenrouterSpendUsd,
+        todayOpenrouterSpendInr: Number((todayOpenrouterSpendUsd * fx.rate).toFixed(2)),
         todayPaidSpendUsd: Number(todayPaidSpendUsd.toFixed(5)),
         todayFreeTierValueUsd: 0,
         todayLlmSpendInr: Number((todayLlmSpendUsd * fx.rate).toFixed(2)),
         avgCostPerLeadUsd,
+        avgTotalCostPerLeadUsd,
+        avgTotalCostPerLeadInr: Number((avgTotalCostPerLeadUsd * fx.rate).toFixed(2)),
+        avgOpenrouterCostPerLeadUsd,
+        avgOpenrouterCostPerLeadInr: Number((avgOpenrouterCostPerLeadUsd * fx.rate).toFixed(2)),
         avgCostPerLeadInr: Number((avgCostPerLeadUsd * fx.rate).toFixed(2)),
         avgInputTokens,
         avgOutputTokens,

@@ -35,12 +35,13 @@ function computeRunUsd(run) {
 
 async function aggregateCostByUserIds(userIds = []) {
   const totalMap = new Map()
+  const openrouterMap = new Map()
   const breakdownMap = new Map()
-  if (!userIds.length) return { totalMap, breakdownMap }
+  if (!userIds.length) return { totalMap, openrouterMap, breakdownMap }
 
   const [logs, runs] = await Promise.all([
     LlmCallLog.find({ userId: { $in: userIds } })
-      .select('userId stage costUsd')
+      .select('userId stage provider costUsd')
       .lean(),
     AgentRun.find({ userId: { $in: userIds } })
       .select('userId cost model')
@@ -51,6 +52,9 @@ async function aggregateCostByUserIds(userIds = []) {
     const key = String(log.userId)
     const usd = Number(log.costUsd || 0)
     totalMap.set(key, (totalMap.get(key) || 0) + usd)
+    if (log.provider === 'openrouter') {
+      openrouterMap.set(key, (openrouterMap.get(key) || 0) + usd)
+    }
     const stageKey = String(log.stage || 'LLM_GENERATION').toUpperCase()
     const bd = breakdownMap.get(key) || {}
     bd[stageKey] = Number(((bd[stageKey] || 0) + usd).toFixed(5))
@@ -63,7 +67,7 @@ async function aggregateCostByUserIds(userIds = []) {
       totalMap.set(key, (totalMap.get(key) || 0) + computeRunUsd(run))
     }
   }
-  return { totalMap, breakdownMap }
+  return { totalMap, openrouterMap, breakdownMap }
 }
 
 // ─── Helper: Calculate Intent Score & Lead Metadata ─────────────────────────
@@ -318,7 +322,7 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
-    const [{ totalMap: costMap, breakdownMap }, fx] = await Promise.all([
+    const [{ totalMap: costMap, openrouterMap, breakdownMap }, fx] = await Promise.all([
       aggregateCostByUserIds(paginatedLeads.map((l) => l.id)),
       getEffectiveUsdToInrRate(),
     ])
@@ -328,6 +332,8 @@ export async function listLeads(req, res) {
       const savedCost = userCostMap.get(l.id) || 0
       const costUsd = Number(Math.max(aggCost, savedCost).toFixed(5))
       const costInr = Number((costUsd * inrPerUsd).toFixed(2))
+      const openrouterCostUsd = Number((openrouterMap.get(l.id) || 0).toFixed(5))
+      const openrouterCostInr = Number((openrouterCostUsd * inrPerUsd).toFixed(2))
       const savedBd = userBreakdownMap.get(l.id) || {}
       const aggBd = breakdownMap.get(l.id) || {}
       const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
@@ -335,8 +341,10 @@ export async function listLeads(req, res) {
         ...l,
         costUsd,
         aiCostUsd: costUsd,
+        openrouterCostUsd,
         costInr,
         aiCostInr: costInr,
+        openrouterCostInr,
         costBreakdown,
       }
     })
@@ -678,16 +686,27 @@ export async function getCandidateDossier(req, res) {
       { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
     ]
 
-    const [{ totalMap: costMap, breakdownMap }, fx] = await Promise.all([
+    const [{ totalMap: costMap, openrouterMap, breakdownMap }, fx] = await Promise.all([
       aggregateCostByUserIds([user._id]),
       getEffectiveUsdToInrRate(),
     ])
     const costUsd = Number(Math.max(costMap.get(String(user._id)) || 0, Number(user.totalCostUsd || 0)).toFixed(5))
     const costInr = Number((costUsd * fx.rate).toFixed(2))
+    const openrouterCostUsd = Number((openrouterMap.get(String(user._id)) || 0).toFixed(5))
+    const openrouterCostInr = Number((openrouterCostUsd * fx.rate).toFixed(2))
     const savedBd = user.costBreakdown || {}
     const aggBd = breakdownMap.get(String(user._id)) || {}
     const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
-    const leadWithCost = { ...leadInfo, costUsd, aiCostUsd: costUsd, costInr, aiCostInr: costInr, costBreakdown }
+    const leadWithCost = {
+      ...leadInfo,
+      costUsd,
+      aiCostUsd: costUsd,
+      openrouterCostUsd,
+      costInr,
+      aiCostInr: costInr,
+      openrouterCostInr,
+      costBreakdown,
+    }
 
     // Repeat-candidate score history matching same normalized email or last-10-digit phone
     const historyFilters = []
@@ -729,8 +748,10 @@ export async function getCandidateDossier(req, res) {
       candidate: leadWithCost,
       costUsd,
       aiCostUsd: costUsd,
+      openrouterCostUsd,
       costInr,
       aiCostInr: costInr,
+      openrouterCostInr,
       costBreakdown,
       scoreHistory,
       phases,
