@@ -140,6 +140,22 @@ export const api = {
       .catch(() => ({ success: false, profile: null }))
   },
 
+  // POST /api/assessment/prefetch-market (Questionnaire-time Fast-Catch trigger)
+  prefetchMarket: async ({ targetRole, experienceYears, experience }) => {
+    if (!targetRole || targetRole.trim().length < 2) return null
+    return client
+      .post('/assessment/prefetch-market', {
+        targetRole: targetRole.trim(),
+        experienceYears,
+        experience,
+      })
+      .then((r) => r.data)
+      .catch((err) => {
+        console.warn('[prefetchMarket] Non-fatal prefetch notice:', err.message)
+        return null
+      })
+  },
+
   // Phase C: async job flow — save answers, then create a report job and
   // stream progress via SSE instead of holding one request open.
   startReportJob: async ({ userId, formData }) => {

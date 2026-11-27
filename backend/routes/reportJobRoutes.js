@@ -23,6 +23,10 @@ import { userSessionGuard } from '../utils/userAuth.js'
 import { getGlobalSettings } from '../models/AppSettings.js'
 import { costTracker } from '../utils/costTracker.js'
 import { redactReportForTeaser } from '../utils/teaserRedactor.js'
+import { inFlightFastCatch, triggerFastCatchForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
+import JobMarketBucket from '../models/JobMarketBucket.js'
+import JobMarketVersion from '../models/JobMarketVersion.js'
 
 async function redactForRequest(report, userId, isAdmin) {
   if (!report || isAdmin) return report
@@ -126,6 +130,61 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     pushEvent(job, 'job_started', 'Job started — spinning up your agent team…', 'all')
     pushEvent(job, 'agents_running', 'Deploying Resume, LinkedIn & Atlas agents in parallel…', 'all')
     await job.save()
+
+    // ── Fast-Catch Wait Gate (Zero Fake Fallbacks) ─────────────────────────
+    const targetRole =
+      semanticProfile?.targetRole ||
+      options.precomputedResumeAgent?.candidateSnapshot?.targetRole ||
+      options.precomputedResumeJson?.target_role ||
+      options.precomputedResumeJson?.candidate?.targetRole ||
+      ''
+
+    let resolvedBucketKey = null
+    if (targetRole) {
+      try {
+        const bucketRes = resolveMarketBucket({
+          targetRole,
+          targetJobDescription: semanticProfile?.targetJobDescription || '',
+          canonicalResume: options.precomputedResumeJson || null,
+        })
+        resolvedBucketKey = bucketRes?.bucketKey || null
+      } catch (_bErr) {}
+    }
+
+    if (resolvedBucketKey) {
+      // Check if Fast-Catch is currently in flight or if bucket has < 8 real JDs
+      let activeCatchPromise = inFlightFastCatch.get(resolvedBucketKey) || null
+      if (!activeCatchPromise) {
+        const bucketDoc = await JobMarketBucket.findOne({ bucketKey: resolvedBucketKey }).lean()
+        let sampleSize = 0
+        if (bucketDoc?.activeVersion > 0) {
+          const vDoc = await JobMarketVersion.findOne({ bucketKey: resolvedBucketKey, version: bucketDoc.activeVersion }).lean()
+          sampleSize = vDoc?.jobs?.length || vDoc?.marketProfile?.sampleSize || bucketDoc.jobCount || 0
+        }
+        if (sampleSize < 8) {
+          console.log(`[report-jobs] Wait Gate: Bucket "${resolvedBucketKey}" has ${sampleSize} JDs (< 8). Triggering Fast-Catch (35 JDs)...`)
+          activeCatchPromise = triggerFastCatchForBucket(resolvedBucketKey, {
+            targetCount: 35,
+            timeoutMs: 50000,
+            autoRefresh: true,
+            roleName: targetRole,
+          })
+        }
+      }
+
+      if (activeCatchPromise) {
+        pushEvent(job, 'market_benchmarking', `Benchmarking live Market JDs for ${targetRole}…`, 'market')
+        await job.save().catch(() => {})
+        try {
+          // 50s safety timeout so jobs never hang indefinitely
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 50000))
+          const catchResult = await Promise.race([activeCatchPromise, timeoutPromise])
+          console.log(`[report-jobs] Wait Gate resolved for ${resolvedBucketKey} with status:`, catchResult?.status || 'done')
+        } catch (gateErr) {
+          console.warn(`[report-jobs] Wait Gate notice for ${resolvedBucketKey}:`, gateErr.message)
+        }
+      }
+    }
 
     const { aiReport } = await generateReportBundle({
       userId,

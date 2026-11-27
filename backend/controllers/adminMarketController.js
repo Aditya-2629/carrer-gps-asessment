@@ -12,6 +12,7 @@
 
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
+import User from '../models/User.js'
 import {
   enqueueBucketRefresh,
   enqueueAllBucketsRefresh,
@@ -32,9 +33,37 @@ export async function listMarketBuckets(req, res) {
   try {
     await ensureConfiguredBucketsExist()
     const stats = await getMarketLibraryStats()
+
+    const refreshingBucket = stats.buckets?.find((b) => b.status === 'refreshing')
+
+    // Check recent active candidate traffic within last 5 minutes to defer background scraping
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    const recentTrafficCount = await User.countDocuments({
+      updatedAt: { $gte: fiveMinutesAgo },
+    }).catch(() => 0)
+
+    const isDeferred = recentTrafficCount >= 2 && !refreshingBucket
+    const status = refreshingBucket
+      ? 'enriching'
+      : isDeferred
+        ? 'deferred'
+        : 'ready'
+
+    const schedulerState = {
+      status,
+      isDeferred,
+      deferredReason: isDeferred ? 'Live Traffic' : null,
+      currentBucket: refreshingBucket ? (refreshingBucket.bucketKey || refreshingBucket.roleName) : null,
+      staleCount: stats.needsRefresh || 0,
+      pendingCount: stats.refreshing || (refreshingBucket ? 1 : 0),
+      activeCount: refreshingBucket ? 1 : 0,
+      lastFullRefresh: stats.lastFullRefresh || null,
+    }
+
     return res.status(200).json({
       success: true,
       ...stats,
+      schedulerState,
     })
   } catch (err) {
     console.error('[AdminMarket] listMarketBuckets error:', err)

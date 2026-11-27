@@ -5,8 +5,8 @@ import { getGlobalSettings, normalizeSocialLinksConfig } from '../models/AppSett
 import getGeminiPrompt from '../utils/geminiPrompt.js'
 import { sendAdminReportEmail, sendBookCallNotification, sendCandidatePreviewEmail } from '../utils/adminEmails.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
-import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
-import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { resolveMarketBucket, mapYearsToBucket, normalizeRoleTaxonomy } from '../agents/resume/market/marketBucketResolver.js'
+import { getMarketDataForBucket, triggerFastCatchForBucket, inFlightFastCatch } from '../agents/resume/market/marketJdRetriever.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import JobMarketVersion from '../models/JobMarketVersion.js'
 import { buildRAGContext, buildSmartQuery } from '../utils/ragEngine.js'
@@ -1616,6 +1616,71 @@ export function persistAssessmentActivitySignals(user, assessmentResults = {}) {
   }
   return user
 }
+
+/**
+ * POST /api/assessment/prefetch-market
+ * Triggered at questionnaire time when user enters/selects targetRole and experience.
+ * Starts in-flight Fast-Catch (35 JDs) asynchronously if bucket has < 8 JDs.
+ */
+export async function prefetchMarket(req, res) {
+  try {
+    const targetRole = String(req.body?.targetRole || '').trim()
+    const rawExp = req.body?.experienceYears ?? req.body?.experience ?? null
+    if (!targetRole || targetRole.length < 2) {
+      return res.status(400).json({ success: false, message: 'Valid targetRole is required.' })
+    }
+
+    let years = null
+    if (typeof rawExp === 'number') {
+      years = rawExp
+    } else if (typeof rawExp === 'string') {
+      const match = rawExp.match(/\d+/)
+      years = match ? parseInt(match[0], 10) : 4
+    }
+    const expBucket = mapYearsToBucket(years)
+    const roleMeta = normalizeRoleTaxonomy(targetRole)
+    const bucketKey = `${roleMeta.roleKey}::${expBucket}`
+
+    // 1. Check if bucket already has >= 8 fresh JDs
+    const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
+    if (bucket && (bucket.jobCount >= 8 || bucket.activeVersion > 0)) {
+      const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion }).lean()
+      const sampleSize = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || bucket.jobCount || 0
+      if (sampleSize >= 8) {
+        return res.status(200).json({
+          success: true,
+          ready: true,
+          bucketKey,
+          totalJds: sampleSize,
+        })
+      }
+    }
+
+    // 2. Start or join in-flight Fast-Catch (35 JDs)
+    console.log(`[prefetchMarket] Initiating questionnaire Fast-Catch (35 JDs) for "${targetRole}" (${bucketKey})...`)
+    triggerFastCatchForBucket(bucketKey, {
+      targetCount: 35,
+      timeoutMs: 50000,
+      autoRefresh: true,
+      roleName: targetRole,
+    }).catch((err) => {
+      console.warn(`[prefetchMarket] Async Fast-Catch notice for ${bucketKey}:`, err.message)
+    })
+
+    return res.status(202).json({
+      success: true,
+      started: true,
+      bucketKey,
+      roleName: targetRole,
+      targetCount: 35,
+      inFlight: inFlightFastCatch.has(bucketKey),
+    })
+  } catch (err) {
+    console.error('[prefetchMarket] error:', err)
+    return res.status(500).json({ success: false, message: 'Failed to prefetch market data.' })
+  }
+}
+
 
 
 

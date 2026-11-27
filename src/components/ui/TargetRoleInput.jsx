@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useAppStore from '../../store/useAppStore'
 import { Briefcase, Sparkle } from '@phosphor-icons/react'
+import { api } from '../../lib/api'
 
 const SUGGESTED_ROLES = [
   'Full Stack Software Engineer',
@@ -32,6 +33,33 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
 
   const [roleText, setRoleText] = useState(value || detectedTarget || '')
   const [selectedExp, setSelectedExp] = useState(formData.experience || '2–4 yrs (Mid-Level)')
+  const lastPrefetchedRef = useRef('')
+  const prefetchTimerRef = useRef(null)
+
+  // Questionnaire-time 35-JD Fast-Catch prefetch (debounced 600ms, fired once per role/YOE pair)
+  useEffect(() => {
+    const trimmedRole = roleText.trim()
+    if (!trimmedRole || trimmedRole.length < 3) return
+
+    const key = `${trimmedRole.toLowerCase()}::${selectedExp}`
+    if (lastPrefetchedRef.current === key) return
+
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current)
+    }
+
+    prefetchTimerRef.current = setTimeout(() => {
+      lastPrefetchedRef.current = key
+      api.prefetchMarket({
+        targetRole: trimmedRole,
+        experience: selectedExp,
+      }).catch(() => {})
+    }, 600)
+
+    return () => {
+      if (prefetchTimerRef.current) clearTimeout(prefetchTimerRef.current)
+    }
+  }, [roleText, selectedExp])
 
   useEffect(() => {
     if (value && value !== roleText) {
