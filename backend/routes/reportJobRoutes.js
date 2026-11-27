@@ -157,7 +157,7 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       if (!activeCatchPromise) {
         const prefetchRes = await ensurePriorityMarketBucket({
           roleTitle: targetRole,
-          canonicalResume: semanticProfile?.canonicalResume || user.resumeJson || null,
+          canonicalResume: semanticProfile?.canonicalResume || options?.precomputedResumeJson || null,
         })
         if (prefetchRes.started && prefetchRes.promise) {
           activeCatchPromise = prefetchRes.promise
