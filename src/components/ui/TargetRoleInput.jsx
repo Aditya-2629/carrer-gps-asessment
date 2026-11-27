@@ -36,6 +36,29 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
   const lastPrefetchedRef = useRef('')
   const prefetchTimerRef = useRef(null)
 
+  // Direct, safe prefetch trigger
+  const triggerPrefetchNow = (role, exp) => {
+    const r = (role ?? roleText).trim()
+    const e = exp ?? selectedExp
+    if (!r || r.length < 3) return
+
+    const key = `${r.toLowerCase()}::${e}`
+    if (lastPrefetchedRef.current === key) return
+    lastPrefetchedRef.current = key
+
+    if (prefetchTimerRef.current) {
+      clearTimeout(prefetchTimerRef.current)
+    }
+
+    api.prefetchMarket({
+      targetRole: r,
+      experience: e,
+      experienceYears: formData.experienceYears || e,
+    }).catch((err) => {
+      console.warn('[TargetRoleInput] Non-fatal prefetch notice:', err.message)
+    })
+  }
+
   // Questionnaire-time 35-JD Fast-Catch prefetch (debounced 600ms, fired once per role/YOE pair)
   useEffect(() => {
     const trimmedRole = roleText.trim()
@@ -49,11 +72,7 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
     }
 
     prefetchTimerRef.current = setTimeout(() => {
-      lastPrefetchedRef.current = key
-      api.prefetchMarket({
-        targetRole: trimmedRole,
-        experience: selectedExp,
-      }).catch(() => {})
+      triggerPrefetchNow(trimmedRole, selectedExp)
     }, 600)
 
     return () => {
@@ -78,6 +97,7 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
   const handleExpChange = (exp) => {
     setSelectedExp(exp)
     setFormData('experience', exp)
+    triggerPrefetchNow(roleText, exp)
   }
 
   return (
@@ -92,9 +112,11 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
             type="text"
             value={roleText}
             onChange={(e) => handleRoleChange(e.target.value)}
+            onBlur={() => triggerPrefetchNow(roleText, selectedExp)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
+                triggerPrefetchNow(roleText, selectedExp)
                 onNext?.()
               }
             }}
@@ -122,7 +144,10 @@ export default function TargetRoleInput({ value, onChange, error, onNext }) {
               <button
                 key={role}
                 type="button"
-                onClick={() => handleRoleChange(role)}
+                onClick={() => {
+                  handleRoleChange(role)
+                  triggerPrefetchNow(role, selectedExp)
+                }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                   isMatch
                     ? 'bg-[var(--primary)] text-white shadow-xs font-semibold'

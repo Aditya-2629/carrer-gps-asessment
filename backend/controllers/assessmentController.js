@@ -1643,21 +1643,27 @@ export async function prefetchMarket(req, res) {
 
     // 1. Check if bucket already has >= 8 fresh JDs
     const bucket = await JobMarketBucket.findOne({ bucketKey }).lean()
-    if (bucket && (bucket.jobCount >= 8 || bucket.activeVersion > 0)) {
+    let sampleSize = 0
+    if (bucket && bucket.activeVersion > 0) {
       const versionDoc = await JobMarketVersion.findOne({ bucketKey, version: bucket.activeVersion }).lean()
-      const sampleSize = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || bucket.jobCount || 0
-      if (sampleSize >= 8) {
-        return res.status(200).json({
-          success: true,
-          ready: true,
-          bucketKey,
-          totalJds: sampleSize,
-        })
-      }
+      sampleSize = versionDoc?.jobs?.length || versionDoc?.marketProfile?.sampleSize || bucket.jobCount || 0
+    } else if (bucket) {
+      sampleSize = bucket.jobCount || 0
+    }
+
+    // ONLY consider ready if bucket has >= 8 real JDs.
+    // If totalJds < 8 (e.g. 0 JDs, cold bucket), NEVER skip due to cooldown — ALWAYS trigger Fast-Catch (35 JDs).
+    if (sampleSize >= 8) {
+      return res.status(200).json({
+        success: true,
+        ready: true,
+        bucketKey,
+        totalJds: sampleSize,
+      })
     }
 
     // 2. Start or join in-flight Fast-Catch (35 JDs)
-    console.log(`[prefetchMarket] Initiating questionnaire Fast-Catch (35 JDs) for "${targetRole}" (${bucketKey})...`)
+    console.log(`[prefetchMarket] Initiating questionnaire Fast-Catch (35 JDs) for "${targetRole}" (${bucketKey}). Current sample: ${sampleSize} JDs (< 8)...`)
     triggerFastCatchForBucket(bucketKey, {
       targetCount: 35,
       timeoutMs: 50000,

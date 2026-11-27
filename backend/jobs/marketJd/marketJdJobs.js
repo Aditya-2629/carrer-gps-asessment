@@ -216,6 +216,24 @@ export async function ensureConfiguredBucketsExist() {
  * Dynamic Fast-Catch Scraper for ANY Target Role
  * Targets 35 JDs with strict seniority filtering and automated Indeed fallback (min 15 JDs).
  */
+/**
+ * Strips restrictive seniority prefixes, specializations, and consult/specialist suffixes
+ * to form a broad 1-3 word role search query when exact queries yield < 5 JDs.
+ */
+export function getBroaderRoleQuery(roleTitle = '') {
+  let broader = String(roleTitle || '')
+    .replace(/\b(senior|sr\.?|lead|principal|staff|director|head\s+of|vp|vice\s+president|junior|jr\.?|entry[\s-]level|associate|intern)\b/gi, '')
+    .replace(/\b(consultant|specialist|expert|coordinator|advisor)\b/gi, '')
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (broader.length < 3) {
+    broader = String(roleTitle || '').replace(/[^\w\s-]/g, ' ').replace(/\s+/g, ' ').trim()
+  }
+  return broader
+}
+
 export async function fetchFastCatchJds({
   role = '',
   bucketKey = '',
@@ -232,9 +250,11 @@ export async function fetchFastCatchJds({
   // 1. Resolve role and experience bucket dynamically from parameters or bucketKey
   let resolvedRole = String(role || '').trim()
   let expBucket = '3-5'
+  let rolePart = ''
 
   if (bucketKey) {
-    const [rolePart, expPart] = bucketKey.split('::')
+    const [rp, expPart] = bucketKey.split('::')
+    rolePart = rp
     if (expPart) expBucket = expPart
     if (!resolvedRole && rolePart && rolePart !== 'default') {
       resolvedRole = rolePart
@@ -244,6 +264,7 @@ export async function fetchFastCatchJds({
     }
   }
 
+  const roleKey = rolePart || (resolvedRole ? resolvedRole.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'general')
   let targetRoleTitle = resolvedRole || 'Professional'
 
   // Prepend Senior for '6-8' and '8+' buckets if not already present
@@ -295,10 +316,57 @@ export async function fetchFastCatchJds({
       })
 
   let primaryItems = []
+  let primaryError = null
   try {
     primaryItems = await runApifyActorScrape(actorId, actorInput, Math.min(timeoutMs, 45000))
   } catch (primErr) {
+    primaryError = primErr
     console.warn(`[MarketJdJobs] Primary scrape attempt encountered error: ${primErr.message}`)
+  }
+
+  // Task 2: Log [FastCatch] bucket=<key> query="<role>" items=<count> error=<msg> clearly on every Apify run
+  console.log(`[FastCatch] bucket=${bucketKey || 'unknown'} query="${searchRoleTitle}" items=${primaryItems?.length || 0} error=${primaryError?.message || 'none'}`)
+
+  // Broader query retry if initial LinkedIn query returned < 5 JDs
+  if ((primaryItems?.length || 0) < 5) {
+    const broaderRole = getBroaderRoleQuery(searchRoleTitle)
+    console.warn(`[MarketJdJobs] Initial scrape returned low items (${primaryItems?.length || 0} < 5). Retrying once with broader query: "${broaderRole}"...`)
+
+    const broaderActorInput = isHarvestApi
+      ? {
+          jobTitles: [broaderRole, broaderRole.includes(' ') ? broaderRole.split(' ').slice(0, 2).join(' ') : broaderRole],
+          locations: ['United States', 'Remote'],
+          maxItems: fastCatchCount,
+          postedLimit: 'month',
+          sortBy: 'relevance',
+        }
+      : buildApifyJdScraperInput(broaderRole, {
+          locations: ['United States', 'Remote', 'New York, NY', 'San Francisco, CA'],
+          rows: fastCatchCount,
+          maxJobs: fastCatchCount,
+        })
+
+    let broaderItems = []
+    let broaderError = null
+    try {
+      broaderItems = await runApifyActorScrape(actorId, broaderActorInput, Math.min(timeoutMs, 45000))
+    } catch (broadErr) {
+      broaderError = broadErr
+      console.warn(`[MarketJdJobs] Broader retry attempt encountered error: ${broadErr.message}`)
+    }
+
+    console.log(`[FastCatch] bucket=${bucketKey || 'unknown'} query="${broaderRole}" items=${broaderItems?.length || 0} error=${broaderError?.message || 'none'}`)
+
+    if (Array.isArray(broaderItems) && broaderItems.length > 0) {
+      const seenUrls = new Set((primaryItems || []).map((it) => it.linkedinUrl || it.url || it.link || `${it.title}_${it.company?.name || it.companyName}`))
+      for (const item of broaderItems) {
+        const key = item.linkedinUrl || item.url || item.link || `${item.title}_${item.company?.name || item.companyName}`
+        if (!seenUrls.has(key)) {
+          seenUrls.add(key)
+          primaryItems.push(item)
+        }
+      }
+    }
   }
 
   // Filter valid text descriptions (at least 100 chars)
@@ -313,52 +381,58 @@ export async function fetchFastCatchJds({
   // Seniority post-scrape filter & domain relevance guard
   let validJds = filterJdsByDomainRelevance(filterJdsBySeniority(rawJds, expBucket), roleKey)
 
-  // FAILSAFE RETRY: If primary returned < 20 filtered JDs, fall back to Indeed scraper
-  if (validJds.length < 20) {
-    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 20 after seniority & domain filters). Switching to Indeed fallback on Apify...`)
+  // FAILSAFE RETRY: If filtered JDs < 15, fall back to Indeed scraper
+  if (validJds.length < 15) {
+    const indeedQuery = `${targetRoleTitle} ${resolvedSpecialization !== 'general' ? resolvedSpecialization : ''}`.trim()
+    console.warn(`[MarketJdJobs] Primary scrape returned low sample (${validJds.length} < 15 after seniority & domain filters). Switching to Indeed fallback on Apify...`)
 
+    let fallbackItems = []
+    let fbError = null
     try {
-      const fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
-        position: `${targetRoleTitle} ${resolvedSpecialization !== 'general' ? resolvedSpecialization : ''}`.trim(),
+      fallbackItems = await runApifyActorScrape('misceres/indeed-scraper', {
+        position: indeedQuery,
         country: 'US',
         location: 'United States',
         maxItems: Math.max(15, fastCatchCount),
       }, Math.min(45000, timeoutMs))
-
-      const rawFallback = (fallbackItems || []).map((item) => ({
-        title: item.positionName || item.title || targetRoleTitle,
-        company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
-        location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
-        description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
-        url: item.linkedinUrl || item.url || item.link || '',
-      })).filter((j) => (j.description || '').length >= 100)
-
-      const filteredFallback = filterJdsByDomainRelevance(filterJdsBySeniority(rawFallback, expBucket), roleKey)
-
-      if (filteredFallback.length >= 15) {
-        validJds = filteredFallback
-        console.log(`[MarketJdJobs] Fallback Indeed scraper succeeded with ${validJds.length} real JDs.`)
-      } else if (validJds.length + filteredFallback.length >= 15) {
-        const seen = new Set(validJds.map((j) => `${j.title}_${j.company}`.toLowerCase()))
-        for (const item of filteredFallback) {
-          const key = `${item.title}_${item.company}`.toLowerCase()
-          if (!seen.has(key)) {
-            seen.add(key)
-            validJds.push(item)
-          }
-        }
-        console.log(`[MarketJdJobs] Combined primary and fallback scrapers for ${validJds.length} JDs.`)
-      }
     } catch (fbErr) {
+      fbError = fbErr
       console.warn(`[MarketJdJobs] Fallback scraper also failed: ${fbErr.message}`)
+    }
+
+    console.log(`[FastCatch] bucket=${bucketKey || 'unknown'} query="${indeedQuery}" (indeed) items=${fallbackItems?.length || 0} error=${fbError?.message || 'none'}`)
+
+    const rawFallback = (fallbackItems || []).map((item) => ({
+      title: item.positionName || item.title || targetRoleTitle,
+      company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
+      location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
+      description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
+      url: item.linkedinUrl || item.url || item.link || '',
+    })).filter((j) => (j.description || '').length >= 100)
+
+    const filteredFallback = filterJdsByDomainRelevance(filterJdsBySeniority(rawFallback, expBucket), roleKey)
+
+    if (filteredFallback.length >= 15) {
+      validJds = filteredFallback
+      console.log(`[MarketJdJobs] Fallback Indeed scraper succeeded with ${validJds.length} real JDs.`)
+    } else if (validJds.length + filteredFallback.length >= 15) {
+      const seen = new Set(validJds.map((j) => `${j.title}_${j.company}`.toLowerCase()))
+      for (const item of filteredFallback) {
+        const key = `${item.title}_${item.company}`.toLowerCase()
+        if (!seen.has(key)) {
+          seen.add(key)
+          validJds.push(item)
+        }
+      }
+      console.log(`[MarketJdJobs] Combined primary and fallback scrapers for ${validJds.length} JDs.`)
     }
   }
 
   validJds = deduplicateJds(validJds)
   console.log(`[MarketJdJobs] Scraped ${validJds.length} valid unique JDs for role: "${targetRoleTitle}" (Bucket: ${expBucket})`)
 
-  if (validJds.length < 10) {
-    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 10 live JDs for "${targetRoleTitle}". Found ${validJds.length}. Aborting to prevent fake data.`)
+  if (validJds.length < 8) {
+    throw new Error(`[MarketJdJobs] Critical: Unable to fetch required minimum 8 live JDs for "${targetRoleTitle}". Found ${validJds.length}. Aborting to prevent fake data.`)
   }
 
   return validJds

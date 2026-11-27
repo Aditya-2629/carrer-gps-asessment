@@ -16,6 +16,7 @@ import JobMarketBucket from '../../../models/JobMarketBucket.js'
 import JobMarketVersion from '../../../models/JobMarketVersion.js'
 import { fetchFastCatchJds, enqueueFullBackgroundBucket } from '../../../jobs/marketJd/marketJdJobs.js'
 import { analyzeJdBatchWithGemini, analyzeAndAggregateJdCorpus, pruneJdText, deduplicateJds } from './llmJdSkillAnalyzer.js'
+import { CONTROLLED_ROLES } from './marketBucketResolver.js'
 
 export const MIN_SAMPLE_THRESHOLD = 8
 export const MIN_SKILLS_THRESHOLD = 4
@@ -42,7 +43,7 @@ export async function triggerFastCatchForBucket(bucketKey, options = {}) {
     try {
       console.log(`[MarketJdRetriever] Triggering Fast-Catch (target: ${targetCount} JDs, timeout: ${timeoutMs}ms) for ${bucketKey}...`)
       const [roleKey, expBucket] = bucketKey.split('::')
-      const roleDef = CONTROLLED_ROLES.find((r) => r.roleKey === roleKey)
+      const roleDef = Array.isArray(CONTROLLED_ROLES) ? CONTROLLED_ROLES.find((r) => r.roleKey === roleKey) : null
       const roleClean = options.roleName || roleDef?.roleName || roleKey.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
       const fastJds = await fetchFastCatchJds({
@@ -297,7 +298,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         timeoutMs: options.timeoutMs || 50000,
         autoRefresh,
         mockJds: options.mockJds || null,
-        roleName: bucket?.roleName || null,
+        roleName: options.roleName || bucket?.roleName || null,
       })
       if (fastCatchRes?.status === 'healthy' && fastCatchRes.marketProfile) {
         return fastCatchRes

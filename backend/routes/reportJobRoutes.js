@@ -160,7 +160,12 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
         if (bucketDoc?.activeVersion > 0) {
           const vDoc = await JobMarketVersion.findOne({ bucketKey: resolvedBucketKey, version: bucketDoc.activeVersion }).lean()
           sampleSize = vDoc?.jobs?.length || vDoc?.marketProfile?.sampleSize || bucketDoc.jobCount || 0
+        } else if (bucketDoc) {
+          sampleSize = bucketDoc.jobCount || 0
         }
+
+        // ONLY skip Fast-Catch when sampleSize >= 8.
+        // If totalJds < 8 (e.g. 0 JDs, cold bucket), NEVER skip due to cooldown — ALWAYS trigger Fast-Catch (35 JDs).
         if (sampleSize < 8) {
           console.log(`[report-jobs] Wait Gate: Bucket "${resolvedBucketKey}" has ${sampleSize} JDs (< 8). Triggering Fast-Catch (35 JDs)...`)
           activeCatchPromise = triggerFastCatchForBucket(resolvedBucketKey, {
