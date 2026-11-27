@@ -541,8 +541,6 @@ function computeRunUsd(run) {
 
 export async function getOpenRouterBalance(req, res) {
   try {
-    const fxRate = await getEffectiveUsdToInrRate()
-    const rateInr = fxRate?.rate || DEFAULT_PRICING.usd_to_inr
     const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
     let openrouter = {
       configured: Boolean(apiKey),
@@ -578,7 +576,7 @@ export async function getOpenRouterBalance(req, res) {
         openrouter.totalCredits = totalCredits
         openrouter.totalUsage = totalUsage
         openrouter.remainingUsd = remainingUsd
-        openrouter.remainingInr = Number((remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+        openrouter.remainingInr = Number((remainingUsd * rateInr).toFixed(2))
         openrouter.limit = totalCredits
         openrouter.usage = totalUsage
         openrouter.limitRemaining = remainingUsd
@@ -592,15 +590,15 @@ export async function getOpenRouterBalance(req, res) {
         const kJson = await keyRes.value.json().catch(() => ({}))
         const kd = kJson?.data || kJson || {}
         openrouter.keyUsage = kd.usage ?? null
-        openrouter.usageDaily = kd.usage_daily != null ? Number(kd.usage_daily) : null
-        openrouter.usageWeekly = kd.usage_weekly != null ? Number(kd.usage_weekly) : null
-        openrouter.usageMonthly = kd.usage_monthly != null ? Number(kd.usage_monthly) : null
+        openrouter.usageDaily = Number(kd?.usage_daily ?? kJson?.usage_daily ?? 0)
+        openrouter.usageWeekly = Number(kd?.usage_weekly ?? kJson?.usage_weekly ?? 0)
+        openrouter.usageMonthly = Number(kd?.usage_monthly ?? kJson?.usage_monthly ?? 0)
         openrouter.keyLimit = kd.limit ?? null
         openrouter.keyLimitRemaining = kd.limit_remaining ?? null
         openrouter.isFreeTier = kd.is_free_tier ?? null
         if (openrouter.remainingUsd === null && kd.limit_remaining != null) {
           openrouter.remainingUsd = Number(kd.limit_remaining)
-          openrouter.remainingInr = Number((openrouter.remainingUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+          openrouter.remainingInr = Number((openrouter.remainingUsd * rateInr).toFixed(2))
           openrouter.limitRemaining = openrouter.remainingUsd
         }
       }
