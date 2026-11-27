@@ -10,7 +10,7 @@ import PromptExample from '../models/PromptExample.js'
 import FindingFeedback from '../models/FindingFeedback.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
 import { purgeAllKeyCooldowns } from '../ai/gateway/roundRobinKeyManager.js'
-import { DEFAULT_PRICING } from '../utils/costTracker.js'
+import { DEFAULT_PRICING, getEffectiveUsdToInrRate } from '../utils/costTracker.js'
 
 /**
  * Stage name mapper based on agent and model purpose
@@ -162,7 +162,7 @@ export async function getFallbackAndErrorAnalytics(req, res) {
       model: m._id?.model || 'unknown',
       provider: m._id?.provider || 'unknown',
       costUsd: Number((m.costUsd || 0).toFixed(5)),
-      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      costInr: Number(((m.costUsd || 0) * rateInr).toFixed(2)),
       calls: m.calls || 0,
       tokens: m.tokens || 0,
     }))
@@ -195,38 +195,59 @@ export async function getFallbackAndErrorAnalytics(req, res) {
  */
 export async function getLlmCallsAndQuotas(req, res) {
   try {
-    const runs = await AgentRun.find({})
-      .sort({ createdAt: -1 })
-      .limit(60)
-      .lean()
+    const [logs, runs, fx] = await Promise.all([
+      LlmCallLog.find({}).sort({ createdAt: -1 }).limit(60).lean(),
+      AgentRun.find({}).sort({ createdAt: -1 }).limit(60).lean(),
+      getEffectiveUsdToInrRate(),
+    ])
+    const rateInr = fx.rate
 
-    const detailedCalls = runs.map((r, idx) => {
-      const inputTok = r.cost?.inputTokens || Math.floor(1200 + ((idx * 317) % 3500))
-      const outputTok = r.cost?.outputTokens || Math.floor(350 + ((idx * 141) % 1200))
-      const totalTok = inputTok + outputTok
-      const model = r.model || (idx % 3 === 0 ? 'typesafe/jev-1.14' : idx % 2 === 0 ? 'google/gemini-3.5-flash-lite' : 'meta-llama/llama-3.3-70b-instruct')
+    const detailedCalls = logs.length > 0
+      ? logs.map((l) => {
+          const inputTok = Number(l.promptTokens || 0)
+          const outputTok = Number(l.completionTokens || 0)
+          const costUsd = Number(l.costUsd || 0)
+          return {
+            id: String(l._id),
+            agent: l.provider || 'openrouter',
+            stage: l.stage || 'LLM_GENERATION',
+            model: l.model || 'unknown',
+            inputTokens: inputTok,
+            outputTokens: outputTok,
+            totalTokens: inputTok + outputTok,
+            latencyMs: 0,
+            latencySec: 0,
+            costUsd: Number(costUsd.toFixed(5)),
+            costInr: Number((costUsd * rateInr).toFixed(3)),
+            status: l.costSource === 'openrouter_cost_error' ? 'COST_ERROR' : 'SUCCESS',
+            timestamp: l.createdAt,
+          }
+        })
+      : runs.map((r) => {
+          const inputTok = Number(r.cost?.inputTokens || 0)
+          const outputTok = Number(r.cost?.outputTokens || 0)
+          const totalTok = inputTok + outputTok
+          const model = r.model || 'unknown'
+          const costUsd = computeRunUsd(r)
+          const costInr = costUsd * rateInr
+          const latencyMs = Number(r.latencyMs || 0)
 
-      const rates = DEFAULT_PRICING.models[model] || DEFAULT_PRICING.models.default
-      const costUsd = (inputTok / 1000000) * rates.input + (outputTok / 1000000) * rates.output
-      const costInr = costUsd * DEFAULT_PRICING.usd_to_inr
-      const latencyMs = r.latencyMs || Math.floor(1800 + ((idx * 421) % 4500))
-
-      return {
-        id: String(r._id || `req_1793${Math.abs(Math.sin(idx) * 100000).toFixed(0)}`),
-        agent: r.agent || (idx % 2 === 0 ? 'resume' : 'linkedin'),
-        stage: resolveStageName(r),
-        model,
-        inputTokens: inputTok,
-        outputTokens: outputTok,
-        totalTokens: totalTok,
-        latencyMs,
-        latencySec: Number((latencyMs / 1000).toFixed(2)),
-        costUsd: Number(costUsd.toFixed(5)),
-        costInr: Number(costInr.toFixed(3)),
-        status: r.status || 'SUCCESS',
-        timestamp: r.createdAt || new Date(Date.now() - idx * 3600000).toISOString(),
-      }
-    })
+          return {
+            id: String(r._id),
+            agent: r.agent || 'unknown',
+            stage: resolveStageName(r),
+            model,
+            inputTokens: inputTok,
+            outputTokens: outputTok,
+            totalTokens: totalTok,
+            latencyMs,
+            latencySec: Number((latencyMs / 1000).toFixed(2)),
+            costUsd: Number(costUsd.toFixed(5)),
+            costInr: Number(costInr.toFixed(3)),
+            status: r.status || 'SUCCESS',
+            timestamp: r.createdAt,
+          }
+        })
 
     // Cost by model summary
     const costByModel = {}
@@ -243,16 +264,18 @@ export async function getLlmCallsAndQuotas(req, res) {
       totalOutputTokens += c.outputTokens
     })
 
-    // Latency distribution
-    const sortedLatencies = [...detailedCalls].map((c) => c.latencySec).sort((a, b) => a - b)
+    // Latency distribution (0 when no latency data exists)
+    const sortedLatencies = detailedCalls.map((c) => c.latencySec).filter((v) => v > 0).sort((a, b) => a - b)
     const p50Index = Math.floor(sortedLatencies.length * 0.5)
     const p95Index = Math.floor(sortedLatencies.length * 0.95)
-    const p50Latency = sortedLatencies[p50Index] || 2.4
-    const p95Latency = sortedLatencies[p95Index] || 5.6
+    const p50Latency = sortedLatencies.length > 0 ? sortedLatencies[p50Index] : 0
+    const p95Latency = sortedLatencies.length > 0 ? sortedLatencies[p95Index] : 0
 
     // Total spend calculation
     const totalSpendUsd = Number(Object.values(costByModel).reduce((a, b) => a + b, 0).toFixed(4))
-    const totalSpendInr = Number((totalSpendUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2))
+    const totalSpendInr = Number((totalSpendUsd * rateInr).toFixed(2))
+    const avgCostPerRunUsd = detailedCalls.length > 0 ? Number((totalSpendUsd / detailedCalls.length).toFixed(5)) : 0
+    const avgCostPerRunInr = `₹${(avgCostPerRunUsd * rateInr).toFixed(2)}`
 
     // SmartKeyPool Live Quota Statuses
     const apifyKeyList = apifyKeyPool.getAllKeys()
@@ -286,7 +309,7 @@ export async function getLlmCallsAndQuotas(req, res) {
       model: m._id?.model || 'unknown',
       provider: m._id?.provider || 'unknown',
       costUsd: Number((m.costUsd || 0).toFixed(5)),
-      costInr: Number(((m.costUsd || 0) * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+      costInr: Number(((m.costUsd || 0) * rateInr).toFixed(2)),
       calls: m.calls || 0,
       tokens: m.tokens || 0,
     }))
@@ -297,8 +320,8 @@ export async function getLlmCallsAndQuotas(req, res) {
         totalCallsLogged: detailedCalls.length,
         totalSpendUsd,
         totalSpendInr,
-        avgCostPerRunUsd: Number((totalSpendUsd / (detailedCalls.length || 1)).toFixed(4)),
-        avgCostPerRunInr: '₹0.71',
+        avgCostPerRunUsd,
+        avgCostPerRunInr,
         totalTokensBurned,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
@@ -518,6 +541,8 @@ function computeRunUsd(run) {
 
 export async function getOpenRouterBalance(req, res) {
   try {
+    const fxRate = await getEffectiveUsdToInrRate()
+    const rateInr = fxRate?.rate || DEFAULT_PRICING.usd_to_inr
     const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
     let openrouter = {
       configured: Boolean(apiKey),
@@ -619,12 +644,20 @@ export async function getOpenRouterBalance(req, res) {
         runs: d.runs,
       }))
 
+    const fx = await getEffectiveUsdToInrRate()
+    const rateInr = fx.rate
+    if (openrouter.remainingUsd !== null) {
+      openrouter.remainingInr = Number((openrouter.remainingUsd * rateInr).toFixed(2))
+    }
     const liveTodayUsd = openrouter.usageDaily != null ? openrouter.usageDaily : todayUsd
-    const rateInr = DEFAULT_PRICING.usd_to_inr || 94
     return res.status(200).json({
       success: true,
       ...openrouter,
       rateInr,
+      usdToInrRate: rateInr,
+      autoSyncUsdRate: fx.autoSyncUsdRate,
+      usdRateSource: fx.source,
+      usdRateLastSyncedAt: fx.lastSyncedAt,
       dailySpend: {
         todayUsd: Number(liveTodayUsd.toFixed(5)),
         weeklyUsd: openrouter.usageWeekly != null ? Number(openrouter.usageWeekly.toFixed(5)) : null,

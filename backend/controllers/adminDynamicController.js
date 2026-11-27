@@ -11,6 +11,7 @@
 
 import mongoose from 'mongoose'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import LlmCallLog from '../models/LlmCallLog.js'
 import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
 import AgentRun from '../models/AgentRun.js'
 import { apifyKeyPool, geminiKeyPool } from '../utils/smartKeyPool.js'
@@ -132,8 +133,8 @@ async function buildTaskModelsSummary(overrides = {}) {
       'google/gemini-3.5-flash-lite'
     taskModels[uiKey] = activeModel
     avgTokens[uiKey] = {
-      input: info?.avgInputTokens || 2000,
-      output: info?.avgOutputTokens || 700,
+      input: info?.avgInputTokens ?? 0,
+      output: info?.avgOutputTokens ?? 0,
     }
   }
   return { taskModels, avgTokens, taskDetails: details }
@@ -204,7 +205,26 @@ export async function getEngineConfig(_req, res) {
       totalJds: buckets.reduce((acc, b) => acc + (b.jobCount || 0), 0),
     }
 
-    const { taskModels, avgTokens, taskDetails } = await buildTaskModelsSummary(modelOverrides)
+    const [{ taskModels, avgTokens, taskDetails }, logAvgAgg] = await Promise.all([
+      buildTaskModelsSummary(modelOverrides),
+      LlmCallLog.aggregate([
+        {
+          $group: {
+            _id: null,
+            avgInputTokens: { $avg: '$promptTokens' },
+            avgOutputTokens: { $avg: '$completionTokens' },
+            totalCalls: { $sum: 1 },
+          },
+        },
+      ]),
+    ])
+    const overallTokenStats = logAvgAgg?.[0]
+      ? {
+          avgInputTokens: Math.round(logAvgAgg[0].avgInputTokens || 0),
+          avgOutputTokens: Math.round(logAvgAgg[0].avgOutputTokens || 0),
+          totalCalls: logAvgAgg[0].totalCalls || 0,
+        }
+      : { avgInputTokens: 0, avgOutputTokens: 0, totalCalls: 0 }
 
     return res.status(200).json({
       success: true,
@@ -217,6 +237,9 @@ export async function getEngineConfig(_req, res) {
       modelOverrides,
       taskModels,
       avgTokens,
+      avgInputTokens: overallTokenStats.avgInputTokens,
+      avgOutputTokens: overallTokenStats.avgOutputTokens,
+      totalCallsLogged: overallTokenStats.totalCalls,
       taskDetails,
       keyPools,
       bucketSummary,

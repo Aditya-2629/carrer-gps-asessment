@@ -115,6 +115,18 @@ const appSettingsSchema = new mongoose.Schema(
       type: String,
       default: 'Book Free 1:1 Strategy Call',
     },
+    usdToInrRate: {
+      type: Number,
+      default: 94,
+    },
+    autoSyncUsdRate: {
+      type: Boolean,
+      default: true,
+    },
+    usdRateLastSyncedAt: {
+      type: Date,
+      default: null,
+    },
     communityUrl: {
       type: String,
       default: 'https://www.linkedin.com/company/crafture',
@@ -134,6 +146,18 @@ const appSettingsSchema = new mongoose.Schema(
         type: [socialLinkItemSchema],
         default: () => DEFAULT_SOCIAL_LINKS_CONFIG.items,
       },
+    },
+    usdToInrRate: {
+      type: Number,
+      default: 94,
+    },
+    autoSyncUsdRate: {
+      type: Boolean,
+      default: true,
+    },
+    usdRateLastSyncedAt: {
+      type: Date,
+      default: null,
     },
     aiPaused: {
       type: Boolean,

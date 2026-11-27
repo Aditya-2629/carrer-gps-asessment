@@ -11,6 +11,90 @@
 import mongoose from 'mongoose'
 import LlmCallLog from '../models/LlmCallLog.js'
 import User from '../models/User.js'
+import AppSettings, { getGlobalSettings } from '../models/AppSettings.js'
+
+const FX_CACHE_TTL_MS = 12 * 60 * 60 * 1000
+let _fxCache = { rate: null, fetchedAt: 0 }
+let _latestEffectiveRate = 94
+
+/**
+ * Resolves the single dynamic USD -> INR exchange rate:
+ * - autoSyncUsdRate === true: fetches live INR from open.er-api.com (12h cache), falling back to AppSettings.usdToInrRate.
+ * - autoSyncUsdRate === false: uses manual AppSettings.usdToInrRate.
+ */
+export async function getEffectiveUsdToInrRate() {
+  let settings = { usdToInrRate: 94, autoSyncUsdRate: true, usdRateLastSyncedAt: null }
+  if (mongoose.connection?.readyState === 1) {
+    try {
+      settings = await getGlobalSettings()
+    } catch {
+      // use defaults
+    }
+  }
+
+  const manualRate = Number(settings?.usdToInrRate) > 0 ? Number(settings.usdToInrRate) : 94
+  const autoSync = settings?.autoSyncUsdRate !== false
+
+  if (!autoSync) {
+    _latestEffectiveRate = manualRate
+    return {
+      rate: Number(manualRate.toFixed(2)),
+      source: 'manual_admin',
+      autoSyncUsdRate: false,
+      lastSyncedAt: settings?.usdRateLastSyncedAt || null,
+    }
+  }
+
+  const now = Date.now()
+  if (_fxCache.rate && now - _fxCache.fetchedAt < FX_CACHE_TTL_MS) {
+    _latestEffectiveRate = _fxCache.rate
+    return {
+      rate: _fxCache.rate,
+      source: 'live_fx',
+      autoSyncUsdRate: true,
+      lastSyncedAt: settings?.usdRateLastSyncedAt || new Date(_fxCache.fetchedAt),
+    }
+  }
+
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD', {
+      signal: AbortSignal.timeout(4000),
+    })
+    if (res.ok) {
+      const json = await res.json().catch(() => ({}))
+      const inr = Number(json?.rates?.INR)
+      if (Number.isFinite(inr) && inr > 10) {
+        const cleanRate = Number(inr.toFixed(2))
+        const syncedAt = new Date()
+        _fxCache = { rate: cleanRate, fetchedAt: now }
+        _latestEffectiveRate = cleanRate
+        if (mongoose.connection?.readyState === 1) {
+          AppSettings.updateOne(
+            { key: 'global' },
+            { $set: { usdToInrRate: cleanRate, usdRateLastSyncedAt: syncedAt }, $setOnInsert: { key: 'global' } },
+            { upsert: true }
+          ).catch(() => {})
+        }
+        return {
+          rate: cleanRate,
+          source: 'live_fx',
+          autoSyncUsdRate: true,
+          lastSyncedAt: syncedAt,
+        }
+      }
+    }
+  } catch {
+    // Fall back cleanly to saved AppSettings.usdToInrRate
+  }
+
+  _latestEffectiveRate = manualRate
+  return {
+    rate: Number(manualRate.toFixed(2)),
+    source: 'live_fx',
+    autoSyncUsdRate: true,
+    lastSyncedAt: settings?.usdRateLastSyncedAt || null,
+  }
+}
 
 export const DEFAULT_PRICING = {
   // Rates per 1M tokens in USD ($)
@@ -242,7 +326,7 @@ export class CostTracker {
         costUsd = (pTokens * rates.input + cTokens * rates.output) / 1_000_000
       }
 
-      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 94
+      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || _latestEffectiveRate || this.pricing.usd_to_inr || 94
       const costInr = costUsd * usdToInr
 
       const record = {
@@ -323,11 +407,9 @@ export class CostTracker {
     try {
       const explicitRunId = runId || (reqId && !String(reqId).startsWith('span_') ? reqId : null)
       const resolvedReqId = explicitRunId || this.activeRunId || reqId || 'default_run'
-      const finalCostUsd = typeof costUsd === 'number' && costUsd >= 0
-        ? costUsd
-        : (this.pricing.apify_scrape_job || 0.008)
+      const finalCostUsd = typeof costUsd === 'number' && costUsd >= 0 ? costUsd : 0
 
-      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || this.pricing.usd_to_inr || 94
+      const usdToInr = parseFloat(process.env.USD_TO_INR_RATE) || _latestEffectiveRate || this.pricing.usd_to_inr || 94
       const costInr = finalCostUsd * usdToInr
 
       const record = {
