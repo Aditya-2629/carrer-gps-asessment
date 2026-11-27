@@ -7,7 +7,7 @@ import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { fastScanResumeFile } from '../../lib/fastResumeScanner'
 import { trackAnalytics } from '../../lib/analytics'
-import { BorderBeam } from '../motion'
+import { BorderBeam, Confetti } from '../motion'
 
 const RING_RADIUS = 44
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
@@ -24,6 +24,8 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
   const [fileError, setFileError] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const progressTimerRef = useRef(null)
+  const confettiRef = useRef(null)
+  const hasConfettiFiredRef = useRef(false)
   const { formData, resumeAnalysis, setResumeAnalysis } = useAppStore()
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         progressTimerRef.current = null
       }
 
+      hasConfettiFiredRef.current = false
       setUploadProgress(5)
       setResumeAnalysis({
         status: 'analyzing',
@@ -91,7 +94,15 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
 
         // Display brief 100% Forest Green completion before advancing state
         setUploadProgress(100)
-        await new Promise((resolve) => setTimeout(resolve, 450))
+        if (!hasConfettiFiredRef.current) {
+          hasConfettiFiredRef.current = true
+          confettiRef.current?.fire({
+            particleCount: 65,
+            spread: 70,
+            origin: { y: 0.6 },
+          })
+        }
+        await new Promise((resolve) => setTimeout(resolve, 550))
 
         if (result && (result.canonicalResume || result.analysis)) {
           setResumeAnalysis({
@@ -401,6 +412,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
 
   return (
     <div className="space-y-3">
+      <Confetti ref={confettiRef} />
       <label
         htmlFor={`file-input-${step?.id || 'resume'}`}
         className={`file-drop relative overflow-hidden block ${dragOver ? 'drag-over' : ''} ${

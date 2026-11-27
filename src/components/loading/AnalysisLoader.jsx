@@ -20,7 +20,7 @@ import { api, normalizeReportData } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import CraftureAnimatedMascot from '../common/CraftureAnimatedMascot'
-import { AnimatedBeam } from '../motion'
+import { AnimatedBeam, Confetti } from '../motion'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -147,6 +147,8 @@ export default function AnalysisLoader() {
   const linkedinNodeRef = useRef(null)
   const marketNodeRef = useRef(null)
   const mascotCenterRef = useRef(null)
+  const confettiRef = useRef(null)
+  const hasConfettiFiredRef = useRef(false)
   const reduceMotion = useReducedMotion()
 
   useEffect(() => {
@@ -171,6 +173,14 @@ export default function AnalysisLoader() {
     if (userId) inflightJobByUser.delete(userId)
     setAgentStates({ resume: 'done', linkedin: 'done', overall: 'done' })
     setIsCompleteMorph(true)
+    if (!hasConfettiFiredRef.current) {
+      hasConfettiFiredRef.current = true
+      confettiRef.current?.fire({
+        particleCount: 65,
+        spread: 70,
+        origin: { y: 0.6 },
+      })
+    }
     const normalized = normalizeReportData(report)
     setTimeout(() => {
       setReportData(normalized)
@@ -180,7 +190,7 @@ export default function AnalysisLoader() {
         window.history.pushState(null, '', '/report')
         window.dispatchEvent(new PopStateEvent('popstate'))
       }
-    }, reduceMotion ? 60 : 420)
+    }, reduceMotion ? 60 : 700)
   }
 
   const applyEvent = (event) => {
@@ -435,6 +445,7 @@ export default function AnalysisLoader() {
       aria-live="polite"
       aria-label="Agents are analyzing your career assessment"
     >
+      <Confetti ref={confettiRef} />
       <div className="w-full max-w-lg flex flex-col items-center text-center">
         {/* Compact Brand Strip */}
         <motion.div
