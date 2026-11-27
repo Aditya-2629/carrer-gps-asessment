@@ -12,7 +12,7 @@ import FindingFeedback from '../models/FindingFeedback.js'
 import ReportJob from '../models/ReportJob.js'
 import { adminLogin } from '../utils/adminAuth.js'
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
-import { DEFAULT_PRICING } from '../utils/costTracker.js'
+import { DEFAULT_PRICING, getEffectiveUsdToInrRate } from '../utils/costTracker.js'
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -294,12 +294,32 @@ export const getStats = async (_req, res) => {
       AgentRun.find({}).select('cost model').lean(),
       User.find({ createdAt: { $gte: startOfToday }, totalCostUsd: { $gt: 0 } }).select('totalCostUsd').lean(),
       User.aggregate([{ $match: { totalCostUsd: { $gt: 0 } } }, { $group: { _id: null, sum: { $sum: '$totalCostUsd' } } }]),
-      LlmCallLog.aggregate([{ $match: { createdAt: { $gte: startOfTodayIst } } }, { $group: { _id: null, sum: { $sum: '$costUsd' } } }]),
+      LlmCallLog.aggregate([
+        { $match: { createdAt: { $gte: startOfTodayIst } } },
+        {
+          $group: {
+            _id: null,
+            sum: { $sum: '$costUsd' },
+            paidSum: {
+              $sum: {
+                $cond: [
+                  { $gt: ['$costUsd', 0] },
+                  '$costUsd',
+                  0,
+                ],
+              },
+            },
+            avgIn: { $avg: '$promptTokens' },
+            avgOut: { $avg: '$completionTokens' },
+          },
+        },
+      ]),
       User.aggregate([
         { $match: { 'aiReport.career_health_score': { $exists: true }, totalCostUsd: { $gt: 0 } } },
         { $group: { _id: null, count: { $sum: 1 }, sumCost: { $sum: '$totalCostUsd' } } },
       ]),
     ])
+    const fx = await getEffectiveUsdToInrRate()
 
     const calcUsd = (runs) => {
       let sum = 0
@@ -321,22 +341,22 @@ export const getStats = async (_req, res) => {
     const todayAgentUsd = calcUsd(todayRuns)
     const todayUserUsd = (todayUsersCost || []).reduce((acc, u) => acc + Number(u.totalCostUsd || 0), 0)
     const todayLogUsd = Number(todayLogAgg?.[0]?.sum || 0)
+    const todayPaidSpendUsd = Number(todayLogAgg?.[0]?.paidSum || 0)
     const todayLlmSpendUsd = todayLogUsd > 0 ? todayLogUsd : Math.max(todayAgentUsd, todayUserUsd)
 
     const completedCount = Number(completedCostAgg?.[0]?.count || 0)
     const completedCostSum = Number(completedCostAgg?.[0]?.sumCost || 0)
-    const allAgentUsd = calcUsd(allRuns)
-    const allUserUsd = Number(totalUsersCostAgg?.[0]?.sum || 0)
-    const totalLlmSpendUsd = Math.max(allAgentUsd, allUserUsd)
-    const avgCostPerLeadUsd = completedCount > 0
-      ? Number((completedCostSum / completedCount).toFixed(5))
-      : (totalUsers > 0 ? Number((totalLlmSpendUsd / totalUsers).toFixed(5)) : 0)
+    const avgCostPerLeadUsd = completedCount > 0 ? Number((completedCostSum / completedCount).toFixed(5)) : 0
+    const avgInputTokens = Math.round(todayLogAgg?.[0]?.avgIn || 0)
+    const avgOutputTokens = Math.round(todayLogAgg?.[0]?.avgOut || 0)
 
     const agg = reportAgg[0] || {}
     const round1 = (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 10) / 10 : null)
 
     return res.status(200).json({
       success: true,
+      usdToInrRate: fx.rate,
+      usdRateSource: fx.source,
       stats: {
         totalUsers: totalUsers ?? 0,
         verifiedUsers: verifiedUsers ?? 0,
@@ -345,9 +365,15 @@ export const getStats = async (_req, res) => {
         newThisWeek: newThisWeek ?? 0,
         newToday: newToday ?? 0,
         todayLlmSpendUsd: Number(todayLlmSpendUsd.toFixed(5)),
-        todayLlmSpendInr: Number((todayLlmSpendUsd * DEFAULT_PRICING.usd_to_inr).toFixed(2)),
+        todayPaidSpendUsd: Number(todayPaidSpendUsd.toFixed(5)),
+        todayFreeTierValueUsd: 0,
+        todayLlmSpendInr: Number((todayLlmSpendUsd * fx.rate).toFixed(2)),
         avgCostPerLeadUsd,
-        avgCostPerLeadInr: Number((avgCostPerLeadUsd * 94).toFixed(2)),
+        avgCostPerLeadInr: Number((avgCostPerLeadUsd * fx.rate).toFixed(2)),
+        avgInputTokens,
+        avgOutputTokens,
+        usdToInrRate: fx.rate,
+        usdRateSource: fx.source,
         avgCareerScore: round1(agg.avgCareer),
         avgResumeScore: round1(agg.avgResume),
         avgLinkedinScore: round1(agg.avgLinkedin),

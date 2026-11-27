@@ -18,7 +18,7 @@ import AppSettings, { getGlobalSettings, DEFAULT_MESSAGE_TEMPLATES, normalizeSoc
 import { buildCandidateResumeDocx } from '../services/docxResumeService.js'
 import { isR2Configured, uploadToR2 } from '../services/r2StorageService.js'
 import { sendResendEmail, sendCandidateUnlockedEmail } from '../utils/adminEmails.js'
-import { DEFAULT_PRICING } from '../utils/costTracker.js'
+import { DEFAULT_PRICING, getEffectiveUsdToInrRate } from '../utils/costTracker.js'
 
 const INR_PER_USD = 94
 
@@ -318,12 +318,16 @@ export async function listLeads(req, res) {
 
     const total = computedLeads.length
     const paginatedLeads = computedLeads.slice((page - 1) * limit, page * limit)
-    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds(paginatedLeads.map((l) => l.id))
+    const [{ totalMap: costMap, breakdownMap }, fx] = await Promise.all([
+      aggregateCostByUserIds(paginatedLeads.map((l) => l.id)),
+      getEffectiveUsdToInrRate(),
+    ])
+    const inrPerUsd = fx.rate
     const leadsWithCost = paginatedLeads.map((l) => {
       const aggCost = costMap.get(l.id) || 0
       const savedCost = userCostMap.get(l.id) || 0
       const costUsd = Number(Math.max(aggCost, savedCost).toFixed(5))
-      const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+      const costInr = Number((costUsd * inrPerUsd).toFixed(2))
       const savedBd = userBreakdownMap.get(l.id) || {}
       const aggBd = breakdownMap.get(l.id) || {}
       const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
@@ -674,9 +678,12 @@ export async function getCandidateDossier(req, res) {
       { name: 'Intent Score', score: leadInfo.intentScore ?? 0, summary: leadInfo.leadTier || '' },
     ]
 
-    const { totalMap: costMap, breakdownMap } = await aggregateCostByUserIds([user._id])
+    const [{ totalMap: costMap, breakdownMap }, fx] = await Promise.all([
+      aggregateCostByUserIds([user._id]),
+      getEffectiveUsdToInrRate(),
+    ])
     const costUsd = Number(Math.max(costMap.get(String(user._id)) || 0, Number(user.totalCostUsd || 0)).toFixed(5))
-    const costInr = Number((costUsd * INR_PER_USD).toFixed(2))
+    const costInr = Number((costUsd * fx.rate).toFixed(2))
     const savedBd = user.costBreakdown || {}
     const aggBd = breakdownMap.get(String(user._id)) || {}
     const costBreakdown = Object.keys(savedBd).length > 0 ? savedBd : aggBd
@@ -854,7 +861,7 @@ function normalizeTemplatesArray(rawList) {
 
 export async function getAppSettings(req, res) {
   try {
-    const settings = await getGlobalSettings()
+    const [settings, fx] = await Promise.all([getGlobalSettings(), getEffectiveUsdToInrRate()])
     return res.status(200).json({
       success: true,
       settings: {
@@ -868,6 +875,10 @@ export async function getAppSettings(req, res) {
         ctaSubtext: settings.ctaSubtext || '',
         ctaButtonLabel: settings.ctaButtonLabel || '',
         fomoCtaLabel: settings.ctaButtonLabel || '',
+        usdToInrRate: fx.rate,
+        autoSyncUsdRate: fx.autoSyncUsdRate,
+        usdRateSource: fx.source,
+        usdRateLastSyncedAt: fx.lastSyncedAt,
         aiPaused: Boolean(settings.aiPaused),
         maintenanceMessage: settings.maintenanceMessage || '',
         messageTemplates: normalizeTemplatesArray(settings.messageTemplates),
@@ -900,6 +911,8 @@ export async function updateAppSettings(req, res) {
       maintenanceMessage,
       messageTemplates,
       socialLinksConfig,
+      usdToInrRate,
+      autoSyncUsdRate,
     } = req.body || {}
     const update = {}
     if (typeof teaserModeEnabled === 'boolean') update.teaserModeEnabled = teaserModeEnabled
@@ -915,6 +928,10 @@ export async function updateAppSettings(req, res) {
     if (typeof subtext === 'string') update.ctaSubtext = subtext.trim()
     const btnLabel = ctaButtonLabel ?? fomoCtaLabel
     if (typeof btnLabel === 'string') update.ctaButtonLabel = btnLabel.trim()
+    if (typeof autoSyncUsdRate === 'boolean') update.autoSyncUsdRate = autoSyncUsdRate
+    if (typeof usdToInrRate === 'number' && Number.isFinite(usdToInrRate) && usdToInrRate > 10) {
+      update.usdToInrRate = Number(usdToInrRate.toFixed(2))
+    }
     if (typeof aiPaused === 'boolean') update.aiPaused = aiPaused
     if (typeof maintenanceMessage === 'string') update.maintenanceMessage = maintenanceMessage.trim()
     if (messageTemplates !== undefined) {
@@ -937,6 +954,7 @@ export async function updateAppSettings(req, res) {
     }
     const saved = await doc.save()
     const updated = saved.toObject()
+    const fx = await getEffectiveUsdToInrRate()
 
     return res.status(200).json({
       success: true,
@@ -951,6 +969,10 @@ export async function updateAppSettings(req, res) {
         ctaSubtext: updated.ctaSubtext || '',
         ctaButtonLabel: updated.ctaButtonLabel || '',
         fomoCtaLabel: updated.ctaButtonLabel || '',
+        usdToInrRate: fx.rate,
+        autoSyncUsdRate: fx.autoSyncUsdRate,
+        usdRateSource: fx.source,
+        usdRateLastSyncedAt: fx.lastSyncedAt,
         aiPaused: Boolean(updated.aiPaused),
         maintenanceMessage: updated.maintenanceMessage || '',
         messageTemplates: normalizeTemplatesArray(updated.messageTemplates),
