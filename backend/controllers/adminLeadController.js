@@ -1053,7 +1053,7 @@ export async function deliverFullReport(req, res) {
     user.deliveredAt = now
     await user.save()
 
-    const frontendBase = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '')
+    const frontendBase = (process.env.FRONTEND_URL || 'https://carrer-gps-asessment.onrender.com').replace(/\/+$/, '')
     const reportUrl = `${frontendBase}/report/${user._id}`
     const candidateName =
       user.resumeJson?.candidate?.name ||
@@ -1061,19 +1061,24 @@ export async function deliverFullReport(req, res) {
       user.answers?.name ||
       user.email.split('@')[0]
 
-    // 2. Build tailored .docx resume on-demand (supports ?version=updated|original)
+    const includeReport = req.body?.includeReport !== false
+    const attachDocx = req.body?.attachDocx !== false && req.body?.includeResume !== false
+
+    // 2. Build tailored .docx resume on-demand (supports ?version=updated|original) ONLY when attachDocx === true
     const version = String(req.body?.version || req.query?.version || 'updated').toLowerCase()
     let docxBuffer = null
     let docxFilename = `${String(candidateName).replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'Candidate'}_Updated_ATS_Resume.docx`
-    try {
-      const built = await buildCandidateResumeDocx(user, version)
-      docxBuffer = built?.buffer || null
-      if (built?.filename) docxFilename = built.filename
-      if (docxBuffer && isR2Configured()) {
-        uploadToR2(`deliveries/${user._id}/${docxFilename}`, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document').catch(() => {})
+    if (attachDocx) {
+      try {
+        const built = await buildCandidateResumeDocx(user, version)
+        docxBuffer = built?.buffer || null
+        if (built?.filename) docxFilename = built.filename
+        if (docxBuffer && isR2Configured()) {
+          uploadToR2(`deliveries/${user._id}/${docxFilename}`, docxBuffer, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document').catch(() => {})
+        }
+      } catch (docxErr) {
+        console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
       }
-    } catch (docxErr) {
-      console.warn('[AdminLeadController] Non-fatal docx generation error:', docxErr.message)
     }
 
     // 3. Send Forest-Green Unlocked Email with full unredacted PDF + updated .docx resume
@@ -1084,6 +1089,7 @@ export async function deliverFullReport(req, res) {
       settings,
       docxBuffer,
       docxFilename,
+      includeReport,
     })
     const emailSent = Boolean(unlockMailRes.ok)
     const emailId = unlockMailRes.emailId || null
