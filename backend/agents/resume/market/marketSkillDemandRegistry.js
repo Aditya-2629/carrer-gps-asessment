@@ -111,8 +111,9 @@ MARKET_SKILL_DEMAND['marketing'] = MARKET_SKILL_DEMAND['sales-marketing']
  * @returns {Array<Object>} List of market-demanded skills with frequency & percentage
  */
 export function getMarketDemandedSkills(role = 'software-engineer', marketProfile = null) {
-  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0) {
-    const totalJds = marketProfile.sampleSize || marketProfile.totalAnalyzed || 10
+  const sampleSize = Number(marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 0)
+  if (marketProfile && Array.isArray(marketProfile.skills) && marketProfile.skills.length > 0 && sampleSize > 0) {
+    const totalJds = sampleSize
     return marketProfile.skills
       .map((s) => {
         const skillName = typeof s === 'string' ? s : (s?.name || s?.skill || s?.tool || '')
@@ -136,23 +137,8 @@ export function getMarketDemandedSkills(role = 'software-engineer', marketProfil
       .sort((a, b) => b.percentage - a.percentage)
   }
 
-  const roleStr = typeof role === 'string'
-    ? role
-    : (role?.title || role?.value || role?.name || String(role || 'software-engineer'))
-  const low = roleStr.toLowerCase()
-
-  let normRole = 'software-engineer'
-  if (/nurse|nursing|clinical|health|patient|medical|hospital/i.test(low)) {
-    normRole = 'healthcare'
-  } else if (/finance|accounting|accountant|cpa|auditor|financial|tax|treasury|controller/i.test(low)) {
-    normRole = 'finance-accounting'
-  } else if (/sales|account\s+exec|business\s+dev|b2b|marketing|growth|demand\s+gen/i.test(low)) {
-    normRole = 'sales-marketing'
-  } else if (/product\s*(manager|owner|lead)/i.test(low)) {
-    normRole = 'product-manager'
-  } else if (/data|analyst|analytics|bi\b|business\s+intelligence|tableau|power\s*bi/i.test(low)) {
-    normRole = 'data-analyst'
-  }
-  return MARKET_SKILL_DEMAND[normRole] || MARKET_SKILL_DEMAND['software-engineer']
+  // When no scraped JDs are available for this specific role, return empty array to prevent
+  // cross-role static skill contamination and fake demand percentages.
+  return []
 }
 

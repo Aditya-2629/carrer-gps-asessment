@@ -39,6 +39,8 @@ export default function ResumeKeywordAlignment({
     matchPercent = 0,
     matchedCount = 0,
     totalTargetKeywords = 0,
+    totalJds = 0,
+    marketDataPending = false,
   } = alignment
 
   const [selectedSkills, setSelectedSkills] = useState(new Set())
@@ -267,8 +269,20 @@ export default function ResumeKeywordAlignment({
     : (isTeaserLocked ? Math.max(0, displayedMissing.length - visibleCount) : 0)
   const itemsToRender = displayedMissing
 
+  const isMarketPending = Boolean(marketDataPending || (totalJds === 0 && !alignment?.source?.includes('active_jd') && missingFromResume.length === 0))
+
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+      {/* ── Market Data Pending Notice (Zero Fake JD Percentages) ── */}
+      {isMarketPending && (
+        <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 flex items-start gap-2.5">
+          <Target size={18} weight="bold" className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed font-medium">
+            Market JD benchmark for <strong>{targetRole || 'your target role'}</strong> is queued for scraping — showing skills evidenced vs unverified from your own resume.
+          </p>
+        </div>
+      )}
+
       {/* ── ATS Header & Overall Match Rate ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
@@ -370,12 +384,14 @@ export default function ResumeKeywordAlignment({
                   className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
                 >
                   <div className="space-y-1 mb-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white block truncate" title={item.keyword}>
+                    <span className="text-xs font-bold text-slate-900 dark:white block truncate" title={item.keyword}>
                       {item.keyword}
                     </span>
-                    <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
-                      in {item.percentage || 35}% of JDs
-                    </span>
+                    {item.percentage != null && (
+                      <span className="inline-block text-xs font-mono px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 font-bold">
+                        in {item.percentage}% of JDs
+                      </span>
+                    )}
                   </div>
                   <button
                     type="button"
