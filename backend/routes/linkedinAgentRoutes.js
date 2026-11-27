@@ -17,6 +17,7 @@ import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { listModelsForPurpose } from '../ai/config/modelRegistry.js'
 import User from '../models/User.js'
 import { userSessionGuard } from '../utils/userAuth.js'
+import { costTracker } from '../utils/costTracker.js'
 
 const router = express.Router()
 
@@ -67,6 +68,10 @@ router.post('/scrape', async (req, res) => {
 
   try {
     const cleanUrl = url.trim()
+    const sessionId = req.body?.sessionId || req.headers['x-session-id'] || null
+    const userId = req.body?.userId || null
+    const scrapeRunId = `li_scrape_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    costTracker.setActiveRunId(scrapeRunId, userId, sessionId)
     console.log(`[LinkedInAgentRoute] Launching Profile scrape for: ${cleanUrl}`)
     const profile = await scrapeLinkedInProfile(cleanUrl).catch((err) => {
       console.warn('[LinkedInAgentRoute] Profile scrape non-fatal error:', err.message)

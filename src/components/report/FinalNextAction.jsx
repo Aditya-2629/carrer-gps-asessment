@@ -11,6 +11,9 @@ import {
   WhatsappLogo,
   Globe,
   UsersThree,
+  LinkedinLogo,
+  InstagramLogo,
+  YoutubeLogo,
 } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { trackEvent } from '../../lib/posthog'
@@ -241,14 +244,17 @@ export default function FinalNextAction({
               const cfg = socialLinksConfig || reportData?.socialLinksConfig
               if (!cfg?.enabled) return null
               const showCommunity = Boolean(cfg.communityEnabled && String(cfg.communityUrl || '').trim())
-              const activeItems = Array.isArray(cfg.items)
-                ? cfg.items.filter((i) => i?.enabled && String(i?.url || '').trim())
-                : []
+              const rawItems = Array.isArray(cfg.items)
+                ? cfg.items
+                : cfg.items && typeof cfg.items === 'object'
+                  ? Object.values(cfg.items)
+                  : []
+              const activeItems = rawItems.filter((i) => i?.enabled && String(i?.url || '').trim())
               if (!showCommunity && activeItems.length === 0) return null
               return (
                 <div className="pt-4 mt-2 border-t border-[var(--border-default)]/70 space-y-2.5">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                    Community &amp; Follow Crafture
+                    Join Community &amp; Connect with Crafture
                   </div>
                   <div className="flex flex-wrap items-center gap-2.5">
                     {showCommunity && (
@@ -266,25 +272,41 @@ export default function FinalNextAction({
                       </motion.a>
                     )}
 
-                    {activeItems.map((item) => (
-                      <motion.a
-                        key={item.key || item.label}
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        whileHover={{ y: -2 }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-                        className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
-                      >
-                        {item.customLogoUrl ? (
-                          <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
-                        ) : (
-                          <Globe size={14} weight="bold" className="text-indigo-500" />
-                        )}
-                        <span>{item.label}</span>
-                        <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
-                      </motion.a>
-                    ))}
+                    {activeItems.map((item) => {
+                      const lowerHint = `${item.iconType || ''} ${item.label || ''} ${item.url || ''}`.toLowerCase()
+                      const resolvedType = lowerHint.includes('linkedin')
+                        ? 'linkedin'
+                        : lowerHint.includes('instagram')
+                          ? 'instagram'
+                          : lowerHint.includes('youtube') || lowerHint.includes('youtu.be')
+                            ? 'youtube'
+                            : 'website'
+                      return (
+                        <motion.a
+                          key={item.key || item.label}
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          whileHover={{ y: -2 }}
+                          transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                          className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
+                        >
+                          {item.customLogoUrl ? (
+                            <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
+                          ) : resolvedType === 'linkedin' ? (
+                            <LinkedinLogo size={15} weight="fill" className="text-[#0A66C2]" />
+                          ) : resolvedType === 'instagram' ? (
+                            <InstagramLogo size={15} weight="fill" className="text-[#E1306C]" />
+                          ) : resolvedType === 'youtube' ? (
+                            <YoutubeLogo size={15} weight="fill" className="text-[#DC2626]" />
+                          ) : (
+                            <Globe size={14} weight="bold" className="text-indigo-500" />
+                          )}
+                          <span>{item.label}</span>
+                          <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
+                        </motion.a>
+                      )
+                    })}
                   </div>
                 </div>
               )

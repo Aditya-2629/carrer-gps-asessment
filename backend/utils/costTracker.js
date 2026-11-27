@@ -135,6 +135,7 @@ export class CostTracker {
     this.pricing = { ...DEFAULT_PRICING, ...pricingConfig }
     this.runs = new Map() // reqId -> Array<Record>
     this.runUserMap = new Map() // runId -> userId
+    this.runSessionMap = new Map() // runId -> sessionId
     this.activeRunId = null
     this.maxRuns = maxRuns
   }
@@ -151,6 +152,7 @@ export class CostTracker {
         if (oldestKey) {
           this.runs.delete(oldestKey)
           this.runUserMap.delete(oldestKey)
+          this.runSessionMap.delete(oldestKey)
         }
       }
       this.runs.set(reqId, [])
@@ -161,12 +163,16 @@ export class CostTracker {
    * Sets the active request or run ID context for the current pipeline.
    * @param {string} runId
    * @param {string} [userId]
+   * @param {string} [sessionId]
    */
-  setActiveRunId(runId, userId = null) {
+  setActiveRunId(runId, userId = null, sessionId = null) {
     if (runId && typeof runId === 'string') {
       this.activeRunId = runId
       if (userId && mongoose.Types.ObjectId.isValid(String(userId))) {
         this.runUserMap.set(runId, String(userId))
+      }
+      if (sessionId && typeof sessionId === 'string' && sessionId.trim()) {
+        this.runSessionMap.set(runId, sessionId.trim().slice(0, 128))
       }
     }
   }
@@ -187,6 +193,7 @@ export class CostTracker {
 
   _persistCost({
     userId,
+    sessionId = null,
     runId,
     stage,
     provider,
@@ -201,8 +208,10 @@ export class CostTracker {
   }) {
     if (mongoose.connection?.readyState !== 1) return
     const resolvedUserId = this._resolveUserId(userId, runId)
+    const resolvedSessionId = (sessionId && String(sessionId).trim()) || (runId ? this.runSessionMap.get(runId) : null) || null
     LlmCallLog.create({
       userId: resolvedUserId || null,
+      sessionId: resolvedSessionId,
       runId: runId || null,
       stage,
       provider,
@@ -230,6 +239,62 @@ export class CostTracker {
         console.warn('[CostTracker] Failed to $inc User cost:', err.message)
       })
     }
+  }
+
+  /**
+   * Reconciles all LlmCallLog entries for a candidate (matching userId OR sessionId,
+   * including early Step 1/2 Resume & LinkedIn calls) and writes the exact total to User.
+   */
+  async reconcileCandidateCosts({ userId, sessionId = null } = {}) {
+    if (mongoose.connection?.readyState !== 1) return null
+    if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return null
+    const uid = new mongoose.Types.ObjectId(String(userId))
+    const cleanSessionId = sessionId && typeof sessionId === 'string' ? sessionId.trim().slice(0, 128) : ''
+
+    if (cleanSessionId) {
+      await LlmCallLog.updateMany(
+        { sessionId: cleanSessionId, userId: null },
+        { $set: { userId: uid } }
+      ).catch(() => {})
+    }
+
+    const match = cleanSessionId
+      ? { $or: [{ userId: uid }, { sessionId: cleanSessionId }] }
+      : { userId: uid }
+
+    const rows = await LlmCallLog.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$stage',
+          costUsd: { $sum: { $ifNull: ['$costUsd', 0] } },
+          costInr: { $sum: { $ifNull: ['$costInr', 0] } },
+        },
+      },
+    ])
+
+    let totalUsd = 0
+    let totalInr = 0
+    const costBreakdown = {}
+    for (const r of rows) {
+      const usd = Number(r.costUsd || 0)
+      const inr = Number(r.costInr || 0)
+      totalUsd += usd
+      totalInr += inr
+      const stageKey = String(r._id || 'LLM_GENERATION').toUpperCase().replace(/[^A-Z0-9_]/g, '_')
+      costBreakdown[stageKey] = Number(((costBreakdown[stageKey] || 0) + usd).toFixed(5))
+    }
+
+    if (totalUsd > 0 || Object.keys(costBreakdown).length > 0) {
+      await User.findByIdAndUpdate(uid, {
+        $set: {
+          totalCostUsd: Number(totalUsd.toFixed(5)),
+          totalCostInr: Number(totalInr.toFixed(2)),
+          costBreakdown,
+        },
+      }).catch(() => {})
+    }
+    return { totalCostUsd: Number(totalUsd.toFixed(5)), totalCostInr: Number(totalInr.toFixed(2)), costBreakdown }
   }
 
   /**
