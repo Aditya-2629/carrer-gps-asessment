@@ -20,7 +20,7 @@ import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
 import CrafturePoseMascot from '../common/CrafturePoseMascot'
-import { SpotlightCard, MagnetButton } from '../motion'
+import { SpotlightCard, MagnetButton, ShimmerButton, BorderBeam, ShinyText } from '../motion'
 
 function safeText(val, fallback = '') {
   if (!val) return fallback
@@ -105,12 +105,13 @@ export default function FinalNextAction({
         data-mascot-chip="Execution Bridge"
         data-mascot-emotion="coach"
       >
+        <BorderBeam size={180} duration={8} colorFrom="#22C55E" colorTo="#15803D" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
           {/* Left Column (lg:col-span-7, left-aligned) */}
           <div className="lg:col-span-7 space-y-4 text-left">
             {/* Header Tag */}
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono tracking-normal text-[var(--text-muted)] border border-[var(--border-default)]">
-              <span>Next Step • Live Execution Bridge</span>
+              <ShinyText>Next Step • Live Execution Bridge</ShinyText>
             </div>
 
             {/* Core Headline */}
@@ -168,16 +169,21 @@ export default function FinalNextAction({
             {/* Action Buttons */}
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <MagnetButton
-                as="a"
-                href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={onBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
+                as="div"
+                className="w-full sm:w-auto"
               >
-                <CalendarBlank size={18} weight="bold" />
-                <span>Book Free 1-on-1 Strategy Call</span>
-                <ArrowRight size={14} weight="bold" />
+                <ShimmerButton
+                  as="a"
+                  href={bookingUrl || 'https://superprofile.bio/bookings/crafture?sessionId=678f9349e36a40199ee74cbe'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onBookCall}
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-3 text-xs sm:text-sm no-underline"
+                >
+                  <CalendarBlank size={18} weight="bold" />
+                  <span>Book Free 1-on-1 Strategy Call</span>
+                  <ArrowRight size={14} weight="bold" />
+                </ShimmerButton>
               </MagnetButton>
 
               {(() => {

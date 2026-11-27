@@ -55,13 +55,16 @@ export default function RadioGroup({ value, onChange, error, step }) {
         const isSelected = value === option
         const icon = step.optionIcons?.[option]
         return (
-          <button
+          <motion.button
             key={option}
             id={`radio-${step.name}-${option.replace(/\s+/g, '-')}`}
             type="button"
             role="radio"
             aria-checked={isSelected}
             onClick={() => handleSelect(option)}
+            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.01 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 25 }}
             className={`radio-option group ${isSelected ? 'selected' : ''} ${
               isBinary ? 'p-5 sm:p-6 flex-row sm:flex-col sm:items-start justify-start text-left' : ''
             }`}
@@ -99,19 +102,22 @@ export default function RadioGroup({ value, onChange, error, step }) {
                 </span>
               )}
             </div>
-          </button>
+          </motion.button>
         )
       })}
 
       {/* Other option */}
       {step.hasOther && (
-        <button
+        <motion.button
           key="Other"
           id={`radio-${step.name}-Other`}
           type="button"
           role="radio"
           aria-checked={showOther}
           onClick={() => handleSelect('Other')}
+          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
           className={`radio-option ${showOther ? 'selected' : ''}`}
         >
           <div className="flex items-center gap-3 w-full">
@@ -135,7 +141,7 @@ export default function RadioGroup({ value, onChange, error, step }) {
               Other
             </span>
           </div>
-        </button>
+        </motion.button>
       )}
     </div>
   )

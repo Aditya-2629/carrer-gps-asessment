@@ -270,6 +270,9 @@ export default function ReportHero({ reportData, user }) {
                   fill="#15803D"
                   fillOpacity={0.25}
                   strokeWidth={2}
+                  isAnimationActive={true}
+                  animationDuration={1100}
+                  animationEasing="ease-out"
                 />
                 <Radar
                   name="Post-Fix Potential"
@@ -279,6 +282,9 @@ export default function ReportHero({ reportData, user }) {
                   fillOpacity={0.12}
                   strokeWidth={2}
                   strokeDasharray="4 4"
+                  isAnimationActive={true}
+                  animationDuration={1300}
+                  animationEasing="ease-out"
                 />
                 <Tooltip
                   contentStyle={{
@@ -315,9 +321,13 @@ export default function ReportHero({ reportData, user }) {
                 >
                   <span className="font-medium text-[var(--text-secondary)]">{d.subject}</span>
                   <div className="flex items-center gap-2 font-mono">
-                    <span className="text-[var(--text-primary)] font-semibold">{d.current}%</span>
+                    <span className="text-[var(--text-primary)] font-semibold inline-flex items-center">
+                      <CountUp to={d.current} duration={1} />%
+                    </span>
                     <span className="text-[var(--text-muted)]">→</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">{d.target}%</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold inline-flex items-center">
+                      <CountUp to={d.target} duration={1.1} />%
+                    </span>
                   </div>
                 </div>
               ))}

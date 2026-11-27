@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Sparkle,
 } from '@phosphor-icons/react'
+import { CountUp, SpotlightCard } from '../motion'
 
 /**
  * Mathematically generates an SVG path for a smooth, rounded trapezoid slice.
@@ -368,7 +369,7 @@ export default function TaperedFunnelDiagram({
           const Icon = stg.icon
 
           return (
-            <div
+            <SpotlightCard
               key={`metric-card-${stg.id}`}
               onMouseEnter={() => setHoveredIdx(stg.index)}
               onMouseLeave={() => setHoveredIdx(null)}
@@ -405,7 +406,7 @@ export default function TaperedFunnelDiagram({
               {/* Bold Stage Count */}
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-xl sm:text-2xl font-mono font-extrabold tabular-nums text-slate-900 dark:text-[#F0FDF4]">
-                  {stg.count.toLocaleString()}
+                  <CountUp to={stg.count} duration={1} />
                 </span>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded-md font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                   {stg.stepLabel}
@@ -416,7 +417,7 @@ export default function TaperedFunnelDiagram({
               <p className="text-[11px] text-[var(--text-muted)] dark:text-[#94B4A2] mt-1.5 truncate">
                 {stg.targetLabel}
               </p>
-            </div>
+            </SpotlightCard>
           )
         })}
       </div>

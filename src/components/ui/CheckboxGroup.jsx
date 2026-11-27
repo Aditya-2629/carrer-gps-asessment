@@ -64,13 +64,16 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
         const isSelected = selected.includes(option)
         const icon = step.optionIcons?.[option]
         return (
-          <button
+          <motion.button
             key={option}
             id={`checkbox-${step.name}-${option.slice(0, 20).replace(/\s+/g, '-')}`}
             type="button"
             role="checkbox"
             aria-checked={isSelected}
             onClick={() => toggleOption(option)}
+            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.01 }}
+            transition={{ type: 'spring', stiffness: 450, damping: 25 }}
             className={`checkbox-option group ${isSelected ? 'selected' : ''}`}
           >
             <div className="flex items-center gap-3 w-full">
@@ -105,19 +108,22 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
                 </span>
               )}
             </div>
-          </button>
+          </motion.button>
         )
       })}
 
       {/* Other toggle */}
       {step.hasOther && (
-        <button
+        <motion.button
           key="Other"
           id={`checkbox-${step.name}-Other`}
           type="button"
           role="checkbox"
           aria-checked={showOther}
           onClick={handleOtherToggle}
+          whileTap={{ scale: 0.97 }}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: 'spring', stiffness: 450, damping: 25 }}
           className={`checkbox-option ${showOther ? 'selected' : ''}`}
         >
           <div className="flex items-center gap-3 w-full">
@@ -143,7 +149,7 @@ export default function CheckboxGroup({ value = [], onChange, error, step }) {
               Other
             </span>
           </div>
-        </button>
+        </motion.button>
       )}
     </div>
   )

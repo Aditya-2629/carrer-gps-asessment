@@ -10,7 +10,7 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react'
 import { trackEvent } from '../lib/posthog'
-import { SpotlightCard, MagnetButton } from './motion'
+import { SpotlightCard, MagnetButton, ShimmerButton, ShinyText } from './motion'
 
 const DEFAULT_HEADLINE = '50% Preview — Unlock Your Complete Career GPS Report & Updated ATS Resume'
 const DEFAULT_SUBTEXT =
@@ -124,7 +124,9 @@ export default function UnlockModal({
         >
           {/* Top Bar: Preview Badge + X Close */}
           <div className="flex items-center justify-between gap-2">
-           
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-[#102419] border border-emerald-500/30">
+              <ShinyText>50% Preview • Unlock Complete Report</ShinyText>
+            </span>
 
             <button
               type="button"
@@ -174,19 +176,21 @@ export default function UnlockModal({
 
           {/* Action Buttons */}
           <div className="space-y-2.5 pt-1">
-            <MagnetButton
-              as="a"
-              href={bookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                if (typeof onBookCall === 'function') onBookCall()
-              }}
-              className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors duration-150 no-underline cursor-pointer"
-            >
-              <CalendarBlank size={17} weight="bold" />
-              <span>{ctaButtonLabel}</span>
-              <ArrowRight size={14} weight="bold" />
+            <MagnetButton as="div" className="w-full">
+              <ShimmerButton
+                as="a"
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  if (typeof onBookCall === 'function') onBookCall()
+                }}
+                className="w-full min-h-[44px] px-4 py-2.5 text-xs sm:text-sm no-underline"
+              >
+                <CalendarBlank size={17} weight="bold" />
+                <span>{ctaButtonLabel}</span>
+                <ArrowRight size={14} weight="bold" />
+              </ShimmerButton>
             </MagnetButton>
 
             <MagnetButton

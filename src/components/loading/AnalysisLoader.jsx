@@ -20,6 +20,7 @@ import { api, normalizeReportData } from '../../lib/api'
 import { navigateTo } from '../../lib/navigation'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
 import CraftureAnimatedMascot from '../common/CraftureAnimatedMascot'
+import { AnimatedBeam } from '../motion'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -141,6 +142,11 @@ export default function AnalysisLoader() {
   const [isCompleteMorph, setIsCompleteMorph] = useState(false)
   const redirectedRef = useRef(false)
   const sourceRef = useRef(null)
+  const hubContainerRef = useRef(null)
+  const resumeNodeRef = useRef(null)
+  const linkedinNodeRef = useRef(null)
+  const marketNodeRef = useRef(null)
+  const mascotCenterRef = useRef(null)
   const reduceMotion = useReducedMotion()
 
   useEffect(() => {
@@ -424,7 +430,7 @@ export default function AnalysisLoader() {
 
   return (
     <div
-      className="min-h-[100dvh] flex items-center justify-center px-4 py-6 bg-gradient-to-b from-white via-slate-50/70 to-emerald-50/30"
+      className="min-h-[100dvh] flex items-center justify-center px-4 py-6 bg-gradient-to-b from-white via-slate-50/70 to-emerald-50/30 dark:from-[#050C08] dark:via-[#08140E] dark:to-[#0B1711]"
       role="status"
       aria-live="polite"
       aria-label="Agents are analyzing your career assessment"
@@ -435,69 +441,184 @@ export default function AnalysisLoader() {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28 }}
-          className="inline-flex items-center gap-2.5 mb-4"
+          className="inline-flex items-center gap-2.5 mb-3"
         >
           <img
             src={brandLogo}
             alt="Crafture"
-            className="w-8 h-8 rounded-lg object-cover border border-slate-200 shadow-2xs"
+            className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-[#163323] shadow-2xs"
           />
-          <span className="text-base font-bold tracking-tight text-[#0F172A] font-['Poppins']">
-            Crafture <span className="text-[#15803D]">Career GPS</span>
+          <span className="text-base font-bold tracking-tight text-[#0F172A] dark:text-[#F0FDF4] font-['Poppins']">
+            Crafture <span className="text-[#15803D] dark:text-emerald-400">Career GPS</span>
           </span>
         </motion.div>
 
-        {/* 1. Animated Mascot Hero Ring */}
-        <div className="relative flex items-center justify-center mb-4">
-          {/* Soft ambient glow */}
-          <div
-            className="absolute w-36 h-36 rounded-full blur-xl opacity-45 pointer-events-none"
-            style={{
-              background: isCompleteMorph
-                ? 'radial-gradient(circle, rgba(21,128,61,0.32) 0%, transparent 70%)'
-                : 'radial-gradient(circle, rgba(99,102,241,0.22) 0%, rgba(21,128,61,0.18) 55%, transparent 75%)',
-            }}
-          />
-          {/* Orbital SVG ring */}
-          <motion.svg
-            viewBox="0 0 140 140"
-            className="w-32 h-32 sm:w-36 sm:h-36 pointer-events-none"
-            animate={reduceMotion || isCompleteMorph ? {} : { rotate: 360 }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
-          >
-            <defs>
-              <linearGradient id="loaderOrbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#15803D" />
-                <stop offset="100%" stopColor="#10B981" />
-              </linearGradient>
-            </defs>
-            <circle
-              cx="70"
-              cy="70"
-              r="64"
-              fill="none"
-              stroke="#E2E8F0"
-              strokeWidth="2"
-            />
-            <circle
-              cx="70"
-              cy="70"
-              r="64"
-              fill="none"
-              stroke="url(#loaderOrbitGrad)"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeDasharray="110 295"
-            />
-          </motion.svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <CraftureAnimatedMascot
-              pose={mascotPose}
-              size={98}
-              showShadow={false}
-              interactive={false}
-            />
+        {/* 1. AnimatedBeam 3-Stream Convergence Hub */}
+        <div
+          ref={hubContainerRef}
+          className="relative w-full max-w-md mx-auto py-2 px-2 flex flex-col items-center justify-center min-h-[220px] mb-3"
+        >
+          {/* Top Row: Stream 1 (Resume & ATS) and Stream 2 (LinkedIn Profile) */}
+          <div className="w-full flex items-center justify-between px-2 mb-2 z-10">
+            {/* Stream 1: Resume */}
+            <motion.div
+              ref={resumeNodeRef}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold backdrop-blur-sm transition-all ${
+                agentStates.resume === 'done' || isCompleteMorph
+                  ? 'bg-emerald-50 dark:bg-[#102419] border-[#15803D]/40 dark:border-emerald-500/50 text-[#15803D] dark:text-emerald-300 shadow-xs'
+                  : 'bg-white/90 dark:bg-[#0B1711]/90 border-slate-200 dark:border-[#163323] text-slate-700 dark:text-emerald-100 shadow-2xs'
+              }`}
+            >
+              <div className="w-6 h-6 rounded-lg bg-[#15803D]/10 dark:bg-emerald-500/20 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <FileText size={14} weight="bold" />
+              </div>
+              <div className="text-left">
+                <div className="text-[11px] font-bold leading-tight">Resume &amp; ATS</div>
+                <div className="text-[9px] font-mono opacity-70">
+                  {agentStates.resume === 'done' || isCompleteMorph ? '✓ Audited' : 'Auditing...'}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Stream 2: LinkedIn */}
+            <motion.div
+              ref={linkedinNodeRef}
+              initial={{ opacity: 0, x: 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold backdrop-blur-sm transition-all ${
+                agentStates.linkedin === 'done' || isCompleteMorph
+                  ? 'bg-emerald-50 dark:bg-[#102419] border-[#15803D]/40 dark:border-emerald-500/50 text-[#15803D] dark:text-emerald-300 shadow-xs'
+                  : 'bg-white/90 dark:bg-[#0B1711]/90 border-slate-200 dark:border-[#163323] text-slate-700 dark:text-emerald-100 shadow-2xs'
+              }`}
+            >
+              <div className="w-6 h-6 rounded-lg bg-[#0A66C2]/10 dark:bg-[#0A66C2]/20 text-[#0A66C2] dark:text-sky-400 flex items-center justify-center shrink-0">
+                <LinkedinLogo size={14} weight="bold" />
+              </div>
+              <div className="text-left">
+                <div className="text-[11px] font-bold leading-tight">LinkedIn SEO</div>
+                <div className="text-[9px] font-mono opacity-70">
+                  {agentStates.linkedin === 'done' || isCompleteMorph ? '✓ Benchmarked' : 'Benchmarking...'}
+                </div>
+              </div>
+            </motion.div>
           </div>
+
+          {/* Center Hub: Crafture Mascot Target Node */}
+          <div
+            ref={mascotCenterRef}
+            className="relative z-10 flex items-center justify-center my-1"
+          >
+            {/* Soft ambient glow */}
+            <div
+              className="absolute w-36 h-36 rounded-full blur-xl opacity-50 pointer-events-none"
+              style={{
+                background: isCompleteMorph
+                  ? 'radial-gradient(circle, rgba(21,128,61,0.38) 0%, transparent 70%)'
+                  : 'radial-gradient(circle, rgba(34,197,94,0.25) 0%, rgba(21,128,61,0.18) 55%, transparent 75%)',
+              }}
+            />
+            {/* Orbital SVG ring */}
+            <motion.svg
+              viewBox="0 0 140 140"
+              className="w-32 h-32 sm:w-36 sm:h-36 pointer-events-none"
+              animate={reduceMotion || isCompleteMorph ? {} : { rotate: 360 }}
+              transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
+            >
+              <defs>
+                <linearGradient id="loaderOrbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#15803D" />
+                  <stop offset="100%" stopColor="#10B981" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="70"
+                cy="70"
+                r="64"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-slate-200/80 dark:text-[#163323]"
+              />
+              <circle
+                cx="70"
+                cy="70"
+                r="64"
+                fill="none"
+                stroke="url(#loaderOrbitGrad)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray="110 295"
+              />
+            </motion.svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CraftureAnimatedMascot
+                pose={mascotPose}
+                size={98}
+                showShadow={false}
+                interactive={false}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Stream 3: Market JDs Node */}
+          <div className="z-10 mt-2">
+            <motion.div
+              ref={marketNodeRef}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold backdrop-blur-sm transition-all ${
+                agentStates.overall === 'done' || isCompleteMorph
+                  ? 'bg-emerald-50 dark:bg-[#102419] border-[#15803D]/40 dark:border-emerald-500/50 text-[#15803D] dark:text-emerald-300 shadow-xs'
+                  : 'bg-white/90 dark:bg-[#0B1711]/90 border-slate-200 dark:border-[#163323] text-slate-700 dark:text-emerald-100 shadow-2xs'
+              }`}
+            >
+              <div className="w-6 h-6 rounded-lg bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                <Target size={14} weight="bold" />
+              </div>
+              <div className="text-left">
+                <div className="text-[11px] font-bold leading-tight">35 Live Market JDs</div>
+                <div className="text-[9px] font-mono opacity-70">
+                  {agentStates.overall === 'done' || isCompleteMorph ? '✓ Matched' : 'Aligning Keywords...'}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Animated Beams converging into the Mascot Hub */}
+          <AnimatedBeam
+            containerRef={hubContainerRef}
+            fromRef={resumeNodeRef}
+            toRef={mascotCenterRef}
+            curvature={-24}
+            duration={2.6}
+            gradientStartColor="#15803D"
+            gradientStopColor="#22C55E"
+          />
+          <AnimatedBeam
+            containerRef={hubContainerRef}
+            fromRef={linkedinNodeRef}
+            toRef={mascotCenterRef}
+            curvature={24}
+            duration={2.6}
+            delay={0.4}
+            gradientStartColor="#0A66C2"
+            gradientStopColor="#22C55E"
+          />
+          <AnimatedBeam
+            containerRef={hubContainerRef}
+            fromRef={marketNodeRef}
+            toRef={mascotCenterRef}
+            curvature={0}
+            duration={2.4}
+            delay={0.8}
+            gradientStartColor="#0D9488"
+            gradientStopColor="#22C55E"
+          />
         </div>
 
         {/* Progress & Elapsed Pills */}
@@ -505,32 +626,32 @@ export default function AnalysisLoader() {
           <span
             className={`px-3 py-1 rounded-full text-xs font-bold tabular-nums border ${
               isCompleteMorph
-                ? 'bg-emerald-50 text-[#15803D] border-emerald-200'
-                : 'bg-white text-[#0F172A] border-slate-200 shadow-2xs'
+                ? 'bg-emerald-50 dark:bg-[#102419] text-[#15803D] dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/40'
+                : 'bg-white dark:bg-[#0B1711] text-[#0F172A] dark:text-[#F0FDF4] border-slate-200 dark:border-[#163323] shadow-2xs'
             }`}
           >
             {isCompleteMorph ? '✓ 100% Complete' : `${displayProgress}% Complete`}
           </span>
-          <span className="px-2.5 py-1 rounded-full text-xs font-mono tabular-nums bg-slate-100 text-slate-600 border border-slate-200">
+          <span className="px-2.5 py-1 rounded-full text-xs font-mono tabular-nums bg-slate-100 dark:bg-[#102419] text-slate-600 dark:text-emerald-200 border border-slate-200 dark:border-[#163323]">
             {elapsedSecs}s
           </span>
         </div>
 
         <h2
-          className="text-xl sm:text-2xl font-bold text-[#0F172A] tracking-tight mb-1"
+          className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-[#F0FDF4] tracking-tight mb-1"
           style={{ fontFamily: 'var(--font-head)' }}
         >
           {isCompleteMorph ? 'Report Ready' : 'Building your Career GPS'}
         </h2>
-        <p className="text-xs text-slate-500 mb-5 max-w-sm truncate">
+        <p className="text-xs text-slate-500 dark:text-emerald-100/70 mb-5 max-w-sm truncate">
           {activeStageSubtext}
         </p>
 
         {/* 2. Connected 3-Stage Pipeline Stepper */}
-        <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs mb-4">
+        <div className="w-full bg-white dark:bg-[#0B1711] border border-slate-200 dark:border-[#163323] rounded-2xl p-4 sm:p-5 shadow-xs mb-4">
           <div className="relative flex items-start justify-between">
             {/* Background track */}
-            <div className="absolute top-4 left-8 right-8 h-1 bg-slate-100 rounded-full overflow-hidden">
+            <div className="absolute top-4 left-8 right-8 h-1 bg-slate-100 dark:bg-[#163323] rounded-full overflow-hidden">
               <motion.div
                 className="h-full rounded-full bg-gradient-to-r from-[#15803D] to-[#10B981]"
                 initial={{ width: '10%' }}
@@ -552,8 +673,8 @@ export default function AnalysisLoader() {
                       isDone
                         ? 'bg-[#15803D] border-[#15803D] text-white'
                         : isWorking
-                          ? 'bg-white border-[#15803D] text-[#15803D]'
-                          : 'bg-slate-50 border-slate-200 text-slate-400'
+                          ? 'bg-white dark:bg-[#0B1711] border-[#15803D] dark:border-emerald-400 text-[#15803D] dark:text-emerald-400'
+                          : 'bg-slate-50 dark:bg-[#102419] border-slate-200 dark:border-[#163323] text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {isDone ? (
@@ -569,7 +690,7 @@ export default function AnalysisLoader() {
                         <Icon size={15} weight="bold" />
                         {isWorking && !reduceMotion && (
                           <motion.span
-                            className="absolute -inset-1 rounded-full border-2 border-[#15803D]/50"
+                            className="absolute -inset-1 rounded-full border-2 border-[#15803D]/50 dark:border-emerald-400/50"
                             animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0, 0.7] }}
                             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                           />
@@ -579,7 +700,7 @@ export default function AnalysisLoader() {
                   </div>
                   <span
                     className={`mt-2 text-[11px] sm:text-xs font-semibold leading-tight ${
-                      isDone ? 'text-[#15803D]' : isWorking ? 'text-[#0F172A]' : 'text-slate-400'
+                      isDone ? 'text-[#15803D] dark:text-emerald-400' : isWorking ? 'text-[#0F172A] dark:text-[#F0FDF4]' : 'text-slate-400 dark:text-slate-500'
                     }`}
                   >
                     {idx + 1}. {node.shortLabel}
@@ -591,7 +712,7 @@ export default function AnalysisLoader() {
         </div>
 
         {/* 3. Live Activity / Insight Ticker (Single Frosted Card) */}
-        <div className="w-full max-w-lg bg-white/85 backdrop-blur-sm border border-slate-200 rounded-2xl p-4 shadow-xs min-h-[76px] flex items-center text-left">
+        <div className="w-full max-w-lg bg-white/85 dark:bg-[#0B1711]/90 backdrop-blur-sm border border-slate-200 dark:border-[#163323] rounded-2xl p-4 shadow-xs min-h-[76px] flex items-center text-left">
           <AnimatePresence mode="wait">
             {latestMsg ? (
               <motion.div
@@ -602,14 +723,14 @@ export default function AnalysisLoader() {
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 className="flex items-start gap-3 w-full"
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-[#15803D] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-[#102419] border border-emerald-200 dark:border-emerald-500/40 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <Sparkle size={16} weight="fill" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] dark:text-emerald-400 mb-0.5">
                     Live Pipeline Update
                   </div>
-                  <p className="text-xs text-slate-700 font-medium leading-snug line-clamp-2">
+                  <p className="text-xs text-slate-700 dark:text-emerald-100/90 font-medium leading-snug line-clamp-2">
                     {latestMsg.text}
                   </p>
                 </div>
@@ -623,14 +744,14 @@ export default function AnalysisLoader() {
                 transition={{ duration: 0.24, ease: 'easeOut' }}
                 className="flex items-start gap-3 w-full"
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-[#15803D] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-[#102419] border border-emerald-200 dark:border-emerald-500/40 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
                   <InsightIcon size={16} weight="bold" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] dark:text-emerald-400 mb-0.5">
                     Recruiter Intelligence • {currentInsight.stat}
                   </div>
-                  <p className="text-xs text-slate-600 leading-snug line-clamp-2">
+                  <p className="text-xs text-slate-600 dark:text-emerald-100/80 leading-snug line-clamp-2">
                     {currentInsight.text}
                   </p>
                 </div>
@@ -639,7 +760,7 @@ export default function AnalysisLoader() {
           </AnimatePresence>
         </div>
 
-        <p className="mt-4 text-[11px] text-slate-400">
+        <p className="mt-4 text-[11px] text-slate-400 dark:text-slate-500">
           Keep this tab open — redirecting automatically when complete.
         </p>
       </div>

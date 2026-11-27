@@ -8,6 +8,7 @@ import { navigateTo } from '../../lib/navigation'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { trackAnalytics } from '../../lib/analytics'
 import { trackEvent, identifyCandidate } from '../../lib/posthog'
+import { ShimmerButton } from '../motion'
 
 const OTP_LENGTH = 6
 
@@ -337,10 +338,10 @@ export default function OTPStep() {
           )}
         </AnimatePresence>
 
-        <button
+        <ShimmerButton
           id="verify-otp-btn"
           onClick={handleVerify}
-          className="w-full min-h-[44px] rounded-xl bg-[#15803D] hover:bg-[#166534] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
+          className="w-full min-h-[44px]"
           disabled={!canVerify}
         >
           {mutation.isPending ? (
@@ -354,7 +355,7 @@ export default function OTPStep() {
               <ArrowRight size={16} weight="bold" />
             </>
           )}
-        </button>
+        </ShimmerButton>
       </motion.div>
 
       <div className="mt-4 text-center">

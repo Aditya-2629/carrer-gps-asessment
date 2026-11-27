@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import TeaserLockBlock from '../TeaserLockBlock'
-import { SpotlightCard } from '../motion'
+import { SpotlightCard, BorderBeam, ShinyText } from '../motion'
 import {
   Warning,
   Lightbulb,
@@ -202,7 +202,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
       {/* 2-Part Framework: WHERE YOU ARE STUCK vs WHY YOU ARE STUCK */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* WHERE YOU ARE STUCK (Current Phase) */}
-        <div className="lg:col-span-5 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
+        <SpotlightCard className="lg:col-span-5 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
@@ -247,15 +247,16 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
               Phase priority evaluated using deterministic 90-day funnel data.
             </span>
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* WHY YOU ARE STUCK (Primary & Secondary Root Cause) */}
-        <div
+        <SpotlightCard
           className="lg:col-span-7 p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] flex flex-col justify-between shadow-xs relative overflow-hidden"
           data-mascot-cue={`Critical root bottleneck detected: "${safeText(primaryBottleneck.title)}". Focus your immediate efforts here.`}
           data-mascot-chip="Bottleneck Focus"
           data-mascot-emotion="alert"
         >
+          <BorderBeam size={160} duration={8} colorFrom="#22C55E" colorTo="#15803D" />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono text-[var(--text-primary)] border border-[var(--border-default)]">
@@ -319,7 +320,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
               <ArrowRight size={13} weight="bold" />
             </button>
           </div>
-        </div>
+        </SpotlightCard>
       </div>
 
       {/* Top 3 Prioritized Actions Section */}

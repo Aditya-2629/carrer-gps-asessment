@@ -9,7 +9,7 @@ import useAppStore, { GATE_STEPS, showToast } from '../../store/useAppStore'
 import { api } from '../../lib/api'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { trackAnalytics } from '../../lib/analytics'
-import { BlurText, MagnetButton } from '../motion'
+import { BlurText, MagnetButton, ShimmerButton } from '../motion'
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -131,22 +131,28 @@ export default function EmailStep() {
           )}
 
           <MagnetButton
-            type="submit"
-            id="send-otp-btn"
-            className="btn-primary w-full"
+            as="div"
+            className="w-full"
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? (
-              <>
-                <SpinnerGap size={18} className="animate-spin" />
-                <span>Sending secure code...</span>
-              </>
-            ) : (
-              <>
-                <span>Unlock Report</span>
-                <ArrowRight size={16} weight="bold" />
-              </>
-            )}
+            <ShimmerButton
+              type="submit"
+              id="send-otp-btn"
+              className="w-full min-h-[44px]"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? (
+                <>
+                  <SpinnerGap size={18} className="animate-spin" />
+                  <span>Sending secure code...</span>
+                </>
+              ) : (
+                <>
+                  <span>Unlock Report</span>
+                  <ArrowRight size={16} weight="bold" />
+                </>
+              )}
+            </ShimmerButton>
           </MagnetButton>
         </motion.div>
       </form>

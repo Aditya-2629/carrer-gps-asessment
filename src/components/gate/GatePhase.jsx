@@ -3,6 +3,7 @@ import useAppStore, { GATE_STEPS } from '../../store/useAppStore'
 import EmailStep from './EmailStep'
 import OTPStep from './OTPStep'
 import brandLogo from '../../assets/images/crafture-logo.jpg'
+import { SpotlightCard } from '../motion'
 
 export default function GatePhase() {
   const gateStep = useAppStore((s) => s.gateStep)
@@ -35,7 +36,7 @@ export default function GatePhase() {
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-md"
       >
-        <div className="quiz-card p-5 sm:p-8">
+        <SpotlightCard className="quiz-card p-5 sm:p-8" spotlightColor="rgba(21, 128, 61, 0.12)">
           <AnimatePresence mode="wait">
             {gateStep === GATE_STEPS.EMAIL ? (
               <motion.div
@@ -59,7 +60,7 @@ export default function GatePhase() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </SpotlightCard>
       </motion.div>
 
       {/* Trust signal */}

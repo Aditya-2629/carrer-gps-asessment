@@ -7,6 +7,7 @@ import { normalizeLinkedInUrl } from '../../lib/linkedinUrlUtils'
 import { getFriendlyErrorMessage } from '../../lib/errorMessages'
 import { fastScanResumeFile } from '../../lib/fastResumeScanner'
 import { trackAnalytics } from '../../lib/analytics'
+import { BorderBeam } from '../motion'
 
 const RING_RADIUS = 44
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
@@ -402,7 +403,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
     <div className="space-y-3">
       <label
         htmlFor={`file-input-${step?.id || 'resume'}`}
-        className={`file-drop block ${dragOver ? 'drag-over' : ''} ${
+        className={`file-drop relative overflow-hidden block ${dragOver ? 'drag-over' : ''} ${
           isAnalyzing
             ? 'border-solid border-[#15803D]/60 dark:border-emerald-500/50 bg-emerald-50/20 dark:bg-[#0B1711]'
             : hasFile && !isError
@@ -417,6 +418,9 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
         onDrop={handleDrop}
         style={{ cursor: isAnalyzing ? 'default' : 'pointer' }}
       >
+        {(dragOver || isAnalyzing) && (
+          <BorderBeam size={160} duration={isAnalyzing ? 3 : 5} colorFrom="#22C55E" colorTo="#15803D" />
+        )}
         <input
           id={`file-input-${step?.id || 'resume'}`}
           type="file"

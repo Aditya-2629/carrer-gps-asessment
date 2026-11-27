@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import TeaserLockBlock from '../TeaserLockBlock'
+import { SpotlightCard, ShinyText, MagnetButton } from '../motion'
 import {
   LinkedinLogo,
   WarningCircle,
@@ -1694,13 +1695,15 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   const whyItWorks = safeText(item?.whyItWorks)
                   const label = HEADLINE_FORMULA_LABELS[idx] || safeText(item?.formula) || `Option ${idx + 1}`
                   return (
-                    <div
+                    <SpotlightCard
                       key={idx}
-                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-colors duration-150"
+                      className="flex flex-col justify-between bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-4 shadow-xs hover:border-[var(--primary)]/40 hover:shadow-sm transition-colors duration-150 relative overflow-hidden"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">{label}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--primary-light)] text-[var(--primary)] border border-[var(--primary)]/20">
+                            {idx === 0 ? <ShinyText>{label}</ShinyText> : label}
+                          </span>
                           <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-[var(--surface-sunken)] text-[var(--text-muted)] border border-[var(--border-default)]">{headlineText.length}/220 chars</span>
                         </div>
                         <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug">{headlineText}</p>
@@ -1710,14 +1713,14 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                           </p>
                         )}
                       </div>
-                      <button
+                      <MagnetButton
                         type="button"
                         onClick={() => handleCopy(headlineText, copyKey)}
                         className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors duration-150 cursor-pointer ${isCopied ? 'bg-emerald-600 text-white shadow-xs' : 'bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] text-[var(--text-primary)] border border-[var(--border-default)]'}`}
                       >
                         {isCopied ? <><Check size={14} weight="bold" /> Copied</> : <><Copy size={14} /> Copy Headline</>}
-                      </button>
-                    </div>
+                      </MagnetButton>
+                    </SpotlightCard>
                   )
                 }
 

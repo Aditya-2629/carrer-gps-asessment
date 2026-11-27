@@ -221,7 +221,7 @@ export default function AssessmentShell() {
               animate="center"
               exit="exit"
             >
-              <AnimatedContent distance={14} duration={0.35}>
+              <AnimatedContent distance={14} direction={direction > 0 ? 'forward' : 'backward'} duration={0.35}>
                 <StepRenderer
                   step={step}
                   onNext={goNext}

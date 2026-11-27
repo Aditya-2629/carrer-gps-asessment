@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Star } from '@phosphor-icons/react'
+import { CountUp } from '../motion'
 
 export default function CareerHealthBreakdown({
   healthScore,
@@ -135,7 +136,7 @@ export default function CareerHealthBreakdown({
             </svg>
             <div className="absolute flex flex-col items-center">
               <span className="text-5xl font-semibold tabular-nums text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-head)' }}>
-                {resolvedHealthScore}
+                <CountUp to={resolvedHealthScore} duration={1.2} />
               </span>
               <span className="text-xs text-[var(--text-muted)] font-mono font-medium">/100</span>
             </div>
@@ -165,7 +166,8 @@ export default function CareerHealthBreakdown({
                 {/* Score Bar */}
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${item.score}%` }}
+                  whileInView={{ width: `${item.score}%` }}
+                  viewport={{ once: true, amount: 0.1 }}
                   transition={{ duration: 1, ease: 'easeOut' }}
                   className={`h-full rounded-full ${
                     item.score >= item.target
@@ -177,7 +179,9 @@ export default function CareerHealthBreakdown({
                 />
               </div>
 
-              <span className="w-10 text-right font-mono font-semibold text-sm tabular-nums text-[var(--text-primary)]">{item.score}</span>
+              <span className="w-10 text-right font-mono font-semibold text-sm tabular-nums text-[var(--text-primary)]">
+                <CountUp to={item.score} duration={1} />
+              </span>
             </div>
           ))}
         </div>
