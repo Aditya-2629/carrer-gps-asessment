@@ -8,7 +8,7 @@ const visitorSessionSchema = new mongoose.Schema(
     currentStep: { type: String, default: '1' },
     maxStepReached: { type: Number, default: 0, index: true },
     completed: { type: Boolean, default: false, index: true },
-    lastHeartbeatAt: { type: Date, default: Date.now, index: true },
+    lastHeartbeatAt: { type: Date, default: Date.now },
     device: { type: String, default: 'desktop' },
     referrer: { type: String, default: '' },
     attribution: {
