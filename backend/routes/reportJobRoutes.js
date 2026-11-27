@@ -82,6 +82,12 @@ router.post('/', async (req, res) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' })
     if (!user.isVerified) return res.status(403).json({ success: false, message: 'Email not verified.' })
 
+    // Reset unlock/delivery flags for every new report run so re-submitted emails start locked in Teaser Mode
+    await User.updateOne(
+      { _id: userId },
+      { $set: { reportUnlocked: false, unlockedAt: null, deliveredAt: null } }
+    ).catch(() => {})
+
     const job = await ReportJob.create({
       userId,
       status: 'queued',

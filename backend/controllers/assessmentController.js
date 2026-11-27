@@ -655,6 +655,10 @@ export const saveAnswers = async (req, res) => {
       }
     }
 
+    user.reportUnlocked = false
+    user.unlockedAt = null
+    user.deliveredAt = null
+
     await user.save()
 
     await VisitorSession.updateMany(
@@ -722,6 +726,12 @@ export const generateReport = async (req, res) => {
 
     const reportStartTime = Date.now()
     console.log(`[AssessmentController] Starting Single-Pass High-Speed Report Generation for user ${userId}...`)
+
+    // Reset unlock/delivery flags for every new report run
+    await User.updateOne(
+      { _id: userId },
+      { $set: { reportUnlocked: false, unlockedAt: null, deliveredAt: null } }
+    ).catch(() => {})
 
     // Phase 4: Single-Pass High-Speed Report Generation (<8s target)
     const { user, aiReport } = await generateReportBundle({ userId, semanticProfile, runId: reportRunId })
@@ -1520,17 +1530,7 @@ export const downloadAtsResumeDocx = async (req, res) => {
       }
       user.markModified?.('aiReport')
       if (typeof user.save === 'function') {
-        await user.save()
-
-    await VisitorSession.updateMany(
-      {
-        $or: [
-          { userId: user._id },
-          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
-        ],
-      },
-      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
-    ).catch(() => {}).catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
+        await user.save().catch((err) => console.warn('Non-fatal: failed to cache interviewLedger:', err.message))
       }
     }
 
@@ -1580,16 +1580,6 @@ export const downloadAtsResumeDocx = async (req, res) => {
       if (typeof user.save === 'function') {
         try {
           await user.save()
-
-    await VisitorSession.updateMany(
-      {
-        $or: [
-          { userId: user._id },
-          ...(user.email ? [{ 'abandonedDraft.email': user.email }] : []),
-        ],
-      },
-      { $set: { completed: true, userId: user._id, maxStepReached: 4 } }
-    ).catch(() => {}).catch((saveErr) => console.warn('Could not save user report with interview ledger:', saveErr.message))
         } catch (_saveErr) {
           console.warn('Could not save user report with interview ledger:', _saveErr.message)
         }
