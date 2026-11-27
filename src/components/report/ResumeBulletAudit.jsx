@@ -413,43 +413,45 @@ export default function ResumeBulletAudit({
             <span className="font-bold">{scoredPassCount}/{totalBulletsCount} bullets scored</span>
           </span>
 
-          <button
-            type="button"
-            onClick={() => setFilterVerdict('ALL')}
-            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-              filterVerdict === 'ALL'
-                ? 'bg-[#0F172A] dark:bg-emerald-600 text-white shadow-xs'
-                : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            All Lines ({bullets.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterVerdict('HURTING')}
-            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-              filterVerdict === 'HURTING'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-950/50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-600 dark:bg-rose-400" />
-            <span>Hurting Lines ({hurtingCount})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFilterVerdict('HELPING')}
-            className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-              filterVerdict === 'HELPING'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-100 dark:hover:bg-emerald-950/50'
-            }`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-            <span>Helping Lines ({helpingCount})</span>
-          </button>
+          <div className="inline-flex items-center p-1 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] relative">
+            {[
+              { id: 'ALL', label: `All Lines (${bullets.length})` },
+              {
+                id: 'HURTING',
+                label: `Hurting Lines (${hurtingCount})`,
+                dot: 'bg-rose-500',
+              },
+              {
+                id: 'HELPING',
+                label: `Helping Lines (${helpingCount})`,
+                dot: 'bg-emerald-500',
+              },
+            ].map((tab) => {
+              const isActive = filterVerdict === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterVerdict(tab.id)}
+                  className={`relative text-xs font-medium px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 select-none z-10 ${
+                    isActive
+                      ? 'text-[var(--text-primary)] font-semibold'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  {tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`} />}
+                  <span>{tab.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="bulletFilterPill"
+                      className="absolute inset-0 rounded-lg bg-[var(--surface-card)] border border-[var(--border-strong)] shadow-xs -z-10"
+                      transition={{ type: 'spring', stiffness: 450, damping: 32 }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
@@ -605,9 +607,11 @@ export default function ResumeBulletAudit({
                                 )}
                               </div>
                               <CopyButton
-                                text={item.rewritten}
+                                text={cleanRewriteText(item.rewritten)}
                                 label="Copy Rewrite"
                                 copiedLabel="Copied"
+                                showLabel={true}
+                                variant="secondary"
                                 size="sm"
                               />
                             </div>
@@ -634,6 +638,8 @@ export default function ResumeBulletAudit({
                               text={item.original}
                               label="Copy Original"
                               copiedLabel="Copied"
+                              showLabel={true}
+                              variant="secondary"
                               size="sm"
                             />
                           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
 import { parseRangeOrNumber } from '../../../backend/agents/assessment/assessmentAgent'
 
 export { parseRangeOrNumber }
@@ -36,9 +37,11 @@ export default function PresetOrNumberInput({ value, onChange, presets = [], uni
           {presets.map((preset) => {
             const isSelected = val === preset
             return (
-              <button
+              <motion.button
                 key={preset}
                 type="button"
+                whileTap={{ scale: 0.96 }}
+                whileHover={{ scale: 1.02 }}
                 onClick={() => handleSelectPreset(preset)}
                 className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                   isSelected
@@ -47,7 +50,7 @@ export default function PresetOrNumberInput({ value, onChange, presets = [], uni
                 }`}
               >
                 {preset} {unit ? <span className="text-xs font-normal opacity-80">{unit}</span> : null}
-              </button>
+              </motion.button>
             )
           })}
         </div>

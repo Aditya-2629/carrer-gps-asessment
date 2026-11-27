@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useSpring } from 'framer-motion'
 import { DownloadSimple } from '@phosphor-icons/react'
 import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { COCKPIT_TABS } from './ReportDashboard'
@@ -18,6 +18,13 @@ export default function StickyReportNav({
   const [isDownloading, setIsDownloading] = useState(false)
   const safeName = typeof candidateName === 'string' ? candidateName.trim() : (candidateName?.name || '')
   const safeRole = typeof targetRole === 'string' ? targetRole.trim() : ''
+
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 30,
+    restDelta: 0.001,
+  })
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true)
@@ -126,6 +133,12 @@ export default function StickyReportNav({
           </MagnetButton>
         </div>
       </div>
+
+      {/* 2px Forest-Green Hairline Reading Progress Bar */}
+      <motion.div
+        className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#15803D] via-[#22C55E] to-[#10B981] origin-left pointer-events-none"
+        style={{ scaleX }}
+      />
     </div>
   )
 }
