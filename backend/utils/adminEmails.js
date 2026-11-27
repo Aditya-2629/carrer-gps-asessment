@@ -114,7 +114,7 @@ export async function sendResendEmail({
 }
 
 function extractReportMeta(user, aiReport, settings = {}) {
-  const frontendBase = (process.env.FRONTEND_URL || process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '')
+  const frontendBase = (process.env.FRONTEND_URL || 'https://carrer-gps-asessment.onrender.com').replace(/\/+$/, '')
   const reportUrl = `${frontendBase}/report/${user._id}`
   const candidateName =
     user.resumeJson?.candidate?.name ||
@@ -358,48 +358,49 @@ export async function sendCandidatePreviewEmail({ user, aiReport, settings = {} 
  * B) Admin Unlocked Full Delivery Email (POST /api/admin/leads/:id/deliver)
  * Attaches BOTH 100% Full Unredacted Report PDF AND Updated ATS .docx Resume.
  */
-export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}, docxBuffer = null, docxFilename = null }) {
+export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}, docxBuffer = null, docxFilename = null, includeReport = true }) {
   if (!user?.email) return { ok: false, error: 'Candidate has no email address on file.' }
   const meta = extractReportMeta(user, aiReport, settings)
   const mascotAtt = getMascotCidAttachment('thumbsup')
   const logoAtt = getCraftureLogoCidAttachment()
 
   let fullPdfBuffer = null
-  try {
-    const { renderCareerReportPdfBuffer } = await import('./renderCareerReportPdf.js')
-    const fullPayload = {
-      ...(aiReport || {}),
-      user_answers: aiReport?.user_answers || user.answers || undefined,
-      resume_json: aiReport?.resume_json || user.resumeJson || undefined,
-      linkedinActivityData: user.linkedinActivityData || aiReport?.linkedin_activity_data || undefined,
-      candidateName: meta.candidateName,
-      targetRole: meta.targetRole,
-      reportUnlocked: true,
-      callBookingUrl: meta.bookingUrl,
-      whatsappCtaNumber: settings?.whatsappCtaNumber || '',
-      socialLinksConfig: settings?.socialLinksConfig || undefined,
+  if (includeReport) {
+    try {
+      const { renderCareerReportPdfBuffer } = await import('./renderCareerReportPdf.js')
+      const fullPayload = {
+        ...(aiReport || {}),
+        user_answers: aiReport?.user_answers || user.answers || undefined,
+        resume_json: aiReport?.resume_json || user.resumeJson || undefined,
+        linkedinActivityData: user.linkedinActivityData || aiReport?.linkedin_activity_data || undefined,
+        candidateName: meta.candidateName,
+        targetRole: meta.targetRole,
+        reportUnlocked: true,
+        callBookingUrl: meta.bookingUrl,
+        whatsappCtaNumber: settings?.whatsappCtaNumber || '',
+        socialLinksConfig: settings?.socialLinksConfig || undefined,
+      }
+      fullPdfBuffer = await renderCareerReportPdfBuffer(fullPayload)
+    } catch (pdfErr) {
+      console.warn('[Email] Full PDF render skipped:', pdfErr.message)
     }
-    fullPdfBuffer = await renderCareerReportPdfBuffer(fullPayload)
-  } catch (pdfErr) {
-    console.warn('[Email] Full PDF render skipped:', pdfErr.message)
   }
 
-  const html = buildForestGreenShell({
-    badge: 'CRAFTURE CAREER GPS • FULL REPORT UNLOCKED',
-    title: `Your Full Career GPS Report Is Unlocked, ${meta.candidateName}!`,
-    hasMascot: Boolean(mascotAtt),
-    hasLogo: Boolean(logoAtt),
-    bodyHtml: `
-      <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#0F172A;">
-        Great news — your complete Career GPS diagnostic for <strong>${meta.targetRole}</strong> is now 100% unlocked.
-      </p>
+  const emailTitle = includeReport
+    ? (docxBuffer
+        ? `Your Full Career GPS Report & Tailored ATS Resume Are Ready (${meta.scoreVal}/100)`
+        : `Your Full Career GPS Report Is Unlocked, ${meta.candidateName}!`)
+    : `Your Tailored ATS Resume Is Ready, ${meta.candidateName}!`
+
+  const reportSectionHtml = includeReport
+    ? `
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:14px 0 18px;background-color:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;">
         <tr>
           <td style="padding:14px 16px;">
             <div style="font-size:12px;font-weight:700;color:#15803D;text-transform:uppercase;">Career Health Score</div>
             <div style="font-size:22px;font-weight:800;color:#0F172A;margin-top:2px;">${meta.scoreVal}/100</div>
             <div style="font-size:13px;color:#334155;margin-top:6px;">
-              Included: All Google XYZ bullet rewrites, full LinkedIn Studio SEO, 7-Day &amp; 30/60/90 roadmap, and your updated ATS resume.
+              Included: All Google XYZ bullet rewrites, full LinkedIn Studio SEO, 7-Day &amp; 30/60/90 roadmap${docxBuffer ? ', and your updated ATS resume' : ''}.
             </div>
           </td>
         </tr>
@@ -411,23 +412,48 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
           </td>
         </tr>
       </table>
-      <p style="margin:0;font-size:13px;color:#334155;">
-        Attached: ${fullPdfBuffer ? `<strong>Career_GPS_Report_${meta.safeName}.pdf</strong>` : ''}${fullPdfBuffer && docxBuffer ? ' &amp; ' : ''}${docxBuffer ? `<strong>${docxFilename || `${meta.safeName}_Updated_ATS_Resume.docx`}</strong>` : ''}.
+    `
+    : `
+      <p style="margin:14px 0 18px;font-size:14px;color:#334155;">
+        Your recruiter-ready, ATS-tailored resume is attached below in Microsoft Word (.docx) format for <strong>${meta.targetRole}</strong>.
       </p>
+    `
+
+  const attachmentsText = [
+    fullPdfBuffer ? `<strong>Career_GPS_Report_${meta.safeName}.pdf</strong>` : '',
+    docxBuffer ? `<strong>${docxFilename || `${meta.safeName}_Updated_ATS_Resume.docx`}</strong>` : '',
+  ].filter(Boolean).join(' &amp; ')
+
+  const html = buildForestGreenShell({
+    badge: includeReport ? 'CRAFTURE CAREER GPS • FULL REPORT UNLOCKED' : 'CRAFTURE CAREER GPS • ATS RESUME',
+    title: emailTitle,
+    hasMascot: Boolean(mascotAtt),
+    hasLogo: Boolean(logoAtt),
+    bodyHtml: `
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.55;color:#0F172A;">
+        ${includeReport ? `Great news — your complete Career GPS diagnostic for <strong>${meta.targetRole}</strong> is now 100% unlocked.` : `Great news — your tailored ATS resume for <strong>${meta.targetRole}</strong> has been generated and is ready.`}
+      </p>
+      ${reportSectionHtml}
+      ${attachmentsText ? `<p style="margin:0;font-size:13px;color:#334155;">Attached: ${attachmentsText}.</p>` : ''}
     `,
-    footerNote: `Direct link: <a href="${meta.reportUrl}" style="color:#15803D;">${meta.reportUrl}</a><br/>Reply to this email anytime if you have questions — Crafture Career GPS Team.`,
+    footerNote: includeReport
+      ? `Direct link: <a href="${meta.reportUrl}" style="color:#15803D;">${meta.reportUrl}</a><br/>Reply to this email anytime if you have questions — Crafture Career GPS Team.`
+      : `Reply to this email anytime if you have questions — Crafture Career GPS Team.`,
   })
 
-  const text = [
+  const textLines = [
     `Hi ${meta.candidateName},`,
     '',
-    `Your complete Crafture Career GPS Report for ${meta.targetRole} (Career Health Score: ${meta.scoreVal}/100) is now 100% unlocked!`,
-    'Included: All Google XYZ bullet rewrites, full LinkedIn Studio SEO, 7-Day & 30/60/90 roadmap, and your updated ATS resume.',
-    '',
-    `View Full Interactive Report -> ${meta.reportUrl}`,
+    includeReport
+      ? `Your complete Crafture Career GPS Report for ${meta.targetRole} (Career Health Score: ${meta.scoreVal}/100) is now 100% unlocked!`
+      : `Your tailored ATS resume for ${meta.targetRole} is attached!`,
+    includeReport ? 'Included: All Google XYZ bullet rewrites, full LinkedIn Studio SEO, 7-Day & 30/60/90 roadmap.' : '',
+    includeReport ? '' : '',
+    includeReport ? `View Full Interactive Report -> ${meta.reportUrl}` : '',
     '',
     '— Crafture Career GPS Team',
-  ].join('\n')
+  ].filter((line, idx, arr) => !(line === '' && arr[idx - 1] === ''))
+  const text = textLines.join('\n')
 
   const attachments = []
   if (mascotAtt) attachments.push(mascotAtt)
@@ -442,10 +468,16 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
     })
   }
 
+  const emailSubject = includeReport
+    ? (docxBuffer
+        ? `Your Full Career GPS Report & Tailored ATS Resume Are Ready (${meta.scoreVal}/100)`
+        : `Your Full Career GPS Report Is Ready (${meta.scoreVal}/100)`)
+    : `Your Tailored ATS Resume Is Ready - Crafture Career GPS`
+
   if (process.env.RESEND_API_KEY) {
     const res = await sendResendEmail({
       to: user.email,
-      subject: `Your Full Career GPS Report & Tailored ATS Resume Are Ready (${meta.scoreVal}/100)`,
+      subject: emailSubject,
       html,
       text,
       attachments,
@@ -461,7 +493,7 @@ export async function sendCandidateUnlockedEmail({ user, aiReport, settings = {}
     const info = await transporter.sendMail({
       from: `"Crafture Career GPS" <${process.env.SMTP_USER}>`,
       to: user.email,
-      subject: `Your Full Career GPS Report & Tailored ATS Resume Are Ready (${meta.scoreVal}/100)`,
+      subject: emailSubject,
       html,
       text,
       attachments,

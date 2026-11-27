@@ -43,8 +43,9 @@ export async function getFallbackAndErrorAnalytics(req, res) {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-    // 1. Query failed or retried agent runs
-    const [failedRuns, allUsers, totalRunsCount] = await Promise.all([
+    // 1. Fetch effective USD->INR exchange rate and query failed or retried agent runs
+    const [fx, failedRuns, allUsers, totalRunsCount] = await Promise.all([
+      getEffectiveUsdToInrRate().catch(() => ({ rate: 94 })),
       AgentRun.find({
         createdAt: { $gte: thirtyDaysAgo },
         $or: [{ status: 'AGENT_FAILED' }, { attempts: { $gt: 1 } }, { error: { $ne: null } }],
@@ -57,6 +58,7 @@ export async function getFallbackAndErrorAnalytics(req, res) {
         .lean(),
       AgentRun.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
     ])
+    const rateInr = Number(fx?.rate) > 0 ? Number(fx.rate) : 94
 
     // 2. Aggregate error breakdown
     const errorCounts = {}
