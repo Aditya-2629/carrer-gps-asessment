@@ -608,9 +608,16 @@ export async function getOpenRouterBalance(req, res) {
     const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
     const sevenDaysAgo = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000)
 
-    const recentRuns = await AgentRun.find({ createdAt: { $gte: sevenDaysAgo } })
-      .select('createdAt cost model')
-      .lean()
+    let recentRuns = []
+    if (mongoose.connection?.readyState === 1) {
+      try {
+        recentRuns = await AgentRun.find({ createdAt: { $gte: sevenDaysAgo } })
+          .select('createdAt cost model')
+          .lean()
+      } catch (dbErr) {
+        console.warn('[openrouter-balance] AgentRun query skipped:', dbErr.message)
+      }
+    }
 
     let todayUsd = 0
     let runsToday = 0
@@ -642,8 +649,13 @@ export async function getOpenRouterBalance(req, res) {
         runs: d.runs,
       }))
 
-    const fx = await getEffectiveUsdToInrRate()
-    const rateInr = fx.rate
+    let fx = { rate: 94, source: 'manual_admin', autoSyncUsdRate: true, lastSyncedAt: null }
+    try {
+      fx = await getEffectiveUsdToInrRate()
+    } catch (fxErr) {
+      console.warn('[openrouter-balance] FX lookup failed, using fallback 94:', fxErr.message)
+    }
+    const rateInr = Number(fx?.rate) > 0 ? Number(fx.rate) : 94
     if (openrouter.remainingUsd !== null) {
       openrouter.remainingInr = Number((openrouter.remainingUsd * rateInr).toFixed(2))
     }
@@ -669,7 +681,7 @@ export async function getOpenRouterBalance(req, res) {
       },
     })
   } catch (err) {
-    console.error('[AdminTelemetry] getOpenRouterBalance error:', err)
+    console.error('[openrouter-balance]', err)
     return res.status(500).json({ success: false, message: 'Failed to retrieve OpenRouter balance.' })
   }
 }
