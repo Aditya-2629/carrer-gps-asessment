@@ -9,10 +9,28 @@ export const CRAFTURE_CONFETTI_COLORS = [
   '#FBBF24', // Amber Celebration Sparkle
 ]
 
+const DEFAULT_GLOBAL_OPTIONS = { resize: true, useWorker: false }
+
+/**
+ * Direct celebration burst helper that fires onto document.body with Crafture branding.
+ */
+export function fireConfetti(opts = {}) {
+  const mergedOptions = {
+    particleCount: 65,
+    spread: 70,
+    origin: { y: 0.6 },
+    colors: CRAFTURE_CONFETTI_COLORS,
+    disableForReducedMotion: true,
+    zIndex: 9999,
+    ...opts,
+  }
+  return confetti(mergedOptions)
+}
+
 const Confetti = forwardRef(function Confetti(
   {
     options = {},
-    globalOptions = { resize: true, useWorker: true },
+    globalOptions = DEFAULT_GLOBAL_OPTIONS,
     manualstart = true,
     className = 'pointer-events-none fixed inset-0 z-50 w-full h-full',
     ...rest
@@ -25,16 +43,11 @@ const Confetti = forwardRef(function Confetti(
   useEffect(() => {
     if (canvasRef.current) {
       confettiInstanceRef.current = confetti.create(canvasRef.current, {
+        ...DEFAULT_GLOBAL_OPTIONS,
         ...globalOptions,
-        resize: true,
       })
     }
-
-    return () => {
-      try {
-        confettiInstanceRef.current?.reset()
-      } catch (_e) {}
-    }
+    // Intentionally no unmount reset: allows active celebratory particles to finish falling gracefully
   }, [globalOptions])
 
   const fire = useCallback(
@@ -45,13 +58,12 @@ const Confetti = forwardRef(function Confetti(
         origin: { y: 0.6 },
         colors: CRAFTURE_CONFETTI_COLORS,
         disableForReducedMotion: true,
+        zIndex: 9999,
         ...options,
         ...opts,
       }
 
-      if (confettiInstanceRef.current) {
-        return confettiInstanceRef.current(mergedOptions)
-      }
+      // Fire via canvas-confetti directly on document.body so particles persist smoothly across screen/route unmounts
       return confetti(mergedOptions)
     },
     [options]
@@ -61,7 +73,12 @@ const Confetti = forwardRef(function Confetti(
     ref,
     () => ({
       fire,
-      reset: () => confettiInstanceRef.current?.reset(),
+      reset: () => {
+        try {
+          confettiInstanceRef.current?.reset()
+          confetti.reset()
+        } catch (_e) {}
+      },
     }),
     [fire]
   )
