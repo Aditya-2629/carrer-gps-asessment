@@ -139,7 +139,7 @@ export default function CraftureGuideStage({ onSelectTab, activeTab: _activeTab 
     }, 120)
   }
 
-  const emotionColor = palette?.shell || '#6366F1'
+  const emotionColor = palette?.shell || '#15803D'
 
   return (
     <div

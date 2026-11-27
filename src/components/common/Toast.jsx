@@ -23,8 +23,8 @@ const TYPE_CONFIGS = {
   },
   info: {
     icon: Info,
-    iconColor: 'text-indigo-400',
-    borderColor: 'border-indigo-500/30',
+    iconColor: 'text-emerald-400',
+    borderColor: 'border-emerald-500/30',
     bgColor: 'bg-slate-900/95 text-white',
   },
 }

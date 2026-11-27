@@ -46,7 +46,7 @@ export default function ReportHero({ reportData, user }) {
 
   // Dynamic Ring Stroke Color
   const ringColor =
-    overall >= 80 ? 'text-emerald-500' : overall >= 60 ? 'text-indigo-600' : 'text-amber-500'
+    overall >= 80 ? 'text-emerald-500' : overall >= 60 ? 'text-[#15803D]' : 'text-amber-500'
   const strokeDashoffset = 283 - (283 * overall) / 100
 
   // Telemetry Strip Items
@@ -128,7 +128,7 @@ export default function ReportHero({ reportData, user }) {
       ),
       value: `${marketScore}%`,
       caption: 'JD Keyword Match',
-      color: 'text-indigo-600 dark:text-indigo-400',
+      color: 'text-[#15803D] dark:text-emerald-400',
       onClick: () => {
         setActiveMetric('market')
         triggerGuide({
@@ -262,8 +262,8 @@ export default function ReportHero({ reportData, user }) {
                 <Radar
                   name="Current"
                   dataKey="current"
-                  stroke="#6366F1"
-                  fill="#6366F1"
+                  stroke="#15803D"
+                  fill="#15803D"
                   fillOpacity={0.25}
                   strokeWidth={2}
                 />
@@ -294,8 +294,8 @@ export default function ReportHero({ reportData, user }) {
             <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
               <span>6-Axis Health Breakdown</span>
               <div className="flex items-center gap-3 text-[10px] font-mono">
-                <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
-                  <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 inline-block" /> Current
+                <span className="flex items-center gap-1 text-[#15803D] dark:text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-[#15803D] dark:bg-emerald-400 inline-block" /> Current
                 </span>
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 dark:bg-emerald-400 inline-block" /> Post-Fix
@@ -341,7 +341,7 @@ export default function ReportHero({ reportData, user }) {
                 <span className="text-[10px] font-mono text-[var(--text-muted)] group-hover:text-[var(--text-primary)]">
                   {m.label}
                 </span>
-                <ArrowUpRight className="w-3 h-3 text-[var(--text-muted)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
+                <ArrowUpRight className="w-3 h-3 text-[var(--text-muted)] group-hover:text-[#15803D] dark:group-hover:text-emerald-400 transition-colors" />
               </div>
               <div className="font-mono text-xl sm:text-2xl font-semibold text-[var(--text-primary)] tracking-tight tabular-nums">
                 {m.valueNode || m.value}

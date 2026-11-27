@@ -379,7 +379,7 @@ export default function LocationSearchInput({
                                 item.category === 'remote'
                                   ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                                   : item.category === 'metro'
-                                  ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
+                                  ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/30'
                                   : item.category === 'city'
                                   ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30'
                                   : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'

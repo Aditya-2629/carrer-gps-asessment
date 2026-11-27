@@ -44,8 +44,8 @@ export default function ReportBottomNav({
       {/* Top Meta Bar: Step Progress & Quick Scroll to Top */}
       <div className="flex items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800 text-xs">
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-mono bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-mono bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             Section {safeIndex + 1} of {tabList.length}
           </span>
           <span className="hidden sm:inline font-semibold text-slate-700 dark:text-slate-200 font-mono text-xs">
@@ -66,7 +66,7 @@ export default function ReportBottomNav({
                 title={`Jump to ${t.label}`}
                 className={`flex-1 h-2 rounded-full transition-all cursor-pointer ${
                   isCurrent
-                    ? 'bg-indigo-600 ring-2 ring-indigo-500/30'
+                    ? 'bg-[#15803D] ring-2 ring-emerald-500/30'
                     : isDone
                     ? 'bg-emerald-500 hover:bg-emerald-600'
                     : 'bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
@@ -94,7 +94,7 @@ export default function ReportBottomNav({
           <button
             type="button"
             onClick={() => handleNav(prevTab.id)}
-            className="flex-1 max-w-full sm:max-w-xs flex items-center gap-3 p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-xs transition-colors text-left group cursor-pointer"
+            className="flex-1 max-w-full sm:max-w-xs flex items-center gap-3 p-3.5 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-800 hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-xs transition-colors text-left group cursor-pointer"
           >
             <div className="w-10 h-10 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-200 shrink-0 shadow-2xs">
               <ArrowLeft size={18} weight="bold" />
@@ -136,7 +136,7 @@ export default function ReportBottomNav({
                 onClick={() => handleNav(tab.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 font-bold shadow-xs border border-indigo-500/20'
+                    ? 'bg-white dark:bg-slate-900 text-[#15803D] dark:text-emerald-400 font-bold shadow-xs border border-emerald-500/20'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/60 dark:hover:bg-slate-700/50'
                 }`}
               >
@@ -155,7 +155,7 @@ export default function ReportBottomNav({
             className="flex-1 max-w-full sm:max-w-xs flex items-center justify-between gap-3 p-3.5 rounded-xl bg-[var(--primary)] hover:opacity-95 text-white shadow-xs transition-opacity text-left group cursor-pointer ml-auto"
           >
             <div className="min-w-0 pl-1">
-              <div className="text-[10px] font-mono text-indigo-200 flex items-center gap-1">
+              <div className="text-[10px] font-mono text-emerald-100 flex items-center gap-1">
                 <span>Next Section</span>
               </div>
               <div className="text-xs sm:text-sm font-semibold text-white truncate flex items-center gap-1.5 mt-0.5">

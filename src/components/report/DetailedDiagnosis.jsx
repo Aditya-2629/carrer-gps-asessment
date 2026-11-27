@@ -858,15 +858,15 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                     href={`https://wellfound.com/jobs?role=${encodeURIComponent(reportData?.resume_agent?.candidateSnapshot?.targetRole || 'Software Engineer')}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-purple-500 hover:text-purple-500 transition-all flex items-center justify-between group no-underline"
+                    className="p-3.5 rounded-xl bg-[var(--surface-sunken)] border border-[var(--border-default)] hover:border-emerald-500 hover:text-emerald-600 transition-all flex items-center justify-between group no-underline"
                   >
                     <div>
-                      <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-purple-500 block">
+                      <span className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-600 block">
                         Wellfound / YCombinator Tech
                       </span>
                       <span className="text-[10px] text-[var(--text-muted)] block">High-growth tech startups</span>
                     </div>
-                    <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-purple-500" />
+                    <ArrowSquareOut size={14} className="text-[var(--text-muted)] group-hover:text-emerald-600" />
                   </a>
                 </div>
               </div>
@@ -964,7 +964,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
                       <span className="text-[11px] text-[var(--text-muted)]">Quantified scale, speed, or uptime outcome</span>
                     </div>
                     <div className="p-2.5 rounded-lg bg-[var(--surface-card)]/60 border border-[var(--border-default)]">
-                      <span className="text-[10px] font-bold text-purple-500 block uppercase">Beat 4: Forward Hook</span>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block uppercase">Beat 4: Forward Hook</span>
                       <span className="text-[11px] text-[var(--text-muted)]">Why this team's exact problems fit you</span>
                     </div>
                   </div>

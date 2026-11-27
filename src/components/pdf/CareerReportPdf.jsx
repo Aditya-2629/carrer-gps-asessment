@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   headerLeft: {
     fontSize: 7.5,
     fontFamily: 'Helvetica-Bold',
-    color: '#6366F1',
+    color: '#15803D',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
@@ -235,8 +235,8 @@ const styles = StyleSheet.create({
   sectionTag: {
     fontSize: 6.5,
     fontFamily: 'Helvetica-Bold',
-    color: '#6366F1',
-    backgroundColor: '#EEF2FF',
+    color: '#15803D',
+    backgroundColor: '#F0FDF4',
     paddingHorizontal: 5,
     paddingVertical: 1.5,
     borderRadius: 3,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   cardHighlighted: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: '#BBF7D0',
     borderRadius: 4,
     padding: 8,
     marginBottom: 5,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   aboutPillarLabel: {
     fontSize: 6.5,
     fontFamily: 'Helvetica-Bold',
-    color: '#6366F1',
+    color: '#15803D',
     letterSpacing: 0.4,
   },
   aboutPillarText: {
@@ -1057,7 +1057,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           {/* Top Brand Strip */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Image src={craftureLogo} style={{ width: 18, height: 18, borderRadius: 3 }} />
-            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+            <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#15803D', letterSpacing: 0.6, textTransform: 'uppercase' }}>
               CRAFTURE CAREER GPS • EXECUTIVE REPORT
             </Text>
           </View>
@@ -1105,7 +1105,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             </Text>
             <View style={{ width: 1, height: 13, backgroundColor: '#CBD5E1' }} />
             <View style={{ flexDirection: 'column' }}>
-              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.4 }}>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#15803D', letterSpacing: 0.4 }}>
                 HEALTH INDEX
               </Text>
               <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: overallScore >= 75 ? '#16A34A' : overallScore >= 50 ? '#D97706' : '#DC2626' }}>
@@ -1180,14 +1180,14 @@ export default function CareerReportPdf({ reportData = {} }) {
               return (
                 <React.Fragment key={sp.id}>
                   {isCurrent && (
-                    <Circle cx={x} cy={14} r={11} fill="none" stroke="#C7D2FE" strokeWidth={1.5} />
+                    <Circle cx={x} cy={14} r={11} fill="none" stroke="#BBF7D0" strokeWidth={1.5} />
                   )}
                   <Circle
                     cx={x}
                     cy={14}
                     r={8.5}
-                    fill={isCompleted ? '#DCFCE7' : isCurrent ? '#EEF2FF' : '#F8FAFC'}
-                    stroke={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#CBD5E1'}
+                    fill={isCompleted ? '#DCFCE7' : isCurrent ? '#F0FDF4' : '#F8FAFC'}
+                    stroke={isCompleted ? '#16A34A' : isCurrent ? '#15803D' : '#CBD5E1'}
                     strokeWidth={isCurrent ? 2 : 1.2}
                   />
                   <Text
@@ -1195,7 +1195,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                     y={17}
                     fontSize={6.2}
                     textAnchor="middle"
-                    fill={isCompleted ? '#16A34A' : isCurrent ? '#6366F1' : '#94A3B8'}
+                    fill={isCompleted ? '#16A34A' : isCurrent ? '#15803D' : '#94A3B8'}
                   >
                     {isCompleted ? 'OK' : String(sp.id)}
                   </Text>
@@ -1306,8 +1306,8 @@ export default function CareerReportPdf({ reportData = {} }) {
 
                 <Polygon
                   points={getRadarCoords(105, 75, 46, radarScores)}
-                  fill="rgba(99, 102, 241, 0.22)"
-                  stroke="#6366F1"
+                  fill="rgba(21, 128, 61, 0.22)"
+                  stroke="#15803D"
                   strokeWidth={1.8}
                 />
 
@@ -1320,7 +1320,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                       cx={105 + r * Math.cos(angle)}
                       cy={75 + r * Math.sin(angle)}
                       r={2.2}
-                      fill="#6366F1"
+                      fill="#15803D"
                     />
                   )
                 })}
@@ -1345,7 +1345,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                 </Text>
               </Svg>
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 2 }}>
-                <Text style={{ fontSize: 6.2, color: '#6366F1' }}>■ Current</Text>
+                <Text style={{ fontSize: 6.2, color: '#15803D' }}>■ Current</Text>
                 <Text style={{ fontSize: 6.2, color: '#10B981' }}>-- Post-Fix Target</Text>
               </View>
             </View>
@@ -1431,8 +1431,8 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={{ marginTop: 6, marginBottom: 4 }} wrap={false}>
             <View style={{ flexDirection: 'row', gap: 6 }}>
               {/* Stage 1: Applications */}
-              <View style={{ flex: 1, backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE', borderRadius: 5, padding: 6, alignItems: 'center' }}>
-                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#6366F1', textTransform: 'uppercase' }}>
+              <View style={{ flex: 1, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#15803D', textTransform: 'uppercase' }}>
                   100% Volume
                 </Text>
                 <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: '#0F172A', marginTop: 1 }}>
@@ -1442,8 +1442,8 @@ export default function CareerReportPdf({ reportData = {} }) {
               </View>
 
               {/* Stage 2: Screens */}
-              <View style={{ flex: 1, backgroundColor: Number(screenRate) < 5 ? '#FFF1F2' : '#EEF2FF', borderWidth: 1, borderColor: Number(screenRate) < 5 ? '#FECDD3' : '#C7D2FE', borderRadius: 5, padding: 6, alignItems: 'center' }}>
-                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#6366F1', textTransform: 'uppercase' }}>
+              <View style={{ flex: 1, backgroundColor: Number(screenRate) < 5 ? '#FFF1F2' : '#F0FDF4', borderWidth: 1, borderColor: Number(screenRate) < 5 ? '#FECDD3' : '#BBF7D0', borderRadius: 5, padding: 6, alignItems: 'center' }}>
+                <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#15803D', textTransform: 'uppercase' }}>
                   {screenRate}% Callback
                 </Text>
                 <Text style={{ fontSize: 8.5, fontFamily: 'Courier-Bold', color: Number(screenRate) < 5 ? '#DC2626' : '#0F172A', marginTop: 1 }}>
@@ -1511,7 +1511,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View key={idx} style={styles.col3}>
               <View style={styles.card}>
                 <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                  <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#15803D' }}>
                     PRIORITY 0{pa.priority || idx + 1}
                   </Text>
                   <Text style={styles.tagNeutral}>PHASE 1</Text>
@@ -1553,7 +1553,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             <View key={idx} style={styles.dayCard} wrap={false}>
               <View style={styles.rowBetween}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1, paddingRight: 6 }}>
-                  <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', backgroundColor: '#EEF2FF', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
+                  <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#15803D', backgroundColor: '#F0FDF4', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
                     DAY {t.day || idx + 1}
                   </Text>
                   <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#0F172A' }}>
@@ -1588,11 +1588,11 @@ export default function CareerReportPdf({ reportData = {} }) {
         {/* 30/60/90 Connected Horizontal SVG Timeline */}
         <View style={styles.card} wrap={false}>
           <Svg width="480" height="26" viewBox="0 0 480 26">
-            <Line x1={116} y1={13} x2={204} y2={13} stroke="#C7D2FE" strokeWidth={2} />
+            <Line x1={116} y1={13} x2={204} y2={13} stroke="#BBF7D0" strokeWidth={2} />
             <Line x1={276} y1={13} x2={364} y2={13} stroke="#CBD5E1" strokeWidth={2} />
 
-            <Rect x={44} y={2} width={72} height={20} rx={10} fill="#EEF2FF" stroke="#6366F1" strokeWidth={1.5} />
-            <Text x={80} y={15} fontSize={7.5} textAnchor="middle" fill="#6366F1">30 DAYS</Text>
+            <Rect x={44} y={2} width={72} height={20} rx={10} fill="#F0FDF4" stroke="#15803D" strokeWidth={1.5} />
+            <Text x={80} y={15} fontSize={7.5} textAnchor="middle" fill="#15803D">30 DAYS</Text>
 
             <Rect x={204} y={2} width={72} height={20} rx={10} fill="#F8FAFC" stroke="#94A3B8" strokeWidth={1} />
             <Text x={240} y={15} fontSize={7.5} textAnchor="middle" fill="#0F172A">60 DAYS</Text>
@@ -1671,7 +1671,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                 )}
                 {secVal?.requiredImprovement && (
                   <Text style={{ fontSize: 6.8, color: '#475569', marginTop: 1 }}>
-                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>Fix: </Text>
+                    <Text style={{ fontFamily: 'Helvetica-Bold', color: '#15803D' }}>Fix: </Text>
                     {safeStr(secVal.requiredImprovement)}
                   </Text>
                 )}
@@ -1805,7 +1805,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         </View>
 
         <View style={[styles.card, { padding: 5, marginBottom: 5 }]} wrap={false}>
-          <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 1 }}>
+          <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#15803D', marginBottom: 1 }}>
             5-PART RESUME PLAYBOOK FORMULA:
           </Text>
           <Text style={{ fontSize: 6.8, color: '#334155' }}>
@@ -1828,7 +1828,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                     </Text>
                   )}
                   {b.evidenceStatus === 'CALCULATED' && (
-                    <Text style={[styles.tagPass, { backgroundColor: '#EEF2FF', color: '#4338CA' }]}>
+                    <Text style={[styles.tagPass, { backgroundColor: '#F0FDF4', color: '#15803D' }]}>
                       CALCULATED IMPACT
                     </Text>
                   )}
@@ -1918,14 +1918,14 @@ export default function CareerReportPdf({ reportData = {} }) {
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: '#EEF2FF',
+                backgroundColor: '#F0FDF4',
                 borderWidth: 1,
-                borderColor: '#C7D2FE',
+                borderColor: '#BBF7D0',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+              <Text style={{ fontSize: 14, fontFamily: 'Helvetica-Bold', color: '#166534' }}>
                 {candidateInitials}
               </Text>
             </View>
@@ -1936,14 +1936,14 @@ export default function CareerReportPdf({ reportData = {} }) {
                 {candidateName}
               </Text>
               {linkedinScoreVal != null && (
-                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#4F46E5' }}>
+                <Text style={{ fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#166534' }}>
                   LinkedIn Score: {Math.round(Number(linkedinScoreVal))}/100
                 </Text>
               )}
             </View>
             {linkedinProfileUrl ? (
               <Link src={linkedinProfileUrl} style={{ textDecoration: 'none', marginTop: 2 }}>
-                <Text style={{ fontSize: 7, color: '#6366F1' }}>{safeStr(linkedinProfileUrl)}</Text>
+                <Text style={{ fontSize: 7, color: '#15803D' }}>{safeStr(linkedinProfileUrl)}</Text>
               </Link>
             ) : (
               <Text style={{ fontSize: 7, color: '#64748B', marginTop: 2 }}>
@@ -1995,7 +1995,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             return (
               <View key={idx} style={[styles.card, { padding: 5, marginBottom: 4 }]} wrap={false}>
                 <View style={styles.rowBetween}>
-                  <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                  <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#15803D' }}>
                     Option 0{idx + 1}
                   </Text>
                   <Text style={{ fontSize: 7, color: '#64748B', fontStyle: 'italic' }}>
@@ -2009,7 +2009,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           return (
             <View key={idx} style={styles.card} wrap={false}>
               <View style={[styles.rowBetween, { marginBottom: 1 }]}>
-                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                <Text style={{ fontSize: 7.2, fontFamily: 'Helvetica-Bold', color: '#15803D' }}>
                   Option 0{idx + 1} • {safeStr(h.formula || h.style || 'Best Overall • Recommended')}
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -2079,7 +2079,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           {/* Keywords Weaved Footer if present & unlocked */}
           {!aboutRewrite?.locked && !linkedinAgent.optimizations?.aboutRewriteLocked && aboutKeywords.length > 0 && (
             <View style={[styles.rowBetween, { marginTop: 2, paddingTop: 3, borderTopWidth: 0.5, borderTopColor: '#E2E8F0' }]}>
-              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+              <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica-Bold', color: '#15803D' }}>
                 INDEXED KEYWORDS WEAVED:
               </Text>
               <Text style={{ fontSize: 6.2, fontFamily: 'Helvetica', color: '#64748B' }}>
@@ -2093,7 +2093,7 @@ export default function CareerReportPdf({ reportData = {} }) {
         <View style={styles.grid2} wrap={false}>
           <View style={styles.col2}>
             <View style={styles.card}>
-              <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1', marginBottom: 2 }}>
+              <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#15803D', marginBottom: 2 }}>
                 TOP 3 PINNED SKILLS (RECRUITER CARDS)
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3 }}>
@@ -2144,7 +2144,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <View style={styles.col2}>
             <View style={styles.cardHighlighted}>
               <View style={[styles.rowBetween, { marginBottom: 2 }]}>
-                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#6366F1' }}>
+                <Text style={{ fontSize: 6.8, fontFamily: 'Helvetica-Bold', color: '#15803D' }}>
                   CRAFTURE NETWORK
                 </Text>
                 <Text style={styles.tagPass}>RECOMMENDED</Text>
@@ -2161,7 +2161,7 @@ export default function CareerReportPdf({ reportData = {} }) {
           <EditorialBanner imageSrc={pdfCtaBanner}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
               <Image src={craftureLogo} style={{ width: 15, height: 15, borderRadius: 3 }} />
-              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#6366F1', letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              <Text style={{ fontSize: 7, fontFamily: 'Helvetica-Bold', color: '#15803D', letterSpacing: 0.6, textTransform: 'uppercase' }}>
                 {isReportUnlocked ? 'FULL REPORT UNLOCKED • NEXT STEPS' : 'EXECUTIVE PREVIEW • UNLOCK FULL ROADMAP'}
               </Text>
             </View>
@@ -2183,7 +2183,7 @@ export default function CareerReportPdf({ reportData = {} }) {
               <Link
                 src={bookingUrl}
                 style={{
-                  backgroundColor: '#6366F1',
+                  backgroundColor: '#15803D',
                   borderRadius: 6,
                   paddingVertical: 7,
                   paddingHorizontal: 11,
@@ -2288,7 +2288,7 @@ export default function CareerReportPdf({ reportData = {} }) {
                           ? '#DC2626'
                           : resolvedIconType === 'x'
                             ? '#0F172A'
-                            : '#4F46E5'
+                            : '#15803D'
                   return (
                     <Link key={item.key || item.label} src={item.url} style={{ textDecoration: 'none', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       {hasValidCustomLogo ? (

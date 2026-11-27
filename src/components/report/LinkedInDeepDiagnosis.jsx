@@ -807,7 +807,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       bannerShowcaseOptions: [
         {
           style: 'Minimalist Dark Slate',
-          colorPalette: 'Deep Charcoal (#111827), Electric Indigo (#6366F1), Crisp White typography',
+          colorPalette: 'Deep Pine (#0B1A13), Forest Green (#15803D), Crisp White typography',
           layout: 'Headline on the top-right, 3 value pill badges horizontally centered, clean negative space on the left for avatar.',
         },
         {
@@ -817,7 +817,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         },
         {
           style: 'Modern Technical Dossier',
-          colorPalette: 'Deep Onyx (#090D16), Cyber Teal / Indigo gradient hairline border, mono-spaced pill badges',
+          colorPalette: 'Deep Onyx (#090D16), Cyber Emerald / Forest Green gradient hairline border, mono-spaced pill badges',
           layout: 'Terminal-inspired crisp typography highlighting core skills and scale outcomes, optimized for maximum recruiter glance value.',
         },
       ],
@@ -1516,7 +1516,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
                 in
               </span>
               <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -1805,7 +1805,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                     )}
                     {!isTeaserLocked && legacyAudienceText && (
                       <div className="space-y-1 pt-2.5 border-t border-[var(--border-default)]">
-                        <span className="text-xs uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                        <span className="text-xs uppercase font-bold tracking-wider text-[#15803D] dark:text-emerald-400">
                           Target Audience &amp; Core Problem Solved
                         </span>
                         <p className="text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
@@ -2169,7 +2169,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               <div className="space-y-3 pt-3 border-t border-[var(--border-default)]">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
-                    <Tag size={14} className="text-indigo-600 dark:text-indigo-400" />
+                    <Tag size={14} className="text-[#15803D] dark:text-emerald-400" />
                     Categorized 50-Skill Recruiter Bank
                   </span>
                   <span className="text-[11px] font-mono text-[var(--text-muted)]">

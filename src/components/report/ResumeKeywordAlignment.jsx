@@ -275,9 +275,9 @@ export default function ResumeKeywordAlignment({
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
       {/* ── Market Data Pending Notice (Zero Fake JD Percentages) ── */}
       {isMarketPending && (
-        <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 flex items-start gap-2.5">
-          <Target size={18} weight="bold" className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed font-medium">
+        <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
+          <Target size={18} weight="bold" className="text-[#15803D] dark:text-emerald-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed font-medium">
             Market JD benchmark for <strong>{targetRole || 'your target role'}</strong> is queued for scraping — showing skills evidenced vs unverified from your own resume.
           </p>
         </div>
@@ -286,7 +286,7 @@ export default function ResumeKeywordAlignment({
       {/* ── ATS Header & Overall Match Rate ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
         <div className="flex items-center gap-2.5">
-          <span className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Target size={18} weight="bold" />
           </span>
           <div>
@@ -435,7 +435,7 @@ export default function ResumeKeywordAlignment({
                 <button
                   type="button"
                   onClick={() => setShowAllMissing(!showAllMissing)}
-                  className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  className="text-xs font-bold text-[#15803D] dark:text-emerald-400 hover:underline cursor-pointer"
                 >
                   {showAllMissing ? 'Show top 10 missing skills' : `Show all (${targetMissingList.length}) missing skills`}
                 </button>

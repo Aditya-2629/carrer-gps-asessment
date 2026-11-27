@@ -237,7 +237,7 @@ export default function CraftureLivingCopilot({
 
   const currentEmotion = activeThought?.emotion || emotion || 'idle'
   const currentPalette = EMOTION_PALETTES[currentEmotion] || EMOTION_PALETTES.idle
-  const accentColor = currentPalette.shell || '#6366F1'
+  const accentColor = currentPalette.shell || '#15803D'
 
   // Map state and active context directly to 14 WebP Mascot poses
   const activePose = useMemo(() => {

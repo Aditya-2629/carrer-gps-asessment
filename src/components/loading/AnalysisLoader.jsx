@@ -468,7 +468,7 @@ export default function AnalysisLoader() {
             <defs>
               <linearGradient id="loaderOrbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#15803D" />
-                <stop offset="100%" stopColor="#6366F1" />
+                <stop offset="100%" stopColor="#10B981" />
               </linearGradient>
             </defs>
             <circle
@@ -532,7 +532,7 @@ export default function AnalysisLoader() {
             {/* Background track */}
             <div className="absolute top-4 left-8 right-8 h-1 bg-slate-100 rounded-full overflow-hidden">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-[#15803D] to-[#6366F1]"
+                className="h-full rounded-full bg-gradient-to-r from-[#15803D] to-[#10B981]"
                 initial={{ width: '10%' }}
                 animate={{ width: `${trackPct}%` }}
                 transition={{ duration: 0.45, ease: 'easeOut' }}
@@ -552,7 +552,7 @@ export default function AnalysisLoader() {
                       isDone
                         ? 'bg-[#15803D] border-[#15803D] text-white'
                         : isWorking
-                          ? 'bg-white border-[#6366F1] text-[#6366F1]'
+                          ? 'bg-white border-[#15803D] text-[#15803D]'
                           : 'bg-slate-50 border-slate-200 text-slate-400'
                     }`}
                   >
@@ -569,7 +569,7 @@ export default function AnalysisLoader() {
                         <Icon size={15} weight="bold" />
                         {isWorking && !reduceMotion && (
                           <motion.span
-                            className="absolute -inset-1 rounded-full border-2 border-[#6366F1]/50"
+                            className="absolute -inset-1 rounded-full border-2 border-[#15803D]/50"
                             animate={{ scale: [1, 1.25, 1], opacity: [0.7, 0, 0.7] }}
                             transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
                           />
@@ -623,11 +623,11 @@ export default function AnalysisLoader() {
                 transition={{ duration: 0.24, ease: 'easeOut' }}
                 className="flex items-start gap-3 w-full"
               >
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-[#6366F1] flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-[#15803D] flex items-center justify-center shrink-0">
                   <InsightIcon size={16} weight="bold" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#6366F1] mb-0.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#15803D] mb-0.5">
                     Recruiter Intelligence • {currentInsight.stat}
                   </div>
                   <p className="text-xs text-slate-600 leading-snug line-clamp-2">

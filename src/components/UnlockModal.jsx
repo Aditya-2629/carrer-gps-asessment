@@ -119,7 +119,7 @@ export default function UnlockModal({
               ? { duration: 0 }
               : { type: 'spring', stiffness: 380, damping: 30 }
           }
-          className="w-full rounded-t-2xl sm:rounded-2xl bg-[var(--surface-raised)] border border-indigo-500/25 dark:border-indigo-400/25 shadow-2xl p-5 sm:p-6 pb-7 sm:pb-6 space-y-4 text-left"
+          className="w-full rounded-t-2xl sm:rounded-2xl bg-[var(--surface-raised)] border border-emerald-500/25 dark:border-emerald-400/25 shadow-2xl p-5 sm:p-6 pb-7 sm:pb-6 space-y-4 text-left"
         >
           {/* Top Bar: Preview Badge + X Close */}
           <div className="flex items-center justify-between gap-2">
@@ -180,7 +180,7 @@ export default function UnlockModal({
               onClick={() => {
                 if (typeof onBookCall === 'function') onBookCall()
               }}
-              className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors duration-150 no-underline cursor-pointer"
+              className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs sm:text-sm font-semibold shadow-sm transition-colors duration-150 no-underline cursor-pointer"
             >
               <CalendarBlank size={17} weight="bold" />
               <span>{ctaButtonLabel}</span>

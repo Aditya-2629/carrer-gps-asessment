@@ -23,7 +23,7 @@ export default function MissionBoard({ data }) {
     if (t.includes('linkedin') || t.includes('profile')) return { icon: LinkedinLogo, color: 'text-sky-400', border: 'border-sky-500/30' }
     if (t.includes('ats') || t.includes('search')) return { icon: MagnifyingGlass, color: 'text-amber-400', border: 'border-amber-500/30' }
     if (t.includes('interview') || t.includes('mock')) return { icon: UserCheck, color: 'text-emerald-400', border: 'border-emerald-500/30' }
-    if (t.includes('project') || t.includes('code')) return { icon: Code, color: 'text-purple-400', border: 'border-purple-500/30' }
+    if (t.includes('project') || t.includes('code')) return { icon: Code, color: 'text-teal-400', border: 'border-teal-500/30' }
     if (t.includes('network') || t.includes('outreach')) return { icon: ChatCircleText, color: 'text-pink-400', border: 'border-pink-500/30' }
     if (t.includes('apply') || t.includes('job')) return { icon: Briefcase, color: 'text-orange-400', border: 'border-orange-500/30' }
     

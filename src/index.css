@@ -2,20 +2,20 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #6366F1;
-  --color-primary-hover: #4F46E5;
-  --color-primary-active: #4338CA;
-  --color-secondary: #7C3AED;
-  --color-secondary-light: #8B5CF6;
+  --color-primary: #15803D;
+  --color-primary-hover: #166534;
+  --color-primary-active: #0B1A13;
+  --color-secondary: #10B981;
+  --color-secondary-light: #34D399;
   --color-emerald: #10B981;
   --color-sky: #38BDF8;
   --color-alert: #F43F5E;
   --color-text-primary: #0F172A;
-  --color-text-secondary: #6366F1;
-  --color-surface-base: #F8FAFC;
+  --color-text-secondary: #15803D;
+  --color-surface-base: #F8FAF9;
   --color-surface-raised: #FFFFFF;
-  --color-surface-muted: #F8FAFC;
-  --color-surface-strong: #EEF2FF;
+  --color-surface-muted: #F8FAF9;
+  --color-surface-strong: #F0FDF4;
   --color-border-default: #E2E8F0;
   --color-border-muted: #F1F5F9;
   --font-primary: 'Poppins', system-ui, sans-serif;
@@ -25,13 +25,13 @@
 }
 
 :root {
-  /* Canvas Background — Luminous */
-  --surface-base: #F8FAFC;
+  /* Canvas Background — Crisp Luminous */
+  --surface-base: #F8FAF9;
   /* Glass Surface — #FFFFFF */
   --surface-card: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --surface-muted: #F8FAFC;
-  --surface-strong: #EEF2FF;
+  --surface-muted: #F8FAF9;
+  --surface-strong: #F0FDF4;
   --surface-sunken: #F1F5F9;
 
   /* Typography */
@@ -43,20 +43,20 @@
   /* Borders */
   --border-default: #E2E8F0;
   --border-muted: #F1F5F9;
-  --border-hover: #6366F1;
-  --border-active: #6366F1;
+  --border-hover: #15803D;
+  --border-active: #15803D;
 
-  /* Primary Brand Accent — Electric Indigo */
-  --primary: #6366F1;
-  --primary-hover: #4F46E5;
-  --primary-active: #4338CA;
-  --primary-light: #EEF2FF;
-  --primary-ring: rgba(99, 102, 241, 0.25);
+  /* Primary Brand Accent — Crafture Forest Green */
+  --primary: #15803D;
+  --primary-hover: #166534;
+  --primary-active: #0B1A13;
+  --primary-light: #F0FDF4;
+  --primary-ring: rgba(21, 128, 61, 0.25);
 
-  /* Secondary Accent — Vivid Violet */
-  --secondary: #7C3AED;
-  --secondary-light: #8B5CF6;
-  --secondary-bg: #F5F3FF;
+  /* Secondary Accent — Crisp Emerald */
+  --secondary: #10B981;
+  --secondary-light: #34D399;
+  --secondary-bg: #ECFDF5;
 
   /* Growth Emerald — Neon Growth Green */
   --emerald: #10B981;
@@ -98,22 +98,22 @@
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --shadow-card-hover: 0 4px 14px -2px rgba(99, 102, 241, 0.15), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
-  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  --shadow-card-hover: 0 4px 14px -2px rgba(21, 128, 61, 0.15), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  --shadow-focus: 0 0 0 3px rgba(21, 128, 61, 0.25);
 }
 
 .dark {
-  /* Canvas Background — Obsidian */
-  --surface-base: #08090D;
-  /* Glass Surface — rgba(15, 17, 26, 0.75) */
-  --surface-card: rgba(15, 17, 26, 0.75);
-  --surface-raised: #0F111A;
-  --surface-muted: #111420;
-  --surface-strong: rgba(99, 102, 241, 0.12);
-  --surface-sunken: #0B0D13;
+  /* Canvas Background — Deep Pine Obsidian */
+  --surface-base: #06110B;
+  /* Glass Surface — rgba(11, 26, 19, 0.75) */
+  --surface-card: rgba(11, 26, 19, 0.75);
+  --surface-raised: #0B1A13;
+  --surface-muted: #0D2017;
+  --surface-strong: rgba(21, 128, 61, 0.15);
+  --surface-sunken: #08150E;
 
   /* Typography */
-  --text-primary: #F8FAFC;
+  --text-primary: #F8FAF9;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
   --text-subtle: #64748B;
@@ -121,20 +121,20 @@
   /* Borders */
   --border-default: rgba(255, 255, 255, 0.08);
   --border-muted: rgba(255, 255, 255, 0.04);
-  --border-hover: #6366F1;
-  --border-active: #818CF8;
+  --border-hover: #15803D;
+  --border-active: #22C55E;
 
-  /* Primary Brand Accent — Electric Indigo */
-  --primary: #6366F1;
-  --primary-hover: #4F46E5;
-  --primary-active: #4338CA;
-  --primary-light: rgba(99, 102, 241, 0.16);
-  --primary-ring: rgba(99, 102, 241, 0.35);
+  /* Primary Brand Accent — Crafture Forest Green */
+  --primary: #15803D;
+  --primary-hover: #166534;
+  --primary-active: #0B1A13;
+  --primary-light: rgba(21, 128, 61, 0.2);
+  --primary-ring: rgba(34, 197, 94, 0.35);
 
-  /* Secondary Accent — Vivid Violet */
-  --secondary: #7C3AED;
-  --secondary-light: #8B5CF6;
-  --secondary-bg: rgba(124, 58, 237, 0.15);
+  /* Secondary Accent — Crisp Emerald */
+  --secondary: #10B981;
+  --secondary-light: #34D399;
+  --secondary-bg: rgba(16, 185, 129, 0.15);
 
   /* Growth Emerald — Neon Growth Green */
   --emerald: #10B981;
@@ -151,7 +151,7 @@
   --error-bg: rgba(244, 63, 94, 0.15);
 
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-card-hover: 0 6px 24px rgba(99, 102, 241, 0.2);
+  --shadow-card-hover: 0 6px 24px rgba(21, 128, 61, 0.2);
 }
 
 html {
@@ -245,7 +245,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
   padding: 13px 26px;
   font-size: 0.95rem;
-  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.25);
+  box-shadow: 0 1px 2px rgba(21, 128, 61, 0.25);
   transition: color var(--motion-instant) var(--ease-instant), background-color var(--motion-instant) var(--ease-instant), border-color var(--motion-instant) var(--ease-instant), transform var(--motion-instant) var(--ease-instant), box-shadow var(--motion-instant) var(--ease-instant);
   position: relative;
   white-space: nowrap;
@@ -253,7 +253,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 4px 14px rgba(21, 128, 61, 0.35);
   transform: translateY(-1px);
 }
 

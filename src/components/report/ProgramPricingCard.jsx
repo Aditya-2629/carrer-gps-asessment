@@ -191,7 +191,7 @@ export function ProgramPricingCard({ onBookCall }) {
         <button
           type="button"
           onClick={handleConsultationCta}
-          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#15803D] dark:text-emerald-400 hover:underline cursor-pointer"
         >
           <span>Schedule with Executive Consultant</span>
           <ArrowRight size={12} weight="bold" />

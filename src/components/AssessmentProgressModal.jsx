@@ -55,7 +55,7 @@ export default function AssessmentProgressModal({ userId, onComplete, onError })
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center">
-        <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center mx-auto mb-4">
+        <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/60 text-[#15803D] dark:text-emerald-400 rounded-lg flex items-center justify-center mx-auto mb-4">
           <Activity className="w-5 h-5" />
         </div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Generating Career Health Assessment</h3>
@@ -64,7 +64,7 @@ export default function AssessmentProgressModal({ userId, onComplete, onError })
         {/* Progress Bar */}
         <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 mb-3 overflow-hidden">
           <div
-            className="bg-indigo-600 dark:bg-indigo-500 h-2 rounded-full transition-all duration-300 ease-out"
+            className="bg-[#15803D] dark:bg-emerald-500 h-2 rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>

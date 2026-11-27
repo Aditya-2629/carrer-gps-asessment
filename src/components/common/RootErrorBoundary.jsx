@@ -45,7 +45,7 @@ export default class RootErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 font-sans">
           <div className="max-w-lg w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto text-indigo-400">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto text-emerald-400">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -69,7 +69,7 @@ export default class RootErrorBoundary extends React.Component {
               <button
                 type="button"
                 onClick={this.handleReload}
-                className="py-2.5 px-5 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-lg cursor-pointer"
+                className="py-2.5 px-5 rounded-xl text-sm font-semibold text-white bg-[#15803D] hover:bg-[#166534] transition-colors shadow-lg cursor-pointer"
               >
                 Refresh Page
               </button>

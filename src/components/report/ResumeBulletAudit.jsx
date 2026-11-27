@@ -394,7 +394,7 @@ export default function ResumeBulletAudit({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-default)] pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <span className="w-2 h-2 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             <h3 className="text-base sm:text-lg font-semibold text-[var(--text-primary)] tracking-tight">
               Interactive Resume Paper X-Ray
             </h3>
@@ -407,8 +407,8 @@ export default function ResumeBulletAudit({
         {/* Telemetry Pills & Filter Toggles */}
         <div className="flex flex-wrap items-center gap-2">
           {/* ATS & Recruiter Eye-Tracking Badge */}
-          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 tabular-nums font-semibold flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             <span>ATS &amp; Recruiter Eye-Tracking:</span>
             <span className="font-bold">{scoredPassCount}/{totalBulletsCount} bullets scored</span>
           </span>
@@ -585,7 +585,7 @@ export default function ResumeBulletAudit({
                           <div className="p-3.5 bg-[var(--surface-sunken)] border border-[var(--border-default)] rounded-xl space-y-3">
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs font-mono text-indigo-700 dark:text-indigo-400 flex items-center gap-1 font-semibold">
+                                <span className="text-xs font-mono text-[#15803D] dark:text-emerald-400 flex items-center gap-1 font-semibold">
                                   <CheckCircle size={13} weight="bold" /> Strategic Recruiter Diff:
                                 </span>
                                 {item.evidenceStatus === 'CANDIDATE_CONFIRMED' && (
@@ -594,7 +594,7 @@ export default function ResumeBulletAudit({
                                   </span>
                                 )}
                                 {item.evidenceStatus === 'CALCULATED' && (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 flex items-center gap-1">
                                     <CheckCircle size={10} weight="fill" /> Calculated Improvement: {item.confirmedMetric}
                                   </span>
                                 )}

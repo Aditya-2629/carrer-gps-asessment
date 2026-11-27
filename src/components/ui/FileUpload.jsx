@@ -416,7 +416,7 @@ export default function FileUpload({ value, onChange, error, step, onNext }) {
 
       {/* Real-time background analysis indicator */}
       {hasFile && resumeAnalysis?.status === 'analyzing' && !isError && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-400 animate-pulse">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-600 dark:text-emerald-400 animate-pulse">
           <Sparkle size={14} weight="fill" className="animate-spin shrink-0" />
           <span>Extracting tech stack, experience roles & contact information...</span>
         </div>

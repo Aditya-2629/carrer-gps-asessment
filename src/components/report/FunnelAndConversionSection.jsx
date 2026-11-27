@@ -96,7 +96,7 @@ export default function FunnelAndConversionSection({
       count: totalAppsMonthly,
       unit: 'sent / month',
       icon: PaperPlaneTilt,
-      color: '#6366F1',
+      color: '#15803D',
       isDropOffGate: phaseId === 1,
       dropOffLabel: 'Phase 1 Gate: Drop-off before recruiter screens',
     },
@@ -175,7 +175,7 @@ export default function FunnelAndConversionSection({
             alt="Funnel & Pipeline Mascot"
           />
           <div>
-            <span className="text-xs font-mono font-medium text-indigo-600 dark:text-indigo-400 block">
+            <span className="text-xs font-mono font-medium text-[#15803D] dark:text-emerald-400 block">
               Inside the hiring funnel
             </span>
             <h2 className="text-2xl sm:text-3xl font-semibold text-[var(--text-primary)] tracking-tight">
@@ -192,7 +192,7 @@ export default function FunnelAndConversionSection({
       <div className="p-5 sm:p-6 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] shadow-xs space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+            <span className="w-2 h-2 rounded-full bg-[#15803D] dark:bg-emerald-400" />
             Sankey Pipeline Flow &amp; Bottleneck Leak Gate
           </span>
 

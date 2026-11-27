@@ -70,7 +70,7 @@ export default function OutreachReferralInput({ value, onChange, error }) {
       <div className="space-y-2.5">
         <label className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
           <span className="flex items-center gap-1.5">
-            <UsersThree size={15} className="text-[#8b5cf6] shrink-0" />
+            <UsersThree size={15} className="text-[#10B981] shrink-0" />
             2. Warm Referrals / Introductions Requested (Per Month)
           </span>
           <span className="text-[11px] text-[var(--text-muted)] font-normal">Internal employee referrals</span>
@@ -85,8 +85,8 @@ export default function OutreachReferralInput({ value, onChange, error }) {
                 onClick={() => handleReferralSelect(preset)}
                 className={`min-h-[44px] p-3 rounded-xl border text-center text-xs font-bold font-mono transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-sm'
-                    : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[#8b5cf6]/60 hover:bg-[var(--surface-base)]'
+                    ? 'bg-[#10B981] text-white border-[#10B981] shadow-sm'
+                    : 'bg-[var(--surface-sunken)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[#10B981]/60 hover:bg-[var(--surface-base)]'
                 }`}
               >
                 {preset}

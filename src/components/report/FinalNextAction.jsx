@@ -171,7 +171,7 @@ export default function FinalNextAction({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onBookCall}
-                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#15803D] hover:bg-[#166534] text-white text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-colors duration-150 no-underline cursor-pointer"
               >
                 <CalendarBlank size={18} weight="bold" />
                 <span>Book Free 1-on-1 Strategy Call</span>
@@ -289,7 +289,7 @@ export default function FinalNextAction({
                           rel="noopener noreferrer"
                           whileHover={{ y: -2 }}
                           transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-                          className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-indigo-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
+                          className="group min-h-[40px] inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-card)] border border-[var(--border-default)] hover:border-emerald-400/60 text-xs font-semibold text-[var(--text-primary)] shadow-2xs transition-colors no-underline cursor-pointer"
                         >
                           {item.customLogoUrl ? (
                             <img src={item.customLogoUrl} alt="" className="w-4 h-4 rounded-xs object-contain" />
@@ -300,10 +300,10 @@ export default function FinalNextAction({
                           ) : resolvedType === 'youtube' ? (
                             <YoutubeLogo size={15} weight="fill" className="text-[#DC2626]" />
                           ) : (
-                            <Globe size={14} weight="bold" className="text-indigo-500" />
+                            <Globe size={14} weight="bold" className="text-emerald-600" />
                           )}
                           <span>{item.label}</span>
-                          <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-indigo-500 transition-colors" />
+                          <ArrowUpRight size={13} weight="bold" className="text-[var(--text-muted)] group-hover:text-emerald-600 transition-colors" />
                         </motion.a>
                       )
                     })}
