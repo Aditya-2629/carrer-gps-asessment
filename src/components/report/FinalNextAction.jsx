@@ -323,7 +323,7 @@ export default function FinalNextAction({
               className="shrink-0"
               alt="Celebration Mascot"
             />
-            <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-slate-100/95 dark:p-3 dark:shadow-sm">
+            <div className="relative w-full max-w-xs dark:rounded-2xl dark:bg-[#102118] border border-emerald-500/10 dark:border-[#1B3326] dark:p-3 dark:shadow-sm">
               <img
                 src={strategySessionImg}
                 alt="1-on-1 Strategy Session"

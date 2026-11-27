@@ -28,7 +28,7 @@ export default function FeedbackThumbs({ agent, findingId, subtle = false }) {
   }
 
   const base = subtle
-    ? 'p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800'
+    ? 'p-1 rounded hover:bg-slate-100 dark:hover:bg-[#102118]'
     : 'p-1.5 rounded-lg border'
   const cls = (val) =>
     `${base} transition-colors cursor-pointer ${

@@ -428,7 +428,7 @@ export default function FunnelAndConversionSection({
                 <span className="text-[var(--text-muted)]">/ 5.0% target</span>
               </div>
             </div>
-            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-[#102118] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   numScreenRate >= 5 ? 'bg-emerald-500' : numScreenRate >= 2 ? 'bg-amber-500' : 'bg-rose-500'
@@ -454,7 +454,7 @@ export default function FunnelAndConversionSection({
                 <span className="text-[var(--text-muted)]">/ 40% target</span>
               </div>
             </div>
-            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            <div className="relative w-full h-2 rounded-full bg-slate-200 dark:bg-[#102118] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
                   numTechRate >= 40 ? 'bg-emerald-500' : numTechRate >= 25 ? 'bg-amber-500' : 'bg-rose-500'

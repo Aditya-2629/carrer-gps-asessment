@@ -299,7 +299,7 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
           {/* Next Best Action Banner */}
           <div className="mt-4 p-3.5 rounded-lg bg-[var(--surface-sunken)] border border-[var(--border-default)] flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <span className="text-[10px] text-emerald-700 font-mono block">
+              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-mono block">
                 Immediate Next Best Action
               </span>
               <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
@@ -354,11 +354,11 @@ export default function PrimaryBottleneck({ reportData, onNavigateSection, isTea
                       <span className="w-6 h-6 rounded-md bg-[var(--surface-sunken)] text-[var(--text-primary)] text-xs font-semibold flex items-center justify-center font-mono border border-[var(--border-default)]">
                         #3
                       </span>
-                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                     </div>
-                    <div className="h-5 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-14 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-16 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-5 w-4/5 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-14 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-16 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
                 </TeaserLockBlock>
               )

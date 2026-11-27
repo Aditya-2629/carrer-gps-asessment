@@ -296,7 +296,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
 
       {/* Sunken Headline Container */}
       {headline && (
-        <div className="rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-default)] p-3.5 space-y-1">
+        <div className="rounded-xl bg-slate-50 dark:bg-[#102118] border border-[var(--border-default)] p-3.5 space-y-1">
           <div className="text-[11px] uppercase tracking-wider font-semibold text-[var(--text-tertiary)]">
             Current Live Headline
           </div>
@@ -308,7 +308,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
 
       {/* 4-Column Metadata Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Users size={14} className="text-[#0a66c2]" />
             Connections
@@ -318,7 +318,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <MapPin size={14} className="text-[#0a66c2]" />
             Location
@@ -328,7 +328,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Briefcase size={14} className="text-[#0a66c2]" />
             Roles Scraped
@@ -338,7 +338,7 @@ function LiveScrapedProfileSnapshot({ profileData, activitySignals }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-slate-900/40 p-3">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-muted,#f8fafc)] dark:bg-[#102118] p-3">
           <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 font-medium">
             <Users size={14} className="text-[#0a66c2]" />
             Followers
@@ -1502,8 +1502,8 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   <div className="flex items-center justify-between gap-1">
                     <span className="font-bold text-[var(--text-primary)]">{opt.style}</span>
                   </div>
-                  <p className="text-[11px] text-[var(--primary)] font-mono">{opt.colorPalette}</p>
-                  <p className="text-[11px] text-[var(--text-secondary)] leading-snug">{opt.layout}</p>
+                  <p className="text-[11px] text-[var(--primary)] dark:text-emerald-400 font-medium font-mono">{opt.colorPalette}</p>
+                  <p className="text-[11px] text-[var(--text-secondary)] dark:text-[#94B4A2] leading-snug">{opt.layout}</p>
                 </div>
               ))}
             </div>
@@ -1512,18 +1512,18 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
       </div>
 
       {/* ── 1B. Recruiter SEO Scorecard ────────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-[#0B1711] border border-slate-200 dark:border-[#1B3326] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1B3326] pb-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
                 in
               </span>
-              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-[#F0FDF4]">
                 LinkedIn Recruiter Search Visibility
               </h4>
             </div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-400 dark:text-[#94B4A2] mt-0.5">
               How easily corporate recruiters and hiring managers find your profile in inbound searches.
             </p>
           </div>
@@ -1874,25 +1874,25 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[0, 1].map((i) => (
                     <div key={i} className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
-                      <div className="h-5 w-32 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                      <div className="h-4 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                      <div className="h-4 w-4/5 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-5 w-32 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                      <div className="h-4 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                      <div className="h-4 w-4/5 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                     </div>
                   ))}
                 </div>
 
                 <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-card)] p-5 space-y-3">
-                  <div className="h-4 w-48 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-4 w-48 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-11/12 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-3/4 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                 </div>
 
                 {experienceUpgrades.length > 0 && (
                   <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-2xl p-5 space-y-3">
-                    <div className="h-4 w-64 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-3.5 w-5/6 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-4 w-64 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-3.5 w-5/6 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
                 )}
               </div>

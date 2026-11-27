@@ -137,11 +137,11 @@ export default function InterviewDefenseInteractive({
           <span>Click any skill chip above to expand word-for-word technical interview defense scripts and trade-off rationales.</span>
         </div>
       ) : (
-        <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-4 animate-fadeIn">
+        <div className="rounded-xl border border-emerald-200 dark:border-[#1B3326] bg-white dark:bg-[#0B1711] p-5 shadow-xs space-y-4 animate-fadeIn">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1B3326] pb-3">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
+              <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-[#F0FDF4]">
                 {activeCard.skill}
               </span>
               <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -153,7 +153,7 @@ export default function InterviewDefenseInteractive({
               <button
                 type="button"
                 onClick={() => handleCopy(activeCard.talkingScript, activeCard.skill)}
-                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md border border-[var(--border-default)] bg-white dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md border border-[var(--border-default)] bg-white dark:bg-[#102118] hover:bg-emerald-50 hover:text-emerald-700 transition-colors cursor-pointer"
               >
                 {copiedSkill === activeCard.skill ? (
                   <Check className="h-3.5 w-3.5 text-emerald-600" />

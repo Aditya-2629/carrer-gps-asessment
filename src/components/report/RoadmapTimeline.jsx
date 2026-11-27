@@ -514,11 +514,11 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="h-5 w-16 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-5 w-16 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-5 w-24 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
-                  <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                  <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                  <div className="h-3.5 w-full bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                 </div>
               )
             }

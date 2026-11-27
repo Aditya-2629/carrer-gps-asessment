@@ -418,7 +418,7 @@ export default function ResumeBulletAudit({
             onClick={() => setFilterVerdict('ALL')}
             className={`text-xs font-medium px-3 py-1 rounded-lg transition-colors cursor-pointer ${
               filterVerdict === 'ALL'
-                ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
+                ? 'bg-[#0F172A] dark:bg-emerald-600 text-white shadow-xs'
                 : 'bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -659,14 +659,14 @@ export default function ResumeBulletAudit({
                     className="p-3.5 rounded-xl border border-[var(--border-default)] bg-[var(--surface-sunken)]/60 space-y-2.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                      <div className="h-5 w-24 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                       <div className="flex gap-1.5">
-                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                        <div className="h-5 w-14 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                       </div>
                     </div>
-                    <div className="h-4 w-11/12 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
-                    <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-slate-800/70 animate-none rounded" />
+                    <div className="h-4 w-11/12 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
+                    <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-[#102118] animate-none rounded" />
                   </div>
                 ))}
               </div>

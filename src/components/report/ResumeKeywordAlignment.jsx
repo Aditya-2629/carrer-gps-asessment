@@ -272,7 +272,7 @@ export default function ResumeKeywordAlignment({
   const isMarketPending = Boolean(marketDataPending || (totalJds === 0 && !alignment?.source?.includes('active_jd') && missingFromResume.length === 0))
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+    <div className="bg-white dark:bg-[#0B1711] border border-slate-200 dark:border-[#1B3326] rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
       {/* ── Market Data Pending Notice (Zero Fake JD Percentages) ── */}
       {isMarketPending && (
         <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2.5">
@@ -284,7 +284,7 @@ export default function ResumeKeywordAlignment({
       )}
 
       {/* ── ATS Header & Overall Match Rate ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-[#1B3326] pb-4">
         <div className="flex items-center gap-2.5">
           <span className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-[#15803D] dark:text-emerald-400 flex items-center justify-center shrink-0">
             <Target size={18} weight="bold" />
@@ -293,7 +293,7 @@ export default function ResumeKeywordAlignment({
             <div className="text-xs font-mono text-[var(--text-muted)]">
               ATS Target Keyword Alignment
             </div>
-            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+            <div className="text-sm font-semibold text-slate-900 dark:text-[#F0FDF4]">
               {targetRole || 'Target Role Alignment'}
             </div>
           </div>
@@ -354,7 +354,7 @@ export default function ResumeKeywordAlignment({
           {cleanMatched.map((kw, i) => (
             <span
               key={i}
-              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 shadow-2xs"
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-[#102118] text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 shadow-2xs"
             >
               ✓ {kw}
             </span>
@@ -381,10 +381,10 @@ export default function ResumeKeywordAlignment({
               return (
                 <div
                   key={i}
-                  className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
+                  className="p-3 rounded-xl bg-white dark:bg-[#102118] border border-rose-200 dark:border-rose-900/60 shadow-xs flex flex-col justify-between"
                 >
                   <div className="space-y-1 mb-2">
-                    <span className="text-xs font-bold text-slate-900 dark:white block truncate" title={item.keyword}>
+                    <span className="text-xs font-bold text-slate-900 dark:text-[#F0FDF4] block truncate" title={item.keyword}>
                       {item.keyword}
                     </span>
                     {item.percentage != null && (
@@ -422,7 +422,7 @@ export default function ResumeKeywordAlignment({
                 {Array.from({ length: Math.min(5, lockedMissingCount) }).map((_, i) => (
                   <div
                     key={i}
-                    className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg"
+                    className="w-24 h-8 bg-slate-200/75 dark:bg-[#102118] animate-none rounded-lg"
                   />
                 ))}
               </div>
@@ -473,7 +473,7 @@ export default function ResumeKeywordAlignment({
             ).map((kw, i) => (
               <span
                 key={i}
-                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 shadow-2xs"
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-[#102118] text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800 shadow-2xs"
               >
                 ⚠️ {kw}
               </span>
@@ -489,7 +489,7 @@ export default function ResumeKeywordAlignment({
                     <span
                       key={`sk_${i}`}
                       aria-hidden="true"
-                      className="w-24 h-8 bg-slate-200/75 dark:bg-slate-800/70 animate-none rounded-lg inline-block"
+                      className="w-24 h-8 bg-slate-200/75 dark:bg-[#102118] animate-none rounded-lg inline-block"
                     />
                   ))}
                   <button

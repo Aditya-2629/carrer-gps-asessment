@@ -207,7 +207,7 @@ const CrafturePoseMascot = forwardRef(function CrafturePoseMascot(
                 ? 'bg-slate-900/95 text-white border-slate-700/80 shadow-slate-950/40'
                 : bubbleVariant === 'indigo' || bubbleVariant === 'emerald' || bubbleVariant === 'forest'
                 ? 'bg-[#0B1A13]/95 text-white border-emerald-500/40 shadow-emerald-950/50'
-                : 'bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 border-slate-200/90 dark:border-slate-800 shadow-slate-900/10'
+                : 'bg-white/95 dark:bg-[#0B1711]/95 text-slate-800 dark:text-[#F0FDF4] border-slate-200/90 dark:border-[#1B3326] shadow-slate-900/10'
             }`}
           >
             {/* Bubble Header */}
