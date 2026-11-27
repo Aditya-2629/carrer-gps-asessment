@@ -541,6 +541,13 @@ function computeRunUsd(run) {
 
 export async function getOpenRouterBalance(req, res) {
   try {
+    let fx = { rate: 94, source: 'manual_admin', autoSyncUsdRate: true, lastSyncedAt: null }
+    try {
+      fx = await getEffectiveUsdToInrRate()
+    } catch (fxErr) {
+      console.warn('[openrouter-balance] FX lookup failed, using fallback 94:', fxErr.message)
+    }
+    const rateInr = Number(fx?.rate) > 0 ? Number(fx.rate) : 94
     const apiKey = (process.env.OPENROUTER_API_KEY || '').trim()
     let openrouter = {
       configured: Boolean(apiKey),
@@ -649,13 +656,6 @@ export async function getOpenRouterBalance(req, res) {
         runs: d.runs,
       }))
 
-    let fx = { rate: 94, source: 'manual_admin', autoSyncUsdRate: true, lastSyncedAt: null }
-    try {
-      fx = await getEffectiveUsdToInrRate()
-    } catch (fxErr) {
-      console.warn('[openrouter-balance] FX lookup failed, using fallback 94:', fxErr.message)
-    }
-    const rateInr = Number(fx?.rate) > 0 ? Number(fx.rate) : 94
     if (openrouter.remainingUsd !== null) {
       openrouter.remainingInr = Number((openrouter.remainingUsd * rateInr).toFixed(2))
     }
@@ -1239,7 +1239,7 @@ async function runPostHogHogql(host, projectId, apiKey, query) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(12000),
   })
   if (!res.ok) {
     throw new Error(`PostHog query HTTP ${res.status}`)
