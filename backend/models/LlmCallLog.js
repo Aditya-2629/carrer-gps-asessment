@@ -7,6 +7,7 @@ import mongoose from 'mongoose'
 const llmCallLogSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
+    sessionId: { type: String, default: null, index: true },
     runId: { type: String, default: null, index: true },
     stage: { type: String, required: true, index: true },
     provider: { type: String, required: true },
@@ -24,6 +25,7 @@ const llmCallLogSchema = new mongoose.Schema(
 
 llmCallLogSchema.index({ createdAt: -1 })
 llmCallLogSchema.index({ userId: 1, stage: 1, createdAt: -1 })
+llmCallLogSchema.index({ sessionId: 1, createdAt: -1 })
 
 const LlmCallLog = mongoose.model('LlmCallLog', llmCallLogSchema)
 export default LlmCallLog

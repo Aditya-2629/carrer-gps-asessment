@@ -1,6 +1,6 @@
 // ─── Live API Layer connected to Node.js Backend ───
 import axios from 'axios'
-import { getAttribution } from './analytics'
+import { getAttribution, getVisitorSessionId } from './analytics'
 import { buildSemanticAssessmentPayload } from './assessmentSteps'
 import { getResumeFileFromStorage } from './resumeStorage'
 import { sanitizeFormData } from '../store/useAppStore'
@@ -105,6 +105,8 @@ export const api = {
       if (targetRole) form.append('targetRole', targetRole)
       if (targetJobDescription) form.append('targetJobDescription', targetJobDescription)
       if (linkedinUrl) form.append('linkedinUrl', linkedinUrl)
+      const sessionId = getVisitorSessionId()
+      if (sessionId) form.append('sessionId', sessionId)
 
       const res = await client.post('/resume-agent/evaluate', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -133,7 +135,7 @@ export const api = {
   // Background scrape LinkedIn profile on Step 11
   scrapeLinkedInProfile: async (url) => {
     return client
-      .post('/linkedin-agent/scrape', { url })
+      .post('/linkedin-agent/scrape', { url, sessionId: getVisitorSessionId() })
       .then((r) => r.data)
       .catch(() => ({ success: false, profile: null }))
   },
@@ -264,6 +266,7 @@ export const api = {
 
       const res = await client.post('/report-jobs', {
         userId,
+        sessionId: getVisitorSessionId(),
         semanticProfile,
         precomputedResumeAgent: resumeAnalysis?.analysis || null,
         precomputedResumeJson: resumeAnalysis?.canonicalResume || null,

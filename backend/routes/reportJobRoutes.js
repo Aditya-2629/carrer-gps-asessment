@@ -64,7 +64,7 @@ router.post('/', async (req, res) => {
       })
     }
 
-    const { userId, semanticProfile, precomputedResumeAgent, precomputedResumeJson, linkedinData } = req.body || {}
+    const { userId, sessionId, semanticProfile, precomputedResumeAgent, precomputedResumeJson, linkedinData } = req.body || {}
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: 'Valid userId is required.' })
     }
@@ -95,9 +95,9 @@ router.post('/', async (req, res) => {
       ],
     })
     const jobId = job._id.toString()
-    costTracker.setActiveRunId(jobId, userId)
+    costTracker.setActiveRunId(jobId, userId, sessionId || null)
     // Fire-and-forget worker — the client is streaming, not waiting on this
-    processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData })
+    processJob(jobId, userId, parsedProfile, { precomputedResumeAgent, precomputedResumeJson, linkedinData, sessionId: sessionId || null })
 
     return res.status(202).json({ success: true, jobId })
   } catch (err) {
@@ -112,7 +112,7 @@ const running = (globalThis.__reportJobRunning ||= new Set())
 async function processJob(jobId, userId, semanticProfile, options = {}) {
   if (running.has(jobId)) return
   running.add(jobId)
-  costTracker.setActiveRunId(jobId, userId)
+  costTracker.setActiveRunId(jobId, userId, options.sessionId || null)
   try {
     const job = await ReportJob.findById(jobId)
     if (!job) return
@@ -141,7 +141,10 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     job.events.push({ at: finalEvent.at, stage: finalEvent.stage, message: finalEvent.message, agent: finalEvent.agent })
     await job.save()
 
-    // Mark VisitorSession completed (User.totalCostUsd is atomically $inc'd per call in costTracker)
+    // Reconcile Step 1/2 (sessionId) + Step 3 (userId) LlmCallLog entries onto User.totalCostUsd
+    await costTracker.reconcileCandidateCosts({ userId, sessionId: options.sessionId || null }).catch(() => {})
+
+    // Mark VisitorSession completed
     await VisitorSession.updateMany(
       { userId },
       { $set: { completed: true, currentPhase: 'report', currentStep: 'report', maxStepReached: 4 } }

@@ -717,13 +717,15 @@ export const generateReport = async (req, res) => {
 
   try {
     const reportRunId = String(userId)
-    costTracker.setActiveRunId(reportRunId)
+    const sessionId = req.body?.sessionId || req.headers['x-session-id'] || null
+    costTracker.setActiveRunId(reportRunId, userId, sessionId)
 
     const reportStartTime = Date.now()
     console.log(`[AssessmentController] Starting Single-Pass High-Speed Report Generation for user ${userId}...`)
 
     // Phase 4: Single-Pass High-Speed Report Generation (<8s target)
     const { user, aiReport } = await generateReportBundle({ userId, semanticProfile, runId: reportRunId })
+    await costTracker.reconcileCandidateCosts({ userId, sessionId }).catch(() => {})
     const totalElapsed = Date.now() - reportStartTime
     console.log(`[AssessmentController] Report successfully finalized and saved to MongoDB in ${totalElapsed}ms.`)
     costTracker.printRunSummary(reportRunId)

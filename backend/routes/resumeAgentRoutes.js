@@ -130,7 +130,9 @@ router.post('/parse-deterministic', upload.single('resume'), async (req, res) =>
  */
 router.post('/evaluate', userSessionGuard, upload.single('resume'), async (req, res) => {
   const runId = `eval_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
-  costTracker.setActiveRunId(runId)
+  const sessionId = req.body?.sessionId || req.headers['x-session-id'] || null
+  const userId = req.body?.userId || req.user?._id || null
+  costTracker.setActiveRunId(runId, userId, sessionId)
 
   try {
     const targetRole = req.body?.targetRole || ''
