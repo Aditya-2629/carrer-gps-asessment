@@ -90,15 +90,15 @@ export default function FinalNextAction({
     'Positioning'
 
   const summaryCopy = phaseId >= 3
-    ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`
-    : `Work directly with an executive technical recruiter to calibrate your ${targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.`
+    ? `Work directly with an experienced tech mentor to practice interview answers, explain your system design choices, and clear technical rounds.`
+    : `Work directly with an experienced tech recruiter to fine-tune your ${targetRole} resume, rewrite your key bullets, and build your step-by-step game plan.`
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 break-inside-avoid page-break-inside-avoid">
       <SpotlightCard
         className="p-6 sm:p-8 rounded-2xl bg-[var(--surface-card)] border border-[var(--border-default)] relative overflow-hidden shadow-xs"
-        data-mascot-cue="Ready to break your pipeline deadlock? Work live 1-on-1 with an executive coach to overhaul your positioning."
-        data-mascot-chip="Execution Bridge"
+        data-mascot-cue="Ready to break through? Work live 1-on-1 with a career coach to upgrade your resume and interview prep."
+        data-mascot-chip="Next Steps"
         data-mascot-emotion="coach"
       >
         <BorderBeam size={180} duration={8} colorFrom="#22C55E" colorTo="#15803D" />
@@ -107,7 +107,7 @@ export default function FinalNextAction({
           <div className="lg:col-span-7 space-y-4 text-left">
             {/* Header Tag */}
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--surface-sunken)] text-xs font-mono tracking-normal text-[var(--text-muted)] border border-[var(--border-default)]">
-              <ShinyText>Next Step • Live Execution Bridge</ShinyText>
+              <ShinyText>Next Step • Free 1-on-1 Strategy Session</ShinyText>
             </div>
 
             {/* Core Headline */}
@@ -157,7 +157,7 @@ export default function FinalNextAction({
               <div className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
                 <CheckCircle size={15} weight="fill" className="text-emerald-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong className="text-[var(--text-primary)] font-semibold">Offer Conversion Mastery:</strong> Rehearse system architecture defense, behavioral STAR stories, and compensation leverage.
+                  <strong className="text-[var(--text-primary)] font-semibold">Offer Conversion Mastery:</strong> Rehearse system design defense, behavioral STAR stories, and salary negotiation.
                 </span>
               </div>
             </div>

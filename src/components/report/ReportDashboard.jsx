@@ -596,7 +596,7 @@ const MOCK_REPORT = {
     missing_ats_keywords: [],
     ats_score: 68,
     strengths: [
-      'Strong modern JavaScript/TypeScript framework ecosystem and full-stack API design',
+      'Strong modern JavaScript/TypeScript frameworks and full-stack API design',
       'Demonstrated high-throughput microservices and latency optimization in production',
       'Enterprise cloud deployments and automated multi-region infrastructure pipelines',
     ],

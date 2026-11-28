@@ -170,7 +170,7 @@ export default function TopPriorities({ missionBoardData, resumeAgent, reportDat
           </h2>
         </div>
         <p className="text-xs sm:text-sm text-[var(--text-muted)] font-medium">
-          Focus exclusively on these top 3 high-leverage moves before applying to new listings
+          Focus on these top 3 priority moves before applying to new listings
         </p>
       </div>
 

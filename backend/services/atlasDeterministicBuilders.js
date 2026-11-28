@@ -517,7 +517,7 @@ export function build30_60_90MilestonePathway(
     },
     {
       period: '60 DAYS',
-      stage: 'Recruiter Pipeline Velocity & Multi-Threading',
+      stage: 'Recruiter Outreach & Pipeline Speed',
       goal: 'Convert top-of-funnel inbound interest into active technical interviews across multiple companies.',
       actions: [
         `Bypass public portals: Engage 10 hiring managers and internal recruiters weekly using personalized 50-word LinkedIn InMails highlighting your ${archetype.reverseOutreachHook}.`,

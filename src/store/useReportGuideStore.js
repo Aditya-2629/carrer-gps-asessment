@@ -86,7 +86,7 @@ export const INITIAL_SECTION_INSIGHTS = {
     solution: 'Re-align positioning and inject verified CAR metrics to clear automated screening filters.',
     thought: 'Critical root bottleneck detected. Resolving this unlocks your interview conversion.',
     emotion: 'alert',
-    chatPrompt: 'What is my single highest leverage fix to unblock technical interviews this week?',
+    chatPrompt: 'What is my single most important fix to unblock technical interviews this week?',
   },
   'top-priorities': {
     id: 'top-priorities',
@@ -119,7 +119,7 @@ export const INITIAL_SECTION_INSIGHTS = {
     solution: 'Follow the 7-day quick plan and 30/60/90 pathway for systematic offer conversion.',
     thought: 'Action Roadmap: structured 7-day sprints turn tactical fixes into compounding interview momentum.',
     emotion: 'thinking',
-    chatPrompt: 'What are my top high-leverage milestones to execute first from the action plan?',
+    chatPrompt: 'What are my top priority milestones to do first from the action plan?',
   },
   'next-action': {
     id: 'next-action',

@@ -750,15 +750,15 @@ export default function CareerReportPdf({ reportData = {} }) {
         },
         {
           period: '60 Days',
-          stage: 'Technical Panel Defense & Multi-Loop Velocity',
+          stage: 'Technical Panel Interviews & Pipeline Speed',
           goal: `Convert >= ${targetScreenToTech}% of recruiter screens into technical panels by rehearsing architecture trade-offs and 5 STAR ownership stories across active interview pipelines.`,
           deliverable: 'System Design Blueprints + 3+ Active Technical Loops',
           successSignal: `Screen-to-tech conversion >= ${targetScreenToTech}%`,
         },
         {
           period: '90 Days',
-          stage: 'Final Onsite Closing & Compensation Leverage',
-          goal: 'Advance through final director and architecture rounds across parallel opportunities, benchmark total compensation bands, and negotiate base, equity, and sign-on terms from a position of multi-offer leverage.',
+          stage: 'Final Onsite Closing & Pay Negotiation',
+          goal: 'Advance through final rounds across active opportunities, benchmark total pay bands, and negotiate terms from a position of multiple offers.',
           deliverable: 'Written Competitive Offer & Total Comp Benchmark',
           successSignal: 'Accepted offer at target compensation band',
         },
@@ -1229,8 +1229,8 @@ export default function CareerReportPdf({ reportData = {} }) {
             <Text style={{ fontSize: 6.5, fontFamily: 'Helvetica-Bold', color: '#DC2626' }}>BOTTLENECK DIAGNOSIS:</Text>
             <Text style={{ fontSize: 7, color: '#991B1B', flex: 1 }}>
               {isPhase2Healthy
-                ? `Screening callback velocity is healthy at ${screenRate}% (exceeding 5.0% benchmark). Pipeline conversion stalls at ${currentPhaseName} (${techPassRate}% technical pass rate vs 40% target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Advancing to onsite panels requires sharper technical storytelling and system design trade-off articulation.')}`
-                : `Pipeline conversion stalls at ${currentPhaseName} (${screenRate}% actual callback vs 5.0% industry target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Automated ATS keyword filtering is discarding applications before recruiter screening.')}`}
+                ? `Screening callback speed is healthy at ${screenRate}% (exceeding 5.0% benchmark). Pipeline conversion stalls at ${currentPhaseName} (${techPassRate}% technical pass rate vs 40% target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'Advancing to onsite panels requires sharper technical storytelling and clear system design choices.')}`
+                : `Pipeline conversion stalls at ${currentPhaseName} (${screenRate}% actual callback vs 5.0% industry target). ${safeStr(reportData?.recruiterVerdict || reportData?.sixSecondRecruiterVerdict || bottleneck.diagnosis || 'ATS keyword filtering is discarding applications before recruiter screening.')}`}
             </Text>
           </View>
         </View>
@@ -1250,8 +1250,8 @@ export default function CareerReportPdf({ reportData = {} }) {
             {safeStr(
               bottleneck.recoveryTarget || bottleneck.recommendedPivot,
               isPhase2Healthy
-                ? `Maintain screening callback velocity while optimizing technical interview conversion from ${techPassRate}% to >= ${targetScreenToTech}%.`
-                : `Deploy single-column Google XYZ achievements with verified technical stack to elevate callback velocity from ${screenRate}% to >= ${targetCallbackRate}%.`
+                ? `Maintain screening callback speed while improving technical interview conversion from ${techPassRate}% to >= ${targetScreenToTech}%.`
+                : `Use single-column achievements with proven skills to raise callback speed from ${screenRate}% to >= ${targetCallbackRate}%.`
             )}
           </Text>
         </View>
@@ -1504,7 +1504,7 @@ export default function CareerReportPdf({ reportData = {} }) {
             ───────────────────────────────────────────────────────────── */}
         <View style={styles.sectionTitleRow} minPresenceAhead={90} wrap={false}>
           <Text style={styles.sectionTitle}>Top Strategic Priorities</Text>
-          <Text style={styles.sectionTag}>IMMEDIATE LEVERAGE</Text>
+          <Text style={styles.sectionTag}>QUICK WINS</Text>
         </View>
 
         {/* Top 3 Strategic Priorities */}
