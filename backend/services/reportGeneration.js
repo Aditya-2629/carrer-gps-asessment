@@ -1099,6 +1099,7 @@ export async function generateReportBundle(params = {}, options = {}) {
       const scorecard = computeScorecard({
         canonicalResume: resumeJson,
         targetRole,
+        marketProfile: marketData?.marketProfile || marketProfile || null,
         analysis: {
           candidateSnapshot: {
             name: resumeJson.candidate?.name || user?.name || '',
@@ -1111,6 +1112,7 @@ export async function generateReportBundle(params = {}, options = {}) {
       })
       if (scorecard) {
         report.resume_agent.dashboard = scorecard
+        report.resume_agent.dashboard.keywordAlignment = freshKeywordAlignment
         report.resume_agent.sectionAudit = scorecard.sectionAudit || report.resume_agent.sectionAudit
       }
     } catch (_scErr) {

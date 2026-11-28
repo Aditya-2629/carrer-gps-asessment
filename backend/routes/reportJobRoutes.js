@@ -143,8 +143,8 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     let resolvedMarketData = null
     const experienceYears =
       semanticProfile?.canonicalResume?.totalExperienceYears ??
-      user?.resumeJson?.totalExperienceYears ??
       options.precomputedResumeJson?.totalExperienceYears ??
+      options.precomputedResumeJson?.candidate?.totalExperienceYears ??
       null
 
     if (targetRole) {
@@ -205,7 +205,7 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       precomputedResumeJson: options.precomputedResumeJson || null,
       precomputedLinkedinData: options.linkedinData || null,
       targetJobDescription: semanticProfile?.targetJobDescription || '',
-      marketData: resolvedMarketData,
+      marketData: resolvedMarketData || null,
       onProgress: ({ stage, message, agent }) => pushEvent(job, stage, message, agent || null),
     })
 
