@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { motion } from 'framer-motion'
 import {
   CalendarBlank,
   ArrowRight,
   ArrowUpRight,
-  DownloadSimple,
   ShieldCheck,
   Briefcase,
   CheckCircle,
@@ -15,7 +14,6 @@ import {
   InstagramLogo,
   YoutubeLogo,
 } from '@phosphor-icons/react'
-import { downloadFullVisualReport } from '../../lib/downloadFullReport'
 import { trackEvent } from '../../lib/posthog'
 import strategySessionImg from '../../assets/images/career-gps-strategy-session.webp'
 import { decodeHtmlEntities } from '../../../backend/agents/assessment/assessmentAgent'
@@ -94,8 +92,6 @@ export default function FinalNextAction({
   const summaryCopy = phaseId >= 3
     ? `Work directly with an executive technical mentor to master system architecture defense, articulate complex engineering tradeoffs, and advance through technical panels live.`
     : `Work directly with an executive technical recruiter to calibrate your ${targetRole} positioning, rewrite your highest-leverage bullets, and implement your customized execution roadmap live.`
-
-  const [isDownloading, setIsDownloading] = useState(false)
 
   return (
     <section id="next-action" className="pt-2 pb-0 print:pt-1 print:pb-0 break-inside-avoid page-break-inside-avoid">
@@ -213,40 +209,6 @@ export default function FinalNextAction({
                   </MagnetButton>
                 )
               })()}
-
-              <button
-                type="button"
-                disabled={isDownloading}
-                onClick={async () => {
-                  trackEvent('pdf_downloaded', { source: 'final_next_action', isTeaserLocked, candidateName })
-                  setIsDownloading(true)
-                  try {
-                    const resolvedSocial = socialLinksConfig || reportData?.socialLinksConfig || null
-                    await downloadFullVisualReport(
-                      {
-                        ...reportData,
-                        whatsappCtaNumber: whatsappNumber || reportData?.whatsappCtaNumber || '',
-                        callBookingUrl: bookingUrl || reportData?.callBookingUrl || '',
-                        ...(resolvedSocial ? { socialLinksConfig: resolvedSocial } : {}),
-                      },
-                      candidateName,
-                      { isTeaserLocked }
-                    )
-                  } finally {
-                    setIsDownloading(false)
-                  }
-                }}
-                className="print:hidden w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[var(--surface-sunken)] hover:bg-[var(--surface-card)] border border-[var(--border-default)] text-xs sm:text-sm font-semibold text-[var(--text-primary)] shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-              >
-                <DownloadSimple size={18} weight="bold" />
-                <span>
-                  {isDownloading
-                    ? 'Generating PDF...'
-                    : isTeaserLocked
-                    ? 'Download Preview Report (PDF)'
-                    : 'Download Full Report (PDF)'}
-                </span>
-              </button>
             </div>
 
             {(() => {
