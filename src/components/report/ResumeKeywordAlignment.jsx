@@ -133,7 +133,8 @@ export default function ResumeKeywordAlignment({
   }
 
   const uniqueMissing = Array.from(missingMap.values())
-  const criticalMissing = uniqueMissing.filter((i) => (i.percentage && i.percentage >= 20) || i.priority === 'HIGH')
+  const filteredCritical = uniqueMissing.filter((i) => (i.percentage && i.percentage >= 10) || i.priority === 'HIGH')
+  const criticalMissing = filteredCritical.length >= 6 ? filteredCritical : uniqueMissing.slice(0, 15)
 
   const verifiedCount = matchedCount || cleanMatched.length
   const calculatedTotal = totalTargetKeywords > 0 ? totalTargetKeywords : (cleanMatched.length + uniqueMissing.length || 1)
