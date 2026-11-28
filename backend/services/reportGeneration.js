@@ -11,7 +11,8 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../agents/resume/market/dynamicCompetencyClusterizer.js'
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
-import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { getMarketDataForBucket, ensurePriorityMarketBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { findSameRoleSiblingMarketVersion } from '../agents/resume/market/keywordAlignment.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
@@ -927,12 +928,31 @@ export async function generateReportBundle(params = {}, options = {}) {
   let marketProfile = params.marketProfile || null
   if (!marketProfile && mongoose.connection.readyState === 1) {
     try {
-      const bucketRes = resolveMarketBucket({ targetRole, canonicalResume: resumeJson })
+      const bucketRes = resolveMarketBucket({
+        targetRole,
+        canonicalResume: resumeJson,
+        userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
+      })
       const bucketKey = bucketRes?.bucketKey
       if (bucketKey) {
         const marketData = await getMarketDataForBucket(bucketKey, { autoRefresh: false, bypassFastCatch: true })
         if (marketData?.marketProfile && (marketData.sampleSize >= 8 || marketData.marketProfile?.sampleSize >= 8)) {
           marketProfile = marketData.marketProfile
+        } else {
+          // If exact bucket has < 8 JDs, trigger non-blocking priority prefetch and fallback to same-role sibling
+          ensurePriorityMarketBucket({
+            roleTitle: targetRole,
+            canonicalResume: resumeJson,
+            userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
+            experienceLevel: bucketRes?.experienceBucket,
+          }).catch((warmErr) => {
+            console.warn(`[ReportGeneration] Priority prefetch notice for "${bucketKey}":`, warmErr.message)
+          })
+
+          const sibling = await findSameRoleSiblingMarketVersion(bucketKey)
+          if (sibling?.marketProfile) {
+            marketProfile = sibling.marketProfile
+          }
         }
       }
     } catch (_mErr) {}

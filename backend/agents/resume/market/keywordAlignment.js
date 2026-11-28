@@ -13,6 +13,9 @@ import { getMarketDemandedSkills } from './marketSkillDemandRegistry.js'
 import { isConcreteTechSkill } from './dynamicSkillExtractor.js'
 import { inferRoleFromKeywordFrequency } from '../resumeAgent.normalizer.js'
 import { evaluateCandidateClusters } from './competencyClusters.js'
+import JobMarketVersion from '../../../models/JobMarketVersion.js'
+import { ensurePriorityMarketBucket } from './marketJdRetriever.js'
+import { resolveMarketBucket, normalizeRoleTaxonomy, mapYearsToBucket } from './marketBucketResolver.js'
 
 export const isGenuineTechnicalSkill = isConcreteTechSkill
 
@@ -1327,8 +1330,145 @@ export function weaveKeywordsIntoBullets(experiences = [], missingKeywords = [],
   return results
 }
 
+/**
+ * Queries JobMarketVersion for a same-role sibling bucket when the exact bucket has < 8 JDs.
+ * Strictly same role (never cross-role). Picks the closest YOE bucket with totalJds >= 8 (highest totalJds as tie-breaker).
+ *
+ * @param {string} exactKey - e.g. "software-engineer::5-8" or "software-engineer::0-2"
+ * @returns {Promise<{ siblingKey: string, totalJds: number, versionDoc: Object, marketProfile: Object }|null>}
+ */
+export async function findSameRoleSiblingMarketVersion(exactKey) {
+  try {
+    if (!exactKey || typeof exactKey !== 'string' || !exactKey.includes('::')) return null
+    const [roleSlug, yoeBucket] = exactKey.split('::')
+    if (!roleSlug) return null
+
+    // Strictly same role prefix query
+    const escapedRole = roleSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const versions = await JobMarketVersion.find({
+      bucketKey: { $regex: new RegExp(`^${escapedRole}::`, 'i') },
+      isArchived: false,
+    }).lean()
+
+    if (!versions || versions.length === 0) return null
+
+    // Group by bucketKey and keep latest/highest-JD version for each sibling bucket
+    const candidateBuckets = new Map()
+    for (const v of versions) {
+      if (v.bucketKey === exactKey) continue
+      const jdsCount = v.jobs?.length || v.totalJds || v.marketProfile?.sampleSize || 0
+      const skillsCount = Array.isArray(v.marketProfile?.skills) ? v.marketProfile.skills.length : 0
+      if (jdsCount >= 8 && skillsCount >= 4) {
+        const existing = candidateBuckets.get(v.bucketKey)
+        if (!existing || jdsCount > existing.totalJds) {
+          candidateBuckets.set(v.bucketKey, {
+            siblingKey: v.bucketKey,
+            totalJds: jdsCount,
+            versionDoc: v,
+            marketProfile: v.marketProfile,
+          })
+        }
+      }
+    }
+
+    if (candidateBuckets.size === 0) return null
+
+    // Closeness ordering relative to yoeBucket
+    const YOE_INDEX = { '0-2': 0, '3-5': 1, '5-8': 1.5, '6-8': 2, '8+': 3 }
+    const targetIdx = YOE_INDEX[yoeBucket] ?? 1.5
+
+    const sortedCandidates = Array.from(candidateBuckets.values()).sort((a, b) => {
+      const aExp = a.siblingKey.split('::')[1] || ''
+      const bExp = b.siblingKey.split('::')[1] || ''
+      const distA = Math.abs((YOE_INDEX[aExp] ?? 1.5) - targetIdx)
+      const distB = Math.abs((YOE_INDEX[bExp] ?? 1.5) - targetIdx)
+      if (distA !== distB) return distA - distB
+      return b.totalJds - a.totalJds // tie-breaker: highest totalJds
+    })
+
+    const best = sortedCandidates[0]
+    if (best) {
+      console.log(`[KeywordAlignment] Using same-role sibling bucket "${best.siblingKey}" (${best.totalJds} JDs) for "${exactKey}".`)
+      return best
+    }
+  } catch (err) {
+    console.warn(`[KeywordAlignment] Sibling lookup error for "${exactKey}":`, err.message)
+  }
+  return null
+}
+
+/**
+ * Resolves the market profile for keyword alignment.
+ * 1. Computes the canonical bucket (prioritizing totalExperienceYears > 0 over userAnswerYoe).
+ * 2. If exact bucket has < 8 JDs in JobMarketVersion:
+ *    - Automatically enqueues ensurePriorityMarketBucket in background (non-blocking).
+ *    - Falls back to the nearest same-role sibling bucket with >= 8 JDs (highest totalJds tie-breaker).
+ *
+ * @param {Object} params
+ * @returns {Promise<Object|null>} marketProfile
+ */
+export async function resolveMarketProfileForKeywords({
+  exactKey = '',
+  roleSlug = '',
+  yoeBucket = '',
+  targetRole = '',
+  canonicalResume = null,
+  userAnswerYoe = '',
+} = {}) {
+  let resolvedKey = exactKey
+  if (!resolvedKey && (roleSlug || targetRole)) {
+    const role = roleSlug || normalizeRoleTaxonomy(targetRole).roleKey
+    const totalExp = Number(canonicalResume?.totalExperienceYears ?? canonicalResume?.candidate?.totalExperienceYears ?? 0)
+    let yoe = yoeBucket
+    if (!yoe) {
+      if (totalExp > 0) {
+        yoe = mapYearsToBucket(totalExp)
+        console.log(`[YOE_BUCKET] Resolved "${role}::${yoe}" from totalExperienceYears=${totalExp} (userAnswerYoe="${userAnswerYoe}").`)
+      } else {
+        yoe = mapYearsToBucket(userAnswerYoe || 4)
+        console.log(`[YOE_BUCKET] Resolved "${role}::${yoe}" from totalExperienceYears=0 (userAnswerYoe="${userAnswerYoe}").`)
+      }
+    }
+    resolvedKey = `${role}::${yoe}`
+  }
+
+  if (!resolvedKey) return null
+
+  let exactDoc = null
+  try {
+    exactDoc = await JobMarketVersion.findOne({ bucketKey: resolvedKey, isArchived: false }).sort({ version: -1 }).lean()
+  } catch (_e) {}
+
+  const exactJds = exactDoc?.jobs?.length || exactDoc?.totalJds || exactDoc?.marketProfile?.sampleSize || 0
+  const exactSkills = Array.isArray(exactDoc?.marketProfile?.skills) ? exactDoc.marketProfile.skills.length : 0
+
+  if (exactDoc?.marketProfile && exactJds >= 8 && exactSkills >= 4) {
+    return exactDoc.marketProfile
+  }
+
+  // Exact bucket has < 8 JDs: trigger non-blocking priority warming
+  const [role, yoe] = resolvedKey.split('::')
+  ensurePriorityMarketBucket({
+    roleTitle: role || targetRole,
+    experienceLevel: yoe,
+    canonicalResume,
+  }).catch((err) => {
+    console.warn(`[KeywordAlignment] Non-blocking market scrape enqueue notice for "${resolvedKey}":`, err.message)
+  })
+
+  // Sibling YOE fallback
+  const sibling = await findSameRoleSiblingMarketVersion(resolvedKey)
+  if (sibling?.marketProfile) {
+    return sibling.marketProfile
+  }
+
+  return exactDoc?.marketProfile || null
+}
+
 export default {
   computeKeywordAlignment,
+  findSameRoleSiblingMarketVersion,
+  resolveMarketProfileForKeywords,
   weaveKeywordsIntoBullets,
   determineSemanticSlot,
   cleanTargetRoleTitle,

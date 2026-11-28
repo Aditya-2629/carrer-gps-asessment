@@ -184,6 +184,7 @@ export async function ensurePriorityMarketBucket({
   experienceYears = null,
   experienceLevel = '',
   canonicalResume = null,
+  userAnswerYoe = null,
 } = {}) {
   const cleanRole = String(
     roleTitle ||
@@ -196,26 +197,16 @@ export async function ensurePriorityMarketBucket({
     return { ready: false, started: false, bucketKey: null, totalJds: 0, inFlight: false }
   }
 
-  // 1. Resolve experience bucket
-  let years = null
-  const rawExp = experienceYears ?? experienceLevel ?? canonicalResume?.candidate?.totalExperienceYears ?? canonicalResume?.totalExperienceYears
-  if (typeof rawExp === 'number') {
-    years = rawExp
-  } else if (typeof rawExp === 'string') {
-    const match = rawExp.match(/\d+/)
-    years = match ? parseInt(match[0], 10) : 4
-  } else if (canonicalResume?.experience?.length) {
-    years = Math.min(12, Math.max(1, canonicalResume.experience.length * 2))
-  }
-  const expBucket = mapYearsToBucket(years)
-
-  // 2. Resolve bucket key
+  // 1. Resolve canonical market bucket with totalExperienceYears prioritized over userAnswerYoe
+  const rawUserAnswer = userAnswerYoe ?? experienceYears ?? experienceLevel ?? ''
   const bucketRes = resolveMarketBucket({
     targetRole: cleanRole,
     canonicalResume,
-    experienceLevel: expBucket,
+    userAnswerYoe: rawUserAnswer,
+    experienceYears,
+    experienceLevel,
   })
-  const bucketKey = bucketRes?.bucketKey || `${normalizeRoleTaxonomy(cleanRole).roleKey}::${expBucket}`
+  const bucketKey = bucketRes?.bucketKey || `${normalizeRoleTaxonomy(cleanRole).roleKey}::${mapYearsToBucket(rawUserAnswer || 4)}`
 
   // 3. Check MongoDB for existing valid sample
   let sampleSize = 0
@@ -245,7 +236,7 @@ export async function ensurePriorityMarketBucket({
   if (siblingFallback) {
     const sibSize = siblingFallback.version?.jobs?.length || siblingFallback.version?.marketProfile?.sampleSize || siblingFallback.bucket?.jobCount || 0
     if (sibSize >= MIN_SAMPLE_THRESHOLD) {
-      console.log(`[MarketJdRetriever] ensurePriorityMarketBucket: Sibling tier "${siblingFallback.bucket.bucketKey}" has ${sibSize} JDs (serving for cold "${bucketKey}")`)
+      console.log(`[KeywordAlignment] Using same-role sibling bucket "${siblingFallback.bucket.bucketKey}" (${sibSize} JDs) for "${bucketKey}".`)
       return {
         ready: true,
         started: false,
@@ -449,7 +440,8 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
     // 2. Sibling tier check: If exact bucket is cold, check if adjacent tier already has >= 8 JDs
     const earlyAdjacentFallback = await findNearestPopulatedBucket(bucketKey)
     if (earlyAdjacentFallback) {
-      console.log(`[MarketJdRetriever] Serving adjacent populated bucket ${earlyAdjacentFallback.bucket.bucketKey} for cold bucket ${bucketKey}`)
+      const sibSize = earlyAdjacentFallback.version?.jobs?.length || earlyAdjacentFallback.version?.marketProfile?.sampleSize || 0
+      console.log(`[KeywordAlignment] Using same-role sibling bucket "${earlyAdjacentFallback.bucket.bucketKey}" (${sibSize} JDs) for "${bucketKey}".`)
       if (autoRefresh) {
         enqueueFullBackgroundBucket(bucketKey).catch(() => {})
       }
