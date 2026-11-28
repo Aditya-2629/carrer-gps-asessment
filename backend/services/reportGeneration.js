@@ -12,7 +12,7 @@ import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../a
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { getMarketDataForBucket, ensurePriorityMarketBucket } from '../agents/resume/market/marketJdRetriever.js'
-import { findSameRoleSiblingMarketVersion } from '../agents/resume/market/keywordAlignment.js'
+import { computeKeywordAlignment, findSameRoleSiblingMarketVersion } from '../agents/resume/market/keywordAlignment.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
@@ -924,42 +924,36 @@ export async function generateReportBundle(params = {}, options = {}) {
   const resumeJson = params.resumeJson || user?.resumeJson || params.resumeData || params.canonicalResume || {}
   const targetRole = resolveTargetRoleHierarchy(params, user, answers, resumeJson)
 
-  // Resolve Market Profile if not provided
-  let marketProfile = params.marketProfile || null
-  if (!marketProfile && mongoose.connection.readyState === 1) {
-    try {
-      const bucketRes = resolveMarketBucket({
-        targetRole,
-        canonicalResume: resumeJson,
-        userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
-      })
-      const bucketKey = bucketRes?.bucketKey
-      if (bucketKey) {
-        const marketData = await getMarketDataForBucket(bucketKey, { autoRefresh: false, bypassFastCatch: true })
-        if (marketData?.marketProfile && (marketData.sampleSize >= 8 || marketData.marketProfile?.sampleSize >= 8)) {
-          marketProfile = marketData.marketProfile
-        } else {
-          // If exact bucket has < 8 JDs, trigger non-blocking priority prefetch and fallback to same-role sibling
-          ensurePriorityMarketBucket({
-            roleTitle: targetRole,
-            canonicalResume: resumeJson,
-            userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
-            experienceLevel: bucketRes?.experienceBucket,
-          }).catch((warmErr) => {
-            console.warn(`[ReportGeneration] Priority prefetch notice for "${bucketKey}":`, warmErr.message)
-          })
+  // Resolve Market Profile & Live Market Data
+  const targetJobDescription = params.targetJobDescription || answers?.targetJobDescription || ''
+  const experienceYears = resumeJson?.totalExperienceYears ?? resumeJson?.candidate?.totalExperienceYears ?? null
+  const bucketRes = resolveMarketBucket({
+    targetRole,
+    targetJobDescription,
+    canonicalResume: resumeJson,
+    experienceYears,
+  })
 
-          const sibling = await findSameRoleSiblingMarketVersion(bucketKey)
-          if (sibling?.marketProfile) {
-            marketProfile = sibling.marketProfile
-          }
-        }
-      }
-    } catch (_mErr) {}
+  let marketData = params.marketData || null
+  if (!marketData && mongoose.connection.readyState === 1) {
+    try {
+      marketData = await getMarketDataForBucket(bucketRes.bucketKey, {
+        autoRefresh: true,
+        roleName: bucketRes.roleName,
+      })
+    } catch (_mErr) {
+      console.warn('[ReportGen] Market data retrieval non-fatal warning:', _mErr.message)
+    }
   }
-  if (!marketProfile && params.semanticProfile) {
-    marketProfile = params.semanticProfile
-  }
+  const marketProfile = marketData?.marketProfile || params.marketProfile || null
+
+  // Pre-calculate deterministic fresh keyword alignment against market profile
+  const freshKeywordAlignment = computeKeywordAlignment({
+    canonicalResume: resumeJson,
+    targetJobDescription,
+    targetRole,
+    marketProfile: marketData?.marketProfile || marketProfile || null,
+  })
 
   // Resolve LinkedIn data & concurrent scraping
   const effectiveLinkedinUrl = (
@@ -1077,6 +1071,27 @@ export async function generateReportBundle(params = {}, options = {}) {
   // Ensure resume_agent and dashboard.bulletAudit are always populated for report consumption
   if (!report.resume_agent) {
     report.resume_agent = params.resumeAgent || params.precomputedResumeAgent || user?.resume_agent || {}
+  }
+
+  // CRITICAL: Even when params.precomputedResumeAgent is reused, ALWAYS update keywordAlignment
+  // and missingTargetKeywords with freshKeywordAlignment so precomputed results never stay frozen with 0 missing keywords.
+  if (report.resume_agent) {
+    report.resume_agent.keywordAlignment = freshKeywordAlignment
+    if (!report.resume_agent.dashboard) {
+      report.resume_agent.dashboard = {}
+    }
+    report.resume_agent.dashboard.keywordAlignment = freshKeywordAlignment
+    report.resume_agent.missingTargetKeywords = freshKeywordAlignment?.missingFromResume || []
+    report.resume_agent.missingKeywords = freshKeywordAlignment?.missingFromResume || []
+    report.resume_agent.verifiedSkills = freshKeywordAlignment?.matchedInExperience || []
+  }
+
+  // Also synchronize top-level report alignment keys
+  report.keywordAlignment = freshKeywordAlignment
+  report.missingTargetKeywords = freshKeywordAlignment?.missingFromResume || []
+  report.missingKeywords = freshKeywordAlignment?.missingFromResume || []
+  if (report.dashboard) {
+    report.dashboard.keywordAlignment = freshKeywordAlignment
   }
   if (!report.resume_agent.dashboard || !report.resume_agent.dashboard.bulletAudit?.length) {
     try {

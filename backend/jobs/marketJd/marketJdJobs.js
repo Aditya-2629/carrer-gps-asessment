@@ -138,9 +138,9 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
       jobs: rawCandidates.map((j, idx) => {
         const analyzed = analyzedJobs[idx] || {}
         return {
-          title: j.title || bucket.roleName,
-          company: normalizeCompanyString(j.company),
-          location: j.location || 'United States',
+          title: typeof j.title === 'string' && j.title.trim() ? j.title.trim() : (j.title?.name || bucket.roleName || 'Job Opening'),
+          company: typeof j.company === 'string' && j.company.trim() ? j.company.trim() : (j.company?.name || 'Enterprise Employer'),
+          location: typeof j.location === 'string' && j.location.trim() ? j.location.trim() : (j.location?.name || 'United States'),
           description: '',
           normalizedDescription: '',
           skills: analyzed.skills || [],
@@ -503,9 +503,9 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
     jobs: dedupedJds.map((j, idx) => {
       const analyzed = analyzedJobs[idx] || {}
       return {
-        title: j.title || bucket.roleName,
-        company: normalizeCompanyString(j.company),
-        location: 'United States',
+        title: typeof j.title === 'string' && j.title.trim() ? j.title.trim() : (j.title?.name || bucket.roleName || 'Job Opening'),
+        company: typeof j.company === 'string' && j.company.trim() ? j.company.trim() : (j.company?.name || 'Enterprise Employer'),
+        location: typeof j.location === 'string' && j.location.trim() ? j.location.trim() : (j.location?.name || 'United States'),
         description: j.description || '',
         normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
         skills: analyzed.skills || [],
