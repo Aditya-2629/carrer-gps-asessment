@@ -305,7 +305,18 @@ export const BUCKET_EXPERIENCE_RANGES = ['0-2', '3-5', '6-8', '8+']
  * @returns {'0-2'|'3-5'|'6-8'|'8+'}
  */
 export function mapYearsToBucket(years) {
-  if (years == null || isNaN(years)) return '3-5' // safe mid-level default
+  if (years == null) return '3-5' // safe mid-level default
+  if (typeof years === 'string') {
+    const s = years.trim()
+    if (/0[\s–—-]2/i.test(s) || s === '0-2') return '0-2'
+    if (/3[\s–—-]5/i.test(s) || s === '3-5') return '3-5'
+    if (/(?:5|6)[\s–—-]8/i.test(s) || s === '6-8' || s === '5-8') return '6-8'
+    if (/8\+/i.test(s) || /8\s*plus/i.test(s) || s === '8+') return '8+'
+    const m = s.match(/\d+/)
+    if (m) years = parseInt(m[0], 10)
+    else return '3-5'
+  }
+  if (isNaN(years)) return '3-5'
   if (years <= 2) return '0-2'
   if (years <= 5) return '3-5'
   if (years <= 8) return '6-8'
@@ -393,13 +404,19 @@ export function resolveMarketBucket({
   // 2. JD requirement
   // 3. Reconcile: If resume shows 6 years and JD says 5+ years -> 6-8
   let resolvedYears = candidateYears
+  if (resolvedYears == null && experienceLevel) {
+    resolvedYears = mapYearsToBucket(experienceLevel)
+  }
   if (resolvedYears == null && jdReq.minYears != null) {
     resolvedYears = jdReq.minYears
   } else if (resolvedYears == null) {
     resolvedYears = 4 // mid-level fallback
   }
 
-  const experienceBucket = mapYearsToBucket(resolvedYears)
+  let experienceBucket = typeof resolvedYears === 'string' && BUCKET_EXPERIENCE_RANGES.includes(resolvedYears)
+    ? resolvedYears
+    : mapYearsToBucket(resolvedYears)
+  if (experienceBucket === '5-8') experienceBucket = '6-8'
 
   // Determine effective role text
   const primaryRoleSource =

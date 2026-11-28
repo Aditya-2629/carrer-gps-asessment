@@ -658,6 +658,13 @@ export default function CareerReportPdf({ reportData = {} }) {
         { priority: 3, title: 'Optimize LinkedIn Headline & About', action: 'Deploy proof-first headline and 4-part value narrative to boost inbound recruiter discovery.', reason: 'Improves semantic ranking on LinkedIn Recruiter searches.' },
       ]
 
+  // Candidate canonical resume and top stack
+  const canonicalResume = reportData?.resume_json || reportData?.resume_agent?.canonicalResume || {}
+  const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
+    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+    .filter(Boolean)
+  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ')
+
   // Dynamic Action Plan (7-Day & 30/60/90)
   const isRedacted = Boolean(reportData?.__teaserRedacted)
   const actionPlan = reportData?.dynamic_action_plan || reportData?.action_plan || {}
@@ -765,7 +772,6 @@ export default function CareerReportPdf({ reportData = {} }) {
   // 4. Resume Deep Diagnosis Data
   const resumeAgent = reportData?.resume_agent || {}
   const resumeDashboard = resumeAgent.dashboard || {}
-  const canonicalResume = reportData?.resume_json || resumeAgent.canonicalResume || {}
 
   const rawAudit = resumeAgent.sectionAudit || resumeDashboard.sectionAudit || reportData?.resume_agent?.sectionAudit || null
   const bulletAuditList = (Array.isArray(resumeDashboard?.bulletAudit) && resumeDashboard.bulletAudit.length > 0)
@@ -829,10 +835,6 @@ export default function CareerReportPdf({ reportData = {} }) {
 
   // Professional Summary Rewrite
   const summaryOpt = resumeAgent?.summaryOptimization || reportData?.summary_optimization || {}
-  const rawCandidateSkills = (Array.isArray(canonicalResume?.skills) ? canonicalResume.skills : (Array.isArray(canonicalResume?.top_skills) ? canonicalResume.top_skills : []))
-    .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
-    .filter(Boolean)
-  const topCandidateStack = rawCandidateSkills.slice(0, 6).join(', ')
 
   const rawRewrittenSummary = summaryOpt.rewrittenSummary || summaryOpt.executiveSummaryRewrite || reportData?.summary_rewrite || ''
   const isGenericSummary = !rawRewrittenSummary ||
