@@ -85,10 +85,18 @@ function redactKeywordArray(arr, ratio = 0.5) {
 function redactKeywordAlignment(ka) {
   if (!ka || typeof ka !== 'object') return ka
 
+  const rawMissing = Array.isArray(ka.missingMarketSkillsRanked) && ka.missingMarketSkillsRanked.length > 0
+    ? ka.missingMarketSkillsRanked
+    : (Array.isArray(ka.missingFromResume) ? ka.missingFromResume : [])
+  const filteredCritical = rawMissing.filter((i) => (typeof i === 'object' && ((i.percentage && i.percentage >= 10) || i.priority === 'HIGH')))
+  const baseCritical = Array.isArray(ka.criticalMissing) && ka.criticalMissing.length >= 6
+    ? ka.criticalMissing
+    : (filteredCritical.length >= 6 ? filteredCritical : rawMissing.slice(0, 15))
+
   // Keep 50% of Missing Target Keywords and 50% of Skills-Only across all aliases
   const ranked = redactKeywordArray(ka.missingMarketSkillsRanked, 0.5)
   const missing = redactKeywordArray(ka.missingFromResume, 0.5)
-  const critical = redactKeywordArray(ka.criticalMissing, 0.5)
+  const critical = redactKeywordArray(baseCritical, 0.5)
   const missingKw = redactKeywordArray(ka.missingKeywords, 0.5)
   const skillsOnly = redactKeywordArray(ka.skillsOnlyUnverified, 0.5)
   const skillsOnlyAlias = redactKeywordArray(ka.skillsOnly, 0.5)

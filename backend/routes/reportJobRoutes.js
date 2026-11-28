@@ -140,13 +140,21 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       ''
 
     let resolvedBucketKey = null
+    let resolvedMarketData = null
+    const experienceYears =
+      semanticProfile?.canonicalResume?.totalExperienceYears ??
+      options.precomputedResumeJson?.totalExperienceYears ??
+      options.precomputedResumeJson?.candidate?.totalExperienceYears ??
+      null
+
     if (targetRole) {
       try {
         const userAnswerYoe = semanticProfile?.answers?.experience || semanticProfile?.answers?.experienceYears || ''
         const bucketRes = resolveMarketBucket({
           targetRole,
           targetJobDescription: semanticProfile?.targetJobDescription || '',
-          canonicalResume: options.precomputedResumeJson || null,
+          canonicalResume: semanticProfile?.canonicalResume || options.precomputedResumeJson || null,
+          experienceYears,
           userAnswerYoe,
         })
         resolvedBucketKey = bucketRes?.bucketKey || null
@@ -161,10 +169,13 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
         const prefetchRes = await ensurePriorityMarketBucket({
           roleTitle: targetRole,
           canonicalResume: semanticProfile?.canonicalResume || options?.precomputedResumeJson || null,
+          experienceYears,
           userAnswerYoe,
         })
         if (prefetchRes.started && prefetchRes.promise) {
           activeCatchPromise = prefetchRes.promise
+        } else if (prefetchRes.ready && prefetchRes.marketProfile) {
+          resolvedMarketData = prefetchRes
         }
       }
 
@@ -176,6 +187,9 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
           const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 50000))
           const catchResult = await Promise.race([activeCatchPromise, timeoutPromise])
           console.log(`[report-jobs] Wait Gate resolved for ${resolvedBucketKey} with status:`, catchResult?.status || 'done')
+          if (catchResult && catchResult.status !== 'timeout') {
+            resolvedMarketData = catchResult
+          }
         } catch (gateErr) {
           console.warn(`[report-jobs] Wait Gate notice for ${resolvedBucketKey}:`, gateErr.message)
         }
@@ -190,6 +204,8 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       precomputedResumeAgent: options.precomputedResumeAgent || null,
       precomputedResumeJson: options.precomputedResumeJson || null,
       precomputedLinkedinData: options.linkedinData || null,
+      targetJobDescription: semanticProfile?.targetJobDescription || '',
+      marketData: resolvedMarketData || null,
       onProgress: ({ stage, message, agent }) => pushEvent(job, stage, message, agent || null),
     })
 

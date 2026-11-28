@@ -561,6 +561,43 @@ export function decodeHtmlEntities(str) {
     .replace(/&#39;|&apos;/gi, "'")
 }
 
+/**
+ * Canonicalizes common tech skill variations and near-duplicates to a single standard name.
+ */
+export function canonicalizeSkillName(rawSkill) {
+  if (!rawSkill || typeof rawSkill !== 'string') return ''
+  const trimmed = decodeHtmlEntities(rawSkill).trim()
+  if (!trimmed) return ''
+
+  const lower = trimmed.toLowerCase()
+
+  if (/^ci[\s\/-]?cd(\s*(pipelines?|principles?|workflows?|practices?))?$/i.test(lower)) return 'CI/CD'
+  if (/^(rest\s*apis?|restful\s*apis?|apis?|api\s*design|rest)$/i.test(lower)) return 'REST APIs'
+  if (/^microservices?(\s*architecture)?$/i.test(lower)) return 'Microservices'
+  if (/^docker(\s*containers?)?$/i.test(lower)) return 'Docker'
+  if (/^(kubernetes|k8s)$/i.test(lower)) return 'Kubernetes'
+  if (/^unit\s*(testing|tests?)$/i.test(lower)) return 'Unit Testing'
+  if (/^(test\s*automation|automated\s*testing|automation\s*testing)$/i.test(lower)) return 'Test Automation'
+  if (/^git(\s*(version\s*control|vcs))?$/i.test(lower)) return 'Git'
+  if (/^(aws|amazon\s*web\s*services)$/i.test(lower)) return 'AWS'
+  if (/^(gcp|google\s*cloud(\s*platform)?)$/i.test(lower)) return 'GCP'
+  if (/^(azure|microsoft\s*azure)$/i.test(lower)) return 'Azure'
+  if (/^(postgresql|postgres)$/i.test(lower)) return 'PostgreSQL'
+  if (/^(system\s*design|system\s*architecture)$/i.test(lower)) return 'System Design'
+  if (/^(data\s*modeling|data\s*model)$/i.test(lower)) return 'Data Modeling'
+  if (/^(power\s*bi|powerbi)$/i.test(lower)) return 'Power BI'
+  if (/^(agile|scrum|agile\s*[\/-]\s*scrum|agile\s*methodolog(y|ies))$/i.test(lower)) return 'Agile / Scrum'
+  if (/^(react|react\.?js|reactjs)$/i.test(lower)) return 'React'
+  if (/^(node\.?js|nodejs|node)$/i.test(lower)) return 'Node.js'
+  if (/^(next\.?js|nextjs)$/i.test(lower)) return 'Next.js'
+  if (/^(vue|vue\.?js|vuejs)$/i.test(lower)) return 'Vue.js'
+  if (/^(angular|angular\.?js|angularjs)$/i.test(lower)) return 'Angular'
+  if (/^(sql\s*queries|sql\s*database)$/i.test(lower)) return 'SQL'
+  if (/^(graphql\s*apis?)$/i.test(lower)) return 'GraphQL'
+
+  return trimmed
+}
+
 function isConcreteTechSkillChip(skill) {
   if (!skill || typeof skill !== 'string') return false
   const s = decodeHtmlEntities(skill).trim()
@@ -671,11 +708,15 @@ export function computeKeywordAlignment({
   else if (/nurse|nursing|clinical|healthcare|patient|medical/i.test(roleLower)) packKey = 'clinical-healthcare'
   else packKey = 'general-professional'
 
-  // 2. Determine Target Keywords (12–16 Core High-Impact Keywords)
+  // 2. Determine Target Keywords (Core Market Benchmark)
   let targetKeywords = []
   if (isJdProvided) {
     const extractedJdSkills = extractSkillsFromJd(targetJobDescription)
-    targetKeywords = [...extractedJdSkills]
+    targetKeywords = Array.from(new Set(
+      extractedJdSkills
+        .map(canonicalizeSkillName)
+        .filter(isGenuineTechnicalSkill)
+    ))
   }
 
   const sampleSize = Number(marketProfile?.sampleSize || marketProfile?.totalAnalyzed || 0)
@@ -690,29 +731,94 @@ export function computeKeywordAlignment({
     sampleSize >= 8
   )
 
-  if (hasRealMarketProfile) {
-    // 100% REAL DATA ONLY: Use market intelligence extracted from real scraped JDs
-    targetKeywords = marketProfile.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
-      .filter(isGenuineTechnicalSkill)
-  }
-
-  // Deduplicate & filter genuine technical skills (Uncapped!)
-  targetKeywords = Array.from(new Set(targetKeywords.filter(isGenuineTechnicalSkill)))
-
   const totalRealJds = sampleSize
   const marketDataPending = !isJdProvided && !hasRealMarketProfile
 
-  // Build allMarketSkills mapping back to marketProfile metadata if present
+  // Build deduplicated market skills map with canonical naming
   const marketSkillsMap = new Map()
   if (hasRealMarketProfile) {
     for (const item of marketProfile.skills) {
-      const name = typeof item === 'string' ? item : (item?.name || item?.skill || '')
-      if (name) {
-        marketSkillsMap.set(name.toLowerCase(), typeof item === 'string' ? { name: item, frequency: 1, percentage: 50 } : item)
+      const rawName = typeof item === 'string' ? item : (item?.name || item?.skill || '')
+      const name = canonicalizeSkillName(rawName)
+      if (!name || !isGenuineTechnicalSkill(name)) continue
+
+      const key = name.toLowerCase()
+      const realCount = typeof item === 'object' ? (item.count || item.frequency || 1) : 1
+      const realPercentage = typeof item === 'object' && item.percentage != null
+        ? item.percentage
+        : (totalRealJds > 0 ? Math.min(100, Math.round((realCount / totalRealJds) * 100)) : null)
+      const category = typeof item === 'object' ? (item.category || 'tools') : 'tools'
+
+      if (marketSkillsMap.has(key)) {
+        const existing = marketSkillsMap.get(key)
+        existing.count = Math.max(existing.count, realCount)
+        existing.frequency = Math.max(existing.frequency, realCount)
+        existing.percentage = Math.max(existing.percentage ?? 0, realPercentage ?? 0)
+      } else {
+        marketSkillsMap.set(key, {
+          name,
+          count: realCount,
+          frequency: realCount,
+          percentage: realPercentage,
+          totalJds: totalRealJds,
+          category,
+        })
       }
     }
+
+    // Benchmark selection: Core market benchmark (20–30 clean core skills)
+    // 1. Sort all deduplicated skills by market percentage descending
+    const allMarketList = Array.from(marketSkillsMap.values()).sort(
+      (a, b) => (b.percentage ?? 0) - (a.percentage ?? 0) || (b.count ?? 0) - (a.count ?? 0)
+    )
+
+    // Helper: determine if candidate already has this skill anywhere in their resume
+    const candidateHasSkill = (skillName) => {
+      const sLower = skillName.toLowerCase()
+      if (candidateSkillsSet.has(sLower)) return true
+      if (keywordMatchesText(skillName, expAndProjText)) return true
+      if (keywordMatchesText(skillName, skillsText)) return true
+      if (keywordMatchesText(skillName, summaryText)) return true
+      if (keywordMatchesText(skillName, fullResumeText)) return true
+      for (const [childSkill, parents] of Object.entries(SKILL_PARENT_CHILD_MAP)) {
+        if (parents.some((p) => p.toLowerCase() === sLower)) {
+          if (candidateSkillsSet.has(childSkill.toLowerCase()) || keywordMatchesText(childSkill, fullResumeText)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    const candidateHeldMarket = []
+    const candidateMissingMarket = []
+
+    for (const item of allMarketList) {
+      if (candidateHasSkill(item.name)) {
+        candidateHeldMarket.push(item)
+      } else {
+        candidateMissingMarket.push(item)
+      }
+    }
+
+    // Filter missing market skills to core benchmark (percentage >= 12% or top 20, capped at 25)
+    let selectedMissing = candidateMissingMarket.filter((s) => (s.percentage != null && s.percentage >= 12))
+    if (selectedMissing.length < 15) {
+      // Pick top missing until 15-20 or all available
+      const needed = Math.min(20, candidateMissingMarket.length)
+      selectedMissing = candidateMissingMarket.slice(0, needed)
+    } else if (selectedMissing.length > 25) {
+      // Cap at top 25 missing to keep clean ~20-30 core benchmark
+      selectedMissing = selectedMissing.slice(0, 25)
+    }
+
+    // Combine candidate-held market skills (always kept!) + selected core missing market skills
+    const coreBenchmark = [...candidateHeldMarket, ...selectedMissing]
+    targetKeywords = coreBenchmark.map((s) => s.name)
   }
+
+  // Deduplicate targetKeywords preserving order
+  targetKeywords = Array.from(new Set(targetKeywords.filter(isGenuineTechnicalSkill)))
 
   const allMarketSkills = targetKeywords.map((name, _idx) => {
     const existing = marketSkillsMap.get(name.toLowerCase())
@@ -841,7 +947,8 @@ export function computeKeywordAlignment({
   }
 
   // Also process candidate's declared skills that were not in market skills
-  for (const skill of declaredSkills) {
+  for (const rawSkill of declaredSkills) {
+    const skill = canonicalizeSkillName(rawSkill)
     if (!isGenuineTechnicalSkill(skill)) continue
     const norm = skill.toLowerCase()
     const alreadyHandled =
@@ -858,11 +965,11 @@ export function computeKeywordAlignment({
     }
   }
 
-  // Sort genuinely missing skills strictly by market percentage descending (ALL OF THEM, NO SLICE!)
-  missingMarketSkillsRanked.sort((a, b) => b.percentage - a.percentage || b.count - a.count)
+  // Sort genuinely missing skills strictly by market percentage descending
+  missingMarketSkillsRanked.sort((a, b) => (b.percentage ?? 0) - (a.percentage ?? 0) || (b.count ?? 0) - (a.count ?? 0))
 
-  const uniqueMatched = Array.from(new Set(matchedInExperience))
-  const uniqueSkillsOnly = Array.from(new Set(skillsOnlyUnverified)).filter(
+  const uniqueMatched = Array.from(new Set(matchedInExperience.map(canonicalizeSkillName)))
+  const uniqueSkillsOnly = Array.from(new Set(skillsOnlyUnverified.map(canonicalizeSkillName))).filter(
     (s) => !uniqueMatched.some((m) => m.toLowerCase() === s.toLowerCase())
   )
   const uniqueMissing = missingMarketSkillsRanked.map((m) => m.keyword)
@@ -873,6 +980,10 @@ export function computeKeywordAlignment({
 
   // Evaluate hierarchical competency clusters ("OR" Grouping)
   const competencyClusters = evaluateCandidateClusters(packKey, uniqueMatched, allMarketSkills)
+
+  // Critical missing skills (prominent cards in UI and PDF report)
+  const filteredCritical = missingMarketSkillsRanked.filter((i) => (i.percentage && i.percentage >= 10) || i.priority === 'HIGH')
+  const criticalMissing = filteredCritical.length >= 6 ? filteredCritical : missingMarketSkillsRanked.slice(0, 15)
 
   return {
     source: isJdProvided ? 'active_jd' : (hasRealMarketProfile ? 'market_intelligence' : 'resume_analysis'),
@@ -888,8 +999,9 @@ export function computeKeywordAlignment({
     matchPercent,
     matchedInExperience: uniqueMatched,
     skillsOnlyUnverified: uniqueSkillsOnly,
-    missingFromResume: uniqueMissing, // 100% genuinely missing skills only, UNCAPPED!
-    missingMarketSkillsRanked,        // 100% genuinely missing skills only, UNCAPPED!
+    missingFromResume: uniqueMissing, // 100% genuinely missing skills only, clean core benchmark
+    missingMarketSkillsRanked,        // 100% genuinely missing skills only, clean core benchmark
+    criticalMissing,
     competencyClusters,              // Competency Clusters ("OR" Grouping)
     isCompleteCoverage: uniqueMissing.length === 0,
     skillsOnlyGuidance: 'Listed in your Skills section, but not shown in your work bullets — mention in 1 bullet to prove hands-on usage.',

@@ -218,26 +218,29 @@ export function extractCandidateDossier(user = {}) {
     rawExp[0]?.employer ||
     'your previous company'
 
-  const topExperiences = rawExp.slice(0, 6).map((e) => ({
+  const topExperiences = rawExp.slice(0, 3).map((e) => ({
     company: e.company || e.employer || '',
     role: e.role || e.title || '',
     dates: e.dates || e.duration || '',
-    bullets: (Array.isArray(e.bullets) ? e.bullets : (e.bullet ? [e.bullet] : [])).slice(0, 8).map((b) => (typeof b === 'string' ? b : b?.text || '')),
+    bullets: (Array.isArray(e.bullets) ? e.bullets : (e.bullet ? [e.bullet] : []))
+      .slice(0, 2)
+      .map((b) => (typeof b === 'string' ? b : b?.text || '').slice(0, 140))
+      .filter(Boolean),
   }))
 
   const verifiedSkills = (
     report.resume_agent?.verifiedSkills ||
     report.resume_agent?.dashboard?.keywordAlignment?.matchedInExperience ||
     (Array.isArray(resume.skills) ? resume.skills : [])
-  ).slice(0, 20).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+  ).slice(0, 10).map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
 
   const missingSkills = (
     report.resume_agent?.missingTargetKeywords ||
     report.resume_agent?.dashboard?.keywordAlignment?.missingFromResume ||
     []
-  ).slice(0, 15).map((s) => (typeof s === 'string' ? s : s?.keyword || s?.name || '')).filter(Boolean)
+  ).slice(0, 8).map((s) => (typeof s === 'string' ? s : s?.keyword || s?.name || '')).filter(Boolean)
 
-  const discrepancies = (report.linkedin_agent?.discrepancies || []).slice(0, 3).map((d) => d.title || d.diagnosis || '')
+  const discrepancies = (report.linkedin_agent?.discrepancies || []).slice(0, 2).map((d) => d.title || d.diagnosis || '')
 
   const funnel = {
     applications: report.funnel_stages?.applications_count || answers.applications90d || answers.apps30d || 0,
@@ -310,11 +313,11 @@ export function extractCandidateDossier(user = {}) {
     report.resume_agent?.bulletRewrites ||
     report.bullet_audit ||
     []
-  const bulletGaps = (Array.isArray(rawBulletAudit) ? rawBulletAudit : []).slice(0, 12).map((b) => ({
-    bullet: typeof b === 'string' ? b : b?.bullet || b?.text || b?.original || '',
+  const bulletGaps = (Array.isArray(rawBulletAudit) ? rawBulletAudit : []).slice(0, 3).map((b) => ({
+    bullet: (typeof b === 'string' ? b : b?.bullet || b?.text || b?.original || '').slice(0, 100),
     status: b?.status || (b?.severity === 'high' ? 'fix' : 'warn'),
-    issue: b?.issue || b?.diagnosis || b?.reason || 'Missing quantified business outcome metrics',
-    recommendation: b?.recommendation || b?.rewrite || 'Structure using Google XYZ format with measurable impact.',
+    issue: b?.issue || b?.diagnosis || b?.reason || 'Missing quantified business metrics',
+    recommendation: b?.recommendation || b?.rewrite || 'State the concrete outcome with clear numbers.',
   }))
 
   // Salary Benchmark calibration
@@ -452,60 +455,52 @@ MANDATORY LEGAL DISCLAIMER: You must always explicitly state that this advice re
 Provide rapid, high-impact career triage aligned directly with the candidate's primary bottleneck (${primaryBottleneck}) and current hiring stage (Phase ${careerGpsPhase.number}: ${careerGpsPhase.name}). Provide high-leverage guidance and end with 1 focused tactical next step.`
   }
 
-  return `You are "Atlas", an elite Executive Career Strategist and lead coach on the Crafture team.
-At Crafture, we guide ambitious professionals to career breakthroughs across all U.S. industries (engineering, data, product, healthcare, finance, marketing, and operations).
-You are speaking as a core Crafture team member using "we", "our", and "us" when describing Crafture programs, methodology, and philosophy, alongside direct personal coaching ("you", "your").
-You are live-coaching ${candidateName}, an accomplished ${seniorityTier} targeting "${targetRole}" (Current Career Health Score: ${careerHealthScore}/100).
+  const expSummary = topExperiences.length > 0
+    ? topExperiences.map((e) => `* ${e.company} (${e.role}, ${e.dates}): ${e.bullets.join('; ') || 'No bullets listed'}`).join('\n')
+    : 'No work history provided.'
 
-CANDIDATE DOSSIER (USE EXACT FACTS — NEVER INVENT FICTIONAL WORK):
-- Target Role: ${targetRole} (${seniorityTier} band)
-- Overall Score: ${careerHealthScore}/100
-- Career GPS Phase: Phase ${careerGpsPhase.number} (${careerGpsPhase.name})
-- Verified Work History:
-${JSON.stringify(topExperiences, null, 2)}
-- Core Verified Skills: ${verifiedSkillsStr || 'N/A'}
+  return `You are "Atlas", a friendly senior career coach on the Crafture team.
+We help professionals get hired across engineering, data, product, healthcare, finance, marketing, and operations.
+You speak as a core Crafture team member using "we", "our", and "us" when describing our services, and direct personal coaching ("you", "your") for the candidate.
+You are chatting with ${candidateName}, who is targeting "${targetRole}" (${seniorityTier} level, Current Score: ${careerHealthScore}/100).
+
+CANDIDATE SUMMARY (USE REAL FACTS ONLY — NEVER MAKE UP EXPERIENCE):
+- Target Role: ${targetRole} (${seniorityTier})
+- Score: ${careerHealthScore}/100
+- Hiring Stage: Phase ${careerGpsPhase.number} (${careerGpsPhase.name})
+- Recent Experience:
+${expSummary}
 - Verified Skills: ${verifiedSkillsStr || 'N/A'}
-- High-Priority Missing Market Skills: ${missingSkillsStr || 'N/A'}
-- Missing Market Skills: ${missingSkillsStr || 'N/A'}
-- Market Demand Grounding (${analyzedJds} Analyzed Target JDs):
-  Top in-demand tools: ${topDemandedStr}
-- Identified Bullet Audit Gaps:
+- Missing Skills to Add: ${missingSkillsStr || 'N/A'}
+- Top In-Demand Tools (${analyzedJds} JDs): ${topDemandedStr}
+- Key Bullet Fixes:
 ${bulletGapsStr}
-- Calibrated Salary Benchmark: ${salaryBenchmark.estimatedRange} (Equity: ${salaryBenchmark.equityExpectation})
-- Primary Sourcing Bottleneck: ${primaryBottleneck}
-- Primary Bottleneck: ${primaryBottleneck}
-- Funnel Reality: ${funnel.applications} apps → ${funnel.recruiterScreens} screens → ${funnel.technicalRounds} techs → ${funnel.offers} offers (${funnel.biggestLeak})
-- Cross-Document Discrepancies: ${discrepanciesStr || 'None detected'}
+- Salary Range: ${salaryBenchmark.estimatedRange}
+- Main Roadblock: ${primaryBottleneck}
+- Funnel Stats: ${funnel.applications} apps → ${funnel.recruiterScreens} screens → ${funnel.technicalRounds} techs → ${funnel.offers} offers (${funnel.biggestLeak})
+- Profile Notes: ${discrepanciesStr || 'None detected'}
 
-CRAFTURE METHODOLOGY & 6-PHASE HIRING JOURNEY:
-We evaluate and optimize candidate searches across 6 distinct phases:
-1. Phase 1: Resume → Application Readiness (ATS keyword alignment, genuine positioning, single-column linear layout)
-2. Phase 2: Application → Screening Call (Targeted velocity of 40–60 apps/week, warm alumni referrals, 50-word InMail to team leads)
-3. Phase 3: Screening Call → Technical / Role Interview (Substantiating experience, 90-second executive pitch, visa clarity)
-4. Phase 4: First Interview → Subsequent / Final Rounds (STAR execution with quantified metrics, architectural/strategic trade-offs)
-5. Phase 5: Final Round → Written Offer (Executive value alignment, 30-60-90 day impact roadmap, objective batched salary counter-offers)
-6. Phase 6: Offer → Background Verification & Joining (Payroll W-2/1099 alignment, I-20 / H-1B transfer timeline management)
+CRAFTURE'S 6 HIRING STEPS:
+1. Resume & ATS Setup: Clear layout, matching skills, no fluff.
+2. Applications to Phone Screens: 40-60 targeted apps/week + direct messages.
+3. Screens to First Interviews: Quick pitch and role clarity.
+4. Interviews to Final Rounds: Clear STAR stories with real metrics.
+5. Final Rounds to Offers: Strong closing and smart pay negotiation.
+6. Offer to Start Date: Clean background check and onboarding.
 
-CRAFTURE OFFICIAL PROGRAMS & TRANSPARENT PRICING:
-- Starter Experience: $0 (Free Forever). Includes 100-Point Weighted Career Health Report, ATS audit, LinkedIn cross-diagnosis, bottleneck breakdown, and 7-day triage.
-- Career GPS AI: $150/month. Adds dynamic tailored resume generators, automated application tracking, cold InMail generators, and live AI interview drills. Cancel anytime.
-- Elite (AI + Dedicated Human Consultant): $300/month. Pairs candidate with a dedicated U.S.-based executive talent consultant, bi-weekly 1-on-1 strategy sessions, live mock interview critiques, complete resume overhaul, and hands-on salary negotiation representation. Cancel anytime.
-- Strict Rule: Quote only these three programs ($0, $150, $300). Never quote unverified placement fees, cut-of-salary models, or arbitrary add-ons.
+CRAFTURE PLANS & PRICING:
+- Starter ($0 Free): Career Health Report, ATS audit, LinkedIn check, 7-day plan.
+- Career GPS AI ($150/mo): Tailored resumes, tracker, outreach templates, interview drills. Cancel anytime.
+- Elite ($300/mo): Dedicated human coach, 1-on-1 calls, mock interviews, salary negotiation help. Cancel anytime.
+Strict rule: Only mention these three plans. Never mention cuts of salary or placement fees.
 
-COMPLIANCE & ETHICAL SAFETY GUARDRAILS:
-1. ZERO GUARANTEES: Never state or imply a guarantee of employment, job offer, or interview invite. We deliver measurable process mastery and conversion optimization, but hiring decisions remain with third-party employers.
-2. VISA & WORK AUTHORIZATION DISCLAIMER: When providing guidance on visa or work authorization topics (OPT, STEM OPT, H-1B, H-4 EAD, CPT), you must always clarify that this is educational career guidance, not legal counsel, and direct candidates to consult their Designated School Official (DSO) or a licensed U.S. immigration attorney. Never guarantee visa sponsorship.
-3. MULTI-DOMAIN MANDATE: Crafture is a universal multi-domain platform. Never describe Crafture as serving only IT candidates; Crafture is not IT-only. We serve professionals across Engineering, Data, Healthcare, Finance, Marketing, Product, and Operations. Tailor your coaching to the candidate's exact profession.
-
-EXECUTIVE COACHING VOICE & RULES:
-0. CONVERSATIONAL MARKDOWN ONLY (NEVER JSON): Always respond in natural, crisp conversational Markdown (short paragraphs + bullet points). NEVER output raw JSON objects, JSON keys, or { "coach": ... } structures. All advice must be plain, human-readable text.
-1. Speak directly ("you", "your") as a member of Crafture ("we", "our team"). Be direct, intellectually rigorous, candid, and encouraging. Never sound like a bland generic AI assistant.
-2. BAN CORPORATE FILLER: Never write "navigating the job market", "delve", "it is crucial", "in conclusion", or "testament to".
-3. PROVIDE EXACT SOLUTIONS: When asked to fix a bullet or write a message, write the EXACT ready-to-paste text inside fenced blocks (\`\`\`text ... \`\`\`).
-   - Bullet formula: Google XYZ format: [Strong Action Verb] + [Context/Architecture/Scale] + [Measurable Business Outcome ($ / % / throughput / latency)] (matching [Action Verb] + [Context/Tech Stack] + [Measurable Business Outcome]).
-   - InMail formula: Max 50-75 words, zero fluff, referencing a shared technical challenge or recent engineering initiative.
-   - Interview prep: Deliver structured STAR answers highlighting architectural trade-offs ("Why this tool vs alternative?").
-4. THE ADDICTIVE CURIOSITY LOOP: Conclude every substantive response with 1 compelling, natural tactical next step (e.g., "Want me to run a mock interview drill on this system design trade-off, or draft an InMail to engineering managers at your target companies?").${intentSpecializedBlock}${extraContextBlock}`
+RULES & PLAIN-ENGLISH STYLE (MANDATORY):
+0. CONVERSATIONAL MARKDOWN ONLY (NEVER JSON): Always respond in natural, short conversational Markdown. NEVER output raw JSON objects, JSON keys, or { "coach": ... } structures.
+1. PLAIN-ENGLISH STYLE: Write in simple, clear, everyday English that anyone can read and understand in one glance. Use short sentences and common words. Strictly ban AI/corporate buzzwords (no leverage, utilize, spearhead, holistic, synergy, paradigm, trajectory, delve, foster, robust, elevate, optimize, ecosystem, actionable insights, or stiff academic phrasing). Keep all answers short, direct, friendly, and practical.
+2. ZERO GUARANTEES: Never promise or guarantee a job offer or interview.
+3. VISA ADVICE: For visa questions (OPT, STEM, H-1B), share helpful tips but remind them to check with their DSO or an immigration lawyer.
+4. READY-TO-USE EXAMPLES: When asked to write a bullet or message, write the EXACT ready-to-copy text in a \`\`\`text ... \`\`\` block.
+5. NEXT STEP: End every response with 1 simple, natural next step or question.${intentSpecializedBlock}${extraContextBlock}`
 }
 
 /**
@@ -527,7 +522,7 @@ async function streamFromOpenRouter({ model = 'google/gemini-2.5-flash-lite', me
       model,
       messages,
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 800,
       stream: true,
     }),
     signal: AbortSignal.timeout(timeoutMs),
@@ -583,7 +578,7 @@ async function streamFromGroq({ model = 'openai/gpt-oss-120b', messages, onToken
       model,
       messages,
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 800,
       stream: true,
     }),
     signal: AbortSignal.timeout(timeoutMs),
@@ -855,7 +850,7 @@ export async function handleChatMessage(req, res) {
         messages,
         responseFormat: 'text',
         temperature: 0.3,
-        maxTokens: 1500,
+        maxTokens: 800,
         timeoutMs: 20000,
       })
       replyText = response.text
@@ -873,7 +868,7 @@ export async function handleChatMessage(req, res) {
           messages,
           responseFormat: 'text',
           temperature: 0.3,
-          maxTokens: 1500,
+          maxTokens: 800,
           timeoutMs: 15000,
         })
         replyText = fallbackResponse.text

@@ -822,9 +822,9 @@ export function synthesizeRootCauseAndActions({
     }
   } else if (phase.id === 4) {
     action2 = {
-      title: 'Build Multi-Threaded Pipeline for Offer Leverage',
-      category: 'Pipeline Velocity',
-      whyItMatters: 'Competing final-round processes eliminate desperation and increase formal offer compensation by 15–25%.',
+      title: 'Build Multiple Competing Offers for Salary Negotiation',
+      category: 'Pipeline Speed',
+      whyItMatters: 'Competing final rounds give you strong negotiation power and increase formal offer pay by 15–25%.',
       whatToDo: `Continue active outreach and keep 3–5 parallel opportunities in motion while closing final rounds for ${candidateRole}.`,
       resourceTool: 'Career Pipeline Kanban & Recruiter Tracker',
       duration: '1 hour / day',
@@ -1082,16 +1082,16 @@ export function evaluateAssessmentPersona({
     linkedinAgent,
   })
 
-  // 3. Resolve Market Perimeter, Seniority Leveling, and Trajectory
+  // 3. Resolve Market parameter, Seniority Leveling, and Trajectory
   const rawTargetRole = resumeContext?.targetRole || ans.targetRole || 'Software Professional'
   const targetRole = cleanTargetRoleTitle('', rawTargetRole)
   const canonicalResume = resumeContext?.canonicalResume || resumeContext?.resumeJson || {}
-  const perimeter = resolveMarketPerimeter(
+  const parameter = resolveMarketparameter(
     { answers: ans, user_answers: ans, targetRole: rawTargetRole, ...resumeContext },
     canonicalResume
   )
-  const seniorityTier = perimeter.seniorityTier
-  const trajectoryArchetype = perimeter.trajectoryArchetype
+  const seniorityTier = parameter.seniorityTier
+  const trajectoryArchetype = parameter.trajectoryArchetype
 
   // 4. Synthesize Root Cause & Prioritized Actions (Level-aware)
   const rootCauses = synthesizeRootCauseAndActions({
@@ -1113,7 +1113,7 @@ export function evaluateAssessmentPersona({
   // 6. Preserved Persona & Directives
   const rawVisa = String(ans.visa || semanticProfile?.visa?.rawAnswer || '').trim()
   let visaCategory = 'Other'
-  let requiresSponsorship = perimeter.requiresSponsorship
+  let requiresSponsorship = parameter.requiresSponsorship
   let isStudentOrOpt = false
   let urgencyNote = 'Candidate requires clarity on US work authorization pathways.'
 
@@ -1186,7 +1186,7 @@ export function evaluateAssessmentPersona({
     `RECRUITER SOURCING FUNNEL: ${externalContext.recruiter_priority_funnel.recommendation}`,
   ].filter(Boolean).join('\n')
 
-  const candidateContextBrief = `Candidate is a ${targetRole} (${seniorityTier}) targeting ${ans.opportunityType || 'Full-Time roles'}. Trajectory: ${trajectoryArchetype}. Work Authorization: ${perimeter.workAuthStatus}. Currently in Hiring Phase ${phase.id} (${phase.name}) with confidence: ${phase.confidence}. Primary bottleneck: ${rootCauses.primary_bottleneck.title}. Total Career GPS Score: ${scores.gps_score}/100.`
+  const candidateContextBrief = `Candidate is a ${targetRole} (${seniorityTier}) targeting ${ans.opportunityType || 'Full-Time roles'}. Trajectory: ${trajectoryArchetype}. Work Authorization: ${parameter.workAuthStatus}. Currently in Hiring Phase ${phase.id} (${phase.name}) with confidence: ${phase.confidence}. Primary bottleneck: ${rootCauses.primary_bottleneck.title}. Total Career GPS Score: ${scores.gps_score}/100.`
 
   return {
     gpsScore: scores.gps_score,
@@ -1208,12 +1208,12 @@ export function evaluateAssessmentPersona({
       experienceLevel: ans.experience || seniorityTier,
       seniorityTier,
       trajectoryArchetype,
-      effectiveYoe: perimeter.effectiveYoe,
+      effectiveYoe: parameter.effectiveYoe,
       visa: ans.visa || 'Not specified',
       workAuthDetails: {
-        status: perimeter.workAuthStatus,
-        requiresSponsorship: perimeter.requiresSponsorship,
-        searchPipelineModel: perimeter.searchPipelineModel,
+        status: parameter.workAuthStatus,
+        requiresSponsorship: parameter.requiresSponsorship,
+        searchPipelineModel: parameter.searchPipelineModel,
       },
     },
     candidatePersona: {
@@ -1226,11 +1226,11 @@ export function evaluateAssessmentPersona({
     workAuthContext: {
       visa: visaCategory,
       rawVisa,
-      requiresSponsorship: perimeter.requiresSponsorship,
+      requiresSponsorship: parameter.requiresSponsorship,
       isStudentOrOpt,
       urgencyNote,
-      status: perimeter.workAuthStatus,
-      searchPipelineModel: perimeter.searchPipelineModel,
+      status: parameter.workAuthStatus,
+      searchPipelineModel: parameter.searchPipelineModel,
     },
     funnelMetrics: {
       applications_count: rawApps.rawNum,
@@ -1285,9 +1285,9 @@ export function detectDomainDivergence(targetRole = '', pastTitles = []) {
 
 /**
  * Reconciles parsed resume timeline, questionnaire answers, and work authorization
- * to calculate accurate career perimeter and sourcing constraints.
+ * to calculate accurate career parameter and sourcing constraints.
  */
-export function resolveMarketPerimeter(user = {}, canonicalResume = {}) {
+export function resolveMarketparameter(user = {}, canonicalResume = {}) {
   const experiences =
     canonicalResume?.experiences ||
     canonicalResume?.experience ||
@@ -1460,7 +1460,7 @@ export default {
   synthesizeRootCauseAndActions,
   getExternalContext,
   evaluateAssessmentPersona,
-  resolveMarketPerimeter,
+  resolveMarketparameter,
   extractQuantMetric,
   parseRangeOrNumber,
   decodeHtmlEntities,

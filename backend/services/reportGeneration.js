@@ -12,7 +12,7 @@ import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../a
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
 import { getMarketDataForBucket, ensurePriorityMarketBucket } from '../agents/resume/market/marketJdRetriever.js'
-import { findSameRoleSiblingMarketVersion } from '../agents/resume/market/keywordAlignment.js'
+import { computeKeywordAlignment, findSameRoleSiblingMarketVersion } from '../agents/resume/market/keywordAlignment.js'
 import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
@@ -549,6 +549,9 @@ PERSONA & TONE DIRECTIVE:
 ==================================================
 You are David / Elena — Managing Partner at an elite US executive career search firm.
 
+PLAIN-ENGLISH STYLE RULE (MANDATORY):
+Write in simple, clear, everyday English that anyone can read and understand in one glance. Use short sentences and common words. Strictly ban AI/corporate buzzwords (no leverage, utilize, spearhead, holistic, synergy, paradigm, trajectory, delve, foster, robust, elevate, optimize, ecosystem, actionable insights, or stiff academic phrasing).
+
 EXECUTIVE RECRUITER DIAGNOSTIC FRAMEWORK (ZERO-SLOP, ZERO-FLATTERY):
 STRICT BAN ON GENERIC CHATGPT FLATTERY & HOLLOW PRAISE.
 DIRECT EXECUTIVE DIAGNOSTIC READ (MANDATORY).
@@ -752,8 +755,11 @@ Generate a comprehensive, recruiter-grade ATS and Career Diagnosis Report in STR
 Follow strict deterministic facts provided. Zero fluff, zero generic commentary.
 Cluster Equivalence Rule: If candidate has any tool in a competency cluster, grant full credit.
 
+PLAIN-ENGLISH STYLE RULE (MANDATORY):
+Write in simple, clear, everyday English that anyone can read and understand in one glance. Use short sentences and common words. Strictly ban AI/corporate buzzwords (no leverage, utilize, spearhead, holistic, synergy, paradigm, trajectory, delve, foster, robust, elevate, optimize, ecosystem, actionable insights, or stiff academic phrasing).
+
 STRICT COPYWRITING RULES:
-1. BANNED BUZZWORDS: Strictly forbid "powerhouse", "synergistic", "cutting-edge", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "seamlessly", "leveraging". Use plain verbs: built, cut, scaled, automated, using.
+1. BANNED BUZZWORDS: Strictly forbid "powerhouse", "synergistic", "cutting-edge", "revolutionize", "game-changing", "delve", "tapestry", "unlock", "magic", "seamless", "seamlessly", "leveraging", "leverage", "utilize", "spearhead", "holistic", "robust". Use plain verbs: built, cut, scaled, automated, using.
 2. NO INTERNAL CODE IDs: Strictly forbid referencing internal IDs (exp_001_b01, proj_002_b01, iss_001) in executiveSummary, bottleneck, or bulletRewrites prose. Refer to items naturally by company or project name.
 3. THREE DISTINCT BOTTLENECK ROLES:
    - "primaryBottleneck.diagnosis": Explain WHY this stage is stalling using candidate's actual funnel and resume/interview signals (1-2 crisp sentences).
@@ -924,42 +930,36 @@ export async function generateReportBundle(params = {}, options = {}) {
   const resumeJson = params.resumeJson || user?.resumeJson || params.resumeData || params.canonicalResume || {}
   const targetRole = resolveTargetRoleHierarchy(params, user, answers, resumeJson)
 
-  // Resolve Market Profile if not provided
-  let marketProfile = params.marketProfile || null
-  if (!marketProfile && mongoose.connection.readyState === 1) {
-    try {
-      const bucketRes = resolveMarketBucket({
-        targetRole,
-        canonicalResume: resumeJson,
-        userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
-      })
-      const bucketKey = bucketRes?.bucketKey
-      if (bucketKey) {
-        const marketData = await getMarketDataForBucket(bucketKey, { autoRefresh: false, bypassFastCatch: true })
-        if (marketData?.marketProfile && (marketData.sampleSize >= 8 || marketData.marketProfile?.sampleSize >= 8)) {
-          marketProfile = marketData.marketProfile
-        } else {
-          // If exact bucket has < 8 JDs, trigger non-blocking priority prefetch and fallback to same-role sibling
-          ensurePriorityMarketBucket({
-            roleTitle: targetRole,
-            canonicalResume: resumeJson,
-            userAnswerYoe: answers.experience || answers.experienceYears || answers.yoe || '',
-            experienceLevel: bucketRes?.experienceBucket,
-          }).catch((warmErr) => {
-            console.warn(`[ReportGeneration] Priority prefetch notice for "${bucketKey}":`, warmErr.message)
-          })
+  // Resolve Market Profile & Live Market Data
+  const targetJobDescription = params.targetJobDescription || answers?.targetJobDescription || ''
+  const experienceYears = resumeJson?.totalExperienceYears ?? resumeJson?.candidate?.totalExperienceYears ?? null
+  const bucketRes = resolveMarketBucket({
+    targetRole,
+    targetJobDescription,
+    canonicalResume: resumeJson,
+    experienceYears,
+  })
 
-          const sibling = await findSameRoleSiblingMarketVersion(bucketKey)
-          if (sibling?.marketProfile) {
-            marketProfile = sibling.marketProfile
-          }
-        }
-      }
-    } catch (_mErr) {}
+  let marketData = params.marketData || null
+  if (!marketData && mongoose.connection.readyState === 1) {
+    try {
+      marketData = await getMarketDataForBucket(bucketRes.bucketKey, {
+        autoRefresh: true,
+        roleName: bucketRes.roleName,
+      })
+    } catch (_mErr) {
+      console.warn('[ReportGen] Market data retrieval non-fatal warning:', _mErr.message)
+    }
   }
-  if (!marketProfile && params.semanticProfile) {
-    marketProfile = params.semanticProfile
-  }
+  const marketProfile = marketData?.marketProfile || params.marketProfile || null
+
+  // Pre-calculate deterministic fresh keyword alignment against market profile
+  const freshKeywordAlignment = computeKeywordAlignment({
+    canonicalResume: resumeJson,
+    targetJobDescription,
+    targetRole,
+    marketProfile: marketData?.marketProfile || marketProfile || null,
+  })
 
   // Resolve LinkedIn data & concurrent scraping
   const effectiveLinkedinUrl = (
@@ -1078,12 +1078,34 @@ export async function generateReportBundle(params = {}, options = {}) {
   if (!report.resume_agent) {
     report.resume_agent = params.resumeAgent || params.precomputedResumeAgent || user?.resume_agent || {}
   }
+
+  // CRITICAL: Even when params.precomputedResumeAgent is reused, ALWAYS update keywordAlignment
+  // and missingTargetKeywords with freshKeywordAlignment so precomputed results never stay frozen with 0 missing keywords.
+  if (report.resume_agent) {
+    report.resume_agent.keywordAlignment = freshKeywordAlignment
+    if (!report.resume_agent.dashboard) {
+      report.resume_agent.dashboard = {}
+    }
+    report.resume_agent.dashboard.keywordAlignment = freshKeywordAlignment
+    report.resume_agent.missingTargetKeywords = freshKeywordAlignment?.missingFromResume || []
+    report.resume_agent.missingKeywords = freshKeywordAlignment?.missingFromResume || []
+    report.resume_agent.verifiedSkills = freshKeywordAlignment?.matchedInExperience || []
+  }
+
+  // Also synchronize top-level report alignment keys
+  report.keywordAlignment = freshKeywordAlignment
+  report.missingTargetKeywords = freshKeywordAlignment?.missingFromResume || []
+  report.missingKeywords = freshKeywordAlignment?.missingFromResume || []
+  if (report.dashboard) {
+    report.dashboard.keywordAlignment = freshKeywordAlignment
+  }
   if (!report.resume_agent.dashboard || !report.resume_agent.dashboard.bulletAudit?.length) {
     try {
       const { computeScorecard } = await import('../agents/resume/scoring/resumeScorecard.js')
       const scorecard = computeScorecard({
         canonicalResume: resumeJson,
         targetRole,
+        marketProfile: marketData?.marketProfile || marketProfile || null,
         analysis: {
           candidateSnapshot: {
             name: resumeJson.candidate?.name || user?.name || '',
@@ -1096,6 +1118,7 @@ export async function generateReportBundle(params = {}, options = {}) {
       })
       if (scorecard) {
         report.resume_agent.dashboard = scorecard
+        report.resume_agent.dashboard.keywordAlignment = freshKeywordAlignment
         report.resume_agent.sectionAudit = scorecard.sectionAudit || report.resume_agent.sectionAudit
       }
     } catch (_scErr) {

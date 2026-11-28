@@ -168,7 +168,7 @@ function getFallbackSevenDayPlan(targetRole, topSkills, effectivePhaseId, funnel
         day: 7,
         title: 'Conversion Audit & Week 2 Strategy',
         tag: 'Conversion Audit',
-        action: 'Evaluate screen-to-technical conversion velocity and calibrate answers for upcoming phone screens.',
+        action: 'Evaluate screen-to-technical pass rate and calibrate answers for upcoming phone screens.',
         deliverable: 'Updated screening answer ledger & interview schedule.',
         metricTarget: 'Screen-to-tech conversion >= 60%',
       },
@@ -285,7 +285,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
     phase60 = {
       period: '60 Days',
-      stage: 'Recruiter Pipeline Velocity & Multi-Threading',
+      stage: 'Recruiter Outreach & Pipeline Speed',
       goal: 'Convert top-of-funnel inbound interest into active technical interviews across multiple companies.',
       actions: [
         'Engage 10 engineering managers and internal recruiters weekly using personalized 50-word LinkedIn InMails.',
@@ -301,14 +301,14 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
 
     phase90 = {
       period: '90 Days',
-      stage: 'Final Rounds, Offer Leverage & Closing',
+      stage: 'Final Rounds, Offer Negotiation & Closing',
       goal: 'Advance through onsite interview loops and secure a competitive, written job offer.',
       actions: [
         isDataRole
           ? 'Complete 10 business problem-solving case studies and portfolio walkthroughs in SQL, Python, and Tableau/Power BI.'
           : 'Execute comprehensive system architecture and behavioral STAR interviews with hiring managers and directors.',
         `Benchmark total compensation bands (Base, Bonus, Equity) on Levels.fyi and Blind for ${targetRole}.`,
-        'Negotiate starting terms using competing interview timeline leverage and structured counter-offer scripts.',
+        'Negotiate starting terms using competing interview timelines and structured counter-offer scripts.',
       ],
       deliverable: 'Minimum 1 Formal Written Offer with Verified Compensation Package',
       successSignal: 'Signed target offer matching market compensation baseline.',
@@ -355,12 +355,12 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
     phase90 = {
       period: '90 Days',
       stage: 'Final Round Onsites & Offer Negotiation',
-      goal: 'Convert final-round loops into competitive written offers with full compensation leverage.',
+      goal: 'Convert final-round loops into competitive written offers with full negotiation power.',
       actions: [
         isDataRole
           ? 'Complete 10 business problem-solving case studies and portfolio walkthroughs in SQL, Python, and Tableau/Power BI.'
           : 'Present technical case studies and executive vision to Director/VP stakeholders.',
-        'Benchmark total compensation packages on Levels.fyi and prepare multi-offer leverage tactics.',
+        'Benchmark total compensation packages on Levels.fyi and prepare multi-offer negotiation tactics.',
         'Execute structured negotiation scripts to maximize starting base salary and equity grant.',
       ],
       deliverable: 'Minimum 1 Signed Offer with Competitive Total Compensation',
@@ -394,7 +394,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       actions: [
         'Rehearse system design discussions for distributed systems (scaling, rate limiting, and failure modes).',
         'Prepare 5 strategic questions for engineering executives regarding technical debt and product roadmap.',
-        'Expand parallel outbound pipelines via Apollo and LinkedIn Sales Navigator to ensure multi-offer closing leverage.',
+        'Expand parallel outbound pipelines via Apollo and LinkedIn Sales Navigator to ensure multiple competing offers.',
       ],
       deliverable: 'Executive Q&A Matrix + Active Multi-Threaded Onsite Pipeline',
       successSignal: 'Multiple final round onsites completed across concurrent companies.',
@@ -406,7 +406,7 @@ export default function RoadmapTimeline({ roadmapData, currentPhaseId = 2, onNav
       stage: 'Offer Closing, Total Comp Benchmarking & Sign-Off',
       goal: 'Secure top-of-market compensation and finalize employment verification.',
       actions: [
-        'Benchmark competing offers on Levels.fyi and Blind to establish counter-offer leverage.',
+        'Benchmark competing offers on Levels.fyi and Blind to support your counter-offer.',
         'Negotiate base salary, sign-on bonus, and equity vesting schedule using proven recruiter scripts.',
         'Finalize background check verification, reference checks, and Day 1 onboarding clearance.',
       ],

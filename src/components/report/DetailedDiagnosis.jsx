@@ -80,7 +80,7 @@ function extractStarStories(canonicalResume, targetRole, skillsList, resumeJson)
         title: `Story #1: ${targetRole} Core Architecture`,
         originalBullet: `Architected and deployed scalable ${primarySkill} services with zero downtime and strict SLA guarantees.`,
         situation: `Legacy service architecture created throughput limits and latency spikes during high concurrency spikes.`,
-        action: `Spearheaded migration to distributed service patterns with connection pooling, automated retry policies, and telemetry tracking.`,
+        action: `Led migration to distributed service patterns with connection pooling, automated retry policies, and telemetry tracking.`,
         result: `Reduced p99 API latency by 35% and maintained 99.99% uptime across production clusters.`,
         followUp: `How did you benchmark and profile bottlenecks before making the architectural change?`,
         followUpTip: `Walk through your metrics gathering (APM, distributed tracing) and justify your technology choices over simpler alternatives.`,
@@ -196,7 +196,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
       sender: 'ai',
       text:
         critiqueText ||
-        'Hello! I am Atlas, your AI Career Strategist. Ask me anything about your resume, ATS keyword optimization, or how to fix your application conversion.',
+        'Hello! I am Atlas, your career coach. Ask me anything about your resume, missing keywords, or how to get more interview calls.',
     },
   ])
   const [inputQuery, setInputQuery] = useState('')
@@ -244,7 +244,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
   const TABS = [
     { id: 'resume', label: 'Resume & ATS', icon: FileText },
     { id: 'linkedin', label: 'LinkedIn & Outreach', icon: LinkedinLogo },
-    { id: 'jobsearch', label: 'Job Search & Velocity', icon: ShareNetwork },
+    { id: 'jobsearch', label: 'Job Search & Pace', icon: ShareNetwork },
     { id: 'interview', label: 'Interview Readiness', icon: UserCheck },
     { id: 'risks', label: 'Risk Matrix 2x2', icon: ShieldWarning },
   ]
@@ -373,7 +373,7 @@ export default function DetailedDiagnosis({ reportData, initialTab = 'resume' })
 
   // Dynamic 60-Second Elevator Pitch
   const topSkillsSummary = skillsList.slice(0, 3).join(', ') || 'Full Stack Architecture'
-  const elevatorPitch = `I'm a ${targetRole} with over ${yearsOfExp} years of hands-on experience building scalable, production-grade applications. Most recently at ${currentCompany}, I specialized in ${topSkillsSummary}, where I spearheaded ${bestWin.slice(0, 110).replace(/[.]+$/, '')}. Prior to that at ${pastCompany}, I led technical delivery across distributed services, reducing technical debt and improving delivery cycles. What really excites me about your team and this ${targetRole} opening is the opportunity to bring this exact depth in ${skillsList[0] || 'modern system architecture'} and cross-functional engineering to tackle your current scaling priorities.`
+  const elevatorPitch = `I'm a ${targetRole} with over ${yearsOfExp} years of hands-on experience building scalable, production-grade applications. Most recently at ${currentCompany}, I specialized in ${topSkillsSummary}, where I led ${bestWin.slice(0, 110).replace(/[.]+$/, '')}. Prior to that at ${pastCompany}, I led technical delivery across distributed services, reducing technical debt and improving delivery cycles. What really excites me about your team and this ${targetRole} opening is the opportunity to bring this exact depth in ${skillsList[0] || 'modern system architecture'} and cross-functional engineering to tackle your current scaling priorities.`
 
   const rawCritRisk = reportData?.risk_heatmap?.critical_risk
   const criticalRiskText =

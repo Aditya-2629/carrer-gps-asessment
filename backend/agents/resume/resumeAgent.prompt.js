@@ -12,6 +12,9 @@ export const PROMPT_VERSION = 'resume-expert-v2.5'
 
 export const RESUME_SYNTHESIS_PROMPT = `You are an Elite Technical Recruiter and ATS Specialist.
 
+PLAIN-ENGLISH STYLE RULE (MANDATORY):
+Write in simple, clear, everyday English that anyone can read and understand in one glance. Use short sentences and common words. Strictly ban AI/corporate buzzwords (no leverage, utilize, spearhead, holistic, synergy, paradigm, trajectory, delve, foster, robust, elevate, optimize, ecosystem, actionable insights, or stiff academic phrasing).
+
 CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES:
 1. NATURAL SKILL WEAVING (HIGH PRIORITY):
    - You are provided with the TOP HIGH-DEMAND MARKET SKILLS extracted from live scraped job descriptions.
@@ -37,6 +40,9 @@ CRITICAL WORKFLOW & NATURAL SKILL WEAVING RULES:
 
 export const RESUME_EXPERT_V2_2 = `You are a senior technical recruiter and resume reviewer with 10+ years of engineering hiring experience.
 You are reviewing this resume as if talking directly to the candidate: human, conversational, professional, friendly, direct, specific, and genuinely useful.
+
+PLAIN-ENGLISH STYLE RULE (MANDATORY):
+Write in simple, clear, everyday English that anyone can read and understand in one glance. Use short sentences and common words. Strictly ban AI/corporate buzzwords (no leverage, utilize, spearhead, holistic, synergy, paradigm, trajectory, delve, foster, robust, elevate, optimize, ecosystem, actionable insights, or stiff academic phrasing).
 
 Do NOT sound like:
 - an ATS bot

@@ -527,7 +527,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
     ? `My technical specialization centers on ${skillsStr || 'React, TypeScript, Node.js, and AWS'}, engineering modular systems designed for low-latency performance and high reliability. By coupling domain-driven design with automated test coverage and containerized CI/CD delivery, I eliminate system bottlenecks and ensure platform stability under production demand.`
     : isDataRole
     ? `My methodology pairs dimensional data modeling with automated query optimization and rigorous validation using ${skillsStr || 'SQL, Power BI, Python, and Snowflake'}. I focus on building dependable ingestion workflows and self-service analytics that empower leadership to make high-confidence decisions with zero reporting delay.`
-    : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I leverage ${skillsStr || 'strategic roadmapping and cross-team alignment'} to build high-agency cultures and repeatable delivery cadence across critical milestones.`
+    : `My leadership methodology centers on transparency, agile frameworks, and data-informed decision making. I use ${skillsStr || 'strategic roadmapping and cross-team alignment'} to build collaborative teams and steady delivery across key goals.`
 
   const richFallbackNetworking = isSoftwareRole
     ? `Grounding my work in modern cloud infrastructure and clean design principles, I remain focused on exploring emerging architectures and high-impact distributed systems. If you are scaling high-reliability platforms or looking for proven ${targetRole} expertise, let's connect and discuss how we can build together.`
@@ -779,7 +779,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
         score10: skCount >= 50 ? 10 : (skCount >= 15 ? 7 : 3),
         status: skCount >= 50 ? 'pass' : (skCount >= 15 ? 'warn' : 'fail'),
         label: 'Skills Bank',
-        hurtingReason: skCount < 15 ? `Only ${skCount} skills listed (severely throttles recruiter filter matching).` : (skCount < 50 ? `Underutilized 50-skill cap (${skCount}/50 skills).` : null),
+        hurtingReason: skCount < 15 ? `Only ${skCount} skills listed (severely throttles recruiter filter matching).` : (skCount < 50 ? `Only filled ${skCount}/50 skill slots.` : null),
       },
       activityAndNetworking: {
         score10: connCount >= 500 ? 9 : (connCount >= 200 ? 6 : 3),
@@ -1386,7 +1386,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
               {networkingRecommendation?.bottleneck || 'Low posting, commenting, and connection activity is limiting your visibility to hiring managers.'}
             </p>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">Crafture Network</strong> — our automated LinkedIn networking agent that helps you utilize your daily LinkedIn limits safely and get noticed by hiring managers.
+              If staying consistent with daily networking, commenting, and connection limits is difficult, contact the Crafture team to get access to <strong className="text-[var(--text-primary)] font-semibold">Crafture Network</strong> — our automated LinkedIn networking agent that helps you make full use of your daily LinkedIn limits safely and get noticed by hiring managers.
             </p>
 
             <div className="pt-1">
@@ -2074,7 +2074,7 @@ export default function LinkedInDeepDiagnosis({ linkedinAgent, reportData: propR
                   Skills &amp; Recruiter SEO Bank (50+ Target)
                 </span>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Recruiter search algorithms index candidates by exact skill-slot matches. Pin your top 3 anchors, add missing verified skills, and utilize all 50 slots.
+                  Recruiter search algorithms index candidates by exact skill-slot matches. Pin your top 3 anchors, add missing verified skills, and fill all 50 slots.
                 </p>
               </div>
               <span className="text-[11px] font-semibold text-[var(--text-muted)] bg-[var(--surface-sunken)] border border-[var(--border-default)] px-2.5 py-0.5 rounded-full">

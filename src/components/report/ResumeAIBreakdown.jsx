@@ -23,7 +23,7 @@ const MOCK_RESUME_JSON = {
   missing_ats_keywords: [],
   ats_score: 85,
   strengths: [
-    'Strong modern JavaScript/TypeScript framework ecosystem experience',
+    'Strong modern JavaScript/TypeScript framework and full-stack experience',
     'Demonstrated full-stack project deployment capabilities'
   ],
   red_flags: [

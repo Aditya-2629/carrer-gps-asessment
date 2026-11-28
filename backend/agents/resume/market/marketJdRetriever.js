@@ -82,9 +82,9 @@ export async function triggerFastCatchForBucket(bucketKey, options = {}) {
             jobs: uniqueFastJds.map((j, idx) => {
               const jdText = pruneJdText(j.description || j.text || '')
               return {
-                title: j.title || roleClean,
-                company: typeof j.company === 'string' ? (j.company.trim() || 'Enterprise Employer') : (j.company?.name || j.companyName || 'Enterprise Employer'),
-                location: j.location || 'United States',
+                title: typeof j.title === 'string' && j.title.trim() ? j.title.trim() : (j.title?.name || roleClean || 'Job Opening'),
+                company: typeof j.company === 'string' && j.company.trim() ? j.company.trim() : (j.company?.name || 'Enterprise Employer'),
+                location: typeof j.location === 'string' && j.location.trim() ? j.location.trim() : (j.location?.name || 'United States'),
                 description: jdText,
                 source: 'apify_fast_catch',
                 sourceUrl: j.url || null,
@@ -197,14 +197,20 @@ export async function ensurePriorityMarketBucket({
     return { ready: false, started: false, bucketKey: null, totalJds: 0, inFlight: false }
   }
 
-  // 1. Resolve canonical market bucket with totalExperienceYears prioritized over userAnswerYoe
+  // 1. Resolve canonical market bucket with totalExperienceYears prioritized over experienceLevel
+  const resumeYears = Number(
+    canonicalResume?.totalExperienceYears ??
+    canonicalResume?.candidate?.totalExperienceYears ??
+    0
+  )
   const rawUserAnswer = userAnswerYoe ?? experienceYears ?? experienceLevel ?? ''
   const bucketRes = resolveMarketBucket({
     targetRole: cleanRole,
     canonicalResume,
     userAnswerYoe: rawUserAnswer,
-    experienceYears,
-    experienceLevel,
+    experienceYears: resumeYears > 0 ? resumeYears : experienceYears,
+    totalExperienceYears: resumeYears > 0 ? resumeYears : null,
+    experienceLevel: resumeYears > 0 ? null : experienceLevel,
   })
   const bucketKey = bucketRes?.bucketKey || `${normalizeRoleTaxonomy(cleanRole).roleKey}::${mapYearsToBucket(rawUserAnswer || 4)}`
 
@@ -437,29 +443,31 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
       }
     }
 
-    // 2. Sibling tier check: If exact bucket is cold, check if adjacent tier already has >= 8 JDs
-    const earlyAdjacentFallback = await findNearestPopulatedBucket(bucketKey)
-    if (earlyAdjacentFallback) {
-      const sibSize = earlyAdjacentFallback.version?.jobs?.length || earlyAdjacentFallback.version?.marketProfile?.sampleSize || 0
-      console.log(`[KeywordAlignment] Using same-role sibling bucket "${earlyAdjacentFallback.bucket.bucketKey}" (${sibSize} JDs) for "${bucketKey}".`)
-      if (autoRefresh) {
-        enqueueFullBackgroundBucket(bucketKey).catch(() => {})
-      }
-      return {
-        status: 'available',
-        bucketKey: earlyAdjacentFallback.bucket.bucketKey,
-        originalBucketKey: bucketKey,
-        isFallback: true,
-        fallbackReason: `Adjacent experience level (${earlyAdjacentFallback.adjacentExp})`,
-        version: earlyAdjacentFallback.version.version,
-        sampleSize: earlyAdjacentFallback.version.jobs?.length || earlyAdjacentFallback.version.marketProfile?.sampleSize || 0,
-        marketProfile: earlyAdjacentFallback.version.marketProfile,
-        jobs: earlyAdjacentFallback.version.jobs || [],
-        lastRefreshedAt: earlyAdjacentFallback.bucket.lastSuccessfulRefreshAt,
+    // 2. If exact is cold: check findNearestPopulatedBucket FIRST if options.preferSiblingBeforeScrape is true
+    if (options.preferSiblingBeforeScrape) {
+      const earlyAdjacentFallback = await findNearestPopulatedBucket(bucketKey)
+      if (earlyAdjacentFallback) {
+        const sibSize = earlyAdjacentFallback.version?.jobs?.length || earlyAdjacentFallback.version?.marketProfile?.sampleSize || 0
+        console.log(`[KeywordAlignment] Using same-role sibling bucket "${earlyAdjacentFallback.bucket.bucketKey}" (${sibSize} JDs) for "${bucketKey}".`)
+        if (autoRefresh) {
+          enqueueFullBackgroundBucket(bucketKey).catch(() => {})
+        }
+        return {
+          status: 'available',
+          bucketKey: earlyAdjacentFallback.bucket.bucketKey,
+          originalBucketKey: bucketKey,
+          isFallback: true,
+          fallbackReason: `Adjacent experience level (${earlyAdjacentFallback.adjacentExp})`,
+          version: earlyAdjacentFallback.version.version,
+          sampleSize: sibSize,
+          marketProfile: earlyAdjacentFallback.version.marketProfile,
+          jobs: earlyAdjacentFallback.version.jobs || [],
+          lastRefreshedAt: earlyAdjacentFallback.bucket.lastSuccessfulRefreshAt,
+        }
       }
     }
 
-    // 2. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 35 JDs, 50s timeout)
+    // 3. EMPTY / COLD BUCKET: Trigger Synchronous Fast-Catch (target: 35 JDs, 50s timeout)
     if (!options.bypassFastCatch) {
       const fastCatchRes = await triggerFastCatchForBucket(bucketKey, {
         targetCount: options.targetCount || 35,
@@ -468,14 +476,22 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         mockJds: options.mockJds || null,
         roleName: options.roleName || bucket?.roleName || null,
       })
-      if (fastCatchRes?.status === 'healthy' && fastCatchRes.marketProfile) {
-        return fastCatchRes
+      if (fastCatchRes?.marketProfile) {
+        return {
+          status: 'available',
+          bucketKey: fastCatchRes.bucketKey || bucketKey,
+          version: fastCatchRes.version || 1,
+          sampleSize: fastCatchRes.sampleSize || fastCatchRes.marketProfile?.sampleSize || 0,
+          marketProfile: fastCatchRes.marketProfile,
+          jobs: fastCatchRes.jobs || [],
+        }
       }
 
-      // 3. Fallback to nearest populated experienceBucket for the same roleKey
+      // 4. Fallback to nearest populated experienceBucket for the same roleKey if fast-catch did not return marketProfile
       const adjacentFallback = await findNearestPopulatedBucket(bucketKey)
       if (adjacentFallback) {
-        console.log(`[MarketJdRetriever] Serving adjacent populated bucket ${adjacentFallback.bucket.bucketKey} for ${bucketKey}`)
+        const sibSize = adjacentFallback.version?.jobs?.length || adjacentFallback.version?.marketProfile?.sampleSize || 0
+        console.log(`[KeywordAlignment] Using same-role sibling bucket "${adjacentFallback.bucket.bucketKey}" (${sibSize} JDs) for "${bucketKey}".`)
         if (autoRefresh) {
           enqueueFullBackgroundBucket(bucketKey).catch(() => {})
         }
@@ -486,7 +502,7 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
           isFallback: true,
           fallbackReason: `Adjacent experience level (${adjacentFallback.adjacentExp})`,
           version: adjacentFallback.version.version,
-          sampleSize: adjacentFallback.version.jobs?.length || adjacentFallback.version.marketProfile?.sampleSize || 0,
+          sampleSize: sibSize,
           marketProfile: adjacentFallback.version.marketProfile,
           jobs: adjacentFallback.version.jobs || [],
           lastRefreshedAt: adjacentFallback.bucket.lastSuccessfulRefreshAt,

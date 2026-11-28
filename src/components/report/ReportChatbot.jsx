@@ -807,12 +807,31 @@ export default function ReportChatbot({ hideLauncher = false }) {
       let accumulatedText = ''
 
       try {
-        // Attempt SSE token streaming from /api/assessment/chat-stream
-        const response = await fetch('/api/assessment/chat-stream', {
+        // Build dynamic stream URL using API_BASE to avoid relative path failure across origins / ports
+        const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '')
+        const streamEndpoint = `${apiBase}/assessment/chat-stream`
+
+        const token =
+          typeof window !== 'undefined'
+            ? window.__useAppStore?.getState()?.sessionToken ||
+              localStorage?.getItem('crafture_session_token') ||
+              sessionStorage?.getItem('crafture_session_token') ||
+              localStorage?.getItem('x-user-token')
+            : null
+
+        const reqHeaders = {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+        }
+        if (token) {
+          reqHeaders['Authorization'] = `Bearer ${token}`
+          reqHeaders['x-user-token'] = token
+        }
+
+        // Attempt SSE token streaming
+        const response = await fetch(streamEndpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: reqHeaders,
           body: JSON.stringify({
             userId: effectiveUserId,
             question,
@@ -820,8 +839,9 @@ export default function ReportChatbot({ hideLauncher = false }) {
           }),
         })
 
-        if (!response.ok || !response.body) {
-          throw new Error(`Streaming failed with status: ${response.status}`)
+        const contentType = response.headers?.get('content-type') || ''
+        if (!response.ok || !response.body || !contentType.includes('text/event-stream')) {
+          throw new Error(`Streaming unavailable (status: ${response.status}, content-type: ${contentType})`)
         }
 
         const reader = response.body.getReader()
