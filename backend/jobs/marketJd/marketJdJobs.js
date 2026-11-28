@@ -34,6 +34,18 @@ export { ensurePriorityMarketBucket } from '../../agents/resume/market/marketJdR
 export const MIN_SAMPLE_THRESHOLD = 15
 export const RETENTION_DAYS_MS = 60 * 24 * 60 * 60 * 1000 // 60 days retention
 
+export function normalizeCompanyString(company, fallback = 'Enterprise Employer') {
+  if (typeof company === 'string') {
+    const trimmed = company.trim()
+    return trimmed || fallback
+  }
+  if (company && typeof company === 'object') {
+    const name = company.name || company.companyName || company.label || company.title || ''
+    if (typeof name === 'string' && name.trim()) return name.trim()
+  }
+  return fallback
+}
+
 /**
  * Executes a refresh for a single Role × Experience bucket.
  *
@@ -127,7 +139,7 @@ export async function executeBucketRefresh(bucketKey, options = {}) {
         const analyzed = analyzedJobs[idx] || {}
         return {
           title: j.title || bucket.roleName,
-          company: j.company || 'Enterprise Employer',
+          company: normalizeCompanyString(j.company),
           location: j.location || 'United States',
           description: '',
           normalizedDescription: '',
@@ -373,7 +385,7 @@ export async function fetchFastCatchJds({
   // Filter valid text descriptions (at least 100 chars)
   const rawJds = (primaryItems || []).map((item) => ({
     title: item.title || item.jobTitle || targetRoleTitle,
-    company: item.company?.name || item.companyName || item.company || 'Enterprise Employer',
+    company: normalizeCompanyString(item.company?.name || item.companyName || item.company),
     location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
     description: item.descriptionText || item.description || item.text || item.body || '',
     url: item.linkedinUrl || item.url || item.link || '',
@@ -405,7 +417,7 @@ export async function fetchFastCatchJds({
 
     const rawFallback = (fallbackItems || []).map((item) => ({
       title: item.positionName || item.title || targetRoleTitle,
-      company: item.company?.name || item.company || item.companyName || 'Enterprise Employer',
+      company: normalizeCompanyString(item.company?.name || item.company || item.companyName),
       location: typeof item.location === 'object' ? (item.location?.name || item.location?.city || item.location?.label || 'United States') : (item.location || 'United States'),
       description: item.descriptionText || item.description || item.jobDescription || item.text || item.body || '',
       url: item.linkedinUrl || item.url || item.link || '',
@@ -492,7 +504,7 @@ export async function saveUpgradedMarketVersion(bucketKey, validJds, analysis, s
       const analyzed = analyzedJobs[idx] || {}
       return {
         title: j.title || bucket.roleName,
-        company: j.company || 'Enterprise Employer',
+        company: normalizeCompanyString(j.company),
         location: 'United States',
         description: j.description || '',
         normalizedDescription: analyzed.normalizedDescription || pruneJdText(j.description || ''),
@@ -611,7 +623,7 @@ export async function runDetachedBackgroundScrape(bucketKey) {
 
     let validBackgroundJds = (items || []).map((j) => ({
       title: j.title || j.jobTitle || roleName,
-      company: j.company?.name || j.companyName || j.company || 'Enterprise Employer',
+      company: normalizeCompanyString(j.company?.name || j.companyName || j.company),
       location: typeof j.location === 'object' ? (j.location?.name || j.location?.city || j.location?.label || 'United States') : (j.location || 'United States'),
       description: j.descriptionText || j.description || j.text || j.body || '',
       url: j.linkedinUrl || j.url || j.link || '',
@@ -635,7 +647,7 @@ export async function runDetachedBackgroundScrape(bucketKey) {
           })
           const validFb = (fbRes.items || []).map((j) => ({
             title: j.positionName || j.title || roleName,
-            company: j.company || 'Enterprise Employer',
+            company: normalizeCompanyString(j.company),
             description: j.description || j.jobDescription || j.text || '',
             url: j.url || '',
           })).filter((j) => (j.description || '').length >= 200)

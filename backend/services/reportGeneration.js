@@ -11,6 +11,8 @@ import { llmGateway } from '../ai/gateway/llmGateway.js'
 import dynamicCompetencyClusterizer, { DynamicCompetencyClusterizer } from '../agents/resume/market/dynamicCompetencyClusterizer.js'
 import { parseRangeOrNumber } from '../agents/assessment/assessmentAgent.js'
 import JobMarketBucket from '../models/JobMarketBucket.js'
+import { getMarketDataForBucket } from '../agents/resume/market/marketJdRetriever.js'
+import { resolveMarketBucket } from '../agents/resume/market/marketBucketResolver.js'
 import { scrapeLinkedInProfile } from '../utils/apifyLinkedInScraper.js'
 import { buildRAGContext } from '../utils/ragEngine.js'
 import { calculateRecruiterSeoScore } from '../agents/linkedin/linkedinAgent.js'
@@ -925,11 +927,13 @@ export async function generateReportBundle(params = {}, options = {}) {
   let marketProfile = params.marketProfile || null
   if (!marketProfile && mongoose.connection.readyState === 1) {
     try {
-      const bucket = await JobMarketBucket.findOne({
-        targetRole: { $regex: new RegExp(`^${targetRole.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') },
-      }).lean()
-      if (bucket?.activeVersion?.marketProfile) {
-        marketProfile = bucket.activeVersion.marketProfile
+      const bucketRes = resolveMarketBucket({ targetRole, canonicalResume: resumeJson })
+      const bucketKey = bucketRes?.bucketKey
+      if (bucketKey) {
+        const marketData = await getMarketDataForBucket(bucketKey, { autoRefresh: false, bypassFastCatch: true })
+        if (marketData?.marketProfile && (marketData.sampleSize >= 8 || marketData.marketProfile?.sampleSize >= 8)) {
+          marketProfile = marketData.marketProfile
+        }
       }
     } catch (_mErr) {}
   }

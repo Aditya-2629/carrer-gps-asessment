@@ -20,7 +20,15 @@ const jobMarketVersionSchema = new mongoose.Schema(
       {
         sourceJobId: { type: String, default: null },
         title: { type: String, required: true },
-        company: { type: String, default: 'Not Disclosed' },
+        company: {
+          type: String,
+          default: 'Enterprise Employer',
+          set: (v) => {
+            if (typeof v === 'string') return v.trim() || 'Enterprise Employer'
+            if (v && typeof v === 'object') return (v.name || v.companyName || v.label || '').trim() || 'Enterprise Employer'
+            return 'Enterprise Employer'
+          },
+        },
         location: { type: String, default: 'Not Disclosed' },
         description: { type: String, default: '' },
         normalizedDescription: { type: String, default: '' },

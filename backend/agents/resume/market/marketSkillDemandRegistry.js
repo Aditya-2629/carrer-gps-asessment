@@ -140,8 +140,16 @@ export function getMarketDemandedSkills(role = 'software-engineer', marketProfil
       .sort((a, b) => b.percentage - a.percentage)
   }
 
-  // When no scraped JDs are available for this specific role, return empty array to prevent
-  // cross-role static skill contamination and fake demand percentages.
+  // Fallback to vetted baseline demand for this exact role if dynamic sample is not available
+  const cleanRoleKey = typeof role === 'string'
+    ? role.toLowerCase().trim().replace(/::.*$/, '').replace(/\s+/g, '-')
+    : (role?.roleKey || role?.key || 'software-engineer')
+
+  if (MARKET_SKILL_DEMAND[cleanRoleKey] && Array.isArray(MARKET_SKILL_DEMAND[cleanRoleKey]) && MARKET_SKILL_DEMAND[cleanRoleKey].length > 0) {
+    return MARKET_SKILL_DEMAND[cleanRoleKey]
+  }
+
+  // When no scraped JDs or baseline demand exist for this role, return empty array
   return []
 }
 

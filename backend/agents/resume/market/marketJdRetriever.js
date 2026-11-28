@@ -83,7 +83,7 @@ export async function triggerFastCatchForBucket(bucketKey, options = {}) {
               const jdText = pruneJdText(j.description || j.text || '')
               return {
                 title: j.title || roleClean,
-                company: j.company || 'Enterprise Employer',
+                company: typeof j.company === 'string' ? (j.company.trim() || 'Enterprise Employer') : (j.company?.name || j.companyName || 'Enterprise Employer'),
                 location: j.location || 'United States',
                 description: jdText,
                 source: 'apify_fast_catch',
@@ -240,6 +240,24 @@ export async function ensurePriorityMarketBucket({
     }
   }
 
+  // 4b. Sibling Tier Fallback: Before treating as 0 JDs or waiting for a cold scrape, check if sibling tier exists with >= 8 JDs
+  const siblingFallback = await findNearestPopulatedBucket(bucketKey)
+  if (siblingFallback) {
+    const sibSize = siblingFallback.version?.jobs?.length || siblingFallback.version?.marketProfile?.sampleSize || siblingFallback.bucket?.jobCount || 0
+    if (sibSize >= MIN_SAMPLE_THRESHOLD) {
+      console.log(`[MarketJdRetriever] ensurePriorityMarketBucket: Sibling tier "${siblingFallback.bucket.bucketKey}" has ${sibSize} JDs (serving for cold "${bucketKey}")`)
+      return {
+        ready: true,
+        started: false,
+        bucketKey: siblingFallback.bucket.bucketKey,
+        originalBucketKey: bucketKey,
+        totalJds: sibSize,
+        inFlight: false,
+        marketProfile: siblingFallback.version.marketProfile,
+      }
+    }
+  }
+
   // 5. If under-sampled (<8 JDs), immediately start or join Priority Fast-Sprint (25-35 JDs)
   console.log(`[FastCatch] priority sprint started: Bucket "${bucketKey}" for role "${cleanRole}" has ${sampleSize} JDs (< 8). Starting Priority Fast-Sprint (35 JDs)...`)
 
@@ -277,27 +295,32 @@ async function findNearestPopulatedBucket(bucketKey) {
     const expOrderMap = {
       '0-2': ['3-5', '6-8', '8+'],
       '3-5': ['6-8', '0-2', '8+'],
+      '5-8': ['6-8', '3-5', '8+', '0-2'],
       '6-8': ['3-5', '8+', '0-2'],
       '8+': ['6-8', '3-5', '0-2'],
     }
-    const searchOrder = expOrderMap[currentExp] || ['3-5', '6-8', '0-2', '8+']
+    const searchOrder = expOrderMap[currentExp] || ['6-8', '3-5', '8+', '0-2']
 
     for (const adjacentExp of searchOrder) {
       const candidateKey = `${roleKey}::${adjacentExp}`
       const candidateBucket = await JobMarketBucket.findOne({
         bucketKey: candidateKey,
-        status: { $in: ['healthy', 'refreshing'] },
-        activeVersion: { $gt: 0 },
+        $or: [{ activeVersion: { $gt: 0 } }, { jobCount: { $gte: MIN_SAMPLE_THRESHOLD } }],
       }).lean()
 
       if (candidateBucket) {
-        const candidateVersion = await JobMarketVersion.findOne({
-          bucketKey: candidateKey,
-          version: candidateBucket.activeVersion,
-          isArchived: false,
-        }).lean()
+        const candidateVersion =
+          (await JobMarketVersion.findOne({
+            bucketKey: candidateKey,
+            version: candidateBucket.activeVersion,
+            isArchived: false,
+          }).lean()) ||
+          (await JobMarketVersion.findOne({
+            bucketKey: candidateKey,
+            isArchived: false,
+          }).sort({ version: -1 }).lean())
 
-        const sampleSize = candidateVersion?.jobs?.length || candidateVersion?.marketProfile?.sampleSize || 0
+        const sampleSize = candidateVersion?.jobs?.length || candidateVersion?.marketProfile?.sampleSize || candidateBucket.jobCount || 0
         const skillsCount = Array.isArray(candidateVersion?.marketProfile?.skills) ? candidateVersion.marketProfile.skills.length : 0
 
         if (candidateVersion?.marketProfile && sampleSize >= MIN_SAMPLE_THRESHOLD && skillsCount >= MIN_SKILLS_THRESHOLD) {
@@ -306,6 +329,39 @@ async function findNearestPopulatedBucket(bucketKey) {
             version: candidateVersion,
             adjacentExp,
           }
+        }
+      }
+    }
+
+    // Role-prefix query fallback: find any bucket matching the same role prefix with >= MIN_SAMPLE_THRESHOLD JDs
+    const escapedRole = roleKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const siblingBuckets = await JobMarketBucket.find({
+      bucketKey: { $regex: new RegExp(`^${escapedRole}::`, 'i') },
+      $or: [{ activeVersion: { $gt: 0 } }, { jobCount: { $gte: MIN_SAMPLE_THRESHOLD } }],
+    }).sort({ jobCount: -1 }).lean()
+
+    for (const candBucket of siblingBuckets) {
+      if (candBucket.bucketKey === bucketKey) continue
+      const candVersion =
+        (await JobMarketVersion.findOne({
+          bucketKey: candBucket.bucketKey,
+          version: candBucket.activeVersion,
+          isArchived: false,
+        }).lean()) ||
+        (await JobMarketVersion.findOne({
+          bucketKey: candBucket.bucketKey,
+          isArchived: false,
+        }).sort({ version: -1 }).lean())
+
+      const sampleSize = candVersion?.jobs?.length || candVersion?.marketProfile?.sampleSize || candBucket.jobCount || 0
+      const skillsCount = Array.isArray(candVersion?.marketProfile?.skills) ? candVersion.marketProfile.skills.length : 0
+
+      if (candVersion?.marketProfile && sampleSize >= MIN_SAMPLE_THRESHOLD && skillsCount >= MIN_SKILLS_THRESHOLD) {
+        const [, candExp] = candBucket.bucketKey.split('::')
+        return {
+          bucket: candBucket,
+          version: candVersion,
+          adjacentExp: candExp || 'sibling',
         }
       }
     }
@@ -387,6 +443,27 @@ export async function getMarketDataForBucket(bucketKey, options = {}) {
         console.warn(
           `[MarketJdRetriever] Bucket ${bucketKey} active version v${activeVersion.version} has insufficient sample (${sampleSize} JDs < ${MIN_SAMPLE_THRESHOLD} or ${skillsCount} skills < ${MIN_SKILLS_THRESHOLD}). Treating as cold to prevent cache poisoning.`
         )
+      }
+    }
+
+    // 2. Sibling tier check: If exact bucket is cold, check if adjacent tier already has >= 8 JDs
+    const earlyAdjacentFallback = await findNearestPopulatedBucket(bucketKey)
+    if (earlyAdjacentFallback) {
+      console.log(`[MarketJdRetriever] Serving adjacent populated bucket ${earlyAdjacentFallback.bucket.bucketKey} for cold bucket ${bucketKey}`)
+      if (autoRefresh) {
+        enqueueFullBackgroundBucket(bucketKey).catch(() => {})
+      }
+      return {
+        status: 'available',
+        bucketKey: earlyAdjacentFallback.bucket.bucketKey,
+        originalBucketKey: bucketKey,
+        isFallback: true,
+        fallbackReason: `Adjacent experience level (${earlyAdjacentFallback.adjacentExp})`,
+        version: earlyAdjacentFallback.version.version,
+        sampleSize: earlyAdjacentFallback.version.jobs?.length || earlyAdjacentFallback.version.marketProfile?.sampleSize || 0,
+        marketProfile: earlyAdjacentFallback.version.marketProfile,
+        jobs: earlyAdjacentFallback.version.jobs || [],
+        lastRefreshedAt: earlyAdjacentFallback.bucket.lastSuccessfulRefreshAt,
       }
     }
 
