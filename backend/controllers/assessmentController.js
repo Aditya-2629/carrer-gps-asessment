@@ -549,9 +549,24 @@ export const saveAnswers = async (req, res) => {
       if (user.resumeJson) {
         try {
           const targetRole = answers.targetRole || answers.role || user.resumeJson?.candidate?.targetRole || user.resumeJson?.targetRole || 'Professional'
+          const resumeTotalExp = Number(
+            user.resumeJson?.totalExperienceYears ??
+            user.resumeJson?.candidate?.totalExperienceYears ??
+            user.resumeJson?.years_of_experience ??
+            0
+          )
+          const userAnswerYoe = answers.experience || answers.experienceYears || answers.yoe || ''
+          const bucketRes = resolveMarketBucket({
+            targetRole,
+            canonicalResume: user.resumeJson,
+            userAnswerYoe,
+            totalExperienceYears: resumeTotalExp,
+          })
+
           ensurePriorityMarketBucket({
             roleTitle: targetRole,
             canonicalResume: user.resumeJson,
+            userAnswerYoe,
           }).catch((warmErr) => {
             console.warn(`[AssessmentController] Priority market prefetch notice for "${targetRole}":`, warmErr.message)
           })
@@ -1605,6 +1620,13 @@ export async function prefetchMarket(req, res) {
   try {
     const targetRole = String(req.body?.targetRole || '').trim()
     const rawExp = req.body?.experienceYears ?? req.body?.experience ?? null
+    const totalExpYears = Number(
+      req.body?.totalExperienceYears ??
+      req.body?.resumeJson?.totalExperienceYears ??
+      req.body?.canonicalResume?.totalExperienceYears ??
+      0
+    )
+    const userAnswerYoe = req.body?.userAnswerYoe ?? rawExp ?? ''
     if (!targetRole || targetRole.length < 2) {
       return res.status(400).json({ success: false, message: 'Valid targetRole is required.' })
     }
@@ -1612,6 +1634,8 @@ export async function prefetchMarket(req, res) {
     const prefetchRes = await ensurePriorityMarketBucket({
       roleTitle: targetRole,
       experienceYears: rawExp,
+      userAnswerYoe,
+      canonicalResume: req.body?.resumeJson || req.body?.canonicalResume || (totalExpYears > 0 ? { totalExperienceYears: totalExpYears } : null),
     })
 
     if (prefetchRes.ready) {

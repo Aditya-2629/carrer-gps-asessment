@@ -220,9 +220,15 @@ export const CONTROLLED_ROLES = [
  * @returns {number|null}
  */
 export function extractResumeYears(canonicalResume = null, resumeText = '') {
-  // 1. Check candidateSnapshot or experienceSummary in canonicalResume
-  if (canonicalResume?.candidate?.experienceYears) {
-    return Number(canonicalResume.candidate.experienceYears)
+  // 1. Check candidateSnapshot, candidate, or root totalExperienceYears in canonicalResume
+  const directYears =
+    canonicalResume?.totalExperienceYears ??
+    canonicalResume?.candidate?.totalExperienceYears ??
+    canonicalResume?.years_of_experience ??
+    canonicalResume?.candidate?.experienceYears ??
+    canonicalResume?.candidate?.experienceSummary?.totalYears
+  if (directYears != null && !isNaN(directYears) && Number(directYears) > 0) {
+    return Number(directYears)
   }
 
   // 2. Scan text for explicit statements: "6 years of experience", "5+ years", etc.
@@ -393,23 +399,28 @@ export function resolveMarketBucket({
   resumeText = '',
   experienceYears = null,
   experienceLevel = null,
+  userAnswerYoe = null,
+  totalExperienceYears = null,
 }) {
-  const candidateYears = experienceYears != null
-    ? Number(experienceYears)
-    : extractResumeYears(canonicalResume, resumeText)
+  const explicitResumeYears =
+    (totalExperienceYears != null && !isNaN(totalExperienceYears) && Number(totalExperienceYears) > 0)
+      ? Number(totalExperienceYears)
+      : extractResumeYears(canonicalResume, resumeText)
+
+  const rawUserAnswer = userAnswerYoe ?? experienceYears ?? experienceLevel ?? ''
   const jdReq = extractJdExperienceRequirement(targetJobDescription)
 
-  // Experience resolution rules (Section 5):
-  // 1. Explicit years in resume / user profile
-  // 2. JD requirement
-  // 3. Reconcile: If resume shows 6 years and JD says 5+ years -> 6-8
-  let resolvedYears = candidateYears
-  if (resolvedYears == null && experienceLevel) {
-    resolvedYears = mapYearsToBucket(experienceLevel)
-  }
-  if (resolvedYears == null && jdReq.minYears != null) {
+  // Prioritize Resume Experience (totalExperienceYears) over userAnswerYoe:
+  // Compute bucket from totalExperienceYears FIRST whenever totalExperienceYears > 0 (e.g. 3.3 -> 3-5),
+  // and only fall back to userAnswerYoe if resume YOE is missing/0.
+  let resolvedYears
+  if (explicitResumeYears != null && explicitResumeYears > 0) {
+    resolvedYears = explicitResumeYears
+  } else if (rawUserAnswer) {
+    resolvedYears = typeof rawUserAnswer === 'number' ? rawUserAnswer : mapYearsToBucket(rawUserAnswer)
+  } else if (jdReq.minYears != null) {
     resolvedYears = jdReq.minYears
-  } else if (resolvedYears == null) {
+  } else {
     resolvedYears = 4 // mid-level fallback
   }
 
@@ -425,23 +436,26 @@ export function resolveMarketBucket({
     (targetJobDescription ? targetJobDescription.slice(0, 120) : '')
 
   const roleMeta = normalizeRoleTaxonomy(primaryRoleSource, targetJobDescription)
+  const roleSlug = roleMeta.roleKey
+  const bucketKey = `${roleSlug}::${experienceBucket}`
 
-  const bucketKey = `${roleMeta.roleKey}::${experienceBucket}`
+  const totalExpForLog = (explicitResumeYears != null && explicitResumeYears > 0) ? explicitResumeYears : 0
+  console.log(`[YOE_BUCKET] Resolved "${roleSlug}::${experienceBucket}" from totalExperienceYears=${totalExpForLog} (userAnswerYoe="${rawUserAnswer}").`)
 
   let confidence = roleMeta.confidence
-  if (candidateYears != null && jdReq.minYears != null) {
+  if (resolvedYears != null && jdReq.minYears != null) {
     confidence = Math.min(0.98, confidence + 0.05)
-  } else if (candidateYears == null && jdReq.minYears == null) {
+  } else if (resolvedYears == null && jdReq.minYears == null) {
     confidence = Math.max(0.5, confidence - 0.15)
   }
 
   return {
     bucketKey,
-    roleKey: roleMeta.roleKey,
+    roleKey: roleSlug,
     roleName: roleMeta.roleName,
     specialization: roleMeta.specialization,
     experienceBucket,
-    candidateExperienceYears: candidateYears,
+    candidateExperienceYears: resolvedYears,
     jdExperienceRequirement: jdReq.rawRequirement,
     confidence: Number(confidence.toFixed(2)),
     method: roleMeta.method,

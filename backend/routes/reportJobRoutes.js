@@ -142,10 +142,12 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
     let resolvedBucketKey = null
     if (targetRole) {
       try {
+        const userAnswerYoe = semanticProfile?.answers?.experience || semanticProfile?.answers?.experienceYears || ''
         const bucketRes = resolveMarketBucket({
           targetRole,
           targetJobDescription: semanticProfile?.targetJobDescription || '',
           canonicalResume: options.precomputedResumeJson || null,
+          userAnswerYoe,
         })
         resolvedBucketKey = bucketRes?.bucketKey || null
       } catch (_bErr) {}
@@ -155,9 +157,11 @@ async function processJob(jobId, userId, semanticProfile, options = {}) {
       // Check if Fast-Catch is already in flight, or ensure bucket has >= 8 JDs
       let activeCatchPromise = inFlightFastCatch.get(resolvedBucketKey) || null
       if (!activeCatchPromise) {
+        const userAnswerYoe = semanticProfile?.answers?.experience || semanticProfile?.answers?.experienceYears || ''
         const prefetchRes = await ensurePriorityMarketBucket({
           roleTitle: targetRole,
           canonicalResume: semanticProfile?.canonicalResume || options?.precomputedResumeJson || null,
+          userAnswerYoe,
         })
         if (prefetchRes.started && prefetchRes.promise) {
           activeCatchPromise = prefetchRes.promise
